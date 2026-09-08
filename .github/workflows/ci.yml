@@ -1,0 +1,61 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  rust-and-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.14.0'
+      - name: Install pinned Rust and PostgreSQL
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal --component rustfmt --component clippy
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-client-16
+      - name: Start disposable database and migrate
+        run: |
+          sudo bash scripts/dev-db.sh
+          sudo chown -R "$(id -u):$(id -g)" .local
+          source .local/database.env
+          cargo run -p board-store --bin board-migrate --locked
+          bash scripts/seed.sh
+      - name: Rust, database permissions, concurrency, and browser behavior
+        run: |
+          source .local/database.env
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          bash scripts/verify.sh
+      - name: Restore disposable backup
+        run: sudo bash scripts/restore-exercise.sh
+  visual-windows:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.14.0'
+      - name: Install toolchain and browser
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          npm ci --ignore-scripts
+          npx playwright install chromium
+      - name: Build visual fixture before the server startup deadline
+        shell: pwsh
+        run: cargo build -p board-public --example visual-fixtures --locked
+      - name: Run deterministic visual fixture without a database service
+        shell: pwsh
+        run: |
+          $env:VISUAL_FIXTURE_SERVER = '1'
+          npm run test:visual

@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+
+test('posting, replying, reporting, and password deletion persist through reload', async ({ page }) => {
+  await page.goto('/test/');
+  await page.locator('#sub').fill('A synthetic browser thread');
+  await page.locator('#com').fill('>hello\n<script>window.hostile = true</script>\n[spoiler]a hidden fold[/spoiler]');
+  await page.locator('#password').fill('browser-password-123');
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  const originalUrl = page.url();
+  const op = /#p(\d+)$/.exec(originalUrl)[1];
+  await page.reload();
+  await expect(page.locator(`#m${op}`)).toContainText('<script>window.hostile = true</script>');
+  expect(await page.evaluate(() => window.hostile)).toBeUndefined();
+  await expect(page.locator(`#m${op} script`)).toHaveCount(0);
+  await page.locator('#com').fill(`>>${op}\nA persisted reply.`);
+  await page.locator('#password').fill('browser-reply-password');
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page.locator('.replyContainer')).toHaveCount(1);
+  await page.locator('.replyContainer .quotelink').click();
+  await expect(page).toHaveURL(new RegExp(`#p${op}$`));
+  await page.locator(`#p${op} summary`).click();
+  await page.locator(`#report${op}`).fill('Synthetic reporting check');
+  await page.locator(`#p${op}`).getByRole('button', { name: 'Report post', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Report received' })).toBeVisible();
+  await page.goto(originalUrl);
+  await page.locator(`#p${op} summary`).click();
+  await page.locator(`#delete${op}`).fill('browser-password-123');
+  await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+  await expect(page).toHaveURL(/\/test\/$/);
+  const deleted = await page.request.get(`/test/thread/${op}.json`);
+  expect(deleted.status()).toBe(404);
+});
+
+test('core browsing and posting work with JavaScript disabled', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto('http://127.0.0.1:3000/demo/');
+  await expect(page.getByRole('heading', { name: '/demo/ - Paper craft' })).toBeVisible();
+  await page.getByRole('link', { name: 'Reply', exact: true }).click();
+  await expect(page.locator('#postForm')).toBeVisible();
+  await page.goto('http://127.0.0.1:3000/test/');
+  await page.locator('#com').fill('A post submitted with JavaScript disabled.');
+  await page.locator('#password').fill('no-javascript-password');
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  const op = /#p(\d+)$/.exec(page.url())[1];
+  await page.reload();
+  await expect(page.locator(`#m${op}`)).toContainText('A post submitted with JavaScript disabled.');
+  await page.locator(`#p${op} summary`).click();
+  await page.locator(`#delete${op}`).fill('no-javascript-password');
+  await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+  await expect(page).toHaveURL(/\/test\/$/);
+  expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
+  await context.close();
+});
