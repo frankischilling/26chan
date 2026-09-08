@@ -61,8 +61,8 @@ There is no staff session or WebAuthn implementation. Missing/expired/revoked st
 
 ## Publication and unrun checks
 
-The local branch is `feature/public-board-foundation`. All Git/GitHub operations use the installed Git Human Workflow helper, composed with Git Commit Author. No root remote is configured, and no rewrite issue, pull request, push, release or deployment has occurred. The final response reports the actual local commit ID.
+The local branch is `feature/public-board-foundation`. All Git/GitHub operations use the installed Git Human Workflow helper, composed with Git Commit Author. At the initial local checkpoint, no remote or hosted publication existed. The user subsequently confirmed https://github.com/frankischilling/26chan as the destination. Publication preserves the original implementation commit and connects it to an empty review base; no release or deployment is involved.
 
-The supplied GitHub Actions workflows have not run on GitHub. Linux application/browser behavior and Windows Server 2025 screenshot comparisons are therefore unverified. The local Windows fonts are recorded; a different runner image may require investigation, not automatic baseline replacement. No production release build, load test, live systemd resource test, network-policy test, durable backup isolation test, RPO/RTO exercise or independent security review has run.
+The local results above do not establish hosted GitHub Actions results; consult the pull request checks for their current state. Linux application/browser behavior and Windows Server 2025 screenshot comparisons require separate verification. The local Windows fonts are recorded; a different runner image may require investigation, not automatic baseline replacement. No production release build, load test, live systemd resource test, network-policy test, durable backup isolation test, RPO/RTO exercise or independent security review has run.
 
 Use [readiness.md](readiness.md) for the remaining acceptance work and [operations.md](operations.md) for local setup, restore limits and deployment prerequisites.

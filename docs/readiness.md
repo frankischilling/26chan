@@ -5,7 +5,7 @@ This milestone is a working local text-board foundation. The overall rewrite is 
 | Work item | Current state | Acceptance needed |
 |---|---|---|
 | Approved design brief | No separate attachment found | Resolve its location and check the implementation against it |
-| Rewrite publication | No root remote; nested unrelated repository is read-only | Confirm the existing authorized target, then inspect its base/issues/labels, create focused issues, push reviewed commits and open a draft PR |
+| Rewrite publication | Authorized target: [frankischilling/26chan](https://github.com/frankischilling/26chan); public foundation tracked in issue #1 | Review the feature branch and hosted checks before merging |
 | Public text slice | Implemented and locally tested | Review compatibility exceptions and production abuse limits |
 | Reference snapshot | API docs revision pinned; visual/behavioral source missing | Collect permitted desktop/mobile/reference states and establish exact supported clients/features |
 | Media containment | No worker/intake/promoter exists; enablement rejected | Implement quarantine, narrow coordinator, isolated per-job guest, external quotas/network deny, cleanup, output protocol, idempotent promotion and actual deployed negative tests with healthy positive controls |

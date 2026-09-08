@@ -1,6 +1,6 @@
 # Persisted public board implementation plan
 
-The supplied mission defines the architecture. No separate attached design brief was available during inventory. Work uses the requested directory; the pre-existing nested checkout is excluded and unchanged. Public evidence is collected independently. Publication needs a confirmed rewrite remote.
+The supplied mission defines the architecture. No separate attached design brief was available during inventory. Work uses the requested directory; the pre-existing nested checkout is excluded and unchanged. Public evidence is collected independently. The confirmed rewrite remote is https://github.com/frankischilling/26chan.
 
 The first slice uses a Rust domain/config/store workspace and a public Axum application. PostgreSQL persists boards, threads, posts, deletion credentials, and reports. Askama renders typed formatting nodes with escaped text. Media intake and staff routes remain unavailable until their boundaries and authentication exist.
 
@@ -10,6 +10,6 @@ The first slice uses a Rust domain/config/store workspace and a public Axum appl
 - [x] Add a synthetic dataset and browser checks. Record screenshot provenance without claiming reference parity.
 - [x] Add CI, development setup, restricted service configuration, architecture/threat model, compatibility matrix, recovery exercise and precise evidence records.
 - [x] Review the working checkpoint and prepare its verification record for the installed Git workflow helper.
-- [ ] Push/open a draft PR once the rewrite remote is established. No publication target has been assumed.
+- [x] Push the feature branch and open [draft PR #2](https://github.com/frankischilling/26chan/pull/2), linked to [issue #1](https://github.com/frankischilling/26chan/issues/1).
 
 Follow-on slices require independent evidence: isolated media jobs and promotion; WebAuthn staff identity and moderation; observed visual/behavior compatibility; deployed containment and recovery review. The first slice must not imply those are implemented.

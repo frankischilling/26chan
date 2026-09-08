@@ -1,6 +1,6 @@
-# Paperboard
+# 26chan
 
-A Rust imageboard rewrite in development. The current milestone runs persisted text boards, threads, replies, password deletion, reporting, catalog pages and a documented subset of the public read-only JSON API.
+A 4chan clone rewritten in Rust, named for iron's atomic number: 26. The current milestone runs persisted text boards, threads, replies, password deletion, reporting, catalog pages and a documented subset of the public read-only JSON API. Some application and deployment labels still use the development name Paperboard.
 
 This is not a production-ready release. Media processing and WebAuthn staff tooling are absent. Uploads cannot be enabled. Visual snapshots cover this project's synthetic pages; they do not establish visual parity with a reference site.
 
@@ -52,4 +52,4 @@ Database tests require real public and migration test URLs and fail if they are 
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
 
-The rewrite has no configured GitHub remote. The nested `4chan-old` checkout is excluded and unchanged. Its source was not used to implement or specify this application. A publication target and the separately referenced design brief remain unresolved.
+The repository is [frankischilling/26chan](https://github.com/frankischilling/26chan). The public foundation is under review in [draft PR #2](https://github.com/frankischilling/26chan/pull/2). The nested `4chan-old` checkout is excluded and unchanged. Its source was not used to implement or specify this application. The separately referenced design brief remains unresolved.
