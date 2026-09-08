@@ -1,49 +1,81 @@
 # 26chan
 
-A 4chan clone rewritten in Rust, named for iron's atomic number: 26. The current milestone runs persisted text boards, threads, replies, password deletion, reporting, catalog pages and a documented subset of the public read-only JSON API. Some application and deployment labels still use the development name Paperboard.
+A 4chan clone rewritten in Rust, named for iron's atomic number: 26.
 
-This is not a production-ready release. Media processing and WebAuthn staff tooling are absent. Uploads cannot be enabled. Visual snapshots cover this project's synthetic pages; they do not establish visual parity with a reference site.
+Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boards, threads, replies, password deletion, reporting, catalog pages and a subset of the public read-only JSON API. Core browsing and posting work without JavaScript.
 
-## Run locally
+Development is ongoing. Media uploads and WebAuthn staff tooling are not implemented, and this is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
-Requirements: Rust 1.94.0 (selected by `rust-toolchain.toml`), PostgreSQL 16, Node 24 or newer, and Playwright's pinned Chromium. The setup below uses Windows PowerShell plus Ubuntu 24.04 in WSL. Linux uses the same database scripts with `sudo` and sources `.local/database.env` instead of `.local/database.ps1`.
+## Getting started
 
-```powershell
-# Once, in Ubuntu/WSL:
-wsl -d Ubuntu -- bash -lc 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql-16 postgresql-client-16 openssl'
-wsl -d Ubuntu -- bash /mnt/c/Users/imike/4chan-rewrite/scripts/dev-db.sh
+The development scripts support Ubuntu 24.04, including Ubuntu running in WSL. Run the following commands in an Ubuntu terminal as a regular user with `sudo` access.
 
-# In the project root:
-. .\.local\database.ps1
+Requirements:
+
+- Rust installed through rustup; `rust-toolchain.toml` selects Rust 1.94.0.
+- PostgreSQL 16 and its command-line tools.
+- Node.js 24 or newer and npm for browser tests.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl
+
+git clone https://github.com/frankischilling/26chan.git
+cd 26chan
+
+sudo bash scripts/dev-db.sh
+sudo chown "$(id -u):$(id -g)" .local .local/database.env .local/database.ps1
+source .local/database.env
 cargo run -p board-store --bin board-migrate --locked
-wsl -d Ubuntu -- bash -lc 'cd /mnt/c/Users/imike/4chan-rewrite && source .local/database.env && bash scripts/seed.sh'
-Remove-Item Env:MIGRATION_DATABASE_URL
+bash scripts/seed.sh
+
+unset MIGRATION_DATABASE_URL
 cargo run -p board-public --locked
 ```
 
-Open `http://127.0.0.1:3000/`. `/demo/` has fixed synthetic posts; `/test/` accepts new threads. Adapt the WSL path if the checkout is elsewhere. The database script creates a disposable cluster on port 55432, generates local credentials, and refuses to overwrite an existing environment. It does not change the installed default PostgreSQL cluster. Credentials and database backups stay under ignored `.local/` paths.
+Open `http://127.0.0.1:3000/`. `/demo/` contains sample posts, and `/test/` accepts new threads.
 
-The public process receives only `DATABASE_URL`. `MIGRATION_DATABASE_URL` belongs to the operator CLI. For a standalone development server, unset it after migration: `Remove-Item Env:MIGRATION_DATABASE_URL`. Do not use development environment files in production.
+The setup script creates a separate disposable database on port 55432 and generates credentials under the ignored `.local/` directory. It refuses to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
 
-## Verify
+For later runs, load the generated environment and remove the migration credential before starting the public server:
 
-Stop a manually running server before browser tests; Playwright starts and stops its own server.
+```bash
+source .local/database.env
+unset MIGRATION_DATABASE_URL
+cargo run -p board-public --locked
+```
 
-```powershell
-. .\.local\database.ps1
+## Testing
+
+Stop a manually running server before browser tests; Playwright starts and stops its own server. Run these commands from the checkout:
+
+```bash
+source .local/database.env
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo build --workspace --locked
 cargo test --workspace --all-features --locked
-npm.cmd ci --ignore-scripts
-npx.cmd playwright install chromium
-npm.cmd test
-wsl -d Ubuntu -- bash /mnt/c/Users/imike/4chan-rewrite/scripts/restore-exercise.sh
+npm ci --ignore-scripts
+npx playwright install --with-deps chromium
+npm run test:behavior
+sudo bash scripts/restore-exercise.sh
 ```
 
-Database tests require real public and migration test URLs and fail if they are unavailable. Ordinary `cargo test` does not enable them. Browser baselines currently cover Windows and Chromium 151.0.7922.34. Never accept changed screenshots without inspecting them. The Linux CI job runs browser behavior; the Windows job compiles the production views in a test-only fixture server for visual comparison.
+Database tests require the migrated, seeded development database and fail if it is unavailable. Ordinary `cargo test` does not enable those tests; use `--all-features` as shown above. The browser runner starts its public server without inheriting migration credentials.
 
-## Project records
+Screenshot baselines currently target Windows and the pinned Chromium 151.0.7922.34. Linux runs browser behavior tests. To compare screenshots on Windows without a database, install the Rust and Node prerequisites, then run from the checkout in PowerShell:
+
+```powershell
+npm ci --ignore-scripts
+npx playwright install chromium
+$env:VISUAL_FIXTURE_SERVER = '1'
+npm run test:visual
+Remove-Item Env:VISUAL_FIXTURE_SERVER
+```
+
+Inspect screenshot differences before changing baselines. These snapshots use synthetic project pages and do not establish visual parity with 4chan. Browser and font details are recorded in the [reference manifest](docs/reference-manifest.json).
+
+## Documentation
 
 - [Compatibility matrix and exceptions](docs/compatibility.md)
 - [Architecture and trust boundaries](docs/architecture.md)
@@ -51,5 +83,3 @@ Database tests require real public and migration test URLs and fail if they are 
 - [Verification record](docs/verification.md)
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
-
-The repository is [frankischilling/26chan](https://github.com/frankischilling/26chan). The public foundation is under review in [draft PR #2](https://github.com/frankischilling/26chan/pull/2). The nested `4chan-old` checkout is excluded and unchanged. Its source was not used to implement or specify this application. The separately referenced design brief remains unresolved.
