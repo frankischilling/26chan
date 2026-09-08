@@ -1,0 +1,46 @@
+# Production-oriented candidate. Validate on the owned test host before deployment.
+[Unit]
+Description=Paperboard public text service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=board-public
+Group=board-public
+WorkingDirectory=/opt/paperboard
+ExecStart=/opt/paperboard/board-public
+Environment=APP_ENV=production
+Environment=MEDIA_ENABLED=false
+EnvironmentFile=/etc/paperboard/public.env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+LimitNOFILE=1024
+TasksMax=96
+MemoryMax=768M
+CPUQuota=200%
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

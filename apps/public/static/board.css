@@ -1,0 +1,58 @@
+:root { color-scheme: light; font: 13px Arial, Helvetica, sans-serif; color: #800000; background: #ffffee; }
+* { box-sizing: border-box; }
+body { margin: 8px; background: linear-gradient(#fed6af, #ffffee 200px) no-repeat; min-height: 98vh; }
+a { color: #0000ee; text-decoration: none; }
+a:hover { color: #dd0000; }
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #0645ad; outline-offset: 2px; }
+.boardList { padding: 2px 0 10px; }
+.boardHeader, header { text-align: center; }
+h1 { font-family: Tahoma, Arial, sans-serif; font-size: 28px; letter-spacing: -1px; margin: 12px 0 8px; }
+h2 { font-size: 16px; }
+.boardHeader p { margin: 8px 0 20px; }
+.postForm { width: min(100%, 490px); margin: 18px auto; }
+.postForm h2 { text-align: center; }
+.postForm > div { display: grid; grid-template-columns: 120px 1fr; gap: 4px; margin-bottom: 3px; }
+.postForm label { background: #eeaa88; border: 1px solid #800000; padding: 3px; font-weight: bold; }
+input, textarea, select, button { font: inherit; border: 1px solid #aaa; padding: 3px 5px; border-radius: 0; min-width: 0; }
+input, textarea, select { background: white; color: #111; }
+textarea { resize: vertical; width: 100%; }
+button { color: #111; background: #eee; cursor: pointer; }
+.postForm > button { display: block; margin-left: auto; padding: 4px 18px; }
+#postHelp { font-size: 11px; line-height: 1.5; }
+hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
+.thread { border-bottom: 1px solid #b7b7a4; padding: 10px 0 18px; margin-bottom: 12px; }
+.postContainer { margin: 4px 0; max-width: 100%; }
+.replyContainer { margin-left: 20px; }
+.reply { display: inline-block; min-width: 250px; max-width: 100%; background: #f0e0d6; border: 1px solid #d9bfb7; border-top: 0; border-left: 0; padding: 5px 10px; }
+.op { padding: 5px 10px; }
+.postInfo { line-height: 1.6; overflow-wrap: anywhere; }
+.subject { color: #cc1105; font-weight: bold; margin-right: 5px; }
+.name { color: #117743; font-weight: bold; }
+.postNum { color: inherit; }
+.postMessage { margin: 12px 20px; overflow-wrap: anywhere; line-height: 1.35; }
+.quote { color: #789922; }
+.quotelink { color: #d00; text-decoration: underline; }
+.spoiler { color: #000; background: #000; }
+.spoiler:hover, .spoiler:focus { color: #fff; }
+.post:target { background: #f8d9c9; outline: 1px solid #c88; }
+.omitted { color: #707070; margin-left: 10px; }
+.postActions { color: #67534b; font-size: 11px; margin-top: 10px; }
+.postActions summary { cursor: pointer; }
+.postActions form { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0; }
+.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.catalog .thread { border: 1px solid #d9bfb7; background: #f0e0d6; padding: 6px; overflow: hidden; }
+.catalog .postMessage { margin: 10px 0; max-height: 180px; overflow: auto; }
+.boardDirectory, .message { max-width: 720px; margin: 30px auto; padding: 15px; background: #f0e0d6; border: 1px solid #d9bfb7; }
+.boardDirectory article { border-top: 1px solid #d9bfb7; }
+.empty { padding: 35px 12px; text-align: center; }
+.pages { margin: 20px 0; word-spacing: 12px; }
+footer { text-align: center; font-size: 11px; margin-top: 30px; }
+@media (max-width: 600px) {
+  body { margin: 6px; }
+  h1 { font-size: 23px; }
+  .postForm > div { grid-template-columns: 95px 1fr; }
+  .replyContainer { margin-left: 8px; }
+  .reply { min-width: 0; width: 100%; }
+  .postMessage { margin: 10px 5px; }
+  input, select, textarea, button { font-size: 16px; }
+}

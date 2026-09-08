@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "formatting.html" as formatting %}
+{% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block content %}
+<header class="boardHeader"><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
+<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a> ]</nav>
+{% if !catalog %}
+<form id="postForm" action="/{{ board.slug }}/post" method="post" class="postForm">
+<h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
+<input type="hidden" name="resto" value="{{ parent }}">
+<div><label for="name">Name</label><input id="name" name="name" maxlength="80" autocomplete="off" placeholder="Anonymous"></div>
+<div><label for="email">Options</label><select id="email" name="email"><option value="">Bump thread</option><option value="sage">sage</option></select></div>
+{% if parent == 0 %}<div><label for="sub">Subject</label><input id="sub" name="sub" maxlength="120"></div>{% endif %}
+<div><label for="com">Comment</label><textarea id="com" name="com" rows="5" required aria-describedby="postHelp"></textarea></div>
+<div><label for="password">Deletion password</label><input id="password" type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
+<p id="postHelp">Comments: {{ board.max_comment_bytes }} bytes. Replies: {{ board.reply_limit }} per thread. Save your deletion password. Media uploads are unavailable.</p>
+<button type="submit">Post</button>
+</form>
+{% endif %}
+<hr>
+<div class="{% if catalog %}catalog{% else %}board{% endif %}">
+{% for view in threads %}
+<section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
+{% for item in view.posts %}
+<article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
+<div class="post {% if item.post.id == view.thread.id %}op{% else %}reply{% endif %}" id="p{{ item.post.id }}">
+<div class="postInfo" id="pi{{ item.post.id }}">
+{% if !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
+<span class="name">{{ item.post.name }}</span> <time datetime="{{ item.post.created_at.to_rfc3339() }}">{{ item.now }}</time>
+<a class="postNum" href="/{{ board.slug }}/thread/{{ view.thread.id }}#p{{ item.post.id }}">No.{{ item.post.id }}</a>
+{% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">Reply</a>]{% endif %}
+</div>
+<blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</blockquote>
+{% if !catalog %}
+<details class="postActions"><summary>Delete or report</summary>
+<form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="delete{{ item.post.id }}">Deletion password</label> <input id="delete{{ item.post.id }}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required> <button>Delete post</button></form>
+<form method="post" action="/{{ board.slug }}/report"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="report{{ item.post.id }}">Report reason</label> <input id="report{{ item.post.id }}" name="reason" maxlength="1000" required> <button>Report post</button></form>
+</details>
+{% endif %}
+</div></article>
+{% endfor %}
+{% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
+</section>
+{% else %}<p class="empty">No threads yet. Start the first thread above.</p>{% endfor %}
+</div>
+<nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
+{% endblock %}

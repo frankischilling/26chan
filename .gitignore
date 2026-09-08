@@ -1,0 +1,8 @@
+/4chan-old/
+/target/
+/.local/
+/.env
+/node_modules/
+/test-results/
+/playwright-report/
+*.log

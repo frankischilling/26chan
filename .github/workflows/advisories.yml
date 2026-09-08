@@ -1,0 +1,29 @@
+name: Dependency advisories
+on:
+  schedule:
+    - cron: '23 8 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - Cargo.lock
+      - package-lock.json
+      - .github/workflows/advisories.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.14.0'
+      - name: Audit locked dependencies
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit
+          npm audit --audit-level=moderate

@@ -1,0 +1,11 @@
+{
+  "name": "paperboard-browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:behavior": "playwright test tests/browser/behavior.spec.js",
+    "test:visual": "playwright test tests/browser/visual.spec.js"
+  },
+  "devDependencies": { "@playwright/test": "1.62.0" }
+}

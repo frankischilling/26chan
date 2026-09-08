@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Paperboard{% endblock %}</title>
+  <link rel="stylesheet" href="/static/board.css">
+</head>
+<body>
+<nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>
+<main id="content">{% block content %}{% endblock %}</main>
+<footer><p>Paperboard development build. Text posts only.</p></footer>
+</body>
+</html>

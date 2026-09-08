@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Boards - Paperboard{% endblock %}
+{% block content %}
+<header><h1>Paperboard</h1><p>A text imageboard in development.</p></header>
+<section class="boardDirectory" aria-labelledby="boards-title"><h2 id="boards-title">Boards</h2>
+{% for board in boards %}<article><h3><a href="/{{ board.slug }}/">/{{ board.slug }}/ - {{ board.title }}</a></h3><p>{{ board.description }}</p></article>
+{% else %}<p>No boards are available yet.</p>{% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,68 @@
+﻿{
+    "collected_date":  "2026-09-08",
+    "repository":  "https://github.com/4chan/4chan-API",
+    "revision":  "2bd670d507ba2daa37a3961a661e088cf6f89d57",
+    "provenance":  "Permitted public read-only API documentation. No production post/media fixtures.",
+    "visual_reference":  "Uncollected",
+    "files":  [
+                  {
+                      "name":  "Archive.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Archive.md",
+                      "sha256":  "ac25262661d54f6d3de9291089b2a85bb194613344244e7419178500e61292fb"
+                  },
+                  {
+                      "name":  "Boards.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Boards.md",
+                      "sha256":  "0266a172f91aab600c42c9881b491517d66c12239b86a7af1d441ef9d3ef8839"
+                  },
+                  {
+                      "name":  "Catalog.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Catalog.md",
+                      "sha256":  "827829e08bbbfaa38314ea48f5a478a61ebc82132444023ae50c281bba2677fe"
+                  },
+                  {
+                      "name":  "Endpoints_and_domains.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Endpoints_and_domains.md",
+                      "sha256":  "a9adb02b1d1da5a91c85c879ee1870bd6b722a2fbe58f3e43d4d6b69ead68c32"
+                  },
+                  {
+                      "name":  "Indexes.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Indexes.md",
+                      "sha256":  "fb347cfd5c40e7d710d5675da5060f27e6a72aec33bfe09c630212d22b062829"
+                  },
+                  {
+                      "name":  "Threadlist.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Threadlist.md",
+                      "sha256":  "4bd311261ecf8f67ea36e9ea8df1b2e7dd0ea02f93afc60235d2e40d719229d1"
+                  },
+                  {
+                      "name":  "Threads.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Threads.md",
+                      "sha256":  "60f2e4c4f2c4bc575a15c3ff924e042ece63681f55425300d60f6bd2c95ff622"
+                  }
+              ],
+    "visual_environment":  {
+                               "source":  "Project synthetic SQL fixtures, not original reference",
+                               "os":  "Microsoft Windows NT 10.0.22621.0",
+                               "playwright":  "1.62.0",
+                               "chromium":  "151.0.7922.34",
+                               "revision":  "1234",
+                               "scale":  1,
+                               "locale":  "en-US",
+                               "timezone":  "America/New_York",
+                               "viewports":  [
+                                                 "1280x900",
+                                                 "390x844"
+                                             ],
+                               "fonts":  [
+                                             {
+                                                 "name":  "arial.ttf",
+                                                 "sha256":  "baa251526d6862712a58e613ef451d8a2b60482142ec6aab1d47fb8e23e21a7c"
+                                             },
+                                             {
+                                                 "name":  "tahoma.ttf",
+                                                 "sha256":  "f936530a7ede296580f897c47e7a3fa48a9483166080ce05105673a1339cbf0c"
+                                             }
+                                         ]
+                           }
+}
