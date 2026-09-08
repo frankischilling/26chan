@@ -51,6 +51,9 @@ jobs:
           rustup toolchain install 1.94.0 --profile minimal
           npm ci --ignore-scripts
           npx playwright install chromium
+      - name: Build visual fixture before the server startup deadline
+        shell: pwsh
+        run: cargo build -p board-public --example visual-fixtures --locked
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

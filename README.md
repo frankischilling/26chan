@@ -68,6 +68,7 @@ Screenshot baselines currently target Windows and the pinned Chromium 151.0.7922
 ```powershell
 npm ci --ignore-scripts
 npx playwright install chromium
+cargo build -p board-public --example visual-fixtures --locked
 $env:VISUAL_FIXTURE_SERVER = '1'
 npm run test:visual
 Remove-Item Env:VISUAL_FIXTURE_SERVER
