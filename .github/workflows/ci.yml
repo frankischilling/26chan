@@ -43,6 +43,7 @@ jobs:
       - name: Build and qualify a disposable media guest on the owned runner
         run: |
           uname -r
+          systemctl --version
           stat --file-system --format='cgroup filesystem: %T' /sys/fs/cgroup
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
           export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
@@ -54,6 +55,9 @@ jobs:
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             MEDIA_VM_VALIDATOR="$PWD/target/debug/media-validate" \
             python3 tests/media/test_vm.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            python3 tests/media/test_recovery.py -v
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
       - name: Restore disposable backup

@@ -2,11 +2,11 @@
 
 This profile runs one job in Firecracker 1.16.1 with its matching jailer. A small Rust init program starts the PNG decoder as guest UID/GID 1000, without capabilities, environment variables or inherited application descriptors. The guest has one read-only input disk and one fixed writable output disk. It has no network interface, vsock, Firecracker API socket or host directory share.
 
-The Python runner is an operator deployment utility for an owned disposable Linux host. Neither web application calls it. It has no database connection, authenticated service endpoint or production queue integration. Public media enablement remains rejected. The [verification record](verification-firecracker.md) distinguishes executed tests from remaining qualification work.
+The Python runner is an operator deployment utility for an owned disposable Linux host. Neither web application calls it. It has no database connection, authenticated service endpoint or production queue integration. Public media enablement remains rejected. The [execution verification](verification-firecracker.md) and [job recovery record](media-recovery.md) distinguish executed tests from remaining qualification work.
 
 ## Build and run
 
-Use the disposable database setup in the [README](../README.md) first. The VM tests require its real PostgreSQL listener on port 55432 as a healthy positive control. The host needs Linux x86_64, working KVM, systemd, effective memory/CPU/pids cgroup controllers, Python 3.12, and root permission to create private tmpfs mounts and services. The provisioner creates a dedicated `board-media-vmm` system account with no login shell and refuses to reuse its artifact directory.
+Use the disposable database setup in the [README](../README.md) first. The VM tests require its real PostgreSQL listener on port 55432 as a healthy positive control. The host needs Linux x86_64, working KVM, systemd, GNU coreutils `timeout`, effective memory/CPU/pids cgroup controllers, Python 3.12, and root permission to create private tmpfs mounts and services. The provisioner creates a dedicated `board-media-vmm` system account with no login shell and refuses to reuse its artifact directory.
 
 In Linux:
 
@@ -53,7 +53,7 @@ For a single operator job, create a private directory for the stopped disk and a
 | Output | Exactly 4,194,816 bytes: existing IBRGBA01 header/pixels and all-zero padding; maximum 1,024 by 1,024 pixels |
 | Guest resources | One vCPU, 128 MiB physical memory; worker 96 MiB address space, five CPU seconds, 16 tasks per UID, 32 file descriptors, no core dumps |
 | Host resources | 256 MiB memory budget, 100% CPU quota, 32 tasks, 64 descriptors, bounded file size; effective hierarchy controls are checked before guest execution |
-| Time | 15-second external service deadline and two-second stop grace; ordinary cancellation stops the entire generated service before removing storage |
+| Time | 15-second service deadline and two-second stop grace; separate 30-second launch-client monitor with two-second kill grace; cancellation stops the launch group and service before removing storage |
 | Output collection | Host captures the output inode before VM startup, reads after termination, checks actual size and bounds its copy; Rust rechecks dimensions, every padding byte and EOF |
 | Private promotion | Existing bounded PNG encoder and atomic no-clobber storage; no worker commands, paths, filenames, archives or success flags are accepted |
 
@@ -63,8 +63,8 @@ The local decoder accepts still PNGs up to 1,024 pixels per dimension, including
 
 ## Failure and maintenance
 
-Ordinary failure, timeout and supported cancellation stop the service before unmounting and removing its job directory. No job directory is reused. SIGKILL of the root runner, host failure or power loss can bypass its cleanup; external orphan reconciliation is still required before queue integration. Until that exists, inspect `/run/26chan-media-jobs` and generated `26chan-media-*` services after an interrupted operator run. Stop any generated service before an operator removes its corresponding mount. Do not restart processing over uncertain active state.
+Ordinary failure, timeout and supported cancellation stop the service before unmounting and removing its job directory. No job directory is reused. After SIGKILL, the next runner or the operator's `--reconcile` command validates and reconciles abandoned services and mounts under the same exclusive lock. Surviving launch clients retain exclusion and have an independent external deadline. Unknown storage/service state blocks new work. See [recovery commands and evidence](media-recovery.md); deployed restart and power-loss exercises remain required.
 
 [firecracker-artifacts.json](firecracker-artifacts.json) pins download URLs and hashes. The provisioner verifies them and records hashes of the built initramfs and extracted runtime binaries in its private configuration. The CI kernel comes from upstream demonstration artifacts; it is not an approved production image. For updates, review the upstream release/kernel guidance, replace the pins deliberately, rebuild both guest binaries, and repeat the VM and host validator tests. Keep test probes out of deployed decoder images.
 
-Remaining requirements include a maintained dedicated processing tier; a separately authenticated bounded queue-dispatch interface; per-attempt identity allocation for concurrent jobs; orphan reconciliation; database/filesystem publication fencing; healthy positive controls for metadata, DNS, other jobs and unauthorized storage; full resource saturation qualification; media-origin serving; complete format compatibility; and independent security review. Local results do not satisfy those unfinished requirements.
+Remaining requirements include a maintained dedicated processing tier; a separately authenticated bounded queue-dispatch interface; per-attempt identity allocation for concurrent jobs; deployed restart qualification; database/filesystem publication fencing; healthy positive controls for metadata, DNS, other jobs and unauthorized storage; full resource saturation qualification; media-origin serving; complete format compatibility; and independent security review. Local results do not satisfy those unfinished requirements.

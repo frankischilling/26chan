@@ -6,7 +6,6 @@ Every argument is supplied by the local operator, never by a guest or web app.
 The returned disk remains untrusted until board-media validates it.
 """
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -19,10 +18,10 @@ import subprocess
 import tempfile
 import uuid
 
-ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C'}
+from job_lifecycle import ENV, JOBS, locked_jobs, reconcile_jobs, remove_workspace, run_service, stop_job
+
 OUTPUT_BYTES = 4_194_816
 INPUT_BYTES = 8 * 1024 * 1024
-JOBS = pathlib.Path('/run/26chan-media-jobs')
 
 
 class Cancelled(RuntimeError):
@@ -104,16 +103,12 @@ def run(config, source, destination):
     user = pwd.getpwnam('board-media-vmm')
     if user.pw_uid == 0 or user.pw_gid == 0 or user.pw_shell != '/usr/sbin/nologin':
         raise ValueError('VMM identity rejected')
-    JOBS.mkdir(mode=0o700, exist_ok=True)
-    info = JOBS.lstat()
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
-        raise ValueError('job root is not private')
     # This qualification profile permits one active VM. No shared writable job
     # collection is exposed, and the VMM identity is never reused concurrently.
-    with (JOBS / 'runner.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with locked_jobs() as lock:
+        reconcile_jobs()
         job_id = uuid.uuid4().hex
-        unit = '26chan-media-' + job_id
+        unit = '26chan-media-' + job_id + '.service'
         root = None
         output_reader = None
         try:
@@ -157,7 +152,7 @@ def run(config, source, destination):
             (jail / 'vm.json').chmod(0o444)
             # The service-side gate checks kernel controls before jailer runs.
             # It also pins jailer's parent selection to the verified membership.
-            args = ['/usr/bin/systemd-run', '--quiet', '--wait', '--collect',
+            args = ['/usr/bin/systemd-run', '--quiet', '--wait', '--collect', '--no-ask-password',
                     '--unit=' + unit, '--service-type=exec']
             for prop in ('MemoryMax=256M', 'MemorySwapMax=0', 'TasksMax=32', 'CPUQuota=100%',
                          'RuntimeMaxSec=15s', 'TimeoutStopSec=2s', 'KillMode=control-group',
@@ -165,13 +160,15 @@ def run(config, source, destination):
                          'LimitCORE=0', 'LimitFSIZE=67108864', 'LimitNOFILE=64',
                          'StandardInput=null', 'StandardOutput=null', 'StandardError=null'):
                 args.append('--property=' + prop)
-            args += ['/usr/bin/python3', '-I', str(root / 'verify-cgroups.py'), unit + '.service',
+            args += ['/usr/bin/python3', '-I', str(root / 'verify-cgroups.py'), unit,
                      str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
                      '--uid', str(user.pw_uid), '--gid', str(user.pw_gid),
                      '--chroot-base-dir', str(root), '--new-pid-ns',
                      '--resource-limit', 'fsize=4194816', '--resource-limit', 'no-file=64',
                      '--', '--no-api', '--config-file', '/vm.json']
-            command(args)
+            # A surviving launch client must retain exclusion until its request
+            # has completed. PID 1 creates the guest service without this FD.
+            run_service(args, lock)
             # A successful systemd exit is only a transport result. Do not parse
             # the guest's filesystem or trust its success, paths, or dimensions.
             try:
@@ -195,26 +192,23 @@ def run(config, source, destination):
                 output_reader.close()
             # stop is synchronous and targets the full generated service. Never
             # remove its storage while a process may still have it open.
-            subprocess.run(['/usr/bin/systemctl', 'stop', unit], env=ENV,
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                     timeout=10)
-            state = subprocess.run(['/usr/bin/systemctl', 'is-active', unit], env=ENV,
-                                   capture_output=True, timeout=5)
-            if state.stdout.strip() not in (b'inactive', b'failed', b'unknown'):
-                raise RuntimeError('service remains active; workspace retained')
+            stop_job(unit)
             if root is not None:
-                # mount may have completed immediately before cancellation.
-                if os.path.ismount(root):
-                    command(['/usr/bin/umount', str(root)])
-                root.rmdir()
+                remove_workspace(root)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('config')
-    parser.add_argument('input')
-    parser.add_argument('output')
+    parser.add_argument('--reconcile', action='store_true', help='recover abandoned operator jobs without collecting output')
+    parser.add_argument('config', nargs='?')
+    parser.add_argument('input', nargs='?')
+    parser.add_argument('output', nargs='?')
     args = parser.parse_args()
+    if args.reconcile:
+        if any(value is not None for value in (args.config, args.input, args.output)):
+            parser.error('--reconcile takes no job arguments')
+    elif any(value is None for value in (args.config, args.input, args.output)):
+        parser.error('config, input and output are required for a job')
     if os.geteuid() != 0:
         parser.error('run only as an operator on an owned disposable Linux host')
     if os.environ.get('APP_ENV') == 'production':
@@ -225,8 +219,13 @@ def main():
     try:
         for signum in (signal.SIGTERM, signal.SIGINT):
             signal.signal(signum, cancel)
-        run(configuration(args.config), args.input, args.output)
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        if args.reconcile:
+            with locked_jobs():
+                reconcile_jobs()
+            print('Media job recovery completed; no output collected or approved')
+        else:
+            run(configuration(args.config), args.input, args.output)
+    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError):
         parser.exit(1, 'isolated job failed; no validated publication produced\n')
 
 
