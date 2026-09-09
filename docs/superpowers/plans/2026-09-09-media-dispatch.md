@@ -28,7 +28,7 @@
 
 **Interfaces:** Consumes existing `run-job.py` functions `configuration(path)`, `run(config, source, destination)`, `cancel`, and `job_lifecycle.locked_jobs/reconcile_jobs`. Produces the fixed Unix wire protocol and executable `python3 scripts/media/dispatch-broker.py CONFIG SOCKET_DIRECTORY GATEWAY_UID`; its socket pathname is `SOCKET_DIRECTORY/broker.sock`. Python helpers may be factored within these named files. No network listener, configurable command/backend or credential-bearing environment is accepted.
 
-- [ ] Write failing bounded framing and real Unix-socket tests before implementation. Test bad magic; lengths 0, 8,388,609 and u64::MAX; short header/body; appended bytes; missing EOF; fragmented valid input; invalid/extra output; cumulative receive deadline. The core frame examples are:
+- [x] Write failing bounded framing and real Unix-socket tests before implementation. Test bad magic; lengths 0, 8,388,609 and u64::MAX; short header/body; appended bytes; missing EOF; fragmented valid input; invalid/extra output; cumulative receive deadline. The core frame examples are:
 
 ```python
 request = b'IBJOB001' + len(payload).to_bytes(8, 'big') + payload
@@ -38,8 +38,8 @@ response = b'IBOUT001' + (4_194_816).to_bytes(8, 'big') + stopped_disk
 
 Use socketpair/owned pathname sockets and a controlled executor function for protocol-only tests. Verify actual kernel peer credentials with an allowed nonroot nologin identity and a distinct denied identity; denied calls must allocate no request directory and invoke no runner. Install no accounts in library tests; root integration may reuse the provisioned VMM and existing nobody identity only as harmless callers, with the broker configuration refusing the VMM identity for real service use. For a real allowed gateway identity, the owned test harness may create and verify a dedicated nologin `board-media-gateway` account using the existing provisioner's conventions.
 
-- [ ] Run `wsl -d Ubuntu -- python3 -m unittest discover -s /mnt/c/Users/imike/4chan-rewrite/tests/media -p test_dispatch_broker.py`; record the expected missing-interface failure. Root-only integration must be explicit and must fail missing prerequisites when requested, not silently skip.
-- [ ] Implement streaming protocol validation and the broker. Check `SO_PEERCRED` before receiving input or allocating staging. Use exact generated root-owned paths, exclusive broker lock, atomic/private allocation, absolute three-second receive/send deadlines, and the existing fixed runner. Require request EOF before execution. Return bounded regular stopped output only after runner cleanup. Handle SIGINT/SIGTERM through the existing runner cancellation handler and reset handlers per request. Reject APP_ENV other than development and credential-bearing environment names. Static errors only.
+- [x] Run `wsl -d Ubuntu -- python3 -m unittest discover -s /mnt/c/Users/imike/4chan-rewrite/tests/media -p test_dispatch_broker.py`; record the expected missing-interface failure. Root-only integration must be explicit and must fail missing prerequisites when requested, not silently skip.
+- [x] Implement streaming protocol validation and the broker. Check `SO_PEERCRED` before receiving input or allocating staging. Use exact generated root-owned paths, exclusive broker lock, atomic/private allocation, absolute three-second receive/send deadlines, and the existing fixed runner. Require request EOF before execution. Return bounded regular stopped output only after runner cleanup. Handle SIGINT/SIGTERM through the existing runner cancellation handler and reset handlers per request. Reject APP_ENV other than development and credential-bearing environment names. Static errors only.
 
 ```python
 pid, uid, gid = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize('3i')))
@@ -50,8 +50,8 @@ if uid != allowed_uid:
 
 Startup must reconcile existing VMMs under their own lock before deleting verified abandoned request directories. Accept only root-owned private `request-<32 hex>` directories and expected regular `input`/`output` files; reject symlinks, unexpected entries/mounts/ownership and retain them. Verify stale socket type/owner under the broker lock before replacing it. Preserve lock files. A second broker must fail without changing the first's state.
 
-- [ ] Add meaningful root integration for one real PNG decode over the allowed UID, denied UID, malformed request with no VM start, cancellation while the VMM is live, stale request recovery and unknown-entry refusal. Use the existing probe/decoder configs and `VmTest.assert_clean`. Retained unknown fixtures must be explicitly cleaned by their owning test after assertions; never broad-scan or kill unrelated processes.
-- [ ] Run the focused nonroot tests, explicit root broker tests and relevant existing VM/recovery suite after any runner change. Compile Python. Record red/green commands and results in the report, document service lifetime/deadline limitations, self-review, and commit only this task's files through the Git wrapper.
+- [x] Add meaningful root integration for one real PNG decode over the allowed UID, denied UID, malformed request with no VM start, cancellation while the VMM is live, stale request recovery and unknown-entry refusal. Use the existing probe/decoder configs and `VmTest.assert_clean`. Retained unknown fixtures must be explicitly cleaned by their owning test after assertions; never broad-scan or kill unrelated processes.
+- [x] Run the focused nonroot tests, explicit root broker tests and relevant existing VM/recovery suite after any runner change. Compile Python. Record red/green commands and results in the report, document service lifetime/deadline limitations, self-review, and commit only this task's files through the Git wrapper.
 
 ### Task 2: Bounded mutual-TLS transport and unprivileged gateway
 
