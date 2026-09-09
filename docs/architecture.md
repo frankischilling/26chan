@@ -14,12 +14,20 @@ flowchart LR
   Intake[Development media command] -->|board_media login| Queue[(Media queue)]
   Intake --> Quarantine[Private quarantine library]
   Public -. disabled .-> Quarantine
-  Quarantine -. per-job input .-> Worker[Local Firecracker guest]
-  Worker -. bounded bytes .-> Promotion[Output promotion library]
-  Promotion -. approved output only .-> Media[Separate registrable media domain]
+  Coordinator[Development media coordinator] --> Queue
+  Coordinator --> Quarantine
+  Coordinator -->|bounded input over mutual TLS| Gateway[Nonroot gateway]
+  Gateway -->|Unix peer UID| Broker[Root broker]
+  Broker --> Worker[Local Firecracker guest]
+  Worker -->|stopped disk via broker and gateway| Coordinator
+  Coordinator -->|validation and current lease| Publication[Private durable publication]
+  Publication --> Approved[(Approved asset view)]
+  Reader[Restricted media reader] --> Approved
+  Reader --> Publication
+  Reader -. future HTTP serving .-> Media[Separate registrable media domain]
 ```
 
-Dashed flows are not production service routes. The media library implements private quarantine and bounded-output promotion, and a separate media login owns a persisted queue. A [local Firecracker operator profile](firecracker.md) executes one guest independently of that queue. Public uploads, authenticated dispatch and fenced publication remain unfinished. No ordinary container is claimed to substitute for a microVM. See [media notes](media.md) for exact limits and remaining publication/crash concerns.
+Dashed flows are not implemented production routes. The [development coordinator](media-dispatch.md) connects the persisted queue, authenticated gateway, root launcher and [local Firecracker profile](firecracker.md), then validates and durably publishes with the current lease. A restricted reader checks approved metadata and file integrity. The owned native harness exercises that complete path. Public intake/post attachment, deployed host qualification and separate HTTP media serving remain unfinished. No ordinary container is claimed to substitute for a microVM.
 
 ## Identities and authority
 
@@ -30,7 +38,8 @@ Dashed flows are not production service routes. The media library implements pri
 | Staff process / `board_staff` login | Read content/reports; update moderation columns; insert audit records and lock board rows | A compromised staff process can alter moderation state and fabricate audit entries through these grants. It cannot edit or delete existing audit records, read deletion hashes, change schema/deployment settings or administer roles. |
 | Staff process / `board_auth` login | Read accounts/credentials/invitations; operate ceremonies and sessions; invoke narrowly scoped enrollment/counter functions | A compromised authentication process can read identities and issue sessions, including impersonating existing staff. It cannot create accounts, change roles, replace credential keys or read content through this login. The staff process holds both operational and authentication logins; their combined authority is its actual trust boundary. |
 | Local per-job worker | Guest UID1000 receives one read-only input device and one bounded output device; no network interface, credentials, host directory share or management socket | Actual local probes test worker identity/environment, selected file/device/storage denials, network denial with healthy TCP/PostgreSQL controls, and bounded resource behavior. Production tier and remaining controls are unverified; see [execution evidence](verification-firecracker.md). |
-| Local root runner and VMM | Operator-only utility creates a generated service/jail/tmpfs; VMM drops to `board-media-vmm`; no database access is needed | Root runner is part of the host trust base and must never become a general web-callable executor. Compromise of the guest grants its input/output authority; compromise of the host launcher grants host authority. Authenticated dispatch and production privilege separation remain required. |
+| Local root broker, runner and VMM | Broker checks exact gateway Unix peer UID and accepts bounded bytes only; runner creates a generated service/jail/tmpfs; VMM drops to `board-media-vmm`; no database access is needed | Root launcher is host trust authority and can inherently access host files. It has no network listener, TLS parser, arbitrary backend or caller-selected path. Compromise of the host launcher grants host authority. Dedicated production-host qualification remains required. |
+| Nonroot dispatch gateway | Private server key, explicit client CA/fingerprint authorization and one bounded Unix broker slot | Can submit bounded processing work and deny service, but holds no queue tokens, database credentials or publication storage. Native identity tests deny coordinator credentials and stores. TLS framing/authorization and fixed broker peer UID bound requests; candidate deployed service restrictions remain unqualified. |
 | Development publication / `board_media` | Queue/asset approval metadata, configured private quarantine and output directories | Can corrupt or exhaust its queue and approve outputs. It has no complex decoder or subprocess launcher. Actual login tests deny content, deletion hashes, staff/deployment data, schema creation and migration role assumption. [Publication](media-approval.md) uses current-lease checks and a shared storage lock; deployment identity and power-loss qualification remain open. |
 | Development media reader / `board_media_read` | Approved-only metadata view and read access to the configured private output directory | No queue, lease-token, pending-row or mutation grants. The reader checks approval, bounded length and digest before export. A compromised reader with directory read access could read pending files; filesystem confidentiality from that trusted reader is not claimed. No separately deployed HTTP media service exists yet. |
 | Operator/backup/deployment identities | Outside application roles | Disposable backup/restore tested. Production backup immutability and release permissions have not been deployed. |

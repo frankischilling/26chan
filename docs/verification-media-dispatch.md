@@ -1,6 +1,6 @@
 # Media dispatch verification
 
-The local UID-authenticated broker and bounded mutual-TLS gateway are implemented and reviewed. Queue-to-publication dispatch remains unfinished. These results do not qualify public uploads or production deployment.
+The local UID-authenticated broker, bounded mutual-TLS gateway and fenced coordinator are implemented. Native qualification exercises the actual queue-to-Firecracker-to-approval path and restricted reads. Broker and transport reviews are recorded below; final coordinator/whole-slice review and current-head hosted checks are separate completion gates. These results do not qualify public uploads or production deployment.
 
 ## Broker checkpoint
 
@@ -48,6 +48,65 @@ Independent review found that the key-permission test could reject an invalid en
 
 Ordinary runs without explicit root enablement do not exercise the Linux gateway cases. Protected parent directories and private Windows ACLs remain operator prerequisites. Candidate deployed service behavior and production certificate lifecycle are still unqualified.
 
+## Coordinator and full native path
+
+Implementation and native qualification are committed in `be2d689`; candidate units/configuration are in `e2566d0`, both following reviewed transport checkpoint `bb10192`.
+
+`media-publish dispatch CLIENT_CONFIG PRIVATE_STORE` initializes the client, quarantine and output root before claiming one job. Only exact generated-ID input bytes cross the transport. Returned disk bytes are validated before the existing locked, token-and-expiry-fenced publisher runs. A 29-second outer processing timeout supplements transport deadlines without extending the 30-second lease. Processing/invalid-output failures use fenced terminal failure recording; there is no automatic retry. Publication errors retain uncertain approval state and never remove possibly approved output. Successful stdout is only an approved asset ID.
+
+The quarantine test first failed with the missing API, then with the scaffold's `InvalidStorage` on valid input. After implementation, all nine storage tests passed. The new database/CLI integration first failed waiting for the missing dispatch command to reach an owned TLS listener. The final integration passes valid dispatch/read, invalid configuration and overlapping roots before claim, changed input length, failed transport, invalid stopped disk, and delayed valid output after expired or replaced leases. The controlled TLS server checks that its only request bytes are the exact synthetic input. One test-cleanup query initially omitted the mandatory terminal failure category; adding that fixture field fixed the constraint failure. Tests always remove only their owned IDs.
+
+The full native harness uses actual Rust coordinator and gateway binaries, a root broker and the real reviewed Firecracker decoder. It generates private two-day PKI below an owned `/run` fixture, provisions or validates separate nologin accounts, and clears every service environment. It verifies:
+
+- actual queue intake, authenticated dispatch, stopped-disk validation, durable approval, approved-only read, and read after queue removal;
+- gateway/coordinator/VMM file denials against private keys, credentials and stores, with healthy permitted readers;
+- revoked client authorization without any change to broker staging or VM workspace directories, and without approval;
+- actual decoder refusal resulting in invalid output without approval;
+- expiry and replacement of owned queue leases while the broker is stopped, then rejection of delayed processing after resumption;
+- cancellation of the broker while the separate sleep probe has an actual live VMM, followed by stopped services and removed VM/request workspaces;
+- cleanup of every owned subprocess, queue fixture and generated private file.
+
+No fixed-byte backend stands in for the full success path. The controlled TLS database cases isolate specific coordinator failures; the separate probe supplies a live cancellation target. The restricted reader uses the coordinator filesystem UID with only `board_media_read` database credentials. Filesystem isolation from that trusted reader is not claimed. Root retains inherent host authority. The actual gateway and coordinator accounts are UID997/GID988 and UID995/GID987; VMM is UID999/GID989. Reusable harnesses resolve account names rather than relying on these local numbers.
+
+Native full-path command, September 9, 2026:
+
+```powershell
+wsl -d Ubuntu -u root -- env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-repro-20260909/decode.json MEDIA_VM_PROBE_CONFIG=/tmp/26chan-boundary-probe-t1wsmj04/probe.json MEDIA_DISPATCH_BIN_DIR=/opt/26chan-rust/target/debug bash scripts/test-media-dispatch.sh
+```
+
+The command passed all stages and its cleanup assertions. Missing native binaries, reviewed configurations, database prerequisites or idle queue state fail explicitly. The initial harness iterations exposed setup mistakes: libpq did not expand the URI in `PGDATABASE`, the private umask removed requested directory search permissions, and the publication ancestor-fsync walk needed a readable generated parent. The corrected fixture uses individually parsed PostgreSQL environment fields, explicit directory modes and private mode-0700 children. An initial decoder-error assertion expected a transport failure; the actual stopped disk correctly yields `invalid_output`, now asserted explicitly.
+
+## Final local checks
+
+Native Rust commands use `CARGO_HOME=/opt/26chan-rust/cargo`, `RUSTUP_HOME=/opt/26chan-rust/rustup`, `CARGO_TARGET_DIR=/opt/26chan-rust/target` and `/opt/26chan-rust/cargo/bin` first on PATH. The required database variables were sourced privately from the existing ignored files; no shared credentials were rotated.
+
+| Command/check | Observed result |
+| --- | --- |
+| `cargo fmt --all -- --check` | Passed |
+| `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | Passed natively |
+| `cargo build --workspace --examples --bins --locked` | Passed natively and on Windows |
+| `cargo test --workspace --all-features --locked` | Passed natively, including actual DB permission/concurrency/publication cases |
+| `cargo test -p board-media -p board-media-admin -p board-media-dispatch --all-targets --locked` | Windows: 33 media tests, four admin tests and fourteen portable protocol/TLS tests passed; DB-only cases are covered by the native all-feature run |
+| `MEDIA_DISPATCH_ROOT_TESTS=1 cargo test -p board-media-dispatch --all-targets --locked` | Five protocol and twenty TLS tests passed; all eleven native root cases executed |
+| `python3 -m unittest discover -s tests/media -p test_runner.py` | Twelve passed |
+| `MEDIA_DISPATCH_ROOT_TESTS=1 python3 tests/media/test_dispatch_broker.py -v` | Fourteen passed in 68.453 seconds while native compilation also ran |
+| `python3 tests/media/test_vm.py -v` | Eight passed in 43.164 seconds with native `media-validate` |
+| `python3 tests/media/test_boundaries.py` | Four passed, including fourteen guest denials with healthy witnesses |
+| `python3 tests/media/test_recovery.py -v` | Nine passed in 31.934 seconds |
+| `npm run test:behavior` and `npx playwright test --config playwright.staff.config.js` | Windows: five behavior and one staff test passed against current binaries and actual disposable DB |
+| `VISUAL_FIXTURE_SERVER=1 npm run test:visual` | Three Windows snapshots passed |
+| `bash scripts/test-staff-idle-migration.sh`, `test-comment-migration.sh`, `test-media-approval-migration.sh` | All three upgrade exercises passed; generated DBs removed |
+| `bash scripts/restore-exercise.sh` | Sequential run passed post/asset fingerprints, fifteen counts, reader filtering and role denials; generated restore DB removed |
+| `cargo audit` | No findings in 324 dependencies against 1,243 advisories |
+
+VM commands above used the exact decoder/probe paths in the full-path command and `MEDIA_VM_VALIDATOR=/opt/26chan-rust/target/debug/media-validate`. All ran as root on the owned Linux host with a cleared environment where required. The original `scripts/verify.sh` invocation completed formatting, Clippy, build and workspace/database tests but its browser stage found Windows npm because WSL had no native Node. That child lost Linux environment variables and failed startup. Browser tests were then run in Windows with a structured private environment import and freshly built Windows binaries; no native-local browser success is claimed. One restore invocation overlapped the browser fixture writes and correctly detected a changed post fingerprint. It was rerun successfully after all browser processes stopped. Those orchestration failures are not omitted from the record.
+
+Tool versions: Rust 1.94.0 (`4a4ef493e`, March 2, 2026), Python 3.12.3, systemd 255.4-1ubuntu8.17, Linux 5.15.153.1-microsoft-standard-WSL2, OpenSSL 3.0.13, PostgreSQL 16.15 and the pinned Firecracker/jailer 1.16.1 artifacts. One later version-only command omitted isolated rustup variables and auto-installed Rust 1.94.0 into root's default toolchain cache. It was preserved; no profiles, defaults or credentials were deliberately changed. All builds/tests reported as isolated used the explicit `/opt/26chan-rust` environment. Task3 changes only the workspace package's lockfile dependency list; it adds no registry package or registry version update.
+
+Candidate units/configurations are committed in `e2566d0`. Native mode-0644 copies passed `systemd-analyze verify` under systemd 255, and both JSON examples parse. Actual harmless systemd probes verified the inherited-environment positive control and `env -i` preserving selected `APP_ENV=production` and the numeric UID while dropping unrelated/injected variables. Direct verification from the Windows mount initially warned about its executable/world-write modes; native copies produced no diagnostics. Candidate gateway/broker profiles themselves were not installed, enabled or run. Their paths, identities, limits, deliberate root authority and shutdown/recovery caveats are described in the [runbook](media-dispatch.md).
+
+CI now explicitly runs the native TLS root cases, complete dispatch harness and real broker suite after existing VM qualification. The harness provisions the gateway identity before the broker suite requires it. Hosted [PR 34415517742](https://github.com/frankischilling/26chan/actions/runs/34415517742), [push 34415514993](https://github.com/frankischilling/26chan/actions/runs/34415514993) and [advisory 34415517725](https://github.com/frankischilling/26chan/actions/runs/34415517725) passed for earlier checkpoint `bb10192`; they do not establish Task3 completion. Final-head Linux/Windows/advisory runs and final source-review disposition must be recorded after the coordinator commit.
+
 ## Native Linux prerequisites
 
 WSL initially had no native Rust toolchain. Rust 1.94.0, rustfmt and Clippy were installed under `/opt/26chan-rust` using the official rustup installer after checking its published SHA-256. Shell profiles and the Windows toolchain were unchanged. [Rustup documents the isolated installation settings](https://rust-lang.github.io/rustup/installation/index.html).
@@ -66,14 +125,14 @@ source .local/staff.env
 /opt/26chan-rust/cargo/bin/cargo test --workspace --all-features --locked --quiet
 ```
 
-The media library passed 33 tests. Every workspace test binary reported zero failures and ignored tests. These native baseline checks precede the new Rust transport and do not replace its forthcoming tests.
+The media library passed 33 tests. Every workspace test binary reported zero failures and ignored tests. These historical native baseline checks precede the new Rust transport and do not replace the later transport/coordinator tests recorded above.
 
 `wsl -d Ubuntu -u root -- bash scripts/restore-exercise.sh` also passed against PostgreSQL 16.15. It compared post and asset fingerprints and fifteen table counts, then checked approved-reader filtering and public/media/auth/staff grants and denials. The generated restore database was removed. The backup remains under ignored `.local/backups` per the operating procedure. This covers database recovery in the disposable cluster, not media object recovery or production backup protection.
 
-Both hosted runs for committed broker checkpoint `1e7d5a6` passed: [push run 34411861923](https://github.com/frankischilling/26chan/actions/runs/34411861923) and [PR run 34411866431](https://github.com/frankischilling/26chan/actions/runs/34411866431). Each ran Linux application/database/browser/VM/migration/restore checks and the Windows visual job. These workflows do not yet invoke the new broker suite; its evidence above is local. The runs do not cover the later TLS commits or complete authenticated dispatch.
+Both hosted runs for committed broker checkpoint `1e7d5a6` passed: [push run 34411861923](https://github.com/frankischilling/26chan/actions/runs/34411861923) and [PR run 34411866431](https://github.com/frankischilling/26chan/actions/runs/34411866431). Each ran Linux application/database/browser/VM/migration/restore checks and the Windows visual job. Those recorded runs did not invoke the new broker suite. They do not cover the later TLS commits or complete authenticated dispatch; the updated CI invocation is recorded above.
 
 ## Limits
 
 A disconnected caller may leave bounded processing underway until the runner's independent deadlines. Uncertain cleanup retains storage and exits; restart may need to wait for a surviving launch client to release its lock. The local broker has no network listener or database credentials. Its root host-launch authority remains privileged and must not be confused with the restricted guest identity.
 
-Coordinator lease fencing through transport, full-path approval/read tests, candidate services, and deployed production qualification remain required. The existing guest-boundary evidence is recorded separately in [media boundaries](verification-media-boundaries.md). See the [dispatch runbook](media-dispatch.md) for local use and recovery.
+Deployed dedicated-host routing/storage/resource controls, full saturation and power-loss tests, production certificate issuance/rotation/revocation procedures, actual candidate service deployment/shutdown behavior, public attachment and a separate registrable HTTP media origin remain unqualified. Per-attempt identities for concurrent jobs and permitted compatibility/reference evidence also remain open. The existing guest-boundary evidence is recorded separately in [media boundaries](verification-media-boundaries.md). See the [dispatch runbook](media-dispatch.md) for local use and recovery. No merge, release, production enablement or parity claim is included.

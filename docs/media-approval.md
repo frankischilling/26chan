@@ -1,6 +1,6 @@
 # Durable media approval
 
-This slice connects bounded, stopped-guest output to durable approval records. It is an operator development workflow. Public uploads and media serving stay disabled until authenticated dispatch and the remaining deployment boundary checks are qualified.
+This slice connects bounded, stopped-guest output to durable approval records. It is a development workflow, also used by the authenticated coordinator. Public uploads and media serving stay disabled until deployed processing, identity, storage and HTTP boundary checks are qualified.
 
 The publication authority uses `board_media` and a private output directory. Each lease gets a separate random output ID; neither the job ID nor its lease token becomes the public identifier. A pending record reserves the exact host-encoded PNG digest, length and dimensions. The publisher installs complete bytes, syncs them, and then approves the record in the same database transaction that completes the still-current, unexpired job. A duplicate with identical metadata reuses the reservation; different metadata is rejected. Approval survives deletion of terminal queue metadata.
 
@@ -12,11 +12,13 @@ Interrupted publication leaves private, unapproved bytes. Cleanup uses the same 
 
 The `board_media_read` role has SELECT on a security-barrier view containing only approved IDs and their digest, length and dimensions. It has no access to jobs, tokens, pending records, content, staff identity, deployment data or writes. Reading first requires a record from this view and then checks the exact regular file's bounded bytes and digest without decoding it. A database failure denies the read. The directory must never be exposed by a static web server: the filesystem link can precede approval.
 
-The publication store syncs its directory on Unix. Windows supports development behavior tests but this slice does not claim power-loss durability on Windows. Actual storage and database power-loss testing, a separately deployed HTTP media origin, authenticated intake/dispatch and post-to-asset attachment remain required before public enablement. No raw input is published.
+The publication store syncs its directory on Unix. Windows supports development behavior tests but this slice does not claim power-loss durability on Windows. [Authenticated development dispatch](media-dispatch.md) now feeds validated output into this same fenced publisher. Actual storage and database power-loss testing, public intake/post-to-asset attachment, deployed processing qualification and a separate HTTP media origin remain required before public enablement. No raw input is published.
 
 References: PostgreSQL's [view security rules](https://www.postgresql.org/docs/16/sql-createview.html) describe the barrier and owner-based table privileges; Rust's [file API](https://doc.rust-lang.org/std/fs/struct.File.html) documents nonblocking file locks and synchronization. The workspace remains pinned to Rust 1.94.0 and its existing dependency lockfile.
 
 ## Operator development commands
+
+The authenticated command is `media-publish dispatch CLIENT_CONFIG PRIVATE_STORE`; it keeps queue IDs/tokens local, verifies exact quarantined input bytes, validates the returned stopped disk and calls this publisher with the current lease. See [dispatch setup and qualification](media-dispatch.md). The manual claim/publish commands below remain available for operator diagnostics. Both workflows use identical approval and recovery authority.
 
 Create `board_media_read` with `sudo bash scripts/dev-media-reader-db.sh` before applying migration 0008. Reuse existing `.local` credentials if already provisioned. The migration preserves legacy job receipts and deliberately creates no approvals for old files. Those files need explicit validation and reconciliation; a receipt alone never grants access. The `media.assets` table grows independently of queue retention, so a production asset-retention/deletion policy is still needed.
 

@@ -1,6 +1,6 @@
 # Authenticated media dispatch
 
-The unprivileged development gateway accepts one bounded media input over mutual TLS, passes it to the UID-authenticated local broker, and returns the stopped output disk. The caller must still validate that disk before publication. This checkpoint supplies the broker and transport; queue dispatch and deployed qualification are separate work.
+The development coordinator claims one queued input, sends its exact bytes through the unprivileged mutual-TLS gateway and UID-authenticated root broker, validates the stopped Firecracker disk, and publishes under the existing lease fence. The owned native harness exercises this entire path and restricted reads. Deployed qualification and public uploads remain blocked; see [verification evidence](verification-media-dispatch.md).
 
 ## Run the local broker
 
@@ -61,7 +61,7 @@ sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
 
 Local WSL evidence covers an actual harmless PNG decode through Firecracker, allowed/denied kernel peer UIDs, malformed framing without executor calls, absolute deadlines, exclusive broker ownership, live-VM SIGINT/SIGTERM cleanup, SIGKILL recovery behind the inherited launch lock, and refusal of unknown request storage. Tests use owned pathname sockets, temporary request storage and the existing `VmTest.assert_clean` checks. The owning tests explicitly remove their retained unknown fixtures.
 
-This is development evidence. It does not qualify queue lease/publication fencing, public uploads, a dedicated processing host, deployed service operation, power-loss recovery or a separate media origin. The broader remaining requirements are recorded in the [dispatch design](superpowers/specs/2026-09-09-media-dispatch-design.md).
+These broker tests qualify the local launcher. The complete coordinator harness below additionally covers queue lease/publication fencing. Neither qualifies public uploads, a dedicated processing host, deployed service operation, power-loss recovery or a separate media origin. The broader remaining requirements are recorded in the [dispatch design](superpowers/specs/2026-09-09-media-dispatch-design.md).
 
 ## Configure mutual TLS
 
@@ -133,3 +133,42 @@ sudo env MEDIA_DISPATCH_ROOT_TESTS=1 cargo test -p board-media-dispatch --test t
 Those cases cover a real nonroot CLI reaching a root peer, denial of a nonroot broker before any request bytes, a valid same-fixture control, post-admission and post-processing revocation, unavailable/malformed/writable authorization, malformed broker responses, four-handshake/one-work admission, absolute deadlines and cancellation. The portable TLS cases cover valid mutual authentication; absent, wrong-CA, expired and wrong-usage client certificates; server-name/CA mismatch; changed input; malformed responses; close-notify and deadlines. Root-only cases are omitted on Windows and when the environment flag is absent; a normal portable pass does not establish Unix peer or gateway identity enforcement.
 
 Rcgen 0.14.10 generates fresh synthetic keys for each test. Valid leaves/CAs use January 1, 2020 through January 1, 2040; the expired leaf ends January 1, 2021. Fixtures contain no production identities or retained private keys. The owned TLS fixture confirms that request close-notify leaves response reads functional with Tokio-Rustls 0.26.5.
+
+## Fenced coordinator
+
+Build `cargo build -p board-media-admin -p board-media-dispatch --bins --locked`. In a fresh shell with only the existing media writer credential, run:
+
+```sh
+source .local/media.env
+export APP_ENV=development
+export MEDIA_QUARANTINE_DIR="$PWD/.local/quarantine"
+target/debug/media-publish dispatch /etc/26chan-coordinator/client.json "$PWD/.local/objects"
+```
+
+The command initializes TLS configuration, quarantine and publication storage before claiming exactly one job. Use the one canonical private output root associated with the database, as required by [publication recovery](media-approval.md). It opens only the generated `ObjectId` input and checks regular-file type, the 1..8,388,608-byte bound and exact recorded size. Protected parent directories are mandatory; metadata checks do not protect a directory writable by hostile local processes. The transport rechecks exact length and EOF. Only input bytes cross the boundary; display filenames, queue IDs, lease tokens and database credentials remain with the coordinator.
+
+Processing has an outer 29-second timeout in addition to the transport's phase deadlines. The queue lease remains 30 seconds and is checked by publication after full disk validation; reaching a transport deadline never extends it. Current failures record `processing_failed` or `invalid_output` using the same token and unexpired-lease predicate. No automatic retry occurs. A stale failure cannot mutate a replacement lease. Database failures and uncertain approval commits print no output; inspect authoritative approval state and reconcile using the existing lock before an operator retry. Publication errors preserve possibly approved files. Successful stdout contains only the approved opaque asset ID.
+
+## Complete owned native qualification
+
+The harness requires root, working reviewed decoder/probe configurations, OpenSSL, PostgreSQL 16 client tools, the existing disposable cluster and credentials, and compiled native binaries. It validates an idle disposable queue and reuses credentials without provisioning or rotation. It creates or verifies distinct `board-media-coordinator` and `board-media-gateway` nologin accounts, copies binaries to root-owned generated `/run` storage, generates private two-day test PKI, and stops its owned processes and removes only its generated files and queue records on cleanup. Do not run it alongside another queue consumer or VM qualification.
+
+```sh
+sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+  MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-test/decode.json \
+  MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-test/probe.json \
+  MEDIA_DISPATCH_BIN_DIR="$PWD/target/debug" \
+  bash scripts/test-media-dispatch.sh
+```
+
+Replace example artifact paths with the actual reviewed files. `MEDIA_DISPATCH_BIN_DIR` defaults to `target/debug`. Missing required fixtures fail; this harness has no skip or stub path. Actual Rust client/gateway, root broker, Firecracker decoder, queue, validator, publication and restricted DB reader all participate. It checks approved-only reads before/after queue cleanup, identity file denials with healthy allowed readers, revoked authorization without staging/VM/approval, real decoder refusal, and lease expiry/replacement synchronized by stopping and resuming the owned broker. A separate probe run cancels a live VMM and checks complete cleanup. The probe is never substituted for the decoder success case.
+
+The reader command in this harness uses the coordinator filesystem UID with only the restricted reader database credential. This qualifies approved-view authority and command behavior, not a separate deployed reader filesystem sandbox. Root remains trusted host administration and can access host files; gateway, coordinator and VMM identities are the filesystem denial subjects. Separate TLS/database tests use synchronized controlled responses to isolate invalid output and stale leases; those tests are not full-path VM evidence.
+
+## Candidate services
+
+The `deploy/media-dispatch-{broker,gateway}.service` and JSON/environment examples are reviewed development candidates. Install trusted scripts under `/opt/paperboard/media`, the gateway binary at `/opt/paperboard/media-dispatch-gateway`, and configurations in protected `/etc/26chan-*` directories matching the units. Resolve and verify the gateway account's numeric UID before replacing `GATEWAY_UID` in root-owned mode-0600 `dispatch.env`. Its placeholder is intentionally invalid. Preserve `APP_ENV=development`; both programs reject `production` and `env -i` preserves that selected value while removing systemd-injected variables. No production approval is implied by changing the file.
+
+The socket directory remains root-owned 0750 with the gateway primary group; `requests` remains root-only 0700. Keys are private and service-owned; authorization/configuration are protected root-owned files readable as required. Keep coordinator credentials, quarantine and output storage outside gateway/VMM access. Never grant the gateway write access to scripts, artifacts, socket directory, authorization or configuration. Socket presence and `Type=exec` are insufficient readiness: exercise an approved dispatch and restricted read.
+
+The gateway candidate has no capabilities and restricts filesystem writes, namespaces, devices and address families while retaining Unix and IP sockets. The broker is trusted root with host mount, KVM, cgroup and system-manager authority; its independently launched VMM has the runner's separate transient-service limits. Candidate supervisor budgets are gateway 128 MiB/32 tasks/one CPU and broker 256 MiB/64 tasks/one CPU, not measured saturation results. Neither unit automatically restarts or enables itself. Stop the gateway before the broker; the gateway binds its lifecycle to the broker. The broker has a 90-second stop grace, after which forced termination still requires inspected recovery. Permanent locks and uncertain request state are not removed by systemd `RuntimeDirectory` cleanup. Syntax/environment-propagation probes passed locally; these complete candidate service profiles have not been installed or exercised as deployed services.
