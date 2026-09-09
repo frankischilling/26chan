@@ -10,7 +10,7 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 | SQLx PostgreSQL driver | 0.9.0 | Bound SQL and PostgreSQL protocol. MySQL/SQLite packages can appear in the lock graph through macro metadata; no SQLite/MySQL driver is enabled in the public normal dependency tree |
 | Askama | 0.16.1 | Compiled templates and automatic escaping; application never uses the `safe` filter |
 | Argon2 | 0.5.3 | Local deletion passwords, default Argon2id parameters and random salts; four concurrent operations maximum |
-| PNG / temporary files / randomness | 0.18.1 / 3.27.0 / getrandom 0.4.3 | Media promotion encoding and private storage only; bounded output, no runtime decoder calls. Compression, SIMD checksum and OS filesystem/randomness implementations remain trusted dependencies |
+| PNG / temporary files / randomness | 0.18.1 / 3.27.0 / getrandom 0.4.3 | Host media promotion invokes only the encoder; the separate guest invokes the PNG decoder. Compression, SIMD checksum and OS filesystem/randomness implementations remain trusted dependencies |
 | WebAuthn / OpenSSL | webauthn-rs 0.5.5; vendored openssl-src 300.6.1+3.6.3 | Staff authentication only; native cryptography and authenticator-data parsing remain trusted dependencies. Server ceremony state is stored only in the protected database. No hardware attestation policy is claimed |
 | Native staff build | Local Strawberry Perl 5.42.2.1 and MSVC; CI Perl and C build tools | Required to compile vendored OpenSSL. Portable Perl was checked against its published SHA-256; it is an ignored local build prerequisite, not a shipped application asset |
 | URL / public suffix list | 2.5.8 / 2.1.231 | URL normalization, explicit schemes, origin/domain policy; update suffix data with tests |
@@ -18,10 +18,13 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 | Node | Local 25.2.1; CI 24.14.0 | Browser test runner only. Public pages need no JavaScript; staff ships a small local WebAuthn script |
 | PostgreSQL | 16.15 | Disposable local database; production patching/backup verification still required |
 | Host kernel | WSL 5.15.153.1, Ubuntu 24.04 userspace | Local testing only; not an approved processing host |
-| Isolation runtime / guest images / decoders | None installed for this project | Media disabled. Pin and inventory the runtime, host/guest kernels, rootfs and tools when implemented |
+| Isolation runtime / guest | Firecracker and jailer 1.16.1; guest Linux 6.1.186; purpose-built Rust initramfs | Local qualification only; [artifact hashes and provenance](firecracker-artifacts.json). Upstream CI kernel is demonstration material; reviewed production host and guest rollout remain required |
+| Guest syscall interface | rustix 1.1.4 / linux-raw-sys 0.12.1 | Safe first-party calls for guest initialization and resource limits; dependency syscall implementations use unsafe code. No existing registry dependency version changed |
 | Workflow actions | checkout 7.0.1 (`3d3c42e5aac5ba805825da76410c181273ba90b1`); setup-node 7.0.0 (`820762786026740c76f36085b0efc47a31fe5020`) | Node 24 action runtimes; `contents: read`, no persisted checkout credential or automatic package-manager cache; no pull_request_target execution |
 
 First-party `forbid(unsafe_code)` does not apply to dependencies. The normal public dependency tree includes ring, Rustls, Tokio/mio/socket2 and Windows system bindings; these need maintenance even though complex media parsing is absent. A complete transitive unsafe-code audit has not been performed.
+
+The local media setup additionally depends on Python 3.12, systemd 255, mount/umount, KVM, tmpfs, and effective memory/CPU/pids cgroup controllers. These belong to the host trust base. The per-job VM receives no Python, shell, package manager or network device. Patch the pinned kernel/runtime and rebuild both init and worker before re-running the [local qualification checks](firecracker.md); successful CI on one host is not approval of another processing tier.
 
 The scheduled advisory workflow runs cargo-audit 0.22.2 and npm audit weekly. The operator must subscribe to failures and triage them; no alert delivery has been configured. A clean advisory result only covers known entries at the fetched revision.
 
