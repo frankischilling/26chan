@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Owned Linux VM smoke test; requires explicit reviewed artifacts and root."""
+import os
+import json
+import pathlib
+import socket
+import struct
+import subprocess
+import tempfile
+import threading
+import time
+import unittest
+import zlib
+
+REPO = pathlib.Path(__file__).resolve().parents[2]
+
+
+def red_png():
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+    return (b'\x89PNG\r\n\x1a\n' +
+            chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)) +
+            chunk(b'IDAT', zlib.compress(b'\0\xff\0\0')) + chunk(b'IEND', b''))
+
+
+class VmTest(unittest.TestCase):
+    def test_stopped_output_passes_real_rust_validation_before_private_promotion(self):
+        validator = os.environ['MEDIA_VM_VALIDATOR']
+        with tempfile.TemporaryDirectory(prefix='vm-pipeline-', dir=os.environ.get('MEDIA_VM_TEST_TEMP')) as name:
+            root = pathlib.Path(name)
+            private = root / 'private'
+            private.mkdir()
+            source = private / 'input.png'
+            source.write_bytes(red_png())
+            disk = private / 'result.disk'
+            subprocess.run([str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_TEST_CONFIG'],
+                            str(source), str(disk)], check=True, timeout=30)
+            self.assert_clean()
+
+            def validate(destination):
+                paths = [str(disk), str(destination)]
+                if validator.endswith('.exe'):
+                    paths = [subprocess.check_output(['wslpath', '-w', path], text=True).strip() for path in paths]
+                return subprocess.run([validator, *paths], capture_output=True, text=True, timeout=10)
+
+            approved = root / 'approved'
+            result = validate(approved)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            receipt = json.loads(result.stdout)
+            self.assertEqual((receipt['width'], receipt['height']), (1, 1))
+            self.assertEqual(len(list(approved.glob('*.png'))), 1)
+            with disk.open('r+b') as stream:
+                stream.seek(20)
+                stream.write(b'\x01')
+            result = validate(root / 'rejected')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((root / 'rejected').exists())
+
+    def assert_clean(self):
+        jobs = pathlib.Path('/run/26chan-media-jobs')
+        self.assertEqual(sorted(p.name for p in jobs.iterdir()), ['runner.lock'])
+        result = subprocess.run(['systemctl', 'list-units', '--all', '--no-legend',
+                                 '26chan-media-*.service'], capture_output=True, text=True, check=True)
+        self.assertEqual(result.stdout.strip(), '')
+
+    def run_probe(self, payload, success=True, valid=True):
+        with tempfile.TemporaryDirectory(prefix='26chan-probe-test-') as name:
+            root = pathlib.Path(name)
+            source = root / 'input'
+            source.write_bytes(payload)
+            started = time.monotonic()
+            result = subprocess.run(
+                [str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_PROBE_CONFIG'],
+                 str(source), str(root / 'result.disk')], capture_output=True, text=True, timeout=35)
+            elapsed = time.monotonic() - started
+            self.assert_clean()
+            if not success:
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((root / 'result.disk').exists())
+                return elapsed
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = (root / 'result.disk').read_bytes()
+            if not valid:
+                self.assertEqual(data, bytes(4_194_816))
+                return elapsed
+            self.assertEqual(data[:8], b'IBRGBA01')
+            width, height = struct.unpack('>II', data[8:16])
+            self.assertEqual(height, 1)
+            self.assertGreater(width, 0)
+            for index in range(width):
+                self.assertEqual(data[16 + index * 4:20 + index * 4], b'\0\xff\0\xff',
+                                 f'{payload.splitlines()[0]!r} check {index} failed')
+            self.assertEqual(len(data), 4_194_816)
+            self.assertEqual(data[16 + width * 4:], bytes(4_194_816 - 16 - width * 4))
+            return elapsed
+
+    def test_decodes_one_input_and_removes_job(self):
+        self.assertEqual(os.geteuid(), 0, 'run only on an owned disposable Linux host as root')
+        config = os.environ['MEDIA_VM_TEST_CONFIG']
+        with tempfile.TemporaryDirectory(prefix='26chan-vm-test-') as name:
+            root = pathlib.Path(name)
+            source = root / 'input.png'
+            source.write_bytes(red_png())
+            result = subprocess.run(
+                [str(REPO / 'scripts/media/run-job.py'), config, str(source), str(root / 'result.disk')],
+                capture_output=True, text=True, timeout=45,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = (root / 'result.disk').read_bytes()
+            self.assertEqual(len(output), 4_194_816)
+            self.assertEqual(output[:20], b'IBRGBA01\0\0\0\x01\0\0\0\x01\xff\0\0\xff')
+            self.assertEqual(output[20:], bytes(4_194_796))
+            self.assert_clean()
+
+    def test_worker_identity_files_credentials_and_network(self):
+        # A real owned TCP service responds before and after guest denial.
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            listener.listen()
+            listener.settimeout(0.2)
+            stopped = threading.Event()
+
+            def serve():
+                while not stopped.is_set():
+                    try:
+                        connection, _ = listener.accept()
+                    except TimeoutError:
+                        continue
+                    with connection:
+                        connection.sendall(b'healthy')
+
+            thread = threading.Thread(target=serve)
+            thread.start()
+
+            def healthy():
+                with socket.create_connection(listener.getsockname(), timeout=1) as client:
+                    self.assertEqual(client.recv(7), b'healthy')
+                subprocess.run(['pg_isready', '-h', '127.0.0.1', '-p', '55432'],
+                               check=True, stdout=subprocess.DEVNULL)
+
+            try:
+                healthy()
+                self.run_probe(f'inspect\n127.0.0.1:{listener.getsockname()[1]}\n127.0.0.1:55432\n'.encode())
+                healthy()
+            finally:
+                stopped.set()
+                thread.join(timeout=2)
+
+    def test_guest_memory_process_and_disk_limits(self):
+        for mode in ('memory', 'process', 'disk'):
+            with self.subTest(mode=mode):
+                self.run_probe(mode.encode())
+
+    def test_wall_clock_limit_terminates_vm_and_removes_workspace(self):
+        elapsed = self.run_probe(b'sleep', success=False)
+        self.assertGreaterEqual(elapsed, 14)
+        self.assertLess(elapsed, 25)
+
+    def test_cpu_limit_stops_worker_before_its_own_deadline(self):
+        elapsed = self.run_probe(b'cpu', valid=False)
+        self.assertGreaterEqual(elapsed, 4)
+        self.assertLess(elapsed, 8)
+
+
+if __name__ == '__main__':
+    unittest.main()

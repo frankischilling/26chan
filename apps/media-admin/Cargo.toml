@@ -3,6 +3,7 @@ name = "board-media-admin"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+default-run = "board-media-admin"
 
 [features]
 database-tests = ["board-store/database-tests"]
