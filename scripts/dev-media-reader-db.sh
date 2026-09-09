@@ -14,7 +14,7 @@ runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h /tmp -p 55432 -d 
 SELECT 'CREATE ROLE board_media_read LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'board_media_read')
 \gexec
-ALTER ROLE board_media_read PASSWORD :'reader_password';
+ALTER ROLE board_media_read LOGIN PASSWORD :'reader_password';
 ALTER ROLE board_media_read SET statement_timeout = '5s';
 ALTER ROLE board_media_read SET lock_timeout = '2s';
 ALTER ROLE board_media_read SET idle_in_transaction_session_timeout = '5s';
