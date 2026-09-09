@@ -4,14 +4,19 @@ import contextlib
 import json
 import os
 import pathlib
+import re
+import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 
 import test_vm
+from owned_process import cancel_test, run_owned
 
 DNS_QUERY = (b'\x01\x02\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00'
              b'\x07witness\x07invalid\x00\x00\x01\x00\x01')
@@ -50,7 +55,13 @@ def service(family, kind, address, response, expected=None):
                 errors.append(error)
 
         thread = threading.Thread(target=serve, daemon=True)
-        thread.start()
+        # Let only the main thread receive cancellation. This keeps the main
+        # thread's child-allocation mask effective while witnesses are serving.
+        previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+        try:
+            thread.start()
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
         def healthy():
             if errors or not thread.is_alive():
@@ -80,6 +91,36 @@ def service(family, kind, address, response, expected=None):
 
 
 class BoundaryTest(unittest.TestCase):
+    def test_outer_deadline_cleans_a_live_vm_and_private_fixture(self):
+        with tempfile.TemporaryDirectory(prefix='26chan-boundary-deadline-') as name:
+            root = pathlib.Path(name)
+            fixture = root / 'fixture.py'
+            fixture.write_text('''import pathlib, signal, sys, tempfile, time
+sys.path.insert(0, sys.argv[1])
+import test_vm
+from owned_process import cancel_test
+signal.signal(signal.SIGTERM, cancel_test)
+signal.signal(signal.SIGINT, cancel_test)
+root = pathlib.Path(__file__).parent
+try:
+    with tempfile.TemporaryDirectory(dir=root) as temporary, test_vm.VmTest().sleeping_vm() as state:
+        (pathlib.Path(temporary) / 'witness').touch()
+        (root / 'live-vmm').write_text(state[4].name)
+        (root / 'temporary').write_text(temporary)
+        time.sleep(30)
+finally:
+    (root / 'unwound').touch()
+''')
+            vm = test_vm.VmTest()
+            started = time.monotonic()
+            with self.assertRaises(subprocess.TimeoutExpired):
+                run_owned([sys.executable, str(fixture), str(pathlib.Path(__file__).parent)], timeout=8,
+                          post_check=vm.assert_clean, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.assertLess(time.monotonic() - started, 20)
+            self.assertTrue((root / 'unwound').exists())
+            self.assertFalse(pathlib.Path((root / 'temporary').read_text()).exists())
+            self.assertFalse(pathlib.Path('/proc', (root / 'live-vmm').read_text()).exists())
+
     def test_guest_denies_live_network_and_storage_witnesses(self):
         with tempfile.TemporaryDirectory(prefix='26chan-boundary-witness-') as name, contextlib.ExitStack() as stack:
             root = pathlib.Path(name)
@@ -146,6 +187,8 @@ class BoundaryTest(unittest.TestCase):
 def main():
     if os.geteuid() != 0:
         raise SystemExit('Run as root only on an owned disposable Linux host.')
+    signal.signal(signal.SIGTERM, cancel_test)
+    signal.signal(signal.SIGINT, cancel_test)
     current = os.readlink('/proc/self/ns/net')
     def addresses():
         devices = json.loads(subprocess.check_output(['ip', '-j', 'address', 'show'], text=True))
@@ -156,15 +199,41 @@ def main():
     if len(sys.argv) == 1:
         # Only this child configures addresses. No host interfaces/routes are modified.
         before = addresses()
-        result = subprocess.run(['unshare', '--net', sys.executable, __file__, '--isolated', current],
-                                timeout=90)
-        if before != addresses() or os.readlink('/proc/self/ns/net') != current:
-            raise SystemExit('Host network state changed during the fixture test.')
+        root = None
+        post_checked = False
+        def post_check():
+            nonlocal post_checked
+            post_checked = True
+            if before != addresses() or os.readlink('/proc/self/ns/net') != current:
+                raise RuntimeError('Host network state changed; inspect retained fixture at ' + str(root))
+        try:
+            previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+            try:
+                root = pathlib.Path(tempfile.mkdtemp(prefix='26chan-boundary-suite-', dir='/tmp'))
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+            result = run_owned(['unshare', '--net', sys.executable, __file__, '--isolated', current, str(root)],
+                               timeout=90, post_check=post_check)
+        finally:
+            # This also runs on failed startup, timeout and handled cancellation.
+            if not post_checked:
+                post_check()
+            if root is not None:
+                try:
+                    root.rmdir()  # Only empty roots: retain uncertain contents for owned recovery.
+                except OSError as error:
+                    raise RuntimeError('test fixture retained for inspection at ' + str(root)) from error
         raise SystemExit(result.returncode)
     parent = os.readlink(f'/proc/{os.getppid()}/ns/net')
-    if (len(sys.argv) != 3 or sys.argv[1] != '--isolated'
+    if (len(sys.argv) != 4 or sys.argv[1] != '--isolated'
             or sys.argv[2] != parent or parent == current):
         raise SystemExit('Expected a fresh private network namespace.')
+    root = pathlib.Path(sys.argv[3])
+    metadata = root.lstat()
+    if (root.parent != pathlib.Path('/tmp') or not re.fullmatch(r'26chan-boundary-suite-[a-z0-9_]+', root.name)
+            or not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != 0 or metadata.st_mode & 0o077):
+        raise SystemExit('Expected a private owned suite directory.')
+    tempfile.tempdir = str(root)
     devices = json.loads(subprocess.check_output(['ip', '-j', 'link', 'show'], text=True))
     if [device['ifname'] for device in devices] != ['lo']:
         raise SystemExit('Fixture namespace contains an unexpected network device.')

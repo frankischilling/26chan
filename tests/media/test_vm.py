@@ -15,6 +15,8 @@ import time
 import unittest
 import zlib
 
+from owned_process import run_owned
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
@@ -86,9 +88,10 @@ class VmTest(unittest.TestCase):
             source = root / 'input'
             source.write_bytes(payload)
             started = time.monotonic()
-            result = subprocess.run(
+            result = run_owned(
                 [sys.executable, str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_PROBE_CONFIG'],
-                 str(source), str(root / 'result.disk')], capture_output=True, text=True, timeout=35)
+                 str(source), str(root / 'result.disk')], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, timeout=35)
             elapsed = time.monotonic() - started
             self.assert_clean()
             if not success:
@@ -183,9 +186,10 @@ class VmTest(unittest.TestCase):
                     runner.send_signal(signal.SIGTERM)
                     runner.send_signal(signal.SIGINT)
                 runner.wait(timeout=12)
+                _, diagnostics = runner.communicate(timeout=2)
                 self.assertNotEqual(runner.returncode, 0)
                 self.assertFalse(disk.exists())
-                self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace')
+                self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace: ' + diagnostics[:4096])
                 self.assertFalse(vmm.exists(), 'cancelled runner left a live VMM')
                 self.assert_clean()
         self.run_probe(b'disk')

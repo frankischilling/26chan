@@ -28,6 +28,20 @@ class Cancelled(RuntimeError):
     pass
 
 
+def failure_location(error):
+    """Static source location only; never exception text, input paths or locals."""
+    directory = pathlib.Path(__file__).resolve().parent
+    known = {str(directory / name): name for name in ('run-job.py', 'job_lifecycle.py')}
+    location = 'operator boundary'
+    frame = error.__traceback__
+    while frame is not None:
+        filename = frame.tb_frame.f_code.co_filename
+        if filename in known:
+            location = f'{known[filename]}:{frame.tb_lineno}'
+        frame = frame.tb_next
+    return f'{type(error).__name__} at {location}'
+
+
 def ignore_cancellation():
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, signal.SIG_IGN)
@@ -225,8 +239,8 @@ def main():
             print('Media job recovery completed; no output collected or approved')
         else:
             run(configuration(args.config), args.input, args.output)
-    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError):
-        parser.exit(1, 'isolated job failed; no validated publication produced\n')
+    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+        parser.exit(1, f'isolated job failed ({failure_location(error)}); no validated publication produced\n')
 
 
 if __name__ == '__main__':
