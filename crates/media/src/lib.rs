@@ -4,11 +4,13 @@
 //! execute workers, decode uploads, expose public routes, or establish process
 //! isolation. Deployment permissions and job deadlines belong to the caller.
 
+mod block;
 mod id;
 mod output;
 mod promotion;
 mod quarantine;
 
+pub use block::{OUTPUT_DISK_BYTES, write_input_disk};
 pub use id::ObjectId;
 pub use output::ValidatedOutput;
 pub use promotion::{Promoter, Promotion};
@@ -28,6 +30,8 @@ pub enum MediaError {
     Empty,
     #[error("input exceeds byte limit")]
     InputTooLarge,
+    #[error("input length does not match declared byte count")]
+    InputLengthMismatch,
     #[error("object already exists")]
     AlreadyExists,
     #[error("invalid pixel protocol")]

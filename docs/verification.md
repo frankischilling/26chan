@@ -2,6 +2,8 @@
 
 This file records the merged public foundation. Follow-on evidence is recorded separately for [media and staff](verification-media-staff.md) and the [API origin](verification-api.md).
 
+The later [Firecracker verification record](verification-firecracker.md) supersedes this historical checkpoint's statements about the absence of a local worker.
+
 Collected September 8, 2026, in the current rewrite directory. This records a local text-board checkpoint. It does not establish production readiness or complete reference compatibility.
 
 ## Environment and provenance

@@ -6,6 +6,8 @@ Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boar
 
 Development is ongoing. Private media intake and queue management are available for development; public uploads remain disabled until isolated processing is implemented and tested. A separate WebAuthn staff application handles report review and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
+A [disposable Firecracker media profile](docs/firecracker.md) now runs a Rust PNG decoder inside a per-job guest and validates its bounded output into private storage. It has local containment tests; authenticated queue dispatch, publication fencing and production processing-host qualification remain unfinished.
+
 ## Getting started
 
 The development scripts support Ubuntu 24.04, including Ubuntu running in WSL. Run the following commands in an Ubuntu terminal as a regular user with `sudo` access.
@@ -99,4 +101,5 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
 - [Media intake, queue limits and remaining containment work](docs/media.md)
+- [Firecracker guest setup and local containment scope](docs/firecracker.md)
 - [Staff WebAuthn setup, enrollment and moderation](docs/staff.md)

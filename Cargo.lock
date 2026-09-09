@@ -355,6 +355,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-media-guest"
+version = "0.1.0"
+dependencies = [
+ "png",
+ "rustix",
+]
+
+[[package]]
 name = "board-public"
 version = "0.1.0"
 dependencies = [

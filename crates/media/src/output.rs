@@ -1,6 +1,8 @@
-use crate::{MAX_DIMENSION, MAX_PNG_BYTES, MediaError};
+use crate::{MAX_DIMENSION, MAX_PNG_BYTES, MediaError, OUTPUT_DISK_BYTES};
 use std::io::{self, Write};
 use tokio::io::{AsyncRead, AsyncReadExt};
+
+const PROTOCOL_HEADER_BYTES: u64 = 16;
 
 /// Pixels accepted only through the fixed IBRGBA01 protocol. The fields and PNG
 /// encoder are private so callers cannot construct an unvalidated output.
@@ -15,6 +17,37 @@ impl ValidatedOutput {
     /// Read a 16-byte header, exactly width * height * 4 bytes, and EOF.
     /// Callers must impose their job deadline on streams that may never end.
     pub async fn read<R: AsyncRead + Unpin>(mut reader: R) -> Result<Self, MediaError> {
+        let output = Self::read_protocol(&mut reader).await?;
+        if reader.read(&mut [0; 1]).await? != 0 {
+            return Err(MediaError::InvalidOutput);
+        }
+        Ok(output)
+    }
+
+    /// Read the fixed output block format after guest termination.
+    pub async fn read_disk<R: AsyncRead + Unpin>(mut reader: R) -> Result<Self, MediaError> {
+        let output = Self::read_protocol(&mut reader).await?;
+        let used = PROTOCOL_HEADER_BYTES + output.pixels.len() as u64;
+        let mut remaining = OUTPUT_DISK_BYTES
+            .checked_sub(used)
+            .ok_or(MediaError::InvalidOutput)?;
+        let mut padding = [0; 8192];
+        while remaining != 0 {
+            let limit = usize::try_from(remaining.min(padding.len() as u64))
+                .expect("padding read limit fits in usize");
+            reader.read_exact(&mut padding[..limit]).await?;
+            if padding[..limit].iter().any(|byte| *byte != 0) {
+                return Err(MediaError::InvalidOutput);
+            }
+            remaining -= limit as u64;
+        }
+        if reader.read(&mut [0; 1]).await? != 0 {
+            return Err(MediaError::InvalidOutput);
+        }
+        Ok(output)
+    }
+
+    async fn read_protocol<R: AsyncRead + Unpin>(reader: &mut R) -> Result<Self, MediaError> {
         let mut header = [0; 16];
         reader.read_exact(&mut header).await?;
         let width = u32::from_be_bytes(header[8..12].try_into().expect("four width bytes"));
@@ -33,9 +66,6 @@ impl ValidatedOutput {
         // Even a very large validated image is read in fixed-size chunks.
         for chunk in pixels.chunks_mut(8192) {
             reader.read_exact(chunk).await?;
-        }
-        if reader.read(&mut [0; 1]).await? != 0 {
-            return Err(MediaError::InvalidOutput);
         }
         Ok(Self {
             width,
