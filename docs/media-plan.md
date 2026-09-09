@@ -46,6 +46,6 @@ Interfaces: `reserve` returns an opaque ID; `queue` finalizes a completed intake
 
 Files: update architecture, compatibility, readiness, dependency, operations and verification documents; add focused GitHub issue and draft PR.
 
-- [ ] Record existing reference provenance unchanged and add project requirement IDs for implemented intake/control/protocol. Keep public uploads and worker containment marked disabled/unverified.
-- [ ] Document each new identity, storage scope, byte/state limit, command, cleanup and restore result. Record exact failures and unrun infrastructure checks.
-- [ ] Request an independent code review of the branch; fix substantive findings and rerun affected checks. Commit actual progress, push the authorized checkpoint and open a draft PR. Do not merge or deploy.
+- [x] Record existing reference provenance unchanged and add project requirement IDs for implemented intake/control/protocol. Keep public uploads and worker containment marked disabled/unverified.
+- [x] Document each new identity, storage scope, byte/state limit, command, cleanup and restore result. Record exact failures and unrun infrastructure checks.
+- [x] Request an independent code review of the branch; fix substantive findings and rerun affected checks. Commit actual progress, push the authorized checkpoint and open a draft PR. Do not merge or deploy.
