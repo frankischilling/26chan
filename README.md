@@ -67,6 +67,7 @@ npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run test:behavior
 npm run test:staff
+sudo bash scripts/test-comment-migration.sh
 sudo bash scripts/restore-exercise.sh
 ```
 
@@ -93,6 +94,7 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Deployment and operations](docs/operations.md)
 - [Verification record](docs/verification.md)
 - [API origin verification](docs/verification-api.md)
+- [Comment character-limit verification](docs/verification-comment-limits.md)
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
 - [Media intake, queue limits and remaining containment work](docs/media.md)

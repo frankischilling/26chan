@@ -84,7 +84,7 @@ pub async fn boards(
         "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
         "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
         "max_filesize": 0, "max_webm_filesize": 0, "max_webm_duration": 0,
-        "max_comment_chars": board.max_comment_bytes, "bump_limit": board.bump_limit, "image_limit": 0,
+        "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": 0,
         "cooldowns": { "threads": 0, "replies": 0, "images": 0 },
         "meta_description": board.description, "text_only": 1
     })).collect();

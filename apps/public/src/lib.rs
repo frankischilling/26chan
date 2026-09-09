@@ -49,7 +49,9 @@ pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Route
         .route("/{board}/report", post(handlers::report))
         .route("/{board}/{page}", get(handlers::page))
         .fallback(handlers::not_found)
-        .layer(DefaultBodyLimit::max(65_536))
+        // A 16,000-character comment can occupy 192,000 bytes when four-byte
+        // UTF-8 characters are percent-encoded. Bound the collected body too.
+        .layer(DefaultBodyLimit::max(262_144))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             security::protect,

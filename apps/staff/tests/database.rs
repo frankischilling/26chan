@@ -114,7 +114,7 @@ async fn moderation_persists_with_audit_and_rejects_cross_board_or_stale_authori
     let owner = pool("MIGRATION_DATABASE_URL").await;
     let staff = pool("STAFF_DATABASE_URL").await;
     let board = format!("s{}", &uuid::Uuid::new_v4().simple().to_string()[..9]);
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_bytes,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Staff test','Synthetic',16000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Staff test','Synthetic',16000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
     let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES ($1) RETURNING id")
         .bind(&board)
         .fetch_one(&owner)

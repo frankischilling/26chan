@@ -13,7 +13,7 @@
 {% if parent == 0 %}<div><label for="sub">Subject</label><input id="sub" name="sub" maxlength="120"></div>{% endif %}
 <div><label for="com">Comment</label><textarea id="com" name="com" rows="5" required aria-describedby="postHelp"></textarea></div>
 <div><label for="password">Deletion password</label><input id="password" type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
-<p id="postHelp">Comments: {{ board.max_comment_bytes }} bytes. Replies: {{ board.reply_limit }} per thread. Save your deletion password. Media uploads are unavailable.</p>
+<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. Save your deletion password. Media uploads are unavailable.</p>
 <button type="submit">Post</button>
 </form>
 {% endif %}

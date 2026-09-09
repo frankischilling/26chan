@@ -20,8 +20,8 @@ The following table describes public limits. [Staff notes](staff.md) record the 
 
 | Limit | Implemented value | Evidence |
 |---|---|---|
-| URL-encoded request body | 65,536 bytes, body collector limit | HTTP test with no Content-Length |
-| Comment | Per-board UTF-8 bytes, maximum 16,000 | Domain/property tests and SQL constraint |
+| URL-encoded public form body | 262,144 bytes, body collector limit; enough for 192,000 bytes of percent-encoded comment plus bounded fields | Maximum Unicode submission and overflow HTTP tests without Content-Length; the read-only API listener retains its 65,536-byte limit |
+| Comment | Per-board Unicode scalar values, maximum 16,000; independent 64,000-byte UTF-8 ceiling | Domain/property, runtime-role SQL, HTTP and JavaScript-disabled browser tests |
 | Requests | 32 active, 10-second handler deadline | Code; external saturation/deadline exercise still required |
 | Password hashing | 4 active Argon2 jobs; permits survive request cancellation until hashing finishes | Code; external memory enforcement unverified |
 | Submissions | 30 per socket peer per 60 seconds; 10,000 tracked peers maximum | Forwarded-header rate test |
@@ -30,6 +30,8 @@ The following table describes public limits. [Staff notes](staff.md) record the 
 | Candidate OS unit | 768 MiB memory, 2 CPU equivalents, 96 tasks, 1,024 file descriptors | Configuration only; no deployed enforcement claim |
 
 Prometheus metrics and alert delivery are not implemented. Before launch, add and exercise alerts for request/authorization error rates, rejected writes, pool pressure, database storage, update-check failures, and future media queue depth/failures/output limits. Do not treat journal output as equivalent coverage.
+
+Comment limits count Rust `chars()` and PostgreSQL `char_length` in a UTF8 database. Combining marks and received CR/LF characters count separately; no normalization is performed. A maximum comment can now occupy 64,000 bytes before HTML escaping. Thread and catalog row caps do not establish a safe aggregate response-memory budget. Mixed load, large responses and the candidate OS memory ceiling still need external qualification.
 
 ## Backup and recovery
 
@@ -49,6 +51,8 @@ The recorded `/tmp/board-postgres.*` data directory can be restarted while it re
 ## Releases, rotation and incident response
 
 Build release artifacts from a reviewed commit with the lockfile. Run migrations using the operator identity before starting compatible application code. Migrations are forward-only; rollback of destructive schema changes requires a reviewed compensating migration or restoration. Do not assume replacing a binary reverses a migration. No release automation or production deploy has run.
+
+For migration 0007, stop public and staff serving, take a backup, apply the operator migration, and start binaries that use `max_comment_chars` and the expanded parser bound. The migration requires UTF8 encoding and preserves existing numeric board settings and post text. It renames the board column and replaces the global comment constraint. Old public binaries expect the old column, and old renderers truncate longer comments; do not roll back only the binaries. Review proxy form-body limits alongside the 256 KiB application limit. `scripts/test-comment-migration.sh` exercises the historical upgrade and encoding guard in separate disposable databases. See [comment verification](verification-comment-limits.md).
 
 Rotate database credentials through the operator channel, restart affected pools and revoke the old credential. Staff authenticator revocation and recovery use the separate operator workflow described in [staff operations](staff.md); normal staff runtime credentials cannot change account roles. Rotate release and backup credentials outside web services. Re-run permission and recovery tests after grant changes.
 

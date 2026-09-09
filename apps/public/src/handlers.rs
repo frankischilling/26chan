@@ -244,7 +244,7 @@ pub async fn post(
         &form.name,
         &form.sub,
         &form.com,
-        settings.max_comment_bytes as usize,
+        settings.max_comment_chars as usize,
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     if !matches!(form.email.as_str(), "" | "sage") {

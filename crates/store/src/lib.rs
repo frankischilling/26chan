@@ -28,7 +28,7 @@ pub struct Board {
     pub slug: String,
     pub title: String,
     pub description: String,
-    pub max_comment_bytes: i32,
+    pub max_comment_chars: i32,
     pub reply_limit: i32,
     pub bump_limit: i32,
     pub thread_limit: i32,

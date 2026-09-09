@@ -56,4 +56,31 @@ mod tests {
         );
         assert!(html.contains("class=\"spoiler\""));
     }
+
+    #[test]
+    fn preview_preserves_a_maximum_unicode_comment() {
+        let comment = "😀".repeat(board_domain::MAX_COMMENT_CHARS);
+        let report = Report {
+            id: 1,
+            board: "test".into(),
+            post_id: 1,
+            thread_id: 1,
+            reason: "Synthetic full preview".into(),
+            name: "Anonymous".into(),
+            subject: String::new(),
+            comment: comment.clone(),
+            state: "open".into(),
+            closed: false,
+            sticky: false,
+            deleted: false,
+        };
+        let html = Queue {
+            reports: vec![report.into()],
+            csrf: "example".into(),
+            recent: true,
+        }
+        .render()
+        .unwrap();
+        assert!(html.contains(&comment));
+    }
 }

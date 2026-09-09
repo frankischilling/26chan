@@ -17,7 +17,7 @@ fn page(catalog: bool) -> String {
         slug: "demo".into(),
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
-        max_comment_bytes: 4000,
+        max_comment_chars: 4000,
         reply_limit: 100,
         bump_limit: 75,
         thread_limit: 100,
