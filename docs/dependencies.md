@@ -18,10 +18,12 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 | PostgreSQL | 16.15 | Disposable local database; production patching/backup verification still required |
 | Host kernel | WSL 5.15.153.1, Ubuntu 24.04 userspace | Local testing only; not an approved processing host |
 | Isolation runtime / guest images / decoders | None installed for this project | Media disabled. Pin and inventory the runtime, host/guest kernels, rootfs and tools when implemented |
-| Workflow actions | Full commit IDs in workflows | `contents: read`; no persisted checkout credential or pull_request_target execution |
+| Workflow actions | checkout 7.0.1 (`3d3c42e5aac5ba805825da76410c181273ba90b1`); setup-node 7.0.0 (`820762786026740c76f36085b0efc47a31fe5020`) | Node 24 action runtimes; `contents: read`, no persisted checkout credential or automatic package-manager cache; no pull_request_target execution |
 
 First-party `forbid(unsafe_code)` does not apply to dependencies. The normal public dependency tree includes ring, Rustls, Tokio/mio/socket2 and Windows system bindings; these need maintenance even though complex media parsing is absent. A complete transitive unsafe-code audit has not been performed.
 
 The scheduled advisory workflow runs cargo-audit 0.22.2 and npm audit weekly. The operator must subscribe to failures and triage them; no alert delivery has been configured. A clean advisory result only covers known entries at the fetched revision.
+
+The action pins were resolved from the official [checkout 7.0.1 release](https://github.com/actions/checkout/releases/tag/v7.0.1) and [setup-node 7.0.0 release](https://github.com/actions/setup-node/releases/tag/v7.0.0) on September 8, 2026. Both actions require a runner supporting Node 24 (minimum 2.327.1); the configured hosted runners supply it. The workflow still installs Node 24.14.0 for browser tooling. Automatic package-manager caching is explicitly disabled because newer setup-node releases enable it for detected npm projects. [Verification notes](verification-ci-actions.md) record local checks and distinguish hosted checks awaiting execution for issue #10.
 
 For updates, open a focused change that records affected components and advisories, update exact tool/lock versions, run formatting/clippy/unit/database/browser checks, and inspect any screenshot differences. Re-run restore tests after database or migration changes. For future media updates, rebuild disposable guests and repeat connectivity/resource/promotion tests before enabling them. Do not blanket-refresh baselines or silently waive findings. Production updates require the operator's deployment approval.
