@@ -8,12 +8,17 @@ import re
 import signal
 import stat
 import subprocess
+import time
 
 ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C'}
 JOBS = pathlib.Path('/run/26chan-media-jobs')
 UNIT = re.compile(r'26chan-media-[0-9a-f]{32}\.service')
 WORKSPACE = re.compile(r'([0-9a-f]{32})-[a-z0-9_]{8}')
 MAX_ORPHANS = 16
+
+
+class JobProcessesRemain(RuntimeError):
+    pass
 
 
 def run_service(args, lock, *, deadline=30):
@@ -102,15 +107,28 @@ def assert_no_processes(units, vmm_uid=None):
             for line in membership.splitlines():
                 path = line.split(':', 2)[2]
                 if units.intersection(path.split('/')):
-                    raise RuntimeError('media service still has a process')
+                    raise JobProcessesRemain('media service still has a process')
             if vmm_uid is not None:
                 status = (process / 'status').read_text()
                 uid = next(line for line in status.splitlines() if line.startswith('Uid:'))
                 if str(vmm_uid) in uid.split()[1:]:
-                    raise RuntimeError('VMM identity still has a process')
+                    raise JobProcessesRemain('VMM identity still has a process')
         except (FileNotFoundError, ProcessLookupError):
             # A process that exited during inspection cannot retain job access.
             continue
+
+
+def wait_for_no_processes(units, *, timeout=2):
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            assert_no_processes(units)
+            return
+        except JobProcessesRemain:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(0.02, remaining))
 
 
 def stop_job(unit):
@@ -121,7 +139,9 @@ def stop_job(unit):
             raise RuntimeError('could not stop media service')
     if not stopped(service_state(unit)):
         raise RuntimeError('service remains active; workspace retained')
-    assert_no_processes({unit})
+    # Inactive unit metadata can precede disappearance of its final /proc entry.
+    # Keep the same strict process check and retain storage if draining times out.
+    wait_for_no_processes({unit})
 
 
 def workspace_mounted(root):
