@@ -28,7 +28,7 @@ pub enum Failure {
 
 #[derive(Clone)]
 pub struct MediaQueue {
-    pool: PgPool,
+    pub(crate) pool: PgPool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -192,7 +192,7 @@ impl MediaQueue {
     }
 }
 
-fn validate_hex(value: &str, length: usize) -> Result<(), StoreError> {
+pub(crate) fn validate_hex(value: &str, length: usize) -> Result<(), StoreError> {
     if value.len() != length
         || !value
             .bytes()
@@ -203,7 +203,7 @@ fn validate_hex(value: &str, length: usize) -> Result<(), StoreError> {
     Ok(())
 }
 
-fn changed(rows: u64) -> Result<(), StoreError> {
+pub(crate) fn changed(rows: u64) -> Result<(), StoreError> {
     if rows == 1 {
         Ok(())
     } else {
