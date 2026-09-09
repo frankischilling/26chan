@@ -12,6 +12,7 @@ database-tests = ["board-store/database-tests"]
 board-config = { path = "../../crates/config" }
 board-store = { path = "../../crates/store" }
 board-media = { path = "../../crates/media" }
+board-media-dispatch = { path = "../../crates/media-dispatch" }
 tokio = { workspace = true, features = ["fs", "io-util"] }
 serde_json.workspace = true
 serde.workspace = true
@@ -19,6 +20,8 @@ serde.workspace = true
 [dev-dependencies]
 sqlx.workspace = true
 tempfile = "=3.27.0"
+rcgen = { version = "=0.14.10", default-features = false, features = ["crypto", "ring", "pem"] }
+tokio-rustls = { version = "=0.26.5", default-features = false, features = ["ring"] }
 
 [lints]
 workspace = true

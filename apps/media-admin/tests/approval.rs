@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/dispatch_cases.rs"]
+mod dispatch_cases;
+
 use board_media::{ApprovedFiles, ObjectId, PublicationStore, Quarantine, ValidatedOutput};
 use board_media_admin::{publish, read_approved, reconcile};
 use board_store::{
@@ -197,6 +200,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         sqlx::query("UPDATE media.jobs SET state='failed',lease_token=NULL,expires_at=NULL,failure='abandoned' WHERE id=$1").bind(&job.id).execute(&admin).await.unwrap();
     }
     exercise_commands(&queue, &ids, temp.path(), &root).await;
+    dispatch_cases::exercise(&queue, &admin, &ids).await;
 }
 
 fn command(binary: &str, role: &str) -> Command {

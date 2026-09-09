@@ -2,7 +2,8 @@
 
 use board_config::MediaAdminSettings;
 use board_media::{OUTPUT_DISK_BYTES, ObjectId, PublicationStore, Quarantine, ValidatedOutput};
-use board_media_admin::{PublicationResult, publish, reconcile};
+use board_media_admin::{PublicationResult, dispatch, publish, reconcile};
+use board_media_dispatch::{ClientSettings, DispatchClient};
 use board_store::media::MediaQueue;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -34,6 +35,14 @@ async fn run() -> PublicationResult<()> {
     let settings = MediaAdminSettings::from_env()?;
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     match args.first().and_then(|arg| arg.to_str()) {
+        Some("dispatch") if args.len() == 3 => {
+            let client = DispatchClient::new(&ClientSettings::read(Path::new(&args[1]))?)?;
+            let quarantine = Quarantine::new(settings.quarantine.ok_or("private quarantine path required")?)?;
+            let store = PublicationStore::new(Path::new(&args[2]), &quarantine)?;
+            let queue = MediaQueue::connect(&settings.database_url).await?;
+            let approved = dispatch(&queue, &quarantine, &store, &client).await?;
+            println!("{}", approved.id);
+        }
         Some("claim") if args.len() == 2 => {
             let path = Path::new(&args[1]);
             let mut options = OpenOptions::new();
@@ -71,7 +80,7 @@ async fn run() -> PublicationResult<()> {
             let queue = MediaQueue::connect(&settings.database_url).await?;
             println!("{}", reconcile(&queue, &store).await?);
         }
-        _ => return Err("usage: media-publish claim LEASE_FILE | publish LEASE_FILE OUTPUT_DISK PRIVATE_STORE | reconcile PRIVATE_STORE".into()),
+        _ => return Err("usage: media-publish dispatch CLIENT_CONFIG PRIVATE_STORE | claim LEASE_FILE | publish LEASE_FILE OUTPUT_DISK PRIVATE_STORE | reconcile PRIVATE_STORE".into()),
     }
     Ok(())
 }
