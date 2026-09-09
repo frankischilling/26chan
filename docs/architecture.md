@@ -1,10 +1,11 @@
 # Architecture and threat model
 
-The implemented domain is a modular monolith: `board-domain` owns identifiers, posting validation and formatting; `board-config` validates origins and runtime configuration; `board-store` owns public and media queue SQL; `board-public` serves Axum routes and escaped Askama templates. `board-staff` is a separate Axum deployment with its own authentication and moderation SQL. `board-migrate` and `staff-operator` are operator binaries. First-party crates forbid unsafe Rust.
+The implemented domain is a modular monolith: `board-domain` owns identifiers, posting validation and formatting; `board-config` validates origins and runtime configuration; `board-store` owns public and media queue SQL; `board-public` serves Axum routes and escaped Askama templates. An optional [JSON API listener](api.md) runs in that same public process with a restricted route surface and board-origin CORS. It shares the public pool, request budget and authority; it is not a new privilege boundary. `board-staff` is a separate Axum deployment with its own authentication and moderation SQL. `board-migrate` and `staff-operator` are operator binaries. First-party crates forbid unsafe Rust.
 
 ```mermaid
 flowchart LR
   Browser --> Public[Public Axum process]
+  APIClient[Board-origin JSON client] -->|optional JSON listener| Public
   Public -->|board_public login| Content[(PostgreSQL content and deletion hashes)]
   Operator -->|board_migrator login| DB[(Schema and migrations)]
   StaffBrowser[Staff browser] --> Staff[Staff Axum process]
