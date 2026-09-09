@@ -18,6 +18,14 @@ fn separated_media_configuration_is_checked_before_connecting() {
         "enabled",
         "public-inherits-reader",
         "writer-inherits-reader",
+        "query-host",
+        "query-hostaddr",
+        "query-user",
+        "query-port",
+        "query-option",
+        "fragment",
+        "writer-query",
+        "writer-fragment",
     ] {
         let mut command = Command::new(std::env::current_exe().unwrap());
         command
@@ -79,6 +87,35 @@ fn separated_media_configuration_is_checked_before_connecting() {
             "enabled" => {
                 command.env("MEDIA_ENABLED", "true");
             }
+            "writer-query" | "writer-fragment" => {
+                command.env_remove("MEDIA_READ_DATABASE_URL");
+                let suffix = if case == "writer-query" {
+                    "?application_name=fixture"
+                } else {
+                    "#fixture"
+                };
+                command.env(
+                    "MEDIA_DATABASE_URL",
+                    format!("postgres://board_media:synthetic@127.0.0.1:55432/imageboard{suffix}"),
+                );
+            }
+            "query-host" | "query-hostaddr" | "query-user" | "query-port" | "query-option"
+            | "fragment" => {
+                let suffix = match case {
+                    "query-host" => "?host=127.0.0.1",
+                    "query-hostaddr" => "?hostaddr=127.0.0.1",
+                    "query-user" => "?user=board_media_read",
+                    "query-port" => "?port=55432",
+                    "query-option" => "?application_name=fixture",
+                    _ => "#fixture",
+                };
+                command.env(
+                    "MEDIA_READ_DATABASE_URL",
+                    format!(
+                        "postgres://board_media_read:synthetic@127.0.0.1:55432/imageboard{suffix}"
+                    ),
+                );
+            }
             _ => (),
         }
         let result = command.output().unwrap();
@@ -102,7 +139,8 @@ fn media_reader_config_child() {
         assert!(MediaReaderSettings::from_env().is_ok());
     } else if case == "public-inherits-reader" {
         assert!(Settings::from_env().is_err());
-    } else if case == "writer-inherits-reader" {
+    } else if ["writer-inherits-reader", "writer-query", "writer-fragment"].contains(&case.as_str())
+    {
         assert!(MediaAdminSettings::from_env().is_err());
     } else {
         assert!(MediaReaderSettings::from_env().is_err());

@@ -295,6 +295,8 @@ impl MediaAdminSettings {
         if !matches!(parsed.scheme(), "postgres" | "postgresql")
             || parsed.username() != "board_media"
             || !loopback
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
         {
             return Err(ConfigError(
                 "Development media intake requires a loopback board_media PostgreSQL login.",
@@ -356,6 +358,8 @@ impl MediaReaderSettings {
         if !matches!(parsed.scheme(), "postgres" | "postgresql")
             || parsed.username() != "board_media_read"
             || !loopback
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
         {
             return Err(ConfigError(
                 "Development media readers require a loopback board_media_read PostgreSQL login.",
