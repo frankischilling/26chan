@@ -2,6 +2,7 @@
 set -euo pipefail
 : "${TEST_PUBLIC_DATABASE_URL:?Set the disposable public test database URL}"
 : "${MEDIA_DATABASE_URL:?Set the disposable media test database URL}"
+: "${MEDIA_READ_DATABASE_URL:?Set the disposable approved-media reader database URL}"
 : "${AUTH_DATABASE_URL:?Set the disposable authentication test database URL}"
 : "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
 cargo fmt --all -- --check
