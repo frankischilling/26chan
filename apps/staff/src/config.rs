@@ -1,4 +1,5 @@
 use std::net::{IpAddr, SocketAddr};
+use std::time::Duration;
 use url::Url;
 
 #[derive(Clone)]
@@ -8,6 +9,19 @@ pub struct Config {
     pub production: bool,
     pub auth_database: String,
     pub staff_database: String,
+    pub idle_timeout: Duration,
+}
+pub fn parse_staff_idle_timeout(value: Option<&str>) -> Result<Duration, &'static str> {
+    let seconds = match value {
+        None => 900,
+        Some(value) => value
+            .parse::<u64>()
+            .map_err(|_| "Invalid STAFF_IDLE_TIMEOUT_SECONDS")?,
+    };
+    if !(60..=3600).contains(&seconds) {
+        return Err("Invalid STAFF_IDLE_TIMEOUT_SECONDS");
+    }
+    Ok(Duration::from_secs(seconds))
 }
 fn valid_database(value: &str, identity: &str, production: bool) -> bool {
     let Ok(url) = Url::parse(value) else {
@@ -97,6 +111,13 @@ impl Config {
             std::env::var("AUTH_DATABASE_URL").map_err(|_| "AUTH_DATABASE_URL required")?;
         let staff_database =
             std::env::var("STAFF_DATABASE_URL").map_err(|_| "STAFF_DATABASE_URL required")?;
+        let idle_timeout = match std::env::var("STAFF_IDLE_TIMEOUT_SECONDS") {
+            Ok(value) => parse_staff_idle_timeout(Some(&value))?,
+            Err(std::env::VarError::NotPresent) => parse_staff_idle_timeout(None)?,
+            Err(std::env::VarError::NotUnicode(_)) => {
+                return Err("Invalid STAFF_IDLE_TIMEOUT_SECONDS");
+            }
+        };
         if !valid_database(&auth_database, "board_auth", production)
             || !valid_database(&staff_database, "board_staff", production)
         {
@@ -110,6 +131,7 @@ impl Config {
             production,
             auth_database,
             staff_database,
+            idle_timeout,
         })
     }
     pub fn cookie_name(&self) -> &'static str {
@@ -130,6 +152,24 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn idle_timeout_policy_defaults_and_rejects_invalid_values() {
+        assert_eq!(
+            parse_staff_idle_timeout(None).unwrap(),
+            std::time::Duration::from_secs(900)
+        );
+        for value in ["", "0", "59", "3601", "minutes", "900 ", "-1"] {
+            assert!(parse_staff_idle_timeout(Some(value)).is_err(), "{value}");
+        }
+        assert_eq!(
+            parse_staff_idle_timeout(Some("60")).unwrap(),
+            std::time::Duration::from_secs(60)
+        );
+        assert_eq!(
+            parse_staff_idle_timeout(Some("3600")).unwrap(),
+            std::time::Duration::from_secs(3600)
+        );
+    }
     #[test]
     fn staff_database_requires_identity_and_unambiguous_verified_tls() {
         for query in [
