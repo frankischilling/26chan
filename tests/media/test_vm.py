@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Owned Linux VM smoke test; requires explicit reviewed artifacts and root."""
 import os
+import contextlib
 import json
 import pathlib
+import signal
 import socket
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -33,7 +36,7 @@ class VmTest(unittest.TestCase):
             source = private / 'input.png'
             source.write_bytes(red_png())
             disk = private / 'result.disk'
-            subprocess.run([str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_TEST_CONFIG'],
+            subprocess.run([sys.executable, str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_TEST_CONFIG'],
                             str(source), str(disk)], check=True, timeout=30)
             self.assert_clean()
 
@@ -58,7 +61,8 @@ class VmTest(unittest.TestCase):
 
     def assert_clean(self):
         jobs = pathlib.Path('/run/26chan-media-jobs')
-        self.assertEqual(sorted(p.name for p in jobs.iterdir()), ['runner.lock'])
+        if jobs.exists():
+            self.assertEqual(sorted(p.name for p in jobs.iterdir()), ['runner.lock'])
         result = subprocess.run(['systemctl', 'list-units', '--all', '--no-legend',
                                  '26chan-media-*.service'], capture_output=True, text=True, check=True)
         self.assertEqual(result.stdout.strip(), '')
@@ -70,7 +74,7 @@ class VmTest(unittest.TestCase):
             source.write_bytes(payload)
             started = time.monotonic()
             result = subprocess.run(
-                [str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_PROBE_CONFIG'],
+                [sys.executable, str(REPO / 'scripts/media/run-job.py'), os.environ['MEDIA_VM_PROBE_CONFIG'],
                  str(source), str(root / 'result.disk')], capture_output=True, text=True, timeout=35)
             elapsed = time.monotonic() - started
             self.assert_clean()
@@ -102,7 +106,7 @@ class VmTest(unittest.TestCase):
             source = root / 'input.png'
             source.write_bytes(red_png())
             result = subprocess.run(
-                [str(REPO / 'scripts/media/run-job.py'), config, str(source), str(root / 'result.disk')],
+                [sys.executable, str(REPO / 'scripts/media/run-job.py'), config, str(source), str(root / 'result.disk')],
                 capture_output=True, text=True, timeout=45,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -111,6 +115,103 @@ class VmTest(unittest.TestCase):
             self.assertEqual(output[:20], b'IBRGBA01\0\0\0\x01\0\0\0\x01\xff\0\0\xff')
             self.assertEqual(output[20:], bytes(4_194_796))
             self.assert_clean()
+
+    @contextlib.contextmanager
+    def sleeping_vm(self):
+        self.assert_clean()
+        with tempfile.TemporaryDirectory(prefix='26chan-cancel-test-') as name:
+            source = pathlib.Path(name) / 'input'
+            source.write_bytes(b'sleep')
+            destination = pathlib.Path(name) / 'result.disk'
+            runner = subprocess.Popen(
+                [sys.executable, str(REPO / 'scripts/media/run-job.py'),
+                 os.environ['MEDIA_VM_PROBE_CONFIG'], str(source), str(destination)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+            workspace = None
+            unit = None
+            try:
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline:
+                    self.assertIsNone(runner.poll(), 'runner exited before VM became ready')
+                    roots = [p for p in pathlib.Path('/run/26chan-media-jobs').iterdir() if p.is_dir()]
+                    if roots:
+                        self.assertEqual(len(roots), 1)
+                        workspace = roots[0]
+                        unit = '26chan-media-' + workspace.name.split('-')[0] + '.service'
+                        for process in pathlib.Path('/proc').glob('[0-9]*'):
+                            try:
+                                matches = ((process / 'comm').read_text().strip() == 'firecracker'
+                                           and unit in (process / 'cgroup').read_text())
+                            except FileNotFoundError:
+                                continue
+                            if matches:
+                                # The sleep probe remains alive; allow PID1 to launch it.
+                                time.sleep(0.3)
+                                yield runner, unit, workspace, destination, process
+                                return
+                    time.sleep(0.05)
+                self.fail('sleep VM did not start within eight seconds')
+            finally:
+                if runner.poll() is None:
+                    runner.terminate()
+                runner.communicate(timeout=12)
+                # Regression RED must also clean only the exact resources it owns.
+                if unit is not None:
+                    stopped = subprocess.run(['systemctl', 'stop', unit], stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL, timeout=10)
+                    self.assertIn(stopped.returncode, (0, 5))  # already collected is also clean
+                if workspace is not None and workspace.exists():
+                    if os.path.ismount(workspace):
+                        subprocess.run(['umount', str(workspace)], check=True, timeout=5)
+                    workspace.rmdir()
+
+    def test_catchable_cancellation_cleans_service_and_workspace(self):
+        for first_signal in (signal.SIGTERM, signal.SIGINT):
+            with self.subTest(first_signal=first_signal), self.sleeping_vm() as (runner, unit, workspace, disk, vmm):
+                runner.send_signal(first_signal)
+                time.sleep(0.02)
+                if runner.poll() is None:
+                    runner.send_signal(signal.SIGTERM)
+                    runner.send_signal(signal.SIGINT)
+                runner.wait(timeout=12)
+                self.assertNotEqual(runner.returncode, 0)
+                self.assertFalse(disk.exists())
+                self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace')
+                self.assertFalse(vmm.exists(), 'cancelled runner left a live VMM')
+                self.assert_clean()
+        self.run_probe(b'disk')
+
+    def test_live_vmm_has_effective_host_resource_limits(self):
+        with self.sleeping_vm() as (_, unit, _, _, vmm):
+            groups = {}
+            for line in (vmm / 'cgroup').read_text().splitlines():
+                _, controllers, path = line.split(':', 2)
+                for controller in controllers.split(','):
+                    groups[controller] = path
+            if 'memory' in groups:
+                mounts = {}
+                for line in pathlib.Path('/proc/mounts').read_text().splitlines():
+                    _, mount, kind, options, *_ = line.split()
+                    if kind == 'cgroup':
+                        for controller in options.split(','):
+                            mounts[controller] = pathlib.Path(mount)
+                for controller in ('memory', 'cpu', 'pids'):
+                    self.assertEqual(groups[controller], '/system.slice/' + unit)
+                memory = mounts['memory'] / groups['memory'].lstrip('/')
+                cpu = mounts['cpu'] / groups['cpu'].lstrip('/')
+                pids = mounts['pids'] / groups['pids'].lstrip('/')
+                self.assertEqual((memory / 'memory.limit_in_bytes').read_text().strip(), '268435456')
+                self.assertEqual((memory / 'memory.memsw.limit_in_bytes').read_text().strip(), '268435456')
+                self.assertEqual((memory / 'memory.swappiness').read_text().strip(), '0')
+                self.assertEqual((cpu / 'cpu.cfs_quota_us').read_text(), (cpu / 'cpu.cfs_period_us').read_text())
+            else:
+                self.assertEqual(groups[''], '/system.slice/' + unit)
+                memory = cpu = pids = pathlib.Path('/sys/fs/cgroup') / groups[''].lstrip('/')
+                self.assertEqual((memory / 'memory.max').read_text().strip(), '268435456')
+                self.assertEqual((memory / 'memory.swap.max').read_text().strip(), '0')
+                quota, period = (cpu / 'cpu.max').read_text().split()
+                self.assertEqual(quota, period)
+            self.assertEqual((pids / 'pids.max').read_text().strip(), '32')
 
     def test_worker_identity_files_credentials_and_network(self):
         # A real owned TCP service responds before and after guest denial.

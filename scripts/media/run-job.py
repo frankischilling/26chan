@@ -13,6 +13,7 @@ import os
 import pathlib
 import pwd
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
@@ -22,6 +23,21 @@ ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C'}
 OUTPUT_BYTES = 4_194_816
 INPUT_BYTES = 8 * 1024 * 1024
 JOBS = pathlib.Path('/run/26chan-media-jobs')
+
+
+class Cancelled(RuntimeError):
+    pass
+
+
+def ignore_cancellation():
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(signum, signal.SIG_IGN)
+
+
+def cancel(signum, frame):
+    # Repeated ordinary cancellation must not interrupt controlled unwinding.
+    ignore_cancellation()
+    raise Cancelled('job cancelled')
 
 
 def command(args, **kwargs):
@@ -98,13 +114,20 @@ def run(config, source, destination):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         job_id = uuid.uuid4().hex
         unit = '26chan-media-' + job_id
-        root = pathlib.Path(tempfile.mkdtemp(prefix=job_id + '-', dir=JOBS))
-        mounted = False
+        root = None
         output_reader = None
         try:
+            # Block only the allocation-to-assignment window so cancellation
+            # cannot lose the path that finally needs to remove.
+            previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+            try:
+                root = pathlib.Path(tempfile.mkdtemp(prefix=job_id + '-', dir=JOBS))
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous)
             command(['/usr/bin/mount', '-t', 'tmpfs', '-o', 'size=96M,nosuid,mode=0700',
                      'tmpfs', str(root)])
-            mounted = True
+            shutil.copyfile(pathlib.Path(__file__).with_name('verify-cgroups.py'), root / 'verify-cgroups.py')
+            (root / 'verify-cgroups.py').chmod(0o400)
             jail = root / 'firecracker' / job_id / 'root'
             jail.mkdir(parents=True, mode=0o700)
             for name in ('kernel', 'initramfs'):
@@ -132,8 +155,8 @@ def run(config, source, destination):
             }
             (jail / 'vm.json').write_text(json.dumps(machine))
             (jail / 'vm.json').chmod(0o444)
-            # Cgroup limits stay with systemd. With cgroup-version=2 and no
-            # cgroup parameters jailer leaves the inherited cgroup in place.
+            # The service-side gate checks kernel controls before jailer runs.
+            # It also pins jailer's parent selection to the verified membership.
             args = ['/usr/bin/systemd-run', '--quiet', '--wait', '--collect',
                     '--unit=' + unit, '--service-type=exec']
             for prop in ('MemoryMax=256M', 'MemorySwapMax=0', 'TasksMax=32', 'CPUQuota=100%',
@@ -142,9 +165,10 @@ def run(config, source, destination):
                          'LimitCORE=0', 'LimitFSIZE=67108864', 'LimitNOFILE=64',
                          'StandardInput=null', 'StandardOutput=null', 'StandardError=null'):
                 args.append('--property=' + prop)
-            args += [str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
+            args += ['/usr/bin/python3', '-I', str(root / 'verify-cgroups.py'), unit + '.service',
+                     str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
                      '--uid', str(user.pw_uid), '--gid', str(user.pw_gid),
-                     '--chroot-base-dir', str(root), '--cgroup-version', '2', '--new-pid-ns',
+                     '--chroot-base-dir', str(root), '--new-pid-ns',
                      '--resource-limit', 'fsize=4194816', '--resource-limit', 'no-file=64',
                      '--', '--no-api', '--config-file', '/vm.json']
             command(args)
@@ -166,6 +190,7 @@ def run(config, source, destination):
             finally:
                 output_reader.close()
         finally:
+            ignore_cancellation()
             if output_reader is not None:
                 output_reader.close()
             # stop is synchronous and targets the full generated service. Never
@@ -177,9 +202,11 @@ def run(config, source, destination):
                                    capture_output=True, timeout=5)
             if state.stdout.strip() not in (b'inactive', b'failed', b'unknown'):
                 raise RuntimeError('service remains active; workspace retained')
-            if mounted:
-                command(['/usr/bin/umount', str(root)])
-            root.rmdir()
+            if root is not None:
+                # mount may have completed immediately before cancellation.
+                if os.path.ismount(root):
+                    command(['/usr/bin/umount', str(root)])
+                root.rmdir()
 
 
 def main():
@@ -196,6 +223,8 @@ def main():
            for name in os.environ):
         parser.error('remove credential-bearing environment variables')
     try:
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(signum, cancel)
         run(configuration(args.config), args.input, args.output)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         parser.exit(1, 'isolated job failed; no validated publication produced\n')
