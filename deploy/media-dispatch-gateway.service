@@ -1,0 +1,42 @@
+# Development qualification candidate; no database or publication credentials.
+[Unit]
+Description=Paperboard authenticated media dispatch gateway
+BindsTo=media-dispatch-broker.service
+After=media-dispatch-broker.service network.target
+
+[Service]
+Type=exec
+User=board-media-gateway
+Group=board-media-gateway
+WorkingDirectory=/opt/paperboard
+EnvironmentFile=/etc/26chan-dispatch/dispatch.env
+ExecStart=/usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin APP_ENV=${APP_ENV} /opt/paperboard/media-dispatch-gateway /etc/26chan-dispatch/gateway.json
+Restart=no
+KillMode=control-group
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+InaccessiblePaths=-/etc/26chan-coordinator -/var/lib/26chan-coordinator
+UMask=0077
+LimitNOFILE=256
+LimitCORE=0
+TasksMax=32
+MemoryMax=128M
+CPUQuota=100%
+StandardOutput=journal
+StandardError=journal

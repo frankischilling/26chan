@@ -1,0 +1,8 @@
+{
+  "listen": "127.0.0.1:9443",
+  "server_certificate": "/etc/26chan-dispatch/server.pem",
+  "server_key": "/etc/26chan-dispatch/server.key",
+  "client_ca": "/etc/26chan-dispatch/client-ca.pem",
+  "authorization_file": "/etc/26chan-dispatch/authorized-clients",
+  "broker_socket": "/run/26chan-media-dispatch/broker.sock"
+}
