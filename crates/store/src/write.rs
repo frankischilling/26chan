@@ -25,7 +25,7 @@ pub async fn create_post(
         &post.name,
         &post.subject,
         &post.comment,
-        board.max_comment_bytes as usize,
+        board.max_comment_chars as usize,
     )
     .map_err(|error| StoreError::Invalid(error.0))?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")

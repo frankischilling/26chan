@@ -15,10 +15,13 @@ pub struct Line {
 }
 
 /// Nonrecursive grammar. HTML is always text; templates escape every text node.
-/// The posting boundary caps input at 16,000 bytes. This parser also bounds work
-/// when called independently on malformed or oversized input.
+/// The posting boundary caps input at 16,000 Unicode scalar values. This parser
+/// also bounds work when called independently on malformed or oversized input.
 pub fn parse_comment(input: &str) -> Vec<Line> {
-    let end = input.floor_char_boundary(input.len().min(16_000));
+    let end = input
+        .char_indices()
+        .nth(crate::MAX_COMMENT_CHARS)
+        .map_or(input.len(), |(index, _)| index);
     input[..end]
         .split('\n')
         .map(|line| {
@@ -101,5 +104,32 @@ mod tests {
                 }
             } }
         }
+
+        #[test]
+        fn scalar_limit_is_preserved_for_multibyte_and_combining_text(
+            chars in prop::collection::vec(
+                prop_oneof![Just('é'), Just('😀'), Just('e'), Just('\u{301}')],
+                1..20_001,
+            ),
+        ) {
+            let input: String = chars.into_iter().collect();
+            let expected: String = input.chars().take(crate::MAX_COMMENT_CHARS).collect();
+            let lines = parse_comment(&input);
+            prop_assert_eq!(lines.len(), 1);
+            prop_assert_eq!(&lines[0].tokens, &vec![Token::Text(expected)]);
+        }
+    }
+
+    #[test]
+    fn parser_preserves_a_full_unicode_comment_and_truncates_by_scalar() {
+        let accepted = "😀".repeat(16_000);
+        let lines = parse_comment(&accepted);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].tokens, vec![Token::Text(accepted)]);
+
+        let oversized = "😀".repeat(16_001);
+        let lines = parse_comment(&oversized);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].tokens, vec![Token::Text("😀".repeat(16_000))]);
     }
 }

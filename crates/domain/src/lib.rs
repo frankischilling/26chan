@@ -3,6 +3,9 @@
 pub mod formatting;
 pub use formatting::{Line, Token, parse_comment};
 
+pub const MAX_COMMENT_CHARS: usize = 16_000;
+pub const MAX_COMMENT_BYTES: usize = 64_000;
+
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct ValidationError(pub &'static str);
@@ -34,14 +37,19 @@ pub fn validate_post(
     name: &str,
     subject: &str,
     comment: &str,
-    max_bytes: usize,
+    max_chars: usize,
 ) -> Result<(), ValidationError> {
     if name.len() > 80 || subject.len() > 120 {
         return Err(ValidationError("Name or subject is too long."));
     }
-    if comment.trim().is_empty() || comment.len() > max_bytes.min(16_000) {
+    if comment.len() > MAX_COMMENT_BYTES {
         return Err(ValidationError(
-            "Enter a comment within this board's byte limit.",
+            "Enter a comment within this board's character limit.",
+        ));
+    }
+    if comment.trim().is_empty() || comment.chars().count() > max_chars.min(MAX_COMMENT_CHARS) {
+        return Err(ValidationError(
+            "Enter a comment within this board's character limit.",
         ));
     }
     if [name, subject, comment].iter().any(|s| {
@@ -89,10 +97,18 @@ mod tests {
     }
 
     #[test]
-    fn post_limits_are_bytes_and_reject_blank_comments() {
+    fn post_limits_count_unicode_scalars_and_reject_blank_comments() {
         assert!(validate_post("A", "subject", "hello", 20).is_ok());
         assert!(validate_post("A", "", "   \n", 20).is_err());
-        assert!(validate_post("A", "", "ééé", 5).is_err());
+        assert!(validate_post("A", "", &"é".repeat(4), 4).is_ok());
+        assert!(validate_post("A", "", &"😀".repeat(4), 4).is_ok());
+        assert!(validate_post("A", "", "e\u{301}", 2).is_ok());
+        assert!(validate_post("A", "", "e\u{301}", 1).is_err());
+        assert!(validate_post("A", "", "a\r\nb", 4).is_ok());
+        assert!(validate_post("A", "", "a\r\nb", 3).is_err());
+        assert!(validate_post("A", "", &"x".repeat(16_001), 16_000).is_err());
+        assert!(validate_post("A", "", &"😀".repeat(16_000), 16_000).is_ok());
+        assert!(validate_post("A", "", &"😀".repeat(16_001), 16_000).is_err());
         assert!(validate_post("A\0", "", "hello", 20).is_err());
     }
 }

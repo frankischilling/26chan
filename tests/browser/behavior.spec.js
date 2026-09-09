@@ -133,7 +133,7 @@ test('posting, replying, reporting, and password deletion persist through reload
   expect(deleted.status()).toBe(404);
 });
 
-test('core browsing and posting work with JavaScript disabled', async ({ browser }) => {
+test('advertised Unicode posting limit works with JavaScript disabled', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:3000/demo/');
@@ -141,13 +141,34 @@ test('core browsing and posting work with JavaScript disabled', async ({ browser
   await page.getByRole('link', { name: 'Reply', exact: true }).click();
   await expect(page.locator('#postForm')).toBeVisible();
   await page.goto('http://127.0.0.1:3000/test/');
-  await page.locator('#com').fill('A post submitted with JavaScript disabled.');
+  const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
+  const limit = listing.boards.find(board => board.board === 'test').max_comment_chars;
+  expect(limit).toBe(4000);
+  const comment = '😀'.repeat(limit);
+  await expect(page.locator('#postHelp')).toContainText(`${limit} characters`);
+  await expect(page.locator('#com')).not.toHaveAttribute('maxlength');
+  await page.locator('#com').fill(comment);
   await page.locator('#password').fill('no-javascript-password');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
   await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
   const op = /#p(\d+)$/.exec(page.url())[1];
+  const threadUrl = page.url();
+  const jsonUrl = `http://127.0.0.1:3000/test/thread/${op}.json`;
   await page.reload();
-  await expect(page.locator(`#m${op}`)).toContainText('A post submitted with JavaScript disabled.');
+  await expect(page.locator(`#m${op}`)).toHaveText(comment);
+  const before = await page.request.get(jsonUrl);
+  const beforeJson = await before.json();
+  expect(beforeJson.posts[0].com).toBe(comment);
+  expect(beforeJson.posts[0].replies).toBe(0);
+  await page.locator('#com').fill(`${comment}a`);
+  await page.locator('#password').fill('no-javascript-password');
+  const denied = page.waitForResponse(response => response.url().endsWith('/test/post') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  expect((await denied).status()).toBe(422);
+  const after = await page.request.get(jsonUrl);
+  expect(await after.json()).toEqual(beforeJson);
+  expect(after.headers().etag).toBe(before.headers().etag);
+  await page.goto(threadUrl);
   await page.locator(`#p${op} summary`).click();
   await page.locator(`#delete${op}`).fill('no-javascript-password');
   await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();

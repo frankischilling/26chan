@@ -6,7 +6,7 @@ This is a partial implementation mapping to **OWASP ASVS 5.0.0**, tag [`v5.0.0_r
 |---|---|---|
 | 1.2.1, 1.2.2 | Public and staff Askama escaping; typed HTTP(S) links and numeric quote paths; formatting and browser tests | Public media rendering remains disabled |
 | 1.3.5, 1.3.7 | Bounded nonrecursive formatting grammar; templates are compiled developer files | Further parser/renderer review |
-| 2.2.1, 2.2.2 | Server-side byte/range/identifier validation; SQL constraints | Board-specific parity inventory incomplete |
+| 2.2.1, 2.2.2 | Server-side character/byte/range/identifier validation; SQL constraints; Unicode boundaries agree across forms, storage and rendering | Board-specific parity inventory and original Unicode counting unit incomplete |
 | 2.3.2, 2.3.3, 2.3.4 | Documented limits, PostgreSQL transactions and shared board locks; public reply and media admission/claim contention tests | Broader mixed public/staff load and failure testing |
 | 2.4.1 | Public peer limiter, staff authentication-start limiter, concurrency/body limits, bounded previews and media queue admission | Distributed abuse control and external resource/load tests |
 | 3.4.3, 3.4.4, 3.4.5, 3.4.6 | CSP, nosniff, same-origin referrer policy, denied framing on responses | Deployed proxy/header review |

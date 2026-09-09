@@ -25,7 +25,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     match args[0].as_str() {
         "setup" => {
             let mut tx = pool.begin().await?;
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_bytes,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Synthetic staff test','Harmless fixtures',16000,100,100,100,10)").bind(board).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Synthetic staff test','Harmless fixtures',16000,100,100,100,10)").bind(board).execute(&mut *tx).await?;
             let thread: i64 =
                 sqlx::query_scalar("INSERT INTO content.threads(board) VALUES ($1) RETURNING id")
                     .bind(board)

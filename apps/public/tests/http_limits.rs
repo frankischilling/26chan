@@ -28,6 +28,46 @@ async fn integer_page_extremes_are_rejected_without_panics() {
 
 #[tokio::test]
 async fn streamed_form_limit_applies_without_content_length() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, offline_app()).await.unwrap();
+    });
+    for (size, status) in [(262_144, "422"), (262_145, "413")] {
+        let response = tokio::task::spawn_blocking(move || {
+            use std::io::{Read, Write};
+            let mut socket = std::net::TcpStream::connect(address).unwrap();
+            socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+            socket.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+            // Transfer-Encoding keeps the body length unknown to the server.
+            // Send multiple frames across the actual HTTP transport. A body
+            // exactly at the limit reaches form validation (missing fields).
+            write!(socket, "POST /test/post HTTP/1.1\r\nHost: {address}\r\nOrigin: http://127.0.0.1:3000\r\nContent-Type: application/x-www-form-urlencoded\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n").unwrap();
+            for chunk in vec![b'x'; size].chunks(8192) {
+                write!(socket, "{:X}\r\n", chunk.len()).unwrap();
+                socket.write_all(chunk).unwrap();
+                socket.write_all(b"\r\n").unwrap();
+            }
+            socket.write_all(b"0\r\n\r\n").unwrap();
+            let mut response = String::new();
+            socket.read_to_string(&mut response).unwrap();
+            response
+        }).await.unwrap();
+        assert!(
+            response.starts_with(&format!("HTTP/1.1 {status} ")),
+            "unexpected response: {response}"
+        );
+        assert!(response.contains("x-content-type-options: nosniff\r\n"));
+        assert!(response.contains("cache-control: no-store\r\n"));
+    }
+    server.abort();
+    let _ = server.await;
+}
+
+#[tokio::test]
+async fn percent_encoded_comment_budget_reaches_form_validation() {
+    // A missing password must reach form validation even with a comment that
+    // needs the full 192,000-byte URL-encoding budget. No database is needed.
     let response = offline_app()
         .oneshot(
             Request::builder()
@@ -35,14 +75,12 @@ async fn streamed_form_limit_applies_without_content_length() {
                 .uri("/test/post")
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "application/x-www-form-urlencoded")
-                .body(Body::from("x".repeat(65_537)))
+                .body(Body::from(format!("com={}", "%F0%9F%98%80".repeat(16_000))))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
-    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
-    assert_eq!(response.headers()["cache-control"], "no-store");
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
