@@ -1,6 +1,6 @@
 # Media dispatch verification
 
-The local UID-authenticated broker is implemented. The Rust TLS gateway and queue-to-publication dispatch command remain unfinished. These results do not qualify public uploads or production deployment.
+The local UID-authenticated broker and bounded mutual-TLS gateway are implemented and reviewed. Queue-to-publication dispatch remains unfinished. These results do not qualify public uploads or production deployment.
 
 ## Broker checkpoint
 
@@ -26,6 +26,28 @@ wsl -d Ubuntu -- python3 -m py_compile /mnt/c/Users/imike/4chan-rewrite/scripts/
 
 The first ran 12 tests, the second two; compilation completed without diagnostics. The unchanged runner did not require another broad recovery run after the broker-only fix. An independent source review identified the retention defect and accepted its scoped fix. This was an implementation review, not a deployed security audit or GitHub approval.
 
+## TLS gateway checkpoint
+
+Commits `c76136f` and `2bf1791` add the Rust client and unprivileged gateway, TLS 1.3 mutual authentication, fresh bounded client authorization, fixed framing and deadlines. Windows passed five protocol and nine portable TLS/configuration tests. Native Linux passed five protocol and twenty TLS/configuration/gateway tests with `MEDIA_DISPATCH_ROOT_TESTS=1`, including all eleven explicit root integration cases. The actual CLI also ran under a nonroot identity against an owned root Unix backend.
+
+The initial protocol, TLS and gateway scaffolds failed before implementation. Successful controls accompany authentication, revocation and identity denials. In-flight revocation tests synchronize after initial authorization and around backend processing. The TLS backend returns harmless fixed bytes; the separate broker suite exercises real VM decoding. Neither establishes the complete queue-to-publication path.
+
+Final commands used Rust 1.94.0; native commands used the isolated environment described below:
+
+```sh
+cargo test -p board-media-dispatch --all-targets --locked
+MEDIA_DISPATCH_ROOT_TESTS=1 cargo test -p board-media-dispatch --all-targets --locked
+cargo clippy -p board-media-dispatch --all-targets --locked -- -D warnings
+cargo fmt --all -- --check
+cargo audit
+```
+
+The first test command passed on Windows; the explicit root command passed on Linux. Clippy passed on both platforms. Formatting passed. Cargo-audit 0.22.2 checked 324 dependencies against 1,243 advisories with no findings. The unchanged broker suite passed all fourteen tests again in 28.997 seconds using the actual fixture paths above. An earlier invocation used nonexistent runbook example paths and failed startup; correcting the fixture paths resolved those failures without source changes.
+
+Independent review found that the key-permission test could reject an invalid endpoint before reading the key. The fix proves construction succeeds with valid settings before changing key permissions. The same test now checks valid JSON at 65,536 bytes, then rejects one additional byte. Separate controlled mutations demonstrated that each assertion fails when its intended guard is weakened; production source was restored byte-for-byte. The focused test passed on Linux and Windows afterward, as did formatting and native Clippy. Scoped rereview accepted both corrections with no open findings. The full deadline and broker suites were not repeated for this test-only change.
+
+Ordinary runs without explicit root enablement do not exercise the Linux gateway cases. Protected parent directories and private Windows ACLs remain operator prerequisites. Candidate deployed service behavior and production certificate lifecycle are still unqualified.
+
 ## Native Linux prerequisites
 
 WSL initially had no native Rust toolchain. Rust 1.94.0, rustfmt and Clippy were installed under `/opt/26chan-rust` using the official rustup installer after checking its published SHA-256. Shell profiles and the Windows toolchain were unchanged. [Rustup documents the isolated installation settings](https://rust-lang.github.io/rustup/installation/index.html).
@@ -44,10 +66,14 @@ source .local/staff.env
 /opt/26chan-rust/cargo/bin/cargo test --workspace --all-features --locked --quiet
 ```
 
-The media library passed 33 tests. Every workspace test binary reported zero failures and ignored tests. These native baseline checks precede the new Rust transport and do not replace its forthcoming tests. Browser comparisons, current-branch hosted checks and complete authenticated dispatch have not run for this checkpoint.
+The media library passed 33 tests. Every workspace test binary reported zero failures and ignored tests. These native baseline checks precede the new Rust transport and do not replace its forthcoming tests.
+
+`wsl -d Ubuntu -u root -- bash scripts/restore-exercise.sh` also passed against PostgreSQL 16.15. It compared post and asset fingerprints and fifteen table counts, then checked approved-reader filtering and public/media/auth/staff grants and denials. The generated restore database was removed. The backup remains under ignored `.local/backups` per the operating procedure. This covers database recovery in the disposable cluster, not media object recovery or production backup protection.
+
+Both hosted runs for committed broker checkpoint `1e7d5a6` passed: [push run 34411861923](https://github.com/frankischilling/26chan/actions/runs/34411861923) and [PR run 34411866431](https://github.com/frankischilling/26chan/actions/runs/34411866431). Each ran Linux application/database/browser/VM/migration/restore checks and the Windows visual job. These workflows do not yet invoke the new broker suite; its evidence above is local. The runs do not cover the later TLS commits or complete authenticated dispatch.
 
 ## Limits
 
 A disconnected caller may leave bounded processing underway until the runner's independent deadlines. Uncertain cleanup retains storage and exits; restart may need to wait for a surviving launch client to release its lock. The local broker has no network listener or database credentials. Its root host-launch authority remains privileged and must not be confused with the restricted guest identity.
 
-Mutual TLS, revocation during dispatch, coordinator lease fencing through transport, full-path approval/read tests, candidate services, and deployed production qualification remain required. The existing guest-boundary evidence is recorded separately in [media boundaries](verification-media-boundaries.md). See the [dispatch runbook](media-dispatch.md) for local use and recovery.
+Coordinator lease fencing through transport, full-path approval/read tests, candidate services, and deployed production qualification remain required. The existing guest-boundary evidence is recorded separately in [media boundaries](verification-media-boundaries.md). See the [dispatch runbook](media-dispatch.md) for local use and recovery.

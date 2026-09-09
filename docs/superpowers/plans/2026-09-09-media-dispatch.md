@@ -59,7 +59,7 @@ Startup must reconcile existing VMMs under their own lock before deleting verifi
 
 **Interfaces:** Produces `ClientSettings::read(path: &Path) -> Result<ClientSettings>`, `DispatchClient::new(settings: &ClientSettings) -> Result<DispatchClient>`, `DispatchClient::process<R: AsyncRead + Unpin>(&self, input: R, length: u64) -> Result<Vec<u8>>`. Produces a Linux gateway CLI `media-dispatch-gateway GATEWAY_CONFIG` with validated operator JSON containing listen address, server cert/key, client CA, authorization file and broker socket path. Library error type exposes static categories, not secret values. Consumes Task 1's exact fixed protocol and root peer requirement.
 
-- [ ] Add the crate and test scaffold; pin the maintained Tokio-Rustls version after checking primary docs/registry, reuse existing locked Rustls 0.23.44 with ring and TLS 1.3 only. For synthetic certificate generation choose a maintained pinned test-only generator or generate public harmless fixtures; document provenance and validity. Add failing AsyncRead framing/property tests and real loopback TLS authentication tests. Example invariants:
+- [x] Add the crate and test scaffold; pin the maintained Tokio-Rustls version after checking primary docs/registry, reuse existing locked Rustls 0.23.44 with ring and TLS 1.3 only. For synthetic certificate generation choose a maintained pinned test-only generator or generate public harmless fixtures; document provenance and validity. Add failing AsyncRead framing/property tests and real loopback TLS authentication tests. Example invariants:
 
 ```rust
 assert!(read_request(&mut stream_with_length(8_388_609)).await.is_err());
@@ -69,7 +69,7 @@ assert_eq!(authorized_backend_calls.load(Ordering::SeqCst), 0);
 
 Test valid mutual authentication; absent, wrong-CA, expired and removed client identity; malformed/missing authorization file; server-name/CA mismatch; request/response truncation and extra bytes; slow handshake/intake; overload before input allocation. Verify revocation after handshake and before forwarding/response, not merely startup configuration rejection. The valid control must reach the owned backend in the same fixture.
 
-- [ ] Implement exact bounded protocol helpers, absolute deadlines and private bounded config/key loading. Use explicit trusted roots, standard certificate validation and client authentication, TLS1.3 only, no early data or resumption. Authorize the validated leaf SHA-256 using a fresh file read after input and before response. Reject more than eight fingerprints, duplicates, malformed lines, untrusted writable permissions and unavailable files. No public roots, proxies or permissive verifier.
+- [x] Implement exact bounded protocol helpers, absolute deadlines and private bounded config/key loading. Use explicit trusted roots, standard certificate validation and client authentication, TLS1.3 only, no early data or resumption. Authorize the validated leaf SHA-256 using a fresh file read after input and before response. Reject more than eight fingerprints, duplicates, malformed lines, untrusted writable permissions and unavailable files. No public roots, proxies or permissive verifier.
 
 ```rust
 let verifier = rustls::server::WebPkiClientVerifier::builder_with_provider(roots.into(), provider.clone()).build()?;
@@ -83,7 +83,7 @@ server.session_storage = std::sync::Arc::new(rustls::server::NoServerSessionStor
 
 The gateway must be nonroot, reject unrelated credentials, bound simultaneous handshakes to four and authorized work to one with immediate overload rejection. Authenticate/validate the request before connecting to the fixed Unix broker; verify broker peer UID 0. Enforce a three-second handshake and intake, twenty-five-second processing exchange, exact response framing and close-notify EOF. Cancellation drops only owned connections; existing broker/VM deadlines remain independent. The client transmits only bounded bytes, rejects changed input/trailing response and times out without returning partial output.
 
-- [ ] Run focused protocol/TLS tests red/green, crate Clippy with warnings denied, formatting, relevant broker conformance checks, and dependency audit for added pins. Record actual commands/results, self-review, and commit the task through the wrapper.
+- [x] Run focused protocol/TLS tests red/green, crate Clippy with warnings denied, formatting, relevant broker conformance checks, and dependency audit for added pins. Record actual commands/results, self-review, and commit the task through the wrapper.
 
 ### Task 3: Fenced coordinator integration and complete qualification
 
