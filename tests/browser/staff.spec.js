@@ -2,25 +2,23 @@ import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 const binary = process.platform === 'win32' ? '.exe' : '';
-function run(name, args) {
+function run(name, args, input) {
   const result = spawnSync(path.resolve(`target/debug/${name}${binary}`), args, {
-    encoding: 'utf8', timeout: 15_000,
+    encoding: 'utf8', timeout: 15_000, input,
     env: { MIGRATION_DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PATH: process.env.PATH, SystemRoot: process.env.SystemRoot },
   });
   expect(result.status, `Synthetic helper ${name} failed`).toBe(0);
   return result.stdout.trim();
 }
-function fixture(command, board) { const value = run('examples/browser-fixture', [command, board]); return value ? JSON.parse(value) : null; }
+function fixture(command, board, input) { const value = run('examples/browser-fixture', [command, board], input); return value ? JSON.parse(value) : null; }
 test('synthetic WebAuthn enrollment, login, audited moderation, recovery and logout', async ({ page, context }) => {
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const invitationDir = path.resolve(`.local/staff-browser-${board}`);
   const recoveryDir = path.resolve(`.local/staff-recovery-${board}`);
   const invitationFile = path.join(invitationDir, 'invitation.txt');
   const data = fixture('setup', board);
-  let lastLoginAssertion;
-  page.on('request', request => { if (request.url().endsWith('/login/finish')) lastLoginAssertion = request.postData(); });
   try {
     run('staff-operator', ['provision', board, 'moderator', invitationFile]);
     const invitation = readFileSync(invitationFile, 'utf8').trim();
@@ -41,13 +39,29 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       await expect(page).toHaveURL(/\/reports$/);
     }
+    const originalFinish = page.waitForRequest(request => request.url().endsWith('/login/finish'));
     await login();
-    const assertion = lastLoginAssertion;
+    const finishRequest = await originalFinish;
+    const assertion = finishRequest.postData();
+    const originalCookies = await finishRequest.headerValue('cookie');
+    const originalHandle = originalCookies.split(';').map(value => value.trim()).find(value => value.startsWith('staff-ceremony=')).slice('staff-ceremony='.length);
+    // Restore the exact consumed handle so the database's consume-once check is
+    // exercised, rather than merely the missing-cookie guard.
+    await context.addCookies([{ name: 'staff-ceremony', value: originalHandle, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Strict' }]);
     const replay = await page.evaluate(async body => (await fetch('/login/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, assertion);
     expect(replay).toBe(401);
-    await page.evaluate(async username => { await fetch('/login/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) }); }, board);
-    fixture('expire-ceremony', board);
-    const expiredChallenge = await page.evaluate(async body => (await fetch('/login/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, assertion);
+    const currentAssertion = await page.evaluate(async username => {
+      const response = await fetch('/login/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });
+      if (!response.ok) throw new Error('Synthetic ceremony start failed');
+      const challenge = await response.json();
+      const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON(challenge.publicKey);
+      const credential = await navigator.credentials.get({ publicKey });
+      return JSON.stringify(credential.toJSON());
+    }, board);
+    const currentHandle = (await context.cookies()).find(cookie => cookie.name === 'staff-ceremony').value;
+    const expiration = fixture('expire-ceremony', board, createHash('sha256').update(currentHandle).digest('hex'));
+    expect(expiration.expired).toBe(1);
+    const expiredChallenge = await page.evaluate(async body => (await fetch('/login/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, currentAssertion);
     expect(expiredChallenge).toBe(401);
     const report = page.locator(`#report-${data.report}`);
     await expect(report).toContainText('Review <b>text</b>');

@@ -64,7 +64,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
         }
         "expire-ceremony" => {
-            sqlx::query("UPDATE staff_identity.ceremonies SET expires_at=clock_timestamp()-interval '1 second' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
+            use std::io::Read;
+            let mut hash = String::new();
+            std::io::stdin().take(65).read_to_string(&mut hash)?;
+            if hash.len() != 64 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return Err("Invalid synthetic ceremony hash".into());
+            }
+            let changed=sqlx::query("UPDATE staff_identity.ceremonies SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=decode($2,'hex') AND account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).bind(hash).execute(&pool).await?;
+            println!("{}", json!({"expired":changed.rows_affected()}));
         }
         "expire" => {
             sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
