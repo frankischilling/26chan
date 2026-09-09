@@ -25,6 +25,7 @@ jobs:
           sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc
       - name: Start disposable database and migrate
         run: |
+          sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh
           sudo bash scripts/dev-media-reader-db.sh

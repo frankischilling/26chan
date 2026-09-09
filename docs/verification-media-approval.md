@@ -11,6 +11,7 @@ Environment: Windows, Rust 1.94.0, PostgreSQL 16.15 in the disposable WSL Ubuntu
 | Check | Observed result |
 | --- | --- |
 | Reader bootstrap and owner migration | Created the separate `board_media_read` login; migration 0008 applied successfully. Re-running bootstrap refused to replace credentials. |
+| `scripts/test-role-bootstrap.sh` | All migrations applied from the staging role template in a separate private Unix-socket-only PostgreSQL cluster. Reader remained NOLOGIN with approved-only grants; the cluster was stopped and removed. |
 | `cargo test -p board-store --features database-tests --test media_assets --test media_queue --locked` | Three approval and two queue tests passed, including actual role denials, concurrent approval, expiry while waiting on a row lock, bounded cleanup, immutability and approval survival. |
 | `cargo test -p board-media --test publication --locked` | Four Windows tests passed, including contention from a separate process and lock release after process termination. The Unix symlink case runs in Linux CI. |
 | `cargo test -p board-config --test media_reader --locked` | Configuration subprocess cases passed for valid reader, wrong role/host/mode and inherited credentials; public and writer configuration reject the reader secret. |
