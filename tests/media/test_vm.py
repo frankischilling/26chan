@@ -18,6 +18,19 @@ import zlib
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
+def check_probe_report(data, expected_checks):
+    if not 1 <= expected_checks <= 32 or len(data) != 4_194_816 or data[:8] != b'IBRGBA01':
+        raise ValueError('invalid probe report framing')
+    width, height = struct.unpack('>II', data[8:16])
+    if (width, height) != (expected_checks, 1):
+        raise ValueError('probe did not report every requested check')
+    for index in range(width):
+        if data[16 + index * 4:20 + index * 4] != b'\0\xff\0\xff':
+            raise ValueError(f'probe check {index} failed')
+    if any(data[16 + width * 4:]):
+        raise ValueError('probe report has trailing data')
+
+
 def red_png():
     def chunk(kind, data):
         return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
@@ -67,7 +80,7 @@ class VmTest(unittest.TestCase):
                                  '26chan-media-*.service'], capture_output=True, text=True, check=True)
         self.assertEqual(result.stdout.strip(), '')
 
-    def run_probe(self, payload, success=True, valid=True):
+    def run_probe(self, payload, success=True, valid=True, expected_checks=1):
         with tempfile.TemporaryDirectory(prefix='26chan-probe-test-') as name:
             root = pathlib.Path(name)
             source = root / 'input'
@@ -87,15 +100,7 @@ class VmTest(unittest.TestCase):
             if not valid:
                 self.assertEqual(data, bytes(4_194_816))
                 return elapsed
-            self.assertEqual(data[:8], b'IBRGBA01')
-            width, height = struct.unpack('>II', data[8:16])
-            self.assertEqual(height, 1)
-            self.assertGreater(width, 0)
-            for index in range(width):
-                self.assertEqual(data[16 + index * 4:20 + index * 4], b'\0\xff\0\xff',
-                                 f'{payload.splitlines()[0]!r} check {index} failed')
-            self.assertEqual(len(data), 4_194_816)
-            self.assertEqual(data[16 + width * 4:], bytes(4_194_816 - 16 - width * 4))
+            check_probe_report(data, expected_checks)
             return elapsed
 
     def test_decodes_one_input_and_removes_job(self):
@@ -245,7 +250,8 @@ class VmTest(unittest.TestCase):
 
             try:
                 healthy()
-                self.run_probe(f'inspect\n127.0.0.1:{listener.getsockname()[1]}\n127.0.0.1:55432\n'.encode())
+                self.run_probe(f'inspect\n127.0.0.1:{listener.getsockname()[1]}\n127.0.0.1:55432\n'.encode(),
+                               expected_checks=11)
                 healthy()
             finally:
                 stopped.set()

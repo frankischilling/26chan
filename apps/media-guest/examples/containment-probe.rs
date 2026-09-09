@@ -5,7 +5,8 @@ fn probe() -> std::io::Result<()> {
     use std::{
         fs::{self, File, OpenOptions},
         io::{Read, Seek, SeekFrom, Write},
-        net::{SocketAddr, TcpStream},
+        net::{SocketAddr, TcpStream, UdpSocket},
+        os::unix::net::UnixStream,
         process::{Command, Stdio},
         time::Duration,
     };
@@ -26,6 +27,58 @@ fn probe() -> std::io::Result<()> {
     let mut lines = text.lines();
     let mut checks = Vec::new();
     match lines.next() {
+        Some("boundaries") => {
+            for line in lines {
+                if checks.len() == 32 {
+                    return Err(std::io::Error::other("too many boundary checks"));
+                }
+                let (operation, target) = line
+                    .split_once('\t')
+                    .ok_or_else(|| std::io::Error::other("invalid boundary check"))?;
+                let denied = match operation {
+                    "tcp" | "udp" => {
+                        let endpoint: SocketAddr = target.parse().map_err(std::io::Error::other)?;
+                        if operation == "tcp" {
+                            TcpStream::connect_timeout(&endpoint, Duration::from_millis(200))
+                                .is_err()
+                        } else {
+                            // A reply proves access even if it is malformed. The allowed
+                            // host control separately requires the exact DNS response.
+                            let exchange = || -> std::io::Result<()> {
+                                let bind = if endpoint.is_ipv4() {
+                                    "0.0.0.0:0"
+                                } else {
+                                    "[::]:0"
+                                };
+                                let socket = UdpSocket::bind(bind)?;
+                                socket.set_read_timeout(Some(Duration::from_millis(200)))?;
+                                socket.set_write_timeout(Some(Duration::from_millis(200)))?;
+                                socket.connect(endpoint)?;
+                                socket.send(b"\x01\x02\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07witness\x07invalid\x00\x00\x01\x00\x01")?;
+                                socket.recv(&mut [0; 512])?;
+                                Ok(())
+                            };
+                            exchange().is_err()
+                        }
+                    }
+                    "read" | "write" | "unix" => {
+                        if !std::path::Path::new(target).is_absolute() {
+                            return Err(std::io::Error::other("boundary path is not absolute"));
+                        }
+                        match operation {
+                            "read" => File::open(target).is_err(),
+                            "write" => OpenOptions::new().write(true).open(target).is_err(),
+                            _ => UnixStream::connect(target).is_err(),
+                        }
+                    }
+                    _ => return Err(std::io::Error::other("unknown boundary operation")),
+                };
+                checks.push(denied);
+            }
+            if checks.is_empty() {
+                return Err(std::io::Error::other("empty boundary checks"));
+            }
+        }
         Some("inspect") => {
             checks.push(rustix::process::getuid().as_raw() == 1000);
             checks.push(std::env::vars_os().next().is_none());

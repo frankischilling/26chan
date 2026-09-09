@@ -22,7 +22,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux
       - name: Start disposable database and migrate
         run: |
           sudo bash scripts/test-role-bootstrap.sh
@@ -60,6 +60,9 @@ jobs:
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             MEDIA_VM_VALIDATOR="$PWD/target/debug/media-validate" \
             python3 tests/media/test_vm.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            python3 tests/media/test_boundaries.py
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_recovery.py -v

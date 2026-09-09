@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Filesystem fixtures for the pre-exec resource gate; VM checks are in test_vm.py."""
+"""Resource-gate fixtures and strict probe-report checks; VM tests run separately."""
 import importlib.util
 import pathlib
 import tempfile
 import unittest
+
+import test_vm
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
@@ -95,6 +97,27 @@ class ResourceGateTest(unittest.TestCase):
                 self.enforce((membership, fixture[1]))
         path = self.root / 'memory' / self.group.lstrip('/') / 'memory.memsw.limit_in_bytes'
         self.assertEqual(path.read_text().strip(), '9223372036854771712')
+
+
+class ProbeReportTest(unittest.TestCase):
+    def report(self, count, colors=None):
+        import struct
+        pixels = colors if colors is not None else b'\0\xff\0\xff' * count
+        report = b'IBRGBA01' + struct.pack('>II', count, 1) + pixels
+        return report + bytes(4_194_816 - len(report))
+
+    def test_every_requested_check_must_be_reported(self):
+        test_vm.check_probe_report(self.report(2), 2)
+        for reported in (0, 1, 3):
+            with self.subTest(reported=reported), self.assertRaises(ValueError):
+                test_vm.check_probe_report(self.report(reported), 2)
+
+    def test_access_or_malformed_output_cannot_count_as_denial(self):
+        report = self.report(2)
+        for invalid in (self.report(2, b'\0\xff\0\xff\xff\0\0\xff'),
+                        report[:-1], report + b'\0', report[:-1] + b'\1'):
+            with self.subTest(size=len(invalid)), self.assertRaises(ValueError):
+                test_vm.check_probe_report(invalid, 2)
 
 
 if __name__ == '__main__':
