@@ -129,6 +129,81 @@ class ProbeReportTest(unittest.TestCase):
 
 
 class ChildCleanupTest(unittest.TestCase):
+    def test_signals_during_deadline_cleanup_preserve_reaping_and_timeout(self):
+        with tempfile.TemporaryDirectory(prefix='26chan-owned-grace-') as name:
+            root = pathlib.Path(name)
+            fixture = root / 'fixture.py'
+            fixture.write_text('''import pathlib, signal, subprocess, sys, time
+root = pathlib.Path(__file__).parent
+if len(sys.argv) > 1:
+    time.sleep(10)
+    raise SystemExit(0)
+def cancel(*args):
+    raise KeyboardInterrupt
+signal.signal(signal.SIGTERM, cancel)
+worker = subprocess.Popen([sys.executable, __file__, 'worker'], start_new_session=True)
+(root / 'worker.pid').write_text(str(worker.pid))
+try:
+    time.sleep(10)
+finally:
+    (root / 'cleaning').touch()
+    time.sleep(0.5)
+    worker.terminate()
+    worker.wait(timeout=3)
+    (root / 'cleaned').touch()
+''')
+            observed = []
+            checked = []
+            processes = []
+            stopping = threading.Event()
+            handlers = {sig: signal.signal(sig, cancel_test) for sig in (signal.SIGTERM, signal.SIGINT)}
+            popen = subprocess.Popen
+
+            def start_child(*args, **kwargs):
+                child = popen(*args, **kwargs)
+                processes.append(child)
+                return child
+
+            def interrupt_cleanup():
+                while not stopping.wait(0.01):
+                    if (root / 'cleaning').exists():
+                        for sig in (signal.SIGTERM, signal.SIGINT):
+                            if stopping.wait(0.05):
+                                return
+                            observed.append(sig)
+                            os.kill(os.getpid(), sig)
+                        return
+
+            def post_check():
+                record = root / 'worker.pid'
+                checked.append(((root / 'cleaned').exists(),
+                                record.exists() and not pathlib.Path('/proc', record.read_text()).exists()))
+
+            notifier = threading.Thread(target=interrupt_cleanup)
+            notifier.start()
+            try:
+                with mock.patch('owned_process.subprocess.Popen', side_effect=start_child):
+                    with self.assertRaises(subprocess.TimeoutExpired):
+                        run_owned([sys.executable, str(fixture)], timeout=1, post_check=post_check,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self.assertEqual(observed, [signal.SIGTERM, signal.SIGINT])
+                self.assertEqual(checked, [(True, True)], 'post-check ran before owned cleanup finished')
+                self.assertTrue(all(child.returncode is not None for child in processes))
+                for sig in handlers:
+                    self.assertIs(signal.getsignal(sig), cancel_test, 'caller handler was not restored')
+            finally:
+                stopping.set()
+                notifier.join(timeout=2)
+                # Reap the recorded direct child even when the RED assertion fails.
+                for child in processes:
+                    try:
+                        child.wait(timeout=4)
+                    except subprocess.TimeoutExpired:
+                        child.kill()
+                        child.wait(timeout=3)
+                for sig, handler in handlers.items():
+                    signal.signal(sig, handler)
+
     def test_deadline_reaps_separate_session_child_and_runs_post_check(self):
         self.check_cleanup(False)
 
