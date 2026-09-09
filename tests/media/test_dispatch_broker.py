@@ -13,6 +13,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 import test_vm
 
@@ -263,6 +264,72 @@ class RootBrokerTest(unittest.TestCase):
                              + b'IBRGBA01\0\0\0\x01\0\0\0\x01\xff\0\0\xff')
             self.assertEqual(data[36:], bytes(4_194_796))
             self.assertEqual(list((self.endpoint / 'requests').iterdir()), [])
+
+    def test_failed_cleanup_keeps_request_when_cancellation_is_reenabled(self):
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            with self.subTest(signum=signum):
+                self.endpoint = self.root / ('broker-' + str(signum))
+                failed_cleanup = False
+                original_reset = broker.reset_cancellation
+                original_reconcile = broker.reconcile_jobs
+                handlers = {number: signal.getsignal(number) for number in broker.SIGNALS}
+                client_errors = []
+
+                def controlled_run(config, source, destination):
+                    self.assertEqual(source.read_bytes(), b'controlled input')
+                    destination.write_bytes(b'controlled stopped-state uncertainty')
+                    destination.chmod(0o600)
+                    broker.runner.ignore_cancellation()
+                    raise RuntimeError('controlled execution failure')
+
+                def controlled_reconcile():
+                    nonlocal failed_cleanup
+                    if next((self.endpoint / 'requests').iterdir(), None) is None:
+                        return original_reconcile()
+                    failed_cleanup = True
+                    raise RuntimeError('controlled cleanup failure')
+
+                def reset_with_controlled_cancellation():
+                    original_reset()
+                    if failed_cleanup:
+                        # Model cancellation at a handler re-enable boundary.
+                        # No process receives a real signal and no VM starts.
+                        broker.runner.cancel(signum, None)
+
+                def client():
+                    try:
+                        deadline = time.monotonic() + 5
+                        while not (self.endpoint / 'broker.sock').exists():
+                            self.assertLess(time.monotonic(), deadline)
+                            time.sleep(.01)
+                        self.assertEqual(self.client(frame(b'controlled input')), b'')
+                    except BaseException as error:
+                        client_errors.append(error)
+
+                thread = threading.Thread(target=client)
+                thread.start()
+                try:
+                    with mock.patch.object(broker.runner, 'run', controlled_run), \
+                            mock.patch.object(broker, 'reconcile_jobs', controlled_reconcile), \
+                            mock.patch.object(broker, 'reset_cancellation', reset_with_controlled_cancellation):
+                        with self.assertRaises((broker.RequestRetained, broker.runner.Cancelled)) as outcome:
+                            broker.serve({}, self.endpoint, self.gateway)
+                    self.assertTrue(failed_cleanup)
+                    requests = list((self.endpoint / 'requests').iterdir())
+                    self.assertEqual(len(requests), 1)
+                    self.assertIsInstance(outcome.exception, broker.RequestRetained)
+                    self.assertEqual((requests[0] / 'input').read_bytes(), b'controlled input')
+                    self.assertEqual((requests[0] / 'output').read_bytes(),
+                                     b'controlled stopped-state uncertainty')
+                finally:
+                    for number, handler in handlers.items():
+                        signal.signal(number, handler)
+                    thread.join(6)
+                    for request in (self.endpoint / 'requests').iterdir():
+                        broker.remove_request(request)
+                self.assertFalse(thread.is_alive())
+                self.assertEqual(client_errors, [])
+                self.vm.assert_clean()
 
     def test_second_broker_cannot_change_live_socket_or_requests(self):
         with self.running():

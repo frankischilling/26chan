@@ -173,13 +173,17 @@ def serve(config, directory, gateway):
                 runner.run(config, source, destination)
             except BaseException:
                 # A failed stop must retain input/output as well as VM storage.
+                # Keep cancellation suppressed through the uncertain-cleanup
+                # handoff so it cannot replace RequestRetained while unwinding.
+                runner.ignore_cancellation()
                 try:
                     with locked_jobs():
                         reconcile_jobs()
                 except BaseException:
                     raise RequestRetained('dispatch cleanup incomplete') from None
+                reset_cancellation()
                 raise
-            finally:
+            else:
                 reset_cancellation()
 
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
