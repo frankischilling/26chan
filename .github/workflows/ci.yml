@@ -19,6 +19,8 @@ jobs:
       - name: Install pinned Rust and PostgreSQL
         run: |
           rustup toolchain install 1.94.0 --profile minimal --component rustfmt --component clippy
+          test -f /etc/apt/sources.list.d/ubuntu.sources
+          sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
           sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc
       - name: Start disposable database and migrate
