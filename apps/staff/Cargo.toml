@@ -10,6 +10,7 @@ database-tests = []
 [dependencies]
 board-domain = { path = "../../crates/domain" }
 board-config = { path = "../../crates/config" }
+board-http = { path = "../../crates/http" }
 askama.workspace = true
 axum.workspace = true
 sqlx.workspace = true

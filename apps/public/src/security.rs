@@ -14,7 +14,7 @@ use std::{
 use tokio::sync::Semaphore;
 
 pub struct Limits {
-    active: Semaphore,
+    active: std::sync::Arc<Semaphore>,
     pub hashes: std::sync::Arc<Semaphore>,
     peers: Mutex<HashMap<IpAddr, (Instant, u32)>>,
 }
@@ -22,7 +22,7 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            active: Semaphore::new(32),
+            active: std::sync::Arc::new(Semaphore::new(32)),
             hashes: std::sync::Arc::new(Semaphore::new(4)),
             peers: Mutex::new(HashMap::new()),
         }
@@ -30,18 +30,21 @@ impl Default for Limits {
 }
 
 pub async fn protect(State(state): State<AppState>, request: Request, next: Next) -> Response {
+    let Ok(permit) = state.limits.active.clone().try_acquire_owned() else {
+        return headers(
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Server is busy. Try again shortly.",
+            )
+                .into_response(),
+            state.production,
+        );
+    };
     let response = protect_inner(&state, request, next).await;
-    headers(response, state.production)
+    headers(board_http::hold_permit(response, permit), state.production)
 }
 
 async fn protect_inner(state: &AppState, request: Request, next: Next) -> Response {
-    let Ok(_permit) = state.limits.active.try_acquire() else {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Server is busy. Try again shortly.",
-        )
-            .into_response();
-    };
     if !matches!(
         *request.method(),
         Method::GET | Method::HEAD | Method::OPTIONS

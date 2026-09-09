@@ -14,9 +14,14 @@ use webauthn_rs::prelude::*;
 type Shared = State<Arc<AppState>>;
 
 pub async fn request_limits(State(state): Shared, request: Request, next: Next) -> Response {
-    let Ok(_permit) = state.limits.permits.clone().try_acquire_owned() else {
+    let Ok(permit) = state.limits.permits.clone().try_acquire_owned() else {
         return AppError::Capacity.into_response();
     };
+    let response = request_limits_inner(state, request, next).await;
+    board_http::hold_permit(response, permit)
+}
+
+async fn request_limits_inner(state: Arc<AppState>, request: Request, next: Next) -> Response {
     if request.method() == axum::http::Method::POST
         && matches!(request.uri().path(), "/login/start" | "/enroll/start")
     {

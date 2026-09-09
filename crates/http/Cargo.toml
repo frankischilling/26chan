@@ -1,0 +1,18 @@
+[package]
+name = "board-http"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum.workspace = true
+bytes.workspace = true
+http-body.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+
+[lints]
+workspace = true

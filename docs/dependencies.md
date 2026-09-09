@@ -5,6 +5,7 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 | Component | Pinned/tested version | Role and maintenance note |
 |---|---|---|
 | Tokio | 1.53.1 in lockfile | Async runtime; native OS integration and unsafe internals are in the trust base |
+| Bytes / HTTP body | 1.12.1 / 1.1.0 | Direct declarations reuse existing locked versions. The local `board-http` crate retains admission through response data ownership; Bytes reference counting and its internal unsafe implementation remain in the trust base |
 | Rustls / ring | 0.23.44 / 0.17.14 | Database TLS; ring includes native/assembly code. Keep certificate verification enabled |
 | SQLx PostgreSQL driver | 0.9.0 | Bound SQL and PostgreSQL protocol. MySQL/SQLite packages can appear in the lock graph through macro metadata; no SQLite/MySQL driver is enabled in the public normal dependency tree |
 | Askama | 0.16.1 | Compiled templates and automatic escaping; application never uses the `safe` filter |

@@ -24,6 +24,8 @@ pub fn router(state: AppState) -> Router {
             security::protect,
         ))
         .layer(axum::middleware::from_fn_with_state(state.clone(), cors))
+        // Finalize ownership after CORS has normalized or emptied the body.
+        .layer(axum::middleware::from_fn(board_http::retain_response_body))
         .with_state(state)
 }
 

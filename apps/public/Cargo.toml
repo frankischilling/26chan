@@ -11,6 +11,7 @@ database-tests = ["board-store/database-tests"]
 board-domain = { path = "../../crates/domain" }
 board-config = { path = "../../crates/config" }
 board-store = { path = "../../crates/store" }
+board-http = { path = "../../crates/http" }
 askama.workspace = true
 axum.workspace = true
 sqlx.workspace = true

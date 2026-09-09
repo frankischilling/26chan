@@ -56,6 +56,7 @@ pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Route
             state.clone(),
             security::protect,
         ))
+        .layer(middleware::from_fn(board_http::retain_response_body))
         .with_state(state.clone());
     let api = api_http::router(state);
     (public, api)
