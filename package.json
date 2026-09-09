@@ -5,7 +5,8 @@
   "scripts": {
     "test": "playwright test",
     "test:behavior": "playwright test tests/browser/behavior.spec.js",
-    "test:visual": "playwright test tests/browser/visual.spec.js"
+    "test:visual": "playwright test tests/browser/visual.spec.js",
+    "test:staff": "playwright test --config playwright.staff.config.js"
   },
   "devDependencies": { "@playwright/test": "1.62.0" }
 }

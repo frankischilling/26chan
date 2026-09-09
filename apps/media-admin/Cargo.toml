@@ -1,0 +1,22 @@
+[package]
+name = "board-media-admin"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+database-tests = ["board-store/database-tests"]
+
+[dependencies]
+board-config = { path = "../../crates/config" }
+board-store = { path = "../../crates/store" }
+board-media = { path = "../../crates/media" }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+serde_json.workspace = true
+
+[dev-dependencies]
+sqlx.workspace = true
+tempfile = "=3.27.0"
+
+[lints]
+workspace = true

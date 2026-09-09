@@ -1,0 +1,33 @@
+[Unit]
+Description=Board staff authentication and moderation
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=board-staff
+Group=board-staff
+WorkingDirectory=/opt/board
+EnvironmentFile=/etc/board/staff.env
+ExecStart=/opt/board/bin/board-staff
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6
+CapabilityBoundingSet=
+UMask=0077
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=64
+LimitNOFILE=1024
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

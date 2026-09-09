@@ -4,7 +4,7 @@ A 4chan clone rewritten in Rust, named for iron's atomic number: 26.
 
 Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boards, threads, replies, password deletion, reporting, catalog pages and a subset of the public read-only JSON API. Core browsing and posting work without JavaScript.
 
-Development is ongoing. Media uploads and WebAuthn staff tooling are not implemented, and this is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
+Development is ongoing. Private media intake and queue management are available for development; public uploads remain disabled until isolated processing is implemented and tested. A separate WebAuthn staff application handles report review and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
 ## Getting started
 
@@ -18,13 +18,17 @@ Requirements:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl
+sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl
 
 git clone https://github.com/frankischilling/26chan.git
 cd 26chan
 
 sudo bash scripts/dev-db.sh
+sudo bash scripts/dev-media-db.sh
+sudo bash scripts/dev-staff-db.sh
 sudo chown "$(id -u):$(id -g)" .local .local/database.env .local/database.ps1
+sudo chown "$(id -u):$(id -g)" .local/media.env .local/media.ps1
+sudo chown "$(id -u):$(id -g)" .local/staff.env .local/staff.ps1
 source .local/database.env
 cargo run -p board-store --bin board-migrate --locked
 bash scripts/seed.sh
@@ -51,17 +55,20 @@ Stop a manually running server before browser tests; Playwright starts and stops
 
 ```bash
 source .local/database.env
+source .local/media.env
+source .local/staff.env
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo build --workspace --locked
+cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run test:behavior
+npm run test:staff
 sudo bash scripts/restore-exercise.sh
 ```
 
-Database tests require the migrated, seeded development database and fail if it is unavailable. Ordinary `cargo test` does not enable those tests; use `--all-features` as shown above. The browser runner starts its public server without inheriting migration credentials.
+Database tests require the migrated, seeded development database and fail if it is unavailable. Ordinary `cargo test` does not enable those tests; use `--all-features` as shown above. Browser launchers pass each service only its own credentials. The full Windows workspace build also needs Perl for vendored OpenSSL; see [staff setup](docs/staff.md).
 
 Screenshot baselines currently target Windows and the pinned Chromium 151.0.7922.34. Linux runs browser behavior tests. To compare screenshots on Windows without a database, install the Rust and Node prerequisites, then run from the checkout in PowerShell:
 
@@ -84,3 +91,5 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Verification record](docs/verification.md)
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
+- [Media intake, queue limits and remaining containment work](docs/media.md)
+- [Staff WebAuthn setup, enrollment and moderation](docs/staff.md)

@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff sign in</title><script src="/staff.js" defer></script></head>
+<body><main><h1>Staff sign in</h1><p>Use your enrolled passkey. User verification is required.</p>
+<form id="login"><label>Account <input name="username" autocomplete="username webauthn" required maxlength="64"></label><button type="submit">Sign in</button></form>
+<h2>Enroll a passkey</h2><p>Enter the single-use invitation provided privately by your operator.</p>
+<form id="enroll"><label>Invitation <input name="invitation" type="password" autocomplete="off" required minlength="43" maxlength="43"></label><button type="submit">Enroll passkey</button></form>
+<p id="status" role="status" aria-live="polite"></p><noscript>JavaScript is required for the browser WebAuthn ceremony.</noscript></main></body></html>

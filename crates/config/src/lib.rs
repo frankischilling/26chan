@@ -86,6 +86,11 @@ pub fn validate_origins(
             "Production origins require HTTPS and non-loopback DNS domains.",
         ));
     }
+    if origins[0].0.host_str() == origins[1].0.host_str() {
+        return Err(ConfigError(
+            "Public and staff need different hostnames because cookies are not port-scoped.",
+        ));
+    }
     if origins[2].domain()? == origins[0].domain()?
         || origins[2].domain()? == origins[1].domain()?
     {
@@ -106,12 +111,21 @@ pub struct Settings {
 
 impl Settings {
     pub fn from_env() -> Result<Self, ConfigError> {
-        if ["MIGRATION_DATABASE_URL", "STAFF_DATABASE_URL"]
-            .iter()
-            .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        if [
+            "MIGRATION_DATABASE_URL",
+            "STAFF_DATABASE_URL",
+            "AUTH_DATABASE_URL",
+        ]
+        .iter()
+        .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
         {
             return Err(ConfigError(
                 "Operator or staff credentials must not be inherited by the public runtime.",
+            ));
+        }
+        if env::var("MEDIA_DATABASE_URL").is_ok_and(|value| !value.is_empty()) {
+            return Err(ConfigError(
+                "The public runtime must not inherit media credentials.",
             ));
         }
         let production = match env::var("APP_ENV").as_deref().unwrap_or("development") {
@@ -151,6 +165,69 @@ impl Settings {
             bind,
             public_origin,
             production,
+        })
+    }
+}
+
+pub struct MediaAdminSettings {
+    pub database_url: String,
+    pub quarantine: Option<std::path::PathBuf>,
+}
+
+impl MediaAdminSettings {
+    pub fn from_env() -> Result<Self, ConfigError> {
+        if env::var("APP_ENV").as_deref().unwrap_or("development") != "development" {
+            return Err(ConfigError(
+                "Development intake only; isolated media processing remains unverified.",
+            ));
+        }
+        if [
+            "DATABASE_URL",
+            "MIGRATION_DATABASE_URL",
+            "STAFF_DATABASE_URL",
+            "AUTH_DATABASE_URL",
+            "TEST_PUBLIC_DATABASE_URL",
+        ]
+        .iter()
+        .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        {
+            return Err(ConfigError(
+                "The media operator command must not inherit public, staff or migration credentials.",
+            ));
+        }
+        if env::var("MEDIA_ENABLED").as_deref().unwrap_or("false") != "false" {
+            return Err(ConfigError(
+                "Media processing is unavailable; MEDIA_ENABLED must be false.",
+            ));
+        }
+        let database_url = env::var("MEDIA_DATABASE_URL")
+            .map_err(|_| ConfigError("MEDIA_DATABASE_URL is required."))?;
+        let parsed =
+            Url::parse(&database_url).map_err(|_| ConfigError("Invalid media database URL."))?;
+        let loopback = parsed.host_str().is_some_and(|host| {
+            host == "localhost"
+                || host
+                    .trim_matches(['[', ']'])
+                    .parse::<IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        });
+        if !matches!(parsed.scheme(), "postgres" | "postgresql")
+            || parsed.username() != "board_media"
+            || !loopback
+        {
+            return Err(ConfigError(
+                "Development media intake requires a loopback board_media PostgreSQL login.",
+            ));
+        }
+        let quarantine = env::var_os("MEDIA_QUARANTINE_DIR").map(std::path::PathBuf::from);
+        if quarantine.as_ref().is_some_and(|path| !path.is_absolute()) {
+            return Err(ConfigError(
+                "MEDIA_QUARANTINE_DIR must be an absolute private path.",
+            ));
+        }
+        Ok(Self {
+            database_url,
+            quarantine,
         })
     }
 }
@@ -232,6 +309,19 @@ mod tests {
                 "http://board.example.com",
                 "https://staff.example.com",
                 "https://example.net",
+                true
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn production_staff_cookie_host_cannot_be_shared_across_ports() {
+        assert!(
+            validate_origins(
+                "https://board.example.com",
+                "https://board.example.com:8443",
+                "https://images.example.net",
                 true
             )
             .is_err()

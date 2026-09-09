@@ -3,8 +3,8 @@ set -euo pipefail
 cat >&2 <<'TEXT'
 Public launch is blocked for this development milestone:
 - No approved visual/behavioral reference snapshot or independent compatibility review.
-- Media isolation, quarantine, promotion and deployed containment tests are absent.
-- WebAuthn staff authentication, recovery and moderation workflows are absent.
+- Media quarantine and output plumbing are implemented, but isolated execution and deployed containment remain unverified.
+- Staff WebAuthn and moderation are implemented locally; production authenticators, recovery policy and independent security review remain unverified.
 - Production network identities, resource ceilings, backups and restore are unverified.
 See docs/readiness.md. A passing unit test suite cannot override these prerequisites.
 TEXT
