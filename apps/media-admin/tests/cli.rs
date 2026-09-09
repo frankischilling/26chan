@@ -25,6 +25,7 @@ fn production_processing_and_inherited_credentials_are_rejected_before_intake() 
         "STAFF_DATABASE_URL",
         "AUTH_DATABASE_URL",
         "TEST_PUBLIC_DATABASE_URL",
+        "MEDIA_READ_DATABASE_URL",
     ] {
         let output = command()
             .env(name, "synthetic-secret-must-not-appear")

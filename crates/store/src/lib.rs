@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod media;
+pub mod media_assets;
 mod read;
 mod write;
 use chrono::{DateTime, Utc};

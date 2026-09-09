@@ -81,6 +81,7 @@ impl Config {
             "DATABASE_URL",
             "TEST_PUBLIC_DATABASE_URL",
             "MEDIA_DATABASE_URL",
+            "MEDIA_READ_DATABASE_URL",
         ] {
             if std::env::var(key).is_ok_and(|s| !s.is_empty()) {
                 return Err("Staff runtime received an unrelated database credential");

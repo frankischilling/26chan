@@ -19,12 +19,16 @@ jobs:
       - name: Install pinned Rust and PostgreSQL
         run: |
           rustup toolchain install 1.94.0 --profile minimal --component rustfmt --component clippy
+          test -f /etc/apt/sources.list.d/ubuntu.sources
+          sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
           sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc
       - name: Start disposable database and migrate
         run: |
+          sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh
+          sudo bash scripts/dev-media-reader-db.sh
           sudo bash scripts/dev-staff-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
@@ -34,6 +38,7 @@ jobs:
         run: |
           source .local/database.env
           source .local/media.env
+          source .local/media-reader.env
           source .local/staff.env
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
@@ -58,8 +63,13 @@ jobs:
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_recovery.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            bash scripts/test-media-publication.sh
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
+      - name: Upgrade legacy media receipts without automatic approval
+        run: sudo bash scripts/test-media-approval-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
   visual-windows:

@@ -8,12 +8,14 @@ mod block;
 mod id;
 mod output;
 mod promotion;
+mod publication;
 mod quarantine;
 
 pub use block::{OUTPUT_DISK_BYTES, write_input_disk};
 pub use id::ObjectId;
-pub use output::ValidatedOutput;
+pub use output::{EncodedOutput, ValidatedOutput};
 pub use promotion::{Promoter, Promotion};
+pub use publication::{ApprovedFiles, PublicationGuard, PublicationStore};
 pub use quarantine::Quarantine;
 
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
@@ -40,6 +42,10 @@ pub enum MediaError {
     OverlappingRoots,
     #[error("published object conflicts with output")]
     Conflict,
+    #[error("another publication or cleanup owns the storage lock")]
+    Busy,
+    #[error("invalid publication storage entry")]
+    InvalidStorage,
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]

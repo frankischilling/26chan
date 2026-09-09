@@ -1,6 +1,6 @@
 # Media intake and job control
 
-Public uploads are disabled. `board-media-admin` is a development operator command for testing private intake and cleanup. A separate [Firecracker qualification profile](firecracker.md) runs a Rust decoder inside a disposable guest and validates its bounded output. Its actual VM tests provide local evidence; library and queue tests alone do not establish that boundary.
+Public uploads are disabled. `board-media-admin` provides development operator intake and cleanup. The [durable publication commands](media-approval.md) add lease-fenced approval, interrupted-output reconciliation and an approved-only reader. A separate [Firecracker qualification profile](firecracker.md) runs a Rust decoder inside a disposable guest and validates its bounded output. Its actual VM tests provide local evidence; library and queue tests alone do not establish that boundary.
 
 ## Local setup
 
@@ -8,7 +8,8 @@ After creating the disposable database, provision its separate media login befor
 
 ```bash
 sudo bash scripts/dev-media-db.sh
-sudo chown "$(id -u):$(id -g)" .local/media.env .local/media.ps1
+sudo bash scripts/dev-media-reader-db.sh
+sudo chown "$(id -u):$(id -g)" .local/media.env .local/media.ps1 .local/media-reader.env .local/media-reader.ps1
 source .local/database.env
 cargo run -p board-store --bin board-migrate --locked
 ```
@@ -16,7 +17,7 @@ cargo run -p board-store --bin board-migrate --locked
 The provisioning script verifies the cluster directory on port 55432, refuses to overwrite credential files, and writes generated secrets only under ignored `.local/`. It is a development bootstrap, not a production secret manager. Use a new shell for media commands, or remove public, test, staff, authentication and migration credentials first:
 
 ```bash
-unset DATABASE_URL TEST_PUBLIC_DATABASE_URL MIGRATION_DATABASE_URL STAFF_DATABASE_URL AUTH_DATABASE_URL
+unset DATABASE_URL TEST_PUBLIC_DATABASE_URL MIGRATION_DATABASE_URL STAFF_DATABASE_URL AUTH_DATABASE_URL MEDIA_READ_DATABASE_URL
 source .local/media.env
 export MEDIA_QUARANTINE_DIR="$PWD/.local/quarantine"
 printf 'harmless undecoded test bytes' > .local/input.txt
@@ -48,7 +49,7 @@ Use one consistently configured quarantine root for each queue. Roots and their 
 
 The transitions are `receiving -> queued -> processing -> published` or `failed`. A processing failure or abandoned lease can return to `queued` while attempts remain. Every completion/failure requires the current unexpired lease token. Exact duplicate completion is idempotent; different output receipts cannot replace a published receipt. Cleanup deletes private input before terminal metadata and can be repeated after a failure. Queue capacity does not cap accumulated terminal files; a production filesystem quota and scheduled cleanup remain required.
 
-Cancellation and ordinary stream errors remove partial files. Abrupt process termination can leave a `{id}.part` or completed private input attached to its reservation. Expiration and terminal cleanup reconcile those exact generated names. Cleanup must use the same root as intake. Metadata and filesystem writes are not one atomic transaction: if queue finalization returns an uncertain database outcome, intake preserves the private object for reconciliation. There is no running worker or attachment-serving adapter that resolves publication crashes yet.
+Cancellation and ordinary stream errors remove partial files. Abrupt process termination can leave a `{id}.part` or completed private input attached to its reservation. Expiration and terminal cleanup reconcile those exact generated names. Cleanup must use the same root as intake. Metadata and filesystem writes are not one atomic transaction: if queue finalization returns an uncertain database outcome, intake preserves the private object for reconciliation. Publication has a separate reservation/deleting state machine and shared storage lock; see [approval and recovery](media-approval.md). Public attachment serving and authenticated dispatch remain incomplete.
 
 ## Untrusted output
 
@@ -56,13 +57,13 @@ The protocol is eight ASCII bytes `IBRGBA01`, then width and height as unsigned 
 
 The promoter accepts only the library's validated type. It encodes PNG without supplied ancillary metadata, caps the actual encoder output, and creates `{generated_id}.png` without overwriting. An identical replay succeeds; a different existing object fails. Neither success flags nor filenames, archive structures, commands or paths are accepted from a worker. No original-file download route exists and failed processing never publishes the upload.
 
-The PNG encoder runs in the future promotion trust boundary, not in the public application. The `png` dependency also contains decoder APIs, but runtime code does not invoke them; test-only decoding verifies generated pixels. That dependency and its compression code remain part of the promotion trust base. Temporary `.publish-*` files use the destination filesystem for atomic linking. Public storage must serve only the approved generated-name pattern and deny dotfiles; abrupt termination can leave staging files for operator reconciliation. A production adapter must fence publication against lease replacement and handle the database/filesystem crash window before attaching this output to public posts.
+The PNG encoder runs in the trusted publication command. The public application invokes no media decoder. That dependency and its compression code remain part of the promotion trust base. The standalone `Promoter` and `media-validate` retain private-fixture behavior with `.publish-*` temporary files and no database approval. Durable publication instead uses reserved output IDs, fixed staging names, an operating-system lock and explicit database approval. Never expose either directory as raw static storage: a complete generated filename can exist before approval. [The reader](media-approval.md) checks the approved-only view before validating file length and digest.
 
 ## Privilege and containment evidence
 
-`board_media` can read queue policy, lock its singleton admission row, and read/write/delete media job records. It cannot change capacity, select content or deletion hashes, access staff identities or deployment settings, create a schema, or assume the migration role. Tests execute these denials against the actual login and confirm the public login can read its own content but cannot access the media queue. A compromised coordinator with this credential can corrupt or exhaust its queue; it has no content or staff database authority.
+`board_media` can read queue policy, lock its singleton admission row, read/write/delete media jobs and approve reserved assets. It cannot modify approved asset records, change capacity, select content or deletion hashes, access staff identities or deployment settings, create a schema, or assume the migration role. `board_media_read` can select only approved asset metadata. Tests execute these denials against the actual logins. A compromised publication authority can approve or exhaust media storage; it has no content or staff database authority. Workers receive neither credential.
 
-The [local Firecracker profile](firecracker.md) executes a real guest with pinned runtime/kernel artifacts and per-job raw input/output devices. Tests cover its stated worker access, resource, ordinary-cleanup and [SIGKILL recovery](media-recovery.md) behavior. They do not qualify a production processing tier or prove every required metadata/DNS/other-job/storage path. Firecracker requires KVM plus explicit host, jailer and resource configuration; see its [production host guidance](https://github.com/firecracker-microvm/firecracker/blob/v1.16.1/docs/prod-host-setup.md). Authenticated queue dispatch, publication fencing, deployed restart exercises and independent deployed review remain required.
+The [local Firecracker profile](firecracker.md) executes a real guest with pinned runtime/kernel artifacts and per-job raw input/output devices. Tests cover its stated worker access, resource, ordinary-cleanup and [SIGKILL recovery](media-recovery.md) behavior. They do not qualify a production processing tier or prove every required metadata/DNS/other-job/storage path. Firecracker requires KVM plus explicit host, jailer and resource configuration; see its [production host guidance](https://github.com/firecracker-microvm/firecracker/blob/v1.16.1/docs/prod-host-setup.md). Authenticated queue dispatch, production storage qualification, deployed restart exercises and independent deployed review remain required.
 
 On an owned deployment, record artifact hashes and service identities before each containment run. Start a harmless internal test service and prove it is reachable from an allowed control host. Then test access from the actual worker context to that service, database listeners, synthetic metadata and DNS services, a second job's harmless input, unauthorized storage and host-management interfaces. Record denied outcomes and confirm the positive controls remain healthy. Inspect only the expected credential-variable names and descriptor targets, without printing secrets. Use small fixed-duration workloads to exercise each external resource ceiling, verify the entire job process/cgroup is gone afterward, and confirm its workspace cannot be reused. The [execution evidence](verification-firecracker.md) records the local subset that ran; the complete deployed acceptance set remains unfinished and cannot be replaced by string checks on deployment files.
 
@@ -71,6 +72,8 @@ On an owned deployment, record artifact hashes and service identities before eac
 ```bash
 source .local/database.env
 source .local/media.env
+source .local/media-reader.env
+source .local/staff.env
 cargo test -p board-media -p board-store -p board-media-admin --all-features --locked
 sudo bash scripts/restore-exercise.sh
 ```

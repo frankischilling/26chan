@@ -24,6 +24,8 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 
 First-party `forbid(unsafe_code)` does not apply to dependencies. The normal public dependency tree includes ring, Rustls, Tokio/mio/socket2 and Windows system bindings; these need maintenance even though complex media parsing is absent. A complete transitive unsafe-code audit has not been performed.
 
+Durable media publication uses Rust 1.94's standard-library file locks, existing SHA-256/PNG code and directory synchronization on Unix. These operating-system implementations are part of the publication trust base. The new direct Serde declaration reuses the existing locked version; no registry dependency version changed. Windows tests cover development behavior, not directory-entry durability under power loss.
+
 The local media setup additionally depends on Python 3.12, systemd 255, GNU coreutils `timeout` 9.4, mount/umount, KVM, tmpfs, and effective memory/CPU/pids cgroup controllers. These belong to the host trust base. The launch monitor and service client must retain the inherited coordinator lock; [recovery tests](media-recovery.md) verify that behavior and the independent monitor deadline after parent SIGKILL. The per-job VM receives no Python, shell, package manager or network device. Patch the pinned kernel/runtime and rebuild both init and worker before re-running the [local qualification checks](firecracker.md); successful CI on one host is not approval of another processing tier.
 
 The scheduled advisory workflow runs cargo-audit 0.22.2 and npm audit weekly. The operator must subscribe to failures and triage them; no alert delivery has been configured. A clean advisory result only covers known entries at the fetched revision.

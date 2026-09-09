@@ -1,4 +1,5 @@
 use crate::{MAX_DIMENSION, MAX_PNG_BYTES, MediaError, OUTPUT_DISK_BYTES};
+use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -11,6 +12,29 @@ pub struct ValidatedOutput {
     width: u32,
     height: u32,
     pixels: Vec<u8>,
+}
+
+/// An encoder-produced PNG, never arbitrary worker bytes. Metadata is computed
+/// on the host from validated dimensions and the exact encoded bytes.
+pub struct EncodedOutput {
+    pub(crate) bytes: Vec<u8>,
+    sha256: String,
+    dimensions: (u32, u32),
+}
+
+impl EncodedOutput {
+    pub fn sha256(&self) -> &str {
+        &self.sha256
+    }
+    pub fn len(&self) -> u64 {
+        self.bytes.len() as u64
+    }
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+    pub fn dimensions(&self) -> (u32, u32) {
+        self.dimensions
+    }
 }
 
 impl ValidatedOutput {
@@ -76,6 +100,15 @@ impl ValidatedOutput {
 
     pub fn dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    pub fn encode(&self) -> Result<EncodedOutput, MediaError> {
+        let bytes = self.encode_png()?;
+        Ok(EncodedOutput {
+            sha256: format!("{:x}", Sha256::digest(&bytes)),
+            bytes,
+            dimensions: self.dimensions(),
+        })
     }
 
     pub(crate) fn encode_png(&self) -> Result<Vec<u8>, MediaError> {
