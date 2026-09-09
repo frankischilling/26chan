@@ -20,3 +20,16 @@ fn public_runtime_rejects_inherited_operator_credentials() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("Operator or staff credentials"));
     assert!(!String::from_utf8_lossy(&output.stderr).contains("synthetic-operator-secret"));
 }
+
+#[test]
+fn public_runtime_rejects_the_media_queue_credential() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
+        .env_clear()
+        .env("MEDIA_DATABASE_URL", "synthetic-media-secret")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(error.contains("media credentials"));
+    assert!(!error.contains("synthetic-media-secret"));
+}

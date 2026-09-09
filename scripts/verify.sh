@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${TEST_PUBLIC_DATABASE_URL:?Set the disposable public test database URL}"
+: "${MEDIA_DATABASE_URL:?Set the disposable media test database URL}"
+: "${AUTH_DATABASE_URL:?Set the disposable authentication test database URL}"
+: "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo build --workspace --locked
+cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
 npm ci --ignore-scripts
 npm run test:behavior
+npx playwright test --config playwright.staff.config.js

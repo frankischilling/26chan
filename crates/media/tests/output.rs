@@ -206,14 +206,23 @@ fn roots_must_be_distinct_and_not_nested() {
 proptest::proptest! {
     #![proptest_config(proptest::test_runner::Config::with_cases(128))]
     #[test]
-    fn arbitrary_headers_are_bounded_and_rejected_without_pixels(header in proptest::array::uniform16(proptest::num::u8::ANY)) {
+    fn arbitrary_invalid_headers_are_rejected_before_pixel_reads(header in proptest::array::uniform16(proptest::num::u8::ANY)) {
+        let width = u32::from_be_bytes(header[8..12].try_into().unwrap());
+        let height = u32::from_be_bytes(header[12..16].try_into().unwrap());
+        proptest::prop_assume!(&header[..8] != b"IBRGBA01" || !(1..=MAX_DIMENSION).contains(&width) || !(1..=MAX_DIMENSION).contains(&height));
         let runtime = tokio::runtime::Builder::new_current_thread().build().unwrap();
-        proptest::prop_assert!(runtime.block_on(ValidatedOutput::read(header.as_slice())).is_err());
+        let mut bytes = header.to_vec();
+        bytes.extend([255; 64]);
+        let mut reader = Cursor::new(bytes);
+        proptest::prop_assert!(matches!(runtime.block_on(ValidatedOutput::read(&mut reader)), Err(MediaError::InvalidOutput)));
+        proptest::prop_assert_eq!(reader.position(), 16);
     }
     #[test]
-    fn arbitrary_dimensions_are_checked_before_body_reads(width in proptest::num::u32::ANY, height in proptest::num::u32::ANY) {
+    fn arbitrary_invalid_dimensions_are_checked_before_body_reads(width in proptest::num::u32::ANY, height in proptest::num::u32::ANY) {
+        proptest::prop_assume!(!(1..=MAX_DIMENSION).contains(&width) || !(1..=MAX_DIMENSION).contains(&height));
         let runtime = tokio::runtime::Builder::new_current_thread().build().unwrap();
-        let bytes = protocol(width, height, &[]);
-        proptest::prop_assert!(runtime.block_on(ValidatedOutput::read(bytes.as_slice())).is_err());
+        let mut reader = Cursor::new(protocol(width, height, &[255; 64]));
+        proptest::prop_assert!(matches!(runtime.block_on(ValidatedOutput::read(&mut reader)), Err(MediaError::InvalidOutput)));
+        proptest::prop_assert_eq!(reader.position(), 16);
     }
 }
