@@ -1,0 +1,20 @@
+{% import "formatting.html" as fmt %}
+{% macro action(csrf, board, target, action, label) %}<form method="post" action="/moderate"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><button name="action" value="{{ action }}">{{ label }}</button></form>{% endmacro %}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff reports</title></head><body><main>
+<h1>Report queue</h1><p>Showing the latest 100 reports, open reports first. Removed content remains visible here for review.</p>
+<p><a href="/">Sign in again</a> to refresh authentication before sensitive changes.</p>
+{% if !recent %}<p>Authentication is older than ten minutes. Sign in again to moderate.</p>{% endif %}
+<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
+{% for preview in reports %}{% let r = preview.report %}
+<article id="report-{{ r.id }}"><h2>Report {{ r.id }}: /{{ r.board }}/ post {{ r.post_id }}</h2>
+<p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, removed: {{ r.deleted }}.</p>
+<p>Reason: {{ r.reason }}</p><h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
+{% if !r.deleted %}
+{% if r.closed %}{% call action(csrf,r.board,r.thread_id,"reopen","Reopen thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"close","Close thread") %}{% endcall %}{% endif %}
+{% if r.sticky %}{% call action(csrf,r.board,r.thread_id,"unsticky","Unsticky thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"sticky","Sticky thread") %}{% endcall %}{% endif %}
+{% call action(csrf,r.board,r.post_id,"remove-post","Remove post") %}{% endcall %}
+{% call action(csrf,r.board,r.thread_id,"remove-thread","Remove thread") %}{% endcall %}
+{% endif %}
+{% call action(csrf,r.board,r.id,"resolve","Resolve report") %}{% endcall %}{% call action(csrf,r.board,r.id,"dismiss","Dismiss report") %}{% endcall %}
+</article>{% else %}<p>No reports.</p>{% endfor %}
+</main></body></html>

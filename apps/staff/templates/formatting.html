@@ -1,0 +1,15 @@
+{% macro comment(lines) -%}
+{%- for line in lines -%}
+{%- if !loop.first -%}<br>{%- endif -%}
+{%- if line.green -%}<span class="quote">{%- endif -%}
+{%- for token in line.tokens -%}
+{%- match token -%}
+{%- when Token::Text with (text) -%}{{ text }}
+{%- when Token::Quote with (id) -%}<span>&gt;&gt;{{ id }}</span>
+{%- when Token::Spoiler with (text) -%}<span class="spoiler">{{ text }}</span>
+{%- when Token::Link with (url) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{{ url }}</a>
+{%- endmatch -%}
+{%- endfor -%}
+{%- if line.green -%}</span>{%- endif -%}
+{%- endfor -%}
+{%- endmacro %}
