@@ -42,6 +42,8 @@ jobs:
         run: sudo bash scripts/test-staff-idle-migration.sh
       - name: Build and qualify a disposable media guest on the owned runner
         run: |
+          uname -r
+          stat --file-system --format='cgroup filesystem: %T' /sys/fs/cgroup
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
           export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked
@@ -51,7 +53,7 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             MEDIA_VM_VALIDATOR="$PWD/target/debug/media-validate" \
-            python3 tests/media/test_vm.py
+            python3 tests/media/test_vm.py -v
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
       - name: Restore disposable backup

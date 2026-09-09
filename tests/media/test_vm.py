@@ -133,7 +133,11 @@ class VmTest(unittest.TestCase):
                 deadline = time.monotonic() + 8
                 while time.monotonic() < deadline:
                     self.assertIsNone(runner.poll(), 'runner exited before VM became ready')
-                    roots = [p for p in pathlib.Path('/run/26chan-media-jobs').iterdir() if p.is_dir()]
+                    try:
+                        roots = [p for p in pathlib.Path('/run/26chan-media-jobs').iterdir() if p.is_dir()]
+                    except FileNotFoundError:
+                        # The first runner creates this root after artifact validation.
+                        roots = []
                     if roots:
                         self.assertEqual(len(roots), 1)
                         workspace = roots[0]
