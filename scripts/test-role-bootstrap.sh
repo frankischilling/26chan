@@ -47,4 +47,5 @@ SET ROLE board_media_read;
 SELECT count(*) AS initially_approved FROM media.approved_assets;
 SQL
 cleanup
+trap - EXIT
 printf 'Fresh role bootstrap passed: all migrations applied as owner; reader remains NOLOGIN with approved-only grants. Private cluster removed.\n'
