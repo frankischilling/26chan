@@ -63,6 +63,20 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         "stale" => {
             sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
         }
+        "age-activity" | "idle" => {
+            // Only the migration-authority fixture can move persisted time.
+            // The browser server uses the explicit 900-second production policy.
+            let seconds = if args[0] == "idle" { 960 } else { 120 };
+            let changed = sqlx::query("UPDATE staff_identity.sessions SET last_activity_at=clock_timestamp()-make_interval(secs => $2) WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)")
+                .bind(board).bind(f64::from(seconds)).execute(&pool).await?;
+            println!("{}", json!({"changed":changed.rows_affected()}));
+        }
+        "session-times" => {
+            let times: Vec<(String, String, String)> = sqlx::query_as("SELECT authenticated_at::text,expires_at::text,last_activity_at::text FROM staff_identity.sessions WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1) ORDER BY authenticated_at")
+                .bind(board).fetch_all(&pool).await?;
+            // No token, CSRF secret, credential or key leaves the fixture.
+            println!("{}", json!(times));
+        }
         "expire-ceremony" => {
             use std::io::Read;
             let mut hash = String::new();

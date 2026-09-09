@@ -20,6 +20,7 @@ fn app() -> axum::Router {
             production: false,
             auth_database: String::new(),
             staff_database: String::new(),
+            idle_timeout: std::time::Duration::from_secs(900),
         },
         auth: pool.clone(),
         staff: pool,

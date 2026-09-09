@@ -43,11 +43,16 @@ grep -q 'permission denied' .local/restored-media-denial.txt
 auth_restore="${AUTH_DATABASE_URL%/imageboard}/$restore_db"
 staff_restore="${STAFF_DATABASE_URL%/imageboard}/$restore_db"
 "$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM staff_identity.accounts' > .local/restored-auth-check.txt
+"$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT last_activity_at FROM staff_identity.sessions LIMIT 0; UPDATE staff_identity.sessions SET last_activity_at=clock_timestamp() WHERE false' > .local/restored-activity-check.txt
 "$pg_bin/psql" "$staff_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM content.reports' > .local/restored-staff-check.txt
 if "$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c "UPDATE staff_identity.accounts SET role = 'admin' WHERE false" > .local/restored-auth-denial.txt 2>&1; then
   echo 'Restored authentication login could modify staff roles.' >&2; exit 1
 fi
 grep -q 'permission denied' .local/restored-auth-denial.txt
+if "$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c "UPDATE staff_identity.sessions SET expires_at=clock_timestamp() WHERE false" > .local/restored-expiry-denial.txt 2>&1; then
+  echo 'Restored authentication login could update absolute session expiry.' >&2; exit 1
+fi
+grep -q 'permission denied' .local/restored-expiry-denial.txt
 if "$pg_bin/psql" "$staff_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT * FROM staff_identity.credentials' > .local/restored-staff-denial.txt 2>&1; then
   echo 'Restored moderation login could read credentials.' >&2; exit 1
 fi
@@ -55,5 +60,5 @@ grep -q 'permission denied' .local/restored-staff-denial.txt
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 DROP DATABASE :"restore_db";
 SQL
-printf 'Restore exercise passed: post fingerprint, fourteen table counts, public/media/auth/staff reads and protected-operation denials. Disposable restored database removed.\n'
+printf 'Restore exercise passed: post fingerprint, fourteen table counts, public/media/auth/staff reads, activity column grants and protected-operation denials. Disposable restored database removed.\n'
 printf 'Source PostgreSQL: '; "$pg_bin/pg_dump" --version

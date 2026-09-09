@@ -51,11 +51,21 @@ pub struct Session {
 }
 pub async fn session(state: &AppState, headers: &HeaderMap) -> Result<Session, AppError> {
     let value = cookie(headers, state.config.cookie_name())?;
-    let session: Session = sqlx::query_as("SELECT s.account_id,a.role,s.csrf_hash,(s.authenticated_at>clock_timestamp()-interval '10 minutes') AS recent FROM staff_identity.sessions s JOIN staff_identity.accounts a ON a.id=s.account_id JOIN staff_identity.credentials c ON c.id=s.credential_id AND c.account_id=a.id WHERE s.token_hash=$1 AND s.expires_at>clock_timestamp() AND a.revoked_at IS NULL")
-        .bind(hash(&value)).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
-    if !matches!(session.role.as_str(), "moderator" | "admin") {
-        return Err(AppError::Forbidden);
-    }
+    let mut transaction = state.auth.begin().await?;
+    sqlx::query_scalar::<_, bool>(
+        "SELECT true FROM staff_identity.sessions WHERE token_hash=$1 FOR UPDATE",
+    )
+    .bind(hash(&value))
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or(AppError::Unauthorized)?;
+    let session: Session = sqlx::query_as("UPDATE staff_identity.sessions s SET last_activity_at=clock_timestamp() FROM staff_identity.accounts a,staff_identity.credentials c WHERE s.token_hash=$1 AND s.account_id=a.id AND c.id=s.credential_id AND c.account_id=a.id AND s.expires_at>clock_timestamp() AND s.last_activity_at>clock_timestamp()-($2::bigint*interval '1 second') AND a.revoked_at IS NULL AND a.role IN ('moderator','admin') RETURNING s.account_id,a.role,s.csrf_hash,(s.authenticated_at>clock_timestamp()-interval '10 minutes') AS recent")
+        .bind(hash(&value))
+        .bind(state.config.idle_timeout.as_secs() as i64)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+    transaction.commit().await?;
     Ok(session)
 }
 pub fn csrf(session: &Session, value: &str) -> Result<(), AppError> {

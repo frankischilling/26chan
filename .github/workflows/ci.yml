@@ -37,6 +37,8 @@ jobs:
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
           bash scripts/verify.sh
+      - name: Upgrade existing staff sessions from migration 0005
+        run: sudo bash scripts/test-staff-idle-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
   visual-windows:

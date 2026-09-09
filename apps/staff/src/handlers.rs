@@ -68,7 +68,7 @@ pub async fn javascript() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
-    sqlx::query("SELECT token_hash FROM staff_identity.sessions LIMIT 0")
+    sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
         .execute(&state.auth)
         .await?;
     sqlx::query("SELECT id FROM content.moderation_audit LIMIT 0")
@@ -306,7 +306,8 @@ pub async fn login_finish(
             .execute(&mut *tx)
             .await?;
     }
-    sqlx::query("DELETE FROM staff_identity.sessions WHERE expires_at<=clock_timestamp()")
+    sqlx::query("DELETE FROM staff_identity.sessions WHERE expires_at<=clock_timestamp() OR last_activity_at<=clock_timestamp()-($1::bigint*interval '1 second')")
+        .bind(state.config.idle_timeout.as_secs() as i64)
         .execute(&mut *tx)
         .await?;
     sqlx::query("DELETE FROM staff_identity.sessions WHERE token_hash IN (SELECT token_hash FROM staff_identity.sessions WHERE account_id=$1 ORDER BY authenticated_at DESC,token_hash OFFSET 9)").bind(ceremony.account_id).execute(&mut *tx).await?;
