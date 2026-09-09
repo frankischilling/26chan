@@ -95,6 +95,7 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Verification record](docs/verification.md)
 - [API origin verification](docs/verification-api.md)
 - [Comment character-limit verification](docs/verification-comment-limits.md)
+- [Response admission verification](docs/verification-response-admission.md)
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
 - [Media intake, queue limits and remaining containment work](docs/media.md)

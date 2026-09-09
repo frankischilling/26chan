@@ -8,7 +8,7 @@ This is a partial implementation mapping to **OWASP ASVS 5.0.0**, tag [`v5.0.0_r
 | 1.3.5, 1.3.7 | Bounded nonrecursive formatting grammar; templates are compiled developer files | Further parser/renderer review |
 | 2.2.1, 2.2.2 | Server-side character/byte/range/identifier validation; SQL constraints; Unicode boundaries agree across forms, storage and rendering | Board-specific parity inventory and original Unicode counting unit incomplete |
 | 2.3.2, 2.3.3, 2.3.4 | Documented limits, PostgreSQL transactions and shared board locks; public reply and media admission/claim contention tests | Broader mixed public/staff load and failure testing |
-| 2.4.1 | Public peer limiter, staff authentication-start limiter, concurrency/body limits, bounded previews and media queue admission | Distributed abuse control and external resource/load tests |
+| 2.4.1 | Public peer limiter, staff authentication-start limiter, admission held through response data lifetime, body limits, bounded previews and media queue admission | Aggregate response-byte budgets, socket/write deadlines, distributed abuse control and external resource/load tests |
 | 3.4.3, 3.4.4, 3.4.5, 3.4.6 | CSP, nosniff, same-origin referrer policy, denied framing on responses | Deployed proxy/header review |
 | 3.5.1, 3.5.3 | Exact Origin/Fetch Metadata checks; mutations only on POST; staff session-bound CSRF and recent WebAuthn authentication; negative HTTP tests | Deployed proxy/browser review |
 | 3.5.4 | Typed origin separation and separate registrable media domain | No deployed staff/media origins tested |

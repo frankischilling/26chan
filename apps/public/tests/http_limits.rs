@@ -2,6 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 fn offline_app() -> axum::Router {
@@ -9,6 +10,78 @@ fn offline_app() -> axum::Router {
         .connect_lazy("postgres://board_public:unused@127.0.0.1:1/absent")
         .unwrap();
     board_public::router(pool, "http://127.0.0.1:3000".into(), false)
+}
+
+#[tokio::test]
+async fn retained_public_responses_keep_the_admission_budget() {
+    let app = offline_app();
+    let mut held = Vec::new();
+    for _ in 0..32 {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/healthz")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        held.push(response);
+    }
+    let busy = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(busy.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(busy.headers()["cache-control"], "no-store");
+    drop(held.pop());
+    let recovered = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recovered.status(), StatusCode::OK);
+    let mut body = recovered.into_body();
+    let data = body.frame().await.unwrap().unwrap().into_data().unwrap();
+    assert_eq!(&data[..], b"ok");
+    let slice = data.slice(0..1);
+    drop(body);
+    drop(data);
+    let still_busy = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(still_busy.status(), StatusCode::SERVICE_UNAVAILABLE);
+    drop(slice);
+    let recovered = app
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recovered.status(), StatusCode::OK);
 }
 
 #[tokio::test]

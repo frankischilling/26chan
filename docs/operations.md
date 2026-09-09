@@ -22,7 +22,7 @@ The following table describes public limits. [Staff notes](staff.md) record the 
 |---|---|---|
 | URL-encoded public form body | 262,144 bytes, body collector limit; enough for 192,000 bytes of percent-encoded comment plus bounded fields | Maximum Unicode submission and overflow HTTP tests without Content-Length; the read-only API listener retains its 65,536-byte limit |
 | Comment | Per-board Unicode scalar values, maximum 16,000; independent 64,000-byte UTF-8 ceiling | Domain/property, runtime-role SQL, HTTP and JavaScript-disabled browser tests |
-| Requests | 32 active, 10-second handler deadline | Code; external saturation/deadline exercise still required |
+| Requests | 32 admitted handlers and retained application response bodies/data across public and API listeners; 10-second handler deadline | Router/ownership tests cover held responses, emitted data, cancellation and recovery; external saturation/write-deadline exercise still required |
 | Password hashing | 4 active Argon2 jobs; permits survive request cancellation until hashing finishes | Code; external memory enforcement unverified |
 | Submissions | 30 per socket peer per 60 seconds; 10,000 tracked peers maximum | Forwarded-header rate test |
 | Database pool | 12 connections, 3-second acquisition timeout | Code; production load testing pending |
@@ -32,6 +32,8 @@ The following table describes public limits. [Staff notes](staff.md) record the 
 Prometheus metrics and alert delivery are not implemented. Before launch, add and exercise alerts for request/authorization error rates, rejected writes, pool pressure, database storage, update-check failures, and future media queue depth/failures/output limits. Do not treat journal output as equivalent coverage.
 
 Comment limits count Rust `chars()` and PostgreSQL `char_length` in a UTF8 database. Combining marks and received CR/LF characters count separately; no normalization is performed. A maximum comment can now occupy 64,000 bytes before HTML escaping. Thread and catalog row caps do not establish a safe aggregate response-memory budget. Mixed load, large responses and the candidate OS memory ceiling still need external qualification.
+
+Admission remains occupied after a handler returns while its response body or emitted data is retained. The final body layer runs after API error/HEAD/OPTIONS transformations; data clones and slices share the permit owner. Dropping an unconsumed response or releasing its completed data frees capacity. Empty responses release immediately. This is a count limit, not a byte budget or acknowledgement that the client received data. Small overload responses, kernel buffers and copies made by downstream consumers are outside it. Configure and exercise proxy connection, header and response-write timeouts: a slow client can still occupy a slot, and the ten-second handler timeout does not cover the socket write. See [admission verification](verification-response-admission.md).
 
 ## Backup and recovery
 

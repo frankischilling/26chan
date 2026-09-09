@@ -115,6 +115,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             handlers::request_limits,
         ))
         .layer(middleware::from_fn(handlers::security_headers))
+        .layer(middleware::from_fn(board_http::retain_response_body))
         .with_state(state)
 }
 #[cfg(test)]

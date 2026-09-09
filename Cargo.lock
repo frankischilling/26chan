@@ -317,6 +317,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "http-body",
+ "http-body-util",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "board-media"
 version = "0.1.0"
 dependencies = [
@@ -351,6 +363,7 @@ dependencies = [
  "axum",
  "board-config",
  "board-domain",
+ "board-http",
  "board-store",
  "chrono",
  "chrono-tz",
@@ -377,6 +390,7 @@ dependencies = [
  "base64 0.22.1",
  "board-config",
  "board-domain",
+ "board-http",
  "chrono",
  "http-body-util",
  "openssl",

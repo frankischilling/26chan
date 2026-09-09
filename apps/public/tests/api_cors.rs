@@ -294,9 +294,88 @@ async fn public_and_api_share_admission_and_options_cannot_bypass_busy_protectio
 
     for request in requests {
         request.abort();
+        let _ = request.await;
     }
+    let recovered = request(&public, Method::GET, "/healthz", &[]).await;
+    assert_eq!(recovered.status(), StatusCode::OK);
     acceptor.abort();
     pool.close().await;
+}
+
+#[tokio::test]
+async fn retained_api_error_bodies_share_public_admission_after_normalization() {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://board_public:unused@127.0.0.1:1/absent")
+        .unwrap();
+    pool.close().await;
+    let (public, api) = board_public::routers(pool, BOARD_ORIGIN.into(), true);
+    let mut held = Vec::new();
+    for _ in 0..16 {
+        let healthy = request(&public, Method::GET, "/healthz", &[]).await;
+        assert_eq!(healthy.status(), StatusCode::OK);
+        held.push(healthy);
+        // The route's empty 405 response becomes a JSON error in the outer
+        // CORS middleware. Its replacement body must retain the same permit.
+        let normalized = request(
+            &api,
+            Method::POST,
+            "/boards.json",
+            &[("origin", BOARD_ORIGIN)],
+        )
+        .await;
+        assert_eq!(normalized.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(normalized.headers()["content-type"], "application/json");
+        held.push(normalized);
+    }
+    let busy = request(&api, Method::GET, "/healthz", &[("origin", BOARD_ORIGIN)]).await;
+    assert_eq!(busy.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(busy.headers()["access-control-allow-origin"], BOARD_ORIGIN);
+    assert_eq!(busy.headers()["x-content-type-options"], "nosniff");
+    assert_eq!(busy.headers()["cache-control"], "no-store");
+    assert_eq!(busy.headers()["content-type"], "application/json");
+    let body = busy.into_body().collect().await.unwrap().to_bytes();
+    assert!(serde_json::from_slice::<serde_json::Value>(&body).unwrap()["error"].is_string());
+
+    let mut body = held.pop().unwrap().into_body();
+    let data = body.frame().await.unwrap().unwrap().into_data().unwrap();
+    assert!(serde_json::from_slice::<serde_json::Value>(&data).unwrap()["error"].is_string());
+    drop(body);
+    let still_busy = request(&public, Method::GET, "/healthz", &[]).await;
+    assert_eq!(still_busy.status(), StatusCode::SERVICE_UNAVAILABLE);
+    drop(data);
+    let recovered = request(&api, Method::GET, "/healthz", &[("origin", BOARD_ORIGIN)]).await;
+    assert_eq!(recovered.status(), StatusCode::OK);
+    assert_eq!(
+        recovered.headers()["access-control-allow-origin"],
+        BOARD_ORIGIN
+    );
+}
+
+#[tokio::test]
+async fn empty_api_head_and_options_bodies_release_admission() {
+    let api = offline_api().await;
+    let mut held = Vec::new();
+    for _ in 0..40 {
+        let head = request(&api, Method::HEAD, "/missing", &[("origin", BOARD_ORIGIN)]).await;
+        assert_eq!(head.status(), StatusCode::NOT_FOUND);
+        assert!(axum::body::HttpBody::is_end_stream(head.body()));
+        held.push(head);
+        let options = request(
+            &api,
+            Method::OPTIONS,
+            "/boards.json",
+            &[
+                ("origin", BOARD_ORIGIN),
+                ("access-control-request-method", "GET"),
+            ],
+        )
+        .await;
+        assert_eq!(options.status(), StatusCode::NO_CONTENT);
+        assert!(axum::body::HttpBody::is_end_stream(options.body()));
+        held.push(options);
+    }
+    let healthy = request(&api, Method::GET, "/healthz", &[("origin", BOARD_ORIGIN)]).await;
+    assert_eq!(healthy.status(), StatusCode::OK);
 }
 
 #[tokio::test]
