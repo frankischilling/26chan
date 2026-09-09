@@ -5,12 +5,12 @@ This milestone extends the working text board with private media plumbing and a 
 | Work item | Current state | Acceptance needed |
 |---|---|---|
 | Approved design brief | No separate attachment found | Resolve its location and check the implementation against it |
-| Rewrite publication | Authorized target: [frankischilling/26chan](https://github.com/frankischilling/26chan); foundation merged in PR #2, media/staff tracked in issues #3/#4 | Review the feature branch and hosted checks before merging |
+| Rewrite publication | Authorized target: [frankischilling/26chan](https://github.com/frankischilling/26chan); foundation and media/staff merged in PRs #2/#7; API continuation tracked in [issue #8](https://github.com/frankischilling/26chan/issues/8) | Review the API feature branch and hosted checks before merging |
 | Public text slice | Implemented and locally tested | Review compatibility exceptions and production abuse limits |
 | Reference snapshot | API docs revision pinned; visual/behavioral source missing; [issue #6](https://github.com/frankischilling/26chan/issues/6) | Collect permitted desktop/mobile/reference states and establish exact supported clients/features |
 | Media containment | Bounded private intake, queue leases/retries/cleanup and output promotion libraries tested; no worker, public enablement rejected; [issue #5](https://github.com/frankischilling/26chan/issues/5) | Integrate a narrow coordinator with an isolated per-job guest, external quotas/network deny, fenced publication/crash reconciliation and actual deployed negative tests with healthy positive controls; see [media notes](media.md) |
 | Staff application | Separate WebAuthn app with real authentication/moderation logins, operator enrollment/recovery/revocation, expiring host-only sessions, safe previews and audited moderation | Hardware authenticators, attestation/recovery policy, inactivity timeout, deployed origins/network grants and independent review; see [staff notes](staff.md) and [actual verification](verification-media-staff.md) |
-| Compatibility completion | Text-only JSON subset; one original visual theme | Board-specific evidence, archive/media interfaces, complete cache/DOM/CORS contracts, visual/error-state baselines |
+| Compatibility completion | Text-only JSON subset with optional board-origin CORS listener; one original visual theme | Board-specific evidence, archive/media interfaces, complete cache/DOM contracts, deployed API proxy policy and visual/error-state baselines |
 | Production operations | Candidate public/staff units and disposable restore exercise | Deploy owned test identities/network policies, resource enforcement, metrics/alerts, backup deletion isolation, restore/RPO/RTO measurements, rollback and incident exercises |
 | Independent review | Bounded implementation reviews recorded in verification notes | Security review of deployed public/staff/media/maintenance boundaries before public launch |
 

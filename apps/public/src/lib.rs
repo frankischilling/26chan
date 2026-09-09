@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod api;
+mod api_http;
 mod handlers;
 mod security;
 mod views;
@@ -22,13 +23,17 @@ pub struct AppState {
 }
 
 pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
+    routers(pool, origin, production).0
+}
+
+pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Router) {
     let state = AppState {
         pool,
         origin,
         production,
         limits: Arc::new(security::Limits::default()),
     };
-    Router::new()
+    let public = Router::new()
         .route("/", get(handlers::home))
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(handlers::ready))
@@ -49,5 +54,7 @@ pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
             state.clone(),
             security::protect,
         ))
-        .with_state(state)
+        .with_state(state.clone());
+    let api = api_http::router(state);
+    (public, api)
 }

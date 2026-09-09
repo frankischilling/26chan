@@ -1,6 +1,6 @@
 # Verification record
 
-This file records the merged public foundation. Follow-on media and staff evidence is recorded separately in [the current checkpoint record](verification-media-staff.md).
+This file records the merged public foundation. Follow-on evidence is recorded separately for [media and staff](verification-media-staff.md) and the [API origin](verification-api.md).
 
 Collected September 8, 2026, in the current rewrite directory. This records a local text-board checkpoint. It does not establish production readiness or complete reference compatibility.
 

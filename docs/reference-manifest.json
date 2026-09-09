@@ -6,6 +6,11 @@
     "visual_reference":  "Uncollected",
     "files":  [
                   {
+                      "name":  "README.md",
+                      "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/README.md",
+                      "sha256":  "6a0ca79a1afb29d9a6ded50d0fa3feb5de938d9e5d580469cbc2df65409108b7"
+                  },
+                  {
                       "name":  "Archive.md",
                       "url":  "https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Archive.md",
                       "sha256":  "ac25262661d54f6d3de9291089b2a85bb194613344244e7419178500e61292fb"

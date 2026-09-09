@@ -41,6 +41,8 @@ Open `http://127.0.0.1:3000/`. `/demo/` contains sample posts, and `/test/` acce
 
 The setup script creates a separate disposable database on port 55432 and generates credentials under the ignored `.local/` directory. It refuses to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
 
+For browser JSON clients on a separate origin, enable the optional [read-only API listener](docs/api.md) with `API_ORIGIN` and `API_BIND_ADDR`. It permits CORS from the configured board origin and shares the public process's database and resource limits.
+
 For later runs, load the generated environment and remove the migration credential before starting the public server:
 
 ```bash
@@ -86,9 +88,11 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 ## Documentation
 
 - [Compatibility matrix and exceptions](docs/compatibility.md)
+- [Read-only API origin and browser contract](docs/api.md)
 - [Architecture and trust boundaries](docs/architecture.md)
 - [Deployment and operations](docs/operations.md)
 - [Verification record](docs/verification.md)
+- [API origin verification](docs/verification-api.md)
 - [Launch blockers and remaining work](docs/readiness.md)
 - [Dependency maintenance](docs/dependencies.md)
 - [Media intake, queue limits and remaining containment work](docs/media.md)
