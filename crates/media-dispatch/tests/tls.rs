@@ -270,7 +270,8 @@ fn config_rejects_unknown_fields_relative_paths_non_dns_name_and_unbounded_files
     let valid = serde_json::json!({"endpoint":"127.0.0.1:443", "server_name":"dispatch.test", "server_ca":f.settings.server_ca, "client_certificate":f.settings.client_certificate, "client_key":f.settings.client_key});
     let path = f.dir.path().join("client.json");
     private_file(&path, valid.to_string());
-    assert!(ClientSettings::read(&path).is_ok());
+    let settings = ClientSettings::read(&path).unwrap();
+    assert!(DispatchClient::new(&settings).is_ok());
     for (field, value) in [
         ("unexpected", "secret"),
         ("server_ca", "relative.pem"),
@@ -283,17 +284,19 @@ fn config_rejects_unknown_fields_relative_paths_non_dns_name_and_unbounded_files
         private_file(&path, json.to_string());
         assert!(ClientSettings::read(&path).is_err());
     }
-    private_file(&path, vec![b' '; 65_537]);
+    let mut padded = valid.to_string().into_bytes();
+    padded.resize(65_536, b' ');
+    private_file(&path, &padded);
+    assert!(ClientSettings::read(&path).is_ok());
+    padded.push(b' ');
+    private_file(&path, padded);
     assert!(ClientSettings::read(&path).is_err());
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(
-            &f.settings.client_key,
-            std::fs::Permissions::from_mode(0o644),
-        )
-        .unwrap();
-        assert!(DispatchClient::new(&f.settings).is_err());
+        std::fs::set_permissions(&settings.client_key, std::fs::Permissions::from_mode(0o644))
+            .unwrap();
+        assert!(DispatchClient::new(&settings).is_err());
     }
 }
 
