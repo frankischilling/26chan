@@ -100,6 +100,33 @@ fn api_error(error: handlers::AppError) -> Response {
         .into_response()
 }
 
+fn api_error_response(response: &mut Response) {
+    if !(response.status().is_client_error() || response.status().is_server_error())
+        || response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .is_some_and(|value| value.as_bytes().starts_with(b"application/json"))
+    {
+        return;
+    }
+    let message = match response.status() {
+        StatusCode::FORBIDDEN => "Request is forbidden.",
+        StatusCode::REQUEST_TIMEOUT => "Request timed out.",
+        StatusCode::TOO_MANY_REQUESTS => "Too many requests.",
+        StatusCode::SERVICE_UNAVAILABLE => "Service is unavailable.",
+        StatusCode::METHOD_NOT_ALLOWED => "Method is not allowed.",
+        StatusCode::NOT_FOUND => "API route not found.",
+        _ => "Request could not be completed.",
+    };
+    *response.body_mut() =
+        Body::from(serde_json::to_vec(&json!({"error": message})).unwrap_or_default());
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    response.headers_mut().remove(header::CONTENT_LENGTH);
+}
+
 pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let request_method = request.method().clone();
     let endpoint_supported = supported_api_path(request.uri().path());
@@ -125,6 +152,9 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
             empty_response(&mut response, StatusCode::NO_CONTENT);
         }
     }
+    if !matches!(request_method, Method::HEAD | Method::OPTIONS) {
+        api_error_response(&mut response);
+    }
     let cors_allowed = if is_preflight {
         valid_preflight
     } else if request_method == Method::OPTIONS {
@@ -138,7 +168,7 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
         is_preflight && valid_preflight,
         &state.origin,
     );
-    if request_method == Method::HEAD {
+    if matches!(request_method, Method::HEAD | Method::OPTIONS) {
         *response.body_mut() = Body::empty();
         response.headers_mut().remove(header::CONTENT_LENGTH);
     }
@@ -223,5 +253,26 @@ fn finish_cors(response: &mut Response, allowed: bool, methods: bool, origin: &s
             header::ACCESS_CONTROL_ALLOW_HEADERS,
             HeaderValue::from_static("If-None-Match, If-Modified-Since"),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cors_preserves_existing_vary_values_when_adding_origin() {
+        let mut response = StatusCode::OK.into_response();
+        response
+            .headers_mut()
+            .insert(header::VARY, HeaderValue::from_static("Accept-Encoding"));
+        finish_cors(&mut response, false, false, "https://boards.example.test");
+        let vary: Vec<_> = response
+            .headers()
+            .get_all(header::VARY)
+            .iter()
+            .map(|value| value.to_str().unwrap())
+            .collect();
+        assert_eq!(vary, ["Accept-Encoding", "Origin"]);
     }
 }

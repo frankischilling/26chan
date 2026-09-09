@@ -44,12 +44,9 @@ impl Origin {
         })
     }
     fn domain(&self) -> Result<&str, ConfigError> {
-        self.0
-            .host_str()
-            .and_then(psl::domain_str)
-            .ok_or(ConfigError(
-                "Production origins need registrable DNS domains.",
-            ))
+        self.0.domain().and_then(psl::domain_str).ok_or(ConfigError(
+            "Production origins need registrable DNS domains.",
+        ))
     }
 }
 
@@ -107,6 +104,77 @@ pub struct Settings {
     pub bind: SocketAddr,
     pub public_origin: Origin,
     pub production: bool,
+    pub api: Option<ApiListener>,
+}
+
+#[derive(Clone)]
+pub struct ApiListener {
+    pub origin: Origin,
+    pub bind: SocketAddr,
+}
+
+impl ApiListener {
+    fn parse(
+        origin: Option<&str>,
+        bind: Option<&str>,
+        public_bind: SocketAddr,
+        origins: &[Origin; 3],
+        production: bool,
+    ) -> Result<Option<Self>, ConfigError> {
+        let (origin, bind) = match (origin, bind) {
+            (None, None) => return Ok(None),
+            (Some(origin), Some(bind)) => (origin, bind),
+            _ => {
+                return Err(ConfigError(
+                    "API_ORIGIN and API_BIND_ADDR must be set together.",
+                ));
+            }
+        };
+        let origin = Origin::parse(origin)
+            .map_err(|_| ConfigError("API_ORIGIN must be an HTTP(S) origin without a path."))?;
+        if origins
+            .iter()
+            .any(|other| origin.as_string() == other.as_string())
+        {
+            return Err(ConfigError(
+                "API_ORIGIN must differ from public, staff and media origins.",
+            ));
+        }
+        if production {
+            if origin.0.scheme() != "https" || origin.loopback() {
+                return Err(ConfigError(
+                    "Production API_ORIGIN requires HTTPS and a DNS domain.",
+                ));
+            }
+            let domain = origin.domain().map_err(|_| {
+                ConfigError("Production API_ORIGIN needs a registrable DNS domain.")
+            })?;
+            if domain == origins[2].domain()? {
+                return Err(ConfigError(
+                    "Media must use a different registrable domain from the API.",
+                ));
+            }
+            if origin.0.host_str() == origins[1].0.host_str() {
+                return Err(ConfigError(
+                    "API and staff must use different cookie hostnames.",
+                ));
+            }
+        } else if !origin.loopback() {
+            return Err(ConfigError("Development API_ORIGIN must be loopback."));
+        }
+        let bind: SocketAddr = bind
+            .parse()
+            .map_err(|_| ConfigError("Invalid API_BIND_ADDR."))?;
+        if !production && !bind.ip().is_loopback() {
+            return Err(ConfigError("Development API_BIND_ADDR must be loopback."));
+        }
+        if bind == public_bind || bind.port() == 0 {
+            return Err(ConfigError(
+                "API_BIND_ADDR needs a nonzero port and a distinct listener address.",
+            ));
+        }
+        Ok(Some(Self { origin, bind }))
+    }
 }
 
 impl Settings {
@@ -141,7 +209,7 @@ impl Settings {
         let public = env::var("PUBLIC_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3000".into());
         let staff = env::var("STAFF_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3001".into());
         let media = env::var("MEDIA_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3002".into());
-        let [public_origin, _, _] = validate_origins(&public, &staff, &media, production)?;
+        let origins = validate_origins(&public, &staff, &media, production)?;
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
         let parsed = Url::parse(&database_url).map_err(|_| ConfigError("Invalid database URL."))?;
@@ -160,11 +228,20 @@ impl Settings {
         if !production && !bind.ip().is_loopback() {
             return Err(ConfigError("Development must bind to loopback."));
         }
+        let api = ApiListener::parse(
+            env::var("API_ORIGIN").ok().as_deref(),
+            env::var("API_BIND_ADDR").ok().as_deref(),
+            bind,
+            &origins,
+            production,
+        )?;
+        let [public_origin, _, _] = origins;
         Ok(Self {
             database_url,
             bind,
             public_origin,
             production,
+            api,
         })
     }
 }
@@ -250,6 +327,101 @@ fn validate_tls(parsed: &Url, production: bool) -> Result<(), ConfigError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn api_origin_preserves_staff_cookie_and_media_domain_boundaries() {
+        let origins = validate_origins(
+            "https://boards.example.com",
+            "https://staff.example.com",
+            "https://images.example.net",
+            true,
+        )
+        .unwrap();
+        for origin in [
+            "http://api.example.com",
+            "https://127.0.0.1:3003",
+            "https://192.0.2.1",
+            "https://[2001:db8::1]",
+            "https://localhost",
+            "https://api.example.net",
+            "https://staff.example.com:8443",
+            "https://boards.example.com",
+            "https://staff.example.com",
+            "https://images.example.net",
+        ] {
+            assert!(
+                ApiListener::parse(
+                    Some(origin),
+                    Some("127.0.0.1:3003"),
+                    "127.0.0.1:3000".parse().unwrap(),
+                    &origins,
+                    true
+                )
+                .is_err(),
+                "{origin}"
+            );
+        }
+        let api = ApiListener::parse(
+            Some("https://api.example.com"),
+            Some("127.0.0.1:3003"),
+            "127.0.0.1:3000".parse().unwrap(),
+            &origins,
+            true,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(api.origin.as_string(), "https://api.example.com");
+        assert_eq!(api.bind.to_string(), "127.0.0.1:3003");
+    }
+
+    #[test]
+    fn api_listener_is_optional_and_development_stays_on_loopback() {
+        let origins = validate_origins(
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3002",
+            false,
+        )
+        .unwrap();
+        let public = "127.0.0.1:3000".parse().unwrap();
+        assert!(
+            ApiListener::parse(None, None, public, &origins, false)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            ApiListener::parse(
+                Some("http://127.0.0.1:3003/"),
+                Some("127.0.0.1:3003"),
+                public,
+                &origins,
+                false
+            )
+            .unwrap()
+            .is_some()
+        );
+        assert!(
+            ApiListener::parse(
+                Some("http://[::1]:3003"),
+                Some("[::1]:3003"),
+                public,
+                &origins,
+                false
+            )
+            .unwrap()
+            .is_some()
+        );
+        assert!(
+            ApiListener::parse(
+                Some("http://127.0.0.1:3003"),
+                Some("127.0.0.1:0"),
+                public,
+                &origins,
+                false
+            )
+            .is_err()
+        );
+    }
 
     #[test]
     fn production_tls_rejects_conflicting_and_alias_options() {

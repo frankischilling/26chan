@@ -1,5 +1,106 @@
 import { test, expect } from '@playwright/test';
 
+const apiOrigin = 'http://127.0.0.1:3003';
+
+async function apiClient(page, origin = 'http://127.0.0.1:3000') {
+  // A controlled client document keeps production pages' script/connect CSP
+  // intact. Only this document is intercepted; all API traffic uses real HTTP.
+  const url = `${origin}/__synthetic_api_client`;
+  // Chromium assigns an unknown address space to an intercepted document.
+  // Grant the local-device permission to this test origin; CORS stays enabled.
+  await page.context().grantPermissions(['local-network-access'], { origin });
+  await page.route(url, route => route.fulfill({
+    contentType: 'text/html',
+    headers: { 'content-security-policy': `default-src 'none'; connect-src ${apiOrigin}` },
+    body: '<!doctype html><title>Synthetic API client</title>',
+  }));
+  await page.goto(url);
+}
+
+test('board-origin browser client reads real JSON and revalidates exposed cache headers', async ({ page }) => {
+  await apiClient(page);
+  const result = await page.evaluate(async api => {
+    const path = `${api}/demo/thread/1000001.json`;
+    const first = await fetch(path, { credentials: 'omit', cache: 'no-store' });
+    const body = await first.json();
+    const etag = first.headers.get('etag');
+    const modified = first.headers.get('last-modified');
+    const conditional = await fetch(path, {
+      credentials: 'omit', cache: 'no-store', headers: { 'If-None-Match': etag },
+    });
+    const modifiedConditional = await fetch(path, {
+      credentials: 'omit', cache: 'no-store',
+      headers: { 'If-Modified-Since': new Date(Date.parse(modified) + 1000).toUTCString() },
+    });
+    const head = await fetch(path, { method: 'HEAD', credentials: 'omit', cache: 'no-store' });
+    const missing = await fetch(`${api}/demo/thread/9223372036854775807.json`, { credentials: 'omit' });
+    return {
+      status: first.status, no: body.posts[0].no, etag, modified,
+      conditional: conditional.status, conditionalBody: await conditional.text(),
+      conditionalEtag: conditional.headers.get('etag'),
+      modifiedConditional: modifiedConditional.status,
+      modifiedConditionalBody: await modifiedConditional.text(),
+      head: head.status, headBody: await head.text(), missing: missing.status,
+    };
+  }, apiOrigin);
+  expect(result.status).toBe(200);
+  expect(result.no).toBe(1000001);
+  expect(result.etag).toMatch(/^"[a-f0-9]{64}"$/);
+  expect(result.modified).toBe('Tue, 08 Sep 2026 12:05:00 GMT');
+  expect(result.conditional).toBe(304);
+  expect(result.conditionalBody).toBe('');
+  expect(result.conditionalEtag).toBe(result.etag);
+  expect(result.modifiedConditional).toBe(304);
+  expect(result.modifiedConditionalBody).toBe('');
+  expect(result.head).toBe(200);
+  expect(result.headBody).toBe('');
+  expect(result.missing).toBe(404);
+});
+
+test('browser CORS denies unapproved and credentialed clients with a healthy allowed control', async ({ page }) => {
+  // Positive control proves the same destination is available, including for
+  // requests rejected by the browser's CORS implementation below.
+  await apiClient(page);
+  expect(await page.evaluate(async api => (await fetch(`${api}/boards.json`, { credentials: 'omit' })).status, apiOrigin)).toBe(200);
+  const credentialed = await page.evaluate(async api => {
+    try { await fetch(`${api}/boards.json`, { credentials: 'include' }); return 'readable'; }
+    catch (error) { return error.name; }
+  }, apiOrigin);
+  expect(credentialed).toBe('TypeError');
+  await apiClient(page, 'http://localhost:3000');
+  const denied = await page.evaluate(async api => {
+    try { await fetch(`${api}/boards.json`, { credentials: 'omit' }); return 'readable'; }
+    catch (error) { return error.name; }
+  }, apiOrigin);
+  expect(denied).toBe('TypeError');
+});
+
+test('API listener rejects posting and browser preflights cannot grant write access', async ({ page }) => {
+  await apiClient(page);
+  const result = await page.evaluate(async api => {
+    const before = await (await fetch(`${api}/demo/thread/1000001.json`, { credentials: 'omit', cache: 'no-store' })).json();
+    let post;
+    try {
+      const response = await fetch(`${api}/demo/post`, {
+        method: 'POST', credentials: 'omit',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'resto=1000001&com=A+synthetic+API+write+must+not+persist&password=test-password',
+      });
+      post = response.status;
+    } catch { post = 'blocked'; }
+    let preflight;
+    try {
+      await fetch(`${api}/boards.json`, { method: 'DELETE', credentials: 'omit' });
+      preflight = 'readable';
+    } catch (error) { preflight = error.name; }
+    const after = await (await fetch(`${api}/demo/thread/1000001.json`, { credentials: 'omit', cache: 'no-store' })).json();
+    return { post, preflight, before: before.posts, after: after.posts };
+  }, apiOrigin);
+  expect(['blocked', 404, 405]).toContain(result.post);
+  expect(result.preflight).toBe('TypeError');
+  expect(result.after).toEqual(result.before);
+});
+
 test('posting, replying, reporting, and password deletion persist through reload', async ({ page }) => {
   await page.goto('/test/');
   await page.locator('#sub').fill('A synthetic browser thread');

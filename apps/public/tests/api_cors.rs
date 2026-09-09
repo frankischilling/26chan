@@ -6,16 +6,22 @@ use axum::{
     http::{Method, Request, StatusCode},
 };
 use http_body_util::BodyExt;
+use std::time::Duration;
+use tokio::sync::mpsc;
 use tower::ServiceExt;
 
 const BOARD_ORIGIN: &str = "https://boards.example.test";
 
 async fn offline_api() -> Router {
+    offline_api_with(false).await
+}
+
+async fn offline_api_with(production: bool) -> Router {
     let pool = sqlx::postgres::PgPoolOptions::new()
         .connect_lazy("postgres://board_public:unused@127.0.0.1:1/absent")
         .unwrap();
     pool.close().await;
-    board_public::routers(pool, BOARD_ORIGIN.into(), false).1
+    board_public::routers(pool, BOARD_ORIGIN.into(), production).1
 }
 
 async fn request(
@@ -159,6 +165,138 @@ async fn preflight_allows_only_read_methods_and_conditional_request_headers() {
         );
         assert_empty(response).await;
     }
+}
+
+#[tokio::test]
+async fn api_protection_errors_are_safe_json_and_keep_security_headers() {
+    let app = offline_api_with(true).await;
+    let response = request(&app, Method::POST, "/demo/post", &[]).await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(response.headers()["content-type"], "application/json");
+    assert_eq!(response.headers()["cache-control"], "no-store");
+    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    assert_eq!(response.headers()["x-frame-options"], "DENY");
+    assert_eq!(response.headers()["referrer-policy"], "same-origin");
+    assert_eq!(
+        response.headers()["permissions-policy"],
+        "camera=(), microphone=(), geolocation=()"
+    );
+    assert_eq!(
+        response.headers()["strict-transport-security"],
+        "max-age=31536000"
+    );
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap()["error"],
+        "Request is forbidden."
+    );
+
+    let preflight = request(
+        &app,
+        Method::OPTIONS,
+        "/boards.json",
+        &[
+            ("origin", BOARD_ORIGIN),
+            ("access-control-request-method", "GET"),
+        ],
+    )
+    .await;
+    assert_eq!(preflight.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        preflight.headers()["strict-transport-security"],
+        "max-age=31536000"
+    );
+    assert_eq!(preflight.headers()["x-content-type-options"], "nosniff");
+    assert_empty(preflight).await;
+}
+
+#[tokio::test]
+async fn public_and_api_share_admission_and_options_cannot_bypass_busy_protection() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (accepted, mut connections) = mpsc::channel(32);
+    let acceptor = tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((stream, _)) = listener.accept().await {
+            held.push(stream);
+            if accepted.send(()).await.is_err() {
+                break;
+            }
+        }
+    });
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(32)
+        .connect_lazy(&format!("postgres://board_public:unused@{address}/absent"))
+        .unwrap();
+    let (public, api) = board_public::routers(pool.clone(), BOARD_ORIGIN.into(), false);
+    let mut requests = Vec::new();
+    for _ in 0..31 {
+        let app = public.clone();
+        requests.push(tokio::spawn(async move {
+            app.oneshot(
+                Request::builder()
+                    .uri("/boards.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+        }));
+    }
+    let app = api.clone();
+    requests.push(tokio::spawn(async move {
+        app.oneshot(
+            Request::builder()
+                .uri("/boards.json")
+                .header("origin", BOARD_ORIGIN)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+    }));
+    for _ in 0..32 {
+        tokio::time::timeout(Duration::from_secs(2), connections.recv())
+            .await
+            .expect("request reached the controlled PostgreSQL listener")
+            .expect("acceptor remains available");
+    }
+
+    let busy_get = request(
+        &api,
+        Method::GET,
+        "/boards.json",
+        &[("origin", BOARD_ORIGIN)],
+    )
+    .await;
+    assert_eq!(busy_get.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(busy_get.headers()["content-type"], "application/json");
+    assert_eq!(
+        busy_get.headers()["access-control-allow-origin"],
+        BOARD_ORIGIN
+    );
+
+    let busy_options = request(
+        &api,
+        Method::OPTIONS,
+        "/boards.json",
+        &[
+            ("origin", BOARD_ORIGIN),
+            ("access-control-request-method", "GET"),
+        ],
+    )
+    .await;
+    assert_eq!(busy_options.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(busy_options.headers()["x-content-type-options"], "nosniff");
+    assert_eq!(
+        busy_options.headers()["access-control-allow-origin"],
+        BOARD_ORIGIN
+    );
+    assert_empty(busy_options).await;
+
+    for request in requests {
+        request.abort();
+    }
+    acceptor.abort();
+    pool.close().await;
 }
 
 #[tokio::test]
