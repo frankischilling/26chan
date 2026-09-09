@@ -14,6 +14,7 @@ board-store = { path = "../../crates/store" }
 board-media = { path = "../../crates/media" }
 tokio = { workspace = true, features = ["fs", "io-util"] }
 serde_json.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 sqlx.workspace = true

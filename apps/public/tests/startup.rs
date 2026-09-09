@@ -23,15 +23,17 @@ fn public_runtime_rejects_inherited_operator_credentials() {
 
 #[test]
 fn public_runtime_rejects_the_media_queue_credential() {
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
-        .env_clear()
-        .env("MEDIA_DATABASE_URL", "synthetic-media-secret")
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let error = String::from_utf8_lossy(&output.stderr);
-    assert!(error.contains("media credentials"));
-    assert!(!error.contains("synthetic-media-secret"));
+    for name in ["MEDIA_DATABASE_URL", "MEDIA_READ_DATABASE_URL"] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
+            .env_clear()
+            .env(name, "synthetic-media-secret")
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("media credentials"));
+        assert!(!error.contains("synthetic-media-secret"));
+    }
 }
 
 #[test]

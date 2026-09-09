@@ -191,7 +191,10 @@ impl Settings {
                 "Operator or staff credentials must not be inherited by the public runtime.",
             ));
         }
-        if env::var("MEDIA_DATABASE_URL").is_ok_and(|value| !value.is_empty()) {
+        if ["MEDIA_DATABASE_URL", "MEDIA_READ_DATABASE_URL"]
+            .iter()
+            .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        {
             return Err(ConfigError(
                 "The public runtime must not inherit media credentials.",
             ));
@@ -264,12 +267,13 @@ impl MediaAdminSettings {
             "STAFF_DATABASE_URL",
             "AUTH_DATABASE_URL",
             "TEST_PUBLIC_DATABASE_URL",
+            "MEDIA_READ_DATABASE_URL",
         ]
         .iter()
         .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
         {
             return Err(ConfigError(
-                "The media operator command must not inherit public, staff or migration credentials.",
+                "The media operator command must not inherit public, staff, migration or reader credentials.",
             ));
         }
         if env::var("MEDIA_ENABLED").as_deref().unwrap_or("false") != "false" {
@@ -306,6 +310,58 @@ impl MediaAdminSettings {
             database_url,
             quarantine,
         })
+    }
+}
+
+pub struct MediaReaderSettings {
+    pub database_url: String,
+}
+
+impl MediaReaderSettings {
+    pub fn from_env() -> Result<Self, ConfigError> {
+        if env::var("APP_ENV").as_deref() != Ok("development") {
+            return Err(ConfigError(
+                "Media reader commands require explicit development mode.",
+            ));
+        }
+        if [
+            "DATABASE_URL",
+            "MIGRATION_DATABASE_URL",
+            "MEDIA_DATABASE_URL",
+            "STAFF_DATABASE_URL",
+            "AUTH_DATABASE_URL",
+            "TEST_PUBLIC_DATABASE_URL",
+        ]
+        .iter()
+        .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        {
+            return Err(ConfigError(
+                "Media readers must not inherit writer or application credentials.",
+            ));
+        }
+        if env::var("MEDIA_ENABLED").as_deref().unwrap_or("false") != "false" {
+            return Err(ConfigError("Public media must remain disabled."));
+        }
+        let database_url = env::var("MEDIA_READ_DATABASE_URL")
+            .map_err(|_| ConfigError("MEDIA_READ_DATABASE_URL is required."))?;
+        let parsed = Url::parse(&database_url)
+            .map_err(|_| ConfigError("Invalid media reader database URL."))?;
+        let loopback = parsed.host_str().is_some_and(|host| {
+            host == "localhost"
+                || host
+                    .trim_matches(['[', ']'])
+                    .parse::<IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        });
+        if !matches!(parsed.scheme(), "postgres" | "postgresql")
+            || parsed.username() != "board_media_read"
+            || !loopback
+        {
+            return Err(ConfigError(
+                "Development media readers require a loopback board_media_read PostgreSQL login.",
+            ));
+        }
+        Ok(Self { database_url })
     }
 }
 

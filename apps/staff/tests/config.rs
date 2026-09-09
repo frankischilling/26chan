@@ -1,6 +1,19 @@
 use std::process::Command;
 
 #[test]
+fn staff_rejects_inherited_media_reader_credentials() {
+    let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
+        .env_clear()
+        .env("MEDIA_READ_DATABASE_URL", "synthetic-reader-secret")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(error.contains("unrelated database credential"));
+    assert!(!error.contains("synthetic-reader-secret"));
+}
+
+#[test]
 fn startup_rejects_an_invalid_idle_timeout_before_connecting() {
     let mut command = Command::new(env!("CARGO_BIN_EXE_board-staff"));
     command.env_clear();
