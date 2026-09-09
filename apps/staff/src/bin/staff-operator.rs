@@ -33,11 +33,11 @@ fn private_file(path: &Path) -> Result<std::fs::File, Box<dyn std::error::Error>
     {
         use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
         std::fs::DirBuilder::new().mode(0o700).create(parent)?;
-        return Ok(std::fs::OpenOptions::new()
+        Ok(std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .mode(0o600)
-            .open(path)?);
+            .open(path)?)
     }
     #[cfg(windows)]
     {
