@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 import uuid
 
 import test_vm
@@ -170,8 +171,9 @@ class RecoveryTest(unittest.TestCase):
     def test_launch_deadline_survives_parent_sigkill_before_any_service(self):
         # Exercise the actual external monitor with a harmless stalled child,
         # before any systemd service or its RuntimeMaxSec deadline exists.
-        code = (f'import sys; sys.path.insert(0, {str(RUNNER.parent)!r})\n'
+        code = (f'import signal, sys; sys.path.insert(0, {str(RUNNER.parent)!r})\n'
                 'from job_lifecycle import locked_jobs, run_service\n'
+                'signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))\n'
                 'with locked_jobs() as lock:\n'
                 '    run_service(["/usr/bin/sleep", "60"], lock, deadline=2)\n')
         parent = subprocess.Popen([sys.executable, '-c', code], stdout=subprocess.DEVNULL,
@@ -188,10 +190,12 @@ class RecoveryTest(unittest.TestCase):
                         grandchildren = (monitor / 'task' / monitor.name / 'children').read_text().split()
                         if grandchildren:
                             child = pathlib.Path('/proc') / grandchildren[0]
-                            self.assertEqual((child / 'comm').read_text().strip(), 'sleep')
-                            self.assertIn(str(JOBS / 'runner.lock'), descriptor_targets(monitor))
-                            monitors = [os.pidfd_open(int(process.name)) for process in (monitor, child)]
-                            break
+                            # fork exposes the child before exec changes its name.
+                            if (child / 'comm').read_text().strip() == 'sleep':
+                                for process in (monitor, child):
+                                    monitors.append(os.pidfd_open(int(process.name)))
+                                self.assertIn(str(JOBS / 'runner.lock'), descriptor_targets(monitor))
+                                break
                 time.sleep(0.01)
             self.assertEqual(len(monitors), 2, 'external monitor and owned stalled child must start')
             parent.kill()
@@ -203,11 +207,41 @@ class RecoveryTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.vm.assert_clean()
         finally:
-            if parent.poll() is None:
-                parent.terminate()
-            parent.communicate(timeout=8)
-            for descriptor in monitors:
-                os.close(descriptor)
+            try:
+                if parent.poll() is None:
+                    # The fixture's handler unwinds run_service and drains its group.
+                    parent.terminate()
+                parent.communicate(timeout=8)
+                for descriptor in monitors:
+                    self.wait_for_exit(descriptor, 6)
+            finally:
+                for descriptor in monitors:
+                    os.close(descriptor)
+
+    def test_launch_deadline_fixture_drains_after_failed_assertion(self):
+        with mock.patch(__name__ + '.descriptor_targets', return_value=[]):
+            with self.assertRaisesRegex(AssertionError, 'runner.lock'):
+                self.test_launch_deadline_survives_parent_sigkill_before_any_service()
+        result = self.recover()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.vm.assert_clean()
+
+    def test_launch_deadline_waits_for_child_exec(self):
+        read_text = pathlib.Path.read_text
+        observed_pre_exec = False
+
+        def read_during_exec(path, *args, **kwargs):
+            nonlocal observed_pre_exec
+            value = read_text(path, *args, **kwargs)
+            if path.name == 'comm' and value.strip() == 'sleep' and not observed_pre_exec:
+                # A forked timeout child retains its parent's name until exec.
+                observed_pre_exec = True
+                return 'timeout\n'
+            return value
+
+        with mock.patch.object(pathlib.Path, 'read_text', new=read_during_exec):
+            self.test_launch_deadline_survives_parent_sigkill_before_any_service()
+        self.assertTrue(observed_pre_exec, 'the controlled pre-exec observation must occur')
 
     def test_uncertain_storage_is_retained_and_blocks_new_jobs(self):
         with tempfile.TemporaryDirectory(prefix='26chan-recovery-witness-') as name:

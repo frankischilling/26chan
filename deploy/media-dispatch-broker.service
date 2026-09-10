@@ -1,0 +1,30 @@
+# Development qualification candidate; not a production launch profile.
+# The broker owns its socket/lock/request directories. Do not add automatic
+# RuntimeDirectory removal or ExecStopPost deletion: uncertain state is retained.
+[Unit]
+Description=Paperboard local media dispatch broker
+After=local-fs.target
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/opt/paperboard/media
+EnvironmentFile=/etc/26chan-dispatch/dispatch.env
+ExecStart=/usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin APP_ENV=${APP_ENV} /usr/bin/python3 -B /opt/paperboard/media/dispatch-broker.py /etc/26chan-dispatch/decode.json /run/26chan-media-dispatch ${GATEWAY_UID}
+Restart=no
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes
+TimeoutStopSec=90
+UMask=0077
+LimitNOFILE=256
+LimitCORE=0
+TasksMax=64
+MemoryMax=256M
+CPUQuota=100%
+StandardOutput=journal
+StandardError=journal
+# Host mount, cgroup, KVM, process inspection and system-manager access are
+# required by the fixed runner. Root host authority remains trusted. The
+# separately launched VMM service has its own independently enforced limits.

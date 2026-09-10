@@ -14,6 +14,25 @@ pub struct Quarantine {
 }
 
 impl Quarantine {
+    /// Open only the claimed generated ID, never a display filename or a caller
+    /// path. The protected root must remain exclusively operator-controlled.
+    /// The transport also checks EOF to detect changes after opening.
+    pub fn open_input(&self, id: ObjectId, bytes: u64) -> Result<File, MediaError> {
+        if !(1..=MAX_INPUT_BYTES).contains(&bytes) {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        let path = self.root.join(format!("{id}.input"));
+        let metadata = fs::symlink_metadata(&path)?;
+        if !metadata.is_file() || metadata.len() != bytes {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        let file = File::open(path)?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.len() != bytes {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        Ok(file)
+    }
     pub fn new(root: impl AsRef<Path>) -> Result<Self, MediaError> {
         fs::create_dir_all(root.as_ref())?;
         Ok(Self {

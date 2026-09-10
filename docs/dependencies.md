@@ -1,12 +1,16 @@
 # Dependency and update inventory
 
+Media dispatch adds pinned [Tokio-Rustls 0.26.5](https://docs.rs/tokio-rustls/0.26.5/tokio_rustls/) and test-only [Rcgen 0.14.10](https://docs.rs/rcgen/0.14.10/rcgen/), checked through registry metadata and downloaded upstream source on September 9, 2026. Their MSRVs are 1.71 and 1.88; both fit Rust 1.94. The client/server configurations explicitly use TLS 1.3 and the locked Rustls/ring versions. Rustix 1.1.4 supplies safe Unix file/identity calls. The added normal dependency tree has no database, decoder, quarantine or publisher crate. Eleven registry packages were added to the lockfile, including test certificate dependencies and optional metadata dependencies; no existing registry version changed. Cargo-audit 0.22.2 scanned 324 dependencies against 1,243 fetched advisories without a finding on September 9, 2026. This covers known advisories at that fetched state, not a complete transitive audit.
+
 Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust 1.94.0, Axum 0.8.9, Askama 0.16.1 and SQLx 0.9.0. SQLx 0.9 requires Rust 1.94. Official documentation and crate metadata were checked September 8, 2026: [Axum](https://docs.rs/axum/0.8.9/axum/), [Askama](https://docs.rs/askama/0.16.1/askama/), [SQLx](https://docs.rs/sqlx/0.9.0/sqlx/). PostgreSQL 16.15 remains in a [supported major release](https://www.postgresql.org/docs/16/backup-dump.html).
 
 | Component | Pinned/tested version | Role and maintenance note |
 |---|---|---|
 | Tokio | 1.53.1 in lockfile | Async runtime; native OS integration and unsafe internals are in the trust base |
 | Bytes / HTTP body | 1.12.1 / 1.1.0 | Direct declarations reuse existing locked versions. The local `board-http` crate retains admission through response data ownership; Bytes reference counting and its internal unsafe implementation remain in the trust base |
-| Rustls / ring | 0.23.44 / 0.17.14 | Database TLS; ring includes native/assembly code. Keep certificate verification enabled |
+| Rustls / ring | 0.23.44 / 0.17.14 | Database and media-dispatch TLS; ring includes native/assembly code. Dispatch explicitly selects TLS 1.3, trusted roots and required client certificates |
+| Tokio-Rustls | 0.26.5 | Media-dispatch async TLS, exact direct pin with default features disabled and ring enabled; no public roots, early data or session resumption |
+| Rcgen | 0.14.10 | Test-only synthetic certificates, exact pin with default features disabled and crypto/ring/PEM enabled; fresh harmless keys per test, valid 2020 through 2040, expired control ends 2021 |
 | SQLx PostgreSQL driver | 0.9.0 | Bound SQL and PostgreSQL protocol. MySQL/SQLite packages can appear in the lock graph through macro metadata; no SQLite/MySQL driver is enabled in the public normal dependency tree |
 | Askama | 0.16.1 | Compiled templates and automatic escaping; application never uses the `safe` filter |
 | Argon2 | 0.5.3 | Local deletion passwords, default Argon2id parameters and random salts; four concurrent operations maximum |

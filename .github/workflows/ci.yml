@@ -22,7 +22,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl
       - name: Start disposable database and migrate
         run: |
           sudo bash scripts/test-role-bootstrap.sh
@@ -69,6 +69,24 @@ jobs:
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             bash scripts/test-media-publication.sh
+      - name: Qualify authenticated media dispatch and native service boundaries
+        run: |
+          sudo env MEDIA_DISPATCH_ROOT_TESTS=1 CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
+            "$HOME/.cargo/bin/cargo" test -p board-media-dispatch --all-targets --locked
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            bash scripts/test-media-dispatch.sh
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            bash scripts/test-media-dispatch.sh --systemd
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_DISPATCH_ROOT_TESTS=1 \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            python3 tests/media/test_dispatch_broker.py -v
+          systemd-analyze verify deploy/media-dispatch-broker.service deploy/media-dispatch-gateway.service
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
       - name: Upgrade legacy media receipts without automatic approval

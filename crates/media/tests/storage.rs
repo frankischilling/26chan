@@ -11,6 +11,34 @@ use std::{
 };
 use tokio::io::{AsyncRead, ReadBuf};
 
+#[tokio::test]
+async fn claimed_input_opens_only_exact_regular_bounded_stored_bytes() {
+    use std::io::Read;
+    let temp = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(temp.path()).unwrap();
+    let id = ObjectId::generate().unwrap();
+    quarantine.receive(id, b"abc".as_slice()).await.unwrap();
+    let mut input = quarantine.open_input(id, 3).unwrap();
+    let mut bytes = Vec::new();
+    input.read_to_end(&mut bytes).unwrap();
+    assert_eq!(bytes, b"abc");
+    for length in [0, 2, 4, MAX_INPUT_BYTES + 1] {
+        assert!(quarantine.open_input(id, length).is_err());
+    }
+    let path = temp.path().join(format!("{id}.input"));
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    assert!(quarantine.open_input(id, 3).is_err());
+    std::fs::remove_dir(&path).unwrap();
+    #[cfg(unix)]
+    {
+        let target = temp.path().join("other");
+        std::fs::write(&target, b"abc").unwrap();
+        std::os::unix::fs::symlink(&target, &path).unwrap();
+        assert!(quarantine.open_input(id, 3).is_err());
+    }
+}
+
 #[derive(Clone, Copy)]
 enum End {
     Eof,

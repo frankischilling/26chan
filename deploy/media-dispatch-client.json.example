@@ -1,0 +1,7 @@
+{
+  "endpoint": "127.0.0.1:9443",
+  "server_name": "dispatch.example.internal",
+  "server_ca": "/etc/26chan-coordinator/server-ca.pem",
+  "client_certificate": "/etc/26chan-coordinator/client.pem",
+  "client_key": "/etc/26chan-coordinator/client.key"
+}
