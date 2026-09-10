@@ -73,3 +73,14 @@ Staff uses a separate process-wide limit of 30 enrollment/login starts per minut
 Use a maintained isolated guest on a dedicated processing tier after reviewing [Firecracker production guidance](https://github.com/firecracker-microvm/firecracker/blob/main/docs/prod-host-setup.md). Presence of `/dev/kvm` in WSL is not a deployment qualification. Pin and review the host kernel, runtime, guest kernel/rootfs and decoder versions before enabling processing.
 
 For a deployed owned test job, prove absence of database/deployment secrets and host sockets; access only one job's input/output; deny DNS, metadata, internal services and Internet paths; verify CPU/memory/process/disk/output/time ceilings from outside the guest; kill the full job and dispose of its workspace. Each negative connectivity test needs a healthy reachable positive control from an allowed context. Then test malformed but harmless output against a narrow byte/metadata protocol and idempotent promotion. The [local profile](firecracker.md) covers a recorded subset; remaining deployed controls stay prerequisites.
+## Approved media HTTP boundary
+
+The [media HTTP reader](media-http.md) is a separate Axum binary with only the
+restricted approved-asset database login. Each request checks approval and exact
+bounded PNG bytes, including cache revalidation. It has no media writer, content,
+staff or migration credentials and performs no decoding. A dedicated Unix reader
+identity has read-only access to an explicitly shared validated-output directory;
+the trusted coordinator remains its owner. Pending validated files may be read
+physically, but HTTP denies them without approval. The candidate service and
+actual owned identity/mount/database checks are separate from production
+qualification, which remains incomplete.

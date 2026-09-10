@@ -18,6 +18,14 @@ Terminate public HTTPS at an operator-controlled proxy and bind Axum to loopback
 
 ## Health, limits and observability
 
+The separate development [media HTTP reader](media-http.md) uses only the
+approved-view login and generated output directory. Its candidate unit has
+[actual disposable service evidence](verification-media-http.md), including a
+distinct reader UID, read-only mounts, effective cgroup limits and denied
+content/staff reads and media writes with healthy controls. It rejects
+production startup. Follow the reader notes for explicit shared-publication
+permissions, health semantics, resource limits and remaining deployment work.
+
 In the public application, `/healthz` checks process availability and `/readyz` performs a content query, returning 503 on unavailable storage. Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
 
 The following table describes public limits. [Staff notes](staff.md) record the separate staff limits and readiness checks of both its authentication and moderation stores; [media notes](media.md) record intake and queue bounds.
