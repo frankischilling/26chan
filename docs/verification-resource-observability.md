@@ -2,10 +2,12 @@
 
 Work for [issue #40](https://github.com/frankischilling/26chan/issues/40) starts
 from main `3649d15d997d2cb9e9184c444a44d22b0346e9c6`; design/plan commit `7bb3445`.
-Implementation `6b6a819c7ef72dab41a49fa540ce0f78de40f95a` passed all seven hosted
-checks, including real Linux pressure, authenticated alert delivery and cleanup.
+Initial implementation `6b6a819c7ef72dab41a49fa540ce0f78de40f95a` passed all seven
+hosted checks. A later check exposed a qualification defect in alert-cycle
+association, described below; the initial results do not replace the strengthened
+notification checks on the final revision.
 [PR #41](https://github.com/frankischilling/26chan/pull/41) tracks the final
-documentation revision, its checks and the authorized merge. Production
+revision, its checks and the authorized merge. Production
 deployment and qualification remain separate requirements.
 
 Portable checks on Windows, September 10, 2026:
@@ -39,7 +41,49 @@ scan. Linux CI stopped at `clippy::non_octal_unix_permissions` in a Linux-only
 test. The permission value was changed from `0` to `0o0`; its value and assertions
 are unchanged. Native pressure qualification had not run at that point.
 
-## Hosted implementation evidence
+The documentation-only revision `fd6ec72` passed its
+[push build](https://github.com/frankischilling/26chan/actions/runs/34502392944),
+but its [PR build](https://github.com/frankischilling/26chan/actions/runs/34502397131)
+failed during CPU-throttling qualification after byte, inode, memory and task
+cases passed. The buffered log lacked sub-phase detail, so the exact failing
+assertion could not be established from that run.
+
+Independent behavioral reproduction identified a concrete matcher defect:
+delayed messages from an earlier same-label CPU activation could select an old
+resolution before a valid current one, or let a complete old pair satisfy the
+later stage. A healthy Prometheus rule observation and a one-time receiver-queue
+drain do not constitute a notification-delivery barrier. Earlier memory/task
+work can itself cause CPU throttling in the same finite cgroup.
+
+The strengthened healthy control requires both Prometheus rule absence and
+authenticated Alertmanager absence for the owned alert. This prevents a new
+activation from overlapping a still-current prior alert: pinned Alertmanager
+0.34.0 retains the earliest start time when merging overlapping alerts. Its
+native alerts API excludes expired alerts and includes suppressed alerts when
+the corresponding filters are enabled. See the pinned
+[merge implementation](https://github.com/prometheus/alertmanager/blob/v0.34.0/alert/alert.go)
+and [API filter](https://github.com/prometheus/alertmanager/blob/v0.34.0/api/v2/api.go).
+
+The checks require a firing activation at or after the current
+stage's healthy boundary, then select its resolution by exact nonempty start
+time, fingerprint and labels. Missing or invalid start times cannot qualify.
+Delayed old messages are skipped while waiting for the current generation.
+Closed sub-phase diagnostics and failure-only allowlisted CPU scalars identify
+future failures without dumping native logs, private configuration or credentials.
+Thresholds, native pressure checks and pressure/delivery deadlines remain
+unchanged. The combined healthy control uses the existing 55-second limit;
+the source-unavailable case now shares that bounded healthy wait.
+The PR records the corrected revision and its required native reruns; the defect
+is a plausible explanation of the historical failure, not a proven attribution.
+
+The correction passed 13 resource qualification helper tests, including the
+failure-first generation regressions and a real local TLS 1.3 server check for
+API credentials, wrong-CA rejection, exact filters, all current alert states,
+malformed responses and healthy recovery. The full monitoring helper suite
+passed 18 tests. Python compilation, shell syntax and diff whitespace checks
+also passed. These local checks do not replace the corrected native Linux runs.
+
+## Initial hosted implementation evidence
 
 All these runs checked `6b6a819` and completed successfully:
 
@@ -81,8 +125,10 @@ validated and used the generated verified-HTTPS profile. All eight cases passed:
 | OOM kill increase | Actual allocation killed inside the finite cgroup, OOM counter increase and matching alerts |
 | Unavailable source | Remove traversal access, omit data families, readyz503/healthz200, then restore and matching alerts |
 
-Every firing/resolved pair matched labels, fingerprint and start time through the
-authenticated receiver. Live rule state was checked for pressure cases. Production
+Every accepted firing/resolved pair matched labels, fingerprint and start time
+through the authenticated receiver. These initial runs predate the additional
+current-generation boundary described above. Live rule state was checked for
+pressure cases. Production
 thresholds were unchanged; only rate/pending/transport timing was accelerated.
 Logs contain static success reports rather than payloads or credentials; their
 workflow timestamps are report times, not individual pressure transition times.
@@ -127,7 +173,7 @@ passed `systemd-analyze verify`; the native fixture separately exercised effecti
 identities and controls. Production host/path/network/permission equivalence is
 not established by that syntax check or by success on the disposable runner.
 
-The final documentation revision must pass its own checks before merge; the PR
+The final revision must pass its own checks before merge; the PR
 rollup is the source for that exact revision's status.
 
 Local WSL remains unresponsive; restart approval is pending. Existing WSL
