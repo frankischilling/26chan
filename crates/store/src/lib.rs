@@ -16,6 +16,8 @@ pub use write::*;
 pub enum StoreError {
     #[error("Not found.")]
     NotFound,
+    #[error("Page not found.")]
+    PageNotFound,
     #[error("{0}")]
     Invalid(&'static str),
     #[error("{0}")]

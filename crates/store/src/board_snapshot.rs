@@ -46,7 +46,7 @@ pub async fn board_snapshot(
         BoardSelection::Page(page) if (1..=max_pages).contains(&page) => {
             ((page - 1) * per_page, per_page, page < max_pages)
         }
-        BoardSelection::Page(_) => return Err(StoreError::NotFound),
+        BoardSelection::Page(_) => return Err(StoreError::PageNotFound),
         BoardSelection::All => (0, maximum, false),
     };
     let threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND NOT deleted ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")

@@ -27,6 +27,7 @@ impl IntoResponse for AppError {
 impl From<StoreError> for AppError {
     fn from(error: StoreError) -> Self {
         match error {
+            StoreError::PageNotFound => Self(StatusCode::NOT_FOUND, "Page not found."),
             StoreError::NotFound => {
                 Self(StatusCode::NOT_FOUND, "Board, thread, or post not found.")
             }

@@ -234,7 +234,7 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
     for page in [i64::MIN, 0, 3, i64::MAX] {
         assert!(matches!(
             board_snapshot(public, slug, BoardSelection::Page(page), Some(5)).await,
-            Err(StoreError::NotFound)
+            Err(StoreError::PageNotFound)
         ));
     }
     for limit in [-1, 6, i64::MAX] {
@@ -279,9 +279,44 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
                 .await
                 .unwrap();
             assert_eq!(response.status(), 404);
+            let body = String::from_utf8(
+                response
+                    .into_body()
+                    .collect()
+                    .await
+                    .unwrap()
+                    .to_bytes()
+                    .to_vec(),
+            )
+            .unwrap();
+            assert!(body.contains("Page not found."), "{suffix}: {body}");
         }
     }
     let html = String::from_utf8(get(&web, &format!("/{slug}/")).await).unwrap();
+    for suffix in ["2", "999"] {
+        let response = web
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/{slug}/{suffix}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 404);
+        let body = String::from_utf8(
+            response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(body.contains("Page not found."));
+    }
     assert_eq!(html.matches("replyContainer").count(), 3);
     assert!(html.contains("5 posts omitted"));
     let catalog_html = String::from_utf8(get(&web, &format!("/{slug}/catalog")).await).unwrap();
