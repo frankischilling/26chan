@@ -890,7 +890,21 @@ mod root_gateway {
             std::fs::Permissions::from_mode(0o666),
         )
         .unwrap();
-        let binary = env!("CARGO_BIN_EXE_media-dispatch-gateway");
+        // Model a build below a private runner home without changing its permissions.
+        let private_binaries = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(
+            private_binaries.path(),
+            std::fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        let source_binary = private_binaries.path().join("media-dispatch-gateway");
+        std::fs::copy(env!("CARGO_BIN_EXE_media-dispatch-gateway"), &source_binary).unwrap();
+        std::fs::set_permissions(&source_binary, std::fs::Permissions::from_mode(0o755)).unwrap();
+        // Only the owned fixture is made executable by the gateway identity.
+        let runnable_binary = f.dir.path().join("media-dispatch-gateway");
+        std::fs::copy(&source_binary, &runnable_binary).unwrap();
+        std::fs::set_permissions(&runnable_binary, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let binary = runnable_binary.to_str().unwrap();
         let root = std::process::Command::new(binary)
             .env_clear()
             .env("APP_ENV", "development")
