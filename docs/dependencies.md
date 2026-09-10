@@ -1,5 +1,11 @@
 # Dependency and update inventory
 
+The queue observer reuses locked SQLx/Tokio and board-observe dependencies. Its
+lockfile adds only the local `board-monitor` workspace package; no registry
+version or checksum changes. Tokio's test-util feature supports deterministic
+sampler timing tests. See [queue operations](queue-observability.md) and its
+[verification record](verification-queue-observability.md).
+
 HTTP telemetry reuses locked Axum/Tokio/HTTP dependencies and subtle 2.6.1 for
 equal-length bearer-token comparison. The fixed metrics crate adds no global
 registry or database client. The owned alert qualification downloads official

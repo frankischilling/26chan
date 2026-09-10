@@ -1,0 +1,1333 @@
+{
+  "rule_files": [
+    "../../deploy/monitoring/alerts.yml"
+  ],
+  "evaluation_interval": "15s",
+  "tests": [
+    {
+      "name": "BoardMediaObserverUnavailable: healthy threshold, pending, firing, recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x20"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x3 0x7 1x5"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaQueuePressure: healthy threshold, pending, firing, recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_queue_capacity{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "10x20"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"receiving\"}",
+          "values": "0x20"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"queued\"}",
+          "values": "9x3 10x7 9x5"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"processing\"}",
+          "values": "0x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "105s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue exceeds the example capacity budget"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaQueuePressure\",alertstate=\"pending\"}",
+          "eval_time": "105s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaQueuePressure\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaProcessingFailures: healthy threshold, pending, firing, recovery (processing_failed)",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"processing_failed\"}",
+          "values": "0x3 1x7 0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media processing failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaProcessingFailures\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaProcessingFailures\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaProcessingFailures: healthy threshold, pending, firing, recovery (invalid_output)",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"invalid_output\"}",
+          "values": "0x3 1x7 0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media processing failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaProcessingFailures\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaProcessingFailures\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaProcessingFailures: healthy threshold, pending, firing, recovery (retry_exhausted)",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"retry_exhausted\"}",
+          "values": "0x3 1x7 0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media processing failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaProcessingFailures\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaProcessingFailures\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaIntakeFailures: healthy threshold, pending, firing, recovery (intake_failed)",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"intake_failed\"}",
+          "values": "0x3 1x7 0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media intake failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaIntakeFailures\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaIntakeFailures\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaIntakeFailures: healthy threshold, pending, firing, recovery (abandoned)",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"abandoned\"}",
+          "values": "0x3 1x7 0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media intake failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaIntakeFailures\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaIntakeFailures\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardMediaExpiredJobs: healthy threshold, pending, firing, recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_expired_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"processing\"}",
+          "values": "0x3 1x7 0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "105s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue contains expired active jobs"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaExpiredJobs\",alertstate=\"pending\"}",
+          "eval_time": "105s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaExpiredJobs\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Observer down fires without any queue or sample metrics, then recovers",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0x3 1x5"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "_x3 1x5"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "_x3 60+15x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "15s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "15s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Missing all sample diagnostics fires observer alert while workload rules stay silent",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "15s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Missing sample success fires observer alert while workload rules stay silent",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x20"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "15s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Missing last success timestamp fires observer alert while workload rules stay silent",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x20"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "15s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A disappeared successful sample becomes unavailable and recovery resets the alert",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x3 stale _x7 1x5"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x30"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "195s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Thirty-second freshness boundary, stale firing, workload suppression and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x3 45x7 180+15x5"
+        },
+        {
+          "series": "board_media_queue_capacity{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "10x30"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"queued\"}",
+          "values": "10x30"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"processing_failed\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"intake_failed\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_expired_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"receiving\"}",
+          "values": "1x30"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "75s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "105s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "105s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMediaObserverUnavailable\",alertstate=\"pending\",instance=\"fixture:4\",job=\"board-monitor\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Unavailable samples suppress retained queue series rather than reporting them as healthy",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0x30"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x30"
+        },
+        {
+          "series": "board_media_queue_capacity{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "10x30"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"processing\"}",
+          "values": "10x30"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"invalid_output\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"abandoned\"}",
+          "values": "1x30"
+        },
+        {
+          "series": "board_media_expired_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"queued\"}",
+          "values": "1x30"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Media queue observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Failure gauges remain observable at the inclusive fifteen-minute boundary, then recover",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"retry_exhausted\"}",
+          "values": "1x60 0x2"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"abandoned\"}",
+          "values": "1x60 0x2"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media processing failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "900s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media processing failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "915s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media intake failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "900s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-monitor",
+                "instance": "fixture:4",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Recent media intake failures require investigation"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "915s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Missing queue families alone do not synthesize workload values",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "No configured monitor target means no media alerts in the HTTP fixture",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-public\",instance=\"fixture:1\"}",
+          "values": "1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardMediaObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "An unknown failure reason and published state cannot affect fixed alerts",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_queue_capacity{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "10x30"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"published\"}",
+          "values": "100x30"
+        },
+        {
+          "series": "board_media_expired_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"published\"}",
+          "values": "100x30"
+        },
+        {
+          "series": "board_media_failures_recent{job=\"board-monitor\",instance=\"fixture:4\",reason=\"unrecognized\"}",
+          "values": "100x30"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaProcessingFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaIntakeFailures",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaExpiredJobs",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Zero capacity never fabricates a pressure ratio",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_success{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_media_sample_last_success_timestamp_seconds{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_media_queue_capacity{job=\"board-monitor\",instance=\"fixture:4\"}",
+          "values": "0x30"
+        },
+        {
+          "series": "board_media_jobs{job=\"board-monitor\",instance=\"fixture:4\",state=\"queued\"}",
+          "values": "1x30"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "90s",
+          "alertname": "BoardMediaQueuePressure",
+          "exp_alerts": []
+        }
+      ]
+    }
+  ]
+}

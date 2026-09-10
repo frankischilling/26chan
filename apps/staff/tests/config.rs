@@ -2,15 +2,38 @@ use std::process::Command;
 
 #[test]
 fn staff_rejects_inherited_media_reader_credentials() {
+    for credential in ["MEDIA_READ_DATABASE_URL", "MONITOR_DATABASE_URL"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
+            .env_clear()
+            .env(credential, "synthetic-reader-secret")
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("unrelated database credential"));
+        assert!(!error.contains("synthetic-reader-secret"));
+    }
+}
+
+#[test]
+fn staff_rejects_non_unicode_monitor_credentials() {
+    #[cfg(unix)]
+    let secret = {
+        use std::os::unix::ffi::OsStringExt;
+        std::ffi::OsString::from_vec(vec![0xff])
+    };
+    #[cfg(windows)]
+    let secret = {
+        use std::os::windows::ffi::OsStringExt;
+        std::ffi::OsString::from_wide(&[0xd800])
+    };
     let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
         .env_clear()
-        .env("MEDIA_READ_DATABASE_URL", "synthetic-reader-secret")
+        .env("MONITOR_DATABASE_URL", secret)
         .output()
         .unwrap();
     assert!(!output.status.success());
-    let error = String::from_utf8_lossy(&output.stderr);
-    assert!(error.contains("unrelated database credential"));
-    assert!(!error.contains("synthetic-reader-secret"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unrelated database credential"));
 }
 
 #[test]

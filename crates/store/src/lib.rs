@@ -5,6 +5,7 @@ mod board_snapshot;
 pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_snapshot};
 pub mod media;
 pub mod media_assets;
+pub mod monitoring;
 mod read;
 mod write;
 pub use board_snapshot::*;

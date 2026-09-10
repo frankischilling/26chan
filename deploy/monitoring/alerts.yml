@@ -47,3 +47,71 @@ groups:
           severity: warning
         annotations:
           summary: Database pool has little idle capacity
+  - name: board-media-queue
+    rules:
+      - alert: BoardMediaObserverUnavailable
+        expr: |
+          (up{job="board-monitor"} == 0)
+          or
+          (
+            up{job="board-monitor"}
+            unless on (job, instance)
+            (
+              (board_media_sample_success{job="board-monitor"} == 1)
+              and on (job, instance)
+              (time() - board_media_sample_last_success_timestamp_seconds{job="board-monitor"} <= 30)
+            )
+          )
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Media queue observer is unavailable or stale
+      - alert: BoardMediaQueuePressure
+        expr: |
+          (
+            sum by (job, instance) (board_media_jobs{job="board-monitor",state=~"receiving|queued|processing"})
+            / board_media_queue_capacity{job="board-monitor"} > 0.9
+          )
+          and on (job, instance) (board_media_queue_capacity{job="board-monitor"} > 0)
+          and on (job, instance) (up{job="board-monitor"} == 1)
+          and on (job, instance) (board_media_sample_success{job="board-monitor"} == 1)
+          and on (job, instance) (time() - board_media_sample_last_success_timestamp_seconds{job="board-monitor"} <= 30)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Media queue exceeds the example capacity budget
+      - alert: BoardMediaProcessingFailures
+        expr: |
+          sum by (job, instance) (board_media_failures_recent{job="board-monitor",reason=~"processing_failed|invalid_output|retry_exhausted"}) > 0
+          and on (job, instance) (up{job="board-monitor"} == 1)
+          and on (job, instance) (board_media_sample_success{job="board-monitor"} == 1)
+          and on (job, instance) (time() - board_media_sample_last_success_timestamp_seconds{job="board-monitor"} <= 30)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Recent media processing failures require investigation
+      - alert: BoardMediaIntakeFailures
+        expr: |
+          sum by (job, instance) (board_media_failures_recent{job="board-monitor",reason=~"intake_failed|abandoned"}) > 0
+          and on (job, instance) (up{job="board-monitor"} == 1)
+          and on (job, instance) (board_media_sample_success{job="board-monitor"} == 1)
+          and on (job, instance) (time() - board_media_sample_last_success_timestamp_seconds{job="board-monitor"} <= 30)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Recent media intake failures require investigation
+      - alert: BoardMediaExpiredJobs
+        expr: |
+          sum by (job, instance) (board_media_expired_jobs{job="board-monitor",state=~"receiving|queued|processing"}) > 0
+          and on (job, instance) (up{job="board-monitor"} == 1)
+          and on (job, instance) (board_media_sample_success{job="board-monitor"} == 1)
+          and on (job, instance) (time() - board_media_sample_last_success_timestamp_seconds{job="board-monitor"} <= 30)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Media queue contains expired active jobs

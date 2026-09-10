@@ -42,10 +42,23 @@ BEGIN
      OR has_table_privilege('board_media_read','media.jobs','SELECT') THEN
     RAISE EXCEPTION 'Bootstrap reader grants differ';
   END IF;
+  IF (SELECT rolcanlogin FROM pg_roles WHERE rolname='board_monitor') THEN
+    RAISE EXCEPTION 'Unqualified observer is login-enabled';
+  END IF;
+  IF NOT has_schema_privilege('board_monitor','monitoring','USAGE')
+     OR NOT has_table_privilege('board_monitor','monitoring.media_queue','SELECT')
+     OR has_schema_privilege('board_monitor','media','USAGE')
+     OR has_table_privilege('board_monitor','media.jobs','SELECT,INSERT,UPDATE,DELETE')
+     OR has_table_privilege('board_monitor','media.queue_policy','SELECT,UPDATE') THEN
+    RAISE EXCEPTION 'Bootstrap observer grants differ';
+  END IF;
 END $$;
 SET ROLE board_media_read;
 SELECT count(*) AS initially_approved FROM media.approved_assets;
+RESET ROLE;
+SET ROLE board_monitor;
+SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
 cleanup
 trap - EXIT
-printf 'Fresh role bootstrap passed: all migrations applied as owner; reader remains NOLOGIN with approved-only grants. Private cluster removed.\n'
+printf 'Fresh role bootstrap passed: all migrations applied as owner; media reader and aggregate observer remain NOLOGIN with restricted grants. Private cluster removed.\n'

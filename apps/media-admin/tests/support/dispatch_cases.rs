@@ -53,6 +53,7 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         "AUTH_DATABASE_URL",
         "TEST_PUBLIC_DATABASE_URL",
         "MEDIA_READ_DATABASE_URL",
+        "MONITOR_DATABASE_URL",
         "configuration",
         "roots",
         "transport",

@@ -70,7 +70,8 @@ synthetic test is not an authenticated service boundary. Protect the monitoring
 tools' own APIs and dashboards too.
 
 This slice covers scrape availability, HTTP errors/rejected writes, staff 401/403
-rates, and pool pressure. It does not cover media queue/processing failures,
+rates, and pool pressure. The separate [aggregate queue observer](queue-observability.md)
+covers media queue pressure, expiry and processing failures. Neither covers
 host/database disk or cgroup resource pressure, update-check freshness/failure,
 external uptime, durable monitoring storage, or a production receiver. Those
 remain launch prerequisites. Avoid interpreting a healthy scraper as a healthy

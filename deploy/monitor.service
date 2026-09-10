@@ -1,0 +1,42 @@
+# Candidate only; qualify identity, network, certificate and resource controls on the owned host.
+[Unit]
+Description=Paperboard aggregate media queue observer
+After=network.target
+
+[Service]
+Type=exec
+User=board-monitor
+Group=board-monitor
+WorkingDirectory=/opt/paperboard
+EnvironmentFile=/etc/paperboard/monitor.env
+ExecStart=/opt/paperboard/board-monitor
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+InaccessiblePaths=-/etc/26chan-coordinator -/var/lib/26chan-coordinator -/etc/26chan-dispatch -/var/lib/26chan-media
+UMask=0077
+LimitNOFILE=128
+LimitCORE=0
+TasksMax=16
+MemoryMax=128M
+CPUQuota=25%
+StandardOutput=journal
+StandardError=journal
