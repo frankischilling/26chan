@@ -381,7 +381,7 @@ async fn empty_api_head_and_options_bodies_release_admission() {
 #[tokio::test]
 async fn preflight_never_grants_unimplemented_or_ambiguous_requests() {
     let app = offline_api().await;
-    for path in ["/demo/post", "/staff/admin/accounts", "/demo/archive.json"] {
+    for path in ["/demo/post", "/staff/admin/accounts", "/demo/archive"] {
         let response = request(
             &app,
             Method::OPTIONS,
@@ -453,7 +453,7 @@ async fn api_listener_has_no_html_or_write_routes_and_head_errors_have_no_body()
         "/demo/",
         "/demo/post/1",
         "/staff/admin/accounts",
-        "/demo/archive.json",
+        "/demo/archive",
     ] {
         let response = request(&app, Method::GET, path, &[]).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");

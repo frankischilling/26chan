@@ -49,7 +49,7 @@ pub async fn board_snapshot(
         BoardSelection::Page(_) => return Err(StoreError::PageNotFound),
         BoardSelection::All => (0, maximum, false),
     };
-    let threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND NOT deleted ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
+    let threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
         .bind(slug).bind(offset).bind(limit).fetch_all(&mut *tx).await?;
     let has_next = later_page && threads.len() == limit as usize;
     let ids: Vec<i64> = threads.iter().map(|thread| thread.id).collect();

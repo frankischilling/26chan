@@ -3,8 +3,9 @@
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block content %}
 <header class="boardHeader"><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
-<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a> ]</nav>
-{% if !catalog %}
+<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a>{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
+{% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
+{% if !catalog && !archived() %}
 <form id="postForm" action="/{{ board.slug }}/post" method="post" class="postForm">
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
@@ -28,7 +29,7 @@
 {% if !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
 <span class="name">{{ item.post.name }}</span> <time datetime="{{ item.post.created_at.to_rfc3339() }}">{{ item.now }}</time>
 <a class="postNum" href="/{{ board.slug }}/thread/{{ view.thread.id }}#p{{ item.post.id }}">No.{{ item.post.id }}</a>
-{% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">Reply</a>]{% endif %}
+{% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed || view.thread.archived_at.is_some() %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">{% if view.thread.archived_at.is_some() %}View thread{% else %}Reply{% endif %}</a>]{% endif %}
 </div>
 <blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</blockquote>
 {% if !catalog %}

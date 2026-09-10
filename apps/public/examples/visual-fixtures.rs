@@ -12,8 +12,8 @@ use views::{BoardPage, PostView, ThreadView};
 fn time(value: &str) -> DateTime<Utc> {
     value.parse().expect("fixed synthetic timestamp")
 }
-fn page(catalog: bool) -> String {
-    let board = Board {
+fn board() -> Board {
+    Board {
         slug: "demo".into(),
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
@@ -23,7 +23,12 @@ fn page(catalog: bool) -> String {
         thread_limit: 100,
         threads_per_page: 10,
         worksafe: true,
-    };
+        archive_retention_seconds: 0,
+        archive_limit: 1000,
+    }
+}
+fn page(catalog: bool) -> String {
+    let board = board();
     let thread = Thread {
         id: 1000001,
         board: "demo".into(),
@@ -34,6 +39,8 @@ fn page(catalog: bool) -> String {
         sticky: false,
         closed: false,
         deleted: false,
+        archived_at: None,
+        archive_expires_at: None,
     };
     let mut posts = vec![PostView::new(Post {
         id: 1000001,
@@ -74,6 +81,98 @@ fn page(catalog: bool) -> String {
     .expect("production templates")
 }
 
+fn archive_board(slug: &str) -> Board {
+    Board {
+        slug: slug.into(),
+        archive_retention_seconds: 3600,
+        ..board()
+    }
+}
+
+fn archive_page(empty: bool) -> String {
+    let entries = if empty {
+        vec![]
+    } else {
+        vec![
+            board_store::ArchiveEntry {
+                id: 1000101,
+                subject: "<b>A paper lighthouse</b>".into(),
+                archived_at: time("2026-09-08T13:00:00Z"),
+            },
+            board_store::ArchiveEntry {
+                id: 1000102,
+                subject: String::new(),
+                archived_at: time("2026-09-08T13:05:00Z"),
+            },
+            board_store::ArchiveEntry {
+                id: 1000103,
+                // The maximum-length unbroken subject exercises mobile wrapping.
+                subject: "Fold".repeat(30),
+                archived_at: time("2026-09-08T13:10:00Z"),
+            },
+        ]
+    };
+    views::ArchivePage {
+        board: archive_board(if empty { "emptyarc" } else { "arc" }),
+        entries,
+    }
+    .render()
+    .expect("production archive template")
+}
+
+fn archived_thread() -> String {
+    let board = archive_board("arc");
+    let thread = Thread {
+        id: 1000101,
+        board: board.slug.clone(),
+        created_at: time("2026-09-08T12:00:00Z"),
+        bumped_at: time("2026-09-08T12:05:00Z"),
+        modified_at: time("2026-09-08T13:00:00Z"),
+        reply_count: 1,
+        sticky: false,
+        closed: false,
+        deleted: false,
+        archived_at: Some(time("2026-09-08T13:00:00Z")),
+        archive_expires_at: Some(time("2026-09-08T14:00:00Z")),
+    };
+    let posts = vec![
+        PostView::new(Post {
+            id: 1000101,
+            board: board.slug.clone(),
+            thread_id: thread.id,
+            name: "Anonymous".into(),
+            subject: "<b>A paper lighthouse</b>".into(),
+            comment: "The completed paper lighthouse.\n>fold each edge carefully\n[spoiler]There is a tiny door at the back.[/spoiler]".into(),
+            created_at: thread.created_at,
+            deleted: false,
+        }),
+        PostView::new(Post {
+            id: 1000104,
+            board: board.slug.clone(),
+            thread_id: thread.id,
+            name: "Anonymous".into(),
+            subject: String::new(),
+            comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
+            created_at: thread.bumped_at,
+            deleted: false,
+        }),
+    ];
+    BoardPage {
+        parent: thread.id,
+        board,
+        threads: vec![ThreadView {
+            thread,
+            posts,
+            omitted: 0,
+        }],
+        previous: String::new(),
+        next: String::new(),
+        catalog: false,
+    }
+    .render()
+    .expect("production archived thread template")
+}
+
 #[tokio::main]
 async fn main() {
     // Construct the other shared templates too; this keeps this include honest
@@ -82,6 +181,12 @@ async fn main() {
     let _ = views::Message {
         title: "Fixture",
         message: "Synthetic data",
+    }
+    .render()
+    .unwrap();
+    let _ = views::ArchivePage {
+        board: board(),
+        entries: vec![],
     }
     .render()
     .unwrap();
@@ -94,6 +199,15 @@ async fn main() {
     let app = Router::new()
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
+        .route("/arc/archive", get(|| async { Html(archive_page(false)) }))
+        .route(
+            "/emptyarc/archive",
+            get(|| async { Html(archive_page(true)) }),
+        )
+        .route(
+            "/arc/thread/1000101",
+            get(|| async { Html(archived_thread()) }),
+        )
         .route(
             "/static/board.css",
             get(|| async {

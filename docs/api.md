@@ -1,6 +1,6 @@
 # Read-only API listener
 
-The public process can bind a second listener for JSON clients. It serves `/boards.json`, `/{board}/thread/{id}.json`, `/{board}/threads.json`, `/{board}/catalog.json` and positive `/{board}/{page}.json` pages, plus `/healthz` and `/readyz`. Archives and attachments remain unavailable. The original JSON URLs on the HTML listener still work.
+The public process can bind a second listener for JSON clients. It serves `/boards.json`, `/{board}/thread/{id}.json`, `/{board}/threads.json`, `/{board}/catalog.json`, `/{board}/archive.json` on enabled boards and positive `/{board}/{page}.json` pages, plus `/healthz` and `/readyz`. Attachments remain unavailable. The original JSON URLs on the HTML listener still work. [Archive notes](thread-archives.md) describe lifecycle, policy and migration 0009.
 
 Set both `API_ORIGIN` and `API_BIND_ADDR` to enable it; omit both for the existing single-listener setup. In a fresh development shell, after the database is migrated and seeded:
 
@@ -38,7 +38,7 @@ Route the public hostname through the HTTPS reverse proxy to `BIND_ADDR`, and th
 
 Both listeners belong to one public process and share its database pool, 32-request admission budget and runtime credentials. Admission covers handler execution and retained application response bodies/data, including data clones emitted to the transport. API body normalization preserves the permit; final empty HEAD/OPTIONS bodies release it. Shutdown drains both and closes the shared pool. The API route surface is read-only, but the process still has the public application's posting authority. This is not a separate database privilege boundary. Staff identity, moderation and media processing remain separately deployed concerns.
 
-This change needs no database migration. To remove API exposure, remove its proxy route and both API environment settings, then restart the public service through the operator's release procedure. Existing public HTML and JSON routes keep their URLs. Do not leave a proxy route pointing at a port that another service could later bind.
+Enabling the second listener itself needs no additional migration; run the current application schema, including migration 0009 for archives. To remove API exposure, remove its proxy route and both API environment settings, then restart the public service through the operator's release procedure. Existing public HTML and JSON routes keep their URLs. Do not leave a proxy route pointing at a port that another service could later bind.
 
 ## Verification
 

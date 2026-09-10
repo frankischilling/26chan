@@ -111,3 +111,5 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Media approval verification](docs/verification-media-approval.md)
 - [Staff WebAuthn setup, enrollment and moderation](docs/staff.md)
 - [Approved media HTTP reader and separate identity](docs/media-http.md)
+
+[Thread archives](docs/thread-archives.md) document rollover, optional retention policy, read-only HTML/JSON access and migration 0009.

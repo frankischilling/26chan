@@ -93,6 +93,8 @@ jobs:
           systemd-analyze verify deploy/media-dispatch-broker.service deploy/media-dispatch-gateway.service
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
+      - name: Upgrade existing threads from migration 0008
+        run: sudo bash scripts/test-archive-migration.sh
       - name: Upgrade legacy media receipts without automatic approval
         run: sudo bash scripts/test-media-approval-migration.sh
       - name: Restore disposable backup
@@ -122,3 +124,6 @@ jobs:
         run: |
           $env:VISUAL_FIXTURE_SERVER = '1'
           npm run test:visual
+      - name: Run archive desktop and mobile visual fixtures
+        shell: pwsh
+        run: npm run test:archive-visual
