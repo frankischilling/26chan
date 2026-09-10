@@ -1,0 +1,1616 @@
+{
+  "rule_files": [
+    "../../deploy/monitoring/alerts.yml"
+  ],
+  "evaluation_interval": "15s",
+  "tests": [
+    {
+      "name": "BoardResourceObserverUnavailable: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x3 0x9 1x86"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "210s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardStorageBytesPressure: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "10x3 9x9 10x86"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "165s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "storage": "database"
+              },
+              "exp_annotations": {
+                "summary": "Storage available bytes are below ten percent"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "210s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardStorageBytesPressure\",alertstate=\"pending\"}",
+          "eval_time": "165s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardStorageBytesPressure\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",storage=\"database\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardStorageInodesPressure: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "10x3 9x9 10x86"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "165s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "storage": "database"
+              },
+              "exp_annotations": {
+                "summary": "Storage available inodes are below ten percent"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "210s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardStorageInodesPressure\",alertstate=\"pending\"}",
+          "eval_time": "165s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardStorageInodesPressure\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",storage=\"database\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardStorageReadOnly: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_read_only{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "0x3 1x9 0x86"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "storage": "database"
+              },
+              "exp_annotations": {
+                "summary": "Storage filesystem is read-only"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "210s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardStorageReadOnly\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardStorageReadOnly\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",storage=\"database\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardServiceMemoryPressure: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "90x3 91x9 90x86"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "165s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "service": "public"
+              },
+              "exp_annotations": {
+                "summary": "Service memory exceeds ninety percent of its local ceiling"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "210s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardServiceMemoryPressure\",alertstate=\"pending\"}",
+          "eval_time": "165s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardServiceMemoryPressure\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",service=\"public\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardServiceTasksPressure: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "90x3 91x9 90x86"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "165s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "service": "public"
+              },
+              "exp_annotations": {
+                "summary": "Service tasks exceed ninety percent of their local ceiling"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "210s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardServiceTasksPressure\",alertstate=\"pending\"}",
+          "eval_time": "165s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardServiceTasksPressure\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",service=\"public\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardServiceCpuThrottling: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0x3 100+100x19 2000x76"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "165s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "service": "public"
+              },
+              "exp_annotations": {
+                "summary": "Service CPU throttled periods exceed twenty percent"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "660s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardServiceCpuThrottling\",alertstate=\"pending\"}",
+          "eval_time": "165s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardServiceCpuThrottling\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",service=\"public\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardServiceOomKills: healthy threshold, pending, firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "10x3 11x96"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "service": "public"
+              },
+              "exp_annotations": {
+                "summary": "Service cgroup reports recent OOM kills"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "660s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardServiceOomKills\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardServiceOomKills\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\",service=\"public\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Every pressure alert is suppressed when unavailable",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_read_only{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+90x100"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Every pressure alert is suppressed when down",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_read_only{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+90x100"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Every pressure alert is suppressed when stale",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_read_only{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+90x100"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Every pressure alert is suppressed when missing success",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_read_only{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+90x100"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Every pressure alert is suppressed when missing timestamp",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_storage_read_only{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "100x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+90x100"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageReadOnly",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Observer down lifecycle",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x3 0x3 1x93"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Observer stale lifecycle",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0x7 120+15x92"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "60s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "60s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Observer missing metadata lifecycle",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x3 stale _ _ _ 1x92"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "75s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Resource observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "120s",
+          "alertname": "BoardResourceObserverUnavailable",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardResourceObserverUnavailable\",alertstate=\"pending\",job=\"board-resource\",instance=\"fixture:5\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Zero denominators never produce pressure alerts",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_storage_capacity_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_storage_available_bytes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_storage_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_storage_available_inodes{job=\"board-resource\",instance=\"fixture:5\",storage=\"database\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_service_memory_limit_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_service_memory_bytes{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_tasks_limit{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_service_tasks{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "99x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+90x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageBytesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardStorageInodesPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceMemoryPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceTasksPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Counter resets alone do not fire CPU or OOM alerts",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "1000+100x3 0+100x96"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "500x3 0x96"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "10x3 0x96"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "45s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "45s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "90s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "180s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Real post-reset increments still fire and then resolve",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "1000+100x3 0+100x96"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "500x3 0+90x19 1710x76"
+        },
+        {
+          "series": "board_service_memory_oom_kills_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "10x3 0x3 1x92"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "240s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "service": "public"
+              },
+              "exp_annotations": {
+                "summary": "Service CPU throttled periods exceed twenty percent"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "150s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-resource",
+                "instance": "fixture:5",
+                "severity": "warning",
+                "service": "public"
+              },
+              "exp_annotations": {
+                "summary": "Service cgroup reports recent OOM kills"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "720s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "720s",
+          "alertname": "BoardServiceOomKills",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Exactly twenty percent CPU throttling stays healthy",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_success{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_resource_sample_last_success_timestamp_seconds{job=\"board-resource\",instance=\"fixture:5\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_service_cpu_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+100x100"
+        },
+        {
+          "series": "board_service_cpu_throttled_periods_total{job=\"board-resource\",instance=\"fixture:5\",service=\"public\"}",
+          "values": "0+20x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "600s",
+          "alertname": "BoardServiceCpuThrottling",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardServiceCpuThrottling\",alertstate=\"pending\"}",
+          "eval_time": "600s",
+          "exp_samples": []
+        }
+      ]
+    }
+  ]
+}

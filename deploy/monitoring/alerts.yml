@@ -115,3 +115,105 @@ groups:
           severity: warning
         annotations:
           summary: Media queue contains expired active jobs
+  - name: board-resource
+    rules:
+      - alert: BoardResourceObserverUnavailable
+        expr: |
+          (up{job="board-resource"} == 0)
+          or
+          (
+            up{job="board-resource"}
+            unless on (job, instance)
+            (
+              (board_resource_sample_success{job="board-resource"} == 1)
+              and on (job, instance)
+              (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+            )
+          )
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Resource observer is unavailable or stale
+      - alert: BoardStorageBytesPressure
+        expr: |
+          (board_storage_available_bytes{job="board-resource"} / board_storage_capacity_bytes{job="board-resource"} < 0.1)
+          and (board_storage_capacity_bytes{job="board-resource"} > 0)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Storage available bytes are below ten percent
+      - alert: BoardStorageInodesPressure
+        expr: |
+          (board_storage_available_inodes{job="board-resource"} / board_storage_inodes{job="board-resource"} < 0.1)
+          and (board_storage_inodes{job="board-resource"} > 0)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Storage available inodes are below ten percent
+      - alert: BoardStorageReadOnly
+        expr: |
+          (board_storage_read_only{job="board-resource"} == 1)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Storage filesystem is read-only
+      - alert: BoardServiceMemoryPressure
+        expr: |
+          (board_service_memory_bytes{job="board-resource"} / board_service_memory_limit_bytes{job="board-resource"} > 0.9)
+          and (board_service_memory_limit_bytes{job="board-resource"} > 0)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Service memory exceeds ninety percent of its local ceiling
+      - alert: BoardServiceTasksPressure
+        expr: |
+          (board_service_tasks{job="board-resource"} / board_service_tasks_limit{job="board-resource"} > 0.9)
+          and (board_service_tasks_limit{job="board-resource"} > 0)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Service tasks exceed ninety percent of their local ceiling
+      - alert: BoardServiceCpuThrottling
+        expr: |
+          (rate(board_service_cpu_throttled_periods_total{job="board-resource"}[5m]) / rate(board_service_cpu_periods_total{job="board-resource"}[5m]) > 0.2)
+          and (rate(board_service_cpu_periods_total{job="board-resource"}[5m]) > 0)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Service CPU throttled periods exceed twenty percent
+      - alert: BoardServiceOomKills
+        expr: |
+          (increase(board_service_memory_oom_kills_total{job="board-resource"}[5m]) > 0)
+          and on (job, instance) (up{job="board-resource"} == 1)
+          and on (job, instance) (board_resource_sample_success{job="board-resource"} == 1)
+          and on (job, instance) (time() - board_resource_sample_last_success_timestamp_seconds{job="board-resource"} <= 30)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Service cgroup reports recent OOM kills

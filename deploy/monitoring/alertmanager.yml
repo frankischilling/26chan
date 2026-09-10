@@ -1,7 +1,7 @@
 # A local example receiver, not a deployed operator notification destination.
 route:
   receiver: local-operator-webhook
-  group_by: [alertname, job, instance, listener, pool]
+  group_by: [alertname, job, instance, listener, pool, storage, service]
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h

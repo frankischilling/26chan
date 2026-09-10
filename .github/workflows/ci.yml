@@ -112,6 +112,18 @@ jobs:
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin QUEUE_QUALIFICATION_INTERRUPT=1 \
             bash scripts/test-queue-monitoring.sh "$PWD/target/debug/board-monitor" \
             "$PWD/target/debug/examples/queue_fixture" "$PWD/.local/monitoring/bin"
+      - name: Qualify storage and service pressure through authenticated monitoring
+        run: |
+          sudo install -D -m 0755 target/debug/board-resource-monitor /opt/paperboard/board-resource-monitor
+          systemd-analyze verify deploy/resource-monitor.service
+          python3 -m venv .local/monitor-auth-venv
+          .local/monitor-auth-venv/bin/python -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r scripts/monitoring/auth-requirements.txt
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            RESOURCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
+            bash scripts/test-resource-monitoring.sh "$PWD/target/debug/board-resource-monitor" "$PWD/.local/monitoring/bin"
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin RESOURCE_QUALIFICATION_INTERRUPT=1 \
+            RESOURCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
+            bash scripts/test-resource-monitoring.sh "$PWD/target/debug/board-resource-monitor" "$PWD/.local/monitoring/bin"
   visual-windows:
     runs-on: windows-2025
     timeout-minutes: 30

@@ -504,6 +504,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-resource-monitor"
+version = "0.1.0"
+dependencies = [
+ "board-observe",
+ "proptest",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "board-staff"
 version = "0.1.0"
 dependencies = [

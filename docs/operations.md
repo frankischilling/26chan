@@ -52,8 +52,10 @@ observation. Its [verification record](verification-queue-observability.md) trac
 database and delivery evidence. The [authenticated monitoring profile](authenticated-monitoring.md)
 adds verified HTTPS and independent request credentials to both notification links
 and the native APIs, with broad native API authority documented explicitly.
-Before launch, still add and exercise
-host/database storage/resource and update-check monitoring, and configure and
+The separate [resource observer](resource-observability.md) measures configured
+filesystem capacity and local cgroup ceilings; its native qualification is tracked
+in the verification record. Before launch, qualify storage/resource monitoring
+on the deployed host, implement update-check alert delivery, and configure and
 verify an operator notification destination. Do not treat journal output, a
 successful scrape, or local webhook delivery as equivalent production coverage.
 

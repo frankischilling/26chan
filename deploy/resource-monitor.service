@@ -1,0 +1,47 @@
+# Candidate only. Match the four storage exceptions to RESOURCE_CONFIG_FILE
+# and qualify DAC denial plus writer/observer mount-flag agreement on the host.
+[Unit]
+Description=Paperboard storage and service resource observer
+After=network.target
+
+[Service]
+Type=exec
+User=board-resource-monitor
+Group=board-resource-monitor
+WorkingDirectory=/opt/paperboard
+EnvironmentFile=/etc/paperboard/resource-monitor.env
+ExecStart=/opt/paperboard/board-resource-monitor
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+# These preserve storage mount flags, not permission to write. The distinct
+# identity must lack directory/file write and payload read access through DAC.
+# Replace with the exact configured directories; do not widen to /var or /.
+ReadWritePaths=-/var/lib/postgresql/16/main -/var/lib/26chan-media/quarantine -/var/lib/26chan-media/approved -/var/lib/prometheus
+InaccessiblePaths=-/etc/26chan-coordinator -/var/lib/26chan-coordinator -/etc/26chan-dispatch
+UMask=0077
+LimitNOFILE=128
+LimitCORE=0
+TasksMax=16
+MemoryMax=128M
+CPUQuota=25%
+StandardOutput=journal
+StandardError=journal
