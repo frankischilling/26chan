@@ -79,6 +79,14 @@ Do not run an older staff binary alongside the new one: it neither enforces nor 
 
 ## Production candidate
 
+On Unix, SIGTERM and SIGINT stop application admission and allow active requests
+to finish through Axum's graceful shutdown. The private metrics listener remains
+available while requests drain and closes when serving ends. Other platforms keep
+the Ctrl+C shutdown path. The existing handler timeout still applies; shutdown
+does not establish a socket-write deadline or override an operator's forced-stop
+deadline. SIGKILL cannot drain a request. [Native shutdown verification](verification-staff-shutdown.md)
+records the real-binary regression and its execution evidence.
+
 `deploy/staff.service` and `deploy/staff.env.example` are unactivated candidates. Production requires HTTPS at a local trusted reverse proxy, the exact origin configuration, separate runtime logins with reviewed grants, a private environment file, access-log redaction for authentication material, and tested operator delivery/recovery procedures. The service binds loopback and rejects unrelated database credentials. Each database URL must name its expected PostgreSQL login and production requires one canonical `sslmode=verify-full` option. Duplicate, alias and connection-identity override query options are rejected. Production public and staff hostnames must differ because cookies are not scoped by port; media must occupy a different registrable domain from both applications. Development uses loopback origins; the browser fixture separates public `127.0.0.1` from staff `localhost`. The candidate service limits memory to 512 MiB, CPU to one core, tasks to 64, file descriptors to 1024 and ordinary core dumps to zero. These deployment settings have not been activated or load-tested.
 
 Attestation is **not enforced** in this slice. Passkeys may be synced or implemented in software. Hardware-backed credentials are preferred operationally, but the server does not establish hardware provenance. Physical authenticator validation, production identity provisioning, deployment and independent security review remain unverified.
