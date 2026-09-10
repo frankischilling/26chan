@@ -3,7 +3,13 @@
 use board_media_dispatch::{config::GatewaySettings, protocol::read_request, tls::server_config};
 use board_store::media::MediaQueue;
 use rcgen::{BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair};
-use std::{path::Path, sync::Mutex};
+use std::{
+    path::Path,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 use tokio::{io::AsyncWriteExt, net::TcpListener, sync::oneshot};
 use tokio_rustls::TlsAcceptor;
 
@@ -40,6 +46,13 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
     let quarantine = board_media::Quarantine::new(path("quarantine")).unwrap();
     for case in [
         "valid",
+        "production",
+        "DATABASE_URL",
+        "MIGRATION_DATABASE_URL",
+        "STAFF_DATABASE_URL",
+        "AUTH_DATABASE_URL",
+        "TEST_PUBLIC_DATABASE_URL",
+        "MEDIA_READ_DATABASE_URL",
         "configuration",
         "roots",
         "transport",
@@ -48,7 +61,14 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         "replaced",
         "changed-input",
     ] {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let environment_denial = match case {
+            "production" => Some(("APP_ENV", "production")),
+            name if name.ends_with("DATABASE_URL") => {
+                Some((name, "synthetic-secret-must-not-appear"))
+            }
+            _ => None,
+        };
+        let listener = Arc::new(TcpListener::bind("127.0.0.1:0").await.unwrap());
         let endpoint = listener.local_addr().unwrap();
         let gateway = GatewaySettings {
             listen: endpoint,
@@ -85,13 +105,21 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         let (received, arrival) = oneshot::channel();
         let (release, released) = oneshot::channel();
         let acceptor = TlsAcceptor::from(server_config(&gateway).unwrap());
+        let server_listener = listener.clone();
+        let accepted = Arc::new(AtomicBool::new(false));
+        let server_accepted = accepted.clone();
         let server = tokio::spawn(async move {
-            let (socket, _) = listener.accept().await.unwrap();
+            let (socket, _) = server_listener.accept().await.unwrap();
+            server_accepted.store(true, Ordering::SeqCst);
             let mut stream = acceptor.accept(socket).await.unwrap();
             let input = read_request(&mut stream).await.unwrap();
             assert_eq!(input, b"exact-input");
             received.send(()).unwrap();
-            released.await.unwrap();
+            // The environment cases must have a working full response if a
+            // guard regresses, rather than fail on a test barrier or timeout.
+            if environment_denial.is_none() {
+                released.await.unwrap();
+            }
             if case == "transport" {
                 return;
             }
@@ -116,8 +144,37 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             } else {
                 path("objects")
             });
+        if let Some((name, value)) = environment_denial {
+            cmd.env(name, value);
+        }
         let task = tokio::task::spawn_blocking(move || cmd.output().unwrap());
-        if ["configuration", "roots", "changed-input"].contains(&case) {
+        if environment_denial.is_some() {
+            let result = task.await.unwrap();
+            server.abort();
+            let _ = server.await;
+            assert!(!result.status.success(), "case {case}");
+            assert!(result.stdout.is_empty(), "case {case}");
+            assert_eq!(
+                String::from_utf8(result.stderr).unwrap().trim(),
+                "media publication command rejected; inspect private state before retrying",
+                "case {case}"
+            );
+            let unchanged = queue.get(&job.id).await.unwrap();
+            assert_eq!(unchanged.state, "queued", "case {case}");
+            assert_eq!(unchanged.attempts, 0, "case {case}");
+            assert!(unchanged.lease_token.is_none(), "case {case}");
+            assert!(
+                !accepted.load(Ordering::SeqCst),
+                "case {case} reached transport"
+            );
+            // The child has exited and the accept task has joined. Check the
+            // kernel backlog too, so scheduling cannot mask a connection.
+            let listener = Arc::try_unwrap(listener).unwrap().into_std().unwrap();
+            assert!(
+                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+                "case {case} left a pending transport connection"
+            );
+        } else if ["configuration", "roots", "changed-input"].contains(&case) {
             let result = task.await.unwrap();
             assert!(!result.status.success());
             assert!(result.stdout.is_empty());

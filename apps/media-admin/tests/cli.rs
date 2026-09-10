@@ -11,34 +11,6 @@ fn command() -> Command {
 }
 
 #[test]
-fn dispatch_rejects_production_and_unrelated_credentials_without_output() {
-    for (name, value) in [
-        ("APP_ENV", "production"),
-        ("MIGRATION_DATABASE_URL", "synthetic-secret"),
-    ] {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_media-publish"));
-        cmd.env_clear()
-            .env("APP_ENV", "development")
-            .env(
-                "MEDIA_DATABASE_URL",
-                "postgres://board_media:synthetic@127.0.0.1/board",
-            )
-            .env(name, value)
-            .args(["dispatch", "absent.json", "absent-store"]);
-        if let Some(value) = std::env::var_os("SystemRoot") {
-            cmd.env("SystemRoot", value);
-        }
-        let output = cmd.output().unwrap();
-        assert!(!output.status.success());
-        assert!(output.stdout.is_empty());
-        assert_eq!(
-            String::from_utf8(output.stderr).unwrap().trim(),
-            "media publication command rejected; inspect private state before retrying"
-        );
-    }
-}
-
-#[test]
 fn production_processing_and_inherited_credentials_are_rejected_before_intake() {
     let output = command()
         .env("APP_ENV", "production")
