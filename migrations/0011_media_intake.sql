@@ -28,6 +28,11 @@ DECLARE
     v_id text;
     v_capability text;
 BEGIN
+    -- Admission relies on a fresh count after acquiring the policy row lock.
+    -- Support only Read Committed at this directly callable SQL boundary.
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Intake reservation requires Read Committed.' USING ERRCODE = '22023';
+    END IF;
     IF p_filename IS NULL OR octet_length(p_filename) NOT BETWEEN 1 AND 255
        OR EXISTS (SELECT 1 FROM generate_series(1, length(p_filename)) AS c(i)
                   WHERE ascii(substr(p_filename, c.i, 1)) BETWEEN 0 AND 31

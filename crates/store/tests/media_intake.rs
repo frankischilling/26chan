@@ -6,6 +6,8 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+static DATABASE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 struct Fixture {
     store: IntakeStore,
     admin: PgPool,
@@ -36,7 +38,45 @@ async fn denied(connection: &mut PgConnection, statement: &'static str) {
 }
 
 #[tokio::test]
+async fn reservation_requires_read_committed_at_the_sql_boundary() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
+    let mut runtime = PgConnection::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for begin in [
+        "BEGIN ISOLATION LEVEL READ UNCOMMITTED",
+        "BEGIN ISOLATION LEVEL REPEATABLE READ",
+        "BEGIN ISOLATION LEVEL SERIALIZABLE",
+    ] {
+        runtime.execute(begin).await.unwrap();
+        let result = sqlx::query("SELECT id, capability FROM media_intake.reserve($1)")
+            .bind("isolation-synthetic.png")
+            .execute(&mut runtime)
+            .await;
+        // Roll back even when the missing guard unexpectedly admitted the call.
+        runtime.execute("ROLLBACK").await.unwrap();
+        let error = result.expect_err("Unsupported isolation must reject reservation");
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("22023"),
+            "{begin}"
+        );
+    }
+    runtime
+        .execute("BEGIN ISOLATION LEVEL READ COMMITTED")
+        .await
+        .unwrap();
+    let result = sqlx::query("SELECT id, capability FROM media_intake.reserve($1)")
+        .bind("isolation-synthetic.png")
+        .execute(&mut runtime)
+        .await;
+    runtime.execute("ROLLBACK").await.unwrap();
+    assert_eq!(result.unwrap().rows_affected(), 1);
+}
+
+#[tokio::test]
 async fn capabilities_scope_intake_without_processing_authority() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
     let intake_url = std::env::var("INTAKE_DATABASE_URL").unwrap();
     let store = IntakeStore::connect(&intake_url).await.unwrap();
     let admin = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
