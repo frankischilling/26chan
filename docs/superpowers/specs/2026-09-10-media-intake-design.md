@@ -44,11 +44,11 @@ and hash its UTF-8 bytes with PostgreSQL's built-in SHA-256 function.
 The functions are:
 
 ```sql
-media_intake.reserve(filename text) RETURNS TABLE(id text, capability text)
-media_intake.begin_upload(id text, capability text) RETURNS void
-media_intake.finish_upload(id text, capability text, input_bytes bigint) RETURNS void
-media_intake.abort_upload(id text, capability text) RETURNS void
-media_intake.status(id text, capability text)
+media_intake.reserve(p_filename text) RETURNS TABLE(id text, capability text)
+media_intake.begin_upload(p_id text, p_capability text) RETURNS void
+media_intake.finish_upload(p_id text, p_capability text, p_input_bytes bigint) RETURNS void
+media_intake.abort_upload(p_id text, p_capability text) RETURNS void
+media_intake.status(p_id text, p_capability text)
   RETURNS TABLE(id text, state text, input_bytes bigint, output_id text)
 media_intake.ready() RETURNS boolean
 ```
@@ -77,7 +77,7 @@ change processing/published/failed jobs. Cancelled claims are not reusable.
 Status maps a claimed receiving job to `uploading`, otherwise returns its actual
 state. It exposes a generated output_id only from an approved asset associated
 with this job, in the same database snapshot. It never returns a filename,
-input bytes, lease token, capability hash, filesystem path or arbitrary worker
+raw input bytes, lease token, capability hash, filesystem path or arbitrary worker
 metadata. Existing queue/asset retention and cleanup remain authoritative;
 handle cleanup cascades when a terminal job is deleted.
 
