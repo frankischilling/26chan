@@ -155,27 +155,27 @@ pub async fn thread(
     id: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let board = board_store::board(&state.pool, slug).await?;
-    let (thread, posts) = board_store::thread_snapshot(&state.pool, slug, id).await?;
+    let board_store::ThreadSnapshot {
+        board,
+        thread,
+        posts,
+    } = board_store::thread_snapshot(&state.pool, slug, id).await?;
     let posts = full_thread(&board, &thread, posts)?;
     response(json!({"posts": posts}), Some(thread.modified_at), headers)
 }
 
-async fn preview_thread(
-    state: &AppState,
+fn preview_thread(
     board: &Board,
-    thread: &Thread,
+    preview: board_store::ThreadPreview,
 ) -> Result<Vec<Value>, AppError> {
-    let posts = board_store::preview_posts(&state.pool, &board.slug, thread.id, 5).await?;
+    let posts = preview.posts;
     if posts.is_empty() {
         return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
     }
-    let replies = checked_reply_count(
-        board_store::visible_post_count(&state.pool, &board.slug, thread.id).await?,
-    )?;
+    let replies = checked_reply_count(preview.visible_posts)?;
     posts
         .into_iter()
-        .map(|post| post_json(post, thread, board, replies))
+        .map(|post| post_json(post, &preview.thread, board, replies))
         .collect()
 }
 
@@ -191,13 +191,17 @@ pub async fn thread_list(
     slug: &str,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let board = board_store::board(&state.pool, slug).await?;
-    let threads = board_store::threads(&state.pool, slug, 0, i64::from(board.thread_limit)).await?;
+    let snapshot =
+        board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, None)
+            .await?;
+    let board = snapshot.board;
+    let threads = snapshot.threads;
     let mut pages = Vec::new();
     for (index, chunk) in threads.chunks(board.threads_per_page as usize).enumerate() {
         let mut entries = Vec::new();
-        for thread in chunk {
-            let count = board_store::visible_post_count(&state.pool, slug, thread.id).await?;
+        for preview in chunk {
+            let thread = &preview.thread;
+            let count = preview.visible_posts;
             if count == 0 {
                 continue;
             }
@@ -214,25 +218,29 @@ pub async fn catalog(
     slug: &str,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let board = board_store::board(&state.pool, slug).await?;
-    let threads = board_store::threads(&state.pool, slug, 0, i64::from(board.thread_limit)).await?;
+    let snapshot =
+        board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, Some(5))
+            .await?;
+    let board = snapshot.board;
     let mut pages = Vec::new();
-    for (index, chunk) in threads.chunks(board.threads_per_page as usize).enumerate() {
+    let mut threads = snapshot.threads.into_iter().peekable();
+    while threads.peek().is_some() {
         let mut entries = Vec::new();
-        for thread in chunk {
-            let posts = match preview_thread(state, &board, thread).await {
+        for preview in threads.by_ref().take(board.threads_per_page as usize) {
+            let modified = preview.thread.modified_at;
+            let posts = match preview_thread(&board, preview) {
                 Ok(posts) => posts,
                 Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
                 Err(error) => return Err(error),
             };
             let mut op = posts[0].clone();
-            op["last_modified"] = json!(thread.modified_at.timestamp());
+            op["last_modified"] = json!(modified.timestamp());
             if posts.len() > 1 {
                 op["last_replies"] = json!(posts[posts.len().saturating_sub(5).max(1)..]);
             }
             entries.push(op);
         }
-        pages.push(json!({"page": index+1, "threads": entries}));
+        pages.push(json!({"page": pages.len()+1, "threads": entries}));
     }
     response(json!(pages), None, headers)
 }
@@ -243,22 +251,17 @@ pub async fn index(
     page: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let board = board_store::board(&state.pool, slug).await?;
-    let max_pages =
-        i64::from((board.thread_limit + board.threads_per_page - 1) / board.threads_per_page);
-    if !(1..=max_pages).contains(&page) {
-        return Err(AppError(StatusCode::NOT_FOUND, "Page not found."));
-    }
-    let threads = board_store::threads(
+    let snapshot = board_store::board_snapshot(
         &state.pool,
         slug,
-        (page - 1) * i64::from(board.threads_per_page),
-        i64::from(board.threads_per_page),
+        board_store::BoardSelection::Page(page),
+        Some(5),
     )
     .await?;
+    let board = snapshot.board;
     let mut entries = Vec::new();
-    for thread in threads {
-        let mut posts = match preview_thread(state, &board, &thread).await {
+    for preview in snapshot.threads {
+        let mut posts = match preview_thread(&board, preview) {
             Ok(posts) => posts,
             Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
             Err(error) => return Err(error),
