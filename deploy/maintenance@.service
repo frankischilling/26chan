@@ -1,0 +1,30 @@
+[Unit]
+Description=Board operator maintenance for %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 -I /opt/paperboard/maintenance/run.py /etc/paperboard/maintenance/%i.json
+StateDirectory=paperboard/maintenance
+StateDirectoryMode=0755
+UMask=0077
+TimeoutStartSec=3700
+TimeoutStopSec=15
+KillMode=control-group
+SendSIGKILL=true
+NoNewPrivileges=true
+PrivateTmp=true
+LimitCORE=0
+MemoryMax=2G
+TasksMax=256
+CPUQuota=200%
+LimitNOFILE=1024
+StandardOutput=journal
+StandardError=journal
+
+# This is an operator service with update authority. It is not a web/observer
+# sandbox. Review per-target command, write/network needs and privileges before
+# enabling an instance; the repository does not supply production update policy.

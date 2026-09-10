@@ -372,6 +372,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-maintenance-monitor"
+version = "0.1.0"
+dependencies = [
+ "board-observe",
+ "proptest",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "board-media"
 version = "0.1.0"
 dependencies = [

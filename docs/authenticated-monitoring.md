@@ -74,7 +74,7 @@ receiver URL with a path, and these exact manifest keys:
 ```
 
 These are example names, not deployed services. Include only enabled scrape jobs
-(one to five unique jobs). Generate independent cryptographically random 32-byte
+(one to six unique jobs, including `board-maintenance`). Generate independent cryptographically random 32-byte
 values and hex-encode them into private files: exactly 64 lowercase hex characters,
 optionally followed by a newline. Every password/token must differ, including
 scrape tokens. Never put raw credentials in command arguments, logs or commits.

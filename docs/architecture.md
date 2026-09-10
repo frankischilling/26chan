@@ -32,6 +32,10 @@ flowchart LR
   Resources[Resource observer] -->|directory statistics| Filesystems[(Configured filesystems)]
   Resources -->|fixed bounded reads| Cgroups[(Configured cgroup v2 counters)]
   Prometheus -->|independent authenticated cached scrape| Resources
+  Operator --> Recorder[Maintenance command recorder]
+  Recorder -->|actual command outcome| Journals[(Operator-owned journals)]
+  Maintenance[Read-only maintenance observer] --> Journals
+  Prometheus -->|independent authenticated cached scrape| Maintenance
   Prometheus -->|verified HTTPS and Basic credential| Alertmanager
   Alertmanager -->|verified HTTPS and Bearer credential| Receiver[Operator receiver candidate]
 ```
@@ -55,6 +59,8 @@ Dashed flows are not implemented production routes. The [development coordinator
 | Resource observer / `board-resource-monitor` OS identity | Its independent metrics credential, configured directory statistics and fixed cgroup v2 reads; no database client or service-control credential | Can falsify or withhold its own measurements and consume its service budget. The candidate requires root-controlled DAC to deny payload reads/writes and read-only cgroup controls; exact storage mount exceptions preserve writer-visible mount flags. A compromised process can still read otherwise accessible host files and use network authority allowed by the host. Production path/identity/network policy and mount-view qualification remain required; bounded owned checks are tracked in [resource verification](verification-resource-observability.md). |
 | Native monitoring identities | Prometheus holds exporter tokens and a broad Alertmanager API credential; Alertmanager holds the receiver token; operators have separate native API passwords | Compromise can disclose monitoring data, forge or suppress alerts and use each held credential's full authority. Native Basic authentication does not separate ingestion from silence-management routes. No application/database credentials are required; deployed identities and destination/network policies remain operator work. See [authenticated monitoring](authenticated-monitoring.md). |
 | Operator/backup/deployment identities | Outside application roles | Disposable backup/restore tested. Production backup immutability and release permissions have not been deployed. |
+| Maintenance command recorder | Fixed operator-owned command configuration, update authority and journal writes | A compromised recorder has its maintenance identity's authority, potentially root for host updates. It is not a web service or hostile-code sandbox. Actual commands and schedules require operator review. |
+| Maintenance observer / `board-maintenance-monitor` | Independent scrape token and read-only configured journals; no update execution or database client | Can falsify or withhold metrics if compromised, but should not modify journals/configuration or access update payloads under the qualified DAC/unit. Deployed path and network policy remain prerequisites; see [maintenance observation](maintenance-observability.md). |
 
 PostgreSQL grants are real and versioned. Runtime startup checks expected login names, administrative flags, memberships, ownership and forbidden schema authority. Staff account creation, role changes, revocation and recovery require the operator credential, which neither web runtime accepts. Authentication state is checked on every protected request; a revocation racing an already authorized request does not retroactively cancel that request. Schema separation does not replace staff authentication or deployment network policy. The development database binds loopback; it is not evidence of a production network boundary.
 

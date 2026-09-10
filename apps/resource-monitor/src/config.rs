@@ -11,7 +11,7 @@ const MAX_CONFIG: usize = 16 * 1024;
 #[derive(Clone, Debug)]
 pub struct Targets {
     pub storages: [Option<PathBuf>; 4],
-    pub services: [Option<PathBuf>; 10],
+    pub services: [Option<PathBuf>; 11],
 }
 
 #[derive(Debug)]

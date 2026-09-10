@@ -1,0 +1,1389 @@
+{
+  "rule_files": [
+    "../../deploy/monitoring/alerts.yml"
+  ],
+  "evaluation_interval": "1s",
+  "tests": [
+    {
+      "name": "Failure persists while a retry runs and clears only after success",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x7 1x5 0x86"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x3 1x9 0x86"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "45s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "75s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "90s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command failure remains unresolved"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "165s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command failure remains unresolved"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "210s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceFailed\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceFailed\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Unavailable target healthy pending firing and recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x3 0x9 1x86"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "45s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "75s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "90s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "210s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceObserverUnavailable\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Last success age equality is healthy then overdue and successful recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "15x9 150x90"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "75s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "105s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "120s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command success or completion is overdue"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "150s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\"}",
+          "eval_time": "105s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Running timeout equality is healthy then overdue and completed recovery",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x10 0x89"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "30x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "90s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "120s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "135s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command success or completion is overdue"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "165s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\"}",
+          "eval_time": "120s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "No previous success is overdue",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x5 90x94"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "0s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "15s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command success or completion is overdue"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "90s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\"}",
+          "eval_time": "15s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "No previous success is overdue even during first running attempt",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x5 0x94"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x5 90x94"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "0s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "15s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command success or completion is overdue"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "90s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\"}",
+          "eval_time": "15s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sample age exactly30 is healthy then stale and recovers",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x7 120+15x92"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "30s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "60s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "75s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "120s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "60s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceObserverUnavailable\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scrape down and recovery produce one process alert",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x3 0x9 1x86"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "45s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "75s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "90s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "210s",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceObserverUnavailable\",alertstate=\"pending\"}",
+          "eval_time": "75s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceObserverUnavailable\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Configured metadata missing: board_maintenance_sample_success",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Configured metadata missing: board_maintenance_sample_last_success_timestamp_seconds",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "No maintenance metadata is a process-level unavailable alert",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Outcome alerts suppressed when unsuccessful",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "600s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Outcome alerts suppressed when stale",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "600s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Outcome alerts suppressed when missing success",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "600s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Outcome alerts suppressed when missing timestamp",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "600s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Outcome alerts suppressed when down",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "600s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Unavailable application does not hide an independently valid failed host",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"host\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance observer is unavailable or stale"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "30s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "host"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command failure remains unresolved"
+              }
+            }
+          ]
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "30s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Healthy configured target does not invent alerts for other targets",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "10000x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"monitoring\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceObserverUnavailable",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceFailed",
+          "eval_time": "600s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "600s",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Fractional success timestamp preserves overdue boundary",
+      "interval": "15s",
+      "input_series": [
+        {
+          "series": "up{job=\"board-maintenance\",instance=\"fixture:6\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_success{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_sample_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0+15x100"
+        },
+        {
+          "series": "board_maintenance_run_in_progress{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_failure_pending{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0x100"
+        },
+        {
+          "series": "board_maintenance_run_started_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "1x100"
+        },
+        {
+          "series": "board_maintenance_last_success_timestamp_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "0.5x100"
+        },
+        {
+          "series": "board_maintenance_max_age_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        },
+        {
+          "series": "board_maintenance_run_timeout_seconds{job=\"board-maintenance\",instance=\"fixture:6\",maintenance=\"application\"}",
+          "values": "60x100"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "60s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "90s",
+          "exp_alerts": []
+        },
+        {
+          "alertname": "BoardMaintenanceOverdue",
+          "eval_time": "91s",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-maintenance",
+                "instance": "fixture:6",
+                "severity": "warning",
+                "maintenance": "application"
+              },
+              "exp_annotations": {
+                "summary": "Maintenance command success or completion is overdue"
+              }
+            }
+          ]
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\"}",
+          "eval_time": "90s",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardMaintenanceOverdue\",alertstate=\"pending\",job=\"board-maintenance\",instance=\"fixture:6\",severity=\"warning\",maintenance=\"application\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

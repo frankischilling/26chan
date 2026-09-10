@@ -48,7 +48,8 @@ fn resource_families_have_fixed_slots_types_and_native_unit_conversions() {
             "resource_observer",
             "database",
             "prometheus",
-            "alertmanager"
+            "alertmanager",
+            "maintenance_observer"
         ]
     );
     let mut metrics = Metrics::new();
@@ -101,7 +102,7 @@ fn resource_families_have_fixed_slots_types_and_native_unit_conversions() {
                     || line.starts_with("board_service_"))
         })
         .collect();
-    assert_eq!(values.len(), 2 + 4 * 5 + 10 * 9);
+    assert_eq!(values.len(), 2 + 4 * 5 + 11 * 9);
     assert!(text.len() < 32_768);
 }
 

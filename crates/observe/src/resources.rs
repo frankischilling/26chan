@@ -1,7 +1,7 @@
 use std::fmt::{Display, Write};
 
 pub const STORAGE_TARGETS: [&str; 4] = ["database", "quarantine", "public_media", "monitoring"];
-pub const SERVICE_TARGETS: [&str; 10] = [
+pub const SERVICE_TARGETS: [&str; 11] = [
     "public",
     "staff",
     "media_gateway",
@@ -12,6 +12,7 @@ pub const SERVICE_TARGETS: [&str; 10] = [
     "database",
     "prometheus",
     "alertmanager",
+    "maintenance_observer",
 ];
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -44,7 +45,7 @@ pub struct ResourceSample {
     pub available: bool,
     pub last_success_timestamp_seconds: u64,
     pub storages: [Option<StorageSample>; 4],
-    pub services: [Option<ServiceSample>; 10],
+    pub services: [Option<ServiceSample>; 11],
 }
 
 fn family<S, V: Display, const N: usize>(

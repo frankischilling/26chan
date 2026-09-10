@@ -49,6 +49,12 @@ seconds. The caller supplies no inherited environment to the child except fixed
 PATH and LANG. Run with cwd `/`, no shell, null standard streams and a new session.
 Do not print configuration, command, paths or child output on errors.
 
+Producer ancestors must be owned by root or the effective operator, with no
+group/other write permission except a root-owned sticky directory such as /tmp.
+Final configuration/state directory ownership is exactly the effective operator.
+Production observation remains stricter and rejects writable ancestors; its
+qualified journals live under /var/lib, not /tmp.
+
 Hold an exclusive nonblocking flock on the fixed `<target>.lock`, validated as
 an operator-owned regular file, through command execution and final publication.
 Open source and output paths without following symlinks, including components;
@@ -73,7 +79,11 @@ not reset to healthy. An abandoned prior running attempt latches failure when a
 new lock holder starts; only a completed successful command clears it.
 
 Publish running before spawning. Spawn failure, nonzero exit, timeout or SIGTERM/
-SIGINT records failure. A killed recorder leaves running state, which becomes
+SIGINT before final commit records failure. Final publication blocks TERM/INT,
+checks pending termination after durable publication and republishes failure if
+needed. That pending-signal check commits the outcome; signals arriving after
+commit do not change its matching exit status. The dedicated CLI retains the
+mask through exit. A killed recorder leaves running state, which becomes
 overdue. Use monotonic command deadlines; keep the child leader unreaped with
 waitid(WNOWAIT) until its owned process group has been stopped, then reap it, so
 cleanup cannot target a reused leader PID. A candidate systemd unit additionally

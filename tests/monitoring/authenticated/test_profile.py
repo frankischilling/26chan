@@ -129,19 +129,19 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(prom['alerting']['alertmanagers'][0]['static_configs'][0]['targets'], ['[::1]:9093'])
         self.assertEqual(prom['alerting']['alertmanagers'][0]['tls_config']['server_name'], '::1')
 
-    def test_all_five_closed_jobs_have_independent_tokens_and_resource_grouping(self):
-        jobs = ['board-public', 'board-staff', 'board-media', 'board-monitor', 'board-resource']
+    def test_all_six_closed_jobs_have_independent_tokens_and_maintenance_grouping(self):
+        jobs = ['board-public', 'board-staff', 'board-media', 'board-monitor', 'board-resource', 'board-maintenance']
         self.manifest['scrapes'] = [
             {'job': job, 'target': f'127.0.0.1:{9191 + i}',
              'token_file': str(self.file(f'scrape-{i}', f'{i + 10:064x}'.encode()))}
             for i, job in enumerate(jobs)
         ]
-        # A different file containing the resource token is still credential reuse.
-        original = (self.directory / 'scrape-4').read_bytes()
-        for other in ['prom-operator', 'am-ingest', 'am-operator', 'receiver-token', 'scrape-0']:
-            self.file('scrape-4', (self.directory / other).read_bytes())
+        # A different file containing the maintenance token is still credential reuse.
+        original = (self.directory / 'scrape-5').read_bytes()
+        for other in ['prom-operator', 'am-ingest', 'am-operator', 'receiver-token', 'scrape-0', 'scrape-1', 'scrape-2', 'scrape-3', 'scrape-4']:
+            self.file('scrape-5', (self.directory / other).read_bytes())
             self.rejected(self.manifest)
-        self.file('scrape-4', original)
+        self.file('scrape-5', original)
         paths = self.profile.render(self.manifest, self.output)
         prom = json.loads(paths['prometheus'].read_text())
         self.assertEqual([scrape['job_name'] for scrape in prom['scrape_configs']], jobs)
@@ -149,7 +149,7 @@ class ProfileTests(unittest.TestCase):
         for source, scrape in zip(self.manifest['scrapes'], prom['scrape_configs']):
             self.assertEqual(scrape['authorization']['credentials_file'], source['token_file'])
         alert = json.loads(paths['alertmanager'].read_text())
-        self.assertEqual(alert['route']['group_by'], ['alertname', 'job', 'instance', 'listener', 'pool', 'storage', 'service'])
+        self.assertEqual(alert['route']['group_by'], ['alertname', 'job', 'instance', 'listener', 'pool', 'storage', 'service', 'maintenance'])
 
     def test_unknown_fields_wrong_types_and_duplicate_closed_jobs_are_rejected(self):
         cases = []
