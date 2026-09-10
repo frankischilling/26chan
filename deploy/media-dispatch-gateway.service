@@ -18,6 +18,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
+# The gateway connects to an existing socket; it creates no host runtime files.
+ReadOnlyPaths=/run
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

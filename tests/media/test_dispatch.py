@@ -169,8 +169,11 @@ class Exercise:
                        'MEDIA_QUARANTINE_DIR': str(self.private / 'quarantine')}
         self.reader = {**SAFE, 'MEDIA_READ_DATABASE_URL': os.environ['MEDIA_READ_DATABASE_URL']}
         self.broker = self.start_broker(self.config)
-        self.gateway_process = self.launch([self.bin / 'media-dispatch-gateway', self.keys / 'gateway.json'], self.gateway)
+        self.gateway_process = self.start_gateway()
         wait_until(self.listening)
+
+    def start_gateway(self):
+        return self.launch([self.bin / 'media-dispatch-gateway', self.keys / 'gateway.json'], self.gateway)
 
     def listening(self):
         assert self.gateway_process.poll() is None, 'native gateway startup rejected'

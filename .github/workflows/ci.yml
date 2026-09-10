@@ -78,6 +78,10 @@ jobs:
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-dispatch.sh
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            bash scripts/test-media-dispatch.sh --systemd
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_DISPATCH_ROOT_TESTS=1 \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
