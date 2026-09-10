@@ -29,6 +29,11 @@ two stale operations descriptions were corrected. The Linux helper must prove pr
 and cgroup-control denials, writer/observer read-only agreement, real alert
 transitions, and normal/SIGTERM cleanup before this slice can be merged.
 
+Initial implementation `161945f` passed hosted Windows visuals and the advisory
+scan. Linux CI stopped at `clippy::non_octal_unix_permissions` in a Linux-only
+test. The permission value was changed from `0` to `0o0`; its value and assertions
+are unchanged. Native pressure qualification had not run at that point.
+
 Local WSL remains unresponsive; restart approval is pending. Existing WSL
 processes were retained rather than replacing live tests. The full rewrite,
 production resource/network/storage qualification and update-check alert delivery

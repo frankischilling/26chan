@@ -122,7 +122,7 @@ fn native_storage_uses_directory_metadata_and_rejects_disappeared_sources() {
     std::fs::write(storage.join("protected-payload"), b"not a measurement").unwrap();
     std::fs::set_permissions(
         storage.join("protected-payload"),
-        std::fs::Permissions::from_mode(0),
+        std::fs::Permissions::from_mode(0o0),
     )
     .unwrap();
     std::fs::set_permissions(&storage, std::fs::Permissions::from_mode(0o111)).unwrap();
