@@ -49,7 +49,10 @@ pressure. The owned notification qualification exercises synthetic firing and
 recovery locally. The separate [queue observer](queue-observability.md) samples an
 aggregate-only database view and alerts on saturation, failures, expiry and stale
 observation. Its [verification record](verification-queue-observability.md) tracks
-database and delivery evidence. Before launch, still add and exercise
+database and delivery evidence. The [authenticated monitoring profile](authenticated-monitoring.md)
+adds verified HTTPS and independent request credentials to both notification links
+and the native APIs, with broad native API authority documented explicitly.
+Before launch, still add and exercise
 host/database storage/resource and update-check monitoring, and configure and
 verify an operator notification destination. Do not treat journal output, a
 successful scrape, or local webhook delivery as equivalent production coverage.

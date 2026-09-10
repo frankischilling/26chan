@@ -63,11 +63,12 @@ Prometheus and Alertmanager binaries and sends only synthetic alerts to an owned
 loopback webhook. It is not evidence that an operator received a production page.
 The configured rule thresholds are project choices and require staging/load
 tuning, notification ownership and escalation policy before launch.
-These local examples do not authenticate the Prometheus-to-Alertmanager or
-Alertmanager-to-webhook hops. Both need independently authenticated transport
-and restricted ingress before any deployment; their loopback placement in the
-synthetic test is not an authenticated service boundary. Protect the monitoring
-tools' own APIs and dashboards too.
+The plain local examples remain synthetic test fixtures. The separate
+[authenticated profile](authenticated-monitoring.md) generates verified HTTPS,
+independent request credentials for both notification hops and Basic-protected
+native APIs. Its real transport qualification covers rejection, revocation and
+recovery. Native credentials grant broad monitoring API access; deployed service
+identities, restricted ingress and a reviewed receiver remain prerequisites.
 
 This slice covers scrape availability, HTTP errors/rejected writes, staff 401/403
 rates, and pool pressure. The separate [aggregate queue observer](queue-observability.md)

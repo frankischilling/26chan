@@ -1,4 +1,4 @@
-name: HTTP monitoring qualification
+name: Monitoring qualification
 on:
   push:
   pull_request:
@@ -30,3 +30,13 @@ jobs:
         run: python3 tests/monitoring/qualify.py
       - name: Verify SIGTERM cleanup of real monitoring processes and credentials
         run: python3 tests/monitoring/interruption.py
+      - name: Install hash-pinned authenticated profile dependency
+        run: |
+          python3 -m venv .local/monitor-auth-venv
+          .local/monitor-auth-venv/bin/python -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r scripts/monitoring/auth-requirements.txt
+      - name: Check profile validation, TLS peers and receiver authorization
+        run: .local/monitor-auth-venv/bin/python -m unittest discover -s tests/monitoring/authenticated -p 'test_*.py'
+      - name: Qualify both authenticated HTTPS links and real denied and recovered delivery
+        run: .local/monitor-auth-venv/bin/python tests/monitoring/authenticated/qualify.py
+      - name: Verify authenticated monitoring cleanup on OS SIGTERM
+        run: .local/monitor-auth-venv/bin/python tests/monitoring/authenticated/interruption.py
