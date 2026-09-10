@@ -32,17 +32,7 @@ pub async fn create_post(
         .fetch_one(&mut *tx)
         .await?;
     let thread_id = if parent == 0 {
-        let count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM content.threads WHERE board=$1 AND NOT deleted",
-        )
-        .bind(slug)
-        .fetch_one(&mut *tx)
-        .await?;
-        if count >= i64::from(board.thread_limit) {
-            return Err(StoreError::Conflict(
-                "This board has reached its active thread limit.",
-            ));
-        }
+        crate::archives::make_room(&mut tx, &board).await?;
         sqlx::query("INSERT INTO content.threads(id,board) VALUES ($1,$2)")
             .bind(id)
             .bind(slug)
@@ -51,14 +41,15 @@ pub async fn create_post(
         id
     } else {
         let thread: Thread = sqlx::query_as(
-            "SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+            "SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE",
         )
         .bind(slug)
         .bind(parent)
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
-        if thread.closed || thread.reply_count >= board.reply_limit {
+        if thread.archived_at.is_some() || thread.closed || thread.reply_count >= board.reply_limit
+        {
             return Err(StoreError::Conflict(
                 "This thread is closed or has reached its reply limit.",
             ));
@@ -92,7 +83,7 @@ pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), Store
         .await?
         .ok_or(StoreError::NotFound)?;
     let post: Post = sqlx::query_as(
-        "SELECT * FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        "SELECT * FROM content.posts p WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads t WHERE t.board=p.board AND t.id=p.thread_id) FOR UPDATE",
     )
     .bind(slug)
     .bind(id)
@@ -137,7 +128,7 @@ pub async fn report(pool: &PgPool, slug: &str, id: i64, reason: &str) -> Result<
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
-    sqlx::query("SELECT p.id FROM content.posts p JOIN content.threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted").bind(slug).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
+    sqlx::query("SELECT p.id FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted").bind(slug).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
     sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,$3)")
         .bind(slug)
         .bind(id)

@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:behavior": "playwright test tests/browser/behavior.spec.js",
+    "test:behavior": "playwright test tests/browser/behavior.spec.js tests/browser/archive.spec.js",
     "test:visual": "playwright test tests/browser/visual.spec.js",
+    "test:archive-visual": "playwright test --config playwright.archive-visual.config.js",
     "test:staff": "playwright test --config playwright.staff.config.js"
   },
   "devDependencies": { "@playwright/test": "1.62.0" }

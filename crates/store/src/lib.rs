@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
+mod archives;
 mod board_snapshot;
+pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_snapshot};
 pub mod media;
 pub mod media_assets;
 mod read;
@@ -39,6 +41,8 @@ pub struct Board {
     pub thread_limit: i32,
     pub threads_per_page: i32,
     pub worksafe: bool,
+    pub archive_retention_seconds: i32,
+    pub archive_limit: i32,
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -52,6 +56,8 @@ pub struct Thread {
     pub sticky: bool,
     pub closed: bool,
     pub deleted: bool,
+    pub archived_at: Option<DateTime<Utc>>,
+    pub archive_expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, sqlx::FromRow)]

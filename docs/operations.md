@@ -64,6 +64,14 @@ The recorded `/tmp/board-postgres.*` data directory can be restarted while it re
 
 ## Releases, rotation and incident response
 
+Migration 0009 adds [thread rollover and optional archives](thread-archives.md).
+It preserves historical data and leaves archives disabled. Stop public and staff
+serving before migration, then start matching binaries. Old binaries do not
+understand archive visibility; binary-only rollback after archiving is unsafe.
+Retention policy affects public visibility and does not physically erase retained
+base tables or backups. The actual upgrade exercise is recorded in
+[archive verification](verification-thread-archives.md).
+
 Build release artifacts from a reviewed commit with the lockfile. Run migrations using the operator identity before starting compatible application code. Migrations are forward-only; rollback of destructive schema changes requires a reviewed compensating migration or restoration. Do not assume replacing a binary reverses a migration. No release automation or production deploy has run.
 
 For migration 0007, stop public and staff serving, take a backup, apply the operator migration, and start binaries that use `max_comment_chars` and the expanded parser bound. The migration requires UTF8 encoding and preserves existing numeric board settings and post text. It renames the board column and replaces the global comment constraint. Old public binaries expect the old column, and old renderers truncate longer comments; do not roll back only the binaries. Review proxy form-body limits alongside the 256 KiB application limit. `scripts/test-comment-migration.sh` exercises the historical upgrade and encoding guard in separate disposable databases. See [comment verification](verification-comment-limits.md).

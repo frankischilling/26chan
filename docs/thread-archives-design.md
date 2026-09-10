@@ -21,7 +21,9 @@ An enabled board archives displaced threads; a disabled board hides them through
 the existing deletion model. New archive rows carry `archived_at` and
 `archive_expires_at`. Displacement fixes the expiry; later policy increases do
 not extend existing lifetimes. Disabling archives hides their existing entries.
-The oldest archived entries exceeding the configured count are soft-deleted.
+The oldest unexpired archived entries exceeding the configured count are
+soft-deleted on each successful new OP. Lowered count policy takes effect then;
+reads remain bounded to 1,000 summaries before that maintenance occurs.
 
 These bounds are project policy for bounded public responses, not original
 per-board settings. Existing boards retain disabled archives but gain rollover.

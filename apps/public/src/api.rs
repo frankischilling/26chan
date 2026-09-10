@@ -80,14 +80,20 @@ pub async fn boards(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    let boards: Vec<_> = board_store::boards(&state.pool).await?.into_iter().map(|board| json!({
+    let boards: Vec<_> = board_store::boards(&state.pool).await?.into_iter().map(|board| {
+        let mut value = json!({
         "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
         "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
         "max_filesize": 0, "max_webm_filesize": 0, "max_webm_duration": 0,
         "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": 0,
         "cooldowns": { "threads": 0, "replies": 0, "images": 0 },
         "meta_description": board.description, "text_only": 1
-    })).collect();
+        });
+        if board.archive_retention_seconds > 0 {
+            value["is_archived"] = json!(1);
+        }
+        value
+    }).collect();
     response(json!({"boards": boards}), None, &headers)
 }
 
@@ -116,8 +122,12 @@ fn post_json(
         if thread.sticky {
             value["sticky"] = json!(1);
         }
-        if thread.closed {
+        if thread.closed || thread.archived_at.is_some() {
             value["closed"] = json!(1);
+        }
+        if let Some(archived_at) = thread.archived_at {
+            value["archived"] = json!(1);
+            value["archived_on"] = json!(archived_at.timestamp());
         }
         if thread.reply_count >= board.bump_limit {
             value["bumplimit"] = json!(1);
@@ -162,6 +172,16 @@ pub async fn thread(
     } = board_store::thread_snapshot(&state.pool, slug, id).await?;
     let posts = full_thread(&board, &thread, posts)?;
     response(json!({"posts": posts}), Some(thread.modified_at), headers)
+}
+
+pub async fn archive(
+    state: &AppState,
+    slug: &str,
+    headers: &HeaderMap,
+) -> Result<Response, AppError> {
+    let snapshot = board_store::archive_snapshot(&state.pool, slug).await?;
+    let ids: Vec<_> = snapshot.entries.into_iter().map(|entry| entry.id).collect();
+    response(json!(ids), None, headers)
 }
 
 fn preview_thread(

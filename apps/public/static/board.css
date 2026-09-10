@@ -45,6 +45,7 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .boardDirectory, .message { max-width: 720px; margin: 30px auto; padding: 15px; background: #f0e0d6; border: 1px solid #d9bfb7; }
 .boardDirectory article { border-top: 1px solid #d9bfb7; }
 .empty { padding: 35px 12px; text-align: center; }
+.archiveEntries { overflow-wrap: anywhere; }
 .pages { margin: 20px 0; word-spacing: 12px; }
 footer { text-align: center; font-size: 11px; margin-top: 30px; }
 @media (max-width: 600px) {

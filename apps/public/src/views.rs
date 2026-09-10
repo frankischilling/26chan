@@ -19,6 +19,23 @@ pub struct BoardPage {
     pub catalog: bool,
 }
 
+impl BoardPage {
+    pub fn archived(&self) -> bool {
+        self.parent != 0
+            && self
+                .threads
+                .first()
+                .is_some_and(|view| view.thread.archived_at.is_some())
+    }
+}
+
+#[derive(Template)]
+#[template(path = "archive.html")]
+pub struct ArchivePage {
+    pub board: Board,
+    pub entries: Vec<board_store::ArchiveEntry>,
+}
+
 pub struct ThreadView {
     pub thread: Thread,
     pub posts: Vec<PostView>,

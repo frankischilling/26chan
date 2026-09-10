@@ -17,7 +17,7 @@ pub struct Report {
     pub deleted: bool,
 }
 pub async fn reports(pool: &PgPool) -> Result<Vec<Report>, AppError> {
-    Ok(sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,t.closed,t.sticky,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(pool).await?)
+    Ok(sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(pool).await?)
 }
 pub async fn moderate(
     pool: &PgPool,
@@ -77,14 +77,17 @@ pub async fn moderate(
         } else {
             target
         };
-        sqlx::query(
-            "SELECT id FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        let archived: bool = sqlx::query_scalar(
+            "SELECT archived_at IS NOT NULL FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
         )
         .bind(board)
         .bind(thread)
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(AppError::NotFound)?;
+        if archived && matches!(action, "reopen" | "sticky") {
+            return Err(AppError::Invalid);
+        }
         match action {
             "close" | "reopen" => {
                 sqlx::query("UPDATE content.threads SET closed=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="close").execute(&mut *tx).await?;

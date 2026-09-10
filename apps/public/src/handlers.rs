@@ -103,6 +103,18 @@ pub async fn page(
         "catalog" => board_page(&state, &board, 1, true).await,
         "threads.json" => api::thread_list(&state, &board, &headers).await,
         "catalog.json" => api::catalog(&state, &board, &headers).await,
+        "archive.json" => api::archive(&state, &board, &headers).await,
+        "archive" => {
+            let snapshot = board_store::archive_snapshot(&state.pool, &board).await?;
+            Ok(Html(
+                ArchivePage {
+                    board: snapshot.board,
+                    entries: snapshot.entries,
+                }
+                .render()?,
+            )
+            .into_response())
+        }
         _ => {
             if let Some(index) = page.strip_suffix(".json") {
                 let index = index

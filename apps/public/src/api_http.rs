@@ -63,6 +63,7 @@ async fn board_resource(
     let result = match key.as_str() {
         "threads.json" => api::thread_list(&state, &board, &headers).await,
         "catalog.json" => api::catalog(&state, &board, &headers).await,
+        "archive.json" => api::archive(&state, &board, &headers).await,
         _ => match positive_json_number(&key) {
             Some(page) => api::index(&state, &board, page, &headers).await,
             None => return api_error(handlers::AppError(StatusCode::NOT_FOUND, "Page not found.")),
@@ -213,7 +214,8 @@ fn supported_api_path(path: &str) -> bool {
     match segments.as_slice() {
         [_, "thread", key] => positive_json_number(key).is_some(),
         [_, key] => {
-            matches!(*key, "threads.json" | "catalog.json") || positive_json_number(key).is_some()
+            matches!(*key, "threads.json" | "catalog.json" | "archive.json")
+                || positive_json_number(key).is_some()
         }
         _ => false,
     }
