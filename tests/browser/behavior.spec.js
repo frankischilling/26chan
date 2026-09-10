@@ -133,6 +133,52 @@ test('posting, replying, reporting, and password deletion persist through reload
   expect(deleted.status()).toBe(404);
 });
 
+test('documented board-return options work with JavaScript disabled', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  const origin = 'http://127.0.0.1:3000';
+  const password = 'posting-options-browser-password';
+  let op;
+  try {
+    await page.goto(`${origin}/test/`);
+    await page.locator('#com').fill('Owned posting-options browser thread');
+    await page.locator('#password').fill(password);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    op = /#p(\d+)$/.exec(page.url())[1];
+    const thread = `${origin}/test/thread/${op}`;
+    for (const option of ['nonoko', 'nonokosage']) {
+      await page.goto(thread);
+      await page.getByLabel('Options', { exact: true }).selectOption(option);
+      const comment = `A persisted ${option} browser reply`;
+      await page.locator('#com').fill(comment);
+      await page.locator('#password').fill(password);
+      const [response] = await Promise.all([
+        page.waitForResponse(response => response.request().method() === 'POST'
+          && new URL(response.url()).pathname === '/test/post'),
+        page.getByRole('button', { name: 'Post', exact: true }).click(),
+      ]);
+      expect(response.status()).toBe(303);
+      await expect(page).toHaveURL(`${origin}/test/`);
+      await page.reload();
+      await expect(page.locator(`#t${op}`).getByText(comment, { exact: true })).toBeVisible();
+      await page.goto(thread);
+      await expect(page.getByText(comment, { exact: true })).toBeVisible();
+    }
+  } finally {
+    try {
+      if (op) {
+        const deleted = await context.request.post(`${origin}/test/delete`, {
+          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        });
+        expect(deleted.status()).toBe(303);
+      }
+    } finally {
+      await context.close();
+    }
+  }
+});
+
 test('advertised Unicode posting limit works with JavaScript disabled', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

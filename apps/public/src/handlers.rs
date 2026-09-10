@@ -251,12 +251,18 @@ pub async fn post(
         settings.max_comment_chars as usize,
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
-    if !matches!(form.email.as_str(), "" | "sage") {
-        return Err(AppError(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Options may be empty or sage.",
-        ));
-    }
+    let (sage, return_to_board) = match form.email.as_str() {
+        "" => (false, false),
+        "sage" => (true, false),
+        "nonoko" => (false, true),
+        "nonokosage" => (true, true),
+        _ => {
+            return Err(AppError(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Options may be empty, sage, nonoko, or nonokosage.",
+            ));
+        }
+    };
     if !(8..=128).contains(&form.password.len()) {
         return Err(AppError(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -302,9 +308,12 @@ pub async fn post(
         },
         comment: form.com,
         deletion_hash: hash,
-        sage: form.email == "sage",
+        sage,
     };
     let id = board_store::create_post(&state.pool, &board, form.resto, &post).await?;
+    if return_to_board {
+        return Ok(Redirect::to(&format!("/{board}/")));
+    }
     let thread = if form.resto == 0 { id } else { form.resto };
     Ok(Redirect::to(&format!("/{board}/thread/{thread}#p{id}")))
 }
