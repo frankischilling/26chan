@@ -2,7 +2,7 @@
 
 use board_config::MediaHttpSettings;
 use board_media::ApprovedFiles;
-use board_media_http::{AppState, router};
+use board_media_http::{AppState, observed_router};
 use board_store::media_assets::MediaReader;
 
 fn main() -> std::process::ExitCode {
@@ -37,15 +37,20 @@ fn main() -> std::process::ExitCode {
 }
 
 async fn run(settings: MediaHttpSettings) -> Result<(), Box<dyn std::error::Error>> {
+    let metrics_config = board_observe::Config::from_env()?;
+    let listener = tokio::net::TcpListener::bind(settings.bind).await?;
+    let metrics_endpoint = board_observe::Endpoint::bind(metrics_config).await?;
     let files = ApprovedFiles::open(settings.approved_dir)?;
     files.ready()?;
     let reader = MediaReader::connect(&settings.reader.database_url).await?;
-    let listener = tokio::net::TcpListener::bind(settings.bind).await?;
     tracing::info!("media HTTP ready");
-    let app = router(AppState::new(reader.clone(), files, &settings.origin));
-    let result = axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown())
-        .await;
+    let (metrics, app) = observed_router(AppState::new(reader.clone(), files, &settings.origin));
+    let serving = async {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown())
+            .await
+    };
+    let result = metrics_endpoint.serve(metrics, serving).await;
     reader.close().await;
     result?;
     Ok(())

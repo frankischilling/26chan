@@ -9,12 +9,15 @@ use std::sync::Arc;
 use tower::ServiceExt;
 use webauthn_rs::prelude::*;
 fn app() -> axum::Router {
+    router(state())
+}
+fn state() -> Arc<AppState> {
     let origin = Url::parse("http://localhost:3001").unwrap();
     let pool = PgPoolOptions::new()
         .acquire_timeout(std::time::Duration::from_millis(100))
         .connect_lazy("postgres://unavailable@127.0.0.1:1/unavailable")
         .unwrap();
-    router(Arc::new(AppState {
+    Arc::new(AppState {
         config: Config {
             origin: "http://localhost:3001".into(),
             bind: "127.0.0.1:3001".parse().unwrap(),
@@ -30,7 +33,60 @@ fn app() -> axum::Router {
             .build()
             .unwrap(),
         limits: board_staff::Limits::default(),
-    }))
+    })
+}
+
+#[tokio::test]
+async fn staff_metrics_count_auth_and_capacity_without_exposing_request_data() {
+    let (metrics, app) = board_staff::observed_router(state());
+    let denied = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/reports?private=synthetic-secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(denied.headers()["cache-control"], "private, no-store");
+    drop(denied);
+    let missing = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    drop(missing);
+    let mut held = Vec::new();
+    for _ in 0..16 {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        held.push(response);
+    }
+    let busy = app
+        .clone()
+        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(busy.status(), StatusCode::TOO_MANY_REQUESTS);
+    let snapshot = metrics.render();
+    assert!(snapshot.contains("board_http_authorization_rejections_total{listener=\"staff\"} 1\n"));
+    assert!(snapshot.contains("board_http_capacity_responses_total{listener=\"staff\"} 1\n"));
+    assert!(snapshot.contains("board_db_pool_connections{pool=\"staff_auth\"}"));
+    assert!(snapshot.contains("board_db_pool_connections{pool=\"staff_content\"}"));
+    assert!(!snapshot.contains("synthetic-secret"));
+    assert!(!snapshot.contains("unavailable"));
 }
 
 #[tokio::test]

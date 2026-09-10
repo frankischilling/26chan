@@ -12,6 +12,7 @@ board-domain = { path = "../../crates/domain" }
 board-config = { path = "../../crates/config" }
 board-store = { path = "../../crates/store" }
 board-http = { path = "../../crates/http" }
+board-observe = { path = "../../crates/observe" }
 askama.workspace = true
 axum.workspace = true
 sqlx.workspace = true

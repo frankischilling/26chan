@@ -26,6 +26,33 @@ pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
     routers(pool, origin, production).0
 }
 
+/// Build the serving routers and a process-local, fixed-label metrics snapshot.
+pub fn observed_routers(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    api_enabled: bool,
+) -> (board_observe::Metrics, Router, Router) {
+    use board_observe::{Listener, Metrics, Pool, PoolSample};
+    let mut metrics = Metrics::new();
+    let observed_pool = pool.clone();
+    metrics
+        .register_pool(Pool::Public, move || PoolSample {
+            size: observed_pool.size(),
+            idle: observed_pool.num_idle(),
+            max: observed_pool.options().get_max_connections(),
+        })
+        .expect("one pool registered before sharing metrics");
+    let (public, api) = routers(pool, origin, production);
+    let public = metrics.layer(public, Listener::Public);
+    let api = if api_enabled {
+        metrics.layer(api, Listener::Api)
+    } else {
+        api
+    };
+    (metrics, public, api)
+}
+
 pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Router) {
     let state = AppState {
         pool,

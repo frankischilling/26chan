@@ -63,6 +63,20 @@ async fn blocking<T: Send + 'static>(
 #[cfg(test)]
 mod tests;
 
+pub fn observed_router(state: AppState) -> (board_observe::Metrics, Router) {
+    use board_observe::{Listener, Metrics, Pool, PoolSample};
+    let mut metrics = Metrics::new();
+    let reader = state.reader.clone();
+    metrics
+        .register_pool(Pool::MediaRead, move || {
+            let (size, idle, max) = reader.pool_statistics();
+            PoolSample { size, idle, max }
+        })
+        .expect("one reader pool registered before sharing metrics");
+    let app = metrics.layer(router(state), Listener::Media);
+    (metrics, app)
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/media/{name}", get(serving::image))

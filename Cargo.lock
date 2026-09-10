@@ -435,6 +435,7 @@ dependencies = [
  "board-http",
  "board-media",
  "board-media-admin",
+ "board-observe",
  "board-store",
  "http-body-util",
  "proptest",
@@ -447,6 +448,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-observe"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "board-http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "subtle",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "board-public"
 version = "0.1.0"
 dependencies = [
@@ -456,6 +471,7 @@ dependencies = [
  "board-config",
  "board-domain",
  "board-http",
+ "board-observe",
  "board-store",
  "chrono",
  "chrono-tz",
@@ -483,6 +499,7 @@ dependencies = [
  "board-config",
  "board-domain",
  "board-http",
+ "board-observe",
  "chrono",
  "http-body-util",
  "openssl",

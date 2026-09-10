@@ -97,6 +97,26 @@ impl AppState {
         }))
     }
 }
+/// Observe the existing authentication/moderation pools without querying them.
+pub fn observed_router(state: Arc<AppState>) -> (board_observe::Metrics, Router) {
+    use board_observe::{Listener, Metrics, Pool, PoolSample};
+    let mut metrics = Metrics::new();
+    for (name, pool) in [
+        (Pool::StaffAuth, state.auth.clone()),
+        (Pool::StaffContent, state.staff.clone()),
+    ] {
+        metrics
+            .register_pool(name, move || PoolSample {
+                size: pool.size(),
+                idle: pool.num_idle(),
+                max: pool.options().get_max_connections(),
+            })
+            .expect("distinct pools registered before sharing metrics");
+    }
+    let app = metrics.layer(router(state), Listener::Staff);
+    (metrics, app)
+}
+
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(handlers::landing))

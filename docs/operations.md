@@ -41,7 +41,15 @@ The following table describes public limits. [Staff notes](staff.md) record the 
 | Database role defaults | 5-second statements, 2-second lock wait, 5-second idle transaction | Actual role configuration; concurrency tests |
 | Candidate OS unit | 768 MiB memory, 2 CPU equivalents, 96 tasks, 1,024 file descriptors | Configuration only; no deployed enforcement claim |
 
-Prometheus metrics and alert delivery are not implemented. Before launch, add and exercise alerts for request/authorization error rates, rejected writes, pool pressure, database storage, update-check failures, and future media queue depth/failures/output limits. Do not treat journal output as equivalent coverage.
+Optional [private HTTP metrics](http-observability.md) expose fixed-label request
+counts, handler durations/cancellations and existing database-pool occupancy through
+a separate bearer-authenticated loopback listener. Candidate Prometheus rules cover
+scrape availability, 5xx errors, rejected writes, staff 401/403 responses and pool
+pressure. The owned notification qualification exercises synthetic firing and
+recovery locally. Before launch, still add and exercise media queue/processing,
+host/database storage/resource and update-check monitoring, and configure and
+verify an operator notification destination. Do not treat journal output, a
+successful scrape, or local webhook delivery as equivalent production coverage.
 
 Comment limits count Rust `chars()` and PostgreSQL `char_length` in a UTF8 database. Combining marks and received CR/LF characters count separately; no normalization is performed. A maximum comment can now occupy 64,000 bytes before HTML escaping. Thread and catalog row caps do not establish a safe aggregate response-memory budget. Mixed load, large responses and the candidate OS memory ceiling still need external qualification.
 

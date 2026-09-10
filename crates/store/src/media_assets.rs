@@ -180,6 +180,15 @@ pub struct MediaReader {
 }
 
 impl MediaReader {
+    /// Process-local pool occupancy only; does not query or expose the database.
+    pub fn pool_statistics(&self) -> (u32, usize, u32) {
+        (
+            self.pool.size(),
+            self.pool.num_idle(),
+            self.pool.options().get_max_connections(),
+        )
+    }
+
     pub async fn ready(&self) -> Result<(), StoreError> {
         sqlx::query("SELECT id FROM media.approved_assets LIMIT 1")
             .fetch_optional(&self.pool)

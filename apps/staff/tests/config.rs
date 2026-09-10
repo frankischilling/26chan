@@ -40,3 +40,56 @@ fn startup_rejects_an_invalid_idle_timeout_before_connecting() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("Invalid STAFF_IDLE_TIMEOUT_SECONDS"));
 }
+
+#[test]
+fn staff_metrics_failure_does_not_connect_stores_or_leave_staff_serving() {
+    let database = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    database.set_nonblocking(true).unwrap();
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    for token in ["synthetic-secret".to_owned(), "a".repeat(64)] {
+        let staff = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let staff_address = staff.local_addr().unwrap();
+        drop(staff);
+        let mut command = Command::new(env!("CARGO_BIN_EXE_board-staff"));
+        command.env_clear();
+        if let Some(system_root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", system_root);
+        }
+        let output = command
+            .env("STAFF_MODE", "development")
+            .env("STAFF_ORIGIN", "http://localhost:3001")
+            .env("PUBLIC_ORIGIN", "http://localhost:3000")
+            .env("MEDIA_ORIGIN", "http://localhost:3002")
+            .env("STAFF_BIND", staff_address.to_string())
+            .env(
+                "AUTH_DATABASE_URL",
+                format!(
+                    "postgres://board_auth:unused@{}/absent",
+                    database.local_addr().unwrap()
+                ),
+            )
+            .env(
+                "STAFF_DATABASE_URL",
+                format!(
+                    "postgres://board_staff:unused@{}/absent",
+                    database.local_addr().unwrap()
+                ),
+            )
+            .env(
+                "METRICS_BIND_ADDR",
+                occupied.local_addr().unwrap().to_string(),
+            )
+            .env("METRICS_TOKEN", &token)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(!error.contains(&token));
+        assert!(!error.contains("unused"));
+        assert!(std::net::TcpListener::bind(staff_address).is_ok());
+        assert_eq!(
+            database.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+    }
+}

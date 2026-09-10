@@ -1,0 +1,31 @@
+name: HTTP monitoring qualification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  monitoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust and official monitoring tools
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          python3 -m unittest discover -s tests/monitoring -p 'test_*.py'
+          python3 scripts/monitoring/download.py
+      - name: Check example configs and all alert state transitions
+        run: |
+          .local/monitoring/bin/promtool check config --syntax-only deploy/monitoring/prometheus.yml
+          .local/monitoring/bin/promtool check rules deploy/monitoring/alerts.yml
+          .local/monitoring/bin/promtool test rules tests/monitoring/rules.test.yml
+          .local/monitoring/bin/amtool check-config deploy/monitoring/alertmanager.yml
+      - name: Build real exporter fixture without a database
+        run: cargo +1.94.0 build -p board-observe --example http_fixture --locked
+      - name: Qualify authenticated scrape, exposition, firing and resolved delivery
+        run: python3 tests/monitoring/qualify.py
+      - name: Verify SIGTERM cleanup of real monitoring processes and credentials
+        run: python3 tests/monitoring/interruption.py

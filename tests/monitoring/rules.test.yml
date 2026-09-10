@@ -1,0 +1,362 @@
+{
+  "rule_files": [
+    "../../deploy/monitoring/alerts.yml"
+  ],
+  "evaluation_interval": "1m",
+  "tests": [
+    {
+      "name": "BoardHttpDown healthy, pending, firing, recovery",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "up{job=\"board-public\",instance=\"fixture:1\"}",
+          "values": "1x10 0x9 1x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardHttpDown",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "12m",
+          "alertname": "BoardHttpDown",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "18m",
+          "alertname": "BoardHttpDown",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-public",
+                "instance": "fixture:1",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Target cannot be scraped"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "BoardHttpDown",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardHttpDown\",alertstate=\"pending\"}",
+          "eval_time": "12m",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardHttpDown\",alertstate=\"pending\",instance=\"fixture:1\",job=\"board-public\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardHttp5xx healthy, pending, firing, recovery",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_http_responses_total{job=\"board-public\",instance=\"fixture:1\",listener=\"public\",status_class=\"2xx\"}",
+          "values": "0+120x30"
+        },
+        {
+          "series": "board_http_responses_total{job=\"board-public\",instance=\"fixture:1\",listener=\"public\",status_class=\"5xx\"}",
+          "values": "0x10 120+120x9 1200x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardHttp5xx",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "12m",
+          "alertname": "BoardHttp5xx",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "18m",
+          "alertname": "BoardHttp5xx",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-public",
+                "instance": "fixture:1",
+                "listener": "public",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "HTTP server errors exceed the example budget"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "BoardHttp5xx",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardHttp5xx\",alertstate=\"pending\"}",
+          "eval_time": "12m",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardHttp5xx\",alertstate=\"pending\",instance=\"fixture:1\",job=\"board-public\",listener=\"public\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardHttpWriteRejections healthy, pending, firing, recovery",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_http_write_rejections_total{job=\"board-public\",instance=\"fixture:1\",listener=\"public\"}",
+          "values": "0x10 120+120x9 1200x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardHttpWriteRejections",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "12m",
+          "alertname": "BoardHttpWriteRejections",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "18m",
+          "alertname": "BoardHttpWriteRejections",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-public",
+                "instance": "fixture:1",
+                "listener": "public",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "HTTP write rejections are elevated"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "BoardHttpWriteRejections",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardHttpWriteRejections\",alertstate=\"pending\"}",
+          "eval_time": "12m",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardHttpWriteRejections\",alertstate=\"pending\",instance=\"fixture:1\",job=\"board-public\",listener=\"public\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardStaffAuthorizationRejections healthy, pending, firing, recovery",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_http_authorization_rejections_total{job=\"board-staff\",instance=\"fixture:1\",listener=\"staff\"}",
+          "values": "0x10 120+120x9 1200x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardStaffAuthorizationRejections",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "12m",
+          "alertname": "BoardStaffAuthorizationRejections",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "18m",
+          "alertname": "BoardStaffAuthorizationRejections",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-staff",
+                "instance": "fixture:1",
+                "listener": "staff",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Staff authorization rejections are elevated"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "BoardStaffAuthorizationRejections",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardStaffAuthorizationRejections\",alertstate=\"pending\"}",
+          "eval_time": "12m",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardStaffAuthorizationRejections\",alertstate=\"pending\",instance=\"fixture:1\",job=\"board-staff\",listener=\"staff\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoardDbPoolPressure healthy, pending, firing, recovery",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_db_pool_connections{job=\"board-public\",instance=\"fixture:1\",pool=\"public\"}",
+          "values": "10x30"
+        },
+        {
+          "series": "board_db_pool_idle{job=\"board-public\",instance=\"fixture:1\",pool=\"public\"}",
+          "values": "5x10 0x9 5x10"
+        },
+        {
+          "series": "board_db_pool_max_connections{job=\"board-public\",instance=\"fixture:1\",pool=\"public\"}",
+          "values": "10x30"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardDbPoolPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "12m",
+          "alertname": "BoardDbPoolPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "18m",
+          "alertname": "BoardDbPoolPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "board-public",
+                "instance": "fixture:1",
+                "pool": "public",
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Database pool has little idle capacity"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "BoardDbPoolPressure",
+          "exp_alerts": []
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "ALERTS{alertname=\"BoardDbPoolPressure\",alertstate=\"pending\"}",
+          "eval_time": "12m",
+          "exp_samples": [
+            {
+              "labels": "{__name__=\"ALERTS\",alertname=\"BoardDbPoolPressure\",alertstate=\"pending\",instance=\"fixture:1\",job=\"board-public\",pool=\"public\",severity=\"warning\"}",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Low request volume does not trigger the 5xx ratio alert",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_http_responses_total{job=\"board-public\",instance=\"fixture:1\",listener=\"public\",status_class=\"2xx\"}",
+          "values": "0+6x10"
+        },
+        {
+          "series": "board_http_responses_total{job=\"board-public\",instance=\"fixture:1\",listener=\"public\",status_class=\"5xx\"}",
+          "values": "0+6x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardHttp5xx",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Non-staff authorization rejections do not trigger the staff rule",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_http_authorization_rejections_total{job=\"board-public\",instance=\"fixture:1\",listener=\"public\"}",
+          "values": "0+120x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardStaffAuthorizationRejections",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Unknown zero pool maximum does not report exhaustion",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "board_db_pool_connections{job=\"board-public\",instance=\"fixture:1\",pool=\"public\"}",
+          "values": "10x10"
+        },
+        {
+          "series": "board_db_pool_idle{job=\"board-public\",instance=\"fixture:1\",pool=\"public\"}",
+          "values": "0x10"
+        },
+        {
+          "series": "board_db_pool_max_connections{job=\"board-public\",instance=\"fixture:1\",pool=\"public\"}",
+          "values": "0x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "BoardDbPoolPressure",
+          "exp_alerts": []
+        }
+      ]
+    }
+  ]
+}
