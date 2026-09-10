@@ -5,6 +5,9 @@ filesystem calls, Tokio, Serde and board-observe. Its lockfile adds only the loc
 `board-resource-monitor` package; no registry versions or checksums change.
 Linux filesystem/cgroup behavior, systemd and the existing native monitoring/PKI
 tools remain part of its trust base. It adds no database client.
+Its [September 10 hosted advisory run](https://github.com/frankischilling/26chan/actions/runs/34500076184)
+scanned 328 locked dependencies against 1,243 fetched advisories without findings;
+npm audit also reported none. This does not establish complete transitive review.
 
 The [authenticated monitoring renderer](authenticated-monitoring.md) adds
 operator/test-only pyca bcrypt 5.0.0, installed into an ignored virtual environment
