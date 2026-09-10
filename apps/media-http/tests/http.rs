@@ -6,7 +6,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use board_media::{ApprovedFiles, ObjectId, PublicationStore, Quarantine, ValidatedOutput};
-use board_media_http::{AppState, router};
+use board_media_http::AppState;
 use board_store::{
     media::MediaQueue,
     media_assets::{MediaReader, OutputMetadata},
@@ -80,7 +80,25 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     let store = PublicationStore::new(&root, &quarantine).unwrap();
     let origin = board_config::Origin::parse("http://127.0.0.1:3002").unwrap();
     let state = AppState::new(reader.clone(), ApprovedFiles::open(&root).unwrap(), &origin);
-    let app = router(state);
+    let (metrics, app) = board_media_http::observed_router(state);
+    let healthy = send(&app, "GET", "/healthz").await;
+    assert_eq!(healthy.status(), StatusCode::OK);
+    drop(healthy);
+    assert_eq!(
+        send(&app, "GET", "/metrics").await.status(),
+        StatusCode::NOT_FOUND
+    );
+    let snapshot = metrics.render();
+    assert!(
+        snapshot
+            .contains("board_http_responses_total{listener=\"media\",status_class=\"2xx\"} 1\n")
+    );
+    assert!(
+        snapshot
+            .contains("board_http_responses_total{listener=\"media\",status_class=\"4xx\"} 1\n")
+    );
+    assert!(snapshot.contains("board_db_pool_max_connections{pool=\"media_read\"} 8\n"));
+    assert!(!snapshot.contains("postgres"));
     let job = queue.reserve("media HTTP synthetic fixture").await.unwrap();
     ids.lock().unwrap().push(job.id.clone());
     queue.queue(&job.id, 4).await.unwrap();

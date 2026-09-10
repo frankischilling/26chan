@@ -1,0 +1,21 @@
+[package]
+name = "board-observe"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum.workspace = true
+board-http = { path = "../http" }
+hyper = { version = "1.11", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio", "service"] }
+subtle = "=2.6.1"
+tokio.workspace = true
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+tokio = { workspace = true, features = ["io-util"] }
+
+[lints]
+workspace = true

@@ -27,8 +27,11 @@ and a metrics server error stops its paired application. GET /metrics only, with
 Axum's normal HEAD behavior, no CORS, no-store and nosniff headers. At most four
 export response bodies/data allocations remain admitted, using board-http's
 retained-body helper. Scrapes perform bounded synchronous atomic reads/callbacks,
-not SQL or filesystem/network operations. Underlying HTTP connection/write
-deadlines remain an operator deployment requirement.
+not SQL or filesystem/network operations. The metrics HTTP/1 server owns at most
+16 accepted connection tasks, disables keep-alive, and applies a 10-second total
+connection deadline including headers and response writes. Pending OS accepts
+are outside that task count. Public/staff/media transport deadlines and deployed
+host limits remain separate qualification requirements.
 
 `Metrics` is a clonable process-owned Arc. `Metrics::layer(Router, Listener)`
 wraps the outermost application response layer, counts final status and handler

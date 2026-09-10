@@ -13,6 +13,7 @@ board-config = { path = "../../crates/config" }
 board-store = { path = "../../crates/store" }
 board-media = { path = "../../crates/media" }
 board-http = { path = "../../crates/http" }
+board-observe = { path = "../../crates/observe" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

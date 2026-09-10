@@ -1,5 +1,13 @@
 # Dependency and update inventory
 
+HTTP telemetry reuses locked Axum/Tokio/HTTP dependencies and subtle 2.6.1 for
+equal-length bearer-token comparison. The fixed metrics crate adds no global
+registry or database client. The owned alert qualification downloads official
+Prometheus 3.14.0 and Alertmanager 0.34.0 x86_64 Windows/Linux binaries with fixed
+SHA256 checks in `scripts/monitoring/download.py`; see
+[monitoring operations](http-observability.md). These operator/test tools have a
+separate release/update obligation and are not bundled into application binaries.
+
 The approved-media HTTP reader reuses the locked Axum, Tokio, SQLx, PNG/hash and
 HTTP-body dependencies. Its lockfile change adds only the local workspace
 package; no registry version or checksum changes. Cargo-audit scanned 325

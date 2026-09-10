@@ -10,6 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(tracing::Level::INFO)
         .init();
     let settings = Settings::from_env()?;
+    let metrics_config = board_observe::Config::from_env()?;
     // Acquire every configured listener before connecting or serving. A failed
     // API bind must not leave a partially started public application.
     let listener = tokio::net::TcpListener::bind(settings.bind).await?;
@@ -17,18 +18,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(api) => Some(tokio::net::TcpListener::bind(api.bind).await?),
         None => None,
     };
+    let metrics_endpoint = board_observe::Endpoint::bind(metrics_config).await?;
     let pool = board_store::connect_public(&settings.database_url).await?;
-    let (app, api_app) = board_public::routers(
+    let (metrics, app, api_app) = board_public::observed_routers(
         pool.clone(),
         settings.public_origin.as_string(),
         settings.production,
+        settings.api.is_some(),
     );
     tracing::info!(bind = %settings.bind, media_enabled = false, "public server started");
     if let Some(api) = &settings.api {
         tracing::info!(bind = %api.bind, origin = %api.origin.as_string(), "JSON API listener started");
     }
     let (stop, stopped) = tokio::sync::watch::channel(false);
-    let serving = serve_pair(listener, app, api_listener, api_app, stopped);
+    let serving = metrics_endpoint.serve(
+        metrics,
+        serve_pair(listener, app, api_listener, api_app, stopped),
+    );
     tokio::pin!(serving);
     let result = tokio::select! {
         result = &mut serving => result,

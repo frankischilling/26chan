@@ -1,0 +1,30 @@
+# Same-host example only. Each app has its own independently generated token.
+# Files contain the raw 64-character lowercase hex token, no Bearer prefix.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - alerts.yml
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['127.0.0.1:9093']
+scrape_configs:
+  - job_name: board-public
+    authorization:
+      type: Bearer
+      credentials_file: /etc/26chan/metrics/public.token
+    static_configs:
+      - targets: ['127.0.0.1:9191']
+  - job_name: board-staff
+    authorization:
+      type: Bearer
+      credentials_file: /etc/26chan/metrics/staff.token
+    static_configs:
+      - targets: ['127.0.0.1:9192']
+  - job_name: board-media
+    authorization:
+      type: Bearer
+      credentials_file: /etc/26chan/metrics/media.token
+    static_configs:
+      - targets: ['127.0.0.1:9193']

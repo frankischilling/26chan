@@ -1,0 +1,49 @@
+# Example thresholds: tune against staging traffic and pool budgets.
+groups:
+  - name: board-http
+    rules:
+      - alert: BoardHttpDown
+        expr: up{job=~"board-(public|staff|media)"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Target cannot be scraped
+      - alert: BoardHttp5xx
+        expr: |
+          (
+            sum by (job, instance, listener) (rate(board_http_responses_total{status_class="5xx"}[5m]))
+            / sum by (job, instance, listener) (rate(board_http_responses_total[5m])) > 0.05
+          )
+          and sum by (job, instance, listener) (rate(board_http_responses_total[5m])) >= 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: HTTP server errors exceed the example budget
+      - alert: BoardHttpWriteRejections
+        expr: rate(board_http_write_rejections_total[5m]) > 0.2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: HTTP write rejections are elevated
+      - alert: BoardStaffAuthorizationRejections
+        expr: rate(board_http_authorization_rejections_total{listener="staff"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Staff authorization rejections are elevated
+      - alert: BoardDbPoolPressure
+        expr: |
+          (
+            (board_db_pool_connections - board_db_pool_idle)
+            / board_db_pool_max_connections > 0.9
+          )
+          and board_db_pool_max_connections > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Database pool has little idle capacity

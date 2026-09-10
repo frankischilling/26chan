@@ -101,3 +101,45 @@ fn occupied_api_listener_fails_before_database_access() {
     // Neither listener serves if acquiring the pair fails.
     assert!(std::net::TcpListener::bind(public_bind).is_ok());
 }
+
+#[test]
+fn metrics_startup_rejects_bad_config_and_occupied_socket_before_database_access() {
+    let database = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    database.set_nonblocking(true).unwrap();
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    for token in ["synthetic-secret".to_owned(), "a".repeat(64)] {
+        let public = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let public_address = public.local_addr().unwrap();
+        drop(public);
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"));
+        command.env_clear();
+        if let Some(system_root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", system_root);
+        }
+        let output = command
+            .env(
+                "DATABASE_URL",
+                format!(
+                    "postgres://board_public:unused@{}/absent",
+                    database.local_addr().unwrap()
+                ),
+            )
+            .env("BIND_ADDR", public_address.to_string())
+            .env(
+                "METRICS_BIND_ADDR",
+                occupied.local_addr().unwrap().to_string(),
+            )
+            .env("METRICS_TOKEN", &token)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(!error.contains(&token));
+        assert!(!error.contains("unused"));
+        assert!(std::net::TcpListener::bind(public_address).is_ok());
+        assert_eq!(
+            database.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+    }
+}
