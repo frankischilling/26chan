@@ -23,8 +23,18 @@ Checks ran on September 9, 2026, with the existing Rust 1.94.0 and PostgreSQL 16
 | `cargo test -p board-public --test board_snapshots --features database-tests --locked -- --nocapture` | Initial regression failed on all eight routes; corrected version passed, then expanded sixteen-case/settled coverage passed |
 | `cargo test -p board-store -p board-public --all-features --locked` | Passed: 29 public and 8 store tests, zero failures or ignored tests |
 | `cargo clippy -p board-store -p board-public --all-targets --all-features --locked -- -D warnings` | Passed |
+| `cargo fmt --all -- --check` and `git diff --check` | Passed |
+| Windows `cargo build -p board-public --bins --examples --locked` | Passed before browser verification |
+| Windows `npm run test:behavior` | Five tests passed against the actual public/API listeners and disposable database |
+| Windows `npm run test:visual` | Three tests passed with zero baseline differences against the actual database-backed public handlers |
 
-Formatting, Windows browser checks, independent source review and hosted checks are remaining checkpoint gates at this documentation draft.
+Browser checks used a structured private environment import with process variables restored afterward. `VISUAL_FIXTURE_SERVER` was cleared, so these local screenshots exercised the real database-backed board/catalog handlers rather than the render-only CI example. All owned servers stopped after the checks. No baseline was updated. These browser results cover implementation checkpoint `2adbace`.
+
+## Source review correction
+
+Independent source review found no Critical or Important issue and one Minor compatibility difference: an out-of-range page returned the generic missing-record message instead of the existing `Page not found.` text. An added body assertion reproduced that difference before correction. Commit `4027701` preserves a distinct `StoreError::PageNotFound` and maps it to the original 404 message. The regression now checks error bodies on both JSON listeners and numbered HTML pages.
+
+After that correction, the snapshot regression, nine CORS tests and seven HTTP-limit tests passed (seventeen tests total). `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, formatting and whitespace checks also passed. The workspace check covers all consumers of the added error variant. Browser checks were not repeated for this error-only change. Scoped correction review accepted the fix with no new or deferred findings. Current-head hosted checks remain a separate publication gate, tracked in the draft PR linked from issue #22.
 
 ## Scope
 
