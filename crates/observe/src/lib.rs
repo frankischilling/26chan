@@ -87,8 +87,12 @@ impl Config {
     }
 }
 
+mod maintenance;
+#[cfg(test)]
+mod maintenance_tests;
 #[cfg(test)]
 mod queue_tests;
+pub use maintenance::{MAINTENANCE_TARGETS, MaintenanceSample, MaintenanceTargetSample};
 #[cfg(test)]
 mod resource_tests;
 mod resources;
@@ -196,6 +200,7 @@ struct Inner {
     pools: [Option<PoolCallback>; 4],
     media_queue: Option<Box<dyn Fn() -> MediaQueueSample + Send + Sync>>,
     resources: Option<Box<dyn Fn() -> ResourceSample + Send + Sync>>,
+    maintenance: Option<Box<dyn Fn() -> MaintenanceSample + Send + Sync>>,
 }
 
 /// Process-owned fixed-schema metrics. Register synchronous, bounded pool
@@ -207,6 +212,20 @@ pub struct Metrics(Arc<Inner>);
 impl Metrics {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Register one fixed memory-only journal snapshot callback before sharing.
+    /// The callback must not perform filesystem, SQL or network operations.
+    pub fn register_maintenance(
+        &mut self,
+        callback: impl Fn() -> MaintenanceSample + Send + Sync + 'static,
+    ) -> Result<(), RegistrationError> {
+        let inner = Arc::get_mut(&mut self.0).ok_or(RegistrationError)?;
+        if inner.maintenance.is_some() {
+            return Err(RegistrationError);
+        }
+        inner.maintenance = Some(Box::new(callback));
+        Ok(())
     }
 
     /// Register one complete bounded memory-only resource snapshot before sharing.
@@ -397,6 +416,9 @@ impl Metrics {
         }
         if let Some(snapshot) = &self.0.resources {
             resources::render(&mut text, snapshot());
+        }
+        if let Some(snapshot) = &self.0.maintenance {
+            maintenance::render(&mut text, snapshot());
         }
         text
     }

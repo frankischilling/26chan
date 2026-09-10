@@ -90,8 +90,10 @@ operator destination, authentication, on-call routing and receipt evidence still
 need deployment work. No external notification is sent by qualification.
 The [resource observer](../../docs/resource-observability.md) adds configured
 filesystem and local cgroup pressure rules. Its native qualification is tracked
-separately. Update-check freshness, production host qualification and delivery
-to an operator receiver remain incomplete.
+separately. The [maintenance observer](../../docs/maintenance-observability.md)
+adds recorded update failure, overdue and unavailable-journal rules. Actual
+production update commands/schedules, host qualification and delivery to an
+operator receiver remain incomplete.
 
 ## Local and CI qualification
 

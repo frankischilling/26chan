@@ -1,0 +1,11 @@
+[Unit]
+Description=Candidate weekly board maintenance for %i
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=30m
+Persistent=true
+Unit=maintenance@%i.service
+
+[Install]
+WantedBy=timers.target

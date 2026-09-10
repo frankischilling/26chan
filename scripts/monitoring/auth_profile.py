@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 MANIFEST_LIMIT = 64 * 1024
 MATERIAL_LIMIT = 128 * 1024
 RULES_LIMIT = 256 * 1024
-JOBS = frozenset(('board-public', 'board-staff', 'board-media', 'board-monitor', 'board-resource'))
+JOBS = frozenset(('board-public', 'board-staff', 'board-media', 'board-monitor', 'board-resource', 'board-maintenance'))
 ERROR = 'Authenticated monitoring profile could not be rendered.'
 
 
@@ -129,7 +129,7 @@ def _validated(manifest, output):
     _read_regular(receiver['ca_file'], MATERIAL_LIMIT)
     _credential(receiver['token_file'], secrets)
     scrapes = manifest['scrapes']
-    if type(scrapes) is not list or not 1 <= len(scrapes) <= 5:
+    if type(scrapes) is not list or not 1 <= len(scrapes) <= 6:
         raise ValueError(ERROR)
     jobs = set()
     for scrape in scrapes:
@@ -173,7 +173,7 @@ def _configs(manifest, passwords):
     }
     alertmanager = {
         'route': {'receiver': 'local-operator-webhook',
-                  'group_by': ['alertname', 'job', 'instance', 'listener', 'pool', 'storage', 'service'],
+                  'group_by': ['alertname', 'job', 'instance', 'listener', 'pool', 'storage', 'service', 'maintenance'],
                   'group_wait': '30s', 'group_interval': '5m', 'repeat_interval': '4h'},
         'receivers': [{'name': 'local-operator-webhook', 'webhook_configs': [{
             'url': receiver['url'], 'send_resolved': True,

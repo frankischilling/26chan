@@ -40,3 +40,9 @@ scrape_configs:
       credentials_file: /etc/26chan/metrics/resource.token
     static_configs:
       - targets: ['127.0.0.1:9195']
+  - job_name: board-maintenance
+    authorization:
+      type: Bearer
+      credentials_file: /etc/26chan/metrics/maintenance.token
+    static_configs:
+      - targets: ['127.0.0.1:9196']

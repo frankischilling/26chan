@@ -24,6 +24,7 @@ jobs:
           .local/monitoring/bin/promtool test rules tests/monitoring/rules.test.yml
           .local/monitoring/bin/promtool test rules tests/monitoring/queue-rules.test.yml
           .local/monitoring/bin/promtool test rules tests/monitoring/resource-rules.test.yml
+          .local/monitoring/bin/promtool test rules tests/monitoring/maintenance-rules.test.yml
           .local/monitoring/bin/amtool check-config deploy/monitoring/alertmanager.yml
       - name: Build real exporter fixture without a database
         run: cargo +1.94.0 build -p board-observe --example http_fixture --locked

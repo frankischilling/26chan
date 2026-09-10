@@ -124,6 +124,19 @@ jobs:
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin RESOURCE_QUALIFICATION_INTERRUPT=1 \
             RESOURCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
             bash scripts/test-resource-monitoring.sh "$PWD/target/debug/board-resource-monitor" "$PWD/.local/monitoring/bin"
+      - name: Qualify actual maintenance outcomes and authenticated alert delivery
+        run: |
+          python3 -m unittest discover -s tests/maintenance -p 'test_*.py' -v
+          sudo install -D -m 0755 target/debug/board-maintenance-monitor /opt/paperboard/board-maintenance-monitor
+          sudo install -D -m 0644 scripts/maintenance/run.py /opt/paperboard/maintenance/run.py
+          sudo install -D -m 0644 scripts/maintenance/state.py /opt/paperboard/maintenance/state.py
+          systemd-analyze verify deploy/maintenance-monitor.service deploy/maintenance@.service deploy/maintenance@.timer
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MAINTENANCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
+            bash scripts/test-maintenance-monitoring.sh "$PWD/target/debug/board-maintenance-monitor" "$PWD/.local/monitoring/bin"
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin MAINTENANCE_QUALIFICATION_INTERRUPT=1 \
+            MAINTENANCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
+            bash scripts/test-maintenance-monitoring.sh "$PWD/target/debug/board-maintenance-monitor" "$PWD/.local/monitoring/bin"
   visual-windows:
     runs-on: windows-2025
     timeout-minutes: 30

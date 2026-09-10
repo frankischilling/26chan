@@ -54,8 +54,10 @@ adds verified HTTPS and independent request credentials to both notification lin
 and the native APIs, with broad native API authority documented explicitly.
 The separate [resource observer](resource-observability.md) measures configured
 filesystem capacity and local cgroup ceilings; its native qualification is tracked
-in the verification record. Before launch, qualify storage/resource monitoring
-on the deployed host, implement update-check alert delivery, and configure and
+in the verification record. The [maintenance recorder and observer](maintenance-observability.md)
+cover configured update-command outcomes, overdue runs and unavailable journals.
+Before launch, qualify actual update commands/schedules and storage/resource monitoring
+on the deployed host, and configure and
 verify an operator notification destination. Do not treat journal output, a
 successful scrape, or local webhook delivery as equivalent production coverage.
 

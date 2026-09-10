@@ -1,5 +1,13 @@
 # Dependency and update inventory
 
+The [maintenance observer](maintenance-observability.md) reuses locked Rustix,
+Tokio, Serde and board-observe; only its local package is added to Cargo.lock.
+The operator recorder uses Python 3.12+ standard-library descriptor I/O, process
+control and synchronization. Those native facilities, systemd and the configured
+update commands belong to the maintenance trust base. The observer adds no
+database or outbound update client. Native and deployed evidence is tracked in
+its [verification record](verification-maintenance-observability.md).
+
 The [resource observer](resource-observability.md) reuses locked Rustix 1.1.4
 filesystem calls, Tokio, Serde and board-observe. Its lockfile adds only the local
 `board-resource-monitor` package; no registry versions or checksums change.

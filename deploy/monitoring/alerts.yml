@@ -217,3 +217,76 @@ groups:
           severity: warning
         annotations:
           summary: Service cgroup reports recent OOM kills
+  - name: board-maintenance
+    rules:
+      - alert: BoardMaintenanceObserverUnavailable
+        expr: |
+          (up{job="board-maintenance"} == 0)
+          or
+          (
+            up{job="board-maintenance"}
+            unless on (job, instance)
+            (
+              board_maintenance_sample_success{job="board-maintenance"}
+              or board_maintenance_sample_last_success_timestamp_seconds{job="board-maintenance"}
+            )
+          )
+          or
+          (
+            (
+              (
+                board_maintenance_sample_success{job="board-maintenance"}
+                or board_maintenance_sample_last_success_timestamp_seconds{job="board-maintenance"}
+              )
+              unless on (job, instance, maintenance)
+              (
+                (board_maintenance_sample_success{job="board-maintenance"} == 1)
+                and on (job, instance, maintenance)
+                (time() - board_maintenance_sample_last_success_timestamp_seconds{job="board-maintenance"} <= 30)
+              )
+            )
+            and on (job, instance) (up{job="board-maintenance"} == 1)
+          )
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Maintenance observer is unavailable or stale
+      - alert: BoardMaintenanceFailed
+        expr: |
+          (board_maintenance_failure_pending{job="board-maintenance"} == 1)
+          and on (job, instance, maintenance) (board_maintenance_sample_success{job="board-maintenance"} == 1)
+          and on (job, instance, maintenance) (time() - board_maintenance_sample_last_success_timestamp_seconds{job="board-maintenance"} <= 30)
+          and on (job, instance) (up{job="board-maintenance"} == 1)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Maintenance command failure remains unresolved
+      - alert: BoardMaintenanceOverdue
+        expr: |
+          (
+            (board_maintenance_last_success_timestamp_seconds{job="board-maintenance"} == 0)
+            or
+            (
+              time() - board_maintenance_last_success_timestamp_seconds{job="board-maintenance"}
+              > board_maintenance_max_age_seconds{job="board-maintenance"}
+            )
+            or
+            (
+              (board_maintenance_run_in_progress{job="board-maintenance"} == 1)
+              and on (job, instance, maintenance)
+              (
+                time() - board_maintenance_run_started_timestamp_seconds{job="board-maintenance"}
+                > board_maintenance_run_timeout_seconds{job="board-maintenance"}
+              )
+            )
+          )
+          and on (job, instance, maintenance) (board_maintenance_sample_success{job="board-maintenance"} == 1)
+          and on (job, instance, maintenance) (time() - board_maintenance_sample_last_success_timestamp_seconds{job="board-maintenance"} <= 30)
+          and on (job, instance) (up{job="board-maintenance"} == 1)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Maintenance command success or completion is overdue
