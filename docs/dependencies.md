@@ -1,5 +1,14 @@
 # Dependency and update inventory
 
+The [authenticated monitoring renderer](authenticated-monitoring.md) adds
+operator/test-only pyca bcrypt 5.0.0, installed into an ignored virtual environment
+with official binary wheel hashes in `scripts/monitoring/auth-requirements.txt`.
+It hashes 64-byte generated Basic passwords at cost 12; applications do not import
+it. Synthetic TLS tests use the host OpenSSL CLI and Python's verified TLS stack.
+The production profile uses operator-provided PKI, and no Rust registry dependency
+changes. Track the [upstream bcrypt release](https://pypi.org/project/bcrypt/5.0.0/)
+alongside the pinned native monitoring binaries.
+
 The queue observer reuses locked SQLx/Tokio and board-observe dependencies. Its
 lockfile adds only the local `board-monitor` workspace package; no registry
 version or checksum changes. Tokio's test-util feature supports deterministic
