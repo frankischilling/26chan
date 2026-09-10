@@ -189,6 +189,7 @@ impl Settings {
             "STAFF_DATABASE_URL",
             "AUTH_DATABASE_URL",
             "MONITOR_DATABASE_URL",
+            "INTAKE_DATABASE_URL",
         ]
         .iter()
         .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
@@ -276,6 +277,7 @@ impl MediaAdminSettings {
             "TEST_PUBLIC_DATABASE_URL",
             "MONITOR_DATABASE_URL",
             "MEDIA_READ_DATABASE_URL",
+            "INTAKE_DATABASE_URL",
         ]
         .iter()
         .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
@@ -347,6 +349,7 @@ impl MediaReaderSettings {
             "AUTH_DATABASE_URL",
             "TEST_PUBLIC_DATABASE_URL",
             "MONITOR_DATABASE_URL",
+            "INTAKE_DATABASE_URL",
         ]
         .iter()
         .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))

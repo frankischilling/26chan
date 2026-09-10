@@ -2,7 +2,11 @@ use std::process::Command;
 
 #[test]
 fn staff_rejects_inherited_media_reader_credentials() {
-    for credential in ["MEDIA_READ_DATABASE_URL", "MONITOR_DATABASE_URL"] {
+    for credential in [
+        "MEDIA_READ_DATABASE_URL",
+        "MONITOR_DATABASE_URL",
+        "INTAKE_DATABASE_URL",
+    ] {
         let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
             .env_clear()
             .env(credential, "synthetic-reader-secret")

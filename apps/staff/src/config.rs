@@ -83,6 +83,7 @@ impl Config {
             "MEDIA_DATABASE_URL",
             "MEDIA_READ_DATABASE_URL",
             "MONITOR_DATABASE_URL",
+            "INTAKE_DATABASE_URL",
         ] {
             if std::env::var_os(key).is_some_and(|s| !s.is_empty()) {
                 return Err("Staff runtime received an unrelated database credential");

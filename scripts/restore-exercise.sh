@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 cd "$(dirname "$0")/.."
 [[ $(id -u) = 0 ]] || { echo 'Run as root against the disposable cluster.' >&2; exit 1; }
 source .local/database.env
@@ -37,7 +38,11 @@ REVOKE ALL ON DATABASE :"restore_db" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"restore_db" TO board_public, board_migrator, board_media, board_media_read, board_monitor, board_staff, board_auth;
 SQL
 restore_url="${MIGRATION_DATABASE_URL%/imageboard}/$restore_db"
-"$pg_bin/pg_restore" --dbname="$restore_url" --exit-on-error "$backup"
+# Restoring the NOLOGIN function owner requires bootstrap authority; the owner
+# deliberately has no schema CREATE grant. The root operator opens the private
+# archive, and peer-authenticated bootstrap restores ownership and ACLs atomically.
+runuser -u postgres -- "$pg_bin/pg_restore" -h /tmp -p 55432 \
+  --dbname="$restore_db" --single-transaction --exit-on-error < "$backup"
 fingerprint_sql="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY id)) FROM content.posts p;"
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")

@@ -46,6 +46,7 @@ pub fn from_env() -> Result<Targets, ConfigError> {
                     | "AUTH_DATABASE_URL"
                     | "STAFF_DATABASE_URL"
                     | "MONITOR_DATABASE_URL"
+                    | "INTAKE_DATABASE_URL"
             )
         {
             return Err(ConfigError);

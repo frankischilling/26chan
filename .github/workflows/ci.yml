@@ -29,6 +29,7 @@ jobs:
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh
           sudo bash scripts/dev-media-reader-db.sh
+          sudo bash scripts/dev-intake-db.sh
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
@@ -40,6 +41,7 @@ jobs:
           source .local/database.env
           source .local/media.env
           source .local/media-reader.env
+          source .local/intake.env
           source .local/monitor.env
           source .local/staff.env
           npm ci --ignore-scripts
@@ -99,6 +101,8 @@ jobs:
         run: sudo bash scripts/test-archive-migration.sh
       - name: Upgrade legacy media receipts without automatic approval
         run: sudo bash scripts/test-media-approval-migration.sh
+      - name: Upgrade existing media jobs to capability-scoped intake
+        run: sudo bash scripts/test-media-intake-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
       - name: Qualify aggregate observer and real queue alert delivery

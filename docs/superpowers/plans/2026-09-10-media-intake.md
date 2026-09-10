@@ -86,8 +86,10 @@ Produce `board-media-intake` and an ordinary public `router(state)` testable wit
 the actual store; no test-only production endpoints or injected permit bypasses.
 
 - [ ] Add failing portable config/auth/header/limit tests and database-backed HTTP
-  tests. Start with unauthorized POST denying before a lazy unavailable store is
-  touched, then test actual reservation and streaming against the real login.
+  tests. Exercise the actual authentication middleware with a downstream handler
+  that must never run for unauthorized POST. Then test the complete router's
+  auth-before-reservation and streaming against the real login. Do not add an
+  unvalidated store constructor solely to create an unavailable-store fixture.
 - [ ] Implement strict development-only config and secret-free errors; reject
   nonloopback bind/database, ambiguous URL options and unrelated credentials.
 - [ ] Implement exact service-auth/capability checks and the five HTTP routes in

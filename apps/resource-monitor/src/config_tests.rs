@@ -179,6 +179,7 @@ fn requires_explicit_environment_and_rejects_unrelated_credentials() {
         "AUTH_DATABASE_URL",
         "STAFF_DATABASE_URL",
         "MONITOR_DATABASE_URL",
+        "INTAKE_DATABASE_URL",
         "PGHOST",
         "PGPASSWORD",
         "PGFUTUREOPTION",
