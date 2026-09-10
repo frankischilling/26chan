@@ -53,6 +53,37 @@ BEGIN
     RAISE EXCEPTION 'Bootstrap observer grants differ';
   END IF;
 END $$;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('board_media_intake','board_media_intake_owner')
+      AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
+    RAISE EXCEPTION 'Unqualified intake roles have login or elevated flags';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member
+      WHERE r.rolname IN ('board_media_intake','board_media_intake_owner')) THEN
+    RAISE EXCEPTION 'Intake roles have membership';
+  END IF;
+  IF NOT has_schema_privilege('board_media_intake','media_intake','USAGE')
+     OR has_schema_privilege('board_media_intake','media_intake','CREATE')
+     OR has_schema_privilege('board_media_intake','media','USAGE')
+     OR has_any_column_privilege('board_media_intake','media_intake.handles','SELECT,INSERT,UPDATE,REFERENCES')
+     OR has_any_column_privilege('board_media_intake','media.jobs','SELECT,INSERT,UPDATE,REFERENCES')
+     OR NOT has_function_privilege('board_media_intake','media_intake.reserve(text)','EXECUTE') THEN
+    RAISE EXCEPTION 'Bootstrap intake grants differ';
+  END IF;
+  IF has_column_privilege('board_media_intake_owner','media.jobs','lease_token','SELECT,INSERT,UPDATE')
+     OR has_column_privilege('board_media_intake_owner','media.jobs','attempts','SELECT,INSERT,UPDATE')
+     OR has_column_privilege('board_media_intake_owner','media.jobs','output_sha256','SELECT,INSERT,UPDATE')
+     OR has_any_column_privilege('board_media_intake_owner','media.assets','INSERT,UPDATE,REFERENCES')
+     OR has_table_privilege('board_media_intake_owner','media.jobs','DELETE,TRUNCATE,TRIGGER')
+     OR has_schema_privilege('board_media_intake_owner','media_intake','CREATE') THEN
+    RAISE EXCEPTION 'Intake owner exceeds required authority';
+  END IF;
+END $$;
+SET ROLE board_media_intake;
+SELECT media_intake.ready();
+SELECT id IS NOT NULL AND capability IS NOT NULL AS reserved FROM media_intake.reserve('bootstrap-synthetic.png');
+RESET ROLE;
 SET ROLE board_media_read;
 SELECT count(*) AS initially_approved FROM media.approved_assets;
 RESET ROLE;
@@ -61,4 +92,4 @@ SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
 cleanup
 trap - EXIT
-printf 'Fresh role bootstrap passed: all migrations applied as owner; media reader and aggregate observer remain NOLOGIN with restricted grants. Private cluster removed.\n'
+printf 'Fresh role bootstrap passed: all migrations applied as owner; reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
