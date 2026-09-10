@@ -18,7 +18,9 @@ the local workspace package.
 
 Actual PostgreSQL role/view/window tests, restoration with the aggregate observer,
 and observer-to-Prometheus-to-Alertmanager firing/resolved/recovery are wired into
-Linux CI and must pass before merge. Local Ubuntu WSL remains unresponsive after
+Linux CI and must pass before merge. An additional real SIGTERM watcher verifies
+child-process and credential cleanup; the helper checks restored queue state and
+grants. Its OS execution is also pending. Local Ubuntu WSL remains unresponsive after
 the earlier disk-full failure; no restart permission has been received. Local
 compile or rule-unit success is not a substitute for that database evidence.
 

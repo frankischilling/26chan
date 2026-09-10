@@ -103,9 +103,13 @@ jobs:
         run: sudo bash scripts/restore-exercise.sh
       - name: Qualify aggregate observer and real queue alert delivery
         run: |
+          sudo install -D -m 0755 target/debug/board-monitor /opt/paperboard/board-monitor
           systemd-analyze verify deploy/monitor.service
           python3 scripts/monitoring/download.py
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            bash scripts/test-queue-monitoring.sh "$PWD/target/debug/board-monitor" \
+            "$PWD/target/debug/examples/queue_fixture" "$PWD/.local/monitoring/bin"
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin QUEUE_QUALIFICATION_INTERRUPT=1 \
             bash scripts/test-queue-monitoring.sh "$PWD/target/debug/board-monitor" \
             "$PWD/target/debug/examples/queue_fixture" "$PWD/.local/monitoring/bin"
   visual-windows:

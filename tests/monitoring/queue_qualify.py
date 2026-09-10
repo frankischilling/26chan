@@ -1,6 +1,7 @@
 """Real disposable queue -> monitor -> Prometheus -> Alertmanager qualification."""
 
 from contextlib import ExitStack
+import argparse
 import http.server
 import json
 import os
@@ -68,7 +69,16 @@ def assert_same_alert(firing, resolved):
         raise AssertionError('Resolved notification does not identify the firing alert')
 
 
-def qualify():
+def write_lifecycle_state(destination, work, child_pids):
+    # Publish only after actual sampling/scraping works. Atomic replacement keeps
+    # the interruption watcher from reading a partially written document.
+    state = {'directory': str(work), 'children': child_pids}
+    temporary = destination.with_suffix('.tmp')
+    temporary.write_text(json.dumps(state), encoding='utf-8')
+    temporary.replace(destination)
+
+
+def qualify(lifecycle_state=None):
     if os.environ.get('QUEUE_QUALIFICATION') != 'owned-disposable':
         raise AssertionError('Use the owned disposable PostgreSQL helper')
     system_keys = {'systemroot', 'windir', 'path', 'temp', 'tmp', 'tmpdir'}
@@ -226,6 +236,8 @@ def qualify():
         if query('ALERTS{alertname=~"BoardMediaQueuePressure|BoardMediaProcessingFailures"}'):
             raise AssertionError('Healthy queue unexpectedly alerts')
         print('PASS real monitor, aggregate snapshot, private health and authenticated Prometheus scrape', flush=True)
+        if lifecycle_state is not None:
+            write_lifecycle_state(lifecycle_state, work, [process.pid for _, process in children])
         seen = []
 
         def notification(name, status):
@@ -293,4 +305,7 @@ def qualify():
 
 if __name__ == '__main__':
     install_signal_cleanup()
-    qualify()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--lifecycle-state', type=Path, help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    qualify(args.lifecycle_state)

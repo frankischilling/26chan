@@ -3,6 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ $(id -u) = 0 ]] || { echo 'Run as root on an owned disposable Linux host.' >&2; exit 1; }
 [[ $# = 3 ]] || { echo 'Usage: test-queue-monitoring.sh ABS_MONITOR_BIN ABS_QUEUE_FIXTURE_BIN ABS_TOOLS_DIR' >&2; exit 1; }
+case ${QUEUE_QUALIFICATION_INTERRUPT:-0} in
+  0) qualifier=tests/monitoring/queue_qualify.py ;;
+  1) qualifier=tests/monitoring/queue_interruption.py ;;
+  *) echo 'QUEUE_QUALIFICATION_INTERRUPT must be absent, 0 or 1.' >&2; exit 1 ;;
+esac
 [[ $1 = /* && $2 = /* && $3 = /* && -x $1 && -x $2 && -d $3 ]] || { echo 'Supply existing absolute binary and tool paths.' >&2; exit 1; }
 BOARD_MONITOR_BIN=$(readlink -f -- "$1")
 QUEUE_FIXTURE_BIN=$(readlink -f -- "$2")
@@ -80,7 +85,20 @@ QUEUE_QUALIFICATION=owned-disposable
 # when a forced termination prevents Python's own TemporaryDirectory cleanup.
 TMPDIR=$cluster
 export BOARD_MONITOR_BIN QUEUE_FIXTURE_BIN MONITORING_BIN_DIR MONITOR_DATABASE_URL MEDIA_DATABASE_URL MIGRATION_DATABASE_URL QUEUE_QUALIFICATION TMPDIR
-setsid python3 tests/monitoring/queue_qualify.py &
+setsid python3 "$qualifier" &
 qualification_pid=$!
 wait "$qualification_pid"
+# Successful Python teardown already reaped its children. Forget that group
+# before subsequent database checks; never signal a potentially reused group.
+qualification_pid=
+"${db[@]}" -d board_queue_qualification <<'SQL'
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM media.jobs) <> 0
+     OR (SELECT capacity FROM media.queue_policy WHERE singleton) IS DISTINCT FROM 64
+     OR NOT has_table_privilege('board_monitor','monitoring.media_queue','SELECT') THEN
+    RAISE EXCEPTION 'Owned qualification did not restore queue rows, capacity and observer grant';
+  END IF;
+END $$;
+SQL
 echo 'Queue qualification passed; removing its private PostgreSQL cluster.'

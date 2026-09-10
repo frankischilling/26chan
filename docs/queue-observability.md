@@ -99,6 +99,12 @@ owned loopback receiver. Revoking/regranting view SELECT must remove/restore
 readiness and queue series. Only notification hold/scrape timing is accelerated.
 Owned children, fixture data, grants and credentials are cleaned on exit.
 
+Repeat the helper with `QUEUE_QUALIFICATION_INTERRUPT=1` in its explicit `sudo env`
+environment to verify OS SIGTERM cleanup after a real healthy scrape. The watcher
+checks the three owned child identities and temporary token directory disappear;
+the outer helper verifies zero jobs, capacity 64 and restored observer SELECT
+before removing its cluster. Temporary files stay inside that owned cluster tree.
+
 Read [verification evidence](verification-queue-observability.md) for actual
 outcomes. This does not qualify a production receiver, downstream monitoring-hop
 authentication, host/database storage/resource monitoring, update checks or
