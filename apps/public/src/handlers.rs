@@ -126,30 +126,30 @@ async fn board_page(
     page: i64,
     catalog: bool,
 ) -> Result<Response, AppError> {
-    let board = board_store::board(&state.pool, slug).await?;
-    let max_pages = (i64::from(board.thread_limit) + i64::from(board.threads_per_page) - 1)
-        / i64::from(board.threads_per_page);
-    if page < 1 || page > max_pages {
-        return Err(AppError(StatusCode::NOT_FOUND, "Page not found."));
-    }
-    let count = if catalog {
-        i64::from(board.thread_limit)
+    let selection = if catalog {
+        board_store::BoardSelection::All
     } else {
-        i64::from(board.threads_per_page)
+        board_store::BoardSelection::Page(page)
     };
-    let threads = board_store::threads(&state.pool, slug, (page - 1) * count, count).await?;
-    let has_next = !catalog && page < max_pages && threads.len() == count as usize;
+    let snapshot = board_store::board_snapshot(
+        &state.pool,
+        slug,
+        selection,
+        Some(if catalog { 0 } else { 3 }),
+    )
+    .await?;
+    let board = snapshot.board;
+    let has_next = snapshot.has_next;
     let mut views = Vec::new();
-    for thread in threads {
-        let keep_replies = if catalog { 0 } else { 3 };
-        let posts = board_store::preview_posts(&state.pool, slug, thread.id, keep_replies).await?;
+    for preview in snapshot.threads {
+        let posts = preview.posts;
         if posts.is_empty() {
             continue;
         }
-        let total = board_store::visible_post_count(&state.pool, slug, thread.id).await? as usize;
+        let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
         views.push(ThreadView {
-            thread,
+            thread: preview.thread,
             posts: posts.into_iter().map(PostView::new).collect(),
             omitted,
         });

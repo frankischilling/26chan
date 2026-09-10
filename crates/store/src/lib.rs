@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 
+mod board_snapshot;
 pub mod media;
 pub mod media_assets;
 mod read;
 mod write;
+pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
