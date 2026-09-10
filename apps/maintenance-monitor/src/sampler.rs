@@ -53,8 +53,8 @@ impl SampleState {
         let mut sample = record.sample;
         for (index, entry) in sample.targets.iter_mut().enumerate() {
             if let Some(entry) = entry
-                && !record.observed[index]
-                    .is_some_and(|at| now.saturating_duration_since(at) <= MAX_SAMPLE_AGE)
+                && record.observed[index]
+                    .is_none_or(|at| now.saturating_duration_since(at) > MAX_SAMPLE_AGE)
             {
                 let mut missing = self.configured.targets[index].expect("configured cache slot");
                 missing.last_sample_timestamp_seconds = entry.last_sample_timestamp_seconds;

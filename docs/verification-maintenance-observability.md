@@ -2,8 +2,10 @@
 
 Work for [issue #42](https://github.com/frankischilling/26chan/issues/42) starts at
 main `5a2ef5c00a2cd8a4be7fef7ddcf59d35026d9251`; design/plan commit `d564998`.
-The implementation is pending hosted compilation and native qualification. This
-record does not claim passing Linux behavior or production deployment.
+This record describes initial local verification and the first hosted attempt.
+[PR #43](https://github.com/frankischilling/26chan/pull/43) records the final
+revision, required hosted/native results and merge status. Local checks alone
+do not establish Linux behavior or production deployment.
 
 Local Windows checks on September 10, 2026:
 
@@ -30,8 +32,20 @@ contract, per-target availability and bounded cache. Recorder review found a
 signal window during final publication and an immediate-KILL test cleanup gap;
 both were corrected with additional regressions. Finalization now commits a
 consistent journal and exit status, and test cleanup retains owned process
-identity before forced signaling. Re-review and native checks remain separate
-from portable results.
+identity before forced signaling. Independent scoped re-review accepted both
+corrections. Separate integration review accepted the metrics, rules, profile,
+runtime, native harness, CI and documentation. Native checks remain separate
+from those source reviews and portable results.
+
+Initial implementation `dbfb6b2` passed both monitoring workflows, both Windows
+visual jobs and the advisory scan. The
+[PR Linux build](https://github.com/frankischilling/26chan/actions/runs/34513086096)
+and [push Linux build](https://github.com/frankischilling/26chan/actions/runs/34513080036)
+stopped at `clippy::nonminimal_bool` in the maintenance sampler. The missing-or-
+stale expression now uses `is_none_or(age > limit)` instead of negating
+`is_some_and(age <= limit)`; its boundary and behavior are unchanged. These runs
+did not execute the new native maintenance qualification and are not passing
+Linux evidence. The PR tracks the corrected revision's checks.
 
 The owned delivery harness starts actual producer commands and a production-mode
 observer with a distinct DynamicUser. Its assertions require a real marker
