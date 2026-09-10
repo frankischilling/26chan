@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 source .local/database.env
 source .local/media.env
 source .local/media-reader.env
+source .local/monitor.env
 source .local/staff.env
 pg_bin=/usr/lib/postgresql/16/bin
 cluster=$(cat .local/cluster-path)
@@ -33,7 +34,7 @@ admin=(runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h /tmp -p 55
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 CREATE DATABASE :"restore_db" OWNER board_migrator;
 REVOKE ALL ON DATABASE :"restore_db" FROM PUBLIC;
-GRANT CONNECT ON DATABASE :"restore_db" TO board_public, board_migrator, board_media, board_media_read, board_staff, board_auth;
+GRANT CONNECT ON DATABASE :"restore_db" TO board_public, board_migrator, board_media, board_media_read, board_monitor, board_staff, board_auth;
 SQL
 restore_url="${MIGRATION_DATABASE_URL%/imageboard}/$restore_db"
 "$pg_bin/pg_restore" --dbname="$restore_url" --exit-on-error "$backup"
@@ -72,6 +73,16 @@ for query in 'SELECT * FROM media.assets' 'SELECT lease_token FROM media.jobs' '
   fi
   grep -q 'permission denied' .local/restored-reader-denial.txt
 done
+monitor_restore="${MONITOR_DATABASE_URL%/imageboard}/$restore_db"
+"$pg_bin/psql" "$monitor_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT capacity FROM monitoring.media_queue' > .local/restored-monitor-check.txt
+"$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c 'SELECT capacity FROM media.queue_policy WHERE singleton' > .local/restored-monitor-expected.txt
+cmp .local/restored-monitor-check.txt .local/restored-monitor-expected.txt
+for query in 'SELECT * FROM media.jobs' 'SELECT * FROM content.posts' 'SELECT * FROM staff_identity.credentials' 'UPDATE monitoring.media_queue SET capacity=4 WHERE false'; do
+  if "$pg_bin/psql" "$monitor_restore" -XAt -v ON_ERROR_STOP=1 -c "$query" > .local/restored-monitor-denial.txt 2>&1; then
+    echo 'Restored observer could read protected rows or write aggregates.' >&2; exit 1
+  fi
+  grep -Eq 'permission denied|cannot update view' .local/restored-monitor-denial.txt
+done
 auth_restore="${AUTH_DATABASE_URL%/imageboard}/$restore_db"
 staff_restore="${STAFF_DATABASE_URL%/imageboard}/$restore_db"
 "$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM staff_identity.accounts' > .local/restored-auth-check.txt
@@ -92,5 +103,5 @@ grep -q 'permission denied' .local/restored-staff-denial.txt
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 DROP DATABASE :"restore_db";
 SQL
-printf 'Restore exercise passed: post and asset fingerprints, fifteen table counts, approved-only reader view, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
+printf 'Restore exercise passed: post and asset fingerprints, fifteen table counts, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
 printf 'Source PostgreSQL: '; "$pg_bin/pg_dump" --version

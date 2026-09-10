@@ -8,6 +8,8 @@ use url::Url;
 
 mod media_http;
 pub use media_http::MediaHttpSettings;
+mod monitor;
+pub use monitor::MonitorSettings;
 
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
@@ -186,9 +188,10 @@ impl Settings {
             "MIGRATION_DATABASE_URL",
             "STAFF_DATABASE_URL",
             "AUTH_DATABASE_URL",
+            "MONITOR_DATABASE_URL",
         ]
         .iter()
-        .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
         {
             return Err(ConfigError(
                 "Operator or staff credentials must not be inherited by the public runtime.",
@@ -196,7 +199,7 @@ impl Settings {
         }
         if ["MEDIA_DATABASE_URL", "MEDIA_READ_DATABASE_URL"]
             .iter()
-            .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+            .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
         {
             return Err(ConfigError(
                 "The public runtime must not inherit media credentials.",
@@ -271,10 +274,11 @@ impl MediaAdminSettings {
             "STAFF_DATABASE_URL",
             "AUTH_DATABASE_URL",
             "TEST_PUBLIC_DATABASE_URL",
+            "MONITOR_DATABASE_URL",
             "MEDIA_READ_DATABASE_URL",
         ]
         .iter()
-        .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
         {
             return Err(ConfigError(
                 "The media operator command must not inherit public, staff, migration or reader credentials.",
@@ -342,9 +346,10 @@ impl MediaReaderSettings {
             "STAFF_DATABASE_URL",
             "AUTH_DATABASE_URL",
             "TEST_PUBLIC_DATABASE_URL",
+            "MONITOR_DATABASE_URL",
         ]
         .iter()
-        .any(|name| env::var(name).is_ok_and(|value| !value.is_empty()))
+        .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
         {
             return Err(ConfigError(
                 "Media readers must not inherit writer or application credentials.",

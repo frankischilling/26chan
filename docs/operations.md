@@ -46,7 +46,10 @@ counts, handler durations/cancellations and existing database-pool occupancy thr
 a separate bearer-authenticated loopback listener. Candidate Prometheus rules cover
 scrape availability, 5xx errors, rejected writes, staff 401/403 responses and pool
 pressure. The owned notification qualification exercises synthetic firing and
-recovery locally. Before launch, still add and exercise media queue/processing,
+recovery locally. The separate [queue observer](queue-observability.md) samples an
+aggregate-only database view and alerts on saturation, failures, expiry and stale
+observation. Its [verification record](verification-queue-observability.md) tracks
+database and delivery evidence. Before launch, still add and exercise
 host/database storage/resource and update-check monitoring, and configure and
 verify an operator notification destination. Do not treat journal output, a
 successful scrape, or local webhook delivery as equivalent production coverage.
@@ -57,7 +60,7 @@ Admission remains occupied after a handler returns while its response body or em
 
 ## Backup and recovery
 
-`scripts/restore-exercise.sh` uses PostgreSQL's custom dump/restore format in an owned disposable cluster. It creates a distinct restore database, compares post and asset fingerprints plus fifteen table counts, and exercises approved-reader and public/media/authentication/moderation grants and denials. It drops that generated restore database on success and leaves the backup under ignored `.local/backups/`; a failed run may need operator removal of its restore database. Run it with writes stopped; changes during comparisons cause a failure. It restores database metadata, not media object files, and does not establish point-in-time recovery or production backup durability. Current outcomes are in [the approval verification record](verification-media-approval.md).
+`scripts/restore-exercise.sh` uses PostgreSQL's custom dump/restore format in an owned disposable cluster. It creates a distinct restore database, compares post and asset fingerprints plus fifteen table counts, and exercises approved-reader, aggregate-observer and public/media/authentication/moderation grants and denials. It drops that generated restore database on success and leaves the backup under ignored `.local/backups/`; a failed run may need operator removal of its restore database. Run it with writes stopped; changes during comparisons cause a failure. It restores database metadata, not media object files, and does not establish point-in-time recovery or production backup durability. Current outcomes are in [the approval verification record](verification-media-approval.md).
 
 Production requires an independent backup identity and storage account. Application and staff credentials must be unable to delete backups, change retention or access encryption recovery keys. Set and document retention from the operator's privacy/recovery requirements; no production retention period has been chosen. Keep encrypted, immutable copies outside the serving account. Schedule periodic restoration on a separate network, verify data and grants, then record recovery time and recovery point. Those measurements have not been taken here.
 

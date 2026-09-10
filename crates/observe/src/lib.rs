@@ -88,6 +88,8 @@ impl Config {
 }
 
 #[cfg(test)]
+mod queue_tests;
+#[cfg(test)]
 mod tests;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -141,12 +143,27 @@ pub struct PoolSample {
     pub max: u32,
 }
 
+/// An already-completed sample copied from memory; no job identifiers are accepted.
+/// State order is receiving, queued, processing. Failure order is intake_failed,
+/// abandoned, processing_failed, invalid_output, retry_exhausted. Unavailable
+/// samples expose only success=0 and the last successful sample's wall-clock time.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct MediaQueueSample {
+    pub available: bool,
+    pub last_success_timestamp_seconds: u64,
+    pub capacity: u64,
+    pub active: [u64; 3],
+    pub expired: [u64; 3],
+    pub oldest_queued_seconds: u64,
+    pub failures_recent: [u64; 5],
+}
+
 #[derive(Debug)]
 pub struct RegistrationError;
 
 impl fmt::Display for RegistrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("metrics pools must be unique and registered before sharing metrics")
+        f.write_str("metrics callbacks must be unique and registered before sharing metrics")
     }
 }
 
@@ -171,6 +188,7 @@ type PoolCallback = Box<dyn Fn() -> PoolSample + Send + Sync>;
 struct Inner {
     listeners: [Counters; 4],
     pools: [Option<PoolCallback>; 4],
+    media_queue: Option<Box<dyn Fn() -> MediaQueueSample + Send + Sync>>,
 }
 
 /// Process-owned fixed-schema metrics. Register synchronous, bounded pool
@@ -182,6 +200,20 @@ pub struct Metrics(Arc<Inner>);
 impl Metrics {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Register one bounded memory-only snapshot callback before sharing Metrics.
+    /// The callback must not perform SQL, filesystem or network operations.
+    pub fn register_media_queue(
+        &mut self,
+        callback: impl Fn() -> MediaQueueSample + Send + Sync + 'static,
+    ) -> Result<(), RegistrationError> {
+        let inner = Arc::get_mut(&mut self.0).ok_or(RegistrationError)?;
+        if inner.media_queue.is_some() {
+            return Err(RegistrationError);
+        }
+        inner.media_queue = Some(Box::new(callback));
+        Ok(())
     }
     pub fn register_pool(
         &mut self,
@@ -339,7 +371,81 @@ impl Metrics {
                 }
             }
         }
+        if let Some(snapshot) = &self.0.media_queue {
+            render_media_queue(&mut text, snapshot());
+        }
         text
+    }
+}
+
+fn render_media_queue(text: &mut String, sample: MediaQueueSample) {
+    let gauge = |text: &mut String, name, help, value| {
+        writeln!(text, "# HELP board_media_{name} {help}\n# TYPE board_media_{name} gauge\nboard_media_{name} {value}").unwrap();
+    };
+    gauge(
+        text,
+        "sample_success",
+        "Whether a current queue snapshot is available.",
+        u64::from(sample.available),
+    );
+    gauge(
+        text,
+        "sample_last_success_timestamp_seconds",
+        "Unix timestamp of the last successful queue sample, or zero before any success.",
+        sample.last_success_timestamp_seconds,
+    );
+    if !sample.available {
+        return;
+    }
+    gauge(
+        text,
+        "queue_capacity",
+        "Configured active media queue capacity.",
+        sample.capacity,
+    );
+    for (name, help, values) in [
+        (
+            "jobs",
+            "Active media jobs including expired leases.",
+            sample.active,
+        ),
+        (
+            "expired_jobs",
+            "Active media jobs whose leases have expired.",
+            sample.expired,
+        ),
+    ] {
+        writeln!(
+            text,
+            "# HELP board_media_{name} {help}\n# TYPE board_media_{name} gauge"
+        )
+        .unwrap();
+        for (state, value) in ["receiving", "queued", "processing"].iter().zip(values) {
+            writeln!(text, "board_media_{name}{{state=\"{state}\"}} {value}").unwrap();
+        }
+    }
+    gauge(
+        text,
+        "oldest_queued_seconds",
+        "Age of the oldest queued job in whole seconds, or zero for an empty queue.",
+        sample.oldest_queued_seconds,
+    );
+    writeln!(text, "# HELP board_media_failures_recent Media jobs failed in the preceding 15 minutes.\n# TYPE board_media_failures_recent gauge").unwrap();
+    for (reason, value) in [
+        "intake_failed",
+        "abandoned",
+        "processing_failed",
+        "invalid_output",
+        "retry_exhausted",
+    ]
+    .iter()
+    .zip(sample.failures_recent)
+    {
+        writeln!(
+            text,
+            "board_media_failures_recent{{reason=\"{reason}\"}} {value}"
+        )
+        .unwrap();
     }
 }
 
@@ -438,6 +544,28 @@ impl Drop for HandlerGuard<'_> {
 pub struct Endpoint(Option<(tokio::net::TcpListener, Config)>);
 
 impl Endpoint {
+    /// Also serve authenticated healthz and readyz on the same private socket.
+    /// Readiness must read cached memory without SQL or other blocking work.
+    pub async fn serve_with_health(
+        self,
+        metrics: Metrics,
+        application: impl std::future::Future<Output = std::io::Result<()>>,
+        readiness: impl Fn() -> bool + Send + Sync + 'static,
+    ) -> std::io::Result<()> {
+        match self.0 {
+            Some((listener, config)) => {
+                pair(
+                    application,
+                    serve_listener(
+                        listener,
+                        exporter_router_with_health(metrics, config, Some(Arc::new(readiness))),
+                    ),
+                )
+                .await
+            }
+            None => application.await,
+        }
+    }
     pub async fn bind(config: Option<Config>) -> std::io::Result<Self> {
         match config {
             Some(config) => Ok(Self(Some((
@@ -476,13 +604,41 @@ struct ExportState {
 }
 
 fn exporter_router(metrics: Metrics, config: Config) -> Router {
+    exporter_router_with_health(metrics, config, None)
+}
+
+fn exporter_router_with_health(
+    metrics: Metrics,
+    config: Config,
+    readiness: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
+) -> Router {
     let state = ExportState {
         metrics,
         token: config.token.into(),
         admission: Arc::new(tokio::sync::Semaphore::new(4)),
     };
-    Router::new()
-        .route("/metrics", axum::routing::get(scrape))
+    let mut router = Router::new().route("/metrics", axum::routing::get(scrape));
+    if let Some(readiness) = readiness {
+        router = router
+            .route(
+                "/healthz",
+                axum::routing::get(|| async { axum::http::StatusCode::OK }),
+            )
+            .route(
+                "/readyz",
+                axum::routing::get(move || {
+                    let readiness = readiness.clone();
+                    async move {
+                        if readiness() {
+                            axum::http::StatusCode::OK
+                        } else {
+                            axum::http::StatusCode::SERVICE_UNAVAILABLE
+                        }
+                    }
+                }),
+            );
+    }
+    router
         .layer(middleware::from_fn_with_state(state.clone(), authorize))
         .layer(middleware::from_fn(board_http::retain_response_body))
         .with_state(state)

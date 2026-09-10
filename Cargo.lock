@@ -448,6 +448,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-monitor"
+version = "0.1.0"
+dependencies = [
+ "board-config",
+ "board-observe",
+ "board-store",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "board-observe"
 version = "0.1.0"
 dependencies = [

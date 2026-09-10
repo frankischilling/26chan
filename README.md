@@ -28,10 +28,12 @@ cd 26chan
 sudo bash scripts/dev-db.sh
 sudo bash scripts/dev-media-db.sh
 sudo bash scripts/dev-media-reader-db.sh
+sudo bash scripts/dev-monitor-db.sh
 sudo bash scripts/dev-staff-db.sh
 sudo chown "$(id -u):$(id -g)" .local .local/database.env .local/database.ps1
 sudo chown "$(id -u):$(id -g)" .local/media.env .local/media.ps1
 sudo chown "$(id -u):$(id -g)" .local/media-reader.env .local/media-reader.ps1
+sudo chown "$(id -u):$(id -g)" .local/monitor.env .local/monitor.ps1
 sudo chown "$(id -u):$(id -g)" .local/staff.env .local/staff.ps1
 source .local/database.env
 cargo run -p board-store --bin board-migrate --locked
@@ -63,6 +65,7 @@ Stop a manually running server before browser tests; Playwright starts and stops
 source .local/database.env
 source .local/media.env
 source .local/media-reader.env
+source .local/monitor.env
 source .local/staff.env
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
