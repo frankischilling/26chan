@@ -190,8 +190,11 @@ pub async fn thread(
     let id = key
         .parse()
         .map_err(|_| AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-    let board = board_store::board(&state.pool, &board).await?;
-    let (thread, posts) = board_store::thread_snapshot(&state.pool, &board.slug, id).await?;
+    let board_store::ThreadSnapshot {
+        board,
+        thread,
+        posts,
+    } = board_store::thread_snapshot(&state.pool, &board, id).await?;
     let posts = posts.into_iter().map(PostView::new).collect();
     Ok(Html(
         BoardPage {

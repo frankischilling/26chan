@@ -155,8 +155,11 @@ pub async fn thread(
     id: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let board = board_store::board(&state.pool, slug).await?;
-    let (thread, posts) = board_store::thread_snapshot(&state.pool, slug, id).await?;
+    let board_store::ThreadSnapshot {
+        board,
+        thread,
+        posts,
+    } = board_store::thread_snapshot(&state.pool, slug, id).await?;
     let posts = full_thread(&board, &thread, posts)?;
     response(json!({"posts": posts}), Some(thread.modified_at), headers)
 }

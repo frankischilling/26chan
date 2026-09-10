@@ -41,16 +41,29 @@ pub async fn thread(pool: &PgPool, slug: &str, id: i64) -> Result<Thread, StoreE
         .await?
         .ok_or(StoreError::NotFound)
 }
-/// Read thread metadata and its representation from the same database snapshot.
+pub struct ThreadSnapshot {
+    pub board: Board,
+    pub thread: Thread,
+    pub posts: Vec<Post>,
+}
+
+/// Read board settings, thread metadata and posts from one database snapshot.
+/// Release the transaction before the caller renders the representation.
 pub async fn thread_snapshot(
     pool: &PgPool,
     slug: &str,
     id: i64,
-) -> Result<(Thread, Vec<Post>), StoreError> {
+) -> Result<ThreadSnapshot, StoreError> {
+    board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         .execute(&mut *tx)
         .await?;
+    let board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
+        .bind(slug)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::NotFound)?;
     let metadata =
         sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted")
             .bind(slug)
@@ -64,7 +77,11 @@ pub async fn thread_snapshot(
         .fetch_all(&mut *tx)
         .await?;
     tx.commit().await?;
-    Ok((metadata, entries))
+    Ok(ThreadSnapshot {
+        board,
+        thread: metadata,
+        posts: entries,
+    })
 }
 pub async fn threads(
     pool: &PgPool,
