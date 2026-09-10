@@ -88,9 +88,10 @@ This repository does not install services or deploy monitoring.
 `alertmanager.yml` points to an example **local** webhook on port 9095. A real
 operator destination, authentication, on-call routing and receipt evidence still
 need deployment work. No external notification is sent by qualification.
-Host/database storage and resource pressure and update-check freshness remain
-outside this slice. Production deployment and delivery to an operator receiver
-remain unverified.
+The [resource observer](../../docs/resource-observability.md) adds configured
+filesystem and local cgroup pressure rules. Its native qualification is tracked
+separately. Update-check freshness, production host qualification and delivery
+to an operator receiver remain incomplete.
 
 ## Local and CI qualification
 

@@ -18,9 +18,13 @@ The observer receives only its metrics credential and an operator-owned JSON
 path configuration. It never opens application data files, enumerates processes,
 queries SQL, controls a cgroup, mounts a filesystem or makes outbound requests.
 Its unique OS identity must lack application/staff data and control authority.
-Candidate systemd configuration keeps cgroups and configured mounts read-only,
-clears capabilities and restricts resources; actual owned service evidence is
-required and is not approval of a production host.
+Candidate systemd configuration keeps cgroups read-only, clears capabilities and
+restricts resources. Storage mount flags must match the writer's view: marking
+an observer bind mount read-only would always report read-only storage. Explicit
+exceptions for only the configured storage directories preserve those flags;
+root-controlled directory/file permissions deny the distinct observer identity
+payload reads and all writes. Actual denied operations and positive controls are
+required; this is not approval of a production host.
 
 ## Configuration and measurements
 
@@ -51,6 +55,8 @@ unprivileged-available bytes, total/available inodes and read-only state. Requir
 positive totals and checked multiplication; reject impossible available totals.
 These describe the containing filesystem, not directory size, project quotas,
 database growth, IOPS or backup durability. Reserved blocks are not available.
+Read-only describes the observer's mount view; qualify its agreement with the
+writer's view and real transitions before treating this as a volume-failure alert.
 
 Cgroups must have cgroup v2 filesystem magic. Open only fixed files relative to
 the checked directory, no symlinks or blocking special files, at most 4 KiB each:

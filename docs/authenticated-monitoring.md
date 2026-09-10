@@ -66,14 +66,15 @@ receiver URL with a path, and these exact manifest keys:
     {"job": "board-public", "target": "127.0.0.1:9191", "token_file": "/etc/26chan/metrics/public.token"},
     {"job": "board-staff", "target": "127.0.0.1:9192", "token_file": "/etc/26chan/metrics/staff.token"},
     {"job": "board-media", "target": "127.0.0.1:9193", "token_file": "/etc/26chan/metrics/media.token"},
-    {"job": "board-monitor", "target": "127.0.0.1:9194", "token_file": "/etc/26chan/metrics/monitor.token"}
+    {"job": "board-monitor", "target": "127.0.0.1:9194", "token_file": "/etc/26chan/metrics/monitor.token"},
+    {"job": "board-resource", "target": "127.0.0.1:9195", "token_file": "/etc/26chan/metrics/resource.token"}
   ],
   "rules_file": "/etc/26chan/monitoring/alerts.yml"
 }
 ```
 
 These are example names, not deployed services. Include only enabled scrape jobs
-(one to four unique jobs). Generate independent cryptographically random 32-byte
+(one to five unique jobs). Generate independent cryptographically random 32-byte
 values and hex-encode them into private files: exactly 64 lowercase hex characters,
 optionally followed by a newline. Every password/token must differ, including
 scrape tokens. Never put raw credentials in command arguments, logs or commits.

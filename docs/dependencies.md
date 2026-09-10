@@ -1,5 +1,11 @@
 # Dependency and update inventory
 
+The [resource observer](resource-observability.md) reuses locked Rustix 1.1.4
+filesystem calls, Tokio, Serde and board-observe. Its lockfile adds only the local
+`board-resource-monitor` package; no registry versions or checksums change.
+Linux filesystem/cgroup behavior, systemd and the existing native monitoring/PKI
+tools remain part of its trust base. It adds no database client.
+
 The [authenticated monitoring renderer](authenticated-monitoring.md) adds
 operator/test-only pyca bcrypt 5.0.0, installed into an ignored virtual environment
 with official binary wheel hashes in `scripts/monitoring/auth-requirements.txt`.
