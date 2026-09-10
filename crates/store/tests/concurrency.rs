@@ -25,9 +25,14 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
         }
     });
     for _ in 0..160 {
-        let (metadata, posts) = board_store::thread_snapshot(&pool, "test", id)
+        let board_store::ThreadSnapshot {
+            board,
+            thread: metadata,
+            posts,
+        } = board_store::thread_snapshot(&pool, "test", id)
             .await
             .unwrap();
+        assert_eq!(board.slug, "test");
         assert_eq!(metadata.reply_count as usize, posts.len() - 1);
     }
     writer.await.unwrap();
