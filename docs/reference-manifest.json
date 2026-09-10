@@ -4,6 +4,21 @@
     "revision":  "2bd670d507ba2daa37a3961a661e088cf6f89d57",
     "provenance":  "Permitted public read-only API documentation. No production post/media fixtures.",
     "visual_reference":  "Uncollected",
+    "behavioral_references": [
+        {
+            "name": "Official posting-options FAQ",
+            "requested_url": "https://www.4chan.org/faq",
+            "url": "https://4chan.org/faq",
+            "collected_utc": "2026-09-10T01:38:38.3040609Z",
+            "http_status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "bytes": 78050,
+            "sha256": "85256d4e97488f565e9ec63472c4e8f06a0afa0d332d3ea71cd18f29f6dbced8",
+            "sections": ["#sage", "#nonoko", "#nonokosage"],
+            "provenance": "Official public behavioral documentation; raw response retained locally outside version control. No live posting experiment or production post/media fixture.",
+            "scope": "Documented option meanings and post-submit destination only; not observed HTTP statuses, form layout or general posting parity."
+        }
+    ],
     "files":  [
                   {
                       "name":  "README.md",
