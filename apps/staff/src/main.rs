@@ -20,11 +20,25 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (metrics, app) = board_staff::observed_router(state);
     let serving = async {
         axum::serve(listener, app)
-            .with_graceful_shutdown(async {
-                let _ = tokio::signal::ctrl_c().await;
-            })
+            .with_graceful_shutdown(shutdown())
             .await
     };
     metrics_endpoint.serve(metrics, serving).await?;
     Ok(())
+}
+
+async fn shutdown() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        let mut terminate = signal(SignalKind::terminate()).expect("signal handler");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {},
+            _ = terminate.recv() => {},
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }
