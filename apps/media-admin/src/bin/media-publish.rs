@@ -38,7 +38,7 @@ async fn run() -> PublicationResult<()> {
         Some("dispatch") if args.len() == 3 => {
             let client = DispatchClient::new(&ClientSettings::read(Path::new(&args[1]))?)?;
             let quarantine = Quarantine::new(settings.quarantine.ok_or("private quarantine path required")?)?;
-            let store = PublicationStore::new(Path::new(&args[2]), &quarantine)?;
+            let store = publication_store(Path::new(&args[2]), &quarantine, settings.group_read)?;
             let queue = MediaQueue::connect(&settings.database_url).await?;
             let approved = dispatch(&queue, &quarantine, &store, &client).await?;
             println!("{}", approved.id);
@@ -68,7 +68,7 @@ async fn run() -> PublicationResult<()> {
             let file = tokio::fs::File::open(disk).await?;
             let output = tokio::time::timeout(Duration::from_secs(5), ValidatedOutput::read_disk(file)).await??;
             let quarantine = Quarantine::new(settings.quarantine.ok_or("private quarantine path required")?)?;
-            let store = PublicationStore::new(Path::new(&args[3]), &quarantine)?;
+            let store = publication_store(Path::new(&args[3]), &quarantine, settings.group_read)?;
             let queue = MediaQueue::connect(&settings.database_url).await?;
             let approved = publish(&queue, &store, &manifest.job_id, &manifest.lease_token, &output).await?;
             // Only an approved opaque output ID is printed, never a lease token.
@@ -76,13 +76,25 @@ async fn run() -> PublicationResult<()> {
         }
         Some("reconcile") if args.len() == 2 => {
             let quarantine = Quarantine::new(settings.quarantine.ok_or("private quarantine path required")?)?;
-            let store = PublicationStore::new(Path::new(&args[1]), &quarantine)?;
+            let store = publication_store(Path::new(&args[1]), &quarantine, settings.group_read)?;
             let queue = MediaQueue::connect(&settings.database_url).await?;
             println!("{}", reconcile(&queue, &store).await?);
         }
         _ => return Err("usage: media-publish dispatch CLIENT_CONFIG PRIVATE_STORE | claim LEASE_FILE | publish LEASE_FILE OUTPUT_DISK PRIVATE_STORE | reconcile PRIVATE_STORE".into()),
     }
     Ok(())
+}
+
+fn publication_store(
+    path: &Path,
+    quarantine: &Quarantine,
+    group_read: bool,
+) -> PublicationResult<PublicationStore> {
+    Ok(if group_read {
+        PublicationStore::new_group_readable(path, quarantine)?
+    } else {
+        PublicationStore::new(path, quarantine)?
+    })
 }
 
 fn read_manifest(path: &Path) -> PublicationResult<LeaseManifest> {

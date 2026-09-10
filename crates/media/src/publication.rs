@@ -11,6 +11,8 @@ use std::{
 /// neither the lock nor its parent directory may be replaced while in use.
 pub struct PublicationStore {
     root: PathBuf,
+    #[cfg(unix)]
+    group_read: bool,
 }
 
 /// Retains the operating system lock through database approval or cleanup.
@@ -27,6 +29,28 @@ pub struct ApprovedFiles {
 }
 
 impl PublicationStore {
+    pub fn new_group_readable(
+        root: impl AsRef<Path>,
+        quarantine: &Quarantine,
+    ) -> Result<Self, MediaError> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let metadata = fs::symlink_metadata(root.as_ref())?;
+            if !metadata.is_dir() || metadata.mode() & 0o7777 != 0o2750 || metadata.gid() == 0 {
+                return Err(MediaError::InvalidStorage);
+            }
+            let mut store = Self::new(root, quarantine)?;
+            store.group_read = true;
+            Ok(store)
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = (root, quarantine);
+            Err(MediaError::InvalidStorage)
+        }
+    }
+
     pub fn new(root: impl AsRef<Path>, quarantine: &Quarantine) -> Result<Self, MediaError> {
         fs::create_dir_all(root.as_ref())?;
         let root = fs::canonicalize(root)?;
@@ -38,7 +62,11 @@ impl PublicationStore {
         for directory in root.ancestors() {
             sync_directory(directory)?;
         }
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            #[cfg(unix)]
+            group_read: false,
+        })
     }
 
     pub fn try_lock(&self) -> Result<PublicationGuard<'_>, MediaError> {
@@ -89,6 +117,13 @@ impl PublicationGuard<'_> {
         }
         let mut file = options.open(&staging)?;
         file.write_all(&output.bytes)?;
+        // Shared output is deliberate and independent of the publisher's umask.
+        // The preprovisioned setgid directory selects its nonroot reader group.
+        #[cfg(unix)]
+        if self.store.group_read {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(fs::Permissions::from_mode(0o640))?;
+        }
         file.sync_all()?;
         drop(file);
         let destination = self.store.root.join(format!("{id}.png"));
@@ -124,6 +159,12 @@ impl PublicationGuard<'_> {
 }
 
 impl ApprovedFiles {
+    /// Check that the directory is readable without creating or publishing data.
+    pub fn ready(&self) -> Result<(), MediaError> {
+        fs::read_dir(&self.root)?;
+        Ok(())
+    }
+
     pub fn open(root: impl AsRef<Path>) -> Result<Self, MediaError> {
         let root = fs::canonicalize(root)?;
         if !fs::metadata(&root)?.is_dir() {

@@ -48,8 +48,8 @@ separately; the new service test must also serve an output produced by the real
 dispatch exercise. Production DNS/TLS/network/backup policy, resource saturation,
 power loss, and independent security review remain open.
 
-The implementation reuses locked Axum 0.8.9 and Tokio 1.50.0. Axum's
+The implementation reuses locked Axum 0.8.9 and Tokio 1.53.1. Axum's
 [GET/HEAD behavior](https://docs.rs/axum/0.8.9/axum/routing/method_routing/struct.MethodRouter.html)
-and Tokio's [blocking task cancellation limits](https://docs.rs/tokio/1.50.0/tokio/task/fn.spawn_blocking.html)
+and Tokio's [blocking task cancellation limits](https://docs.rs/tokio/1.53.1/tokio/task/fn.spawn_blocking.html)
 were checked against official API documentation. Cache decisions follow
 [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html).

@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 case "$*" in
   '') exercise=tests/media/test_dispatch.py ;;
   --systemd) [[ $# = 1 ]] || exit 2; exercise=tests/media/test_dispatch_services.py ;;
-  *) echo 'Usage: test-media-dispatch.sh [--systemd]' >&2; exit 2 ;;
+  --http) [[ $# = 1 ]] || exit 2; exercise=tests/media/test_http_service.py ;;
+  *) echo 'Usage: test-media-dispatch.sh [--systemd|--http]' >&2; exit 2 ;;
 esac
 source .local/database.env
 source .local/media.env

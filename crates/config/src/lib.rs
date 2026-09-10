@@ -6,6 +6,9 @@ use std::{
 };
 use url::Url;
 
+mod media_http;
+pub use media_http::MediaHttpSettings;
+
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct ConfigError(pub &'static str);
@@ -252,6 +255,7 @@ impl Settings {
 pub struct MediaAdminSettings {
     pub database_url: String,
     pub quarantine: Option<std::path::PathBuf>,
+    pub group_read: bool,
 }
 
 impl MediaAdminSettings {
@@ -311,6 +315,11 @@ impl MediaAdminSettings {
         Ok(Self {
             database_url,
             quarantine,
+            group_read: match env::var("MEDIA_GROUP_READ").as_deref().unwrap_or("false") {
+                "false" => false,
+                "true" => true,
+                _ => return Err(ConfigError("MEDIA_GROUP_READ must be true or false.")),
+            },
         })
     }
 }

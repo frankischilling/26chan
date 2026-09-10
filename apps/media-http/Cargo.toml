@@ -1,0 +1,31 @@
+[package]
+name = "board-media-http"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+database-tests = ["board-store/database-tests"]
+browser-tests = ["database-tests"]
+
+[dependencies]
+board-config = { path = "../../crates/config" }
+board-store = { path = "../../crates/store" }
+board-media = { path = "../../crates/media" }
+board-http = { path = "../../crates/http" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+board-media-admin = { path = "../media-admin" }
+sqlx.workspace = true
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+tempfile = "=3.27.0"
+proptest.workspace = true
+tokio = { workspace = true, features = ["process", "io-util"] }
+
+[lints]
+workspace = true

@@ -180,6 +180,17 @@ pub struct MediaReader {
 }
 
 impl MediaReader {
+    pub async fn ready(&self) -> Result<(), StoreError> {
+        sqlx::query("SELECT id FROM media.approved_assets LIMIT 1")
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
     pub async fn connect(url: &str) -> Result<Self, StoreError> {
         let pool = PgPoolOptions::new()
             .max_connections(8)

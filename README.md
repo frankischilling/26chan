@@ -110,3 +110,4 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Durable media approval and operator publication](docs/media-approval.md)
 - [Media approval verification](docs/verification-media-approval.md)
 - [Staff WebAuthn setup, enrollment and moderation](docs/staff.md)
+- [Approved media HTTP reader and separate identity](docs/media-http.md)

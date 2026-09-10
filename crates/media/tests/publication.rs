@@ -15,6 +15,50 @@ async fn pixels(red: u8) -> ValidatedOutput {
     ValidatedOutput::read(bytes.as_slice()).await.unwrap()
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn shared_publication_requires_a_provisioned_root_and_preserves_private_default() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt, chown};
+    let directory = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(directory.path().join("input")).unwrap();
+    let root = directory.path().join("shared");
+    assert!(PublicationStore::new_group_readable(&root, &quarantine).is_err());
+    fs::create_dir(&root).unwrap();
+    assert!(PublicationStore::new_group_readable(&root, &quarantine).is_err());
+    if fs::metadata(&root).unwrap().gid() == 0 {
+        chown(&root, None, Some(65534)).unwrap();
+    }
+    for mode in [0o750, 0o2770, 0o2755, 0o2777] {
+        fs::set_permissions(&root, fs::Permissions::from_mode(mode)).unwrap();
+        assert!(PublicationStore::new_group_readable(&root, &quarantine).is_err());
+    }
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o2750)).unwrap();
+    let shared = PublicationStore::new_group_readable(&root, &quarantine).unwrap();
+    let id = ObjectId::generate().unwrap();
+    shared
+        .try_lock()
+        .unwrap()
+        .install(id, &pixels(19).await.encode().unwrap())
+        .unwrap();
+    let metadata = fs::metadata(root.join(format!("{id}.png"))).unwrap();
+    assert_eq!(metadata.mode() & 0o777, 0o640);
+    assert_eq!(metadata.gid(), fs::metadata(&root).unwrap().gid());
+    let private = PublicationStore::new(directory.path().join("private"), &quarantine).unwrap();
+    let private_id = ObjectId::generate().unwrap();
+    private
+        .try_lock()
+        .unwrap()
+        .install(private_id, &pixels(20).await.encode().unwrap())
+        .unwrap();
+    assert_eq!(
+        fs::metadata(directory.path().join(format!("private/{private_id}.png")))
+            .unwrap()
+            .mode()
+            & 0o077,
+        0
+    );
+}
+
 #[tokio::test]
 async fn complete_files_replay_without_overwrite_and_recover_fixed_staging() {
     let directory = tempfile::tempdir().unwrap();

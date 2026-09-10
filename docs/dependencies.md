@@ -1,5 +1,13 @@
 # Dependency and update inventory
 
+The approved-media HTTP reader reuses the locked Axum, Tokio, SQLx, PNG/hash and
+HTTP-body dependencies. Its lockfile change adds only the local workspace
+package; no registry version or checksum changes. Cargo-audit scanned 325
+dependencies against 1,243 fetched advisories without a finding on September 9,
+2026. The reader never invokes the decoder. Its bounded blocking-file work uses
+the locked Tokio 1.53.1 runtime; cancellation and OS shutdown limits are recorded
+in [reader verification](verification-media-http.md).
+
 Media dispatch adds pinned [Tokio-Rustls 0.26.5](https://docs.rs/tokio-rustls/0.26.5/tokio_rustls/) and test-only [Rcgen 0.14.10](https://docs.rs/rcgen/0.14.10/rcgen/), checked through registry metadata and downloaded upstream source on September 9, 2026. Their MSRVs are 1.71 and 1.88; both fit Rust 1.94. The client/server configurations explicitly use TLS 1.3 and the locked Rustls/ring versions. Rustix 1.1.4 supplies safe Unix file/identity calls. The added normal dependency tree has no database, decoder, quarantine or publisher crate. Eleven registry packages were added to the lockfile, including test certificate dependencies and optional metadata dependencies; no existing registry version changed. Cargo-audit 0.22.2 scanned 324 dependencies against 1,243 fetched advisories without a finding on September 9, 2026. This covers known advisories at that fetched state, not a complete transitive audit.
 
 Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust 1.94.0, Axum 0.8.9, Askama 0.16.1 and SQLx 0.9.0. SQLx 0.9 requires Rust 1.94. Official documentation and crate metadata were checked September 8, 2026: [Axum](https://docs.rs/axum/0.8.9/axum/), [Askama](https://docs.rs/askama/0.16.1/askama/), [SQLx](https://docs.rs/sqlx/0.9.0/sqlx/). PostgreSQL 16.15 remains in a [supported major release](https://www.postgresql.org/docs/16/backup-dump.html).

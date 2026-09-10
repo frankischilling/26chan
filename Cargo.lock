@@ -427,6 +427,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-media-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "board-config",
+ "board-http",
+ "board-media",
+ "board-media-admin",
+ "board-store",
+ "http-body-util",
+ "proptest",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "board-public"
 version = "0.1.0"
 dependencies = [
