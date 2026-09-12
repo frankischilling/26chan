@@ -33,7 +33,9 @@ impl Settings {
         if env::var("MEDIA_INTAKE_MODE").as_deref() != Ok("development")
             || env::var_os("MEDIA_ENABLED").is_some_and(|v| v != "false")
             || env::vars_os().any(|(name, value)| {
-                let name = name.to_string_lossy();
+                // Windows environment names are case-insensitive. Use the same
+                // conservative credential filter on every supported platform.
+                let name = name.to_string_lossy().to_ascii_uppercase();
                 !value.is_empty()
                     && ((name.ends_with("DATABASE_URL") && name != "INTAKE_DATABASE_URL")
                         || name.starts_with("AWS_")

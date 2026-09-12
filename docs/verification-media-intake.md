@@ -1,7 +1,9 @@
 # Media intake verification
 
 The database prerequisite and HTTP service are implemented on `feature/media-intake`.
-Owned end-to-end qualification is in progress. Public uploads and
+Owned Linux end-to-end qualification passed at `c3be1c5`; see the hosted checkpoint
+below and [PR #47](https://github.com/frankischilling/26chan/pull/47) for final-head
+checks. Public uploads and
 production media remain disabled. This record does not establish public post
 attachment, reference parity, production containment, or independent deployment
 review.
@@ -129,3 +131,40 @@ the runtime correctly rejected the unrelated credential. The public and staff
 browser launchers now clear that variable alongside the existing unrelated
 credentials. The failure prevented native media and restore steps from running
 on that head. Monitoring and advisory workflows passed.
+
+## Hosted Linux checkpoint
+
+At `c3be1c5362406576760c1e1d8d65ee271c3e74ec`, the
+[PR build](https://github.com/frankischilling/26chan/actions/runs/34726110750)
+passed the actual guest qualification, authenticated dispatch/native service
+checks, both `scripts/test-media-intake.sh` runs (normal and `--interrupt`),
+historical intake migration and the expanded `scripts/restore-exercise.sh`.
+The full application/database/browser step and Windows visual job also passed.
+The older `51bae12` native intake run rejected root dispatch with coordinator-owned
+TLS configuration; the qualifier now supplies a separate root-owned private copy.
+The production TLS ownership checks remain intact.
+
+The actual intake UID has a writable private quarantine and no effective
+capabilities. Native checks verified its memory/CPU/task ceilings, read-only
+system mounts, absent unrelated database credentials and denied protected
+files/tables/approval mutations with healthy authorized controls. Synthetic HTTP
+uploads reached the authenticated gateway and Firecracker, then durable approval
+and the separately identified HTTP reader. Chunked overflow, disconnect, duplicate
+writers and the real receive deadline left no partial publication. SIGTERM closed
+both listeners, and normal/interrupted harness cleanup removed owned processes,
+units, sockets, database fixtures and private files.
+
+Existing guest tests ran in the same workflow and retain the recorded job-scoped
+input/output, network/credential denial, bounded-output, timeout and recovery
+evidence. This is an owned hosted development environment, not an approved
+production host, network, storage policy or independent security review.
+
+`python .local/qualify-intake-http.py` separately passed real HTTP transport tests
+against the Windows binary: chunked upload, duplicate rejection, overflow,
+disconnect and deadline cleanup. Its owned child was terminated afterward; this
+does not establish Windows graceful-signal or Linux service-identity behavior.
+
+Final configuration review normalized credential-variable names before checking
+them because Windows environment lookup ignores case. The lower-case credential
+denial test and scoped Clippy passed. Final-head CI is linked through PR #47;
+earlier passing runs must not substitute for that merge check.

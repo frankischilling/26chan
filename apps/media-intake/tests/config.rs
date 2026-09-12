@@ -12,6 +12,7 @@ fn intake_configuration_rejects_unsafe_or_ambiguous_inputs_without_echoing_secre
         ("MEDIA_QUARANTINE_DIR", "relative-quarantine"),
         ("MEDIA_INTAKE_TOKEN", "not-a-token"),
         ("DATABASE_URL", "synthetic-unrelated-secret"),
+        ("database_url", "synthetic-unrelated-secret"),
         ("MEDIA_DISPATCH_CONFIG", "synthetic-unrelated-secret"),
         ("AWS_SESSION_TOKEN", "synthetic-unrelated-secret"),
         ("METRICS_TOKEN", &"a".repeat(64)),
