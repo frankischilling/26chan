@@ -1,7 +1,7 @@
 # Media intake verification
 
-The database prerequisite is implemented on `feature/media-intake`. The HTTP
-service and owned end-to-end qualification are in progress. Public uploads and
+The database prerequisite and HTTP service are implemented on `feature/media-intake`.
+Owned end-to-end qualification is in progress. Public uploads and
 production media remain disabled. This record does not establish public post
 attachment, reference parity, production containment, or independent deployment
 review.
@@ -76,3 +76,30 @@ and adds the historical migration command. Exact hosted outcomes will be recorde
 after those runs finish. HTTP streaming, candidate service identities, VM dispatch,
 approval/reader integration and normal/SIGTERM cleanup remain required before this
 branch can be considered complete or merged.
+
+## HTTP checkpoint, September 12, 2026
+
+The service now implements authenticated reservation, exclusive streaming upload,
+capability status, health/readiness and fixed-label metrics. It uses the restricted
+store and existing quarantine writer. Configuration rejects production, unrelated
+credentials, nonloopback addresses and reused service/metrics tokens.
+
+On the existing owned PostgreSQL 16.15 Windows cluster, the following passed:
+
+- `cargo test -p board-media-intake --all-features --locked --jobs 1`: three
+  middleware/metrics tests, two process-isolated configuration tests and the
+  actual-login HTTP integration test. The integration covers strict JSON,
+  missing/wrong authorization, real bytes, duplicates, absent-length overflow,
+  broken/empty bodies, cancellation, the actual 15-second receive deadline,
+  expiration, missing storage and retained complete input after database closure.
+- `cargo test -p board-media-intake -p board-observe -p board-media --all-features --locked --jobs 1`:
+  intake coverage plus 33 observer and 33 media tests passed.
+
+The initial config-test build failed because the unfinished package had no binary.
+The first middleware test needed an explicit response type for its panic sentinel.
+The first scoped Clippy run rejected a large response error variant; the helper
+now returns a status code. No diagnostics or assertions were disabled.
+
+CI now includes the candidate intake unit and HTTP-to-Firecracker qualification,
+plus a SIGTERM interruption cleanup run. Their hosted outcomes remain pending.
+Portable/native Windows tests do not prove Linux service or VM containment.

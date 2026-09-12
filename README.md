@@ -28,11 +28,13 @@ cd 26chan
 sudo bash scripts/dev-db.sh
 sudo bash scripts/dev-media-db.sh
 sudo bash scripts/dev-media-reader-db.sh
+sudo bash scripts/dev-intake-db.sh
 sudo bash scripts/dev-monitor-db.sh
 sudo bash scripts/dev-staff-db.sh
 sudo chown "$(id -u):$(id -g)" .local .local/database.env .local/database.ps1
 sudo chown "$(id -u):$(id -g)" .local/media.env .local/media.ps1
 sudo chown "$(id -u):$(id -g)" .local/media-reader.env .local/media-reader.ps1
+sudo chown "$(id -u):$(id -g)" .local/intake.env .local/intake.ps1
 sudo chown "$(id -u):$(id -g)" .local/monitor.env .local/monitor.ps1
 sudo chown "$(id -u):$(id -g)" .local/staff.env .local/staff.ps1
 source .local/database.env
@@ -65,6 +67,7 @@ Stop a manually running server before browser tests; Playwright starts and stops
 source .local/database.env
 source .local/media.env
 source .local/media-reader.env
+source .local/intake.env
 source .local/monitor.env
 source .local/staff.env
 cargo fmt --all -- --check
@@ -114,5 +117,6 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 - [Media approval verification](docs/verification-media-approval.md)
 - [Staff WebAuthn setup, enrollment and moderation](docs/staff.md)
 - [Approved media HTTP reader and separate identity](docs/media-http.md)
+- [Authenticated private HTTP intake](docs/media-intake.md)
 
 [Thread archives](docs/thread-archives.md) document rollover, optional retention policy, read-only HTML/JSON access and migration 0009.

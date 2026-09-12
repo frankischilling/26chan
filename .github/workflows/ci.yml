@@ -95,6 +95,16 @@ jobs:
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_dispatch_broker.py -v
           systemd-analyze verify deploy/media-dispatch-broker.service deploy/media-dispatch-gateway.service
+      - name: Qualify authenticated HTTP intake through isolated processing and the separate reader
+        run: |
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            bash scripts/test-media-intake.sh
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            bash scripts/test-media-intake.sh --interrupt
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
       - name: Upgrade existing threads from migration 0008
