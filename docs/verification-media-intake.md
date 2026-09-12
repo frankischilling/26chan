@@ -103,3 +103,21 @@ now returns a status code. No diagnostics or assertions were disabled.
 CI now includes the candidate intake unit and HTTP-to-Firecracker qualification,
 plus a SIGTERM interruption cleanup run. Their hosted outcomes remain pending.
 Portable/native Windows tests do not prove Linux service or VM containment.
+
+Follow-up checks passed `cargo test -p board-media-intake --all-features --locked --jobs 1`
+with four middleware/metrics tests, two configuration tests and the real-database
+HTTP matrix. It now also proves duplicate valid service/capability headers are
+denied, four pending bodies exhaust upload admission, status remains usable and
+cancelling the bodies restores upload capacity. Scoped Clippy passed with warnings
+denied. The two intake store, two queue and three asset tests also passed against
+the owned PostgreSQL cluster.
+
+The live-handle restore adapter `.local/intake-postgres/check-live-handle-restore.ps1`
+passed on that cluster. It reserved and claimed a synthetic upload before dumping,
+restored atomically under the bootstrap identity, matched the entire handle row
+fingerprint, authenticated the retained capability, completed its restored claim
+and rejected wrong capabilities/table/approval access with healthy migration-login
+controls. The disposable restored database and source fixture were removed; the
+private backup remains. The Linux restore script now exercises these same live
+handle/claim checks in addition to its existing data and permission assertions.
+Exact Linux shell lifecycle execution remains pending CI.

@@ -42,6 +42,27 @@ async fn authentication_precedes_body_polling_and_downstream_work() {
     }
 }
 
+#[tokio::test]
+async fn duplicate_valid_service_credentials_are_rejected() {
+    let access = Access {
+        token: "a".repeat(64),
+        requests: Arc::new(Semaphore::new(8)),
+    };
+    let app = Router::new()
+        .route("/", post(forbidden_handler))
+        .layer(middleware::from_fn_with_state(access, http::protect));
+    let bearer = format!("Bearer {}", "a".repeat(64));
+    let request = Request::post("/")
+        .header("authorization", &bearer)
+        .header("authorization", &bearer)
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(
+        app.oneshot(request).await.unwrap().status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
 async fn forbidden_handler() -> StatusCode {
     panic!("unauthorized handler ran");
 }

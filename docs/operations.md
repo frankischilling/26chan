@@ -82,6 +82,16 @@ The recorded `/tmp/board-postgres.*` data directory can be restarted while it re
 
 ## Releases, rotation and incident response
 
+Migration 0011 adds [private HTTP intake](media-intake.md). Provision the separate
+`board_media_intake` login before migrating. Its NOLOGIN function owner has only
+the required column grants; never grant that owner schema CREATE to make a restore
+pass. The disposable restore uses the trusted bootstrap administrator in one
+transaction to preserve original function ownership and ACLs. Runtime identities
+cannot restore or migrate. Existing jobs receive no fabricated reservation
+capabilities. New capabilities are returned once and stored only as hashes.
+Rotate the independent intake service token by restarting its isolated service;
+retain reservation capabilities privately while their jobs remain live.
+
 Migration 0009 adds [thread rollover and optional archives](thread-archives.md).
 It preserves historical data and leaves archives disabled. Stop public and staff
 serving before migration, then start matching binaries. Old binaries do not

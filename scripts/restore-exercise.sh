@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 source .local/database.env
 source .local/media.env
 source .local/media-reader.env
+source .local/intake.env
 source .local/monitor.env
 source .local/staff.env
 pg_bin=/usr/lib/postgresql/16/bin
@@ -15,12 +16,23 @@ actual=$(runuser -u postgres -- "$pg_bin/psql" -XAt -h /tmp -p 55432 -d postgres
 [[ $actual = "$cluster" ]] || { echo 'Port 55432 belongs to a different cluster.' >&2; exit 1; }
 fixture_job=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT replace(gen_random_uuid()::text, '-', '')")
 [[ $fixture_job =~ ^[0-9a-f]{32}$ ]] || exit 1
+fixture_intake=''
 cleanup_media_fixture() {
-  "$pg_bin/psql" "$MIGRATION_DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -v fixture_job="$fixture_job" <<'SQL'
+  "$pg_bin/psql" "$MIGRATION_DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -v fixture_job="$fixture_job" -v fixture_intake="$fixture_intake" <<'SQL'
 DELETE FROM media.assets WHERE job_id=:'fixture_job';
+DELETE FROM media.jobs WHERE id=:'fixture_intake';
 SQL
 }
 trap cleanup_media_fixture EXIT
+reservation=$("$pg_bin/psql" "$INTAKE_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT id,capability FROM media_intake.reserve('restore-synthetic.png')")
+IFS='|' read -r fixture_intake INTAKE_RESTORE_CAPABILITY <<< "$reservation"
+unset reservation
+[[ $fixture_intake =~ ^[0-9a-f]{32}$ && $INTAKE_RESTORE_CAPABILITY =~ ^[0-9a-f]{64}$ ]] || exit 1
+export INTAKE_RESTORE_CAPABILITY
+"$pg_bin/psql" "$INTAKE_DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -v fixture_intake="$fixture_intake" > .local/restore-intake-claim.txt 2>&1 <<'SQL'
+\getenv capability INTAKE_RESTORE_CAPABILITY
+SELECT media_intake.begin_upload(:'fixture_intake', :'capability');
+SQL
 "$pg_bin/psql" "$MIGRATION_DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -v fixture_job="$fixture_job" <<'SQL'
 INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at)
 VALUES (replace(gen_random_uuid()::text,'-',''),:'fixture_job',replace(gen_random_uuid()::text,'-',''),repeat('a',64),100,1,1,'approved',clock_timestamp()),
@@ -35,7 +47,7 @@ admin=(runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h /tmp -p 55
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 CREATE DATABASE :"restore_db" OWNER board_migrator;
 REVOKE ALL ON DATABASE :"restore_db" FROM PUBLIC;
-GRANT CONNECT ON DATABASE :"restore_db" TO board_public, board_migrator, board_media, board_media_read, board_monitor, board_staff, board_auth;
+GRANT CONNECT ON DATABASE :"restore_db" TO board_public, board_migrator, board_media, board_media_read, board_media_intake, board_monitor, board_staff, board_auth;
 SQL
 restore_url="${MIGRATION_DATABASE_URL%/imageboard}/$restore_db"
 # Restoring the NOLOGIN function owner requires bootstrap authority; the owner
@@ -47,11 +59,42 @@ fingerprint_sql="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY id)) FR
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 [[ -n $before && $before = "$after" ]] || { echo 'Restored post data differs.' >&2; exit 1; }
-for table in content.boards content.threads content.reports content.moderation_audit post_secrets.deletion staff_identity.accounts staff_identity.credentials staff_identity.invitations staff_identity.ceremonies staff_identity.sessions deployment.settings public._sqlx_migrations media.jobs media.queue_policy media.assets; do
+for table in content.boards content.threads content.reports content.moderation_audit post_secrets.deletion staff_identity.accounts staff_identity.credentials staff_identity.invitations staff_identity.ceremonies staff_identity.sessions deployment.settings public._sqlx_migrations media.jobs media.queue_policy media.assets media_intake.handles; do
   before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")
   after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")
   [[ $before = "$after" ]] || { echo "Restored row count differs: $table" >&2; exit 1; }
 done
+handle_fingerprint="SELECT md5(string_agg(row_to_json(h)::text, '' ORDER BY job_id)) FROM media_intake.handles h"
+before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")
+after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")
+[[ -n $before && $before = "$after" ]] || { echo 'Restored intake capabilities or claims differ.' >&2; exit 1; }
+intake_restore="${INTAKE_DATABASE_URL%/imageboard}/$restore_db"
+"$pg_bin/psql" "$intake_restore" -XAt -v ON_ERROR_STOP=1 -v fixture_intake="$fixture_intake" > .local/restored-intake-check.txt 2>&1 <<'SQL'
+\getenv capability INTAKE_RESTORE_CAPABILITY
+SELECT media_intake.ready();
+SELECT state FROM media_intake.status(:'fixture_intake', :'capability');
+SELECT media_intake.finish_upload(:'fixture_intake', :'capability', 8);
+SELECT state || ':' || input_bytes FROM media_intake.status(:'fixture_intake', :'capability');
+SQL
+grep -qx 't' .local/restored-intake-check.txt
+grep -qx 'uploading' .local/restored-intake-check.txt
+grep -qx 'queued:8' .local/restored-intake-check.txt
+if "$pg_bin/psql" "$intake_restore" -XAt -v ON_ERROR_STOP=1 -v fixture_intake="$fixture_intake" > .local/restored-intake-capability-denial.txt 2>&1 <<'SQL'
+\set VERBOSITY sqlstate
+SELECT state FROM media_intake.status(:'fixture_intake', repeat('0',64));
+SQL
+then
+  echo 'Restored intake accepted an invalid capability.' >&2; exit 1
+fi
+grep -q 'P0002' .local/restored-intake-capability-denial.txt
+for query in 'SELECT * FROM media.jobs' 'SELECT * FROM media_intake.handles' 'SELECT * FROM staff_identity.credentials' 'UPDATE media.assets SET state=state WHERE false'; do
+  "$pg_bin/psql" "$restore_url" -Xq -v ON_ERROR_STOP=1 -c "$query" > /dev/null
+  if "$pg_bin/psql" "$intake_restore" -XAt -v ON_ERROR_STOP=1 -c "$query" > .local/restored-intake-denial.txt 2>&1; then
+    echo 'Restored intake could access protected data or approval authority.' >&2; exit 1
+  fi
+  grep -q 'permission denied' .local/restored-intake-denial.txt
+done
+unset INTAKE_RESTORE_CAPABILITY
 public_restore="${TEST_PUBLIC_DATABASE_URL%/imageboard}/$restore_db"
 "$pg_bin/psql" "$public_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM content.boards' > .local/restored-public-check.txt
 if "$pg_bin/psql" "$public_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT * FROM staff_identity.credentials' > .local/restored-denial.txt 2>&1; then
@@ -108,5 +151,5 @@ grep -q 'permission denied' .local/restored-staff-denial.txt
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 DROP DATABASE :"restore_db";
 SQL
-printf 'Restore exercise passed: post and asset fingerprints, fifteen table counts, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
+printf 'Restore exercise passed: post, asset and intake-handle fingerprints, sixteen table counts, restored capability and upload claims, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
 printf 'Source PostgreSQL: '; "$pg_bin/pg_dump" --version

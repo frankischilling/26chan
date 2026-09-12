@@ -1,5 +1,13 @@
 # Dependency and update inventory
 
+Authenticated HTTP intake adds pinned [Tokio-util 0.7.19](https://docs.rs/tokio-util/0.7.19/tokio_util/io/struct.StreamReader.html)
+with its `io` feature to adapt body frames to the existing bounded quarantine
+writer. The direct futures-util 0.3.34 declaration reuses its locked version;
+default features add futures-macro 0.3.34. Other registry versions and checksums
+are unchanged. Intake depends on the existing media crate for bounded storage;
+it does not invoke a decoder. No HTTP client package was added: the owned native
+qualification uses Python's standard-library client.
+
 The [maintenance observer](maintenance-observability.md) reuses locked Rustix,
 Tokio, Serde and board-observe; only its local package is added to Cargo.lock.
 The operator recorder uses Python 3.12+ standard-library descriptor I/O, process

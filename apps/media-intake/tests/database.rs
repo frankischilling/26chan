@@ -152,6 +152,20 @@ impl Fixture {
         let (id, cap) = self.reserve().await;
         self.status(&id, &"0".repeat(64), StatusCode::NOT_FOUND)
             .await;
+        let response = self
+            .app
+            .clone()
+            .oneshot(
+                request("PUT", &format!("/v1/uploads/{id}"))
+                    .header("upload-capability", &cap)
+                    .header("upload-capability", &cap)
+                    .header("content-type", "application/octet-stream")
+                    .body(Body::from("duplicate capability"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        response_json(response, StatusCode::NOT_FOUND).await;
         assert_eq!(
             self.upload(&id, &"0".repeat(64), Body::from("denied"))
                 .await
@@ -249,6 +263,58 @@ impl Fixture {
             self.upload(&id, &cap, Body::from("retry")).await.status(),
             StatusCode::CONFLICT
         );
+
+        // Four active bodies exhaust upload admission while status remains usable.
+        let mut tasks = Vec::new();
+        let mut pending_ids = Vec::new();
+        for _ in 0..4 {
+            let (id, cap) = self.reserve().await;
+            let app = self.app.clone();
+            let request = request("PUT", &format!("/v1/uploads/{id}"))
+                .header("upload-capability", &cap)
+                .header("content-type", "application/octet-stream")
+                .body(Body::from_stream(stream::pending::<
+                    Result<Bytes, std::io::Error>,
+                >()))
+                .unwrap();
+            tasks.push(tokio::spawn(
+                async move { app.oneshot(request).await.unwrap() },
+            ));
+            pending_ids.push((id, cap));
+        }
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !pending_ids
+                .iter()
+                .all(|(id, _)| self.root.path().join(format!("{id}.part")).exists())
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let (id, cap) = self.reserve().await;
+        response_json(
+            self.upload(&id, &cap, Body::from("busy")).await,
+            StatusCode::SERVICE_UNAVAILABLE,
+        )
+        .await;
+        assert_eq!(
+            self.status(&id, &cap, StatusCode::OK).await["state"],
+            "receiving"
+        );
+        self.no_files(&id);
+        for task in tasks {
+            task.abort();
+            assert!(task.await.unwrap_err().is_cancelled());
+        }
+        for (id, _) in pending_ids {
+            self.no_files(&id);
+        }
+        response_json(
+            self.upload(&id, &cap, Body::from("available")).await,
+            StatusCode::ACCEPTED,
+        )
+        .await;
 
         // Exercise the actual deadline without shortening production constants.
         let (id, cap) = self.reserve().await;
