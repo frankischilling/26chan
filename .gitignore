@@ -7,3 +7,5 @@
 /playwright-report/
 *.log
 __pycache__/
+/.superpowers/
+/docs/superpowers/
