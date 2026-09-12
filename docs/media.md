@@ -4,6 +4,11 @@ Public uploads are disabled. `board-media-admin` provides development operator i
 
 ## Local setup
 
+[Authenticated HTTP intake](media-intake.md) provides private service reservation,
+streaming upload and capability status under its own restricted database login.
+It feeds the same queue and quarantine protocol as the operator commands below.
+Public post attachment remains unfinished.
+
 After creating the disposable database, provision its separate media login before running migrations:
 
 ```bash
@@ -17,7 +22,7 @@ cargo run -p board-store --bin board-migrate --locked
 The provisioning script verifies the cluster directory on port 55432, refuses to overwrite credential files, and writes generated secrets only under ignored `.local/`. It is a development bootstrap, not a production secret manager. Use a new shell for media commands, or remove public, test, staff, authentication and migration credentials first:
 
 ```bash
-unset DATABASE_URL TEST_PUBLIC_DATABASE_URL MIGRATION_DATABASE_URL STAFF_DATABASE_URL AUTH_DATABASE_URL MEDIA_READ_DATABASE_URL
+unset DATABASE_URL TEST_PUBLIC_DATABASE_URL MIGRATION_DATABASE_URL STAFF_DATABASE_URL AUTH_DATABASE_URL MEDIA_READ_DATABASE_URL MONITOR_DATABASE_URL INTAKE_DATABASE_URL
 source .local/media.env
 export MEDIA_QUARANTINE_DIR="$PWD/.local/quarantine"
 printf 'harmless undecoded test bytes' > .local/input.txt
@@ -73,6 +78,8 @@ On an owned deployment, record artifact hashes and service identities before eac
 source .local/database.env
 source .local/media.env
 source .local/media-reader.env
+source .local/intake.env
+source .local/monitor.env
 source .local/staff.env
 cargo test -p board-media -p board-store -p board-media-admin --all-features --locked
 sudo bash scripts/restore-exercise.sh

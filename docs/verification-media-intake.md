@@ -121,3 +121,11 @@ controls. The disposable restored database and source fixture were removed; the
 private backup remains. The Linux restore script now exercises these same live
 handle/claim checks in addition to its existing data and permission assertions.
 Exact Linux shell lifecycle execution remains pending CI.
+
+The first hosted build at `4843186` passed workspace formatting, Clippy, Rust
+tests, database tests and Windows visual checks. Its Linux browser startup failed
+because the test launcher inherited `INTAKE_DATABASE_URL` into public serving;
+the runtime correctly rejected the unrelated credential. The public and staff
+browser launchers now clear that variable alongside the existing unrelated
+credentials. The failure prevented native media and restore steps from running
+on that head. Monitoring and advisory workflows passed.
