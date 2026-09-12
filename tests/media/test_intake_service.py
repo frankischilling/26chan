@@ -46,6 +46,16 @@ class IntakeExercise(MediaHttpExercise):
         (self.bin / 'board-media-intake').chmod(0o755)
         self.quarantine = self.directory('quarantine', self.intake_user)
         self.writer['MEDIA_QUARANTINE_DIR'] = str(self.quarantine)
+        # TLS configuration accepts only root or the caller as file owner.
+        # Give the development operator its own private copy, preserving the
+        # coordinator's existing credential files and ownership.
+        self.operator = self.directory('operator')
+        for name in ('ca.pem', 'client.pem', 'client.key'):
+            self.write(self.operator / name, (self.private / name).read_bytes())
+        client = {**self.client_config, 'server_ca': str(self.operator / 'ca.pem'),
+                  'client_certificate': str(self.operator / 'client.pem'),
+                  'client_key': str(self.operator / 'client.key')}
+        self.write(self.operator / 'client.json', json.dumps(client))
         ports = []
         for _ in range(2):
             sock = socket.socket()
@@ -68,7 +78,7 @@ class IntakeExercise(MediaHttpExercise):
             'WorkingDirectory=/opt/paperboard': 'WorkingDirectory=' + str(self.root),
             '/var/lib/paperboard/quarantine': str(self.quarantine),
             '-/etc/26chan-coordinator -/var/lib/26chan-coordinator -/etc/26chan-dispatch -/var/lib/26chan-media':
-                ' '.join('-' + str(p) for p in (self.private, self.keys, self.media, self.hidden, self.objects)),
+                ' '.join('-' + str(p) for p in (self.private, self.keys, self.media, self.hidden, self.objects, self.operator)),
         }
         for before, after in substitutions.items():
             assert text.count(before) == 1, 'candidate substitution changed'
@@ -123,7 +133,7 @@ class IntakeExercise(MediaHttpExercise):
     def dispatch(self):
         # The development operator reads intake-owned 0700 storage. This does
         # not qualify a future deployed coordinator's storage access policy.
-        return self.launch([self.bin / 'media-publish', 'dispatch', self.private / 'client.json', self.objects],
+        return self.launch([self.bin / 'media-publish', 'dispatch', self.operator / 'client.json', self.objects],
                            env=self.writer)
 
     def incomplete_upload(self):
@@ -176,7 +186,7 @@ class IntakeExercise(MediaHttpExercise):
         witness = self.quarantine / 'owned-witness'
         self.write(witness, b'healthy intake storage', self.intake_user)
         assert self.intake_access(witness, write=True) == 0
-        for path in (self.private / 'writer.credential', self.private / 'client.key',
+        for path in (self.private / 'writer.credential', self.private / 'client.key', self.operator / 'client.key',
                      self.keys / 'server.key', self.objects / f'{asset}.png', self.root / 'reader.env'):
             assert path.read_bytes(), 'healthy protected file witness missing'
             assert self.intake_access(path) == errno.EACCES
