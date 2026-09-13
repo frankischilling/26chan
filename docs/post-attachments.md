@@ -1,6 +1,6 @@
 # Post attachments
 
-This draft implements storage and a development browser workflow for [issue #48](https://github.com/frankischilling/26chan/issues/48). A user can upload a file, check processing status, submit an approved attachment with a post, and delete just the file. Thread, board and catalog HTML show approved attachments and bounded thumbnails from the separate reader origin. JSON describes normalized files and numeric download URLs. Reconciliation removes deleted/expired attachments and aged unused outputs. Populated restore and full compatibility remain unfinished. This work does not enable production uploads or close the issue.
+This draft implements storage and a development browser workflow for [issue #48](https://github.com/frankischilling/26chan/issues/48). A user can upload a file, check processing status, submit an approved attachment with a post, and delete just the file. Thread, board and catalog HTML show approved attachments and bounded thumbnails from the separate reader origin. JSON describes normalized files and numeric download URLs. Reconciliation removes deleted/expired attachments and aged unused outputs. Populated restoration passed locally; native restore checks and full compatibility remain unfinished. This work does not enable production uploads or close the issue.
 
 ## Browser workflow and configuration
 
@@ -45,7 +45,7 @@ The public/staff metadata view excludes job IDs and capabilities. It returns a f
 
 The separate media reader has SELECT on approved-asset and approved-post-asset views, not the underlying media or content tables. Both exclude attached files after file deletion, post deletion, thread removal or archive expiry. Existing opaque `/media/{id}.png` URLs and new `/media/{id}.thumb.png`, `/{board}/{tim}.png` and `/{board}/{tim}s.jpg` URLs therefore lose read authorization together. The numeric shapes follow the [pinned media URL document](https://raw.githubusercontent.com/4chan/4chan-API/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/User_images_and_static_content.md). Every served variant is a normalized PNG with `image/png` and `nosniff`, including the legacy-looking `s.jpg` thumbnail URL. This MIME/extension mismatch is a security-driven single-format exception, not JPEG compatibility. Leading-zero, encoded and wrong-board variants are rejected. The reader checks authorization and actual SHA-256-verified bytes before conditional responses and requires cache revalidation. Previously downloaded copies cannot be recalled, and a read authorized before a concurrent deletion can finish.
 
-Deletion removes serving authority immediately. The operator's `media-publish reconcile PRIVATE_STORE` also removes the normalized file and thumbnail. Staff file-only controls and populated attachment restore remain unfinished. The draft cannot be merged as a completed attachment feature in this state.
+Deletion removes serving authority immediately. The operator's `media-publish reconcile PRIVATE_STORE` also removes the normalized file and thumbnail. A [populated dump/file restore exercise](attachment-restore.md) passed locally and awaits Linux CI. Staff file-only controls and complete thumbnail visual compatibility remain unfinished. The draft cannot be merged as a completed attachment feature in this state.
 
 ## Output retention and cleanup
 

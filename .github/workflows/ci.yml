@@ -117,6 +117,8 @@ jobs:
         run: sudo bash scripts/test-media-intake-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
+      - name: Restore populated attachments and normalized files
+        run: sudo bash scripts/test-attachment-restore.sh
       - name: Qualify aggregate observer and real queue alert delivery
         run: |
           sudo install -D -m 0755 target/debug/board-monitor /opt/paperboard/board-monitor
