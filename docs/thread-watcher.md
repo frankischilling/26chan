@@ -2,9 +2,47 @@
 
 The watcher remains under implementation in issue #88 and draft PR #89. It is
 not yet a complete reproduction of either public client.
-The extension now connects stored native filters to manual automatic-watch
-refreshes and persists unwatch suppression. The native filter editor and other
-remaining compatibility work below are still required.
+The extension connects native filters to manual automatic-watch refreshes,
+persists unwatch suppression, and provides a filter editor with page hiding and
+highlighting. The compatibility and qualification work below remains required.
+
+## Native filter editor and page effects
+
+Settings now exposes Filters & Post Hiding, its Edit link, filtering enablement
+and hidden-thread stubs. The editor preserves ordered `4chan-filters` rows with
+On, Pattern, Boards, Type, Color, Auto, Hide and Delete controls. Add, move-up,
+delete, native palette selection, validated custom colors and nested help work
+with keyboard focus restoration. Legacy type 3 becomes ID type 4 only when the
+editor loads it; saving an empty list removes the storage key.
+
+Save validates active patterns in a disposable worker, then compares the
+original serialized rules with current storage under the shared Web Lock.
+Competing edits retain the open draft rather than overwriting the other tab.
+Closing the editor aborts validation and prevents a queued save from committing.
+Unavailable writes retain editable rules in the current tab without changing
+the persisted list. A visible warning for that fallback remains unfinished.
+
+Page matching is distinct from catalog discovery: blank board scope is global,
+subject filters require a present subject and do not run inside thread pages,
+missing comments and filenames become empty strings, and tracked own posts are
+exempt. Thread-page OPs are not filtered. The first matching active rule consumes
+the post even when it has no highlight color. On board indexes, OP hiding affects
+the whole thread; View navigates to the thread. Reply View reveals content in
+place. Hide Stubs retains a stub for sticky threads.
+
+Patterns and HTML preparation remain inside bounded workers. Page batches use
+the existing field, post and request limits, with at most 20,001 DOM posts and
+16 MiB of serialized page fields per refresh. Failed matching leaves posts shown.
+The renderer uses text nodes and parsed color values, not arbitrary CSS or HTML
+from saved preferences. Colors cannot contain declarations, custom-property
+substitutions or inherited values. Filtering is not applied to catalog cards.
+
+`npm run test:page-filters` passes ten owned Chromium/PostgreSQL cases covering
+editor persistence, order and palette, effects, first-match precedence, own-post
+exemption, cross-tab conflict, queued-save cancellation, failed writes and hostile
+input. One case exercises all six themes at 1280px and 390px with nested-dialog
+focus checks. The sticky exception is tested through an explicit DOM fixture,
+not a staff mutation. These tests establish behavior, not screenshot parity.
 
 ## Reference
 
@@ -46,8 +84,9 @@ text and keyboard removal. Persisted browser tests separately exercise refresh,
 cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
-The native filter editor, other native settings and post-menu actions remain
-unfinished. Archive/expiry and additional storage-race coverage, reviewed
+Other native settings and post-menu actions remain unfinished. The filter editor
+still needs reviewed native visual comparisons and a visible same-tab-only save
+warning when storage fails. Archive/expiry and additional storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
 
@@ -59,7 +98,8 @@ applies in place; enabling the watcher clears `disableAll`, as in catalog v1025.
 The board/thread dialog uses the extension's Monitoring labels for watching,
 automatic watching after posting and fixed positioning, plus the global disable
 override. Persisted board/thread saves navigate without the fragment, as in the
-extension. Other native settings categories are not implemented by this slice.
+extension. Filters & Post Hiding exposes filtering, the editor and hidden-thread
+stub preferences. Other native settings categories are not implemented by this slice.
 
 Both dialogs use the native Settings entry point rather than a separate desktop
 watcher toggle. The dialog title labels only the title text, not its close

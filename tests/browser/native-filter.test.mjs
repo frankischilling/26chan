@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker } from 'node:worker_threads';
 import { once } from 'node:events';
-import { FILTER_LIMITS, readNativeFilters, autoWatchBoards, NativeFilterMatcher } from '../../apps/public/static/native-filter.v1.js';
+import { FILTER_LIMITS, readNativeFilters, readFilterRules, autoWatchBoards, NativeFilterMatcher } from '../../apps/public/static/native-filter.v1.js';
 
 function filter(type, pattern, changes = {}) {
   return { type, pattern, boards: 'demo', active: true, auto: false, ...changes };
@@ -24,6 +24,33 @@ async function match(filters, posts, board = 'demo') {
   try { return await owned.instance.match(filters, board, posts); }
   finally { await owned.stopped(); }
 }
+
+test('editor rules preserve page effects and migrate legacy ID types only explicitly', () => {
+  const row = filter(3, 'ABC', { hide: true, color: '#ff0000', boards: null });
+  assert.equal(readFilterRules(JSON.stringify([row])).status, 'invalid-settings');
+  assert.deepEqual(readFilterRules(JSON.stringify([row]), { migrateLegacy: true }),
+    { status: 'ok', rules: [{ ...row, type: 4, boards: '' }] });
+  assert.deepEqual(readFilterRules(null), { status: 'ok', rules: [] });
+  for (const changes of [{ hide: 'true' }, { color: {} }, { color: 'a'.repeat(129) }]) {
+    assert.equal(readFilterRules(JSON.stringify([filter(2, 'x', changes)])).status, 'invalid-settings');
+  }
+});
+
+test('page mode uses global scopes and present subjects, unlike catalog discovery', async () => {
+  const owned = matcher();
+  try {
+    const rules = [filter(5, 'paper', { boards: '' }), filter(2, '/^$/', { boards: '' })];
+    const posts = [{ no: '1', sub: 'paper', com: 'text' }, { no: '2' }];
+    assert.deepEqual(await owned.instance.match(rules, 'demo', posts, { mode: 'page' }),
+      { status: 'ok', matches: [{ id: '1', filter: 0 }, { id: '2', filter: 1 }] });
+    assert.deepEqual(await owned.instance.match(rules, 'demo', posts, { mode: 'page', thread: true }),
+      { status: 'ok', matches: [{ id: '2', filter: 1 }] });
+    assert.deepEqual(await owned.instance.match([filter(6, '/^$/', { boards: '' })], 'demo', [{ no: '3' }], { mode: 'page' }),
+      { status: 'ok', matches: [{ id: '3', filter: 0 }] });
+    assert.deepEqual(await owned.instance.match([filter(2, '//', { boards: ' demo' })], 'demo', [{ no: '3' }], { mode: 'page' }),
+      { status: 'ok', matches: [] });
+  } finally { await owned.stopped(); }
+});
 
 test('native filter settings stay bounded and preserve literal pattern text without compiling it', () => {
   assert.deepEqual(readNativeFilters(null), { status: 'ok', filters: [] });

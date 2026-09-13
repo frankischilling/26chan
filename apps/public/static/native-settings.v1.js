@@ -1,5 +1,5 @@
 // Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher }) {
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
   let opener = null;
@@ -65,6 +65,7 @@ export function installSettings({ catalog, read, save, toggleWatcher }) {
     }
     let category;
     let expand;
+    let filterCategory, filterExpand;
     if (catalog) {
       form.append(node('h4', 'Options'));
       const options = node('ul', undefined, 'clickset');
@@ -75,6 +76,7 @@ export function installSettings({ catalog, read, save, toggleWatcher }) {
       all.id = 'settings-exp-all';
       all.append('[', link('settings-expand-all', 'Expand All Settings', () => {
         category.hidden = false; expand.setAttribute('aria-expanded', 'true');
+        filterCategory.hidden = false; filterExpand.setAttribute('aria-expanded', 'true');
       }), ']');
       form.append(all);
       const heading = node('h3', undefined, 'settings-cat-lbl');
@@ -92,9 +94,24 @@ export function installSettings({ catalog, read, save, toggleWatcher }) {
       option(category, 'threadWatcher', 'Thread Watcher', "Keep track of threads you're watching and see when they receive new posts");
       option(category, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
       option(category, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', 'settingsDesktop');
+      const filterHeading = node('h3', undefined, 'settings-cat-lbl');
+      filterCategory = node('ul', undefined, 'settings-cat');
+      filterCategory.id = 'settings-filters';
+      filterCategory.hidden = Object.keys(initial).length !== 0;
+      filterExpand = button('Filters & Post Hiding', () => {
+        filterCategory.hidden = !filterCategory.hidden;
+        filterExpand.setAttribute('aria-expanded', String(!filterCategory.hidden));
+      }, 'settings-expand');
+      filterExpand.setAttribute('aria-controls', filterCategory.id);
+      filterExpand.setAttribute('aria-label', 'Filters & Post Hiding');
+      filterExpand.setAttribute('aria-expanded', String(!filterCategory.hidden));
+      filterHeading.append(filterExpand);
+      const filter = option(filterCategory, 'filter', 'Filter and highlight specific threads/posts', 'Enable pattern-based filters');
+      filter.parentElement.parentElement.append(' [', link('filters-edit', 'Edit', source => openFilters?.(source)), ']');
+      option(filterCategory, 'hideStubs', 'Hide thread stubs', "Don't display stubs of hidden threads");
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
-      form.append(heading, category, global);
+      form.append(filterHeading, filterCategory, heading, category, global);
     }
     const message = node('p', '', 'settingsMessage');
     message.setAttribute('role', 'status');

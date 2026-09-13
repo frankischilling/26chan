@@ -3,6 +3,8 @@ import { nativeCommentText, nativeWatchLabel } from './native-filter-html.js';
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
+export { readFilterRules } from './native-filter-rules.js';
+export { mountNativeFilters } from './native-page-filters.js';
 
 // Raw HTML and user patterns are evaluated only in a fresh worker, never in the client path.
 
@@ -67,7 +69,9 @@ function checkedJob(value) {
   if (!record(value) || value.version !== 1 || typeof value.board !== 'string'
     || value.board.length > FILTER_LIMITS.boardToken || !/^[a-z0-9]+$/.test(value.board)
     || !Array.isArray(value.posts) || value.posts.length > FILTER_LIMITS.posts
-    || (value.labels !== undefined && typeof value.labels !== 'boolean')) throw new Error('invalid-job');
+    || (value.labels !== undefined && typeof value.labels !== 'boolean')
+    || (value.mode !== undefined && !['catalog', 'page'].includes(value.mode))
+    || (value.thread !== undefined && typeof value.thread !== 'boolean')) throw new Error('invalid-job');
   const filters = filterRows(value.filters);
   let length = filters.reduce((sum, row) => sum + row.pattern.length + row.boards.length, 0);
   const seen = new Set();
@@ -86,7 +90,8 @@ function checkedJob(value) {
     }
     return prepared;
   });
-  return { version: 1, board: value.board, filters, posts, ...(value.labels ? { labels: true } : {}) };
+  return { version: 1, board: value.board, filters, posts, ...(value.labels ? { labels: true } : {}),
+    ...(value.mode === 'page' ? { mode: 'page', thread: value.thread === true } : {}) };
 }
 
 function escapeNative(text, wildcards = false) {
@@ -123,6 +128,18 @@ function matchesPrepared(filter, pattern, post) {
   return pattern.test(post.filename);
 }
 
+function matchesPage(filter, pattern, post, thread) {
+  if (filter.type === 0) return !!post.trip && pattern === post.trip;
+  if (filter.type === 1) return post.name !== undefined && pattern === post.name;
+  if (filter.type === 4) return !!post.id && pattern === post.id;
+  if (filter.type === 2) {
+    if (post.comment === undefined) post.comment = nativeCommentText(post.com ?? '');
+    return pattern.test(post.comment);
+  }
+  if (filter.type === 5) return !thread && !!post.sub && pattern.test(post.sub);
+  return pattern.test(post.filename ?? '');
+}
+
 // Call only in a worker. The browser-facing class below never invokes this evaluator.
 export function runNativeFilterJob(raw) {
   try { return evaluateNativeFilterJob(raw); }
@@ -147,7 +164,8 @@ function evaluateNativeFilterJob(raw) {
   for (const post of job.posts) {
     const rawComment = post.com;
     for (const { filter, pattern, index, boards } of compiled) {
-      if (boards.includes(job.board) && matchesPrepared(filter, pattern, post)) {
+      const scoped = boards.includes(job.board) || (job.mode === 'page' && filter.boards === '');
+      if (scoped && (job.mode === 'page' ? matchesPage(filter, pattern, post, job.thread) : matchesPrepared(filter, pattern, post))) {
         matches.push({ id: post.no, filter: index,
           ...(job.labels ? { label: nativeWatchLabel({ no: post.no, sub: post.sub, com: rawComment }) } : {}) });
         break;
@@ -176,7 +194,8 @@ function checkedResult(raw, job) {
       const index = positions.get(match.id);
       const filter = job.filters[match.filter];
       if (index <= previous || !filter?.active || filter.pattern === ''
-        || !boardTokens(filter.boards).includes(job.board)) return { status: 'invalid-result' };
+        || !(boardTokens(filter.boards).includes(job.board) || (job.mode === 'page' && filter.boards === ''))
+        || (job.mode === 'page' && job.thread && filter.type === 5)) return { status: 'invalid-result' };
       if (job.labels && (typeof match.label !== 'string' || match.label.length > 45
         || /[\u0000-\u001f\u007f]/.test(match.label))) return { status: 'invalid-result' };
       previous = index;
@@ -194,11 +213,11 @@ export class NativeFilterMatcher {
     this.deadline = deadline;
   }
 
-  match(filters, board, posts, { signal, labels = false } = {}) {
+  match(filters, board, posts, { signal, labels = false, mode = 'catalog', thread = false } = {}) {
     if (signal?.aborted) return Promise.resolve({ status: 'cancelled' });
     let job, raw;
     try {
-      job = checkedJob({ version: 1, filters, board, posts, labels });
+      job = checkedJob({ version: 1, filters, board, posts, labels, mode, thread });
       raw = JSON.stringify(job);
       if (raw.length > FILTER_LIMITS.request) return Promise.resolve({ status: 'invalid-request' });
     } catch { return Promise.resolve({ status: 'invalid-request' }); }

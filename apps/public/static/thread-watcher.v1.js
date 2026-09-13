@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards,
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -23,6 +23,8 @@ function start(context) {
   let persistent = !!navigator.locks?.request;
   let settingsCache = {};
   let volatileSettings = false;
+  let volatileFilters = false;
+  let filterCache = null;
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
@@ -33,6 +35,7 @@ function start(context) {
   let collapsed = mobile.matches;
 
   function read(key) {
+    if (key === filterKey && volatileFilters) return filterCache;
     try { return localStorage.getItem(key); }
     catch { persistent = false; return null; }
   }
@@ -200,7 +203,13 @@ function start(context) {
     }),
   });
 
+  const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration,
+    read: () => read(filterKey), save: saveFilterRules,
+    match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
+    changed: () => refresh.cancel(),
+  });
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    openFilters: opener => nativeFilters?.open(opener),
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
@@ -222,6 +231,20 @@ function start(context) {
     settingsCache = settings;
     return true;
   }
+  function saveFilterRules(raw, expected, signal) {
+    return locked(() => {
+      if (signal.aborted || read(filterKey) !== expected) return { status: 'conflict' };
+      if (persistent) {
+        try {
+          if (raw === null) localStorage.removeItem(filterKey);
+          else localStorage.setItem(filterKey, raw);
+        } catch { persistent = false; }
+      }
+      if (!persistent) { volatileFilters = true; filterCache = raw; }
+      refresh.cancel();
+      return { status: 'ok', persisted: persistent };
+    });
+  }
   async function saveSettings(changes) {
     const applied = await locked(() => {
       const settings = { ...configuration(), ...changes };
@@ -235,6 +258,7 @@ function start(context) {
     });
     if (applied === false) return false;
     if (enabled) { await acknowledgeCurrent(); navigateReadPosition(); }
+    void nativeFilters?.refresh();
     return { persisted: !volatileSettings };
   }
 
@@ -625,6 +649,7 @@ function start(context) {
     const settings = configuration();
     enabled = settings.threadWatcher === true && settings.disableAll !== true;
     render();
+    if (event.key === null || event.key === settingsKey || event.key === filterKey) void nativeFilters?.refresh();
   });
   document.addEventListener('click', event => {
     if (activePostMenu && !activePostMenu.root.contains(event.target)
@@ -647,6 +672,7 @@ function start(context) {
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();
   tracking.consume(threadId).then(() => acknowledgeCurrent()).then(() => {
+    void nativeFilters?.refresh();
     navigateReadPosition(); return refreshAll(true);
   });
 }

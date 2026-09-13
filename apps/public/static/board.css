@@ -249,6 +249,36 @@ dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%;
 }
 @media (max-width: 360px) { dialog.catalogSettings { left: 10px; margin-left: 0; width: calc(100vw - 30px); } }
 
+/* Native filter controls are built from text and bounded, typed preferences. */
+dialog.nativeFilters { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
+.nativeFilters > .extPanel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); box-sizing: border-box; overflow: auto; padding: 5px; background: var(--panel); border: 1px solid var(--settings-frame, var(--edge)); box-shadow: 0 0 5px rgba(0, 0, 0, .25); }
+#filtersMenu table { width: 100%; border-spacing: 1px; }
+#filtersMenu th { font-size: 12px; }
+#filter-list { text-align: center; }
+#filter-list td { padding: 0; }
+#filter-list input { margin: 0; }
+#filter-list select, #filter-list .fPattern, #filter-list .fBoards, #palette-custom-input { padding: 1px; font-size: 11px; }
+#filter-list select { width: 75px; }
+#filter-list .fPattern { width: 110px; }
+#filter-list .fBoards { width: 25px; }
+#filter-list button { padding: 0; cursor: pointer; }
+#filter-list .fDel { width: 16px; border: 0; background: transparent; color: inherit; }
+#filtersMenu tfoot td { padding-top: 10px; }
+#filtersMenu .right { float: right; }
+.nativeSettings .colorbox { display: inline-block; width: 16px; height: 16px; padding: 0; font-size: 10px; line-height: 17px; background: white; border: 1px solid #aaa; color: black; cursor: pointer; }
+.nativeSettings .filterHelpButton { position: absolute; left: 5px; top: -2px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.filterEditorMessage { margin: 5px 0; }
+.filterEditorMessage:empty, .nativeFilterNotice:empty { display: none; }
+dialog.nativeFilterPalette, dialog.filterHelp { background: var(--panel); color: var(--ink); border: 1px solid var(--settings-frame, var(--edge)); padding: 8px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 0 5px rgba(0, 0, 0, .25); }
+dialog.filterHelp { width: 400px; }
+.filterPaletteGrid { display: flex; gap: 2px; margin-bottom: 8px; }
+#palette-custom-input { width: 45px; margin-right: 2px; }
+.board .filter-preview { cursor: pointer; margin-left: 3px; padding: 0; border: 0; font: inherit; background: transparent; color: var(--link); }
+.board .post-hidden .postInfo { opacity: .5; }
+.board .post-hidden .postMessage, .board .post-hidden .file, .board .post-hidden .postActions,
+.board .post-hidden .wbtn, .board .thread.post-hidden .replyContainer, .board .thread.post-hidden .omitted { display: none; }
+.board .native-filter-no-stub { display: none !important; }
+
 /* Pinned public watcher images; only release-owned URLs are permitted. */
 :root {
   --watcher-icon-family: futaba;
