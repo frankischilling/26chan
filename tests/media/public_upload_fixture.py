@@ -108,7 +108,16 @@ class PublicUpload:
         assert output.startswith(b'PASS no-JavaScript upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
         assert f.http(f'/media/{asset}.png')[0] == 404
-        print('PASS real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader', flush=True)
+        assert (f.objects / f'{asset}.png').is_file()
+        assert (f.objects / f'{asset}.thumb.png').is_file()
+        cleaned = f.finish(f.launch([f.bin / 'media-publish', 'reconcile', f.objects], env=f.writer))
+        assert int(cleaned.strip()) >= 1
+        assert not (f.objects / f'{asset}.png').exists()
+        assert not (f.objects / f'{asset}.thumb.png').exists()
+        assert sql(f"SELECT count(*) FROM content.post_media WHERE asset_id='{asset}' AND file_deleted;") == '1'
+        assert f.http(f'/media/{asset}.png')[0] == 404
+        assert f.http(f'/media/{asset}.thumb.png')[0] == 404
+        print('PASS real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
 
     def cleanup(self):
         if self.browser is not None:

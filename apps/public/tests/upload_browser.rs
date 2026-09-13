@@ -233,7 +233,7 @@ async fn exercise(
     let mut pixels = b"IBRGBA01\0\0\0\x01\0\0\0\x01".to_vec();
     pixels.extend_from_slice(&[255, 0, 0, 255]);
     let output = ValidatedOutput::read(pixels.as_slice()).await.unwrap();
-    board_media_admin::publish(
+    let asset = board_media_admin::publish(
         &queue,
         &store,
         &job,
@@ -251,5 +251,25 @@ async fn exercise(
         "browser workflow failed: {} {}",
         String::from_utf8_lossy(&result.stdout),
         String::from_utf8_lossy(&result.stderr)
+    );
+    let files = root.join("objects");
+    assert!(files.join(format!("{}.png", asset.id)).is_file());
+    assert!(files.join(format!("{}.thumb.png", asset.id)).is_file());
+    assert_eq!(
+        board_media_admin::reconcile(&queue, &store).await.unwrap(),
+        1
+    );
+    assert!(!files.join(format!("{}.png", asset.id)).exists());
+    assert!(!files.join(format!("{}.thumb.png", asset.id)).exists());
+    let tombstones: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM content.post_media WHERE asset_id=$1 AND file_deleted",
+    )
+    .bind(&asset.id)
+    .fetch_one(admin)
+    .await
+    .unwrap();
+    assert_eq!(
+        tombstones, 1,
+        "Physical cleanup preserves the one-use tombstone"
     );
 }

@@ -670,3 +670,29 @@ async fn reader_credentials_expose_only_approved_metadata() {
         }
     }
 }
+
+#[tokio::test]
+async fn retention_owner_has_only_fixed_retirement_authority() {
+    let admin = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'media','CREATE') AND NOT has_schema_privilege(oid,'content','USAGE') AND NOT has_schema_privilege(oid,'media_intake','USAGE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_table_privilege(oid,'media.assets','INSERT,DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_media_retention_owner'").fetch_one(&admin).await.unwrap();
+    assert!(safe);
+    for (table, privilege, expected) in [
+        ("media.assets", "SELECT", vec!["id", "job_id", "state"]),
+        (
+            "media.assets",
+            "UPDATE",
+            vec!["approved_at", "state", "updated_at"],
+        ),
+        ("media.jobs", "SELECT", vec!["id"]),
+        ("media.jobs", "UPDATE", vec!["id"]),
+    ] {
+        let columns: Vec<String> = sqlx::query_scalar("SELECT attname::text FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped AND has_column_privilege('board_media_retention_owner',attrelid,attnum,$2) ORDER BY attname")
+            .bind(table).bind(privilege).fetch_all(&admin).await.unwrap();
+        assert_eq!(columns, expected, "{table} {privilege}");
+    }
+    let functions: bool = sqlx::query_scalar("SELECT count(*)=1 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_media_retention_owner'").fetch_one(&admin).await.unwrap();
+    assert!(functions);
+    admin.close().await;
+}

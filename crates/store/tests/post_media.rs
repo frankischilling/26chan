@@ -603,6 +603,137 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
     ));
     staff.close().await;
     cancellation(f).await;
+    retention(f).await;
+}
+
+async fn retention(f: &Fixture) {
+    let a = f.reserve().await;
+    let asset = f.approve(&a).await;
+    sqlx::query(
+        "UPDATE media.assets SET approved_at=clock_timestamp()-interval '2 days' WHERE id=$1",
+    )
+    .bind(&asset)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(
+        !f.queue
+            .output_retention_candidates()
+            .await
+            .unwrap()
+            .contains(&asset),
+        "A usable capability must survive even when the approval timestamp is old"
+    );
+    assert!(!f.queue.retire_output(&asset).await.unwrap());
+    let id = f.insert(0, &a).await.unwrap();
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
+    )
+    .bind(&a.upload.id)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(
+        !f.queue.retire_output(&asset).await.unwrap(),
+        "Live attachments survive the orphan deadline"
+    );
+    delete_attachment(&f.public, &f.board, id).await.unwrap();
+    assert!(
+        f.queue
+            .output_retention_candidates()
+            .await
+            .unwrap()
+            .contains(&asset)
+    );
+    assert!(f.queue.retire_output(&asset).await.unwrap());
+    assert!(!f.queue.retire_output(&asset).await.unwrap());
+    assert!(f.reader.get(&asset).await.is_err());
+    let coordinator = PgPool::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let revival = sqlx::query(
+        "UPDATE media.assets SET state='approved',approved_at=clock_timestamp() WHERE id=$1",
+    )
+    .bind(&asset)
+    .execute(&coordinator)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        revival.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    for statement in [
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+        "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+    ] {
+        let mut tx = coordinator.begin().await.unwrap();
+        tx.execute(statement).await.unwrap();
+        let error = sqlx::query("SELECT media.retire_output($1)")
+            .bind(&asset)
+            .execute(&mut *tx)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("22023")
+        );
+        tx.rollback().await.unwrap();
+    }
+    for login in [
+        "TEST_PUBLIC_DATABASE_URL",
+        "MEDIA_READ_DATABASE_URL",
+        "INTAKE_DATABASE_URL",
+        "STAFF_DATABASE_URL",
+        "AUTH_DATABASE_URL",
+    ] {
+        let connection = PgPool::connect(&std::env::var(login).unwrap())
+            .await
+            .unwrap();
+        let error = sqlx::query("SELECT media.retire_output($1)")
+            .bind(&asset)
+            .execute(&connection)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501"),
+            "{login}"
+        );
+        connection.close().await;
+    }
+
+    // Use the actual public function and an uncommitted posting transaction.
+    // Retirement waits for its job lock, then must see the committed attachment.
+    let b = f.reserve().await;
+    let live = f.approve(&b).await;
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let mut posting = f.public.begin().await.unwrap();
+    let number: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&mut *posting)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Anonymous','','Retention race',$4,$5,false)")
+        .bind(number).bind(&f.board).bind(thread).bind(&b.upload.id).bind(&b.upload.capability).execute(&mut *posting).await.unwrap();
+    let queue = f.queue.clone();
+    let waiting_asset = live.clone();
+    let waiting = tokio::spawn(async move { queue.retire_output(&waiting_asset).await });
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert!(
+        !waiting.is_finished(),
+        "Retirement waits for the posting job lock"
+    );
+    posting.commit().await.unwrap();
+    assert!(!waiting.await.unwrap().unwrap());
+    f.reader.get(&live).await.unwrap();
+
+    // Archive retention remains readable until its deadline, then eligible.
+    sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp()-interval '1 second',archive_expires_at=clock_timestamp()+interval '60 seconds' WHERE id=$1")
+        .bind(thread).execute(&f.admin).await.unwrap();
+    assert!(!f.queue.retire_output(&live).await.unwrap());
+    sqlx::query("UPDATE content.threads SET archive_expires_at=clock_timestamp()-interval '1 millisecond' WHERE id=$1")
+        .bind(thread).execute(&f.admin).await.unwrap();
+    assert!(f.queue.retire_output(&live).await.unwrap());
+    coordinator.close().await;
 }
 
 async fn cancellation(f: &Fixture) {

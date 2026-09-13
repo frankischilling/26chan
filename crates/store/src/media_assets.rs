@@ -188,6 +188,25 @@ impl MediaQueue {
             .fetch_all(&self.pool).await?)
     }
 
+    /// IDs only: the coordinator cannot read the attachment or capability tables.
+    pub async fn output_retention_candidates(&self) -> Result<Vec<String>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT id FROM media.retirable_outputs ORDER BY approved_at,id LIMIT 64",
+        )
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    /// Recheck visibility/retention under the posting job lock. Retain the
+    /// publication storage lock through retirement, removal and forget_output.
+    pub async fn retire_output(&self, id: &str) -> Result<bool, StoreError> {
+        validate_hex(id, 32)?;
+        Ok(sqlx::query_scalar("SELECT media.retire_output($1)")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?)
+    }
+
     /// Recheck abandonment before removing files; retain the storage lock through forget_output.
     pub async fn begin_output_deletion(&self, output_id: &str) -> Result<bool, StoreError> {
         validate_hex(output_id, 32)?;

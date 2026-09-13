@@ -224,6 +224,68 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         partial
     );
     assert!(reader.get_thumbnail(&partial.id).await.is_ok());
+    assert!(
+        !queue.retire_output(&partial.id).await.unwrap(),
+        "Recent unused approval must survive"
+    );
+    sqlx::query(
+        "UPDATE media.assets SET approved_at=clock_timestamp()-interval '2 days' WHERE id=$1",
+    )
+    .bind(&partial.id)
+    .execute(&admin)
+    .await
+    .unwrap();
+    // Crash after durable retirement, before either file is removed.
+    let retention_guard = store.try_lock().unwrap();
+    assert!(queue.retire_output(&partial.id).await.unwrap());
+    assert!(reader.get(&partial.id).await.is_err());
+    assert!(reader.get_thumbnail(&partial.id).await.is_err());
+    assert!(root.join(format!("{}.png", partial.id)).is_file());
+    assert!(root.join(format!("{}.thumb.png", partial.id)).is_file());
+    drop(retention_guard);
+    assert_eq!(reconcile(&queue, &store).await.unwrap(), 1);
+    assert!(!root.join(format!("{}.png", partial.id)).exists());
+    assert!(!root.join(format!("{}.thumb.png", partial.id)).exists());
+    assert_eq!(reconcile(&queue, &store).await.unwrap(), 0);
+
+    // The normal reconciliation path discovers and removes an aged orphan.
+    let orphan_job = lease(&queue, &ids).await;
+    let orphan = publish(
+        &queue,
+        &store,
+        &orphan_job.id,
+        orphan_job.lease_token.as_deref().unwrap(),
+        &pixels,
+    )
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE media.assets SET approved_at=clock_timestamp()-interval '2 days' WHERE id=$1",
+    )
+    .bind(&orphan.id)
+    .execute(&admin)
+    .await
+    .unwrap();
+    let blocked_thumbnail = root.join(format!("{}.thumb.png", orphan.id));
+    std::fs::remove_file(&blocked_thumbnail).unwrap();
+    std::fs::create_dir(&blocked_thumbnail).unwrap();
+    assert!(reconcile(&queue, &store).await.is_err());
+    assert!(!root.join(format!("{}.png", orphan.id)).exists());
+    assert!(
+        blocked_thumbnail.is_dir(),
+        "Cleanup must not recursively remove an unexpected object"
+    );
+    let state: String = sqlx::query_scalar("SELECT state FROM media.assets WHERE id=$1")
+        .bind(&orphan.id)
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(state, "deleting");
+    assert!(reader.get(&orphan.id).await.is_err());
+    std::fs::remove_dir(&blocked_thumbnail).unwrap();
+    assert_eq!(reconcile(&queue, &store).await.unwrap(), 1);
+    assert!(!root.join(format!("{}.png", orphan.id)).exists());
+    assert!(!root.join(format!("{}.thumb.png", orphan.id)).exists());
 
     for window in [
         "part",

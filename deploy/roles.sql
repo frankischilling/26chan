@@ -12,6 +12,8 @@ CREATE ROLE board_media_intake_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
 GRANT board_media_intake_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 CREATE ROLE board_attachment_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_attachment_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+CREATE ROLE board_media_retention_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_media_retention_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 ALTER ROLE board_media_intake SET statement_timeout = '5s';
 ALTER ROLE board_media_intake SET lock_timeout = '2s';
 ALTER ROLE board_media_intake SET idle_in_transaction_session_timeout = '5s';

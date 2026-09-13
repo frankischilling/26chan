@@ -110,6 +110,9 @@ pub async fn publish(
 
 pub async fn reconcile(queue: &MediaQueue, store: &PublicationStore) -> PublicationResult<u64> {
     let guard = store.try_lock()?;
+    for id in queue.output_retention_candidates().await? {
+        queue.retire_output(&id).await?;
+    }
     let mut removed = 0;
     for id in queue.output_cleanup_candidates().await? {
         if queue.begin_output_deletion(&id).await? {
