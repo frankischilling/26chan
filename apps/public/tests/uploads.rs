@@ -729,8 +729,11 @@ async fn image_reply_contract(
         StatusCode::OK,
     )
     .await;
+    let (visible, _) = filtered
+        .split_once("<template id=\"catalogFiltered\">")
+        .unwrap();
     assert!(
-        filtered.contains(&format!("id=\"thread-{thread}\"")),
+        visible.contains(&format!("id=\"thread-{thread}\"")),
         "catalog filter searches the OP filename as literal text"
     );
     board_store::post_media::delete_attachment(&public, board, thread)
@@ -748,9 +751,23 @@ async fn image_reply_contract(
         StatusCode::OK,
     )
     .await;
+    let (visible, inert) = filtered
+        .split_once("<template id=\"catalogFiltered\">")
+        .unwrap();
     assert!(
-        !filtered.contains(&format!("id=\"thread-{thread}\"")),
+        !visible.contains(&format!("id=\"thread-{thread}\"")),
         "deleted OP filename cannot match a filter"
+    );
+    let card = inert
+        .split(&format!("id=\"thread-{thread}\""))
+        .nth(1)
+        .unwrap()
+        .split("</section>")
+        .next()
+        .unwrap();
+    assert!(
+        card.contains("data-search-file=\"\" data-has-file=\"false\""),
+        "inert cards cannot restore deleted filenames as live search metadata"
     );
     public.close().await;
 }

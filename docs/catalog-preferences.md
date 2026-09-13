@@ -9,17 +9,19 @@ The local catalog now saves the same three finite fields on control changes or
 Apply. Display changes and fresh-visit restoration now update the rendered
 snapshot in place and maintain a shareable query URL. Storage is origin-local and
 is not a cookie, authentication state or a
-server-side preference. Search text is not persisted. An explicit URL containing
+server-side preference. Search text is kept only in per-tab session storage,
+not in persistent local storage; see [live search](catalog-live-search.md).
+An explicit URL containing
 any display option takes precedence without overwriting the saved preference.
 Reset clears the key and navigates to explicit defaults with an empty search.
 
 This closes the display-preference persistence and display-control reload gaps,
 not complete catalog parity. [In-place control evidence](catalog-inplace.md)
 covers snapshot ranks, teaser nodes and thumbnail dimensions. Search and Reset
-still navigate through the server. Explicit URL precedence and Reset's URL
-behavior are local extensions. Quick-search persistence,
-filters, hidden/pinned threads and the remaining catalog interactions are outside
-this change. Without JavaScript, the existing Apply and Reset form still works;
+now update in place when the complete snapshot is available. Explicit URL
+precedence and Reset's URL behavior are local extensions. Filtering menus,
+hidden/pinned threads and other catalog interactions remain unfinished.
+Without JavaScript, the existing Apply and Reset form still works;
 browser-local preference restoration is unavailable.
 
 ## Browser safety

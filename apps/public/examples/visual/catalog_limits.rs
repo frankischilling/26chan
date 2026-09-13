@@ -52,6 +52,7 @@ pub fn page(disabled_images: bool) -> String {
     })
     .collect();
     views::BoardPage {
+        catalog_hidden: Vec::new(),
         board,
         threads,
         parent: 0,

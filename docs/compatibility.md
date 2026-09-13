@@ -55,11 +55,12 @@ client behavior and captcha equivalence remain unverified.
 Catalog display preferences now have bounded browser-local persistence; see
 [preference behavior and remaining differences](catalog-preferences.md).
 In-place display controls are covered by [snapshot and rendering checks](catalog-inplace.md).
-Live search, other catalog interactions and full-page parity remain unfinished.
+Live search and session restoration are covered by [live-search checks](catalog-live-search.md).
+Other catalog interactions and full-page parity remain unfinished.
 
 The [catalog search operator and case contract](catalog-search.md) now follows the
 pinned client rather than treating every punctuation character literally. The
-searched fields and live/session search behavior remain separate gaps.
+searched fields remain a separate gap from the implemented live/session behavior.
 
 Public request budgets are project-defined containment policy, not claimed reference behavior.
 Their existing defaults and bounded operator overrides are documented in

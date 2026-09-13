@@ -18,7 +18,10 @@ async fn read(app: &Router, path: &str) -> (u16, String) {
 }
 
 fn ids(html: &str) -> Vec<i64> {
-    html.split("id=\"thread-")
+    html.split("<template id=\"catalogFiltered\">")
+        .next()
+        .unwrap()
+        .split("id=\"thread-")
         .skip(1)
         .map(|suffix| suffix.split('"').next().unwrap().parse().unwrap())
         .collect()
@@ -117,6 +120,15 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let (status, page) = read(&app, &format!("/{slug}/catalog?order=date&{query}")).await;
         assert_eq!(status, 200);
         assert_eq!(ids(&page), expected, "literal filter {query}");
+        let inert = page
+            .split("<template id=\"catalogFiltered\">")
+            .nth(1)
+            .unwrap();
+        assert_eq!(
+            ids(inert).len() + expected.len(),
+            threads.len(),
+            "complete public snapshot retained in inert markup"
+        );
         assert!(!page.contains("value=\"<script>"));
         if query == "q=absent" {
             assert!(page.contains("No matching threads."));

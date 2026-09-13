@@ -11,6 +11,7 @@ pub struct Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub catalog_hidden: Vec<ThreadView>,
     pub board: Board,
     pub threads: Vec<ThreadView>,
     pub parent: i64,

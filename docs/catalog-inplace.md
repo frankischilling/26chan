@@ -3,8 +3,9 @@
 The pinned public v1025 client updates sort, image size and teaser display
 without navigating the document. These three controls now operate on the local
 server-rendered snapshot in place. Saved display preferences also restore
-without a second document request. Search submission and Reset still use GET;
-live search, filtering menus, hidden/pinned threads and complete catalog parity
+without a second document request. [Live search and Reset](catalog-live-search.md)
+now update the complete snapshot in place, retaining GET fallback;
+filtering menus, hidden/pinned threads and complete catalog parity
 remain unfinished. Explicit query URLs and their precedence are local extensions.
 
 ## Snapshot and browser boundaries
