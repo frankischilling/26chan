@@ -103,6 +103,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     for (query, expected) in [
         ("q=aLpHa", vec![*a]),
         ("q=%5B.*%5D", vec![*a]),
+        ("q=%5EAlpha", vec![*a]),
+        ("q=%5EBravo%24%7C%5ECrane%24", vec![*c, *b]),
+        ("q=%5B.*%5D%24", vec![*a]),
+        ("q=Alpha%5E", vec![]),
+        ("q=%5E%24", vec![]),
         (
             "q=%3Cscript%3E",
             threads.iter().copied().rev().collect::<Vec<_>>(),

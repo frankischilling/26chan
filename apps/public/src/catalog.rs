@@ -2,6 +2,8 @@ use axum::{extract::Query, http::Uri};
 use board_store::BoardSnapshot;
 use serde::Deserialize;
 
+mod filter;
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 pub enum Order {
     #[default]
@@ -80,17 +82,17 @@ impl Options {
 
     pub fn apply(&self, snapshot: &mut BoardSnapshot) {
         if !self.q.is_empty() {
-            let query = self.q.to_lowercase();
+            let query = filter::Filter::new(&self.q);
             snapshot.threads.retain(|preview| {
                 preview
                     .posts
                     .iter()
                     .find(|post| post.id == preview.thread.id)
                     .is_some_and(|post| {
-                        post.subject.to_lowercase().contains(&query)
-                            || post.comment.to_lowercase().contains(&query)
+                        query.matches(&post.subject)
+                            || query.matches(&post.comment)
                             || post.attachment.as_ref().is_some_and(|file| {
-                                !file.file_deleted && file.filename.to_lowercase().contains(&query)
+                                !file.file_deleted && query.matches(&file.filename)
                             })
                     })
             });
