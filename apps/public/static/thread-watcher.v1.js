@@ -391,9 +391,67 @@ function start(context) {
     menu.list.append(item);
     return control;
   }
-  function openPostAction(post, action) {
+  function postMenuLink(list, text, href) {
+    const item = node('li'); item.setAttribute('role', 'none');
+    const link = node('a', text);
+    link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    link.tabIndex = -1; link.setAttribute('role', 'menuitem');
+    link.addEventListener('click', () => closePostMenu(true));
+    item.append(link); list.append(item);
+    return link;
+  }
+  function postFileMenu(menu) {
+    const source = menu.post.querySelector('.file > p > a[href]');
+    if (!source) return;
+    let file;
+    try { file = new URL(source.href); } catch { return; }
+    if (!['http:', 'https:'].includes(file.protocol) || file.username || file.password || file.search || file.hash
+      || !new RegExp(`^/${board}/[1-9][0-9]{0,18}\\.png$`).test(file.pathname)) return;
+    const providers = [
+      ['Google', 'https://lens.google.com/uploadbyurl'],
+      ['Yandex', 'https://www.yandex.com/images/search'],
+      ['SauceNAO', 'https://saucenao.com/search.php'],
+    ].map(([name, endpoint]) => {
+      const url = new URL(endpoint); url.searchParams.set('url', file.href);
+      if (name === 'Yandex') url.searchParams.set('rpt', 'imageview');
+      return [name, url.href];
+    });
+    if (mobile.matches) {
+      if (menu.post.querySelector(`form[action="/${board}/delete"] input[name=file_only]`)) {
+        postMenuItem(menu, 'del-file', 'Delete file', () => openPostAction(menu.post, 'delete', true));
+      }
+      postMenuLink(menu.list, 'Open normalized file', file.href);
+      for (const [name, url] of providers) postMenuLink(menu.list, `Search image on ${name}`, url);
+      return;
+    }
+    const item = node('li', undefined, 'imageSearchMenu'); item.setAttribute('role', 'none');
+    const submenu = node('ul', undefined, 'imageSearchSubmenu');
+    submenu.setAttribute('role', 'menu'); submenu.setAttribute('aria-label', 'Image search providers'); submenu.hidden = true;
+    const toggle = button('Image search \u00bb', () => show(submenu.hidden));
+    toggle.setAttribute('role', 'menuitem'); toggle.setAttribute('aria-label', 'Image search');
+    toggle.setAttribute('aria-haspopup', 'menu'); toggle.setAttribute('aria-expanded', 'false');
+    function show(open, focus = false) {
+      submenu.hidden = !open; toggle.setAttribute('aria-expanded', String(open));
+      if (focus) submenu.querySelector('a')?.focus();
+    }
+    for (const [name, url] of providers) postMenuLink(submenu, name, url);
+    item.addEventListener('pointerenter', () => show(true));
+    item.addEventListener('pointerleave', () => { if (!item.contains(document.activeElement)) show(false); });
+    item.addEventListener('keydown', event => {
+      if (event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); show(true, true); }
+      else if (!submenu.hidden && ['ArrowLeft', 'Escape'].includes(event.key)) {
+        event.preventDefault(); event.stopPropagation(); show(false); toggle.focus();
+      }
+    });
+    item.append(toggle, submenu); menu.list.append(item);
+  }
+  function openPostAction(post, action, fileOnly = false) {
     const form = post.querySelector(`.postActions form[action="/${board}/${action}"]`);
     if (!form) return;
+    if (action === 'delete') {
+      const checkbox = form.querySelector('input[name=file_only]');
+      if (checkbox) checkbox.checked = fileOnly;
+    }
     const details = form.closest('details');
     if (details) details.open = true;
     form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]')?.focus();
@@ -451,8 +509,9 @@ function start(context) {
       menu.hide = postMenuItem(menu, 'hide-r', '', () => { void nativeReplies?.toggle(post.id.slice(1)); });
     }
     if (mobile.matches) postMenuItem(menu, 'del-post', 'Delete post', () => openPostAction(post, 'delete'));
+    postFileMenu(menu);
     root.addEventListener('keydown', event => {
-      const items = [...list.querySelectorAll('[role="menuitem"]')];
+      const items = [...list.querySelectorAll('[role="menuitem"]')].filter(item => item.getClientRects().length);
       const current = items.indexOf(document.activeElement);
       let index;
       if (event.key === 'ArrowDown') index = (current + 1) % items.length;
@@ -470,7 +529,7 @@ function start(context) {
     trigger.setAttribute('aria-expanded', 'true');
     syncOpenPostMenu();
     if (focus) {
-      const items = list.querySelectorAll('[role="menuitem"]');
+      const items = [...list.querySelectorAll('[role="menuitem"]')].filter(item => item.getClientRects().length);
       items[focus === 'last' ? items.length - 1 : 0]?.focus();
     }
   }

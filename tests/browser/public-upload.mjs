@@ -204,13 +204,37 @@ try {
     assert.equal((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt').length, 0);
     await page.goto(threadUrl);
   }
-  await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
   const deletion = page.locator(`#p${thread} form[action="/${board}/delete"]`);
+  if (javascript) {
+    await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Image search', exact: true }).press('ArrowRight');
+    for (const [name, host] of [['Google', 'lens.google.com'], ['Yandex', 'www.yandex.com'], ['SauceNAO', 'saucenao.com']]) {
+      const link = page.getByRole('menuitem', { name, exact: true });
+      const url = new URL(await link.getAttribute('href'));
+      assert.equal(url.hostname, host); assert.equal(url.searchParams.get('url'), mediaUrl.href);
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+    await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', mediaUrl.href);
+    await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
+    await expect(deletion.getByLabel('File only', { exact: true })).toBeChecked();
+    await expect(deletion.getByLabel('Deletion password', { exact: true })).toBeFocused();
+    assert.equal((await page.request.get(mediaUrl.href)).status(), 200, 'choosing Delete file must not submit deletion');
+    assert.equal(requests.some(url => /https:\/\/(lens\.google\.com|www\.yandex\.com|saucenao\.com)\//.test(url)), false);
+  } else await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
   await deletion.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
   assert.ok(Number.isSafeInteger(post.no) && post.no > 0);
   await expect(page.locator(`#p${post.no}`).getByText('File deleted.', { exact: true })).toBeVisible();
+  if (javascript) {
+    await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape'); await page.setViewportSize({ width: 1280, height: 900 });
+  }
   await screenshot('file-deleted');
   assert.equal(await page.locator('.fileThumb img').count(), 0);
   const removed = await page.request.get(mediaUrl.href, { headers: { 'If-None-Match': etag } });

@@ -154,8 +154,10 @@ table.postForm button { padding: 1px 6px; }
 #post-menu.nativePostMenu { position: absolute; z-index: 40; max-width: 100vw; font: var(--post-menu-font, 12px) var(--font); line-height: 1.3em; color: var(--ink); text-align: left; }
 .nativePostMenu ul { background: var(--panel); border: 1px solid var(--catalog-menu-edge); border-right-width: var(--post-menu-right, 2px); border-bottom-width: var(--post-menu-bottom, 1px); list-style: none; padding: 0; margin: 0; white-space: nowrap; }
 .nativePostMenu li { position: relative; padding: 0; border-bottom: 1px solid var(--catalog-menu-edge); }
-.nativePostMenu button { display: block; width: 100%; padding: 2px 4px; border: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: left; cursor: pointer; }
-.nativePostMenu button:hover, .nativePostMenu button:focus-visible { background: var(--paper); }
+.nativePostMenu button, .nativePostMenu a { display: block; width: 100%; padding: 2px 4px; border: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.nativePostMenu button:hover, .nativePostMenu button:focus-visible, .nativePostMenu a:hover, .nativePostMenu a:focus-visible { background: var(--paper); }
+.nativePostMenu .imageSearchSubmenu { position: absolute; top: 0; left: 100%; min-width: 100%; }
+.nativePostMenu.dd-menu-left .imageSearchSubmenu { left: auto; right: 100%; }
 @media (max-width: 480px) {
   .postMenuBtn[data-post-menu] { transform: rotate(90deg); margin: 4px -5px 0 4px; float: left; font-weight: bold; opacity: 1; height: .5em; font-size: 16px; }
   #post-menu.nativePostMenu { font-size: 16px; line-height: 2.5em; }
