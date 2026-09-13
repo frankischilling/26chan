@@ -48,3 +48,39 @@ mobile panel behavior, filter-driven watching and blacklist semantics remain
 unfinished. Broader archive/deletion/expiry and storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
+
+## Settings integration
+
+The catalog exposes its watcher checkbox through an Options dialog with the
+native `theme`, `theme-tw`, `theme-save` and `theme-close` identifiers. Saving
+applies in place; enabling the watcher clears `disableAll`, as in catalog v1025.
+The board/thread dialog uses the extension's Monitoring labels for watching,
+automatic watching after posting and fixed positioning, plus the global disable
+override. Persisted board/thread saves navigate without the fragment, as in the
+extension. Other native settings categories are not implemented by this slice.
+
+Both dialogs use the native Settings entry point rather than a separate desktop
+watcher toggle. The dialog title labels only the title text, not its close
+button. The Monitoring control has a stable accessible name independent of its
+decorative expand/collapse indicator. Native dialog modality keeps keyboard focus out of the underlying page;
+Escape and the close control discard unsaved edits and restore focus.
+
+Changed board/thread options are merged with freshly loaded settings under the
+watcher's Web Lock. Unedited options from another tab are preserved. The settings
+object stays bounded to 4,096 code units. Storage or locking failures keep changes
+in memory in the current tab and skip the navigation that would discard them.
+No settings string is inserted as HTML, CSS or a navigation target.
+
+The extension's fixed-position setting applies on desktop board/thread views,
+with the observed initial position at left 10px, top 380px. Catalog placement
+starts at left 10px, top 75px. At mobile widths up to 480px, the enabled watcher
+starts hidden; the TW link shows it at the current scroll position plus 30px,
+and its close control hides it without disabling watch storage. Dragging and
+restoring `TW-position` remain unfinished.
+
+`tests/browser/watcher-settings.spec.js` covers save/cancel, disable precedence,
+fixed positioning, cross-tab draft merging, unavailable storage/writes/locks,
+mobile show/hide and the unchanged no-JavaScript style page. The existing strict
+CSP regression includes the exact release-owned `native-settings.v1.js` module,
+with healthy alternate-script and inline-script denials. No wildcard script or
+image source, new fetch permission, database grant or migration is introduced.

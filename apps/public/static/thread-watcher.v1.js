@@ -2,6 +2,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
+import { installSettings } from './native-settings.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -15,20 +16,31 @@ function start(context) {
   const timestampKey = '4chan-tw-timestamp';
   const lockName = 'paperboard-thread-watcher';
   let persistent = !!navigator.locks?.request;
+  let settingsCache = {};
+  let volatileSettings = false;
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
-  let collapsed = matchMedia('(max-width: 600px)').matches;
+  const mobile = matchMedia('(max-width: 480px)');
+  let collapsed = mobile.matches;
 
   function read(key) {
     try { return localStorage.getItem(key); }
     catch { persistent = false; return null; }
   }
   function configuration() {
-    const raw = read(settingsKey);
-    if (!raw || raw.length > 4096) return {};
-    try { const value = JSON.parse(raw); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
-    catch { return {}; }
+    if (volatileSettings) return { ...settingsCache };
+    let raw;
+    try { raw = localStorage.getItem(settingsKey); }
+    catch { persistent = false; volatileSettings = true; return { ...settingsCache }; }
+    settingsCache = {};
+    if (raw && raw.length <= 4096) {
+      try {
+        const value = JSON.parse(raw);
+        if (value && typeof value === 'object' && !Array.isArray(value)) settingsCache = value;
+      } catch { /* Malformed preferences use finite defaults. */ }
+    }
+    return { ...settingsCache };
   }
   function load() { if (persistent) entries = readWatches(read(storeKey)); }
   function node(tag, text, className) {
@@ -65,20 +77,6 @@ function start(context) {
     });
   }
 
-  const toggle = button('Thread Watcher', async () => {
-    refresh.cancel();
-    enabled = !enabled;
-    collapsed = false;
-    await locked(() => {
-      const settings = { ...configuration(), threadWatcher: enabled };
-      if (enabled) settings.disableAll = false;
-      try { localStorage.setItem(settingsKey, JSON.stringify(settings)); } catch { persistent = false; }
-    });
-    render();
-    if (enabled) { await acknowledgeCurrent(); navigateReadPosition(); }
-  }, 'watcherToggle');
-  toggle.id = 'thread-watcher-enable';
-  document.querySelector('.boardList').append(' [ ', toggle, ' ]');
   const panel = node('aside', undefined, 'watcherPanel');
   panel.id = 'threadWatcher';
   panel.setAttribute('aria-label', 'Thread Watcher');
@@ -97,20 +95,7 @@ function start(context) {
   list.id = 'watchList';
   const notice = node('p', '', 'watcherNotice');
   notice.setAttribute('role', 'status');
-  const autoLabel = node('label', ' Automatically watch threads you create');
-  const autoWatch = node('input');
-  autoWatch.type = 'checkbox';
-  autoWatch.id = 'watcher-auto-post';
-  autoLabel.prepend(autoWatch);
-  autoWatch.addEventListener('change', async () => {
-    const value = autoWatch.checked;
-    await locked(() => {
-      const settings = { ...configuration(), threadAutoWatcher: value };
-      try { localStorage.setItem(settingsKey, JSON.stringify(settings)); } catch { persistent = false; }
-    });
-    render();
-  });
-  body.append(list, autoLabel, notice);
+  body.append(list, notice);
   panel.append(heading, body);
   document.body.append(panel);
 
@@ -135,6 +120,31 @@ function start(context) {
       rows.set(key, receipt.track ? acknowledgedEntry(current, receipt.post) : current);
     }),
   });
+
+  const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
+  });
+  async function saveSettings(changes) {
+    const applied = await locked(() => {
+      const settings = { ...configuration(), ...changes };
+      if (catalog && changes.threadWatcher === true) settings.disableAll = false;
+      const raw = JSON.stringify(settings);
+      if (raw.length > 4096) return false;
+      if (persistent) {
+        try { localStorage.setItem(settingsKey, raw); }
+        catch { persistent = false; volatileSettings = true; }
+      } else volatileSettings = true;
+      settingsCache = settings;
+      refresh.cancel();
+      enabled = settings.threadWatcher === true && settings.disableAll !== true;
+      collapsed = mobile.matches;
+      render();
+      return true;
+    });
+    if (applied === false) return false;
+    if (enabled) { await acknowledgeCurrent(); navigateReadPosition(); }
+    return { persisted: !volatileSettings };
+  }
 
   function textWithBreaks(element) {
     if (!element) return '';
@@ -209,10 +219,13 @@ function start(context) {
     }
   }
   function render() {
-    autoWatch.checked = configuration().threadAutoWatcher === true;
     tracking.prepareForms();
-    toggle.setAttribute('aria-pressed', String(enabled));
-    panel.hidden = !enabled;
+    panel.hidden = !enabled || (mobile.matches && collapsed);
+    panel.style.position = !catalog && !mobile.matches && configuration().fixedThreadWatcher === true ? 'fixed' : 'absolute';
+    panel.style.left = mobile.matches ? '0px' : '10px';
+    panel.style.top = mobile.matches ? `${window.scrollY + 30}px` : catalog ? '75px' : '380px';
+    close.hidden = !mobile.matches;
+    settingsNavigation.setWatcherEnabled(enabled, !panel.hidden);
     body.hidden = collapsed;
     fold.setAttribute('aria-expanded', String(!collapsed));
     refreshButton.disabled = busy || !enabled;
@@ -295,6 +308,7 @@ function start(context) {
     render();
   });
   window.addEventListener('pagehide', () => refresh.cancel());
+  mobile.addEventListener('change', () => { collapsed = mobile.matches; render(); });
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();

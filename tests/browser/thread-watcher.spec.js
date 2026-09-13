@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test';
+import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
@@ -22,9 +23,9 @@ const test = base.extend({
     }
   },
 });
-async function enable(page, path) {
+async function enable(page, path, options) {
   await page.goto(path);
-  await page.locator('#thread-watcher-enable').click();
+  await saveWatcherSettings(page, { threadWatcher: true }, options);
   await expect(page.locator('#threadWatcher')).toBeVisible();
 }
 
@@ -83,7 +84,7 @@ test('watcher connect CSP permits its owned alias and denies healthy unrelated r
 test('local storage failure keeps same-tab watch controls usable without executable labels', async ({ page, context, createThread }) => {
   const id = await createThread('demo', '<img src=x onerror=alert(1)>');
   await context.addInitScript(() => { for (const method of ['getItem', 'setItem', 'removeItem']) Storage.prototype[method] = () => { throw new Error('Storage unavailable'); }; });
-  await enable(page, `/demo/thread/${id}`);
+  await enable(page, `/demo/thread/${id}`, { reload: false });
   await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).click();
   await expect(page.locator(`#watch-${id}-demo`)).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('#watchList img')).toHaveCount(0);
@@ -108,7 +109,7 @@ test('disabling the watcher in another tab cancels an in-flight response', async
   });
   await page.locator('#twPrune').click();
   await requested;
-  await other.locator('#thread-watcher-enable').click();
+  await saveWatcherSettings(other, { threadWatcher: false });
   await expect(page.locator('#threadWatcher')).toBeHidden();
   release();
   await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem('4chan-watch'))[`${id}-demo`][2], id)).toBe(0);

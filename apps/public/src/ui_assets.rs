@@ -5,6 +5,7 @@ pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js"
 pub(crate) const WATCHER_SCRIPT_PATH: &str = "/static/thread-watcher.v1.js";
 pub(crate) const WATCHER_CORE_PATH: &str = "/static/thread-watcher-core.v1.js";
 pub(crate) const POST_TRACKING_PATH: &str = "/static/post-tracking.v1.js";
+pub(crate) const NATIVE_SETTINGS_PATH: &str = "/static/native-settings.v1.js";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
@@ -61,6 +62,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            NATIVE_SETTINGS_PATH,
+            include_bytes!("../static/native-settings.v1.js").as_slice(),
+        ),
         (
             POST_TRACKING_PATH,
             include_bytes!("../static/post-tracking.v1.js").as_slice(),

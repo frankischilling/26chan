@@ -25,8 +25,7 @@ for (const theme of themes) {
       await page.setViewportSize(viewport);
       for (const catalog of [true, false]) {
         await page.goto(catalog ? '/demo/catalog' : '/demo/');
-        const fold = page.locator('.watcherFold');
-        if (viewport.width === 390) await fold.click();
+        if (viewport.width === 390) await page.locator('#watcher-open-mobile').click();
         const links = page.locator('#watchList a');
         await expect(links).toHaveText([
           '/demo/ - Read thread', '(2) /demo/ - Unread thread',

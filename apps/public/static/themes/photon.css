@@ -1,4 +1,5 @@
 :root {
+  --settings-edge: rgba(0, 0, 0, 0.2);
   --paper: #eeeeee; --ink: #333333; --panel: #dddddd; --edge: #cccccc;
   --link: #ff6600; --hover: #ff3300; --quote-link: #ff6600;
   --name: #004a99; --subject: #111111; --label: #dddddd; --label-ink: #333333;

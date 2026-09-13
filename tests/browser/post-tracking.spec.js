@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const password = 'owned-post-tracking-password';
@@ -21,8 +22,7 @@ async function post(page, comment, { subject = '', option = '' } = {}) {
 }
 async function autoWatch(page) {
   await page.goto('/test/');
-  await page.locator('#thread-watcher-enable').click();
-  await page.getByLabel('Automatically watch threads you create').check();
+  await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
   await expect(page.locator('input[name=awt]')).toHaveValue('1');
 }
 test('successful ordinary and board-return posts auto-watch, track own replies and clear receipts', async ({ page, context, request }) => {

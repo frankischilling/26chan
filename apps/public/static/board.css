@@ -143,7 +143,7 @@ table.postForm button { padding: 1px 6px; }
 @media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
 
 /* Watcher controls inherit each public theme's palette. */
-.watcherToggle, .watcherFold { border: 0; padding: 0; color: var(--link); background: transparent; font: inherit; }
+.watcherFold { border: 0; padding: 0; color: var(--link); background: transparent; font: inherit; }
 .watcherPanel { position: absolute; left: 10px; top: 75px; z-index: 30; max-width: min(420px, calc(100% - 20px)); color: var(--ink); background: var(--panel); border: 1px solid var(--edge); font-size: 12px; }
 .watcherHeader { display: flex; align-items: center; gap: 8px; padding: 4px; border-bottom: 1px solid var(--edge); }
 .watcherHeader button, #watchList button { padding: 1px 3px; font: inherit; }
@@ -159,4 +159,39 @@ table.postForm button { padding: 1px 6px; }
 .wbtn, .watcherLastRead { padding: 0 2px; font: inherit; }
 .watcherReadTarget { outline: 2px solid var(--link); outline-offset: 2px; }
 .watcherPanel[hidden], #watcher-body[hidden], .wbtn[hidden], .watcherLastRead[hidden] { display: none !important; }
-@media (max-width: 600px) { .watcherPanel { position: relative; left: auto; top: auto; max-width: 100%; margin: 10px 0; } }
+.watcherNotice:empty { display: none; }
+#navtopright { float: right; }
+.settingsMobile { display: none; }
+.nativeSettings { color: var(--ink); font-family: var(--font); font-size: 14px; }
+.nativeSettings::backdrop { background: rgba(0, 0, 0, 0.25); }
+.nativeSettings .panelHeader { position: relative; font-size: 16px; font-weight: bold; text-align: center; line-height: 14px; margin: 5px 0; padding: 0 0 5px; border-bottom: 1px solid var(--settings-edge, var(--edge)); }
+.nativeSettings .panelCtrl { position: absolute; right: 5px; top: -2px; border: 0; padding: 0; background: transparent; color: inherit; font-size: 18px; line-height: 18px; cursor: pointer; }
+.nativeSettings ul { list-style: none; padding: 0; margin: 0 0 10px; }
+.nativeSettings label { display: inline-block; user-select: none; }
+.nativeSettings input { margin-right: 5px; }
+.nativeSettings button { font-family: inherit; }
+.nativeSettings .center { text-align: center; margin-bottom: 5px; }
+.nativeSettings .settingsMessage:empty { display: none; }
+.nativeSettings .settingsMessage { margin: 5px; }
+dialog.catalogSettings { position: absolute; inset: auto; top: 60px; left: 50%; margin: 0 0 0 -178px; width: 330px; max-width: calc(100vw - 20px); max-height: calc(100dvh - 80px); box-sizing: content-box; padding: 2px 5px 5px; border: 0; background: var(--panel); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); overflow: auto; }
+.catalogSettings h4 { font-size: 14px; padding: 0; margin: 10px 0 5px; }
+.catalogSettings .clickset { margin-bottom: 8px; }
+.catalogSettings .clickset li { clear: both; margin-bottom: 2px; line-height: 20px; }
+dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
+.extensionSettings .nativeSettingsBody { box-sizing: border-box; position: relative; top: 25px; width: 400px; max-width: calc(100% - 20px); max-height: 85%; margin: 0 auto; overflow: auto; background: var(--panel); border: 1px solid var(--settings-frame, rgba(0, 0, 0, 0.2)); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); }
+.settingsExpandAll { text-align: center; margin: 0 0 10px; padding-left: 7px; }
+.nativeSettings .settings-cat-lbl { font-size: 14px; font-weight: bold; margin: 10px 0 5px; padding-left: 5px; }
+.nativeSettings .settings-expand { border: 0; padding: 0; font: inherit; color: inherit; background: transparent; cursor: pointer; }
+.settings-expand::before { content: '+'; display: inline-block; width: 18px; margin-right: 5px; }
+.settings-expand[aria-expanded=true]::before { content: '-'; }
+.nativeSettings .settings-cat { margin-left: 3px; }
+.nativeSettings .settings-tip { font-size: 0.85em; margin: 2px 0 5px; padding-left: 23px; }
+.nativeSettings .settings-sub { padding-left: 23px; }
+.nativeSettings .settings-off { padding-left: 3px; }
+.nativeSettings [hidden], #watcher-open-mobile[hidden], #twClose[hidden] { display: none !important; }
+@media (max-width: 480px) {
+  .settingsDesktop { display: none !important; }
+  .settingsMobile { display: inline; }
+  .watcherPanel { width: 100%; max-width: 100%; margin: 0; box-sizing: border-box; border-left: 0; border-right: 0; }
+}
+@media (max-width: 360px) { dialog.catalogSettings { left: 10px; margin-left: 0; width: calc(100vw - 30px); } }

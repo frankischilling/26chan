@@ -1,4 +1,5 @@
 :root {
+  --settings-edge: #111111; --settings-frame: #111111;
   --paper: #1d1f21; --ink: #c5c8c6; --panel: #282a2e; --edge: #282a2e;
   --link: #81a2be; --hover: #5f89ac; --quote-link: #5f89ac;
   --name: #c5c8c6; --subject: #b294bb; --quote: #b5bd68;
