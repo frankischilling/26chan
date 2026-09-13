@@ -189,3 +189,6 @@ jobs:
       - name: Run referenced theme preferences and desktop/mobile visuals
         shell: pwsh
         run: npm run test:themes
+      - name: Run public empty and error desktop/mobile states
+        shell: pwsh
+        run: npm run test:states
