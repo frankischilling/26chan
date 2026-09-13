@@ -1,0 +1,23 @@
+{
+  "discovery_url": "https://boards.4chan.org/po/",
+  "collection_date": "2026-09-13",
+  "provenance": "Public HTML stylesheet/script links, style_group and styleSelector options inspected in memory. No board posts, user media or raw board page retained as fixtures. Public static CSS and client JS retained locally outside version control; the two fixed UI gradient PNGs are versioned assets.",
+  "selector": "styleSelector",
+  "options": ["Yotsuba", "Yotsuba B", "Futaba", "Burichan", "Tomorrow", "Photon"],
+  "default_observed_stylesheet": "https://s.4cdn.org/css/yotsubluenew.716.css",
+  "scope": "Named styles and static CSS properties, not a complete rendered page or live posting behavior snapshot.",
+  "client_asset": {"url":"https://s.4cdn.org/js/core.min.1128.js","bytes":28416,"sha256":"688d4a950499d3eef915549d5db28c1410cf08e067c9cd6598d62d42e595f1ea","collected_utc":"2026-09-13T04:35:30.403922+00:00"},
+  "preference_evidence": "Public client initStyleSheet reads the cookie named by style_group; setActiveStyleSheet writes that group for 365 days. getPreferredStyleSheet selects Yotsuba B New for ws_style and Yotsuba New otherwise. The observed /po/ page declares ws_style. Project cookies preserve independent work-safe/other preferences but use host-only HttpOnly cookies and same-origin server forms instead of parent-domain JavaScript cookies.",
+  "background_assets": [
+    {"url":"https://s.4cdn.org/image/fade.png","bytes":145,"width":1,"height":200,"sha256":"5f7a2be79027d3a5c7207de3e7efe510bcc4a66f105e174d1000cbffd6e4a274","collected_utc":"2026-09-13T04:20:37.141494+00:00"},
+    {"url":"https://s.4cdn.org/image/fade-blue.png","bytes":130,"width":1,"height":200,"sha256":"1c64b2cff8257de0f2939755da675632e2946432ad96244d03c0df4cfa8e57e0","collected_utc":"2026-09-13T04:20:37.159903+00:00"}
+  ],
+  "assets": [
+    {"url":"https://s.4cdn.org/css/yotsubanew.716.css","bytes":28528,"sha256":"05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9","collected_utc":"2026-09-13T04:02:12.987695+00:00"},
+    {"url":"https://s.4cdn.org/css/yotsubluenew.716.css","bytes":26854,"sha256":"fdb0bee8e347334ec2ed1daab6f5e3787d7724f79bb708b338fda2b85bac3720","collected_utc":"2026-09-13T04:02:13.050263+00:00"},
+    {"url":"https://s.4cdn.org/css/futabanew.716.css","bytes":25698,"sha256":"71440a1eb2cf4400b7d0b1a5aefdfa64c9e53f7f8aa57bb46122ea11281e1949","collected_utc":"2026-09-13T04:02:13.083722+00:00"},
+    {"url":"https://s.4cdn.org/css/burichannew.716.css","bytes":25674,"sha256":"17289883e6106e9b8afba10613d8e5ad4778d8416dba87f620856603e6538209","collected_utc":"2026-09-13T04:02:13.118819+00:00"},
+    {"url":"https://s.4cdn.org/css/photon.716.css","bytes":26521,"sha256":"c0adf4a7f9790e00856ac2d7e0b064ceb30002d5952c4da40004fb0bfbdd5377","collected_utc":"2026-09-13T04:02:13.164727+00:00"},
+    {"url":"https://s.4cdn.org/css/tomorrow.716.css","bytes":26908,"sha256":"3dd49edac8ebc8d0b6586539cfa3d1e8ab71d85eb41f3b3e66e4057fd8351660","collected_utc":"2026-09-13T04:02:13.210608+00:00"}
+  ]
+}

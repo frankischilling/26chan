@@ -3,7 +3,7 @@
     "repository":  "https://github.com/4chan/4chan-API",
     "revision":  "2bd670d507ba2daa37a3961a661e088cf6f89d57",
     "provenance":  "Permitted public read-only API documentation. No production post/media fixtures.",
-    "visual_reference":  "Uncollected",
+    "visual_reference":  "Partial public theme/style reference collected September 13, 2026; see public-theme-reference.json. Full original rendered-page snapshot remains uncollected.",
     "behavioral_references": [
         {
             "name": "Official posting-options FAQ",
@@ -85,6 +85,10 @@
                                              {
                                                  "name":  "arial.ttf",
                                                  "sha256":  "baa251526d6862712a58e613ef451d8a2b60482142ec6aab1d47fb8e23e21a7c"
+                                             },
+                                             {
+                                                 "name":  "times.ttf",
+                                                 "sha256":  "43a890795ad133d73568d169a35924f40416be8a6950a1a03263052ec8e95b8a"
                                              },
                                              {
                                                  "name":  "tahoma.ttf",

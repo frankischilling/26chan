@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ worksafe }}">{% endblock %}
+{% block theme_link %}<a href="/settings/theme?worksafe={{ worksafe }}">Style</a>{% endblock %}
+{% block title %}Style preference - Paperboard{% endblock %}
+{% block content %}
+<section class="message">
+  <h1>Style preference</h1>
+  <p>This browser remembers separate styles for work-safe and other boards. It does not change your posts or sign you in.</p>
+  <form action="/settings/theme" method="post">
+    <label for="theme-choice">Style</label>
+    <select id="theme-choice" name="theme">
+    {% for option in options %}<option value="{{ option.0 }}"{% if option.2 %} selected{% endif %}>{{ option.1 }}</option>{% endfor %}
+    </select>
+    <input type="hidden" name="return_to" value="{{ return_to }}">
+    <input type="hidden" name="worksafe" value="{{ worksafe }}">
+    <button type="submit">Apply style</button>
+  </form>
+  <p><a href="{{ return_to }}">Return without changing style</a></p>
+</section>
+{% endblock %}

@@ -102,17 +102,22 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
 
 fn headers(mut response: Response, state: &AppState) -> Response {
     let headers = response.headers_mut();
-    headers.insert("content-security-policy", HeaderValue::from_static("default-src 'none'; style-src 'self'; img-src 'none'; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"));
+    // Only two fixed, release-owned UI images may load from the public origin.
+    // Do not broaden this to 'self': uploaded content stays on the media origin.
+    let mut images = format!(
+        "{}/static/themes/fade.png {}/static/themes/fade-blue.png",
+        state.origin, state.origin
+    );
     if let Some(media) = &state.media {
-        let policy = format!(
-            "default-src 'none'; style-src 'self'; img-src {}; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
-            media.settings.origin.as_string()
-        );
-        headers.insert(
-            "content-security-policy",
-            HeaderValue::from_str(&policy).expect("validated media origin"),
-        );
+        images = format!("{} {images}", media.settings.origin.as_string());
     }
+    let policy = format!(
+        "default-src 'none'; style-src 'self'; img-src {images}; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+    );
+    headers.insert(
+        "content-security-policy",
+        HeaderValue::from_str(&policy).expect("validated application origins"),
+    );
     headers.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),

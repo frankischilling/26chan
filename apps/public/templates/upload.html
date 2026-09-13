@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
+{% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block title %}Upload status - /{{ board.slug }}/{% endblock %}
 {% block feature_notice %}Development media workflow.{% endblock %}
 {% block content %}

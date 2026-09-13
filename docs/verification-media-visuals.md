@@ -33,3 +33,9 @@ npm run test:archive-visual
 All three text-board/catalog and six archive tests passed without updates. The CI change adds `npm run test:media-visual` after these existing Windows checks; it does not alter workflow permissions, runners, dependency pins or native qualification. All 17 comparisons passed [PR CI on `9a8e5b1`](https://github.com/frankischilling/26chan/actions/runs/34735844313). Original-site visual parity, additional themes and broader loading/error-state coverage remain tracked separately in [compatibility](compatibility.md) and issue #6.
 
 The JPEG input slice changes the upload label to "PNG or JPEG". Only its four board/thread desktop/mobile baselines were updated with `npm run test:media-visual -- --grep 'attachment (board|thread)' --update-snapshots`. Each was inspected for readable forms, wrapped filenames, image proportions and mobile overflow. All 17 comparisons then passed locally without updates. No CSS, catalog/archive baseline or browser pin changed. New-head CI remains required; see [JPEG verification](jpeg-media.md).
+
+The subsequent [theme slice](public-themes.md) updates the referenced base font,
+palette and footer style control. Its record covers the deliberate comparison,
+individual review and update of all 17 existing baselines. Media dimensions,
+spoiler/deleted non-fetch checks and browser pins remain unchanged. Theme PR CI
+is separate from the earlier results above.
