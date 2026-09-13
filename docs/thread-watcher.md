@@ -2,6 +2,9 @@
 
 The watcher remains under implementation in issue #88 and draft PR #89. It is
 not yet a complete reproduction of either public client.
+The extension now connects stored native filters to manual automatic-watch
+refreshes and persists unwatch suppression. The native filter editor and other
+remaining compatibility work below are still required.
 
 ## Reference
 
@@ -43,7 +46,7 @@ text and keyboard removal. Persisted browser tests separately exercise refresh,
 cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
-Other native settings and post-menu actions, filter-driven watching and blacklist semantics remain
+The native filter editor, other native settings and post-menu actions remain
 unfinished. Archive/expiry and additional storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
@@ -142,7 +145,7 @@ checks fixed bytes against both image manifests, GET/HEAD behavior, response
 headers, denied writes and missing paths. Test results are recorded per commit
 in the PR; adding this coverage is not itself a passing result.
 
-This is not a full watcher parity claim. Filter-driven watching/blacklisting,
+This is not a full watcher parity claim. The native filter editor,
 additional settings and position edge cases,
 and reviewed full watcher/settings reference captures remain unfinished.
 
@@ -442,3 +445,95 @@ flag; the corrected full four-test suite passed. No application code or limits
 changed. This extends the earlier transport checkpoint evidence; it does not
 establish archive/expiry behavior, full storage-race coverage, filter-driven
 watching or complete visual parity.
+
+## Filter-driven watching and blacklist persistence
+
+The extension's manual Refresh control now reads `4chan-filters` when the
+native `filter` preference is enabled. Active Auto rows select the boards;
+all active filters explicitly scoped to those boards can match, retaining
+first-match order. Catalog-page refresh and automatic page initialization keep
+their distinct reference behavior. A manual extension refresh can discover
+threads when the watch list is empty. The editor is not implemented yet; the
+integration tests supply native-format stored preferences directly.
+
+Successful catalog results run through disposable matching workers. New
+watches begin at read position 0, and the subsequent thread refresh counts
+their existing replies. Existing watches retain their label and read state.
+Label preparation follows `ThreadWatcher.generateLabel` in the pinned
+extension: select subject, otherwise collapse exact `<br>` runs and strip
+comment tags, otherwise use `No.ID`, then slice at 45 UTF-16 code units. A
+data-only parser inside the worker converts that small result to plain label
+text. This replaces the reference's insertion of the label as HTML; entities
+are decoded once, and markup cannot create elements or load resources in the
+watcher. Empty visible labels remain empty when saved and restored.
+
+Extension unwatch records `ID-board: 1` in `4chan-watch-bl`. Manual rewatch does
+not remove that suppression, matching the native toggle. Catalog unwatch
+retains its separate behavior and does not add a blacklist entry. A successful
+board catalog prunes blacklist keys only when the ID is absent from that
+catalog. Failed, invalid and unrequested boards retain their blacklist state.
+The latter is a failure-handling exception to the native wholesale replacement:
+an unavailable board or changed filter scope cannot silently forget an
+explicit unwatch and later restore it through automatic matching.
+
+Blacklist storage accepts at most 4,096 canonical keys and 196,608 code units.
+Invalid state prevents automatic additions; an unwatch that cannot safely add
+its suppression record retains the watch and shows the reason. Entries are
+not evicted to make room for automatic watching. These are explicit security
+bounds on otherwise unbounded native storage.
+
+Catalog fetching, worker matching and thread fetching share a 60-second cycle
+deadline. Catalog bytes reduce the thread phase's remaining 16 MiB budget.
+Requests keep their 4 MiB response limit, two concurrent slots and launch
+spacing, including the phase boundary. Individual worker and request deadlines
+still apply. Thread fetch/body waits now settle on cancellation even when an
+injected transport ignores abort; late bodies are cancelled without waiting
+on an uncooperative cleanup promise.
+
+The candidate commit checks the current enabled state, filter contents, watches
+and blacklist under the existing Web Lock. Storage changes, disabling and page
+exit cancel the cycle. Delayed commits cannot apply stale matching results.
+Protected watch mutations also read current settings after acquiring the lock.
+
+`localStorage` does not provide an atomic transaction across two keys. Unwatch
+persists suppression before removing the watch; automatic discovery persists
+additions before pruning proven-absent suppression. A failed write switches to
+the existing same-tab fallback. An interrupted write can leave an older watch
+or extra suppression in persisted storage, but this ordering does not leave a
+persisted unwatch without its suppression. No database transaction or crash
+atomicity is claimed for browser preferences.
+
+The Rust server still serves the fixed filter bundle and the existing watcher
+aliases. This integration adds no CSP source, database grant, migration or
+production media permission. The editor, filter hide/highlight presentation,
+remaining settings and post-menu fidelity, archive/expiry qualification and
+full reference captures remain unfinished.
+
+Integration checkpoint validation on the owned Windows/Chromium/PostgreSQL setup:
+
+- `npm run test:behavior`: 85 unit tests and 74 browser tests passed. The browser
+  groups contain 47 general, 13 watcher/transport, 4 lifecycle, 7 automatic-watch
+  and 3 posting cases, each retaining its existing server request budgets.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy -p board-public --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test -p board-public --all-features --all-targets --locked -- --test-threads=1`:
+  all 74 test executions passed, including database-backed cases.
+- `VISUAL_FIXTURE_SERVER=1 npm run test:visual`: all three comparisons passed;
+  no screenshot baseline changed.
+
+The aggregate-budget browser test pads healthy owned JSON responses with
+bounded JSON whitespace. Catalog traffic leaves insufficient capacity for all
+three thread responses. A separate thread-only control then successfully reads
+the same three padded responses with a full budget, distinguishing the shared
+ceiling from malformed input or an unavailable service. Unit tests also cover
+a staggered request whose remaining budget is consumed by another slot,
+cancelled/hung transports, uncooperative cleanup, exact large IDs, empty labels,
+blacklist limits, matching failure and invalid worker labels.
+
+Initial browser failures came from an incorrect label expectation and reading
+blacklist storage before the unwatch lock completed. The corrected tests assert
+the actual source subject, plain rendered label and completed removal. A parallel
+Rust build hit Windows access denial while the browser server held the public
+executable; the sequential rerun passed. These checks qualify the integration,
+not the unfinished editor or complete watcher parity. Hosted checks must still
+qualify the committed head.

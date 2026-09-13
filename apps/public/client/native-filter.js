@@ -1,7 +1,8 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
-import { nativeCommentText } from './native-filter-html.js';
+import { nativeCommentText, nativeWatchLabel } from './native-filter-html.js';
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
+export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
 
 // Raw HTML and user patterns are evaluated only in a fresh worker, never in the client path.
 
@@ -65,7 +66,8 @@ export function autoWatchBoards(filters) {
 function checkedJob(value) {
   if (!record(value) || value.version !== 1 || typeof value.board !== 'string'
     || value.board.length > FILTER_LIMITS.boardToken || !/^[a-z0-9]+$/.test(value.board)
-    || !Array.isArray(value.posts) || value.posts.length > FILTER_LIMITS.posts) throw new Error('invalid-job');
+    || !Array.isArray(value.posts) || value.posts.length > FILTER_LIMITS.posts
+    || (value.labels !== undefined && typeof value.labels !== 'boolean')) throw new Error('invalid-job');
   const filters = filterRows(value.filters);
   let length = filters.reduce((sum, row) => sum + row.pattern.length + row.boards.length, 0);
   const seen = new Set();
@@ -84,7 +86,7 @@ function checkedJob(value) {
     }
     return prepared;
   });
-  return { version: 1, board: value.board, filters, posts };
+  return { version: 1, board: value.board, filters, posts, ...(value.labels ? { labels: true } : {}) };
 }
 
 function escapeNative(text, wildcards = false) {
@@ -143,9 +145,11 @@ function evaluateNativeFilterJob(raw) {
   }
   const matches = [];
   for (const post of job.posts) {
+    const rawComment = post.com;
     for (const { filter, pattern, index, boards } of compiled) {
       if (boards.includes(job.board) && matchesPrepared(filter, pattern, post)) {
-        matches.push({ id: post.no, filter: index });
+        matches.push({ id: post.no, filter: index,
+          ...(job.labels ? { label: nativeWatchLabel({ no: post.no, sub: post.sub, com: rawComment }) } : {}) });
         break;
       }
     }
@@ -173,8 +177,10 @@ function checkedResult(raw, job) {
       const filter = job.filters[match.filter];
       if (index <= previous || !filter?.active || filter.pattern === ''
         || !boardTokens(filter.boards).includes(job.board)) return { status: 'invalid-result' };
+      if (job.labels && (typeof match.label !== 'string' || match.label.length > 45
+        || /[\u0000-\u001f\u007f]/.test(match.label))) return { status: 'invalid-result' };
       previous = index;
-      matches.push({ id: match.id, filter: match.filter });
+      matches.push({ id: match.id, filter: match.filter, ...(job.labels ? { label: match.label } : {}) });
     }
     return { status: 'ok', matches };
   } catch { return { status: 'invalid-result' }; }
@@ -188,11 +194,11 @@ export class NativeFilterMatcher {
     this.deadline = deadline;
   }
 
-  match(filters, board, posts, { signal } = {}) {
+  match(filters, board, posts, { signal, labels = false } = {}) {
     if (signal?.aborted) return Promise.resolve({ status: 'cancelled' });
     let job, raw;
     try {
-      job = checkedJob({ version: 1, filters, board, posts });
+      job = checkedJob({ version: 1, filters, board, posts, labels });
       raw = JSON.stringify(job);
       if (raw.length > FILTER_LIMITS.request) return Promise.resolve({ status: 'invalid-request' });
     } catch { return Promise.resolve({ status: 'invalid-request' }); }

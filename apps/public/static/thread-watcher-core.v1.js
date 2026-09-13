@@ -63,7 +63,7 @@ function entryFromTuple(tuple) {
   if (typeof label !== 'string' || label.length > WATCH_LIMITS.labelChars || read === null
     || !Number.isSafeInteger(unread) || unread < 0 || unread >= WATCH_LIMITS.posts
     || archived === null || ownReply === null) return null;
-  return Object.freeze({ label: watchLabel(label, '', ''), read, unread, archived, ownReply });
+  return Object.freeze({ label: label.replace(/[\u0000-\u001f\u007f]/g, ' '), read, unread, archived, ownReply });
 }
 
 export function readWatches(raw) {
@@ -230,6 +230,31 @@ function wait(ms, signal) {
   });
 }
 
+function abandonBody(body) {
+  try { body?.cancel()?.catch(() => {}); } catch { /* Already closed or locked. */ }
+}
+
+function abortable(operation, signal, late = () => {}) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', cancelled);
+      callback(value);
+    };
+    const cancelled = () => finish(reject, signal.reason);
+    if (signal.aborted) { cancelled(); return; }
+    signal.addEventListener('abort', cancelled, { once: true });
+    Promise.resolve().then(() => {
+      if (signal.aborted) throw signal.reason;
+      return operation();
+    }).then(value => {
+      if (settled) late(value); else finish(resolve, value);
+    }, error => finish(reject, error));
+  });
+}
+
 async function fetchThread(url, fetcher, signal, limits, budget) {
   const request = new AbortController();
   const abort = () => request.abort(signal.reason);
@@ -239,8 +264,9 @@ async function fetchThread(url, fetcher, signal, limits, budget) {
   let reader;
   let response;
   try {
-    response = await fetcher(url, { method: 'GET', mode: 'same-origin', credentials: 'omit',
-      redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer', signal: request.signal });
+    response = await abortable(() => fetcher(url, { method: 'GET', mode: 'same-origin', credentials: 'omit',
+      redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer', signal: request.signal }),
+    request.signal, response => abandonBody(response?.body));
     if (request.signal.aborted) throw request.signal.reason;
     if (response.url !== url || response.redirected) throw new Error('Unexpected watcher response URL');
     if (response.status === 404) return null;
@@ -257,7 +283,7 @@ async function fetchThread(url, fetcher, signal, limits, budget) {
     let size = 0;
     let raw = '';
     for (;;) {
-      const chunk = await reader.read();
+      const chunk = await abortable(() => reader.read(), request.signal);
       if (request.signal.aborted) throw request.signal.reason;
       if (chunk.done) break;
       size += chunk.value.byteLength;
@@ -269,8 +295,8 @@ async function fetchThread(url, fetcher, signal, limits, budget) {
   } finally {
     clearTimeout(timer);
     signal.removeEventListener('abort', abort);
-    if (reader) { try { await reader.cancel(); } catch { /* Already aborted. */ } }
-    else if (response?.body) { try { await response.body.cancel(); } catch { /* Already closed. */ } }
+    request.abort();
+    abandonBody(reader ?? response?.body);
   }
 }
 
@@ -298,7 +324,9 @@ export class WatcherRefresh {
     this.#controller = null;
   }
 
-  async refresh() {
+  async refresh({ signal: outerSignal, bytes = this.limits.cycleBytes } = {}) {
+    if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > this.limits.cycleBytes) return { status: 'invalid-budget', results: [] };
+    if (outerSignal?.aborted) return { status: 'cancelled', results: [] };
     const now = this.now();
     if (now - this.#lastStart < this.limits.intervalMs) return { status: 'cooldown', results: [] };
     const entries = [...readWatches(writeWatches(this.getEntries()))];
@@ -307,9 +335,12 @@ export class WatcherRefresh {
     const generation = this.#generation;
     const controller = this.#controller = new AbortController();
     const { signal } = controller;
+    const abort = () => controller.abort(outerSignal.reason);
+    outerSignal?.addEventListener('abort', abort, { once: true });
+    if (outerSignal?.aborted) abort();
     const current = () => !signal.aborted && generation === this.#generation;
     const timer = setTimeout(() => controller.abort(new Error('Watcher cycle timed out')), this.limits.cycleMs);
-    const budget = { bytes: this.limits.cycleBytes };
+    const budget = { bytes };
     const results = new Array(entries.length);
     let cursor = 0;
     let nextStart = now;
@@ -327,6 +358,7 @@ export class WatcherRefresh {
             nextStart = start + this.limits.staggerMs;
             await wait(start - this.now(), signal);
             if (!current()) throw signal.reason;
+            if (budget.bytes <= 0) throw new Error('Watcher byte budget exhausted');
             const raw = await fetchThread(threadApiUrl(this.origin, key), this.fetcher, signal, this.limits, budget);
             if (!current()) throw signal.reason;
             next = raw === null ? Object.freeze({ ...expected, read: '-1' })
@@ -349,6 +381,7 @@ export class WatcherRefresh {
       return { status: current() ? 'complete' : 'cancelled', results };
     } finally {
       clearTimeout(timer);
+      outerSignal?.removeEventListener('abort', abort);
       if (generation === this.#generation) this.#controller = null;
     }
   }

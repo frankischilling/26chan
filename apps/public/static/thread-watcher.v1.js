@@ -4,6 +4,8 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards,
+  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -15,6 +17,8 @@ function start(context) {
   const storeKey = '4chan-watch';
   const settingsKey = '4chan-settings';
   const timestampKey = '4chan-tw-timestamp';
+  const blacklistKey = '4chan-watch-bl';
+  const filterKey = '4chan-filters';
   const lockName = 'paperboard-thread-watcher';
   let persistent = !!navigator.locks?.request;
   let settingsCache = {};
@@ -22,6 +26,8 @@ function start(context) {
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
+  let blacklistCache = new Set();
+  let invalidBlacklist = false;
   let activePostMenu = null;
   const mobile = matchMedia('(max-width: 480px)');
   let collapsed = mobile.matches;
@@ -45,6 +51,17 @@ function start(context) {
     return { ...settingsCache };
   }
   function load() { if (persistent) entries = readWatches(read(storeKey)); }
+  function loadBlacklist() {
+    if (persistent) {
+      const raw = read(blacklistKey);
+      if (persistent) {
+        const parsed = readBlacklist(raw);
+        invalidBlacklist = parsed.status !== 'ok';
+        if (!invalidBlacklist) blacklistCache = parsed.keys;
+      }
+    }
+    return invalidBlacklist ? null : new Set(blacklistCache);
+  }
   function node(tag, text, className) {
     const result = document.createElement(tag);
     if (text !== undefined) result.textContent = text;
@@ -62,13 +79,29 @@ function start(context) {
     try { return await navigator.locks.request(lockName, action); }
     catch { notice.textContent = 'Watch change could not be saved. Try again.'; return false; }
   }
-  async function change(action, signal) {
+  async function change(action, signal, remember = null) {
     return locked(() => {
-      if (signal?.aborted || !enabled) return false;
+      const settings = configuration();
+      if (signal?.aborted || !enabled || settings.threadWatcher !== true || settings.disableAll === true) return false;
       load();
       const next = new Map(entries);
       if (action(next) === false) return false;
       const raw = writeWatches(next);
+      if (remember && entries.has(remember) && !next.has(remember)) {
+        const blocked = loadBlacklist();
+        if (!blocked) { notice.textContent = 'Watch blacklist is invalid. The watch was retained.'; return false; }
+        blocked.add(remember);
+        let saved;
+        try { saved = writeBlacklist(blocked); }
+        catch { notice.textContent = 'Watch blacklist is full. The watch was retained.'; return false; }
+        // Record suppression before removing the watch. A failed second write
+        // must never leave a persisted removal without its blacklist entry.
+        if (persistent) {
+          try { localStorage.setItem(blacklistKey, saved); }
+          catch { persistent = false; }
+        }
+        blacklistCache = blocked;
+      }
       if (persistent) {
         try { localStorage.setItem(storeKey, raw); }
         catch { persistent = false; }
@@ -138,13 +171,20 @@ function start(context) {
   panel.append(heading, body);
   document.body.append(panel);
 
-  const refresh = new WatcherRefresh({ origin: location.origin, getEntries: () => entries,
+  const threadRefresh = new WatcherRefresh({ origin: location.origin, getEntries: () => entries,
     getTracked: key => tracking.tracked(key),
     commit: (key, expected, next, signal) => change(rows => {
       if (!sameEntry(rows.get(key), expected)) return false;
       if (next) rows.set(key, next); else rows.delete(key);
     }, signal),
   });
+  const catalogTransport = new NativeCatalogTransport();
+  const matcher = new NativeFilterMatcher();
+  let refreshCycle = null;
+  const refresh = {
+    cancel() { refreshCycle?.abort(); catalogTransport.cancel(); threadRefresh.cancel(); },
+    refresh: options => threadRefresh.refresh(options),
+  };
   const tracking = new PostTracking({ board, settings: configuration, locked,
     onPost: receipt => change(rows => {
       const key = watchKey(board, receipt.thread);
@@ -236,7 +276,7 @@ function start(context) {
         label: label(section), read: latest(section), unread: 0, archived: !!document.querySelector('.archiveNotice'), ownReply: false,
       });
       else { notice.textContent = `Watch limit: ${WATCH_LIMITS.entries} threads.`; return false; }
-    });
+    }, undefined, catalog ? null : key);
   }
   function controls() {
     for (const section of sections()) {
@@ -456,7 +496,10 @@ function start(context) {
           link.title = 'This thread has replies to your posts';
         }
       }
-      const remove = button('\u00d7', async () => { refresh.cancel(); await change(rows => { rows.delete(key); }); }, 'watcherRemove');
+      const remove = button('\u00d7', async () => {
+        refresh.cancel();
+        await change(rows => { rows.delete(key); }, undefined, catalog ? null : key);
+      }, 'watcherRemove');
       remove.setAttribute('aria-label', `Unwatch /${slug}/ thread ${id}`);
       row.append(remove, ' ', link);
       list.append(row);
@@ -466,25 +509,92 @@ function start(context) {
     placement.sync();
   }
   async function refreshAll(automatic) {
-    if (!enabled || busy || !entries.size || (automatic && document.hidden)) return;
+    if (!enabled || busy || (automatic && document.hidden)) return;
+    if (!entries.size && (catalog || automatic || configuration().filter !== true)) return;
     if (automatic && (threadId || !autoRefreshEligible(read(timestampKey), catalog))) return;
+    let selection;
     const claimed = await locked(() => {
       load();
+      const settings = configuration();
+      if (!enabled || settings.threadWatcher !== true || settings.disableAll === true) return false;
       const raw = read(timestampKey);
       if (raw !== null && !autoRefreshEligible(raw, false)) return false;
+      if (!catalog && !automatic && settings.filter === true) {
+        const filterRaw = read(filterKey);
+        const parsed = readNativeFilters(filterRaw);
+        const selected = parsed.status === 'ok' ? autoWatchBoards(parsed.filters) : parsed;
+        const blocked = loadBlacklist();
+        selection = selected.status === 'ok' && blocked
+          ? { filters: parsed.filters, boards: selected.boards, filterRaw,
+            watches: writeWatches(entries), blacklist: writeBlacklist(blocked) }
+          : { invalid: true };
+      }
       try { localStorage.setItem(timestampKey, String(Date.now())); } catch { persistent = false; }
       return true;
     });
     if (!claimed || !enabled) { notice.textContent = 'Wait a minute before refreshing again.'; return; }
     busy = true;
     render();
+    const controller = new AbortController();
+    refreshCycle = controller;
+    const timer = setTimeout(() => refresh.cancel(), WATCH_LIMITS.cycleMs);
     try {
-      const result = await refresh.refresh();
+      let bytes = WATCH_LIMITS.cycleBytes;
+      let autoFailed = selection?.invalid ? 1 : 0;
+      let limited = 0;
+      if (selection?.boards?.length) {
+        const cycle = await collectAutoWatches({ filters: selection.filters, boards: selection.boards,
+          transport: catalogTransport, matcher, signal: controller.signal });
+        bytes -= cycle.bytes;
+        if (cycle.status === 'complete' && !controller.signal.aborted) {
+          const applied = await locked(() => {
+            load();
+            const blocked = loadBlacklist();
+            const settings = configuration();
+            if (controller.signal.aborted || !enabled || settings.threadWatcher !== true
+              || settings.disableAll === true || settings.filter !== true
+              || read(filterKey) !== selection.filterRaw || writeWatches(entries) !== selection.watches
+              || !blocked || writeBlacklist(blocked) !== selection.blacklist) return false;
+            const next = planAutoWatches(entries, blocked, cycle);
+            // Persist additions before pruning proven-absent blacklist entries.
+            // On failure, older suppression remains safe for other tabs.
+            if (persistent) {
+              try {
+                localStorage.setItem(storeKey, writeWatches(next.entries));
+                localStorage.setItem(blacklistKey, writeBlacklist(next.blacklist));
+              } catch { persistent = false; }
+            }
+            entries = next.entries;
+            blacklistCache = next.blacklist;
+            autoFailed = next.failed;
+            limited = next.limited;
+            render();
+            return true;
+          });
+          if (!applied) autoFailed++;
+        } else autoFailed++;
+        // Retain launch spacing across the catalog/thread phase boundary.
+        if (!controller.signal.aborted) await new Promise(resolve => {
+          const finish = () => { clearTimeout(pause); controller.signal.removeEventListener('abort', finish); resolve(); };
+          const pause = setTimeout(finish, WATCH_LIMITS.staggerMs);
+          controller.signal.addEventListener('abort', finish, { once: true });
+        });
+      }
+      const result = await refresh.refresh({ signal: controller.signal, bytes });
       const failed = result.results.filter(row => row.status === 'failed').length;
       notice.textContent = result.status === 'cooldown' ? 'Wait a minute before refreshing again.'
         : result.status === 'cancelled' ? 'Refresh stopped.'
-          : failed ? `${failed} thread refreshes failed. Saved state was retained.` : 'Refresh complete.';
-    } finally { busy = false; render(); }
+          : failed ? `${failed} thread refreshes failed. Saved state was retained.`
+            : autoFailed ? 'Some automatic watches could not be refreshed. Existing watches and failed-board blacklists were retained.'
+              : limited ? `Refresh complete. Watch limit: ${WATCH_LIMITS.entries} threads.` : 'Refresh complete.';
+    } catch {
+      notice.textContent = 'Refresh failed. Saved watches were retained.';
+    } finally {
+      clearTimeout(timer);
+      if (refreshCycle === controller) refreshCycle = null;
+      busy = false;
+      render();
+    }
   }
   async function acknowledgeCurrent() {
     if (!enabled || !threadId) return;
@@ -509,7 +619,7 @@ function start(context) {
     history.replaceState(null, '', location.pathname + location.search);
   }
   window.addEventListener('storage', event => {
-    if (event.key !== null && ![storeKey, settingsKey].includes(event.key)) return;
+    if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;
     refresh.cancel();
     load();
     const settings = configuration();
