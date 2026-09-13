@@ -92,6 +92,12 @@ pub async fn boards(
         if board.archive_retention_seconds > 0 {
             value["is_archived"] = json!(1);
         }
+        if state.media.is_some() && board.image_limit > 0 {
+            value.as_object_mut().expect("board object").remove("text_only");
+            value["max_filesize"] = json!(8_388_608);
+            value["image_limit"] = json!(board.image_limit);
+            value["spoilers"] = json!(1);
+        }
         value
     }).collect();
     response(json!({"boards": boards}), None, &headers)
@@ -102,6 +108,7 @@ fn post_json(
     thread: &Thread,
     board: &Board,
     replies: usize,
+    images: usize,
 ) -> Result<Value, AppError> {
     let post = PostView::new(post);
     let comment = Comment {
@@ -114,7 +121,7 @@ fn post_json(
         "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name, "com": comment });
     if op {
         value["replies"] = json!(replies);
-        value["images"] = json!(0);
+        value["images"] = json!(images);
         value["semantic_url"] = json!(semantic_url(&post.post.subject));
         if !post.post.subject.is_empty() {
             value["sub"] = json!(post.post.subject);
@@ -131,6 +138,36 @@ fn post_json(
         }
         if thread.reply_count >= board.bump_limit {
             value["bumplimit"] = json!(1);
+        }
+        if board.image_limit > 0 && images >= board.image_limit as usize {
+            value["imagelimit"] = json!(1);
+        }
+    }
+    if let Some(file) = post.post.attachment {
+        if file.file_deleted {
+            value["filedeleted"] = json!(1);
+        } else {
+            value["tim"] = json!(file.tim);
+            value["filename"] = json!(
+                file.filename
+                    .rsplit_once('.')
+                    .filter(|(stem, _)| !stem.is_empty())
+                    .map_or(file.filename.as_str(), |(stem, _)| stem)
+            );
+            value["ext"] = json!(".png");
+            value["fsize"] = json!(file.bytes);
+            value["w"] = json!(file.width);
+            value["h"] = json!(file.height);
+            if let Some(md5) = file.md5 {
+                value["md5"] = json!(md5);
+            }
+            if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) {
+                value["tn_w"] = json!(width);
+                value["tn_h"] = json!(height);
+            }
+            if file.spoiler {
+                value["spoiler"] = json!(1);
+            }
         }
     }
     Ok(value)
@@ -153,9 +190,13 @@ fn full_thread(board: &Board, thread: &Thread, posts: Vec<Post>) -> Result<Vec<V
         return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
     }
     let replies = posts.len() - 1;
+    let images = posts
+        .iter()
+        .filter(|p| p.id != thread.id && p.attachment.as_ref().is_some_and(|a| !a.file_deleted))
+        .count();
     posts
         .into_iter()
-        .map(|post| post_json(post, thread, board, replies))
+        .map(|post| post_json(post, thread, board, replies, images))
         .collect()
 }
 
@@ -193,9 +234,11 @@ fn preview_thread(
         return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
     }
     let replies = checked_reply_count(preview.visible_posts)?;
+    let images = usize::try_from(preview.visible_images)
+        .map_err(|_| AppError(StatusCode::SERVICE_UNAVAILABLE, "Invalid image count."))?;
     posts
         .into_iter()
-        .map(|post| post_json(post, &preview.thread, board, replies))
+        .map(|post| post_json(post, &preview.thread, board, replies, images))
         .collect()
 }
 
@@ -290,7 +333,13 @@ pub async fn index(
         if total > posts.len() {
             let omitted = total - posts.len();
             posts[0]["omitted_posts"] = json!(omitted);
-            posts[0]["omitted_images"] = json!(0);
+            let images = posts[0]["images"].as_u64().unwrap_or(0);
+            let shown = posts
+                .iter()
+                .skip(1)
+                .filter(|p| p.get("ext").is_some())
+                .count() as u64;
+            posts[0]["omitted_images"] = json!(images.saturating_sub(shown));
         }
         entries.push(json!({"posts": posts}));
     }

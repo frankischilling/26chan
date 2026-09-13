@@ -2,6 +2,7 @@
 // neither this browser nor the public service gets coordinator credentials.
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 
 const origin = new URL(process.argv[2]);
@@ -69,9 +70,11 @@ try {
   await img.scrollIntoViewIfNeeded();
   await expect.poll(() => img.evaluate(image => image.naturalWidth)).toBe(1);
   assert.equal(await img.evaluate(image => image.naturalHeight), 1);
-  const mediaUrl = new URL(await img.getAttribute('src'));
+  const thumbnailUrl = new URL(await img.getAttribute('src'));
+  const mediaUrl = new URL(await page.locator('.fileThumb').getAttribute('href'));
   assert.notEqual(mediaUrl.origin, origin.origin);
-  assert.match(mediaUrl.pathname, /^\/media\/[a-f0-9]{32}\.png$/);
+  assert.match(mediaUrl.pathname, new RegExp(`^/${board}/[0-9]+\\.png$`));
+  assert.equal(thumbnailUrl.pathname, mediaUrl.pathname.replace('.png', 's.jpg'));
   const media = await page.request.get(mediaUrl.href);
   await screenshot('attached-thread');
   assert.equal(media.status(), 200);
@@ -79,9 +82,33 @@ try {
   assert.equal(media.headers()['cross-origin-resource-policy'], 'cross-origin');
   const etag = media.headers().etag;
   assert.ok(etag);
+  const thumbnail = await page.request.get(thumbnailUrl.href);
+  assert.equal(thumbnail.status(), 200);
+  assert.equal(thumbnail.headers()['content-type'], 'image/png');
+  const apiUrl = new URL(threadUrl);
+  apiUrl.pathname += '.json';
+  apiUrl.hash = '';
+  const api = await page.request.get(apiUrl.href);
+  assert.equal(api.status(), 200);
+  const post = (await api.json()).posts[0];
+  assert.equal(post.ext, '.png');
+  assert.equal(post.tim, Number(mediaUrl.pathname.split('/').at(-1).replace('.png', '')));
+  assert.equal(post.md5, createHash('md5').update(await media.body()).digest('base64'));
+  assert.equal(post.fsize, (await media.body()).length);
+  assert.deepEqual([post.w, post.h, post.tn_w, post.tn_h, post.images], [1, 1, 1, 1, 0]);
+  for (const url of [mediaUrl, thumbnailUrl]) {
+    const head = await page.request.head(url.href);
+    assert.equal(head.status(), 200);
+    assert.equal(head.headers()['content-type'], 'image/png');
+    assert.equal((await head.body()).length, 0);
+    assert.equal((await page.request.get(url.href, { headers: { 'If-None-Match': head.headers().etag } })).status(), 304);
+    for (const path of [url.pathname.replace(`/${board}/`, '/wrongboard/'), url.pathname.replace(`/${board}/`, `/${board}/0`), url.pathname.replace(`/${board}/`, `/${board}/%31`)]) {
+      assert.equal((await page.request.get(new URL(path, url.origin).href)).status(), 404);
+    }
+  }
   for (const suffix of ['', 'catalog']) {
     await page.goto(new URL(`/${board}/${suffix}`, origin).href);
-    assert.equal(await page.locator('.fileThumb img').getAttribute('src'), mediaUrl.href);
+    assert.equal(await page.locator('.fileThumb img').getAttribute('src'), thumbnailUrl.href);
     if (suffix === 'catalog') await screenshot('attached-catalog');
   }
   await page.goto(threadUrl);
@@ -95,6 +122,10 @@ try {
   assert.equal(await page.locator('.fileThumb img').count(), 0);
   const removed = await page.request.get(mediaUrl.href, { headers: { 'If-None-Match': etag } });
   assert.equal(removed.status(), 404, 'deletion must override an old successful validator');
+  assert.equal((await page.request.get(thumbnailUrl.href, { headers: { 'If-None-Match': thumbnail.headers().etag } })).status(), 404);
+  const deleted = (await (await page.request.get(apiUrl.href)).json()).posts[0];
+  assert.equal(deleted.filedeleted, 1);
+  for (const field of ['tim', 'md5', 'ext', 'fsize', 'tn_w', 'tn_h']) assert.equal(deleted[field], undefined);
   assert.equal((await context.cookies()).length, 0);
   console.log('PASS no-JavaScript upload, isolated approval, persisted posting, image rendering and file-only deletion');
 } finally {

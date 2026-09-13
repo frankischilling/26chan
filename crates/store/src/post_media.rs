@@ -18,6 +18,10 @@ pub struct PostAttachment {
     pub height: i32,
     pub spoiler: bool,
     pub file_deleted: bool,
+    pub tim: i64,
+    pub md5: Option<String>,
+    pub thumbnail_width: Option<i32>,
+    pub thumbnail_height: Option<i32>,
 }
 
 pub async fn attachment(pool: &PgPool, post_id: i64) -> Result<Option<PostAttachment>, StoreError> {

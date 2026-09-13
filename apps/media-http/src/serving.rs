@@ -14,32 +14,73 @@ pub async fn image(
     uri: Uri,
     headers: HeaderMap,
 ) -> Response {
+    let thumbnail = name.ends_with(".thumb.png");
+    let suffix = if thumbnail { ".thumb.png" } else { ".png" };
     let Some(id) = name
-        .strip_suffix(".png")
+        .strip_suffix(suffix)
         .and_then(|s| s.parse::<ObjectId>().ok())
     else {
         return error(StatusCode::NOT_FOUND);
     };
-    if uri.path() != format!("/media/{id}.png") {
+    if uri.path() != format!("/media/{id}{suffix}") {
         return error(StatusCode::NOT_FOUND);
     }
-    let asset = match state.reader.get(&id.to_string()).await {
+    let asset = if thumbnail {
+        state.reader.get_thumbnail(&id.to_string()).await
+    } else {
+        state.reader.get(&id.to_string()).await
+    };
+    serve(state, asset, thumbnail, headers).await
+}
+
+pub async fn post_image(
+    State(state): State<AppState>,
+    Path((board, name)): Path<(String, String)>,
+    uri: Uri,
+    headers: HeaderMap,
+) -> Response {
+    let thumbnail = name.ends_with("s.jpg");
+    let suffix = if thumbnail { "s.jpg" } else { ".png" };
+    let Some(tim) = name
+        .strip_suffix(suffix)
+        .and_then(|n| n.parse::<i64>().ok())
+    else {
+        return error(StatusCode::NOT_FOUND);
+    };
+    if uri.path() != format!("/{board}/{tim}{suffix}") {
+        return error(StatusCode::NOT_FOUND);
+    }
+    let asset = state.reader.get_post(&board, tim, thumbnail).await;
+    serve(state, asset, thumbnail, headers).await
+}
+
+async fn serve(
+    state: AppState,
+    asset: Result<board_store::media_assets::Asset, StoreError>,
+    thumbnail: bool,
+    headers: HeaderMap,
+) -> Response {
+    let asset = match asset {
         Ok(asset) => asset,
         Err(StoreError::NotFound) => return error(StatusCode::NOT_FOUND),
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    let Ok(id) = asset.id.parse::<ObjectId>() else {
+        return error(StatusCode::SERVICE_UNAVAILABLE);
     };
     let etag = format!("\"{}\"", asset.sha256);
     let files = state.files.clone();
     let bytes = match state
         .blocking(move || {
-            files.read(
-                id,
-                &asset.sha256,
-                asset
-                    .bytes
-                    .try_into()
-                    .map_err(|_| board_media::MediaError::Conflict)?,
-            )
+            let size = asset
+                .bytes
+                .try_into()
+                .map_err(|_| board_media::MediaError::Conflict)?;
+            if thumbnail {
+                files.read_thumbnail(id, &asset.sha256, size)
+            } else {
+                files.read(id, &asset.sha256, size)
+            }
         })
         .await
     {

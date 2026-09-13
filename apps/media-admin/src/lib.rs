@@ -1,12 +1,12 @@
 #![forbid(unsafe_code)]
 
 //! Trusted operator publication. The worker never receives this process's
-//! credentials or storage authority. Public media remains disabled.
+//! credentials or storage authority. Production media remains disabled.
 use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
 use board_media_dispatch::DispatchClient;
 use board_store::{
     media::{Failure, MediaQueue},
-    media_assets::{Asset, MediaReader, OutputMetadata},
+    media_assets::{Asset, MediaReader, OutputMetadata, OutputVariants},
 };
 
 pub type PublicationResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -73,6 +73,7 @@ pub async fn publish(
     output: &ValidatedOutput,
 ) -> PublicationResult<Asset> {
     let encoded = output.encode()?;
+    let thumbnail = output.thumbnail()?;
     let metadata = OutputMetadata {
         sha256: encoded.sha256().to_owned(),
         bytes: encoded.len() as i64,
@@ -80,10 +81,27 @@ pub async fn publish(
         height: encoded.dimensions().1 as i32,
     };
     let guard = store.try_lock()?;
-    let pending = queue.prepare_output(job_id, token, &metadata).await?;
+    let variants = OutputVariants {
+        md5: encoded.md5().to_owned(),
+        thumbnail: OutputMetadata {
+            sha256: thumbnail.sha256().to_owned(),
+            bytes: thumbnail.len() as i64,
+            width: thumbnail.dimensions().0 as i32,
+            height: thumbnail.dimensions().1 as i32,
+        },
+    };
+    let pending = queue
+        .prepare_output_with_variants(job_id, token, &metadata, Some(&variants))
+        .await?;
     let receipt = guard.install(pending.id.parse()?, &encoded)?;
     if receipt.sha256 != pending.sha256 || receipt.bytes != pending.bytes as u64 {
         return Err("output reservation differs from installed bytes".into());
+    }
+    let thumbnail_receipt = guard.install_thumbnail(pending.id.parse()?, &thumbnail)?;
+    if thumbnail_receipt.sha256 != variants.thumbnail.sha256
+        || thumbnail_receipt.bytes != variants.thumbnail.bytes as u64
+    {
+        return Err("thumbnail reservation differs from installed bytes".into());
     }
     // Failure/uncertain commit leaves a reserved object for retry or cleanup;
     // no error path removes a possibly approved file.

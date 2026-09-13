@@ -181,6 +181,9 @@ async fn exercise(f: &Fixture) {
         "UPDATE content.post_media SET file_deleted=false WHERE false",
         "DELETE FROM content.post_media WHERE false",
         "UPDATE content.boards SET image_limit=100 WHERE false",
+        "SELECT * FROM content.media_clock",
+        "UPDATE content.media_clock SET last_number=last_number WHERE false",
+        "SELECT content.next_media_number()",
         "SET ROLE board_attachment_owner",
     ] {
         f.denied(sql).await;
@@ -188,7 +191,7 @@ async fn exercise(f: &Fixture) {
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=4 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
+    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=5 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(functions_safe);
 
@@ -255,6 +258,28 @@ async fn exercise(f: &Fixture) {
     assert_eq!((saved.bytes, saved.width, saved.height), (123, 10, 20));
     assert!(saved.spoiler && !saved.file_deleted);
     f.reader.get(&asset).await.unwrap();
+    assert_eq!(
+        f.reader
+            .get_post(&f.board, saved.tim, false)
+            .await
+            .unwrap()
+            .id,
+        asset
+    );
+    assert!(matches!(
+        f.reader.get_post("wrong", saved.tim, false).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(
+        matches!(
+            f.reader.get_post(&f.board, saved.tim, true).await,
+            Err(StoreError::NotFound)
+        ),
+        "Legacy metadata must not invent a thumbnail"
+    );
+    assert!(
+        saved.md5.is_none() && saved.thumbnail_width.is_none() && saved.thumbnail_height.is_none()
+    );
     assert_eq!(
         board_store::thread(&f.public, &f.board, thread)
             .await
@@ -337,6 +362,10 @@ async fn exercise(f: &Fixture) {
     );
     assert!(matches!(
         f.reader.get(&asset).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        f.reader.get_post(&f.board, saved.tim, false).await,
         Err(StoreError::NotFound)
     ));
     assert!(

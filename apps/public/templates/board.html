@@ -45,11 +45,11 @@
 {% if file.file_deleted %}<p class="fileDeleted">File deleted.</p>
 {% else if !media_origin.is_empty() %}
 <div class="file" id="f{{ item.post.id }}">
-<p>File: <a href="{{ media_origin }}/media/{{ file.asset_id }}.png" target="_blank" rel="noopener noreferrer">{{ file.filename }}</a> ({{ file.bytes }} bytes, {{ file.width }}×{{ file.height }}, normalized PNG)</p>
+<p>File: <a href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{{ file.filename }}</a> ({{ file.bytes }} bytes, {{ file.width }}×{{ file.height }}, normalized PNG)</p>
 {% if file.spoiler %}
-<details><summary>Spoiler image</summary><a href="{{ media_origin }}/media/{{ file.asset_id }}.png" target="_blank" rel="noopener noreferrer">View spoiler image</a></details>
+<details><summary>Spoiler image</summary><a href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">View spoiler image</a></details>
 {% else %}
-<a class="fileThumb" href="{{ media_origin }}/media/{{ file.asset_id }}.png" target="_blank" rel="noopener noreferrer"><img src="{{ media_origin }}/media/{{ file.asset_id }}.png" alt="{{ file.filename }}" width="{{ file.width }}" height="{{ file.height }}" loading="lazy"></a>
+<a class="fileThumb" href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %}<img src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}s.jpg" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">{% else %}<img src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" alt="{{ file.filename }}" width="{{ file.width }}" height="{{ file.height }}" loading="lazy">{% endif %}</a>
 {% endif %}
 </div>
 {% endif %}
