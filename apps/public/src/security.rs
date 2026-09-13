@@ -42,10 +42,18 @@ pub async fn protect(State(state): State<AppState>, request: Request, next: Next
             )
                 .into_response(),
             &state,
+            false,
         );
     };
+    let catalog = matches!(*request.method(), Method::GET | Method::HEAD)
+        && request
+            .uri()
+            .path()
+            .strip_prefix('/')
+            .and_then(|path| path.strip_suffix("/catalog"))
+            .is_some_and(|board| !board.is_empty() && !board.contains('/'));
     let response = protect_inner(&state, request, next).await;
-    headers(board_http::hold_permit(response, permit), &state)
+    headers(board_http::hold_permit(response, permit), &state, catalog)
 }
 
 async fn protect_inner(state: &AppState, request: Request, next: Next) -> Response {
@@ -102,7 +110,19 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
     }
 }
 
-fn headers(mut response: Response, state: &AppState) -> Response {
+fn headers(mut response: Response, state: &AppState, catalog: bool) -> Response {
+    let script = if catalog
+        && response.status().is_success()
+        && response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("text/html"))
+    {
+        format!("{}{}", state.origin, crate::ui_assets::CATALOG_SCRIPT_PATH)
+    } else {
+        "'none'".into()
+    };
     let headers = response.headers_mut();
     // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
@@ -116,7 +136,7 @@ fn headers(mut response: Response, state: &AppState) -> Response {
         images = format!("{} {images}", media.settings.origin.as_string());
     }
     let policy = format!(
-        "default-src 'none'; style-src 'self'; img-src {images}; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+        "default-src 'none'; style-src 'self'; img-src {images}; script-src {script}; script-src-attr 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
     );
     headers.insert(
         "content-security-policy",

@@ -11,5 +11,6 @@
 <span class="catalogControl"><label for="teaser-ctrl">Teasers:</label>
 <select id="teaser-ctrl" name="teaser"><option value="off"{% if !catalog_options.show_teaser() %} selected{% endif %}>Off</option><option value="on"{% if catalog_options.show_teaser() %} selected{% endif %}>On</option></select></span>
 <span class="catalogControl"><label for="qf-box">Search:</label><input id="qf-box" type="search" name="q" maxlength="128" value="{{ catalog_options.q }}"></span>
-<span class="catalogControl"><button type="submit">Apply</button> <a href="/{{ board.slug }}/catalog">Reset</a></span>
+<span class="catalogControl"><button type="submit">Apply</button> <a id="catalog-reset" href="/{{ board.slug }}/catalog">Reset</a></span>
 </form>
+<script src="/static/catalog-preferences.v1.js" defer></script>

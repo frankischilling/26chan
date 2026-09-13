@@ -15,6 +15,7 @@
     "client_defaults":{"orderby":"alt","large":false,"extended":true},
     "client_semantics":"Pinned v1025 client sorts creation by descending thread ID, last reply by descending last-reply ID, reply count descending, and bump by supplied rank. Sticky cards are rendered first. Quick filtering escapes regex punctuation and matches case-insensitively against the generated teaser or filename. Preferences/search use browser storage; server query parameters are local behavior."
   },
+  "preferences_observation": {"source":"Pinned catalog.min.1025.js", "storage":"localStorage", "key":"catalog-settings", "fields":["orderby","large","extended"], "evidence":"se reads the key; le writes the three names from Be. re, de and ce update teaser, size and order and save unless initialization suppresses it. The change handlers he, pe and ue call those functions. This is source inspection, not execution of the public client.", "remaining_difference":"The local renderer uses validated GET navigation instead of the original in-place redraw. Explicit query precedence and Reset are local URL semantics. Search persistence is outside this slice."},
   "assets": [
     {"path":"js/catalog.min.1025.js","bytes":51921,"sha256":"ce645b150e747f9ad1682dc005daf30d7bc1a9f2cd473b4f1e55f99adf76fa9f","downloaded_utc":"2026-09-13T06:15:54Z"},
     {"path":"css/catalog_mobile.705.css","bytes":7492,"sha256":"df6577e72e1fa6837da522fe9da2cb56152203e9fb5b8ccaef242e4219a7a4f2","downloaded_utc":"2026-09-13T06:15:54Z"},

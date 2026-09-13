@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:behavior": "playwright test tests/browser/behavior.spec.js tests/browser/archive.spec.js",
+    "test:behavior": "playwright test tests/browser/behavior.spec.js tests/browser/archive.spec.js tests/browser/catalog-preferences.spec.js",
     "test:visual": "playwright test tests/browser/visual.spec.js",
     "test:archive-visual": "playwright test --config playwright.archive-visual.config.js",
     "test:media-visual": "playwright test --config playwright.media-visual.config.js",
