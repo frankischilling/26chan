@@ -44,7 +44,7 @@ cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
 Other native settings and post-menu actions, filter-driven watching and blacklist semantics remain
-unfinished. Broader archive/deletion/expiry and storage-race coverage, reviewed
+unfinished. Archive/expiry and additional storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
 
@@ -414,3 +414,31 @@ the public cross-origin protection correctly returned 403. The test now checks
 both absent-origin rejection and same-origin method rejection; neither
 application protection was relaxed. No screenshot baseline changed. Hosted
 checks must qualify the committed head separately before merge.
+
+### Persisted lifecycle and delayed responses
+
+`npm run test:watcher-lifecycle` passed all four tests on the owned
+Windows/Chromium/PostgreSQL setup. The behavior command includes this suite with
+its own server invocation, preserving the existing request-rate budgets.
+
+The tests create synthetic threads and replies through ordinary public posting
+and delete only their own posts through the password gate. They verify that
+reply deletion retains an already observed unread count, OP deletion produces
+the native dead row, and the next refresh removes that row without another
+thread request. A healthy owned API response precedes injected HTTP, MIME, JSON
+and encoding failures; each failure preserves the exact stored watch tuple,
+and a later real response successfully updates it.
+
+Two actual browser tabs exercise unwatch and read acknowledgement during a
+held response. The held bytes come from the healthy owned thread API. A bounded
+test wrapper ignores the abort signal so the response really arrives after the
+storage event. Neither delayed response resurrects an unwatched thread nor
+overwrites the newer read position. The test waits for actual late delivery
+before checking both tabs' saved state.
+
+The initial deletion test checked the idle flag before refresh acquired its
+Web Lock. Its helper now waits for the terminal notice as well as the idle
+flag; the corrected full four-test suite passed. No application code or limits
+changed. This extends the earlier transport checkpoint evidence; it does not
+establish archive/expiry behavior, full storage-race coverage, filter-driven
+watching or complete visual parity.
