@@ -233,7 +233,7 @@ class IntakeExercise(MediaHttpExercise):
             self.no_approval(job)
             self.clean_vm()
             status, result = self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': cap})
-            assert status == 200 and result['state'] == 'failed' and result['output_id'] is None
+            assert status == 200 and result['state'] == 'failed' and 'output_id' not in result
             assert sql(f"SELECT failure FROM media.jobs WHERE id='{job}'") == 'invalid_output'
         print('PASS excessive and truncated JPEG input grants no approval through actual intake/guest dispatch', flush=True)
 
