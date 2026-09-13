@@ -14,6 +14,8 @@ mod monitor;
 pub use monitor::MonitorSettings;
 mod public_media;
 pub use public_media::PublicMediaSettings;
+mod public_limits;
+pub use public_limits::PublicRequestLimits;
 
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
@@ -115,6 +117,7 @@ pub struct Settings {
     pub production: bool,
     pub api: Option<ApiListener>,
     pub media: Option<PublicMediaSettings>,
+    pub request_limits: PublicRequestLimits,
 }
 
 #[derive(Clone)]
@@ -233,6 +236,7 @@ impl Settings {
         let media = env::var("MEDIA_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3002".into());
         let origins = validate_origins(&public, &staff, &media, production)?;
         let media = PublicMediaSettings::from_env(media_enabled == "true", &origins)?;
+        let request_limits = PublicRequestLimits::from_env()?;
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
         let parsed = Url::parse(&database_url).map_err(|_| ConfigError("Invalid database URL."))?;
@@ -274,6 +278,7 @@ impl Settings {
             production,
             api,
             media,
+            request_limits,
         })
     }
 }
