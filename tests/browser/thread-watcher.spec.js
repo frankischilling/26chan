@@ -1,21 +1,36 @@
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
-async function createThread(request, board, label) {
-  const response = await request.post(`/${board}/post`, { headers: { Origin: origin },
-    form: { resto: '0', sub: label, com: 'Synthetic watcher fixture', password: 'watcher-test-password' }, maxRedirects: 0 });
-  expect(response.status()).toBe(303);
-  return response.headers().location.match(/thread\/(\d+)/)[1];
-}
+const test = base.extend({
+  createThread: async ({ request }, use) => {
+    const created = [];
+    await use(async (board, label) => {
+      const response = await request.post(`/${board}/post`, { headers: { Origin: origin },
+        form: { resto: '0', sub: label, com: 'Synthetic watcher fixture', password: 'watcher-test-password' }, maxRedirects: 0 });
+      expect(response.status()).toBe(303);
+      const id = response.headers().location.match(/thread\/(\d+)/)[1];
+      created.push({ board, id });
+      return id;
+    });
+    // Delete only IDs created by this test, through the ordinary password gate.
+    // Teardown also runs after an assertion failure; other threads are untouched.
+    for (const { board, id } of created) {
+      const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
+        form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
+      expect(deleted.status()).toBe(303);
+      expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
+    }
+  },
+});
 async function enable(page, path) {
   await page.goto(path);
   await page.locator('#thread-watcher-enable').click();
   await expect(page.locator('#threadWatcher')).toBeVisible();
 }
 
-test('owned thread API refresh, cross-tab watch state and read acknowledgement work on two boards', async ({ page, context, request }) => {
-  const a = await createThread(request, 'demo', 'Watch a paper model');
-  const b = await createThread(request, 'test', 'Watch another board');
+test('owned thread API refresh, cross-tab watch state and read acknowledgement work on two boards', async ({ page, context, request, createThread }) => {
+  const a = await createThread('demo', 'Watch a paper model');
+  const b = await createThread('test', 'Watch another board');
   await enable(page, '/demo/catalog?q=');
   await page.getByRole('button', { name: `Watch thread ${a}`, exact: true }).click();
   await expect(page.locator(`#watch-${a}-demo`)).toContainText('Watch a paper model');
@@ -44,8 +59,8 @@ test('owned thread API refresh, cross-tab watch state and read acknowledgement w
   await expect(page.locator(`#watch-${a}-demo`)).toHaveCount(0);
 });
 
-test('watcher connect CSP permits its owned alias and denies healthy unrelated routes', async ({ page, context, request }) => {
-  const id = await createThread(request, 'demo', 'CSP watcher fixture');
+test('watcher connect CSP permits its owned alias and denies healthy unrelated routes', async ({ page, context, request, createThread }) => {
+  const id = await createThread('demo', 'CSP watcher fixture');
   let forbiddenRequests = 0;
   await context.route('**/watcher-connect-control', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><p>Owned positive control</p>' }));
   await context.route('**/watcher-denied', route => { forbiddenRequests++; return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
@@ -64,8 +79,8 @@ test('watcher connect CSP permits its owned alias and denies healthy unrelated r
   expect((await request.post(`/_watch/demo/thread/${id}.json`, { headers: { Origin: origin }, data: '' })).status()).toBe(405);
 });
 
-test('local storage failure keeps same-tab watch controls usable without executable labels', async ({ page, context, request }) => {
-  const id = await createThread(request, 'demo', '<img src=x onerror=alert(1)>');
+test('local storage failure keeps same-tab watch controls usable without executable labels', async ({ page, context, createThread }) => {
+  const id = await createThread('demo', '<img src=x onerror=alert(1)>');
   await context.addInitScript(() => { for (const method of ['getItem', 'setItem', 'removeItem']) Storage.prototype[method] = () => { throw new Error('Storage unavailable'); }; });
   await enable(page, `/demo/thread/${id}`);
   await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).click();
@@ -76,8 +91,8 @@ test('local storage failure keeps same-tab watch controls usable without executa
   await expect(page.locator('#watchList')).toHaveText('No watched threads.');
 });
 
-test('disabling the watcher in another tab cancels an in-flight response', async ({ page, context, request }) => {
-  const id = await createThread(request, 'demo', 'Cancellation fixture');
+test('disabling the watcher in another tab cancels an in-flight response', async ({ page, context, createThread }) => {
+  const id = await createThread('demo', 'Cancellation fixture');
   await enable(page, '/demo/catalog?q=');
   await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).click();
   const other = await context.newPage();

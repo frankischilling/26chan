@@ -401,7 +401,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:3000/demo/');
   await expect(page.getByRole('heading', { name: '/demo/ - Paper craft' })).toBeVisible();
-  await page.getByRole('link', { name: 'Reply', exact: true }).click();
+  await page.locator('#t1000001').getByRole('link', { name: 'Reply', exact: true }).click();
   await expect(page.locator('#postForm')).toBeVisible();
   await page.goto('http://127.0.0.1:3000/test/');
   const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
