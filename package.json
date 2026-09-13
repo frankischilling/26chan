@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:watcher-core": "node --test tests/browser/thread-watcher-core.test.mjs tests/browser/post-tracking.test.mjs",
+    "test:watcher-core": "node --test tests/browser/thread-watcher-core.test.mjs tests/browser/post-tracking.test.mjs tests/browser/watcher-position.test.mjs",
     "test:post-tracking": "playwright test tests/browser/post-tracking.spec.js",
-    "test:behavior": "npm run test:watcher-core && playwright test tests/browser/behavior.spec.js tests/browser/archive.spec.js tests/browser/catalog-preferences.spec.js tests/browser/catalog-inplace.spec.js tests/browser/catalog-search-contract.spec.js tests/browser/catalog-live-search.spec.js tests/browser/catalog-thread-state.spec.js tests/browser/catalog-search-fields.spec.js tests/browser/thread-watcher.spec.js tests/browser/watcher-settings.spec.js && npm run test:post-tracking",
+    "test:behavior": "npm run test:watcher-core && playwright test tests/browser/behavior.spec.js tests/browser/archive.spec.js tests/browser/catalog-preferences.spec.js tests/browser/catalog-inplace.spec.js tests/browser/catalog-search-contract.spec.js tests/browser/catalog-live-search.spec.js tests/browser/catalog-thread-state.spec.js tests/browser/catalog-search-fields.spec.js tests/browser/thread-watcher.spec.js tests/browser/watcher-settings.spec.js tests/browser/watcher-position.spec.js && npm run test:post-tracking",
     "test:visual": "playwright test tests/browser/visual.spec.js",
     "test:archive-visual": "playwright test --config playwright.archive-visual.config.js",
     "test:media-visual": "playwright test --config playwright.media-visual.config.js",

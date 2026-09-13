@@ -110,6 +110,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/thread-watcher-core.v1.js',
     'http://127.0.0.1:3000/static/post-tracking.v1.js',
     'http://127.0.0.1:3000/static/native-settings.v1.js',
+    'http://127.0.0.1:3000/static/watcher-position.v1.js',
   ]);
   await page.evaluate(() => {
     window.violations = [];
@@ -126,7 +127,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   await page.locator('#size-ctrl').selectOption('large');
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   const index = await page.goto('/test/');
-  expect(index.headers()['content-security-policy']).toContain('script-src http://127.0.0.1:3000/static/thread-watcher.v1.js http://127.0.0.1:3000/static/thread-watcher-core.v1.js http://127.0.0.1:3000/static/post-tracking.v1.js http://127.0.0.1:3000/static/native-settings.v1.js;');
+  expect(index.headers()['content-security-policy']).toContain('script-src http://127.0.0.1:3000/static/thread-watcher.v1.js http://127.0.0.1:3000/static/thread-watcher-core.v1.js http://127.0.0.1:3000/static/post-tracking.v1.js http://127.0.0.1:3000/static/native-settings.v1.js http://127.0.0.1:3000/static/watcher-position.v1.js;');
   await expect(page.locator('script')).toHaveCount(1);
   await expect(page.locator('#settingsWindowLink')).toBeVisible();
   await expect(page.locator('#thread-watcher-enable')).toHaveCount(0);

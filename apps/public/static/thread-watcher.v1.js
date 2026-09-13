@@ -3,6 +3,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
+import { mountWatcherPosition } from './watcher-position.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -82,13 +83,12 @@ function start(context) {
   panel.setAttribute('aria-label', 'Thread Watcher');
   const heading = node('div', undefined, 'watcherHeader');
   heading.id = 'twHeader';
-  const fold = button('Thread Watcher', () => { collapsed = !collapsed; render(); }, 'watcherFold');
-  fold.setAttribute('aria-controls', 'watcher-body');
+  const title = node('span', 'Thread Watcher', 'watcherTitle');
   const refreshButton = button('Refresh', () => refreshAll(false));
   refreshButton.id = 'twPrune';
   const close = button('Close', () => { refresh.cancel(); collapsed = true; render(); });
   close.id = 'twClose';
-  heading.append(fold, refreshButton, close);
+  heading.append(title, refreshButton, close);
   const body = node('div');
   body.id = 'watcher-body';
   const list = node('ul');
@@ -124,17 +124,30 @@ function start(context) {
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
+  const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
+    save: (position, expected, expectedFixed) => locked(() => {
+      const settings = configuration();
+      if (!enabled || settings.disableAll === true || settings.threadWatcher !== true
+        || JSON.stringify(settings['TW-position']) !== expected
+        || (settings.fixedThreadWatcher === true) !== expectedFixed) return false;
+      return writeSettings({ ...settings, 'TW-position': position });
+    }),
+  });
+  function writeSettings(settings) {
+    const raw = JSON.stringify(settings);
+    if (raw.length > 4096) { notice.textContent = 'Settings are too large to save this change.'; return false; }
+    if (persistent) {
+      try { localStorage.setItem(settingsKey, raw); }
+      catch { persistent = false; volatileSettings = true; }
+    } else volatileSettings = true;
+    settingsCache = settings;
+    return true;
+  }
   async function saveSettings(changes) {
     const applied = await locked(() => {
       const settings = { ...configuration(), ...changes };
       if (catalog && changes.threadWatcher === true) settings.disableAll = false;
-      const raw = JSON.stringify(settings);
-      if (raw.length > 4096) return false;
-      if (persistent) {
-        try { localStorage.setItem(settingsKey, raw); }
-        catch { persistent = false; volatileSettings = true; }
-      } else volatileSettings = true;
-      settingsCache = settings;
+      if (!writeSettings(settings)) return false;
       refresh.cancel();
       enabled = settings.threadWatcher === true && settings.disableAll !== true;
       collapsed = mobile.matches;
@@ -221,13 +234,9 @@ function start(context) {
   function render() {
     tracking.prepareForms();
     panel.hidden = !enabled || (mobile.matches && collapsed);
-    panel.style.position = !catalog && !mobile.matches && configuration().fixedThreadWatcher === true ? 'fixed' : 'absolute';
-    panel.style.left = mobile.matches ? '0px' : '10px';
-    panel.style.top = mobile.matches ? `${window.scrollY + 30}px` : catalog ? '75px' : '380px';
     close.hidden = !mobile.matches;
     settingsNavigation.setWatcherEnabled(enabled, !panel.hidden);
     body.hidden = collapsed;
-    fold.setAttribute('aria-expanded', String(!collapsed));
     refreshButton.disabled = busy || !enabled;
     list.replaceChildren();
     for (const [key, entry] of orderedWatches(entries)) {
@@ -255,6 +264,7 @@ function start(context) {
     }
     if (!persistent) notice.textContent = 'Storage or cross-tab locking is unavailable. Changes stay in this tab.';
     controls();
+    placement.sync();
   }
   async function refreshAll(automatic) {
     if (!enabled || busy || !entries.size || (automatic && document.hidden)) return;

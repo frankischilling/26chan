@@ -153,11 +153,13 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{}",
+            "{script} {}{} {}{} {}{}",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_SETTINGS_PATH
+            crate::ui_assets::NATIVE_SETTINGS_PATH,
+            state.origin,
+            crate::ui_assets::WATCHER_POSITION_PATH
         )
     } else {
         script

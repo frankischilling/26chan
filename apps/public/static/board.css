@@ -143,7 +143,9 @@ table.postForm button { padding: 1px 6px; }
 @media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
 
 /* Watcher controls inherit each public theme's palette. */
-.watcherFold { border: 0; padding: 0; color: var(--link); background: transparent; font: inherit; }
+.watcherTitle { font-weight: bold; }
+#twHeader { cursor: move; touch-action: none; user-select: none; }
+#twHeader:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .watcherPanel { position: absolute; left: 10px; top: 75px; z-index: 30; max-width: min(420px, calc(100% - 20px)); color: var(--ink); background: var(--panel); border: 1px solid var(--edge); font-size: 12px; }
 .watcherHeader { display: flex; align-items: center; gap: 8px; padding: 4px; border-bottom: 1px solid var(--edge); }
 .watcherHeader button, #watchList button { padding: 1px 3px; font: inherit; }

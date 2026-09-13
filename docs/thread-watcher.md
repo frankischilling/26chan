@@ -43,7 +43,7 @@ text and keyboard removal. Persisted browser tests separately exercise refresh,
 cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
-Native settings and controls, icon placement, draggable/fixed positioning,
+Remaining native settings and controls, icon placement,
 mobile panel behavior, filter-driven watching and blacklist semantics remain
 unfinished. Broader archive/deletion/expiry and storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
@@ -75,8 +75,7 @@ The extension's fixed-position setting applies on desktop board/thread views,
 with the observed initial position at left 10px, top 380px. Catalog placement
 starts at left 10px, top 75px. At mobile widths up to 480px, the enabled watcher
 starts hidden; the TW link shows it at the current scroll position plus 30px,
-and its close control hides it without disabling watch storage. Dragging and
-restoring `TW-position` remain unfinished.
+and its close control hides it without disabling watch storage.
 
 `tests/browser/watcher-settings.spec.js` covers save/cancel, disable precedence,
 fixed positioning, cross-tab draft merging, unavailable storage/writes/locks,
@@ -84,3 +83,30 @@ mobile show/hide and the unchanged no-JavaScript style page. The existing strict
 CSP regression includes the exact release-owned `native-settings.v1.js` module,
 with healthy alternate-script and inline-script denials. No wildcard script or
 image source, new fetch permission, database grant or migration is introduced.
+
+## Dragging and saved positions
+
+The desktop header supports pointer dragging and saves `TW-position` in the
+native coordinate format. The pinned catalog and extension Draggable routines
+use percentages in the viewport interior and switch to zero-valued edge anchors
+when dragged beyond an edge. Absolute positioning includes the captured scroll
+offset; fixed positioning does not. Tall panels retain the reference's top-based
+branch. The current navigation has no persistent top offset, so its offset is 0.
+
+Stored CSS is not applied wholesale. A 256-character parser accepts exactly one
+horizontal and one vertical coordinate, in pixels or percentages, and an optional
+finite position keyword. Negative, duplicate, conflicting, calculated and other
+CSS declarations are rejected. Values are bounded to 1,000,000 pixels or 10,000
+percent. The fixed-position preference, not stored CSS, controls positioning mode.
+Only the parsed coordinate properties are assigned through the CSS object API.
+This is a security exception to the reference's arbitrary `style.cssText` restore.
+
+Saving uses the existing lock, preserves unrelated settings and compares the
+position and fixed-mode preference observed when dragging began. Cross-tab
+changes, disabling, mobile transitions, pointer cancellation and page exit cancel
+an active drag. Mobile placement does not overwrite desktop coordinates. The
+focusable header also supports arrow keys, or Shift plus arrows for ten-pixel
+steps. New gestures wait while a position save is pending; storage failures keep
+the current tab usable. `watcher-position.test.mjs` covers the parser and native
+geometry; `watcher-position.spec.js` covers real pointer movement, reloads, tabs,
+keyboard movement, cancellation, invalid settings and unavailable storage.
