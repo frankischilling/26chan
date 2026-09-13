@@ -5,6 +5,7 @@ export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transpor
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
 export { readFilterRules } from './native-filter-rules.js';
 export { mountNativeFilters } from './native-page-filters.js';
+export { mountNativeReplyHiding } from './native-reply-hiding.js';
 
 // Raw HTML and user patterns are evaluated only in a fresh worker, never in the client path.
 

@@ -42,7 +42,7 @@
 <section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 <article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
-{% if item.post.id != view.thread.id %}<div class="sideArrows" aria-hidden="true">&gt;&gt;</div>{% endif %}
+{% if item.post.id != view.thread.id %}<div class="sideArrows" id="sa{{ item.post.id }}" aria-hidden="true">&gt;&gt;</div>{% endif %}
 <div class="post {% if item.post.id == view.thread.id %}op{% else %}reply{% endif %}" id="p{{ item.post.id }}">
 {% if !catalog && item.post.id == view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
 <div class="postInfo" id="pi{{ item.post.id }}">

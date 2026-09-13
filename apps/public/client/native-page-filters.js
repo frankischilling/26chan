@@ -16,7 +16,7 @@ function selectedFilter() {
   } catch { return { pattern: null, type: 2 }; }
 }
 
-export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed }) {
+export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied }) {
   const root = document.querySelector('.board');
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
   root?.before(notice);
@@ -72,7 +72,8 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     const config = settings(), raw = read();
     const nextSignature = JSON.stringify([raw, config.filter === true, config.hideStubs === true, config.disableAll === true]);
     if (nextSignature !== signature) { revealed.clear(); signature = nextSignature; }
-    if (config.filter !== true || config.disableAll === true) { clear(); notice.textContent = ''; return; }
+    if (config.filter !== true || config.disableAll === true) { clear(); notice.textContent = ''; applied?.(new Set()); return; }
+    applied?.(null);
     notice.textContent = 'Applying filters...';
     const timeout = setTimeout(() => controller?.signal === signal && controller.abort(), 60000);
     try {
@@ -127,9 +128,11 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
           if (color) { element.style.boxShadow = `-3px 0 ${color}`; prior.assigned = element.style.boxShadow; }
         }
       }
+      // Native Filter.exec returns true only for Hide, not for highlighting.
+      applied?.(new Set(matches.filter(result => rules[result.filter]?.hide === true).map(result => result.id)));
       notice.textContent = '';
     } catch {
-      if (current === generation) { clear(); notice.textContent = 'Filters could not be applied. Posts are shown.'; }
+      if (current === generation) { clear(); applied?.(new Set()); notice.textContent = 'Filters could not be applied. Posts are shown.'; }
     } finally { clearTimeout(timeout); }
   }
   function schedule() {

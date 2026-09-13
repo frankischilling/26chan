@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters,
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -203,11 +203,14 @@ function start(context) {
     }),
   });
 
+  let nativeReplies = null;
   const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration,
     read: () => read(filterKey), save: saveFilterRules,
     match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
     changed: () => refresh.cancel(),
+    applied: hidden => nativeReplies?.setFiltered(hidden),
   });
+  nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     openFilters: opener => nativeFilters?.open(opener),
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
@@ -378,7 +381,7 @@ function start(context) {
     const item = node('li');
     item.setAttribute('role', 'none');
     const control = button(text, () => {
-      closePostMenu(command === 'watch');
+      closePostMenu(command === 'watch' || command === 'hide-r');
       action();
     });
     control.setAttribute('role', 'menuitem');
@@ -403,6 +406,7 @@ function start(context) {
       return;
     }
     const id = sectionId(menu.section);
+    if (menu.hide) menu.hide.textContent = `${nativeReplies?.isHidden(menu.post.id.slice(1)) ? 'Unhide' : 'Hide'} post`;
     const canWatch = enabled && menu.post.classList.contains('op') && menu.post.id === `p${id}`;
     if (canWatch) {
       if (!menu.watch) {
@@ -443,6 +447,9 @@ function start(context) {
     const menu = { root, list, trigger, post, section, watch: null, filter: null,
       selection: nativeFilters?.selection() };
     postMenuItem(menu, 'report', 'Report post', () => openPostAction(post, 'report'));
+    if (post.classList.contains('reply')) {
+      menu.hide = postMenuItem(menu, 'hide-r', '', () => { void nativeReplies?.toggle(post.id.slice(1)); });
+    }
     if (mobile.matches) postMenuItem(menu, 'del-post', 'Delete post', () => openPostAction(post, 'delete'));
     root.addEventListener('keydown', event => {
       const items = [...list.querySelectorAll('[role="menuitem"]')];
@@ -505,6 +512,7 @@ function start(context) {
     syncOpenPostMenu();
   }
   function render() {
+    nativeReplies?.refresh();
     tracking.prepareForms();
     panel.hidden = !enabled || (mobile.matches && collapsed);
     close.hidden = !mobile.matches;
