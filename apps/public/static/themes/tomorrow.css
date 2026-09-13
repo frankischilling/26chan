@@ -1,0 +1,10 @@
+:root {
+  --paper: #1d1f21; --ink: #c5c8c6; --panel: #282a2e; --edge: #282a2e;
+  --link: #81a2be; --hover: #5f89ac; --quote-link: #5f89ac;
+  --name: #c5c8c6; --subject: #b294bb; --quote: #b5bd68;
+  --label: #282a2e; --label-ink: #c5c8c6; --target: #1d1d21;
+  --field: #282a2e; --field-ink: #c5c8c6; --control: #282a2e;
+  --muted: #919191; --focus: #81a2be; --scheme: dark; --wash: none;
+  --label-edge: #111111; --field-edge: #000000; --select-edge: #575a60; --placeholder: #919191;
+  --quote-hover: #81a2be;
+}

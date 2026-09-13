@@ -212,6 +212,10 @@ async fn main() {
     let media_server =
         tokio::spawn(async move { axum::serve(media_listener, media_app).await.unwrap() });
     let app = Router::new()
+        .merge(board_public::themes::routes(
+            "http://127.0.0.1:3000".into(),
+            false,
+        ))
         .merge(media_fixture.routes())
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))

@@ -1,0 +1,33 @@
+/* Theme choices derived from the pinned public UI references, not remote CSS. */
+:root {
+  --paper: #ffffee; --ink: #800000; --panel: #f0e0d6; --edge: #d9bfb7;
+  --link: #0000ee; --hover: #ff0000; --quote-link: #000080;
+  --name: #117743; --subject: #cc1105; --quote: #789922;
+  --label: #eeaa88; --label-ink: #880000; --target: #f0c0b0;
+  --label-edge: #880000; --field-edge: #aaaaaa; --select-edge: #aaaaaa; --placeholder: gray;
+  --quote-hover: var(--hover);
+  --field: #ffffff; --field-ink: #111111; --control: #eeeeee;
+  --muted: #707070; --focus: #0645ad; --font: Arial, Helvetica, sans-serif;
+  --size: 10pt; --decoration: none; --scheme: light;
+  --wash: url('/static/themes/fade.png') top center repeat-x;
+  color-scheme: var(--scheme); background: var(--paper); color: var(--ink);
+  font-family: var(--font); font-size: var(--size);
+}
+body { background: var(--wash); }
+a { color: var(--link); text-decoration: var(--decoration); }
+a:hover { color: var(--hover); }
+.reply, .catalog .thread, .boardDirectory, .message { background: var(--panel); border-color: var(--edge); }
+hr, .thread, .boardDirectory article { border-color: var(--edge); }
+.subject { color: var(--subject); }
+.name { color: var(--name); }
+.quote { color: var(--quote); }
+.quotelink { color: var(--quote-link); }
+.quotelink:hover { color: var(--quote-hover); }
+.postForm label { background: var(--label); color: var(--label-ink); border-color: var(--label-edge); }
+input, textarea, select { background: var(--field); color: var(--field-ink); border-color: var(--field-edge); }
+select { border-color: var(--select-edge); }
+input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 1; }
+button { background: var(--control); color: var(--field-ink); }
+.post:target { background: var(--target); outline-color: var(--edge); }
+.omitted, .postActions { color: var(--muted); }
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline-color: var(--focus); }

@@ -186,3 +186,6 @@ jobs:
       - name: Run attachment desktop and mobile visual fixtures
         shell: pwsh
         run: npm run test:media-visual
+      - name: Run referenced theme preferences and desktop/mobile visuals
+        shell: pwsh
+        run: npm run test:themes

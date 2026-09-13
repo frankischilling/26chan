@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}/{{ board.slug }}/ - Archive{% endblock %}
+{% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
+{% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block content %}
 <header class="boardHeader"><h1>/{{ board.slug }}/ - Archive</h1><p>{{ board.title }}</p></header>
 <nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a> / <a href="/{{ board.slug }}/archive">Archive</a> ]</nav>

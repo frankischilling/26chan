@@ -5,6 +5,7 @@ mod api_http;
 mod handlers;
 mod intake;
 mod security;
+pub mod themes;
 mod uploads;
 mod views;
 use axum::{
@@ -88,6 +89,7 @@ pub fn routers_with_media(
         media: media.map(|settings| intake::IntakeClient { settings }),
     };
     let mut public = Router::new()
+        .merge(themes::routes(state.origin.clone(), state.production))
         .route("/", get(handlers::home))
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(handlers::ready))

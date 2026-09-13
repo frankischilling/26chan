@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Paperboard{% endblock %}</title>
   <link rel="stylesheet" href="/static/board.css">
+  {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css">{% endblock %}
 </head>
 <body>
 <nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>
 <main id="content">{% block content %}{% endblock %}</main>
-<footer><p>Paperboard development build. {% block feature_notice %}Text posts only.{% endblock %}</p></footer>
+<footer><p>{% block theme_link %}<a href="/settings/theme">Style</a>{% endblock %}</p><p>Paperboard development build. {% block feature_notice %}Text posts only.{% endblock %}</p></footer>
 </body>
 </html>

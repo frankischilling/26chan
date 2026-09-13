@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% import "formatting.html" as formatting %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
+{% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block content %}
 <header class="boardHeader"><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>

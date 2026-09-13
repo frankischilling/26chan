@@ -2,6 +2,40 @@ import { test, expect } from '@playwright/test';
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
+test('theme backgrounds have a narrow CSP with a healthy denied-origin control', async ({ page }) => {
+  const response = await page.goto('/settings/theme');
+  const origin = new URL(page.url()).origin;
+  const policy = response.headers()['content-security-policy'];
+  const sources = policy.split(';').map(part => part.trim()).find(part => part.startsWith('img-src '));
+  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png`);
+  const allowed = `${origin}/static/themes/fade-blue.png`;
+  const denied = new URL(allowed);
+  denied.hostname = 'localhost';
+  const positive = await page.request.get(allowed);
+  const healthy = await page.request.get(denied.href);
+  expect(positive.status()).toBe(200);
+  expect(healthy.status()).toBe(200);
+  expect(healthy.headers()['content-type']).toBe('image/png');
+  expect(await healthy.body()).toEqual(await positive.body());
+  const outcome = await page.evaluate(async ({ allowed, denied }) => {
+    const violations = [];
+    document.addEventListener('securitypolicyviolation', event => violations.push({ uri: event.blockedURI, directive: event.effectiveDirective }));
+    const load = src => new Promise(resolve => {
+      const image = new Image();
+      image.onload = () => resolve([image.naturalWidth, image.naturalHeight]);
+      image.onerror = () => resolve(null);
+      image.src = src;
+    });
+    const positive = await load(allowed);
+    const negative = await load(denied);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    return { positive, negative, violations };
+  }, { allowed, denied: denied.href });
+  expect(outcome.positive).toEqual([1, 200]);
+  expect(outcome.negative).toBeNull();
+  expect(outcome.violations).toContainEqual({ uri: denied.href, directive: 'img-src' });
+});
+
 async function apiClient(page, origin = 'http://127.0.0.1:3000') {
   // A controlled client document keeps production pages' script/connect CSP
   // intact. Only this document is intercepted; all API traffic uses real HTTP.

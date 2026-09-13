@@ -1,0 +1,7 @@
+:root {
+  --paper: #eef2ff; --ink: #000000; --panel: #d6daf0; --edge: #b7c5d9;
+  --link: #34345c; --hover: #dd0000; --quote-link: #dd0000;
+  --subject: #0f0c5d; --label: #9988ee; --label-ink: #000000; --target: #d6bad0;
+  --label-edge: #000000;
+  --wash: url('/static/themes/fade-blue.png') top center repeat-x;
+}
