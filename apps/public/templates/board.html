@@ -29,9 +29,10 @@
 </form>
 {% endif %}
 <hr>
-<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog extended-small{% else %}board{% endif %}">
+{% if catalog %}{% include "catalog_controls.html" %}{% endif %}
+<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}">
 {% for view in threads %}
-{% if catalog %}{% call catalog_cards::card(view, board.slug, media_origin) %}{% endcall %}{% else %}
+{% if catalog %}{% call catalog_cards::card(view, board.slug, media_origin, catalog_options) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 <article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
@@ -57,7 +58,7 @@
 {% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
 </section>
 {% endif %}
-{% else %}<p class="empty">No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}</p>{% endfor %}
+{% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
 </div>
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
 {% endblock %}

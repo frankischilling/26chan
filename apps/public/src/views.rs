@@ -17,6 +17,7 @@ pub struct BoardPage {
     pub previous: String,
     pub next: String,
     pub catalog: bool,
+    pub catalog_options: crate::catalog::Options,
     pub media_origin: String,
 }
 
@@ -73,13 +74,14 @@ pub struct PostView {
     pub now: String,
 }
 impl PostView {
-    pub fn catalog_size(&self) -> (i64, i64) {
+    pub fn catalog_size(&self, large: bool) -> (i64, i64) {
         let Some(file) = &self.post.attachment else {
             return (1, 1);
         };
         catalog_dimensions(
             file.thumbnail_width.unwrap_or(file.width),
             file.thumbnail_height.unwrap_or(file.height),
+            if large { 250 } else { 150 },
         )
     }
     pub fn new(post: Post) -> Self {
@@ -93,13 +95,13 @@ impl PostView {
     }
 }
 
-fn catalog_dimensions(width: i32, height: i32) -> (i64, i64) {
+fn catalog_dimensions(width: i32, height: i32, limit: i64) -> (i64, i64) {
     let width = i64::from(width.max(1));
     let height = i64::from(height.max(1));
-    let largest = width.max(height).max(150);
+    let largest = width.max(height).max(limit);
     (
-        (width * 150 / largest).max(1),
-        (height * 150 / largest).max(1),
+        (width * limit / largest).max(1),
+        (height * limit / largest).max(1),
     )
 }
 
@@ -116,7 +118,7 @@ mod catalog_tests {
             ((i32::MAX, 1), (150, 1)),
             ((0, i32::MIN), (1, 1)),
         ] {
-            assert_eq!(super::catalog_dimensions(input.0, input.1), expected);
+            assert_eq!(super::catalog_dimensions(input.0, input.1, 150), expected);
         }
     }
 }

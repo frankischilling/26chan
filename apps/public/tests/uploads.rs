@@ -688,5 +688,43 @@ async fn image_reply_contract(
         .unwrap();
     assert_eq!(op["replies"], 6);
     assert_eq!(op["images"], 5);
+    let filter = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("q", &format!("<b>{board}</b>.png"))
+        .finish();
+    let filtered = html(
+        app.clone()
+            .oneshot(
+                Request::get(format!("/{board}/catalog?{filter}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    assert!(
+        filtered.contains(&format!("id=\"thread-{thread}\"")),
+        "catalog filter searches the OP filename as literal text"
+    );
+    board_store::post_media::delete_attachment(&public, board, thread)
+        .await
+        .unwrap();
+    let filtered = html(
+        app.clone()
+            .oneshot(
+                Request::get(format!("/{board}/catalog?{filter}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    assert!(
+        !filtered.contains(&format!("id=\"thread-{thread}\"")),
+        "deleted OP filename cannot match a filter"
+    );
     public.close().await;
 }

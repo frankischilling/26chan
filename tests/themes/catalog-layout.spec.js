@@ -23,12 +23,30 @@ for (const theme of Object.keys(reference.themes)) {
       await expect(card.locator('.thumb')).toHaveCSS('min-width', '50px');
       await expect(card.locator('.thumb')).toHaveCSS('min-height', '50px');
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      for (const id of ['order-ctrl','size-ctrl','teaser-ctrl','qf-box']) {
+        const label = await page.locator(`label[for="${id}"]`).boundingBox();
+        const field = await page.locator(`#${id}`).boundingBox();
+        expect(label.y + label.height / 2).toBeCloseTo(field.y + field.height / 2, 0);
+      }
       await card.locator('.catalogThumb').focus();
       await expect(card.locator('.catalogThumb')).toHaveCSS('outline-width', '2px');
       await expect(card).toHaveCSS('max-height', 'none');
       await card.locator('.catalogThumb').press('Enter');
       await expect(page).toHaveURL(/\/img\/thread\/1000201$/);
       await expect(page.locator('#p1000201')).toBeVisible();
+      for (const [size, teaser, cardWidth, maxHeight] of [['small','off',width <= 480 ? '155px' : '165px','none'], ['large','off','270px','none'], ['large','on','270px','410px']]) {
+        await page.goto(`/img/catalog?size=${size}&teaser=${teaser}`);
+        const card = page.locator('.catalog .thread').first();
+        await expect(card).toHaveCSS('width', cardWidth);
+        await expect(card).toHaveCSS('max-height', maxHeight);
+        await expect(card.locator('.teaser')).toHaveCount(teaser === 'on' ? 1 : 0);
+        await expect(card.locator('.thumb')).toHaveAttribute('width', size === 'large' ? '250' : '150');
+        await expect(page.locator('#size-ctrl')).toHaveValue(size);
+        await expect(page.locator('#teaser-ctrl')).toHaveValue(teaser);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+        await card.locator('.catalogThumb').focus();
+        await expect(card).toHaveCSS('max-height', 'none');
+      }
     }
   });
 }

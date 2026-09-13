@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 // Test-only renderer for screenshot CI. It compiles the actual production view
 // module/templates. Persistence and real HTTP mutations have separate tests.
+use board_public::catalog;
 #[path = "visual/media.rs"]
 mod media;
 #[path = "../src/views.rs"]
@@ -82,6 +83,7 @@ fn page(catalog: bool) -> String {
         previous: String::new(),
         next: String::new(),
         catalog,
+        catalog_options: catalog::Options::default(),
         media_origin: String::new(),
     }
     .render()
@@ -107,6 +109,7 @@ fn empty_page(catalog: bool) -> String {
         previous: String::new(),
         next: String::new(),
         catalog,
+        catalog_options: catalog::Options::default(),
         media_origin: String::new(),
     }
     .render()
@@ -195,6 +198,7 @@ fn archived_thread() -> String {
         previous: String::new(),
         next: String::new(),
         catalog: false,
+        catalog_options: catalog::Options::default(),
         media_origin: String::new(),
     }
     .render()

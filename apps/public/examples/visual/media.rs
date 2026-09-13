@@ -1,5 +1,5 @@
 //! Synthetic pixels and metadata for production-template layout regression.
-use super::{board, time, views};
+use super::{board, catalog, time, views};
 use askama::Template;
 use axum::{Router, response::Html, routing::get};
 use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
@@ -100,7 +100,7 @@ impl Fixture {
         (Self { files }, media)
     }
 
-    fn page(&self, kind: &str) -> String {
+    fn page(&self, kind: &str, options: catalog::Options) -> String {
         let catalog = kind == "catalog";
         let archived = kind == "archived";
         let board = board_store::Board {
@@ -168,6 +168,7 @@ impl Fixture {
             previous: String::new(),
             next: String::new(),
             catalog,
+            catalog_options: options,
             media_origin: "http://localhost:3004".into(),
         }
         .render()
@@ -185,9 +186,14 @@ impl Fixture {
             let fixture = self.clone();
             app = app.route(
                 path,
-                get(move || {
+                get(move |uri: axum::http::Uri| {
                     let fixture = fixture.clone();
-                    async move { Html(fixture.page(kind)) }
+                    async move {
+                        Html(fixture.page(
+                            kind,
+                            catalog::Options::parse(&uri).expect("valid fixture options"),
+                        ))
+                    }
                 }),
             );
         }

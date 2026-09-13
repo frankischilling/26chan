@@ -1,10 +1,10 @@
-use crate::{AppState, api, views::*};
+use crate::{AppState, api, catalog, views::*};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
 use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, Uri},
     response::{Html, IntoResponse, Redirect, Response},
 };
 use board_store::{NewPost, StoreError};
@@ -95,15 +95,22 @@ pub async fn board_index(
     State(state): State<AppState>,
     Path(board): Path<String>,
 ) -> Result<Response, AppError> {
-    board_page(&state, &board, 1, false).await
+    board_page(&state, &board, 1, false, catalog::Options::default()).await
 }
 pub async fn page(
     State(state): State<AppState>,
     Path((board, page)): Path<(String, String)>,
     headers: HeaderMap,
+    uri: Uri,
 ) -> Result<Response, AppError> {
     match page.as_str() {
-        "catalog" => board_page(&state, &board, 1, true).await,
+        "catalog" => {
+            let options = catalog::Options::parse(&uri).ok_or(AppError(
+                StatusCode::BAD_REQUEST,
+                "Invalid catalog options.",
+            ))?;
+            board_page(&state, &board, 1, true, options).await
+        }
         "threads.json" => api::thread_list(&state, &board, &headers).await,
         "catalog.json" => api::catalog(&state, &board, &headers).await,
         "archive.json" => api::archive(&state, &board, &headers).await,
@@ -131,7 +138,14 @@ pub async fn page(
                 if !(0..1000).contains(&index) {
                     return Err(AppError(StatusCode::NOT_FOUND, "Page not found."));
                 }
-                board_page(&state, &board, index + 1, false).await
+                board_page(
+                    &state,
+                    &board,
+                    index + 1,
+                    false,
+                    catalog::Options::default(),
+                )
+                .await
             }
         }
     }
@@ -141,19 +155,23 @@ async fn board_page(
     slug: &str,
     page: i64,
     catalog: bool,
+    options: catalog::Options,
 ) -> Result<Response, AppError> {
     let selection = if catalog {
         board_store::BoardSelection::All
     } else {
         board_store::BoardSelection::Page(page)
     };
-    let snapshot = board_store::board_snapshot(
+    let mut snapshot = board_store::board_snapshot(
         &state.pool,
         slug,
         selection,
         Some(if catalog { 0 } else { 3 }),
     )
     .await?;
+    if catalog {
+        options.apply(&mut snapshot);
+    }
     let board = snapshot.board;
     let has_next = snapshot.has_next;
     let mut views = Vec::new();
@@ -187,6 +205,7 @@ async fn board_page(
                 String::new()
             },
             catalog,
+            catalog_options: options,
             media_origin: state
                 .media
                 .as_ref()
@@ -230,6 +249,7 @@ pub async fn thread(
             previous: String::new(),
             next: String::new(),
             catalog: false,
+            catalog_options: catalog::Options::default(),
             media_origin: state
                 .media
                 .as_ref()

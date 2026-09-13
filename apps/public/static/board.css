@@ -45,8 +45,16 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .catalog .meta { font-size: 11px; line-height: 8px; margin: 2px 0 1px; cursor: help; }
 .catalog .teaser { padding: 0 15px; line-height: normal; }
 .catalogPlaceholder { display: inline-flex; width: 100px; height: 100px; align-items: center; justify-content: center; border: 1px solid currentColor; }
+.catalog.small .thread { width: 165px; max-height: none; }
+.catalog.large .thread { width: 270px; max-height: none; }
+.catalog.extended-large .thread { width: 270px; max-height: 410px; }
 .catalog .thread:focus-within { max-height: none; overflow: visible; }
-@media (max-width: 480px) { .catalog .thread { width: 155px; } }
+.catalog.large .thumb, .catalog.extended-large .thumb { max-width: 250px; max-height: 250px; }
+.catalogControls { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.catalogControl { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
+.catalogControls input { width: 150px; max-width: 100%; }
+.catalogControls select, .catalogControls input, .catalogControls button { font: inherit; }
+@media (max-width: 480px) { .catalog.small .thread, .catalog.extended-small .thread { width: 155px; } }
 .boardDirectory, .message { max-width: 720px; margin: 30px auto; padding: 15px; background: #f0e0d6; border: 1px solid #d9bfb7; }
 .boardDirectory article { border-top: 1px solid #d9bfb7; }
 .empty { padding: 35px 12px; text-align: center; }

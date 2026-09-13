@@ -46,6 +46,14 @@ try {
         return [box.width, box.height];
       });
       assert.deepEqual(tiny, [50, 50], 'public CSS independently floors both thumbnail axes');
+      for (const [mode, cardWidth, heightLimit] of [['small',width <= 480 ? '155px' : '165px','none'], ['large','270px','none'], ['extended-large','270px','410px']]) {
+        const actual = await page.evaluate(mode => {
+          document.querySelector('#threads').className = mode;
+          const style = getComputedStyle(document.querySelector('.thread'));
+          return [style.width, style.maxHeight, getComputedStyle(document.querySelector('.teaser')).display];
+        }, mode);
+        assert.deepEqual(actual, [cardWidth, heightLimit, mode === 'extended-large' ? 'block' : 'none']);
+      }
       console.log(`PASS ${theme} ${width}: pinned catalog card properties`);
     }
   }

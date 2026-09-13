@@ -11,6 +11,7 @@ pub struct ThreadPreview {
     pub posts: Vec<Post>,
     pub visible_posts: i64,
     pub visible_images: i64,
+    pub latest_reply_id: Option<i64>,
 }
 
 pub struct BoardSnapshot {
@@ -54,7 +55,7 @@ pub async fn board_snapshot(
         .bind(slug).bind(offset).bind(limit).fetch_all(&mut *tx).await?;
     let has_next = later_page && threads.len() == limit as usize;
     let ids: Vec<i64> = threads.iter().map(|thread| thread.id).collect();
-    let counts: Vec<(i64, i64)> = sqlx::query_as("SELECT thread_id,count(*) FROM content.posts WHERE board=$1 AND thread_id=ANY($2) AND NOT deleted GROUP BY thread_id")
+    let counts: Vec<(i64, i64, Option<i64>)> = sqlx::query_as("SELECT thread_id,count(*),max(id) FILTER (WHERE id<>thread_id) FROM content.posts WHERE board=$1 AND thread_id=ANY($2) AND NOT deleted GROUP BY thread_id")
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
     let images: Vec<(i64, i64)> = sqlx::query_as("SELECT p.thread_id,count(*) FROM content.posts p JOIN content.visible_post_media m ON m.post_id=p.id WHERE p.board=$1 AND p.thread_id=ANY($2) AND p.id<>p.thread_id AND NOT m.file_deleted GROUP BY p.thread_id")
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
@@ -69,7 +70,10 @@ pub async fn board_snapshot(
     crate::post_media::load(&mut tx, &mut posts).await?;
     tx.commit().await?;
 
-    let counts: BTreeMap<_, _> = counts.into_iter().collect();
+    let counts: BTreeMap<_, _> = counts
+        .into_iter()
+        .map(|(id, count, latest)| (id, (count, latest)))
+        .collect();
     let images: BTreeMap<_, _> = images.into_iter().collect();
     let mut previews: BTreeMap<i64, Vec<Post>> = BTreeMap::new();
     for post in posts {
@@ -79,8 +83,9 @@ pub async fn board_snapshot(
         .into_iter()
         .map(|thread| ThreadPreview {
             posts: previews.remove(&thread.id).unwrap_or_default(),
-            visible_posts: counts.get(&thread.id).copied().unwrap_or(0),
+            visible_posts: counts.get(&thread.id).map_or(0, |value| value.0),
             visible_images: images.get(&thread.id).copied().unwrap_or(0),
+            latest_reply_id: counts.get(&thread.id).and_then(|value| value.1),
             thread,
         })
         .collect();
