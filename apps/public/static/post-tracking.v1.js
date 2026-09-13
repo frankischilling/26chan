@@ -16,14 +16,14 @@ export function readTrackIndex(raw, now) {
   return result;
 }
 
-function updateTrackedPost(storage, board, thread, post, now, touch) {
+function updateTrackedPost(storage, board, thread, post, now) {
   if (!watchKey(board, thread) || !postId(post) || BigInt(post) < BigInt(thread)
     || !Number.isSafeInteger(now) || now < 0) throw new Error('Invalid tracked post');
   const prefix = `4chan-track-${board}-`;
   const indexKey = prefix + 'ts';
   const index = readTrackIndex(storage.getItem(indexKey), now);
   for (const [id, timestamp] of index) {
-    if (now - timestamp >= TRACK_LIMITS.ageSeconds && !(touch && id === thread)) {
+    if (now - timestamp >= TRACK_LIMITS.ageSeconds && id !== thread) {
       index.delete(id);
       storage.removeItem(prefix + id);
     }
@@ -43,14 +43,14 @@ function updateTrackedPost(storage, board, thread, post, now, touch) {
 }
 
 export function recordTrackedPost(storage, board, thread, post, now = Math.floor(Date.now() / 1000)) {
-  updateTrackedPost(storage, board, thread, post, now, false);
+  updateTrackedPost(storage, board, thread, post, now);
 }
 
 export function touchTrackedThread(storage, board, thread, now = Math.floor(Date.now() / 1000)) {
   if (!watchKey(board, thread)) return;
   const tracked = readTrackedReplies(storage.getItem(`4chan-track-${board}-${thread}`));
   const id = tracked.values().next().value;
-  if (id) updateTrackedPost(storage, board, thread, id, now, true);
+  if (id) updateTrackedPost(storage, board, thread, id, now);
 }
 
 export function postReceipts(raw) {

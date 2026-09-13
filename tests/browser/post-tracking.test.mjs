@@ -58,3 +58,15 @@ test('revisiting an expired tracked thread retains all its own posts while pruni
   assert.equal(store.getItem('4chan-track-demo-200'), null);
   assert.deepEqual(JSON.parse(store.getItem('4chan-track-demo-ts')), { 100: now });
 });
+
+test('posting after a long idle period retains existing own-post hints in that thread', () => {
+  const store = storage();
+  recordTrackedPost(store, 'demo', '100', '101', 100);
+  recordTrackedPost(store, 'demo', '100', '102', 100);
+  recordTrackedPost(store, 'demo', '200', '201', 100);
+  const now = 100 + TRACK_LIMITS.ageSeconds + 1;
+  recordTrackedPost(store, 'demo', '100', '103', now);
+  assert.deepEqual(JSON.parse(store.getItem('4chan-track-demo-100')), { '>>101': 1, '>>102': 1, '>>103': 1 });
+  assert.equal(store.getItem('4chan-track-demo-200'), null);
+  assert.deepEqual(JSON.parse(store.getItem('4chan-track-demo-ts')), { 100: now });
+});
