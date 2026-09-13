@@ -45,6 +45,17 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .catalog .meta { font-size: 11px; line-height: 8px; margin: 2px 0 1px; cursor: help; }
 .catalog .teaser { padding: 0 15px; line-height: normal; }
 .catalogPlaceholder { display: inline-flex; width: 100px; height: 100px; align-items: center; justify-content: center; border: 1px solid currentColor; }
+.catalog .imgdel, .catalog .nofile { box-sizing: content-box; min-height: 0; }
+.catalog .imgdel { width: 127px; height: 13px; padding: 20px 14px; }
+.catalog .nofile { padding: 20px 36px; }
+.catalog .threadIcons { display: inline; height: 16px; margin: 2px 0 0 -101px; position: absolute; width: 100px; text-align: right; }
+.catalog .threadIcon { display: inline-block; width: 16px; height: 16px; }
+.catalog .stickyIcon { background-image: url('/static/catalog/sticky.gif'); }
+.catalog .closedIcon { background-image: url('/static/catalog/closed.gif'); }
+@media (min-resolution: 2dppx) {
+  .catalog .stickyIcon { background-image: url('/static/catalog/sticky@2x.gif'); background-size: 100%; }
+  .catalog .closedIcon { background-image: url('/static/catalog/closed@2x.gif'); background-size: 100%; }
+}
 .catalog.small .thread { width: 165px; max-height: none; }
 .catalog.large .thread { width: 270px; max-height: none; }
 .catalog.extended-large .thread { width: 270px; max-height: 410px; }

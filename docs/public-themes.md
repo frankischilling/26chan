@@ -41,7 +41,8 @@ retain public admission, write-rate, timeout and origin checks and have a
 The shared base CSS remains public. Theme CSS and preference-page responses use
 `private, no-store` and `Vary: Cookie`; conditional requests do not turn one
 selection into a 304 for another. CSP permits the two exact local gradient
-paths as image sources, plus the configured separate media origin when enabled.
+paths and seven fixed [catalog image paths](catalog-state-assets.md), plus the
+configured separate media origin when enabled.
 It does not permit all same-origin images. Script restrictions remain unchanged,
 and theme styles load no remote resources. The URL crate declaration
 reuses the locked workspace version for safe referrer-origin parsing.

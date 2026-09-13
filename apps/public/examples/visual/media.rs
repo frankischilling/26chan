@@ -142,6 +142,8 @@ impl Fixture {
                     thread: Thread {
                         id: post.post.id,
                         reply_count: 0,
+                        sticky: post.post.id == 1_000_201,
+                        closed: post.post.id == 1_000_201,
                         ..thread.clone()
                     },
                     posts: vec![post],

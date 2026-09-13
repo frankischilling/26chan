@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-assets.json', import.meta.url), 'utf8'));
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
@@ -131,12 +134,21 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   }
 });
 
-test('theme backgrounds have a narrow CSP with a healthy denied-origin control', async ({ page }) => {
+test('release UI images have a narrow CSP with a healthy denied-origin control', async ({ page }) => {
   const response = await page.goto('/settings/theme');
   const origin = new URL(page.url()).origin;
   const policy = response.headers()['content-security-policy'];
   const sources = policy.split(';').map(part => part.trim()).find(part => part.startsWith('img-src '));
-  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png`);
+  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${uiAssets.assets.map(asset => `${origin}${uiAssets.local_base}${asset.name}`).join(' ')}`);
+  for (const asset of uiAssets.assets) {
+    const dimensions = await page.evaluate(src => new Promise(resolve => {
+      const image = new Image();
+      image.onload = () => resolve([image.naturalWidth, image.naturalHeight]);
+      image.onerror = () => resolve(null);
+      image.src = src;
+    }), `${origin}${uiAssets.local_base}${asset.name}`);
+    expect(dimensions).toEqual(asset.dimensions);
+  }
   const allowed = `${origin}/static/themes/fade-blue.png`;
   const denied = new URL(allowed);
   denied.hostname = 'localhost';
