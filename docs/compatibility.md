@@ -52,6 +52,10 @@ client behavior and captcha equivalence remain unverified.
 
 ## Security-driven and project-defined exceptions
 
+Catalog display preferences now have bounded browser-local persistence; see
+[preference behavior and remaining differences](catalog-preferences.md).
+In-place redraw and full catalog interaction parity remain unfinished.
+
 Public request budgets are project-defined containment policy, not claimed reference behavior.
 Their existing defaults and bounded operator overrides are documented in
 [public request limits](public-request-limits.md).
