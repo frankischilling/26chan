@@ -21,7 +21,7 @@ export function filterEditor({ board, read, save, match, changed }) {
   let active;
   return function open(opener) {
     if (active) { active.dialog.focus(); return; }
-    const expected = read();
+    let expected = read();
     const parsed = readFilterRules(expected, { migrateLegacy: true });
     const dialog = node('dialog', undefined, 'nativeSettings nativeFilters UIPanel');
     dialog.id = 'filtersMenu';
@@ -155,7 +155,13 @@ export function filterEditor({ board, read, save, match, changed }) {
         const result = await save(raw, expected, controller.signal);
         if (controller.signal.aborted || !dialog.isConnected) return;
         if (result?.status !== 'ok') { message.textContent = 'Filters changed or could not be saved. Reopen the editor before saving again.'; return; }
-        changed(); close();
+        changed(result);
+        if (result.persisted === false) {
+          expected = raw;
+          message.textContent = 'Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.';
+          return;
+        }
+        close();
       } catch { if (dialog.isConnected) message.textContent = 'Filters could not be saved.'; }
       finally { submit.disabled = false; }
     });

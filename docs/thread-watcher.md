@@ -20,7 +20,10 @@ original serialized rules with current storage under the shared Web Lock.
 Competing edits retain the open draft rather than overwriting the other tab.
 Closing the editor aborts validation and prevents a queued save from committing.
 Unavailable writes retain editable rules in the current tab without changing
-the persisted list. A visible warning for that fallback remains unfinished.
+the persisted list. The editor stays open and states that the save applies only
+to this tab when storage or locking is unavailable. Further edits compare against
+that same-tab draft. A separate page warning remains after the editor closes;
+it disappears on navigation, which also discards those volatile changes.
 
 Page matching is distinct from catalog discovery: blank board scope is global,
 subject filters require a present subject and do not run inside thread pages,
@@ -85,8 +88,7 @@ cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
 Other native settings and post-menu actions remain unfinished. The filter editor
-still needs reviewed native visual comparisons and a visible same-tab-only save
-warning when storage fails. Archive/expiry and additional storage-race coverage, reviewed
+still needs reviewed native visual comparisons. Archive/expiry and additional storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
 

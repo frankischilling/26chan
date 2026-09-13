@@ -6,6 +6,10 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
   const root = document.querySelector('.board');
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
   root?.before(notice);
+  const storageNotice = document.createElement('p');
+  storageNotice.className = 'nativeFilterStorageNotice'; storageNotice.hidden = true;
+  storageNotice.setAttribute('role', 'status');
+  root?.before(storageNotice);
   let controller, generation = 0, signature, scheduled = false;
   const effects = new Map(), revealed = new Set();
   function clear() {
@@ -125,5 +129,11 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
         && (node.matches('.post,.postContainer,.thread') || node.querySelector('.post'))))) schedule();
   }).observe(root, { childList: true, subtree: true, characterData: true });
   window.addEventListener('pagehide', () => { generation++; controller?.abort(); });
-  return { refresh, open: filterEditor({ board, read, save, match, changed: () => { changed(); void refresh(); } }) };
+  return { refresh, open: filterEditor({ board, read, save, match, changed: result => {
+    if (result.persisted === false) {
+      storageNotice.textContent = 'Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.';
+      storageNotice.hidden = false;
+    }
+    changed(); void refresh();
+  } }) };
 }

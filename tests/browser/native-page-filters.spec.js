@@ -183,16 +183,31 @@ test('unavailable writes retain editable same-tab filters without overwriting pe
   await page.getByLabel('Type for filter 1', { exact: true }).selectOption('2');
   await page.getByLabel('Hide filter 1', { exact: true }).check();
   await page.locator('[data-cmd=filters-save]').click();
+  await expect(page.locator('.filterEditorMessage')).toHaveText('Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.');
+  await expect(page.locator('#filtersMenu')).toBeVisible();
+  // A second same-tab save uses the newly saved draft as its comparison value.
+  await page.getByLabel('Pattern for filter 1', { exact: true }).fill('reply needle');
+  await page.locator('[data-cmd=filters-save]').click();
+  await expect(page.locator('[data-cmd=filters-save]')).toBeEnabled();
+  await expect(page.locator('.filterEditorMessage')).toHaveText('Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.');
+  await page.getByRole('button', { name: 'Close filters', exact: true }).click();
   await expect(page.locator('#filtersMenu')).toHaveCount(0);
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+  await expect(page.locator('.nativeFilterStorageNotice')).toBeVisible();
+  await expect(page.locator('.nativeFilterStorageNotice')).toHaveText('Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.');
   await expect(page.locator(`#p${fixture.reply}`)).toHaveClass(/post-hidden/);
   expect(await page.evaluate(() => localStorage.getItem('4chan-filters'))).toBe('[]');
   await editor(page);
-  await expect(page.getByLabel('Pattern for filter 1', { exact: true })).toHaveValue('needle');
+  await expect(page.getByLabel('Pattern for filter 1', { exact: true })).toHaveValue('reply needle');
   await page.getByLabel('Delete filter 1', { exact: true }).click();
   await page.locator('[data-cmd=filters-save]').click();
+  await expect(page.locator('.filterEditorMessage')).toHaveText('Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.');
+  await page.getByRole('button', { name: 'Close filters', exact: true }).click();
   await expect(page.locator('#filtersMenu')).toHaveCount(0);
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+  await expect(page.locator(`#m${fixture.reply}`)).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.nativeFilterStorageNotice')).toBeHidden();
   await expect(page.locator(`#m${fixture.reply}`)).toBeVisible();
 });
 
