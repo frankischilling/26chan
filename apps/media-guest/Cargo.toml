@@ -6,6 +6,11 @@ publish.workspace = true
 
 [dependencies]
 png = "=0.18.1"
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+jpeg-encoder = { version = "=0.7.1", default-features = false, features = ["std"] }
+proptest.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "=1.1.4", features = ["fs", "mount", "process", "system", "thread"] }

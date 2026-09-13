@@ -1,5 +1,26 @@
 # Dependency and update inventory
 
+JPEG input uses [zune-jpeg 0.5.15](https://docs.rs/zune-jpeg/0.5.15/zune_jpeg/)
+and locked zune-core 0.5.3 exclusively in the disposable guest. The direct
+declaration disables default features and enables only `std`; x86/NEON SIMD
+features are disabled. The inspected upstream source forbids unsafe code in
+that configuration. Runtime decoder options also disable unsafe paths, bound
+dimensions and progressive scans, and request RGB output. None of this removes
+the need for the VM boundary or proves the absence of decoder bugs.
+
+Test-only [jpeg-encoder 0.7.1](https://docs.rs/jpeg-encoder/0.7.1/jpeg_encoder/)
+generates reproducible synthetic fixtures. Its default features are disabled
+and `std` is enabled; it does not enter shipped normal/build dependency graphs.
+Registry metadata and downloaded upstream source were inspected on September
+12, 2026. The three new locked registry packages have MSRVs compatible with Rust
+1.94. No existing registry version changed. Cargo audit checked 345 dependencies
+against 1,243 advisories without findings. The executable dependency check in
+`scripts/check-media-parser-dependencies.py` traverses normal/build edges with all
+workspace features, rejects guest/JPEG parser paths from the web, media and
+observer runtimes, and checks a guest positive control plus an injected-edge
+negative control. Rebuild and requalify the guest for decoder updates; see
+[JPEG verification](jpeg-media.md).
+
 The public attachment workflow enables [Axum 0.8.9 multipart](https://docs.rs/axum/0.8.9/axum/extract/multipart/struct.Multipart.html)
 and reuses locked [Hyper 1.11.1 HTTP/1 client connections](https://docs.rs/hyper/1.11.1/hyper/client/conn/http1/struct.Builder.html)
 with Hyper-util 0.1.20's Tokio adapter. The client connects to one validated

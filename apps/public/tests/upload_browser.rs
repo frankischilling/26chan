@@ -131,7 +131,11 @@ async fn no_javascript_browser_posts_and_deletes_an_approved_attachment() {
                 tokio::time::sleep(Duration::from_millis(30)).await;
             }
         }).await.expect("public binary readiness deadline");
-        exercise(&test_admin, &test_root, &test_board, &public_origin, store).await;
+        // A second attachment leaves the first post's deletion tombstone on the
+        // same board. Browser assertions must identify the post they changed.
+        for _ in 0..2 {
+            exercise(&test_admin, &test_root, &test_board, &public_origin, &store).await;
+        }
     }).await;
     public.kill().await.unwrap();
     public.wait().await.unwrap();
@@ -178,7 +182,7 @@ async fn exercise(
     root: &Path,
     board: &str,
     origin: &str,
-    store: PublicationStore,
+    store: &PublicationStore,
 ) {
     // Public/intake treat the file as opaque. This separate trusted fixture
     // supplies bounded synthetic pixels to the normal publication code.
@@ -235,7 +239,7 @@ async fn exercise(
     let output = ValidatedOutput::read(pixels.as_slice()).await.unwrap();
     let asset = board_media_admin::publish(
         &queue,
-        &store,
+        store,
         &job,
         claim.lease_token.as_ref().unwrap(),
         &output,
@@ -256,7 +260,7 @@ async fn exercise(
     assert!(files.join(format!("{}.png", asset.id)).is_file());
     assert!(files.join(format!("{}.thumb.png", asset.id)).is_file());
     assert_eq!(
-        board_media_admin::reconcile(&queue, &store).await.unwrap(),
+        board_media_admin::reconcile(&queue, store).await.unwrap(),
         1
     );
     assert!(!files.join(format!("{}.png", asset.id)).exists());

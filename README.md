@@ -4,9 +4,9 @@ A 4chan clone rewritten in Rust, named for iron's atomic number: 26.
 
 Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boards, threads, replies, password deletion, reporting, catalog pages and a subset of the public read-only JSON API. Core browsing and posting work without JavaScript.
 
-Development is ongoing. Private media intake, queue management and durable approval are available for development; public uploads remain disabled pending production qualification and service integration. A separate WebAuthn staff application handles report review and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
+Development is ongoing. The explicit isolated development profile supports public uploads, processing status, persisted attachments, thumbnails and file deletion. Production uploads remain disabled pending qualification. A separate WebAuthn staff application handles report review and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
-A [disposable Firecracker media profile](docs/firecracker.md) runs a Rust PNG decoder inside a per-job guest and validates bounded output. [Publication commands](docs/media-approval.md) add durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. Authenticated dispatch and separate HTTP media serving have development qualification; [HTTP intake](docs/media-intake.md) connects private uploads to that pipeline. Public attachment and production host/storage qualification remain unfinished.
+A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG and [JPEG decoders](docs/jpeg-media.md) inside a per-job guest and validates bounded output. All published files are normalized PNGs; original uploads are never downloadable. [Publication commands](docs/media-approval.md) provide durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. [HTTP intake](docs/media-intake.md) connects uploads to authenticated dispatch. Native JPEG verification and production host/storage qualification remain unfinished.
 
 ## Getting started
 

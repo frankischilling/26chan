@@ -18,7 +18,7 @@ fn decode() -> std::io::Result<()> {
     }
     let mut bytes = vec![0; size as usize];
     input.read_exact(&mut bytes)?;
-    let pixels = board_media_guest::decode_png(&bytes)?;
+    let pixels = board_media_guest::decode_image(&bytes)?;
     let mut output = OpenOptions::new().write(true).open("/dev/vdb")?;
     output.write_all(&pixels)?;
     output.sync_all()?;

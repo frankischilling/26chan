@@ -213,9 +213,11 @@ impl Fixture {
         )
         .await;
         self.no_files(&id);
-        assert_eq!(
-            self.status(&id, &cap, StatusCode::OK).await["state"],
-            "failed"
+        let failed = self.status(&id, &cap, StatusCode::OK).await;
+        assert_eq!(failed["state"], "failed");
+        assert!(
+            failed.get("output_id").is_none(),
+            "failed status must omit the output identifier"
         );
 
         let (id, cap) = self.reserve().await;

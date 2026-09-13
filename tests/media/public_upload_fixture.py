@@ -28,6 +28,7 @@ class PublicUpload:
         self.installed = False
         self.created = False
         self.browser = None
+        self.filenames = []
 
     def setup(self):
         f = self.f
@@ -61,7 +62,7 @@ class PublicUpload:
         result = subprocess.run(['systemd-analyze', 'verify', '/run/systemd/system/' + self.unit.name],
                                 env=SAFE, capture_output=True, timeout=15)
         assert result.returncode == 0, 'public development unit verification failed'
-        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ('{self.board}','Upload qualification','Synthetic PNG',2000,100,100,100,10,3);")
+        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ('{self.board}','Upload qualification','Synthetic PNG and JPEG',2000,100,100,100,10,3);")
         self.created = True
         systemctl('start', self.unit.name)
         wait_until(self.ready)
@@ -80,20 +81,29 @@ class PublicUpload:
             connection.close()
 
     def exercise(self):
+        cases = [('png', red_png())]
+        cases.extend((name + '.jpg', (REPO / 'tests/media/fixtures/jpeg' / (name + '.jpg')).read_bytes())
+                     for name in ('baseline', 'progressive'))
+        for suffix, data in cases:
+            self.upload_one(suffix, data)
+
+    def upload_one(self, suffix, data):
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
         browser_user = pwd.getpwuid(REPO.stat().st_uid)
         assert browser_user.pw_uid != 0, 'checkout must belong to the nonroot test operator'
-        source = f.root / f'public-upload-{self.board}.png'
-        f.write(source, red_png(), browser_user)
+        filename = f'public-upload-{self.board}.{suffix}'
+        self.filenames.append(filename)
+        source = f.root / filename
+        f.write(source, data, browser_user)
         environment = {**SAFE, 'HOME': browser_user.pw_dir}
         node = os.environ['PUBLIC_UPLOAD_NODE']
         assert os.path.isabs(node) and os.path.isfile(node)
         process = f.launch([node, REPO / 'tests/browser/public-upload.mjs', self.origin, self.board, source],
                            browser_user, environment)
         self.browser = process
-        query = f"SELECT j.id FROM media.jobs j WHERE j.filename='public-upload-{self.board}.png' AND j.state='queued';"
+        query = f"SELECT j.id FROM media.jobs j WHERE j.filename='{filename}' AND j.state='queued';"
         def queued():
             assert process.poll() is None, 'public upload browser exited before queueing'
             return bool(sql(query))
@@ -117,7 +127,7 @@ class PublicUpload:
         assert sql(f"SELECT count(*) FROM content.post_media WHERE asset_id='{asset}' AND file_deleted;") == '1'
         assert f.http(f'/media/{asset}.png')[0] == 404
         assert f.http(f'/media/{asset}.thumb.png')[0] == 404
-        print('PASS real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
+        print(f'PASS {suffix}: real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
 
     def cleanup(self):
         if self.browser is not None:
@@ -125,9 +135,11 @@ class PublicUpload:
         if self.installed:
             self.f.stop(self.unit)
         if self.created:
-            for job in sql(f"SELECT id FROM media.jobs WHERE filename='public-upload-{self.board}.png';").splitlines():
-                assert HEX.fullmatch(job)
-                if job not in self.f.ids:
-                    self.f.ids.append(job)
+            for filename in self.filenames:
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg)', filename)
+                for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
+                    assert HEX.fullmatch(job)
+                    if job not in self.f.ids:
+                        self.f.ids.append(job)
             # Remove only this fixture's durable links before parent job cleanup.
             sql(f"DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board='{self.board}'); DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board='{self.board}'); DELETE FROM content.posts WHERE board='{self.board}'; DELETE FROM content.threads WHERE board='{self.board}'; DELETE FROM content.boards WHERE slug='{self.board}';")

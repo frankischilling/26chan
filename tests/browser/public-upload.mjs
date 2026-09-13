@@ -37,6 +37,7 @@ try {
   };
   page.setDefaultTimeout(10_000);
   await page.goto(new URL(`/${board}/`, origin).href);
+  await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg');
   await page.getByLabel('File', { exact: true }).setInputFiles(source);
   await page.getByRole('button', { name: 'Upload file', exact: true }).click();
   assert.equal(new URL(page.url()).pathname, `/${board}/upload`);
@@ -61,7 +62,7 @@ try {
   await screenshot('approved-post-form');
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
-  await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel PNG, posted without site JavaScript.');
+  await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel image, posted without site JavaScript.');
   await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   await page.getByRole('button', { name: 'Post with image', exact: true }).click();
   const threadUrl = page.url();
@@ -117,7 +118,8 @@ try {
   await deletion.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
-  await expect(page.getByText('File deleted.', { exact: true })).toBeVisible();
+  assert.ok(Number.isSafeInteger(post.no) && post.no > 0);
+  await expect(page.locator(`#p${post.no}`).getByText('File deleted.', { exact: true })).toBeVisible();
   await screenshot('file-deleted');
   assert.equal(await page.locator('.fileThumb img').count(), 0);
   const removed = await page.request.get(mediaUrl.href, { headers: { 'If-None-Match': etag } });
