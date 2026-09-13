@@ -19,9 +19,15 @@ impl Fixture {
         let guard = store.try_lock().unwrap();
         let mut files = vec![];
         let mut media = Router::new();
-        for (index, (width, height)) in [(600u32, 360u32), (240, 600), (48, 32), (600, 360)]
-            .into_iter()
-            .enumerate()
+        for (index, (width, height)) in [
+            (600u32, 360u32),
+            (240, 600),
+            (48, 32),
+            (600, 360),
+            (600, 360),
+        ]
+        .into_iter()
+        .enumerate()
         {
             let mut frame = b"IBRGBA01".to_vec();
             frame.extend_from_slice(&width.to_be_bytes());
@@ -81,15 +87,10 @@ impl Fixture {
                 thumbnail_height: (index != 3).then_some(thumbnail.dimensions().1 as i32),
             });
         }
-        // No media route exists for hidden or removed fixtures. Browser tests
-        // require zero requests for these IDs even after opening spoiler details.
-        files.push(PostAttachment {
-            post_id: 1_000_205,
-            tim: 1_000_205,
-            spoiler: true,
-            filename: "hidden-fold.png".into(),
-            ..files[0].clone()
-        });
+        // Spoiler pixels are available as a healthy reveal control, but default
+        // views must not request them. Removed media still has no route.
+        files[4].spoiler = true;
+        files[4].filename = "hidden-fold.png".into();
         files.push(PostAttachment {
             post_id: 1_000_206,
             tim: 1_000_206,

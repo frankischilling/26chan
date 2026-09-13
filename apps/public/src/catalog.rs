@@ -45,7 +45,16 @@ pub struct Options {
     pub order: Order,
     pub size: Size,
     pub teaser: Teaser,
+    pub spoilers: Spoilers,
     pub q: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Spoilers {
+    #[default]
+    Off,
+    On,
 }
 
 impl Options {
@@ -75,6 +84,10 @@ impl Options {
 
     pub fn show_teaser(&self) -> bool {
         self.teaser == Teaser::On
+    }
+
+    pub fn reveal_spoilers(&self) -> bool {
+        self.spoilers == Spoilers::On
     }
 
     pub fn class(&self) -> &'static str {
@@ -143,6 +156,8 @@ mod tests {
             "order=invalid",
             "size=wide",
             "teaser=yes",
+            "spoilers=true",
+            "spoilers=on&spoilers=off",
             "order=r&order=alt",
             "unknown=x",
             "q=%00",
@@ -179,6 +194,12 @@ mod tests {
         assert_eq!(options.class(), "large");
         assert_eq!(options.q, "<script>");
         assert_eq!(Options::default().class(), "extended-small");
+        assert!(!Options::default().reveal_spoilers());
+        assert!(
+            Options::parse(&"/demo/catalog?spoilers=on".parse().unwrap())
+                .unwrap()
+                .reveal_spoilers()
+        );
     }
 
     proptest! {

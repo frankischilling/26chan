@@ -1,4 +1,4 @@
-<form id="ctrl" class="catalogControls" action="/{{ board.slug }}/catalog" method="get" aria-label="Catalog controls">
+<form id="ctrl" class="catalogControls" action="/{{ board.slug }}/catalog" method="get" aria-label="Catalog controls" data-media-origin="{{ media_origin }}">
 <span class="catalogControl"><label for="order-ctrl">Sort by:</label>
 <select id="order-ctrl" name="order">
 <option value="alt"{% if catalog_options.order_value() == "alt" %} selected{% endif %}>Bump order</option>
@@ -11,6 +11,7 @@
 <span class="catalogControl"><label for="teaser-ctrl">Teasers:</label>
 <select id="teaser-ctrl" name="teaser"><option value="off"{% if !catalog_options.show_teaser() %} selected{% endif %}>Off</option><option value="on"{% if catalog_options.show_teaser() %} selected{% endif %}>On</option></select></span>
 <span class="catalogControl"><label for="qf-box">Search:</label><input id="qf-box" type="search" name="q" value="{{ catalog_options.q }}" aria-describedby="catalog-search-help"></span>
+<span class="catalogControl"><label for="theme-nospoiler">Spoilers:</label><select id="theme-nospoiler" name="spoilers"><option value="off"{% if !catalog_options.reveal_spoilers() %} selected{% endif %}>Hidden</option><option value="on"{% if catalog_options.reveal_spoilers() %} selected{% endif %}>Reveal</option></select></span>
 <span class="catalogControl"><button type="submit">Apply</button> <a id="catalog-reset" href="/{{ board.slug }}/catalog">Reset</a></span>
 </form>
 <span id="catalog-search-help" hidden>Search accepts up to 128 characters.</span>
