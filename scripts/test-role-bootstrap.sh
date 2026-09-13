@@ -34,6 +34,24 @@ done
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$
 BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_attachment_owner'
+      AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+     OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
+       WHERE r.rolname='board_attachment_owner')
+     OR has_schema_privilege('board_attachment_owner','content','CREATE')
+     OR has_schema_privilege('board_attachment_owner','staff_identity','USAGE')
+     OR has_schema_privilege('board_attachment_owner','deployment','USAGE')
+     OR has_any_column_privilege('board_attachment_owner','media.assets','INSERT,UPDATE,REFERENCES')
+     OR has_column_privilege('board_attachment_owner','media.jobs','lease_token','SELECT,INSERT,UPDATE') THEN
+    RAISE EXCEPTION 'Attachment function owner exceeds required authority';
+  END IF;
+  IF has_any_column_privilege('board_public','content.post_media','SELECT,INSERT,UPDATE,REFERENCES')
+     OR has_table_privilege('board_public','content.post_media','DELETE,TRUNCATE,TRIGGER')
+     OR NOT has_table_privilege('board_public','content.visible_post_media','SELECT')
+     OR NOT has_function_privilege('board_public',
+       'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean)','EXECUTE') THEN
+    RAISE EXCEPTION 'Public attachment grants differ';
+  END IF;
   IF (SELECT rolcanlogin FROM pg_roles WHERE rolname='board_media_read') THEN
     RAISE EXCEPTION 'Unqualified staging reader is login-enabled';
   END IF;

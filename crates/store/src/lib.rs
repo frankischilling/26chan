@@ -7,6 +7,7 @@ pub mod media;
 pub mod media_assets;
 pub mod media_intake;
 pub mod monitoring;
+pub mod post_media;
 mod read;
 mod write;
 pub use board_snapshot::*;

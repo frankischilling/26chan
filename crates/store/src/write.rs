@@ -15,6 +15,16 @@ pub async fn create_post(
     parent: i64,
     post: &NewPost,
 ) -> Result<i64, StoreError> {
+    create_post_with_attachment(pool, slug, parent, post, None).await
+}
+
+pub async fn create_post_with_attachment(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+) -> Result<i64, StoreError> {
     let mut tx = pool.begin().await?;
     let board: Board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
@@ -63,7 +73,23 @@ pub async fn create_post(
     } else {
         post.name.trim()
     };
-    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,$4,$5,$6)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(&post.comment).execute(&mut *tx).await?;
+    if let Some(attachment) = attachment {
+        sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+            .bind(id)
+            .bind(slug)
+            .bind(thread_id)
+            .bind(name)
+            .bind(&post.subject)
+            .bind(&post.comment)
+            .bind(&attachment.upload.id)
+            .bind(&attachment.upload.capability)
+            .bind(attachment.spoiler)
+            .execute(&mut *tx)
+            .await
+            .map_err(post_media::scoped_error)?;
+    } else {
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,$4,$5,$6)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(&post.comment).execute(&mut *tx).await?;
+    }
     sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
         .bind(id)
         .bind(&post.deletion_hash)
