@@ -93,6 +93,18 @@ Use a maintained isolated guest on a dedicated processing tier after reviewing [
 For a deployed owned test job, prove absence of database/deployment secrets and host sockets; access only one job's input/output; deny DNS, metadata, internal services and Internet paths; verify CPU/memory/process/disk/output/time ceilings from outside the guest; kill the full job and dispose of its workspace. Each negative connectivity test needs a healthy reachable positive control from an allowed context. Then test malformed but harmless output against a narrow byte/metadata protocol and idempotent promotion. The [local profile](firecracker.md) covers a recorded subset; remaining deployed controls stay prerequisites.
 ## Approved media HTTP boundary
 
+The [authenticated intake service](media-intake.md) has a separate PostgreSQL
+login with no table access. A NOLOGIN function owner provides only capacity
+admission, exclusive receiving claims, receiving completion/failure and
+capability-scoped status. It cannot claim processing leases or approve outputs.
+Migration 0011 hashes reservation capabilities and fixes each definer function's
+search path. Startup verifies both identities' actual grants and ownership.
+The intake Unix identity owns its private quarantine root; it has no content,
+staff, dispatch or deployment credentials. A compromised intake can fill admitted
+queue capacity and change its private inputs. The worker still receives only its
+own job through the existing isolated dispatch boundary. Production deployment
+and public attachment remain unqualified.
+
 The [media HTTP reader](media-http.md) is a separate Axum binary with only the
 restricted approved-asset database login. Each request checks approval and exact
 bounded PNG bytes, including cache revalidation. It has no media writer, content,

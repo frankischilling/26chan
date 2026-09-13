@@ -14,6 +14,19 @@ pub struct Quarantine {
 }
 
 impl Quarantine {
+    /// Check actual private create/write/sync/unlink access without touching a job.
+    pub fn ready(&self) -> Result<(), MediaError> {
+        let id = ObjectId::generate()?;
+        let path = self.root.join(format!("{id}.ready"));
+        let mut probe = PartialFile::create(path.clone())?;
+        let file = probe.file.as_mut().expect("probe owns file");
+        file.write_all(b"ready")?;
+        file.sync_all()?;
+        drop(probe.file.take());
+        fs::remove_file(path)?;
+        Ok(())
+    }
+
     /// Open only the claimed generated ID, never a display filename or a caller
     /// path. The protected root must remain exclusively operator-controlled.
     /// The transport also checks EOF to detect changes after opening.

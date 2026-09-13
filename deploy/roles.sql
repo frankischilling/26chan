@@ -7,6 +7,13 @@ CREATE ROLE board_auth NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
 CREATE ROLE board_media LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE board_media_read NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE board_monitor NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE board_media_intake NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE board_media_intake_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_media_intake_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+ALTER ROLE board_media_intake SET statement_timeout = '5s';
+ALTER ROLE board_media_intake SET lock_timeout = '2s';
+ALTER ROLE board_media_intake SET idle_in_transaction_session_timeout = '5s';
+ALTER ROLE board_media_intake SET search_path = pg_catalog;
 ALTER ROLE board_public SET statement_timeout = '5s';
 ALTER ROLE board_public SET lock_timeout = '2s';
 ALTER ROLE board_public SET idle_in_transaction_session_timeout = '5s';

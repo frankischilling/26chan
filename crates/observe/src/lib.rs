@@ -108,16 +108,24 @@ pub enum Listener {
     Api,
     Staff,
     Media,
+    Intake,
 }
 
 impl Listener {
-    const ALL: [Self; 4] = [Self::Public, Self::Api, Self::Staff, Self::Media];
+    const ALL: [Self; 5] = [
+        Self::Public,
+        Self::Api,
+        Self::Staff,
+        Self::Media,
+        Self::Intake,
+    ];
     fn label(self) -> &'static str {
         match self {
             Self::Public => "public",
             Self::Api => "api",
             Self::Staff => "staff",
             Self::Media => "media",
+            Self::Intake => "intake",
         }
     }
 }
@@ -196,7 +204,7 @@ type PoolCallback = Box<dyn Fn() -> PoolSample + Send + Sync>;
 
 #[derive(Default)]
 struct Inner {
-    listeners: [Counters; 4],
+    listeners: [Counters; 5],
     pools: [Option<PoolCallback>; 4],
     media_queue: Option<Box<dyn Fn() -> MediaQueueSample + Send + Sync>>,
     resources: Option<Box<dyn Fn() -> ResourceSample + Send + Sync>>,

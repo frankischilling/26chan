@@ -1,0 +1,43 @@
+# Development qualification candidate. Production mode remains rejected.
+[Unit]
+Description=Paperboard authenticated media intake
+After=network.target
+
+[Service]
+Type=exec
+User=board-media-intake
+Group=board-media-intake
+WorkingDirectory=/opt/paperboard
+EnvironmentFile=/etc/paperboard/media-intake.env
+ExecStart=/opt/paperboard/board-media-intake
+Restart=no
+KillMode=control-group
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ReadOnlyPaths=/run
+ReadWritePaths=/var/lib/paperboard/quarantine
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+InaccessiblePaths=-/etc/26chan-coordinator -/var/lib/26chan-coordinator -/etc/26chan-dispatch -/var/lib/26chan-media
+UMask=0077
+LimitNOFILE=256
+LimitCORE=0
+TasksMax=32
+MemoryMax=256M
+CPUQuota=100%
+StandardOutput=journal
+StandardError=journal

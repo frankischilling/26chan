@@ -16,6 +16,7 @@ impl MonitorSettings {
             "MEDIA_READ_DATABASE_URL",
             "AUTH_DATABASE_URL",
             "STAFF_DATABASE_URL",
+            "INTAKE_DATABASE_URL",
             "PGHOSTADDR",
             "PGHOST",
             "PGPORT",
