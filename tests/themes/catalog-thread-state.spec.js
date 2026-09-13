@@ -44,7 +44,9 @@ for (const [theme, expected] of Object.entries(themes)) {
   });
 }
 
-test('pin styling covers real image, spoiler, deleted and no-file cards without changing their sources or dimensions', async ({ page }) => {
+for (const theme of Object.keys(themes)) {
+test(`pin styling covers real image, spoiler, deleted and no-file cards in ${theme} without changing their sources or dimensions`, async ({ page, context }) => {
+  await context.addCookies([{ name: 'board-theme-ws', value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
   for (const [width, height] of [[1280, 900], [390, 844]]) {
     await page.setViewportSize({ width, height });
     const coveredClasses = [];
@@ -64,6 +66,10 @@ test('pin styling covers real image, spoiler, deleted and no-file cards without 
       await page.getByRole('menuitem', { name: 'Pin thread', exact: true }).click();
       const image = card.locator('.catalogThumb img');
       await expect(image).toHaveClass(/\bpinned\b/);
+      for (const side of ['top', 'right', 'bottom', 'left']) {
+        await expect(image).toHaveCSS(`border-${side}-width`, '3px');
+        await expect(image).toHaveCSS(`border-${side}-style`, 'dashed');
+      }
       expect(await image.getAttribute('src')).toBe(entry.source);
       expect(await image.getAttribute('width')).toBe(entry.width);
       expect(await image.getAttribute('height')).toBe(entry.height);
@@ -75,3 +81,4 @@ test('pin styling covers real image, spoiler, deleted and no-file cards without 
     expect(coveredClasses).toEqual(expect.arrayContaining(['spoilerImage', 'imgdel', 'nofile']));
   }
 });
+}
