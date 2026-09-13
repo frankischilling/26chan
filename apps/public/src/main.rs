@@ -23,14 +23,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(media) = &settings.media {
         board_public::media_ready(media).await?;
     }
-    let (metrics, app, api_app) = board_public::observed_routers_with_media(
+    let (metrics, app, api_app) = board_public::observed_routers_with_limits(
         pool.clone(),
         settings.public_origin.as_string(),
         settings.production,
         settings.api.is_some(),
         settings.media.clone(),
+        settings.request_limits,
     );
     tracing::info!(bind = %settings.bind, media_enabled = settings.media.is_some(), "public server started");
+    tracing::info!(request_limits = ?settings.request_limits, "public request budgets configured");
     if let Some(api) = &settings.api {
         tracing::info!(bind = %api.bind, origin = %api.origin.as_string(), "JSON API listener started");
     }

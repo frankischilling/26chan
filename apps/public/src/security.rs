@@ -14,18 +14,20 @@ use std::{
 use tokio::sync::Semaphore;
 
 pub struct Limits {
+    settings: board_config::PublicRequestLimits,
     active: std::sync::Arc<Semaphore>,
     pub hashes: std::sync::Arc<Semaphore>,
     pub uploads: Semaphore,
     peers: Mutex<HashMap<IpAddr, (Instant, u32)>>,
 }
 
-impl Default for Limits {
-    fn default() -> Self {
+impl Limits {
+    pub fn new(settings: board_config::PublicRequestLimits) -> Self {
         Self {
-            active: std::sync::Arc::new(Semaphore::new(32)),
-            hashes: std::sync::Arc::new(Semaphore::new(4)),
-            uploads: Semaphore::new(4),
+            settings,
+            active: std::sync::Arc::new(Semaphore::new(settings.active_requests())),
+            hashes: std::sync::Arc::new(Semaphore::new(settings.hash_operations())),
+            uploads: Semaphore::new(settings.uploads()),
             peers: Mutex::new(HashMap::new()),
         }
     }
@@ -76,11 +78,11 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
         };
         let now = Instant::now();
         peers.retain(|_, (start, _)| now.duration_since(*start) < Duration::from_secs(60));
-        if peers.len() >= 10_000 && !peers.contains_key(&peer) {
+        if peers.len() >= state.limits.settings.tracked_peers() && !peers.contains_key(&peer) {
             return StatusCode::SERVICE_UNAVAILABLE.into_response();
         }
         let (_, used) = peers.entry(peer).or_insert((now, 0));
-        if *used >= 30 {
+        if *used >= state.limits.settings.writes_per_minute() {
             return (
                 StatusCode::TOO_MANY_REQUESTS,
                 [("retry-after", "60")],
@@ -90,7 +92,7 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
         }
         *used += 1;
     }
-    match tokio::time::timeout(Duration::from_secs(10), next.run(request)).await {
+    match tokio::time::timeout(state.limits.settings.handler_timeout(), next.run(request)).await {
         Ok(response) => response,
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
@@ -142,4 +144,91 @@ fn headers(mut response: Response, state: &AppState) -> Response {
         );
     }
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{Router, body::Body, http::Request, middleware, routing::get};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    use tower::ServiceExt;
+
+    #[test]
+    fn configured_hash_and_upload_semaphores_enforce_and_release_their_budgets() {
+        let settings = board_config::PublicRequestLimits::from_lookup(|key| match key {
+            "PUBLIC_MAX_HASH_OPERATIONS" => Some("2".into()),
+            "PUBLIC_MAX_UPLOADS" => Some("3".into()),
+            _ => None,
+        })
+        .unwrap();
+        let limits = Limits::new(settings);
+        for (semaphore, count) in [(&*limits.hashes, 2), (&limits.uploads, 3)] {
+            let mut permits = Vec::new();
+            for _ in 0..count {
+                permits.push(semaphore.try_acquire().unwrap());
+            }
+            assert!(semaphore.try_acquire().is_err());
+            drop(permits.pop());
+            let recovered = semaphore.try_acquire().unwrap();
+            assert!(semaphore.try_acquire().is_err());
+            drop(recovered);
+            drop(permits);
+            assert_eq!(semaphore.available_permits(), count);
+        }
+    }
+
+    #[tokio::test]
+    async fn configured_timeout_drops_the_handler_and_releases_admission() {
+        struct Dropped(Arc<AtomicBool>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let settings = board_config::PublicRequestLimits::from_lookup(|key| match key {
+            "PUBLIC_MAX_ACTIVE_REQUESTS" => Some("1".into()),
+            "PUBLIC_HANDLER_TIMEOUT_MS" => Some("20".into()),
+            _ => None,
+        })
+        .unwrap();
+        let limits = Arc::new(Limits::new(settings));
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            limits: limits.clone(),
+            media: None,
+        };
+        let dropped = Arc::new(AtomicBool::new(false));
+        let witness = dropped.clone();
+        let app = Router::new()
+            .route(
+                "/pending",
+                get(move || {
+                    let dropped = witness.clone();
+                    async move {
+                        let _guard = Dropped(dropped);
+                        std::future::pending::<()>().await;
+                    }
+                }),
+            )
+            .layer(middleware::from_fn_with_state(state, protect));
+        let response = tokio::time::timeout(
+            Duration::from_secs(2),
+            app.oneshot(Request::get("/pending").body(Body::empty()).unwrap()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+        assert!(dropped.load(Ordering::SeqCst));
+        assert_eq!(limits.active.available_permits(), 0);
+        drop(response);
+        assert_eq!(limits.active.available_permits(), 1);
+    }
 }

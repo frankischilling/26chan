@@ -49,6 +49,24 @@ pub fn observed_routers_with_media(
     api_enabled: bool,
     media: Option<board_config::PublicMediaSettings>,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_limits(
+        pool,
+        origin,
+        production,
+        api_enabled,
+        media,
+        board_config::PublicRequestLimits::default(),
+    )
+}
+
+pub fn observed_routers_with_limits(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    api_enabled: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -59,7 +77,7 @@ pub fn observed_routers_with_media(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_media(pool, origin, production, media);
+    let (public, api) = routers_with_limits(pool, origin, production, media, limits);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -79,6 +97,22 @@ pub fn routers_with_media(
     production: bool,
     media: Option<board_config::PublicMediaSettings>,
 ) -> (Router, Router) {
+    routers_with_limits(
+        pool,
+        origin,
+        production,
+        media,
+        board_config::PublicRequestLimits::default(),
+    )
+}
+
+pub fn routers_with_limits(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+) -> (Router, Router) {
     assert!(
         !production || media.is_none(),
         "Production media is not qualified"
@@ -87,7 +121,7 @@ pub fn routers_with_media(
         pool,
         origin,
         production,
-        limits: Arc::new(security::Limits::default()),
+        limits: Arc::new(security::Limits::new(limits)),
         media: media.map(|settings| intake::IntakeClient { settings }),
     };
     let mut public = Router::new()

@@ -10,6 +10,45 @@ fn media_cannot_be_enabled_even_without_database_configuration() {
 }
 
 #[test]
+fn invalid_request_budgets_fail_before_binding_or_database_access() {
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let command = || {
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"));
+        command
+            .env_clear()
+            .env(
+                "DATABASE_URL",
+                "postgres://board_public:unused-secret@127.0.0.1:1/absent",
+            )
+            .env("BIND_ADDR", occupied.local_addr().unwrap().to_string());
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", root);
+        }
+        command
+    };
+    for name in board_config::PublicRequestLimits::NAMES {
+        for value in [
+            "",
+            "0",
+            "999999999999999999999999",
+            "untrusted-input-marker",
+        ] {
+            let output = command().env(name, value).output().unwrap();
+            assert!(!output.status.success());
+            let error = String::from_utf8_lossy(&output.stderr);
+            assert!(error.contains(name), "{error}");
+            assert!(!error.contains("unused-secret"));
+            assert!(!error.contains("untrusted-input-marker"));
+            assert!(!error.contains("AddrInUse"));
+        }
+    }
+    // A valid configuration reaches the same healthy, already-owned listener.
+    let output = command().output().unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("AddrInUse"));
+}
+
+#[test]
 fn complete_development_media_configuration_never_enables_production() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
         .env_clear()
