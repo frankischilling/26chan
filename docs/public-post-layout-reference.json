@@ -1,0 +1,39 @@
+{
+  "scope": "Computed desktop post styles from the six pinned public v716 stylesheets on synthetic DOM. This is not an original rendered-page or mobile-client snapshot.",
+  "stylesheets": "public-theme-reference.json",
+  "dom_observation": {
+    "url": "https://boards.4chan.org/po/",
+    "collected_utc": "2026-09-13T05:28:21.9284425Z",
+    "bytes": 165018,
+    "sha256": "690f3e64c719992ec0cbfa247c5762b20ef08758e4ef5e9c7052819c513fc4ac",
+    "retained": "Only allowlisted structural tags/classes inspected. No response body, post text, identifiers, filenames, URLs or user images retained as fixtures.",
+    "ordering": "OP file precedes desktop postInfo; reply desktop postInfo precedes its comment; sideArrows precedes reply. A reply with a file was not separately observed in this collection."
+  },
+  "environment": {
+    "chromium": "151.0.7922.34",
+    "viewport": [1280, 900],
+    "device_scale_factor": 1,
+    "network": "All browser requests aborted; only local pinned CSS and synthetic markup loaded."
+  },
+  "common": {
+    "op_display": "inline",
+    "op_padding": "0px",
+    "reply_display": "table",
+    "reply_padding": "2px",
+    "first_reply_margin": "2px 0px 4px",
+    "line_height": "normal",
+    "comment_horizontal_margin": "40px",
+    "thumbnail_float": "left",
+    "thumbnail_margin": "3px 20px 5px",
+    "arrows_float": "left",
+    "arrows_margin": "0px 2px"
+  },
+  "themes": {
+    "yotsuba": {"source":"yotsubanew.716.css","comment_margin":"13.3333px 40px","border_width":"0px 1px 1px 0px","border_right":"rgb(217, 191, 183)","arrows":"rgb(224, 191, 183)","target_border_right":"rgb(217, 159, 145)"},
+    "yotsuba-b": {"source":"yotsubluenew.716.css","comment_margin":"13.3333px 40px","border_width":"0px 1px 1px 0px","border_right":"rgb(183, 197, 217)","arrows":"rgb(183, 197, 217)","target_border_right":"rgb(186, 157, 191)"},
+    "futaba": {"source":"futabanew.716.css","comment_margin":"16px 40px","border_width":"0px","border_right":"rgb(128, 0, 0)","arrows":"rgb(128, 0, 0)","target_border_right":"rgb(128, 0, 0)"},
+    "burichan": {"source":"burichannew.716.css","comment_margin":"16px 40px","border_width":"0px","border_right":"rgb(0, 0, 0)","arrows":"rgb(0, 0, 0)","target_border_right":"rgb(0, 0, 0)"},
+    "tomorrow": {"source":"tomorrow.716.css","comment_margin":"13.3333px 40px","border_width":"1px","border_right":"rgb(40, 42, 46)","arrows":"rgb(197, 200, 198)","target_border_right":"rgb(17, 17, 17)"},
+    "photon": {"source":"photon.716.css","comment_margin":"13.3333px 40px","border_width":"1px","border_right":"rgb(204, 204, 204)","arrows":"rgb(51, 51, 51)","target_border_right":"rgb(204, 204, 204)"}
+  }
+}

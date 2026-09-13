@@ -1,1 +1,2 @@
 :root { --font: 'Times New Roman', serif; --size: 12pt; --decoration: underline; --wash: none; }
+:root { --reply-border-width: 0; --reply-edge: #800000; --arrows: #800000; --target-edge: #800000; }

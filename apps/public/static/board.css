@@ -34,7 +34,7 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .quotelink { color: #d00; text-decoration: underline; }
 .spoiler { color: #000; background: #000; }
 .spoiler:hover, .spoiler:focus { color: #fff; }
-.post:target { background: #f8d9c9; outline: 1px solid #c88; }
+.reply:target { background: #f8d9c9; }
 .omitted { color: #707070; margin-left: 10px; }
 .postActions { color: #67534b; font-size: 11px; margin-top: 10px; }
 .postActions summary { cursor: pointer; }
@@ -61,3 +61,23 @@ footer { text-align: center; font-size: 11px; margin-top: 30px; }
 .fileThumb img { max-width: 250px; max-height: 250px; width: auto; height: auto; }
 .catalog .fileThumb img { max-width: 150px; max-height: 150px; }
 .file p { overflow-wrap: anywhere; font-size: 0.85em; }
+/* Desktop post flow follows the pinned public v716 stylesheet measurements. */
+.board .postContainer { margin: 0; }
+.board .opContainer, .board .op { display: inline; }
+.board .post { margin: 4px 0; overflow: hidden; }
+.board .op { padding: 0; }
+.board .replyContainer { margin-left: 0; }
+.board .reply { display: table; min-width: 0; max-width: calc(100% - 20px); padding: 2px; }
+.board .opContainer + .replyContainer .reply { margin-top: 2px; }
+.sideArrows { float: left; margin: 0 2px; }
+.board .postInfo { line-height: normal; }
+.board .postMessage { margin: 1em 40px; line-height: normal; }
+.board .fileThumb { float: left; margin: 3px 20px 5px; }
+.board .fileThumb img { float: left; border: 0; }
+.board .file p { margin: 0; font-size: inherit; }
+.board .postActions { clear: left; }
+@media (max-width: 600px) {
+  .board .reply { width: calc(100% - max(20px, 1.5em)); max-width: calc(100% - max(20px, 1.5em)); }
+  .board .postMessage { margin: 10px 5px; }
+  .board .fileThumb, .board .fileThumb img { float: none; }
+}
