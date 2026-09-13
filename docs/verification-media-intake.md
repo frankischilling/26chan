@@ -168,3 +168,8 @@ Final configuration review normalized credential-variable names before checking
 them because Windows environment lookup ignores case. The lower-case credential
 denial test and scoped Clippy passed. Final-head CI is linked through PR #47;
 earlier passing runs must not substitute for that merge check.
+
+A final malformed-filename regression initially returned 503 for JSON containing
+NUL. PostgreSQL cannot pass NUL through a text parameter to the function validator.
+The store now rejects it before binding, returning the intended 422 through HTTP.
+Both the direct store metadata matrix and the real HTTP test cover the case.

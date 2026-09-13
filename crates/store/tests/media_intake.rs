@@ -224,6 +224,7 @@ async fn exercise(f: &Fixture, runtime: &mut PgConnection) {
         "x".repeat(256),
         "é".repeat(128),
         "line\nname".into(),
+        "nul\0name".into(),
         "\u{0085}".into(),
     ] {
         assert!(matches!(

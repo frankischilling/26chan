@@ -38,6 +38,13 @@ impl IntakeStore {
     }
 
     pub async fn reserve(&self, filename: &str) -> Result<IntakeReservation, StoreError> {
+        // PostgreSQL text cannot carry NUL to the function's metadata validator.
+        // Reject it before binding so malformed metadata is not a database outage.
+        if filename.contains('\0') {
+            return Err(StoreError::Invalid(
+                "Invalid media intake metadata or size.",
+            ));
+        }
         sqlx::query_as("SELECT id, capability FROM media_intake.reserve($1)")
             .bind(filename)
             .fetch_one(&self.pool)

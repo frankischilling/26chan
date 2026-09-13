@@ -127,6 +127,10 @@ impl Fixture {
                 r#"{"filename":""}"#.into(),
                 StatusCode::UNPROCESSABLE_ENTITY,
             ),
+            (
+                r#"{"filename":"\u0000"}"#.into(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+            ),
         ] {
             let response = self
                 .app
