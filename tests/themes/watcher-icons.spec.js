@@ -33,13 +33,16 @@ for (const scale of [1, 2]) {
   test.describe(`watcher icons at ${scale}x`, () => {
     test.use({ javaScriptEnabled: true, deviceScaleFactor: scale });
     for (const [theme, family] of Object.entries(themes)) {
-      test(`${theme} uses pinned icons across catalog/board, mobile, watch and refresh states`, async ({ page, context }) => {
+      test(`${theme} uses pinned icons across catalog/thread, mobile, watch and refresh states`, async ({ page, context }) => {
         await context.addCookies([{ name: 'board-theme-ws', value: theme,
           url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
         await context.addInitScript(() => {
+          const threadFixture = location.pathname.startsWith('/img/thread/');
+          const id = threadFixture ? 1000201 : 1000001;
+          const board = threadFixture ? 'img' : 'demo';
           localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true }));
           localStorage.setItem('4chan-watch', JSON.stringify({
-            '1000001-demo': ['Wide watcher label '.repeat(3).slice(0, 45), 1000001, 0, false, false],
+            [`${id}-${board}`]: ['Wide watcher label '.repeat(3).slice(0, 45), id, 0, false, false],
           }));
           localStorage.setItem('4chan-tw-timestamp', String(Date.now()));
         });
@@ -48,7 +51,7 @@ for (const scale of [1, 2]) {
         for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
           await page.setViewportSize(viewport);
           for (const catalog of [true, false]) {
-            await page.goto(catalog ? '/demo/catalog' : '/demo/');
+            await page.goto(catalog ? '/demo/catalog' : '/img/thread/1000201');
             if (viewport.width === 390) await page.locator('#watcher-open-mobile').click();
             const panel = page.locator('#threadWatcher');
             const refresh = page.getByRole('button', { name: 'Refresh', exact: true });
@@ -66,7 +69,7 @@ for (const scale of [1, 2]) {
               await page.locator('#watcher-open-mobile').click();
               await expect(panel).toBeVisible();
             }
-            const control = page.locator('#leaf-1000001');
+            const control = catalog ? page.locator('#leaf-1000001') : page.locator('.threadNav:visible .wbtn').first();
             await expect(control).toHaveAttribute('aria-pressed', 'true');
             await expectIcon(control, family, 'watch_thread_on', scale, catalog);
             if (catalog) {

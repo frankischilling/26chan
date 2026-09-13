@@ -2,6 +2,7 @@
 :root { --reply-border-width: 0; --reply-edge: #800000; --arrows: #800000; --target-edge: #800000; }
 :root { --post-label-padding: 0; --post-label-border: 0; --post-field-padding: 1px 2px; --post-field-margin: 0; --post-text-padding: 2px; --post-text-margin: 0 0 -3px; --post-text-font: monospace; }
 :root { --catalog-menu-font: 13px; --catalog-menu-right: 1px; --catalog-menu-bottom: 0; }
+:root { --post-menu-font: 13px; --post-menu-right: 1px; --post-menu-bottom: 0; }
 
 /* Pinned public watcher images; only release-owned URLs are permitted. */
 :root {

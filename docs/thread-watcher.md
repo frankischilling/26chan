@@ -43,8 +43,7 @@ text and keyboard removal. Persisted browser tests separately exercise refresh,
 cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
-Remaining native settings and controls, icon placement,
-mobile panel behavior, filter-driven watching and blacklist semantics remain
+Other native settings and post-menu actions, filter-driven watching and blacklist semantics remain
 unfinished. Broader archive/deletion/expiry and storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
@@ -134,7 +133,7 @@ embeds a fixed asset table and CSP names each complete image URL, without an
 image-directory wildcard or a filesystem-serving route.
 
 `tests/themes/watcher-icons.spec.js` covers the six themes at 1x and 2x on
-catalog/board pages at desktop/mobile widths, checks decoded image dimensions,
+catalog/thread pages at desktop/mobile widths, checks decoded image dimensions,
 watch toggles, the busy/error refresh transition, close/reopen, catalog placement
 and keyboard access. `tests/browser/behavior.spec.js` loads all pinned images
 under the real server's CSP and checks denied-origin and unlisted-path violations;
@@ -143,8 +142,8 @@ checks fixed bytes against both image manifests, GET/HEAD behavior, response
 headers, denied writes and missing paths. Test results are recorded per commit
 in the PR; adding this coverage is not itself a passing result.
 
-This is not a full watcher parity claim. Native thread-navigation watch controls,
-filter-driven watching/blacklisting, additional settings and position edge cases,
+This is not a full watcher parity claim. Filter-driven watching/blacklisting,
+additional settings and position edge cases,
 and reviewed full watcher/settings reference captures remain unfinished.
 
 ## Thread navigation controls
@@ -177,6 +176,48 @@ both mobile refresh links, retained watches, and no-JavaScript navigation.
 The release-image browser and Rust tests cover both added gradient assets.
 Results are recorded per commit in the draft PR.
 
-Board-page post-menu watching remains unfinished; the temporary board inline
-control is not claimed as native placement. Full reference screenshots,
-filter-driven watching/blacklisting and the other gaps above remain required.
+## Board and thread post-menu watching
+
+Extension v1191's `Parser.parsePost` appends the desktop post-menu control to
+post metadata and prepends its mobile ellipsis counterpart. `PostMenu.open`
+places the menu below the control, clamps its right edge to the viewport, and
+offers Add to/Remove from watch list for OPs when watching is enabled. Board
+pages use this menu instead of the temporary inline watcher leaf. Thread-page
+OP menus share the same state as their four navigation controls. Replies do
+not offer a thread-watch action. Catalog controls are unchanged.
+
+The menu and trigger rules come from the pinned extension and public desktop
+v716 stylesheets; the mobile rules are in the v716 stylesheet recorded in
+`public-watcher-navigation-reference.json`. Desktop menu font sizes, borders
+and colors follow each of the six themes. Mobile controls use the observed
+480px breakpoint, rotated ellipsis and 16px/2.5em menu typography.
+
+Menus use text nodes and semantic buttons instead of the reference's HTML-string
+construction and click-only list items. Arrow keys, Home/End, Escape and Tab
+support keyboard navigation; focus remains visible. Outside activation,
+viewport changes, page exit and global disabling close an open menu. Open watch
+actions update after cross-tab changes. Watch changes use the existing bounded
+storage and lock path, including its same-tab fallback.
+
+Report post and mobile Delete post open and focus the existing per-post forms.
+Selecting an action never submits a report or bypasses the deletion-password
+gate. The no-JavaScript forms remain intact. This reuses the rewrite's existing
+safe form workflow; the original report popup is not reproduced here. No new
+script/CSP permission, network request, database grant or migration is added.
+
+`tests/browser/thread-watcher.spec.js` covers actual persisted watch, report
+and deletion operations, cross-tab menu updates, optional-storage failure,
+keyboard dismissal and global disabling. `tests/themes/post-menu.spec.js`
+covers all six themes at desktop/mobile widths. Results are recorded per commit
+in the draft PR; adding tests is not itself evidence that they passed.
+
+`npm run test:behavior` runs the general browser cases, watcher cases and
+post-tracking cases in separate owned server invocations. This keeps each
+fixture group within the existing per-peer write budget without raising limits
+or skipping tests. Actual rate-limit enforcement remains covered by the Rust
+HTTP-limit tests.
+
+Native hiding/filter actions, media actions and the remaining settings are not
+implemented by this menu slice and are not exposed as placeholder controls.
+Full reference screenshots, filter-driven watching/blacklisting and the other
+gaps above remain required before full parity or merge can be claimed.

@@ -147,6 +147,120 @@ test('thread navigation keeps real return and refresh links without JavaScript',
   } finally { await context.close(); }
 });
 
+test('board post menus watch persisted threads and synchronize an open menu across tabs', async ({ page, context, createThread }) => {
+  const id = await createThread('demo', '<b>Menu watcher</b>');
+  await context.addInitScript(() => {
+    if (localStorage.getItem('4chan-settings') === null) {
+      localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true }));
+    }
+    localStorage.setItem('4chan-tw-timestamp', String(Date.now()));
+  });
+  await page.goto('/demo/');
+  await expect(page.locator('.board .wbtn')).toHaveCount(0);
+  const trigger = page.getByRole('button', { name: `Post menu for post ${id}`, exact: true });
+  await trigger.press('ArrowDown');
+  await expect(page.getByRole('menuitem', { name: 'Report post', exact: true })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('menuitem', { name: 'Add to watch list', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator(`#watch-${id}-demo`)).toContainText('<b>Menu watcher</b>');
+  await expect(page.locator(`#watch-${id}-demo b`)).toHaveCount(0);
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  const other = await context.newPage();
+  await other.goto('/demo/');
+  await trigger.click();
+  await expect(page.getByRole('menuitem', { name: 'Remove from watch list', exact: true })).toBeVisible();
+  await other.getByRole('button', { name: `Unwatch /demo/ thread ${id}`, exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Add to watch list', exact: true })).toBeVisible();
+  await expect(page.locator(`#watch-${id}-demo`)).toHaveCount(0);
+  await saveWatcherSettings(other, { threadWatcher: false });
+  await expect(page.locator('#post-menu [data-cmd="watch"]')).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Report post', exact: true })).toBeVisible();
+  await saveWatcherSettings(other, { threadWatcher: true });
+  await expect(page.getByRole('menuitem', { name: 'Add to watch list', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test('post menus select the actual report and password-gated deletion forms without submitting on selection', async ({ page, request, createThread }) => {
+  const id = await createThread('demo', 'Post action menu fixture');
+  const replyResponse = await request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 });
+  expect(replyResponse.status()).toBe(303);
+  const reply = replyResponse.headers().location.match(/#p(\d+)/)[1];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/demo/thread/${id}`);
+  const trigger = page.getByRole('button', { name: `Post menu for post ${reply}`, exact: true });
+  let writes = 0;
+  page.on('request', request => { if (request.method() === 'POST') writes++; });
+  await trigger.click();
+  await expect(page.locator('#post-menu [data-cmd="watch"]')).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Report post', exact: true }).click();
+  await expect(page.locator(`#report${reply}`)).toBeFocused();
+  expect(writes).toBe(0);
+  await page.locator(`#report${reply}`).fill('Owned post-menu report fixture');
+  const reported = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/report'));
+  await page.locator(`#p${reply} form[action="/demo/report"] button`).click();
+  expect((await reported).status()).toBe(200);
+  await expect(page.getByText('Your report was saved. Staff review is not available in this development build.', { exact: true })).toBeVisible();
+  await page.goto(`/demo/thread/${id}`);
+  await trigger.click();
+  await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
+  await expect(page.locator(`#delete${reply}`)).toBeFocused();
+  expect(writes).toBe(1);
+  await page.locator(`#delete${reply}`).fill('watcher-test-password');
+  const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
+  await page.locator(`#p${reply} form[action="/demo/delete"] button`).click();
+  expect((await deleted).status()).toBe(303);
+  const thread = await (await request.get(`/demo/thread/${id}.json`)).json();
+  expect(thread.posts.some(post => String(post.no) === reply)).toBe(false);
+});
+
+test('post menus close on outside activation, Escape and viewport changes and honor global disabling', async ({ page, context, createThread }) => {
+  const id = await createThread('demo', 'Post menu dismissal fixture');
+  await page.goto(`/demo/thread/${id}`);
+  const trigger = page.getByRole('button', { name: `Post menu for post ${id}`, exact: true });
+  await trigger.press('Enter');
+  await expect(page.getByRole('menuitem', { name: 'Report post', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await trigger.click();
+  await page.locator('h1').click();
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await trigger.click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(trigger).toHaveText('...');
+  await trigger.press('ArrowUp');
+  await expect(page.getByRole('menuitem', { name: 'Delete post', exact: true })).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(page.getByRole('menuitem', { name: 'Report post', exact: true })).toBeFocused();
+  const other = await context.newPage();
+  await other.goto('/demo/');
+  await other.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true })));
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(trigger).toBeHidden();
+  await other.evaluate(() => localStorage.setItem('4chan-settings', '{}'));
+  await expect(trigger).toBeVisible();
+});
+
+test('post-menu watch changes remain usable when optional storage is unavailable', async ({ page, context, createThread }) => {
+  const id = await createThread('demo', 'Volatile post-menu fixture');
+  await context.addInitScript(() => { for (const method of ['getItem', 'setItem', 'removeItem']) Storage.prototype[method] = () => { throw new Error('Storage unavailable'); }; });
+  await enable(page, '/demo/', { reload: false });
+  const trigger = page.getByRole('button', { name: `Post menu for post ${id}`, exact: true });
+  await trigger.click();
+  await page.getByRole('menuitem', { name: 'Add to watch list', exact: true }).click();
+  await expect(page.locator(`#watch-${id}-demo`)).toBeVisible();
+  await trigger.click();
+  await page.getByRole('menuitem', { name: 'Remove from watch list', exact: true }).click();
+  await expect(page.locator(`#watch-${id}-demo`)).toHaveCount(0);
+  await expect(page.locator('.watcherNotice')).toContainText('Changes stay in this tab');
+});
+
 test('watcher connect CSP permits its owned alias and denies healthy unrelated routes', async ({ page, context, request, createThread }) => {
   const id = await createThread('demo', 'CSP watcher fixture');
   let forbiddenRequests = 0;

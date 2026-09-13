@@ -142,6 +142,26 @@ table.postForm button { padding: 1px 6px; }
 @media (hover: none) { .catalog .postMenuBtn { opacity: .5; pointer-events: auto; } }
 @media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
 
+/* Extension post menus use the pinned v1191 controls and v716 menu rules. */
+.postMenuBtn[data-post-menu] { display: inline-block; width: 1em; height: 1em; margin: 0 0 0 5px; padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; line-height: 1em; text-align: center; opacity: .8; cursor: pointer; transition: transform .1s; }
+.postMenuBtn[data-post-menu][data-family="futaba"] { color: #000080; }
+.postMenuBtn[data-post-menu][data-family="tomorrow"] { color: #5f89ac; }
+.postMenuBtn[data-post-menu][data-family="tomorrow"]:hover { color: #81a2be; }
+.postMenuBtn[data-post-menu][data-family="photon"]:hover { color: #ff3300; }
+.postMenuBtn[data-post-menu]:hover { opacity: 1; }
+.postMenuBtn[data-post-menu].menuOpen { transform: rotate(90deg); }
+.postMenuBtn[data-post-menu][hidden] { display: none !important; }
+#post-menu.nativePostMenu { position: absolute; z-index: 40; max-width: 100vw; font: var(--post-menu-font, 12px) var(--font); line-height: 1.3em; color: var(--ink); text-align: left; }
+.nativePostMenu ul { background: var(--panel); border: 1px solid var(--catalog-menu-edge); border-right-width: var(--post-menu-right, 2px); border-bottom-width: var(--post-menu-bottom, 1px); list-style: none; padding: 0; margin: 0; white-space: nowrap; }
+.nativePostMenu li { position: relative; padding: 0; border-bottom: 1px solid var(--catalog-menu-edge); }
+.nativePostMenu button { display: block; width: 100%; padding: 2px 4px; border: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: left; cursor: pointer; }
+.nativePostMenu button:hover, .nativePostMenu button:focus-visible { background: var(--paper); }
+@media (max-width: 480px) {
+  .postMenuBtn[data-post-menu] { transform: rotate(90deg); margin: 4px -5px 0 4px; float: left; font-weight: bold; opacity: 1; height: .5em; font-size: 16px; }
+  #post-menu.nativePostMenu { font-size: 16px; line-height: 2.5em; }
+}
+@media (prefers-reduced-motion: reduce) { .postMenuBtn[data-post-menu] { transition: none; } }
+
 /* Watcher controls inherit each public theme's palette. */
 .watcherTitle { font-weight: bold; }
 #twHeader { cursor: move; touch-action: none; user-select: none; }

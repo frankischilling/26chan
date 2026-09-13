@@ -22,6 +22,7 @@ function start(context) {
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
+  let activePostMenu = null;
   const mobile = matchMedia('(max-width: 480px)');
   let collapsed = mobile.matches;
 
@@ -266,13 +267,12 @@ function start(context) {
           wrapper.hidden = !enabled;
           update(wrapper.querySelector('.wbtn'));
         }
-      } else {
+      } else if (catalog) {
         let control = section.querySelector('.wbtn');
         if (!control) {
           control = button('', () => toggleThread(section), 'wbtn watcherIcon');
           control.id = `leaf-${id}`;
-          if (catalog) section.prepend(control);
-          else section.querySelector('.op .postInfo')?.append(' ', control);
+          section.prepend(control);
         }
         update(control);
       }
@@ -292,6 +292,140 @@ function start(context) {
       }
       for (const mark of section.querySelectorAll('.watcherLastRead')) mark.hidden = !enabled || !watched;
     }
+    if (!catalog) syncPostMenus();
+  }
+  function closePostMenu(restoreFocus = false) {
+    if (!activePostMenu) return;
+    const { root, trigger } = activePostMenu;
+    activePostMenu = null;
+    root.remove();
+    trigger.classList.remove('menuOpen');
+    trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && trigger.isConnected && !trigger.hidden) trigger.focus();
+  }
+  function positionPostMenu(menu) {
+    const rect = menu.trigger.getBoundingClientRect();
+    const right = Math.max(0, document.documentElement.clientWidth - menu.root.offsetWidth);
+    menu.root.classList.toggle('dd-menu-left', rect.left > right - 75);
+    menu.root.style.top = `${rect.bottom + 3 + window.scrollY}px`;
+    menu.root.style.left = `${Math.max(0, Math.min(rect.left, right)) + window.scrollX}px`;
+  }
+  function postMenuItem(menu, command, text, action) {
+    const item = node('li');
+    item.setAttribute('role', 'none');
+    const control = button(text, () => {
+      closePostMenu(command === 'watch');
+      action();
+    });
+    control.setAttribute('role', 'menuitem');
+    control.dataset.cmd = command;
+    control.dataset.id = menu.post.id.slice(1);
+    item.append(control);
+    menu.list.append(item);
+    return control;
+  }
+  function openPostAction(post, action) {
+    const form = post.querySelector(`.postActions form[action="/${board}/${action}"]`);
+    if (!form) return;
+    const details = form.closest('details');
+    if (details) details.open = true;
+    form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]')?.focus();
+  }
+  function syncOpenPostMenu() {
+    const menu = activePostMenu;
+    if (!menu) return;
+    if (!menu.trigger.isConnected || menu.trigger.hidden || !menu.post.isConnected) {
+      closePostMenu();
+      return;
+    }
+    const id = sectionId(menu.section);
+    const canWatch = enabled && menu.post.classList.contains('op') && menu.post.id === `p${id}`;
+    if (canWatch) {
+      if (!menu.watch) {
+        menu.watch = postMenuItem(menu, 'watch', '', () => { void toggleThread(menu.section); });
+        menu.list.insertBefore(menu.watch.parentElement, menu.list.children[1] || null);
+      }
+      menu.watch.textContent = `${entries.has(watchKey(board, id)) ? 'Remove from' : 'Add to'} watch list`;
+    } else if (menu.watch) {
+      const focused = document.activeElement === menu.watch;
+      menu.watch.parentElement.remove();
+      menu.watch = null;
+      if (focused) menu.list.querySelector('[role="menuitem"]')?.focus();
+    }
+    positionPostMenu(menu);
+  }
+  function openPostMenu(trigger, post, section, focus = null) {
+    if (activePostMenu?.trigger === trigger) { closePostMenu(); return; }
+    closePostMenu();
+    if (configuration().disableAll === true || !post.isConnected) return;
+    const root = node('div', undefined, 'dd-menu nativePostMenu');
+    root.id = 'post-menu';
+    const list = node('ul');
+    list.setAttribute('role', 'menu');
+    list.setAttribute('aria-label', `Actions for post ${post.id.slice(1)}`);
+    root.append(list);
+    const menu = { root, list, trigger, post, section, watch: null };
+    postMenuItem(menu, 'report', 'Report post', () => openPostAction(post, 'report'));
+    if (mobile.matches) postMenuItem(menu, 'del-post', 'Delete post', () => openPostAction(post, 'delete'));
+    root.addEventListener('keydown', event => {
+      const items = [...list.querySelectorAll('[role="menuitem"]')];
+      const current = items.indexOf(document.activeElement);
+      let index;
+      if (event.key === 'ArrowDown') index = (current + 1) % items.length;
+      else if (event.key === 'ArrowUp') index = (current - 1 + items.length) % items.length;
+      else if (event.key === 'Home') index = 0;
+      else if (event.key === 'End') index = items.length - 1;
+      else if (event.key === 'Tab') { closePostMenu(true); return; }
+      else return;
+      event.preventDefault();
+      items[index]?.focus();
+    });
+    document.body.append(root);
+    activePostMenu = menu;
+    trigger.classList.add('menuOpen');
+    trigger.setAttribute('aria-expanded', 'true');
+    syncOpenPostMenu();
+    if (focus) {
+      const items = list.querySelectorAll('[role="menuitem"]');
+      items[focus === 'last' ? items.length - 1 : 0]?.focus();
+    }
+  }
+  function syncPostMenus() {
+    const disabled = configuration().disableAll === true;
+    for (const section of sections()) {
+      for (const post of section.querySelectorAll('.post[id]')) {
+        const id = postId(post.id.slice(1));
+        const info = post.querySelector('.postInfo');
+        if (!id || !info) continue;
+        let trigger = info.querySelector('[data-post-menu]');
+        if (!trigger && !disabled) {
+          trigger = button('', event => {
+            event.stopPropagation();
+            openPostMenu(trigger, post, section, event.detail === 0 ? 'first' : null);
+          }, 'postMenuBtn');
+          trigger.dataset.postMenu = id;
+          trigger.dataset.cmd = 'post-menu';
+          trigger.dataset.family = family;
+          trigger.title = 'Post menu';
+          trigger.setAttribute('aria-label', `Post menu for post ${id}`);
+          trigger.setAttribute('aria-haspopup', 'menu');
+          trigger.setAttribute('aria-expanded', 'false');
+          trigger.addEventListener('keydown', event => {
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            event.preventDefault();
+            if (activePostMenu?.trigger === trigger) closePostMenu();
+            openPostMenu(trigger, post, section, event.key === 'ArrowUp' ? 'last' : 'first');
+          });
+        }
+        if (!trigger) continue;
+        trigger.hidden = disabled;
+        trigger.textContent = mobile.matches ? '...' : '\u25b6';
+        if (mobile.matches) {
+          if (info.firstElementChild !== trigger) info.prepend(trigger);
+        } else if (info.lastElementChild !== trigger) info.append(trigger);
+      }
+    }
+    syncOpenPostMenu();
   }
   function render() {
     tracking.prepareForms();
@@ -382,8 +516,23 @@ function start(context) {
     enabled = settings.threadWatcher === true && settings.disableAll !== true;
     render();
   });
-  window.addEventListener('pagehide', () => refresh.cancel());
-  mobile.addEventListener('change', () => { collapsed = mobile.matches; render(); });
+  document.addEventListener('click', event => {
+    if (activePostMenu && !activePostMenu.root.contains(event.target)
+      && !activePostMenu.trigger.contains(event.target)) closePostMenu();
+  });
+  document.addEventListener('focusin', event => {
+    if (activePostMenu && !activePostMenu.root.contains(event.target)
+      && !activePostMenu.trigger.contains(event.target)) closePostMenu();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && activePostMenu) {
+      event.preventDefault();
+      closePostMenu(true);
+    }
+  });
+  window.addEventListener('resize', () => closePostMenu());
+  window.addEventListener('pagehide', () => { closePostMenu(); refresh.cancel(); });
+  mobile.addEventListener('change', () => { closePostMenu(); collapsed = mobile.matches; render(); });
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();
