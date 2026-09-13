@@ -98,6 +98,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(category, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
       option(category, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', 'settingsDesktop');
       option(category, 'autoScroll', 'Auto-scroll with auto-updated posts', 'Automatically scroll the page as new posts are added');
+      option(category, 'updaterSound', 'Sound notification', 'Play a sound when somebody replies to your post(s)');
       const filterHeading = node('h3', undefined, 'settings-cat-lbl');
       filterCategory = node('ul', undefined, 'settings-cat');
       filterCategory.id = 'settings-filters';

@@ -34,7 +34,7 @@ assert.equal(result.outputFiles.length, 1, 'The worker must be one fixed release
 const outputs = Object.values(result.metafile.outputs);
 assert.equal(outputs.length, 1);
 assert.deepEqual(outputs[0].imports, [], 'No imports or external resources may remain in the worker');
-assert.deepEqual([...outputs[0].exports].sort(), ['BLACKLIST_LIMITS', 'FILTER_LIMITS', 'NativeCatalogTransport', 'NativeFilterMatcher', 'autoWatchBoards', 'catalogApiUrl', 'collectAutoWatches', 'mountNativeFilters', 'mountNativeReplyHiding', 'mountNativeThreadHiding', 'mountNativeThreadUpdater', 'mountNativeKeybinds', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters', 'runNativeFilterJob', 'writeBlacklist'].sort());
+assert.deepEqual([...outputs[0].exports].sort(), ['BLACKLIST_LIMITS', 'FILTER_LIMITS', 'NativeCatalogTransport', 'NativeFilterMatcher', 'autoWatchBoards', 'catalogApiUrl', 'collectAutoWatches', 'markNativeTrackedQuotes', 'mountNativeFilters', 'mountNativeReplyHiding', 'mountNativeThreadHiding', 'mountNativeThreadUpdater', 'mountNativeKeybinds', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters', 'runNativeFilterJob', 'writeBlacklist'].sort());
 for (const path of Object.keys(result.metafile.inputs)) {
   assert.ok(path === 'apps/public/static/thread-watcher-core.v1.js'
     || ['apps/public/client/', 'node_modules/parse5/', 'node_modules/entities/'].some(prefix => path.startsWith(prefix)), `Unexpected worker source: ${path}`);

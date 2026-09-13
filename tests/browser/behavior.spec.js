@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises';
 
 const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-assets.json', import.meta.url), 'utf8'));
 const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watcher-assets.json', import.meta.url), 'utf8'));
-const releaseImages = [uiAssets, watcherAssets].flatMap(manifest =>
+const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updater-assets.json', import.meta.url), 'utf8'));
+const releaseImages = [uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
   manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` })));
 
 const apiOrigin = 'http://127.0.0.1:3003';

@@ -72,9 +72,10 @@ async fn catalog_script_is_release_owned_and_not_an_image_source() {
 
 #[tokio::test]
 async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
-    let manifests: [serde_json::Value; 2] = [
+    let manifests: [serde_json::Value; 3] = [
         serde_json::from_str(include_str!("../../../docs/public-catalog-assets.json")).unwrap(),
         serde_json::from_str(include_str!("../../../docs/public-watcher-assets.json")).unwrap(),
+        serde_json::from_str(include_str!("../../../docs/public-updater-assets.json")).unwrap(),
     ];
     let assets: Vec<_> = manifests
         .iter()
@@ -241,5 +242,70 @@ async fn native_filter_worker_is_fixed_code_without_network_or_import_authority(
                 .unwrap();
             assert_eq!(response.status(), StatusCode::NOT_FOUND);
         }
+    }
+}
+
+#[tokio::test]
+async fn updater_sound_is_fixed_public_audio_without_image_or_api_authority() {
+    let manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/public-updater-assets.json")).unwrap();
+    let sound = &manifest["sound"];
+    let path = "/static/notifications/beep.ogg";
+    let origin = "http://127.0.0.1:3000";
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+        .unwrap();
+    let (app, api) = board_public::routers(pool, origin.into(), false);
+    for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("origin", origin)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        if matches!(method, "GET" | "HEAD") {
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.headers()["content-type"], "audio/ogg");
+            assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+            assert_eq!(
+                response.headers()["cache-control"],
+                "public, max-age=0, must-revalidate"
+            );
+            assert!(response.headers().get("set-cookie").is_none());
+            let csp = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert!(csp.contains("media-src 'none'"));
+            assert!(!csp.contains("beep.ogg"));
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            if method == "HEAD" {
+                assert!(bytes.is_empty());
+            } else {
+                assert_eq!(bytes.len() as u64, sound["bytes"].as_u64().unwrap());
+                assert_eq!(
+                    format!("{:x}", Sha256::digest(bytes)),
+                    sound["sha256"].as_str().unwrap()
+                );
+            }
+        } else {
+            assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        }
+    }
+    for (router, path) in [
+        (api, path),
+        (app.clone(), "/static/notifications/unknown.ogg"),
+        (app, "/static/notifications/unknown.ico"),
+    ] {
+        let response = router
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }

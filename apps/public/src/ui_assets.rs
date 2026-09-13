@@ -8,6 +8,7 @@ pub(crate) const POST_TRACKING_PATH: &str = "/static/post-tracking.v1.js";
 pub(crate) const NATIVE_SETTINGS_PATH: &str = "/static/native-settings.v1.js";
 pub(crate) const WATCHER_POSITION_PATH: &str = "/static/watcher-position.v1.js";
 pub(crate) const NATIVE_FILTER_PATH: &str = "/static/native-filter.v1.js";
+pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
@@ -335,10 +336,71 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "image/png",
         include_bytes!("../static/watcher/photon/post_expand_plus@2x.png"),
     ),
+    (
+        "/static/notifications/favicon.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-newposts.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-newposts.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-newreplies.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-newreplies.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-deadthread.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-deadthread.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-newfilters.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-newfilters.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-newposts.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-newposts.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-newreplies.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-newreplies.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-deadthread.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-deadthread.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-newfilters.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-newfilters.ico"),
+    ),
 ];
 
 pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
-    let mut router = Router::new();
+    let mut router = Router::new().route(
+        UPDATER_SOUND_PATH,
+        get(|| async {
+            (
+                [
+                    (header::CONTENT_TYPE, "audio/ogg"),
+                    (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+                ],
+                include_bytes!("../static/notifications/beep.ogg").as_slice(),
+            )
+        }),
+    );
     for &(path, mime, bytes) in ASSETS {
         router = router.route(
             path,

@@ -1,5 +1,6 @@
 import { NativeUpdaterTransport } from './native-updater-transport.js';
 import { NativeUpdaterSchedule } from './native-updater-schedule.js';
+import { notificationKind, notificationIcon } from './native-tracked-quotes.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 function build(node) {
@@ -10,14 +11,28 @@ function build(node) {
   return element;
 }
 
-export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings, applied }) {
+export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin, settings, applied }) {
   const section = document.getElementById(`t${thread}`);
   if (!postId(thread) || !section || section.dataset.archived === 'true') return null;
   const transport = new NativeUpdaterTransport({ board, thread, mediaOrigin });
-  const controls = [], statuses = [], mobileLinks = [], autoInputs = [];
+  const controls = [], statuses = [], mobileLinks = [], autoInputs = [], soundControls = [];
   let busy = false, dead = false, stopped = false, generation = 0;
   let currentCycle = null;
   let wasDisabled = true, hadAuto = false, unread = 0, marker = null;
+  const icon = document.querySelector('link[rel="shortcut icon"]');
+  let currentIcon = null;
+  let audio = null, audioEnabled = false;
+  function syncSound() {
+    const available = settings().updaterSound === true && !disabled();
+    if (available && !audio) { audio = document.createElement('audio'); audio.src = '/static/notifications/beep.ogg'; }
+    if (!available && audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); audio = null; audioEnabled = false; }
+    for (const { wrapper, input } of soundControls) { wrapper.hidden = !available; input.checked = audioEnabled; }
+  }
+  function setIcon(kind) {
+    const path = notificationIcon(worksafe, kind);
+    if (!icon || !path) return;
+    currentIcon = kind; icon.href = path; document.head.append(icon);
+  }
   const title = document.title, sessionKey = `4chan-auto-${thread}`;
   let wanted = settings().alwaysAutoUpdate === true;
   try { wanted ||= Boolean(sessionStorage.getItem(sessionKey)); } catch { /* Auto remains usable without storage. */ }
@@ -30,7 +45,7 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
   }
   function toggleAuto() {
     if (disabled() || stopped || dead || busy) { sync(); return; }
-    if (schedule.auto) { schedule.stop(); remember(false); status(''); }
+    if (schedule.auto) { schedule.stop(); remember(false); status(''); setIcon(null); }
     else { hadAuto = true; schedule.start(); remember(true); }
     sync();
   }
@@ -64,17 +79,26 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
     if (mobile) {
       const button = document.createElement('span'); button.className = 'mobileib button'; button.append(label);
       group.append(button); status.classList.add('mobile-tu-status');
-    } else group.append('[', label, '] ');
+    } else {
+      group.append('[', label, '] ');
+      const wrapper = document.createElement('span'), caption = document.createElement('label'), sound = document.createElement('input');
+      sound.type = 'checkbox'; sound.dataset.cmd = 'sound'; sound.title = 'Play a sound on new replies to your posts';
+      sound.addEventListener('change', () => { audioEnabled = !audioEnabled; syncSound(); });
+      caption.append(sound, 'Sound'); wrapper.append('[', caption, '] '); group.append(wrapper);
+      soundControls.push({ wrapper, input: sound });
+    }
     group.append(status); nav.append(group); controls.push(group);
   }
   function status(text, error = false) {
     for (const node of statuses) { node.textContent = text; node.classList.toggle('tu-error', error); }
   }
   function sync() {
+    syncSound();
     if (disabled() || stopped) {
       if (!wasDisabled) {
         generation++; currentCycle?.abort(); currentCycle = null; transport.cancel(); busy = false;
         schedule.suspend(); status('');
+        if (!stopped) setIcon(null);
       }
       wasDisabled = true;
     } else if (wasDisabled) {
@@ -113,7 +137,9 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
   }
   function atBottom() { return document.documentElement.scrollHeight <= Math.ceil(innerHeight + scrollY); }
   function onScroll() {
-    if (!hadAuto || document.hidden || !atBottom() || !marker) return;
+    if (!hadAuto || document.hidden || !atBottom()) return;
+    if (!dead) setIcon(null);
+    if (!marker) return;
     unread = 0; document.title = title; marker.classList.remove('newPostsMarker'); marker = null;
   }
   async function update(forced = true) {
@@ -127,7 +153,7 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
     try {
       if (result.status !== 'ok') {
         if (result.status === 'http-error' && result.httpStatus === 404) {
-          dead = true; schedule.stop(); remember(false); status('This thread has been pruned or deleted', true);
+          dead = true; setIcon('dead'); schedule.stop(); remember(false); status('This thread has been pruned or deleted', true);
         } else if (result.status === 'cooldown') status('Please wait before updating again.');
         else if (result.status !== 'cancelled') status('Connection Error. Open the thread page to retry.', true);
         return;
@@ -165,6 +191,13 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
         const moved = previous.offsetTop - offset;
         if (moved) window.scrollBy(0, moved);
         if (!forced && document.documentElement.scrollHeight > innerHeight) {
+          const posts = additions.map(post => document.getElementById(`p${post.no}`));
+          const you = posts.some(post => post.querySelector('.ql-tracked'));
+          setIcon(notificationKind(currentIcon, { you,
+            highlighted: posts.some(post => post.classList.contains('filter-hl')), unread }));
+          if (you && audioEnabled && document.hidden && audio) {
+            try { audio.play()?.catch(() => {}); } catch { /* Browser playback policy cannot break insertion. */ }
+          }
           if (!marker && last !== thread) {
             marker = previous.querySelector(':scope > .post'); marker?.classList.add('newPostsMarker');
           }
@@ -175,7 +208,7 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
         document.dispatchEvent(event);
       }
       status(additions.length ? `${additions.length} new post${additions.length === 1 ? '' : 's'}` : 'No new posts');
-      if (snapshot.archived) { dead = true; schedule.stop(); remember(false); status('This thread is archived', true); }
+      if (snapshot.archived) { dead = true; setIcon('dead'); schedule.stop(); remember(false); status('This thread is archived', true); }
     } catch { status('Thread update could not be applied. Open the thread page to continue.', true); }
     finally {
       cycle.abort(); if (currentCycle === cycle) currentCycle = null;
@@ -184,7 +217,7 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
   }
   document.addEventListener('visibilitychange', () => schedule.visibility());
   document.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('pagehide', () => { stopped = true; sync(); });
+  window.addEventListener('pagehide', () => { stopped = true; audio?.pause(); sync(); });
   window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; sync(); } });
   sync();
   return { update, sync, toggleAuto };

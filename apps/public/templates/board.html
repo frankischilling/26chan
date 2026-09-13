@@ -5,6 +5,7 @@
 {% import "catalog_card.html" as catalog_cards %}
 {% import "thread_navigation.html" as thread_navigation %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}

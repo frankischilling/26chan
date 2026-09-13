@@ -3,8 +3,8 @@
 Desktop/mobile Update and Auto controls, and optional `R`/`A` shortcuts,
 fetch and insert new replies in place. Existing drafts, post nodes and document
 state remain intact. Automatic updates also maintain the unread title and
-last-reply marker. Sound, favicon notifications and Quick Reply coordination
-are still unfinished; this is not complete native updater compatibility.
+last-reply marker, favicon notifications and optional reply sounds. Quick Reply
+coordination is still unfinished; this is not complete native updater compatibility.
 
 ## Public reference
 
@@ -64,6 +64,50 @@ scrolls to the new bottom. A visible reader is not moved to new replies.
 Changes in the previous last post's offset are compensated after post parsing.
 Tests supply explicit hidden/visible states to exercise both paths; they do not
 claim browser background-tab timing matches an accelerated test clock.
+
+## Tracked quotes, favicon and sound
+
+On thread pages, ordinary posting receipts feed the existing bounded tracking
+store. Quotes to tracked posts receive the native `ql-tracked` class and
+` (You)` text suffix. Repeated rendering does not duplicate the suffix or change
+the link destination. Disabling the extension removes only its own decoration.
+The pinned `Parser.init` loads tracked replies only on thread pages; no new
+board-index decoration is inferred. Quick Reply's single-own-reply suppression
+still requires the actual Quick Reply lifecycle and is not approximated from
+the ordinary posting receipt store.
+
+After automatic insertion, quotes to tracked posts select the reply favicon.
+New filter highlights select the highlight icon unless a reply notification is
+already active. Ordinary new posts select the new-post icon when unread was
+zero. Stop clears the icon without clearing unread text; reading at the visible
+bottom clears the icon even in the OP-only marker edge. Archive and 404 select
+the dead-thread icon. Manual insertion does not set a new-reply icon.
+Insertion observers settle before the explicit filter pass, so notification
+priority uses completed filtering for the new posts.
+
+The native `updaterSound` setting defaults to false. Enabling it exposes the two
+desktop Sound checkboxes, initially unchecked and synchronized for this page.
+Their value is not persisted; the mobile updater does not add a Sound control.
+A hidden automatic update that quotes a tracked post attempts playback only
+when that control is checked. The client catches synchronous and asynchronous
+playback failures so browser autoplay policy cannot break insertion. There is
+no fallback audio URL, remote media fetch or notification-permission request.
+
+[The asset manifest](public-updater-assets.json) pins ten unchanged public ICO
+files and `https://s.4cdn.org/media/beep.ogg` by URL, length and SHA-256. Names
+and priority come from the same pinned v1191 updater. The worksafe default was
+observed in captured thread HTML. The general `favicon.ico` was observed on the
+public FAQ; its non-worksafe board mapping is inferred and remains unverified
+because a catalog request returned 403. That denial was not bypassed.
+
+The application embeds these fixed release assets. ICO routes are added to the
+explicit `img-src` list; they do not broaden it to `self` or a directory. The
+beep has a separate audio-only GET/HEAD route and is excluded from image sources.
+Interactive public pages permit only its exact local path in `media-src`.
+Other document and non-script asset responses retain `media-src 'none'`; the
+worker's default/network/import denial remains intact. Assets issue no cookies and use nosniff and
+revalidation. Upload storage, media-origin authority and API-listener routes
+are unchanged.
 
 ## Owned response contract
 
@@ -180,8 +224,17 @@ settings, cancellation, terminal archival, unavailable storage, lifecycle
 events, scrolling and the OP-only marker edge. Theme captures include Auto,
 countdown, error, Monitoring settings and shortcut help at both viewports.
 
-Still required: tail/cache behavior, favicon and sound notifications,
-Quick Reply coordination, existing-post deletion
+Five notification browser cases exercise actual posting receipts, idempotent
+quote decoration, completed filter highlights, favicon priority and terminal
+state, real local audio playback, rejected playback, the audio CSP with a
+healthy denied audio origin. The existing release-image browser case also decodes all ten icons. Two unit cases
+cover priority and fixed-path selection. HTTP tests hash-check release bytes,
+GET/HEAD/no-write behavior, MIME, CSP, missing paths and API-listener separation.
+Audio tests control the document's hidden flag and confirm playback through the
+real HTMLMediaElement API; background-tab autoplay behavior is still subject to
+browser policy and requires live-reference qualification.
+
+Still required: tail/cache behavior, Quick Reply coordination, existing-post deletion
 reconciliation, remaining native settings and live public-reference comparison.
 The full snapshot route and the one-second request floor are explicit local
 transport choices. The pending reference qualification remains tracked in #6

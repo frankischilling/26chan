@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds,
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -215,9 +215,14 @@ function start(context) {
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
-    mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
+    worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
     applied: async (_snapshot, signal) => {
-      render(); await nativeFilters?.refresh();
+      render();
+      // Let insertion/quote-decoration observers enqueue their refresh first.
+      // This explicit pass then owns the final filter result used by notifications.
+      await new Promise(resolve => queueMicrotask(resolve));
+      if (signal.aborted) return;
+      await nativeFilters?.refresh();
       if (signal.aborted) return;
       const acknowledgement = new AbortController();
       const cancel = () => acknowledgement.abort();
@@ -613,6 +618,8 @@ function start(context) {
     syncOpenPostMenu();
   }
   function render() {
+    if (!catalog && threadId) markNativeTrackedQuotes(document.getElementById(`t${threadId}`),
+      tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true);
     nativeUpdater?.sync();
     nativeReplies?.refresh();
     nativeThreads?.refresh();
@@ -796,6 +803,7 @@ function start(context) {
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();
   tracking.consume(threadId).then(() => acknowledgeCurrent()).then(() => {
+    render();
     void nativeFilters?.refresh();
     navigateReadPosition(); return refreshAll(true);
   });

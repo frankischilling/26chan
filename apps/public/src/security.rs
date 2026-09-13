@@ -176,6 +176,11 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
     } else {
         "'none'".into()
     };
+    let sound = if interactive {
+        format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
+    } else {
+        "'none'".into()
+    };
     let script_resource = response
         .headers()
         .get("content-type")
@@ -199,7 +204,7 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
         "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
     } else {
         format!(
-            "default-src 'none'; style-src 'self'; img-src {images}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
         )
     };
     headers.insert(

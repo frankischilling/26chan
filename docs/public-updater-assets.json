@@ -1,0 +1,125 @@
+{
+  "collected_at": "2026-09-13T23:34:48.601672+00:00",
+  "provenance": "Public release UI assets, not user uploads. Notification names inspected in pinned extension v1191. Default favicon-ws.ico observed in pinned thread HTML; favicon.ico observed in public FAQ. Non-worksafe board default remains unverified: a read-only catalog request returned HTTP 403.",
+  "assets": [
+    {
+      "source": "https://s.4cdn.org/image/favicon.ico",
+      "bytes": 1150,
+      "sha256": "c89eb561544180725555737880282690ca104a7968776d9b3a8f58013d181dec",
+      "name": "favicon.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-ws.ico",
+      "bytes": 1150,
+      "sha256": "220f6942ef7b8f797598a488fa7061b72c578864c6c389f16f7f63e4ddba7bd2",
+      "name": "favicon-ws.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-ws-newposts.ico",
+      "bytes": 1150,
+      "sha256": "e318b0aea2f4b7869c88c5bc73df4ab3dc321593f885533707502115df42f7fc",
+      "name": "favicon-ws-newposts.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-ws-newreplies.ico",
+      "bytes": 1150,
+      "sha256": "cb486430dd521338cc74ca152e277edd8a55ebc399194e1b06405af9c6b072bf",
+      "name": "favicon-ws-newreplies.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-ws-deadthread.ico",
+      "bytes": 318,
+      "sha256": "0e44d0bcef96286d3ff6fd2be27ec7f11fb83103f2f9d5788b36e682bf9933f1",
+      "name": "favicon-ws-deadthread.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-ws-newfilters.ico",
+      "bytes": 1150,
+      "sha256": "ababca80d1fbd60463be8d951c3e6822d5db5991b1d1102c126fbc024a79da12",
+      "name": "favicon-ws-newfilters.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-nws-newposts.ico",
+      "bytes": 1150,
+      "sha256": "e02b81b2e5d7ec402c2b395b41c630d7e109c8d4eec638c22f74185c79d92847",
+      "name": "favicon-nws-newposts.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-nws-newreplies.ico",
+      "bytes": 1150,
+      "sha256": "4a3efd513116a716d648967636c2e07e339d6f8a86ea54f4a98d797cc6dc61f8",
+      "name": "favicon-nws-newreplies.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-nws-deadthread.ico",
+      "bytes": 318,
+      "sha256": "aa8c8a4fd53267726901d1038512e8f5bd72c4784713b8abd3c80f1753bc67e8",
+      "name": "favicon-nws-deadthread.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    },
+    {
+      "source": "https://s.4cdn.org/image/favicon-nws-newfilters.ico",
+      "bytes": 1150,
+      "sha256": "7aae344db05f23df9bdbebaf166fd7c5a7c4d7f80c58e94cf5537d16215dba64",
+      "name": "favicon-nws-newfilters.ico",
+      "mime": "image/x-icon",
+      "dimensions": [
+        16,
+        16
+      ]
+    }
+  ],
+  "local_base": "/static/notifications/",
+  "sound": {
+    "name": "beep.ogg",
+    "source": "https://s.4cdn.org/media/beep.ogg",
+    "bytes": 2861,
+    "mime": "audio/ogg",
+    "sha256": "badf4f702347fe6a0ea83708d835a79495f343745fbfa55a7e9c5d061ee5e064",
+    "collected_at": "2026-09-13T23:37:51.299296+00:00"
+  }
+}

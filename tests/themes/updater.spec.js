@@ -2,11 +2,13 @@ import { test, expect } from '@playwright/test';
 test.use({ javaScriptEnabled: true });
 for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
   test(`${theme} updater controls, countdown, settings and failure status fit desktop and mobile`, async ({ page, context }, info) => {
+    await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ updaterSound: true })));
     await context.addCookies([{ name: 'board-theme-ws', value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 }); await page.goto('/img/thread/1000201');
       const controls = page.locator('.threadNav:visible a[data-cmd="update"]');
       await expect(controls).toHaveCount(2); await expect(controls.first()).toHaveText('Update');
+      await expect(page.locator('.threadNav:visible input[data-cmd="sound"]')).toHaveCount(width === 1280 ? 2 : 0);
       const auto = page.locator('.threadNav:visible input[data-cmd="auto"]').first();
       await auto.check(); await expect(page.locator('.threadNav:visible .nativeUpdaterStatus').first()).toHaveText(/^(10|9)$/);
       const countdown = info.outputPath(`${theme}-${width}-countdown.png`);
@@ -26,6 +28,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
       await expect(page.locator('#setting-threadUpdater')).toBeChecked();
       await expect(page.locator('#setting-alwaysAutoUpdate')).not.toBeChecked();
       await expect(page.locator('#setting-autoScroll')).not.toBeChecked();
+      await expect(page.locator('#setting-updaterSound')).toBeChecked();
       const dialog = page.getByRole('dialog', { name: 'Settings', exact: true }), bounds = await dialog.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(900);
