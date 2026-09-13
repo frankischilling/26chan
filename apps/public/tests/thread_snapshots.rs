@@ -42,7 +42,12 @@ async fn coherent_during_commit(owner: PgPool, control: PgPool, slug: String, id
         board_public::routers(control.clone(), "http://127.0.0.1:3000".into(), false);
     let mut inconsistent = Vec::new();
     for table_lock in [false, true] {
-        for (api_only, json) in [(false, false), (false, true), (true, true)] {
+        for (api_only, json, updater) in [
+            (false, false, false),
+            (false, true, false),
+            (true, true, false),
+            (false, true, true),
+        ] {
             sqlx::query(
                 "UPDATE content.boards SET title='Before commit',bump_limit=50 WHERE slug=$1",
             )
@@ -63,7 +68,11 @@ async fn coherent_during_commit(owner: PgPool, control: PgPool, slug: String, id
                 .execute(&owner)
                 .await
                 .unwrap();
-            let path = format!("/{slug}/thread/{id}{}", if json { ".json" } else { "" });
+            let path = if updater {
+                format!("/_watch/{slug}/thread/{id}/posts")
+            } else {
+                format!("/{slug}/thread/{id}{}", if json { ".json" } else { "" })
+            };
             let control_app = if api_only { &api_control } else { &web_control };
             let before = get(control_app, &path).await;
 
@@ -184,7 +193,7 @@ async fn coherent_during_commit(owner: PgPool, control: PgPool, slug: String, id
             assert_ne!(before, after, "the committed control must change {path}");
             if during != before && during != after {
                 inconsistent.push(format!(
-                    "table_lock={table_lock}, api_only={api_only}, json={json}"
+                    "table_lock={table_lock}, api_only={api_only}, json={json}, updater={updater}"
                 ));
             }
         }

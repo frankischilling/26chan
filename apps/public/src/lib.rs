@@ -5,6 +5,7 @@ mod api_http;
 pub mod catalog;
 mod handlers;
 mod intake;
+mod native_updater_snapshot;
 mod post_receipts;
 mod security;
 pub mod themes;
@@ -134,6 +135,10 @@ pub fn routers_with_limits(
         .route("/static/board.css", get(handlers::css))
         .route("/boards.json", get(api::boards))
         .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
+        .route(
+            "/_watch/{board}/thread/{key}/posts",
+            get(native_updater_snapshot::get),
+        )
         .route("/_watch/{board}/catalog.json", get(watcher_catalog::get))
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))
