@@ -1,6 +1,8 @@
 //! Release-owned public UI bytes, never upload storage or a filesystem server.
 use axum::{Router, http::header, routing::get};
 
+pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
+
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
         "/static/catalog/filedeleted-res.gif",
@@ -55,7 +57,18 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
             }),
         );
     }
-    router
+    router.route(
+        CATALOG_SCRIPT_PATH,
+        get(|| async {
+            (
+                [
+                    (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
+                    (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+                ],
+                include_bytes!("../static/catalog-preferences.v1.js").as_slice(),
+            )
+        }),
+    )
 }
 
 pub(crate) fn image_sources(origin: &str) -> String {
