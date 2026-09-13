@@ -179,3 +179,67 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
         }
     }
 }
+
+#[tokio::test]
+async fn native_filter_worker_is_fixed_code_without_network_or_import_authority() {
+    for origin in ["http://127.0.0.1:3000", "https://board.example"] {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .unwrap();
+        let app = board_public::router(pool, origin.into(), origin.starts_with("https:"));
+        for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri("/static/native-filter.v1.js")
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            if matches!(method, "GET" | "HEAD") {
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(
+                    response.headers()["content-type"],
+                    "text/javascript; charset=utf-8"
+                );
+                assert_eq!(
+                    response.headers()["cache-control"],
+                    "public, max-age=0, must-revalidate"
+                );
+                assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+                assert!(response.headers().get("set-cookie").is_none());
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                assert!(csp.contains("default-src 'none';"));
+                assert!(csp.contains("script-src 'none';"));
+                assert!(csp.contains("connect-src 'none';"));
+                assert!(csp.contains("worker-src 'none';"));
+                assert!(!csp.contains("'self'"));
+                let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                if method == "GET" {
+                    assert_eq!(
+                        bytes.as_ref(),
+                        include_bytes!("../static/native-filter.v1.js")
+                    );
+                } else {
+                    assert!(bytes.is_empty());
+                }
+            } else {
+                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+            }
+        }
+        for path in ["/static/native-filter.js", "/static/native-filter.v2.js"] {
+            let response = app
+                .clone()
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
+    }
+}

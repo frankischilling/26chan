@@ -153,13 +153,15 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{}",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
             crate::ui_assets::NATIVE_SETTINGS_PATH,
             state.origin,
-            crate::ui_assets::WATCHER_POSITION_PATH
+            crate::ui_assets::WATCHER_POSITION_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_FILTER_PATH
         )
     } else {
         script
@@ -169,6 +171,16 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
     } else {
         "'none'".into()
     };
+    let worker = if interactive {
+        format!("{}{}", state.origin, crate::ui_assets::NATIVE_FILTER_PATH)
+    } else {
+        "'none'".into()
+    };
+    let script_resource = response
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("text/javascript"));
     let headers = response.headers_mut();
     // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
@@ -181,9 +193,15 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
     if let Some(media) = &state.media {
         images = format!("{} {images}", media.settings.origin.as_string());
     }
-    let policy = format!(
-        "default-src 'none'; style-src 'self'; img-src {images}; script-src {script}; script-src-attr 'none'; connect-src {connect}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
-    );
+    let policy = if script_resource {
+        // A script used as a worker receives this policy in its own execution
+        // context. The initial module has no imports or network authority.
+        "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
+    } else {
+        format!(
+            "default-src 'none'; style-src 'self'; img-src {images}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+        )
+    };
     headers.insert(
         "content-security-policy",
         HeaderValue::from_str(&policy).expect("validated application origins"),

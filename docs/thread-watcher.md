@@ -221,3 +221,81 @@ Native hiding/filter actions, media actions and the remaining settings are not
 implemented by this menu slice and are not exposed as placeholder controls.
 Full reference screenshots, filter-driven watching/blacklisting and the other
 gaps above remain required before full parity or merge can be claimed.
+
+## Filter matching worker under development
+
+`native-filter.v1.js` implements the pinned filter matching contract for prepared
+catalog fields. It is served as a fixed release module but is not yet connected
+to the watcher. Catalog fetch,
+safe HTML-to-text field preparation, blacklist transactions, the filter editor
+and complete browser integration remain required before automatic watching
+is usable. No inert filter controls or permissive worker routes are exposed.
+
+In extension v1191, active Auto filters with explicit boards select which
+catalogs to fetch. `Filter.match` then considers all active filters explicitly
+scoped to those boards, including filters without Auto. Blank scopes do not
+match in this catalog path, unlike the separate on-page `Filter.exec` path.
+Board tokens retain case and encounter order; the native token loop stops if
+the first token is empty. The worker does not silently normalize those rules.
+
+Tripcode, name and poster-ID patterns are exact strings. Comment, subject and
+filename patterns use native JavaScript regular expressions, quoted patterns,
+or word-boundary AND terms with non-whitespace wildcards. The native escaping
+list omits `|`, so alternation survives even inside quoted patterns. Unquoted
+AND matching is line-sensitive. Empty comments are skipped; missing subject
+and filename fields are coerced to the string `undefined` by native RegExp.test.
+These observations come from `Filter.load`, `Filter.match` and
+`ThreadWatcher.refreshWithAutoWatch` in the already pinned extension. Its code
+was inspected as text, not executed.
+
+The caller validates and copies bounded data without compiling user patterns.
+Each match uses a fresh worker, terminated on completion, cancellation, error
+or a one-second deadline. No unavailable-worker fallback runs a pattern on the
+main thread. Results contain only input post IDs and filter indices; invented,
+duplicate, reordered or out-of-scope selections are rejected. IDs remain exact
+strings across the full positive i64 range. The worker receives prepared plain
+comment text, not raw HTML; preparation still needs separate compatibility tests.
+
+Security bounds are 64 filters, 1,024 code units per pattern, 32 selected boards,
+512 posts per job, 16,384 code units per field, a 2 MiB-code-unit request and a
+64 KiB-code-unit response. Malformed settings or a compilation error reject the
+whole operation instead of applying a partially compiled filter list. Legacy
+type 3 migration belongs in the pending editor; the matcher accepts the six
+types emitted by the current pinned editor. These are bounded-state and
+failure-handling exceptions, not claims that the native client has these limits.
+
+`native-filter.test.mjs` checks matching and protocol bounds through owned Node
+worker threads, including termination of a bounded pathological-regex fixture
+and caller responsiveness. `native-filter-worker.spec.js` exercises the actual
+browser module worker and its deadlines. It also uses the real script response
+headers with an owned probe body to test denied network access, imports and
+nested workers, with healthy browser controls. The parent permits only the
+exact module URL in worker-src; noninteractive responses permit no workers.
+Script-resource response policies deny network and imports in worker contexts.
+The Rust asset test checks fixed bytes, HEAD, denied writes and response headers.
+These checks do not qualify media-worker containment or the unfinished automatic
+watching workflow. Passing results are recorded per commit in the draft PR.
+
+### Filter worker checkpoint validation
+
+The owned Windows/Chromium/PostgreSQL validation passed with the worker served
+at its fixed release URL. The matcher is not yet connected to automatic watching;
+catalog preparation, transport, blacklist transactions and the native editor
+remain required.
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy -p board-public --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test -p board-public --all-features --all-targets --locked -- --test-threads=1`: 74 test executions passed, including the visual-fixture example test.
+- `npm run test:behavior`: 45 unit tests and 60 browser tests passed, split into 46 general, 11 watcher and 3 post-tracking browser cases.
+- The two targeted `native-filter-worker.spec.js` browser tests also passed separately.
+- Board/catalog, archive, media and full theme suites: 3, 6, 14 and 88 tests passed respectively. No baseline changed.
+
+The original worker-denial probes terminated workers immediately after
+construction and therefore mislabeled asynchronous startup failures. Both now
+await a healthy message or startup error, terminate on every completion path,
+and fail distinctly on a two-second timeout. Exact CSP-violation URL assertions
+remain; denied module imports report the effective `script-src-elem` directive.
+The healthy unrestricted worker control still runs before the denial probes.
+
+These results qualify this local checkpoint, not the complete watcher or 1:1
+frontend. Exact-head CI remains a separate gate, and production media stays off.
