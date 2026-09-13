@@ -3,7 +3,7 @@ import { FILTER_LIMITS } from './native-filter.v1.js';
 // String limits count UTF-16 code units. Transport byte limits are separate.
 export const CATALOG_LIMITS = Object.freeze({
   source: 4194304, depth: 24, values: 131072, array: 4096,
-  keys: 128, key: 128, pages: 128, comment: 65536,
+  keys: 128, key: 128, pages: 128, comment: FILTER_LIMITS.html,
   posts: FILTER_LIMITS.posts, field: FILTER_LIMITS.field,
 });
 

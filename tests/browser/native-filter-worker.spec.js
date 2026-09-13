@@ -146,3 +146,43 @@ test('actual worker response CSP denies network, imports and nested workers with
   expect(outcome.probe.violations).toContainEqual({ directive: 'script-src-elem', uri: `${origin}/native-filter-healthy-worker.js` });
   expect(outcome.probe.violations).toContainEqual({ directive: 'worker-src', uri: `${origin}/native-filter-healthy-worker.js` });
 });
+
+test('bundled HTML parsing preserves native raw comment semantics without loading markup resources', async ({ page, context }) => {
+  const requests = [];
+  await context.route('**/_watch/html-probe/**', async route => {
+    requests.push(new URL(route.request().url()).pathname);
+    await route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+  });
+  await page.goto('/demo/');
+  const outcome = await page.evaluate(async path => {
+    const { NativeFilterMatcher, FILTER_LIMITS } = await import(path);
+    const healthy = (await fetch('/_watch/html-probe/healthy')).ok;
+    const engine = new NativeFilterMatcher();
+    const filters = ['"<b>paper</b>"', '/^paper$/', '/^$/', '"owned-html-executed"'].map(pattern => ({
+      type: 2, pattern, boards: 'demo', active: true,
+    }));
+    const matched = await engine.match(filters, 'demo', [
+      { no: '1', com: '<noscript><b>paper</b></noscript>' },
+      { no: '2', com: '<b>paper</b>' }, { no: '3', com: '<span></span>' },
+      { no: '4', com: '' }, { no: '5' },
+      { no: '6', com: '<script>postMessage("owned-html-executed")</script>'
+        + '<img src="/_watch/html-probe/image" onerror="postMessage(\'owned-html-executed\')">'
+        + '<iframe src="/_watch/html-probe/frame"></iframe>' },
+    ]);
+    const ambiguous = await engine.match(filters, 'demo', [{ no: '1', com: '<b>paper</b>', comment: 'paper' }]);
+    const invalidBatch = await engine.match(filters, 'demo', [{ no: '1', com: 'paper' },
+      { no: '2', com: 'x'.repeat(FILTER_LIMITS.field + 1) }]);
+    const literalOnly = await engine.match([{ type: 1, pattern: 'literal', boards: 'demo', active: true }],
+      'demo', [{ no: '1', name: 'literal', com: 'x'.repeat(FILTER_LIMITS.field + 1) }]);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return { healthy, matched, ambiguous, invalidBatch, literalOnly };
+  }, workerPath);
+  expect(outcome.healthy).toBe(true);
+  expect(outcome.matched).toEqual({ status: 'ok', matches: [
+    { id: '1', filter: 0 }, { id: '2', filter: 1 }, { id: '3', filter: 2 }, { id: '6', filter: 3 },
+  ] });
+  expect(outcome.ambiguous.status).toBe('invalid-request');
+  expect(outcome.invalidBatch).toEqual({ status: 'invalid-request' });
+  expect(outcome.literalOnly).toEqual({ status: 'ok', matches: [{ id: '1', filter: 0 }] });
+  expect(requests).toEqual(['/_watch/html-probe/healthy']);
+});

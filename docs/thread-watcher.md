@@ -328,3 +328,37 @@ Parser checkpoint validation on the owned Windows/Chromium/PostgreSQL setup:
 
 The prior 74-test Rust and 111-test visual/theme results apply to the earlier
 worker checkpoint, not this parser change. No screenshot baseline was changed.
+
+### Bundled worker HTML conversion
+
+The worker now accepts either bounded raw `com` or prepared `comment`, rejecting
+ambiguous requests that contain both. Raw HTML is converted only when a comment
+filter is reached. The worker preserves the pinned literal `<br>` substitution
+and unusual character-class replacement, then uses parse5's HTML div-fragment
+context with `scriptingEnabled: true`. That option selects native `noscript`
+text parsing; it does not execute JavaScript. The tree consists of ordinary data
+objects, never browser DOM nodes, so markup does not create resource requests,
+event handlers, frames or custom elements. Text traversal excludes a template's
+separate content fragment and preserves parser text order and entity decoding.
+
+Raw HTML is bounded to 65,536 UTF-16 code units per field; decoded text keeps the
+16,384-unit field bound. Element creation and tree traversal each have a 65,536
+node budget. The existing request and worker deadline limits remain. A conversion
+budget failure rejects the whole matching result, not a partial list. Filters
+that never inspect comments do not invoke the HTML parser.
+
+The worker source is now under `apps/public/client/`. `npm run build:native-filter`
+bundles pinned parse5 8.0.1 and esbuild 0.28.2 into the existing fixed release
+`native-filter.v1.js` URL. The lockfile pins transitive dependencies. The build
+retains dependency license notices, requires one import-free browser ESM output,
+limits it to 256 KiB, and checks allowed source paths and public exports.
+`npm run check:native-filter` rebuilds in memory and compares exact artifact bytes;
+it runs before the watcher unit tests in the behavior command. No API format,
+script URL, worker URL or CSP permission was added for this conversion.
+
+Node tests cover native text cases, including `noscript`, table text order,
+templates, entities and newline normalization. A real browser-worker test covers
+raw comments, absent versus empty text, budget failures, lazy conversion and an
+owned healthy network control alongside markup that must not load resources.
+Catalog transport, blacklist transactions, the native filter editor and complete
+watcher integration still remain; this is not usable automatic watching yet.
