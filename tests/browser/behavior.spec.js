@@ -64,11 +64,15 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     const liveContext = await browser.newContext();
     try {
       const live = await liveContext.newPage();
-      await live.goto(`${origin}/test/catalog?q=${encodeURIComponent(marker)}`);
+      await live.goto(`${origin}/test/catalog?q=${encodeURIComponent(`${marker} Alpha [.*]`)}`);
       let navigations = 0;
       live.on('request', request => { if (request.isNavigationRequest() && request.frame() === live.mainFrame()) navigations += 1; });
       await live.evaluate(() => { window.originalCards = Array.from(document.querySelectorAll('.catalog .thread')); });
       const ids = () => live.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
+      expect(await ids()).toEqual([a]);
+      await live.locator('#qf-box').fill(marker);
+      await expect.poll(() => new URL(live.url()).searchParams.get('q')).toBe(marker);
+      expect(await ids()).toEqual([b,c,a]);
       for (const [order, expected] of [['date',[c,b,a]], ['absdate',[a,b,c]], ['r',[a,b,c]], ['alt',[b,c,a]]]) {
         await live.locator('#order-ctrl').selectOption(order);
         expect(await ids()).toEqual(expected);

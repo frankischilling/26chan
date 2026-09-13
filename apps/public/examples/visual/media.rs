@@ -166,6 +166,7 @@ impl Fixture {
             }]
         };
         views::BoardPage {
+            catalog_hidden: Vec::new(),
             board,
             threads,
             parent: if kind == "thread" || archived {

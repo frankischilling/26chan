@@ -35,10 +35,10 @@ query units. Existing public admission and handler deadlines remain in force.
 The server still searches subject, raw comment and non-deleted display filename
 as separate fields. The reference client searches its generated teaser and file
 field, whose server preprocessing is not established by the permitted source.
-Field selection is therefore still a documented difference. GET submission,
-live debounced filtering and session search restoration also remain unfinished.
-The observed session keys and 250 ms debounce are evidence for that future work,
-not claims that those interactions are implemented here.
+Field selection is therefore still a documented difference. [Live filtering](catalog-live-search.md)
+now uses the same bounded pattern contract with the observed 250 ms debounce,
+per-tab storage keys and fragment links. The original search-toggle interface and
+complete generated-teaser parity remain unfinished. GET is retained as fallback.
 
 No HTML rendering, CSP, database privileges, dependency, media or deployment
 policy changes are included. Production readiness and full search parity are

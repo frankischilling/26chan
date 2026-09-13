@@ -169,29 +169,43 @@ async fn board_page(
         Some(if catalog { 0 } else { 3 }),
     )
     .await?;
-    if catalog {
-        options.apply(&mut snapshot);
-    }
+    let hidden = if catalog {
+        options.apply(&mut snapshot)
+    } else {
+        Vec::new()
+    };
     let board = snapshot.board;
     let has_next = snapshot.has_next;
     let mut views = Vec::new();
-    for preview in snapshot.threads {
+    let mut hidden_views = Vec::new();
+    for (preview, visible) in snapshot
+        .threads
+        .into_iter()
+        .map(|preview| (preview, true))
+        .chain(hidden.into_iter().map(|preview| (preview, false)))
+    {
         let posts = preview.posts;
         if posts.is_empty() {
             continue;
         }
         let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
-        views.push(ThreadView {
+        let view = ThreadView {
             latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
             posts: posts.into_iter().map(PostView::new).collect(),
             omitted,
             image_replies: preview.visible_images,
-        });
+        };
+        if visible {
+            views.push(view);
+        } else {
+            hidden_views.push(view);
+        }
     }
     Ok(Html(
         BoardPage {
+            catalog_hidden: hidden_views,
             board,
             threads: views,
             parent: 0,
@@ -244,6 +258,7 @@ pub async fn thread(
     let posts = posts.into_iter().map(PostView::new).collect();
     Ok(Html(
         BoardPage {
+            catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {
                 latest_reply_id,

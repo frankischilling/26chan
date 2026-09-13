@@ -80,22 +80,27 @@ impl Options {
         }
     }
 
-    pub fn apply(&self, snapshot: &mut BoardSnapshot) {
+    pub fn apply(&self, snapshot: &mut BoardSnapshot) -> Vec<board_store::ThreadPreview> {
+        let mut hidden = Vec::new();
         if !self.q.is_empty() {
             let query = filter::Filter::new(&self.q);
-            snapshot.threads.retain(|preview| {
-                preview
-                    .posts
-                    .iter()
-                    .find(|post| post.id == preview.thread.id)
-                    .is_some_and(|post| {
-                        query.matches(&post.subject)
-                            || query.matches(&post.comment)
-                            || post.attachment.as_ref().is_some_and(|file| {
-                                !file.file_deleted && query.matches(&file.filename)
-                            })
-                    })
-            });
+            let (visible, excluded): (Vec<_>, Vec<_>) = std::mem::take(&mut snapshot.threads)
+                .into_iter()
+                .partition(|preview| {
+                    preview
+                        .posts
+                        .iter()
+                        .find(|post| post.id == preview.thread.id)
+                        .is_some_and(|post| {
+                            query.matches(&post.subject)
+                                || query.matches(&post.comment)
+                                || post.attachment.as_ref().is_some_and(|file| {
+                                    !file.file_deleted && query.matches(&file.filename)
+                                })
+                        })
+                });
+            snapshot.threads = visible;
+            hidden = excluded;
         }
         snapshot.threads.sort_by(|a, b| {
             b.thread
@@ -118,6 +123,7 @@ impl Options {
                         .then_with(|| a.thread.id.cmp(&b.thread.id)),
                 })
         });
+        hidden
     }
 }
 

@@ -74,6 +74,7 @@ fn page(catalog: bool) -> String {
         }));
     }
     BoardPage {
+        catalog_hidden: Vec::new(),
         board,
         threads: vec![ThreadView {
             latest_reply_id: Some(1_000_002),
@@ -103,6 +104,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        catalog_hidden: Vec::new(),
         board: Board {
             slug: "empty".into(),
             ..board()
@@ -190,6 +192,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        catalog_hidden: Vec::new(),
         parent: thread.id,
         board,
         threads: vec![ThreadView {
