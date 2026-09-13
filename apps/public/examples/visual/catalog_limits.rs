@@ -21,6 +21,7 @@ pub fn page(disabled_images: bool) -> String {
     .map(|(index, (lifetime, visible, images, subject))| {
         let id = 1_000_400 + index as i64;
         views::ThreadView {
+            latest_reply_id: (visible > 0).then_some(id + visible as i64),
             thread: Thread {
                 id,
                 board: board.slug.clone(),

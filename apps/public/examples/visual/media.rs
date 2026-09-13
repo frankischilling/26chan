@@ -139,6 +139,7 @@ impl Fixture {
             posts
                 .into_iter()
                 .map(|post| views::ThreadView {
+                    latest_reply_id: None,
                     thread: Thread {
                         id: post.post.id,
                         reply_count: 0,
@@ -153,6 +154,11 @@ impl Fixture {
                 .collect()
         } else {
             vec![views::ThreadView {
+                latest_reply_id: posts
+                    .iter()
+                    .filter(|post| post.post.id != thread.id)
+                    .map(|post| post.post.id)
+                    .max(),
                 thread,
                 posts,
                 omitted: 0,

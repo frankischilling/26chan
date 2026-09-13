@@ -6,17 +6,18 @@ image size and teaser changes. The source hash and inspected functions are
 recorded in `public-catalog-reference.json`; no public post data is required.
 
 The local catalog now saves the same three finite fields on control changes or
-Apply. A fresh catalog visit restores them through the existing validated query
-route. Storage is origin-local and is not a cookie, authentication state or a
+Apply. Display changes and fresh-visit restoration now update the rendered
+snapshot in place and maintain a shareable query URL. Storage is origin-local and
+is not a cookie, authentication state or a
 server-side preference. Search text is not persisted. An explicit URL containing
 any display option takes precedence without overwriting the saved preference.
 Reset clears the key and navigates to explicit defaults with an empty search.
 
-This closes the display-preference persistence gap, not complete catalog parity.
-The reference redraws in place; this implementation still makes a GET navigation
-on changes and may need an additional GET on restoration. That difference remains
-unfinished interaction work, not an asserted security requirement. Explicit URL
-precedence and Reset's URL behavior are local extensions. Quick-search persistence,
+This closes the display-preference persistence and display-control reload gaps,
+not complete catalog parity. [In-place control evidence](catalog-inplace.md)
+covers snapshot ranks, teaser nodes and thumbnail dimensions. Search and Reset
+still navigate through the server. Explicit URL precedence and Reset's URL
+behavior are local extensions. Quick-search persistence,
 filters, hidden/pinned threads and the remaining catalog interactions are outside
 this change. Without JavaScript, the existing Apply and Reset form still works;
 browser-local preference restoration is unavailable.
@@ -39,6 +40,10 @@ and supplies only allowlisted display values. Missing, malformed, oversized or
 unavailable storage falls back to the rendered page. Storage failures do not
 prevent GET form submission, and Reset's explicit defaults avoid a restoration
 loop when removal is denied.
+
+Rendering uses server-produced numeric metadata and existing escaped DOM nodes.
+Invalid rendering metadata falls back to the validated GET form. No network
+fetch or broader CSP permission is needed for display changes.
 
 There are no database migrations, new dependencies, staff changes or media-policy
 changes. Production media remains disabled and production qualification is not

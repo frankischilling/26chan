@@ -19,10 +19,13 @@ test('catalog preferences save on changes and restore in a fresh tab without sto
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   expect(await stored(page)).toEqual(saved);
   const fresh = await context.newPage();
+  let freshNavigations = 0;
+  fresh.on('request', request => { if (request.isNavigationRequest() && request.frame() === fresh.mainFrame()) freshNavigations += 1; });
   await fresh.goto(catalog);
   await expect(fresh.locator('#threads')).toHaveClass('catalog large');
   await expect(fresh.locator('#order-ctrl')).toHaveValue('r');
   await expect(fresh.locator('#qf-box')).toHaveValue('');
+  expect(freshNavigations).toBe(1);
   await fresh.reload();
   await expect(fresh.locator('#threads')).toHaveClass('catalog large');
   await fresh.getByRole('link', { name: 'Reset', exact: true }).click();

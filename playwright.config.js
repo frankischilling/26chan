@@ -24,6 +24,9 @@ export default defineConfig({
     env: {
       MIGRATION_DATABASE_URL: '', STAFF_DATABASE_URL: '', AUTH_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '',
       API_ORIGIN: 'http://127.0.0.1:3003', API_BIND_ADDR: '127.0.0.1:3003',
+      // All browser workflows share one socket peer and now exceed 30 writes.
+      // The real default and non-default enforcement stay covered by http_limits.rs.
+      PUBLIC_WRITES_PER_MINUTE: '60',
     },
     command: process.env.VISUAL_FIXTURE_SERVER === '1'
       ? 'cargo run -p board-public --example visual-fixtures --locked'
