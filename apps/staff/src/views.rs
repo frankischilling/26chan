@@ -35,7 +35,8 @@ mod tests {
             reason: "<b>untrusted report</b>".into(),
             name: "<em>name</em>".into(),
             subject: "<i>subject</i>".into(),
-            comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]".into(),
+            comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
+                .into(),
             state: "open".into(),
             closed: false,
             sticky: false,
@@ -58,6 +59,8 @@ mod tests {
                 || html.contains("&lt;b&gt;comment&lt;/b&gt;")
         );
         assert!(html.contains("class=\"spoiler\""));
+        assert!(html.contains("<span>&gt;&gt;&gt;/po/42</span>"));
+        assert!(!html.contains("href=\"/po/post/42\""));
     }
 
     #[test]

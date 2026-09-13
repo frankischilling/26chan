@@ -4,6 +4,7 @@ use url::Url;
 pub enum Token {
     Text(String),
     Quote(u64),
+    CrossQuote(String, u64),
     Spoiler(String),
     Link(String),
 }
@@ -44,14 +45,16 @@ fn tokenize(line: &str) -> Vec<Token> {
             if let Some(end) = rest.find("[/spoiler]") {
                 found = Some((Token::Spoiler(rest[..end].to_owned()), 9 + end + 10));
             }
-        } else if let Some(rest) = tail.strip_prefix(">>") {
-            let len = rest.bytes().take_while(u8::is_ascii_digit).count();
-            if len > 0
-                && len <= 19
-                && let Ok(id) = rest[..len].parse::<u64>()
-                && id > 0
-                && id <= i64::MAX as u64
+        } else if let Some(rest) = tail.strip_prefix(">>>/") {
+            if let Some(end) = rest.bytes().take(11).position(|byte| byte == b'/')
+                && let Ok(board) = crate::BoardSlug::parse(&rest[..end])
+                && let Some((id, digits)) = post_number(&rest[end + 1..])
             {
+                let consumed = 4 + board.as_str().len() + 1 + digits;
+                found = Some((Token::CrossQuote(board.as_str().into(), id), consumed));
+            }
+        } else if let Some(rest) = tail.strip_prefix(">>") {
+            if let Some((id, len)) = post_number(rest) {
                 found = Some((Token::Quote(id), len + 2));
             }
         } else if tail.starts_with("https://") || tail.starts_with("http://") {
@@ -83,6 +86,19 @@ fn tokenize(line: &str) -> Vec<Token> {
     tokens
 }
 
+fn post_number(input: &str) -> Option<(u64, usize)> {
+    let len = input
+        .bytes()
+        .take(20)
+        .take_while(u8::is_ascii_digit)
+        .count();
+    if len == 0 || len > 19 {
+        return None;
+    }
+    let id = input[..len].parse::<u64>().ok()?;
+    (id > 0 && id <= i64::MAX as u64).then_some((id, len))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,6 +106,30 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(128))]
+        #[test]
+        fn cross_board_quotes_round_trip_to_bounded_local_identifiers(
+            board in "[a-z0-9]{1,10}", id in 1u64..=i64::MAX as u64,
+        ) {
+            let lines = parse_comment(&format!(">>>/{board}/{id}"));
+            prop_assert_eq!(&lines[0].tokens, &vec![Token::CrossQuote(board, id)]);
+            prop_assert!(!lines[0].green);
+        }
+
+        #[test]
+        fn arbitrary_cross_board_inputs_never_supply_url_paths(input in ".{0,512}") {
+            for line in parse_comment(&format!(">>>/{input}")) {
+                for token in line.tokens {
+                    if let Token::CrossQuote(board, id) = token {
+                        prop_assert!(crate::BoardSlug::parse(&board).is_ok());
+                        prop_assert!(id > 0 && id <= i64::MAX as u64);
+                        let base = Url::parse("https://board.example/").unwrap();
+                        let link = base.join(&format!("/{board}/post/{id}")).unwrap();
+                        prop_assert_eq!(link.origin(), base.origin());
+                        prop_assert!(link.query().is_none() && link.fragment().is_none());
+                    }
+                }
+            }
+        }
         #[test]
         fn arbitrary_unicode_is_bounded_and_links_have_approved_schemes(input in ".{0,20000}") {
             let lines = parse_comment(&input);
@@ -117,6 +157,44 @@ mod tests {
             let lines = parse_comment(&input);
             prop_assert_eq!(lines.len(), 1);
             prop_assert_eq!(&lines[0].tokens, &vec![Token::Text(expected)]);
+        }
+    }
+
+    #[test]
+    fn cross_board_quotes_preserve_surrounding_text_and_spoiler_boundaries() {
+        let lines = parse_comment("See >>>/po/42, then >>43.\n[spoiler]>>>/po/42[/spoiler]");
+        assert_eq!(
+            lines[0].tokens,
+            vec![
+                Token::Text("See ".into()),
+                Token::CrossQuote("po".into(), 42),
+                Token::Text(", then ".into()),
+                Token::Quote(43),
+                Token::Text(".".into()),
+            ]
+        );
+        assert_eq!(lines[1].tokens, vec![Token::Spoiler(">>>/po/42".into())]);
+        for invalid in [
+            ">>>//1",
+            ">>>/../1",
+            ">>>/PO/1",
+            ">>>/é/1",
+            ">>>/abcdefghijk/1",
+            ">>>/%2f/1",
+            ">>>/a\\b/1",
+            ">>>/po/0",
+            ">>>/po/-1",
+            ">>>/po/9223372036854775808",
+            ">>>/po/00000000000000000001",
+            ">>>/po/",
+            ">>>/po/١",
+            ">>>/po\"/1",
+        ] {
+            assert_eq!(
+                parse_comment(invalid)[0].tokens,
+                vec![Token::Text(invalid.into())],
+                "{invalid}"
+            );
         }
     }
 

@@ -6,6 +6,16 @@
     "visual_reference":  "Partial public theme/style reference collected September 13, 2026; see public-theme-reference.json. Full original rendered-page snapshot remains uncollected.",
     "behavioral_references": [
         {
+            "name": "Official quoting FAQ",
+            "url": "https://4chan.org/faq#quote",
+            "collected_utc": "2026-09-13T04:45:24.6059157Z",
+            "bytes": 78050,
+            "sha256": "85256d4e97488f565e9ec63472c4e8f06a0afa0d332d3ea71cd18f29f6dbced8",
+            "sections": ["#quote"],
+            "provenance": "Public FAQ response retained locally outside version control; hash matches the earlier posting-options reference. No production post/media fixture or live posting experiment.",
+            "scope": "Documented same-board and cross-board quote syntax, not exact original link URLs, redirects, parser edge cases or extension behavior."
+        },
+        {
             "name": "Official posting-options FAQ",
             "requested_url": "https://www.4chan.org/faq",
             "url": "https://4chan.org/faq",
