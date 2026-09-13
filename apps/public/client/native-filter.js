@@ -1,5 +1,7 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { nativeCommentText, nativeWatchLabel } from './native-filter-html.js';
+import { parseUpdaterSnapshot } from './native-updater-snapshot.js';
+export { mountNativeThreadUpdater } from './native-thread-updater.js';
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
@@ -252,5 +254,6 @@ export class NativeFilterMatcher {
 }
 
 if (typeof WorkerGlobalScope !== 'undefined' && globalThis instanceof WorkerGlobalScope) {
-  globalThis.addEventListener('message', event => globalThis.postMessage(runNativeFilterJob(event.data)));
+  globalThis.addEventListener('message', event => globalThis.postMessage(event.data?.kind === 'updater-snapshot'
+    ? parseUpdaterSnapshot(event.data.raw, event.data.context) : runNativeFilterJob(event.data)));
 }

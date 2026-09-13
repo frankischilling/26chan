@@ -20,14 +20,14 @@ export function siblingPageUrl(origin, board, href) {
   } catch { return null; }
 }
 
-export function mountNativeKeybinds({ board, settings, watch, filter }) {
+export function mountNativeKeybinds({ board, settings, watch, filter, update }) {
   let help = null, opener = null;
   const page = direction => {
     const link = document.querySelector(`.pages > a[rel="${direction}"]`);
     const url = link && siblingPageUrl(location.origin, board, link.getAttribute('href'));
     if (url) location.assign(url);
   };
-  const actions = { watch, filter, previous: () => page('prev'), next: () => page('next'),
+  const actions = { watch, filter, update, previous: () => page('prev'), next: () => page('next'),
     index: () => location.assign(`/${board}/`), catalog: () => location.assign(`/${board}/catalog`) };
   const resolve = event => {
     const action = nativeShortcut(event, settings());
@@ -53,12 +53,12 @@ export function mountNativeKeybinds({ board, settings, watch, filter }) {
     dismiss.addEventListener('click', close); header.append(title, dismiss); panel.append(header);
     const list = document.createElement('ul');
     for (const [key, label] of [['W', 'Watch/Unwatch thread'], ['B', 'Previous page'], ['N', 'Next page'],
-      ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text']]) {
+      ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text'], ['R', 'Update thread']]) {
       const row = document.createElement('li'), keycap = document.createElement('kbd');
       keycap.textContent = key; row.append(keycap, ` - ${label}`); list.append(row);
     }
     const pending = document.createElement('p'); pending.className = 'settings-tip';
-    pending.textContent = 'Auto-updater (A), Quick Reply (Q), and in-place update (R) are not implemented yet. Their shortcuts do not substitute a page reload or submit a posting form.';
+    pending.textContent = 'Auto-updater (A) and Quick Reply (Q) are not available yet.';
     panel.append(list, pending); dialog.append(panel);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     document.body.append(dialog); help = dialog; dialog.showModal(); dismiss.focus();

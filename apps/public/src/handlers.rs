@@ -514,5 +514,11 @@ pub async fn report(
     Form(form): Form<ReportForm>,
 ) -> Result<Html<String>, AppError> {
     board_store::report(&state.pool, &board, form.no, &form.reason).await?;
-    Ok(Html(Message { title: "Report received", message: "Your report was saved. Staff review is not available in this development build." }.render()?))
+    Ok(Html(
+        Message {
+            title: "Report received",
+            message: "Your report was saved.",
+        }
+        .render()?,
+    ))
 }

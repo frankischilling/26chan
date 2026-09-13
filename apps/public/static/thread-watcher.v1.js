@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds,
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -77,10 +77,11 @@ function start(context) {
     result.addEventListener('click', action);
     return result;
   }
-  async function locked(action) {
+  async function locked(action, signal) {
+    if (signal?.aborted) return false;
     if (!persistent) return action();
-    try { return await navigator.locks.request(lockName, action); }
-    catch { notice.textContent = 'Watch change could not be saved. Try again.'; return false; }
+    try { return await navigator.locks.request(lockName, { signal }, action); }
+    catch { if (!signal?.aborted) notice.textContent = 'Watch change could not be saved. Try again.'; return false; }
   }
   async function change(action, signal, remember = null) {
     return locked(() => {
@@ -112,7 +113,7 @@ function start(context) {
       entries = next;
       render();
       return true;
-    });
+    }, signal);
   }
 
   const panel = node('aside', undefined, 'watcherPanel');
@@ -156,6 +157,7 @@ function start(context) {
   heading.append(close, title, refreshButton);
   for (const control of document.querySelectorAll('[data-thread-refresh]')) {
     control.addEventListener('click', event => {
+      if (control.dataset.updaterReady === 'true') return;
       if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
       const target = control.dataset.threadRefresh;
       if (target !== 'top' && target !== 'bottom') return;
@@ -212,7 +214,25 @@ function start(context) {
   });
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
+  const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
+    mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
+    applied: async (_snapshot, signal) => {
+      render(); await nativeFilters?.refresh();
+      if (signal.aborted) return;
+      const acknowledgement = new AbortController();
+      const cancel = () => acknowledgement.abort();
+      signal.addEventListener('abort', cancel, { once: true });
+      const timer = setTimeout(cancel, 1000);
+      try {
+        const saved = await acknowledgeCurrent(acknowledgement.signal);
+        if (saved === false && !signal.aborted && entries.has(watchKey(board, threadId))) {
+          notice.textContent = 'Thread updated. Watch read position could not be saved.';
+        }
+      } finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); acknowledgement.abort(); }
+    },
+  });
   const nativeKeys = catalog ? null : mountNativeKeybinds({ board, settings: configuration,
+    update: () => { void nativeUpdater?.update(); },
     watch: () => { if (enabled && threadId) void toggleThread(document.getElementById(`t${threadId}`)); },
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });
@@ -592,6 +612,7 @@ function start(context) {
     syncOpenPostMenu();
   }
   function render() {
+    nativeUpdater?.sync();
     nativeReplies?.refresh();
     nativeThreads?.refresh();
     tracking.prepareForms();
@@ -722,16 +743,16 @@ function start(context) {
       render();
     }
   }
-  async function acknowledgeCurrent() {
+  async function acknowledgeCurrent(signal) {
     if (!enabled || !threadId) return;
     const section = document.getElementById(`t${threadId}`);
     if (!section) return;
-    await change(rows => {
+    return change(rows => {
       const key = watchKey(board, threadId);
       const current = rows.get(key);
       if (!current) return false;
       rows.set(key, acknowledgedEntry(current, latest(section)));
-    });
+    }, signal);
   }
   function navigateReadPosition() {
     if (!enabled || !threadId || !/^#lr[0-9]{1,19}$/.test(location.hash)) return;

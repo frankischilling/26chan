@@ -312,3 +312,10 @@ dialog.filterHelp { width: 400px; }
 .board .native-thread-hidden .replyContainer, .board .native-thread-hidden .omitted { display: none; }
 
 .nativeKeybindsHelp li { padding: 3px 5px; }
+.nativeUpdater[hidden] { display: none !important; }
+.nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
+.nativeUpdaterStatus.tu-error { color: #d00; }
+@media (max-width: 480px) {
+  .threadNav.mobile > .nativeUpdater { display: block; margin-top: 4px; }
+  .threadNav.mobile > .nativeUpdater:has(.nativeUpdaterStatus:empty) { display: none; }
+}

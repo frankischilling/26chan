@@ -103,7 +103,7 @@ test('thread navigation watch controls stay synchronized across both placements 
   }
 });
 
-test('mobile navigation refresh reloads actual replies at the requested anchor and retains watches', async ({ page, context, request, createThread }) => {
+test('mobile native update inserts actual replies without navigation and retains watches', async ({ page, context, request, createThread }) => {
   const id = await createThread('demo', 'Refresh navigation fixture');
   await page.setViewportSize({ width: 390, height: 844 });
   await context.addInitScript(() => {
@@ -118,11 +118,12 @@ test('mobile navigation refresh reloads actual replies at the requested anchor a
   const reply = response.headers().location.match(/#p(\d+)/)[1];
   await expect(page.locator(`#p${reply}`)).toHaveCount(0);
   for (const target of ['bottom', 'top']) {
-    const loaded = page.waitForResponse(response => response.request().isNavigationRequest()
-      && new URL(response.url()).pathname === `/demo/thread/${id}`);
+    // The manual transport has a one-second request floor.
+    await page.waitForTimeout(1100);
+    const loaded = page.waitForResponse(response => new URL(response.url()).pathname === `/_watch/demo/thread/${id}/posts`);
     await page.locator(`#refresh_${target}`).click();
     expect((await loaded).status()).toBe(200);
-    await expect(page).toHaveURL(`${origin}/demo/thread/${id}#${target}`);
+    await expect(page).toHaveURL(`${origin}/demo/thread/${id}`);
     await expect(page.locator(`#p${reply}`)).toBeVisible();
     await expect(page.getByRole('button', { name: `Unwatch thread ${id}`, exact: true })).toHaveCount(2);
     for (let index = 0; index < 4; index++) await expect(page.locator('.threadNav .wbtn').nth(index)).toHaveAttribute('aria-pressed', 'true');

@@ -39,7 +39,7 @@
 <div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}"{% if catalog %} data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
 {% for view in threads %}
 {% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
-<section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" aria-label="Thread {{ view.thread.id }}">
+<section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 {% include "post_content.html" %}
 {% endfor %}
@@ -57,6 +57,6 @@
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
 {% endif %}
 {% if catalog %}<template id="catalogFiltered">{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}</template>{% endif %}
-<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}"></div>
+<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}

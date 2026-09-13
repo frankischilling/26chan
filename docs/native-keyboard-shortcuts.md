@@ -16,6 +16,7 @@ watcher, filtering and navigation shortcuts use actual existing actions:
 - `F`: pass the current selection to the existing filter editor when filters are enabled.
 - `I` and `C`: navigate to the current board's index and catalog.
 - `B` and `N`: follow the server-rendered previous and next page links when present.
+- `R`: fetch and insert new replies through the bounded [thread updater](native-thread-updater.md) on active thread pages.
 
 The resolver preserves the pinned numeric key map, ignores INPUT/TEXTAREA targets
 and Alt/Shift/Ctrl/Meta combinations, and prevents default/propagation for a
@@ -27,12 +28,13 @@ The catalog does not install this extension shortcut listener.
 Sibling links remain same-origin, same-board, query/fragment-free HTML page
 targets. The client follows existing GET links rather than synthesizing form
 submissions; report, deletion and posting forms are never used for pagination.
-No new endpoint, script authority or arbitrary persisted command string is added.
+No arbitrary persisted command string is added. The updater uses the existing
+public-only snapshot route and fixed native bundle without expanding CSP authority.
 
 ## Explicitly unfinished native behavior
 
-The reference also maps `A` to auto-updater, `Q` to Quick Reply and `R` to the
-in-place thread updater, with feature/runtime guards. Those runtime features are
+The reference also maps `A` to auto-updater and `Q` to Quick Reply, with
+feature/runtime guards. Those runtime features are
 not implemented here. Their keys remain recognized but have no action while the
 features are absent, and the help panel explicitly says so. A reload is not
 substituted for an in-place update, and an ordinary posting form is not presented
