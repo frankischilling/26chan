@@ -106,7 +106,28 @@ impl PublicationGuard<'_> {
     /// metadata under the current lease. A file is still private until database
     /// approval succeeds. Fixed staging names let recovery avoid directory scans.
     pub fn install(&self, id: ObjectId, output: &EncodedOutput) -> Result<Promotion, MediaError> {
-        let staging = self.store.root.join(format!("{id}.part"));
+        self.install_variant(id, output, false)
+    }
+
+    pub fn install_thumbnail(
+        &self,
+        id: ObjectId,
+        output: &EncodedOutput,
+    ) -> Result<Promotion, MediaError> {
+        if output.dimensions().0 > 250 || output.dimensions().1 > 250 {
+            return Err(MediaError::InvalidOutput);
+        }
+        self.install_variant(id, output, true)
+    }
+
+    fn install_variant(
+        &self,
+        id: ObjectId,
+        output: &EncodedOutput,
+        thumbnail: bool,
+    ) -> Result<Promotion, MediaError> {
+        let suffix = if thumbnail { ".thumb" } else { "" };
+        let staging = self.store.root.join(format!("{id}{suffix}.part"));
         remove_regular(&staging)?;
         let mut options = OpenOptions::new();
         options.write(true).create_new(true);
@@ -126,7 +147,7 @@ impl PublicationGuard<'_> {
         }
         file.sync_all()?;
         drop(file);
-        let destination = self.store.root.join(format!("{id}.png"));
+        let destination = self.store.root.join(format!("{id}{suffix}.png"));
         let already_published = match fs::hard_link(&staging, &destination) {
             Ok(()) => false,
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
@@ -150,7 +171,7 @@ impl PublicationGuard<'_> {
     /// Caller must first durably mark this reservation deleting while holding
     /// this guard. Approved or currently leased objects must never reach here.
     pub fn remove(&self, id: ObjectId) -> Result<(), MediaError> {
-        for suffix in ["part", "png"] {
+        for suffix in ["part", "png", "thumb.part", "thumb.png"] {
             remove_regular(&self.store.root.join(format!("{id}.{suffix}")))?;
         }
         sync_directory(&self.store.root)?;
@@ -175,6 +196,15 @@ impl ApprovedFiles {
 
     pub fn read(&self, id: ObjectId, sha256: &str, bytes: u64) -> Result<Vec<u8>, MediaError> {
         read_checked(&self.root.join(format!("{id}.png")), sha256, bytes)
+    }
+
+    pub fn read_thumbnail(
+        &self,
+        id: ObjectId,
+        sha256: &str,
+        bytes: u64,
+    ) -> Result<Vec<u8>, MediaError> {
+        read_checked(&self.root.join(format!("{id}.thumb.png")), sha256, bytes)
     }
 }
 

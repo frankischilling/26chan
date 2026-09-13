@@ -9,6 +9,6 @@
 <body>
 <nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>
 <main id="content">{% block content %}{% endblock %}</main>
-<footer><p>Paperboard development build. Text posts only.</p></footer>
+<footer><p>Paperboard development build. {% block feature_notice %}Text posts only.{% endblock %}</p></footer>
 </body>
 </html>

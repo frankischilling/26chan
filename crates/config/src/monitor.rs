@@ -17,6 +17,7 @@ impl MonitorSettings {
             "AUTH_DATABASE_URL",
             "STAFF_DATABASE_URL",
             "INTAKE_DATABASE_URL",
+            "PUBLIC_INTAKE_TOKEN",
             "PGHOSTADDR",
             "PGHOST",
             "PGPORT",

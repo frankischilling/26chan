@@ -16,6 +16,7 @@ import urllib.parse
 
 from dispatch_service_fixture import UnitProcess, systemctl
 from owned_process import cancel_test, protected_cleanup
+from public_upload_fixture import PublicUpload
 from test_dispatch import HEX, PG, REPO, SAFE, account, sql, wait_until
 from test_http_service import MediaHttpExercise
 from test_vm import red_png
@@ -39,6 +40,7 @@ class IntakeExercise(MediaHttpExercise):
         self.metrics_token = secrets.token_hex(32)
         self.capabilities = []
         self.connections = []
+        self.public_upload = PublicUpload(self)
 
     def setup(self):
         super().setup()
@@ -92,6 +94,7 @@ class IntakeExercise(MediaHttpExercise):
         assert result.returncode == 0, 'intake candidate verification failed'
         systemctl('start', self.intake_unit.name)
         wait_until(self.intake_ready)
+        self.public_upload.setup()
 
     def intake_ready(self):
         assert self.intake_unit.poll() is None, 'intake service startup rejected'
@@ -219,6 +222,7 @@ class IntakeExercise(MediaHttpExercise):
         assert self.http(f'/media/{asset}.png')[2] == (self.objects / f'{asset}.png').read_bytes()
         self.boundaries(job, asset)
         print('PASS HTTP reservation/upload -> authenticated Firecracker dispatch -> fenced approval -> capability status -> separate HTTP reader', flush=True)
+        self.public_upload.exercise()
 
         job, cap = self.reserve_http()
         assert self.upload_http(job, cap, iter([b'x' * 8192] * 1025), chunked=True)[0] == 413
@@ -263,6 +267,7 @@ class IntakeExercise(MediaHttpExercise):
                 assert sock.connect_ex(('127.0.0.1', port)) != 0
 
     def cleanup(self):
+        self.public_upload.cleanup()
         for connection in self.connections:
             connection.close()
         if self.intake_installed:

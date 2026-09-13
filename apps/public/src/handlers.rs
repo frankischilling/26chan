@@ -71,6 +71,9 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
+    if let Some(media) = &state.media {
+        media.ready().await?;
+    }
     Ok("ready")
 }
 pub async fn home(State(state): State<AppState>) -> Result<Html<String>, AppError> {
@@ -183,6 +186,11 @@ async fn board_page(
                 String::new()
             },
             catalog,
+            media_origin: state
+                .media
+                .as_ref()
+                .map(|m| m.settings.origin.as_string())
+                .unwrap_or_default(),
         }
         .render()?,
     )
@@ -220,6 +228,11 @@ pub async fn thread(
             previous: String::new(),
             next: String::new(),
             catalog: false,
+            media_origin: state
+                .media
+                .as_ref()
+                .map(|m| m.settings.origin.as_string())
+                .unwrap_or_default(),
         }
         .render()?,
     )
@@ -249,6 +262,12 @@ pub struct PostForm {
     resto: i64,
     #[serde(default)]
     email: String,
+    #[serde(default)]
+    upload_id: String,
+    #[serde(default)]
+    upload_capability: String,
+    #[serde(default)]
+    spoiler: bool,
 }
 pub async fn post(
     State(state): State<AppState>,
@@ -256,6 +275,22 @@ pub async fn post(
     Form(form): Form<PostForm>,
 ) -> Result<Redirect, AppError> {
     let settings = board_store::board(&state.pool, &board).await?;
+    let attachment = match (form.upload_id.is_empty(), form.upload_capability.is_empty()) {
+        (true, true) if !form.spoiler => None,
+        (false, false) if state.media.is_some() => Some(board_store::post_media::NewAttachment {
+            upload: board_store::media_intake::IntakeReservation {
+                id: form.upload_id,
+                capability: form.upload_capability,
+            },
+            spoiler: form.spoiler,
+        }),
+        _ => {
+            return Err(AppError(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Invalid or unavailable attachment.",
+            ));
+        }
+    };
     board_domain::validate_post(
         &form.name,
         &form.sub,
@@ -322,7 +357,14 @@ pub async fn post(
         deletion_hash: hash,
         sage,
     };
-    let id = board_store::create_post(&state.pool, &board, form.resto, &post).await?;
+    let id = board_store::create_post_with_attachment(
+        &state.pool,
+        &board,
+        form.resto,
+        &post,
+        attachment.as_ref(),
+    )
+    .await?;
     if return_to_board {
         return Ok(Redirect::to(&format!("/{board}/")));
     }
@@ -335,6 +377,8 @@ pub async fn post(
 pub struct DeleteForm {
     no: i64,
     password: String,
+    #[serde(default)]
+    file_only: bool,
 }
 pub async fn delete(
     State(state): State<AppState>,
@@ -375,7 +419,11 @@ pub async fn delete(
             "Deletion password is invalid.",
         ));
     }
-    board_store::delete_post(&state.pool, &board, form.no).await?;
+    if form.file_only {
+        board_store::post_media::delete_attachment(&state.pool, &board, form.no).await?;
+    } else {
+        board_store::delete_post(&state.pool, &board, form.no).await?;
+    }
     Ok(Redirect::to(&format!("/{board}/")))
 }
 

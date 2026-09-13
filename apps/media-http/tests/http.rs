@@ -9,7 +9,7 @@ use board_media::{ApprovedFiles, ObjectId, PublicationStore, Quarantine, Validat
 use board_media_http::AppState;
 use board_store::{
     media::MediaQueue,
-    media_assets::{MediaReader, OutputMetadata},
+    media_assets::{MediaReader, OutputMetadata, OutputVariants},
 };
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
@@ -114,7 +114,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         .unwrap();
     let guard = store.try_lock().unwrap();
     let asset = queue
-        .prepare_output(
+        .prepare_output_with_variants(
             &job.id,
             &token,
             &OutputMetadata {
@@ -123,11 +123,28 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
                 width: 1,
                 height: 1,
             },
+            Some(&OutputVariants {
+                md5: output.md5().into(),
+                thumbnail: OutputMetadata {
+                    sha256: output.sha256().into(),
+                    bytes: output.len() as i64,
+                    width: 1,
+                    height: 1,
+                },
+            }),
         )
         .await
         .unwrap();
     guard.install(asset.id.parse().unwrap(), &output).unwrap();
+    guard
+        .install_thumbnail(asset.id.parse().unwrap(), &output)
+        .unwrap();
     let path = format!("/media/{}.png", asset.id);
+    let thumbnail_path = format!("/media/{}.thumb.png", asset.id);
+    assert_eq!(
+        send(&app, "GET", &thumbnail_path).await.status(),
+        StatusCode::NOT_FOUND
+    );
     let pending = send(&app, "GET", &path).await;
     assert_eq!(pending.status(), StatusCode::NOT_FOUND);
     safe(&pending);
@@ -151,6 +168,18 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     );
     let etag = response.headers()["etag"].to_str().unwrap().to_owned();
     assert_eq!(etag, format!("\"{}\"", asset.sha256));
+    let thumbnail = send(&app, "GET", &thumbnail_path).await;
+    assert_eq!(thumbnail.status(), StatusCode::OK);
+    safe(&thumbnail);
+    assert_eq!(thumbnail.headers()["content-type"], "image/png");
+    assert_eq!(thumbnail.headers()["etag"], etag);
+    assert_eq!(
+        to_bytes(thumbnail.into_body(), 5_242_880)
+            .await
+            .unwrap()
+            .as_ref(),
+        png.as_slice()
+    );
     assert_eq!(
         to_bytes(response.into_body(), 5_242_880)
             .await
@@ -272,6 +301,21 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     );
     data.clear();
     assert_eq!(send(&app, "GET", &path).await.status(), StatusCode::OK);
+    let thumbnail_disk = root.join(format!("{}.thumb.png", asset.id));
+    std::fs::write(&thumbnail_disk, vec![0; png.len()]).unwrap();
+    let corrupt_thumbnail = app
+        .clone()
+        .oneshot(
+            request("GET", &thumbnail_path)
+                .header("if-none-match", &etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(corrupt_thumbnail.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(!corrupt_thumbnail.headers().contains_key("etag"));
+    std::fs::write(&thumbnail_disk, &png).unwrap();
     std::fs::write(&disk, vec![0; png.len()]).unwrap();
     let corrupt = app
         .clone()
@@ -308,6 +352,10 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         .unwrap();
     assert_eq!(removed.status(), StatusCode::NOT_FOUND);
     assert!(!removed.headers().contains_key("etag"));
+    assert_eq!(
+        send(&app, "GET", &thumbnail_path).await.status(),
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(send(&app, "GET", "/healthz").await.status(), StatusCode::OK);
     assert_eq!(send(&app, "GET", "/readyz").await.status(), StatusCode::OK);
     reader.close().await;

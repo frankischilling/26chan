@@ -26,6 +26,31 @@ pub struct OutputMetadata {
     pub height: i32,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OutputVariants {
+    pub md5: String,
+    pub thumbnail: OutputMetadata,
+}
+
+#[derive(sqlx::FromRow)]
+struct VariantRecord {
+    md5: Option<String>,
+    thumbnail_sha256: Option<String>,
+    thumbnail_bytes: Option<i64>,
+    thumbnail_width: Option<i32>,
+    thumbnail_height: Option<i32>,
+}
+
+impl VariantRecord {
+    fn matches(&self, variants: Option<&OutputVariants>) -> bool {
+        self.md5.as_deref() == variants.map(|v| v.md5.as_str())
+            && self.thumbnail_sha256.as_deref() == variants.map(|v| v.thumbnail.sha256.as_str())
+            && self.thumbnail_bytes == variants.map(|v| v.thumbnail.bytes)
+            && self.thumbnail_width == variants.map(|v| v.thumbnail.width)
+            && self.thumbnail_height == variants.map(|v| v.thumbnail.height)
+    }
+}
+
 impl OutputMetadata {
     fn validate(&self) -> Result<(), StoreError> {
         validate_hex(&self.sha256, 64)?;
@@ -67,9 +92,31 @@ impl MediaQueue {
         token: &str,
         metadata: &OutputMetadata,
     ) -> Result<Asset, StoreError> {
+        self.prepare_output_with_variants(job_id, token, metadata, None)
+            .await
+    }
+
+    pub async fn prepare_output_with_variants(
+        &self,
+        job_id: &str,
+        token: &str,
+        metadata: &OutputMetadata,
+        variants: Option<&OutputVariants>,
+    ) -> Result<Asset, StoreError> {
         validate_hex(job_id, 32)?;
         validate_hex(token, 32)?;
         metadata.validate()?;
+        if let Some(variants) = variants {
+            validate_hex(&variants.md5, 32)?;
+            variants.thumbnail.validate()?;
+            if variants.thumbnail.width > 250
+                || variants.thumbnail.height > 250
+                || variants.thumbnail.width > metadata.width
+                || variants.thumbnail.height > metadata.height
+            {
+                return Err(StoreError::Invalid("Invalid thumbnail dimensions."));
+            }
+        }
         let mut tx = self.pool.begin().await?;
         sqlx::query("SELECT id FROM media.jobs WHERE id = $1 FOR UPDATE")
             .bind(job_id)
@@ -78,7 +125,12 @@ impl MediaQueue {
         let reserved: Option<Reservation> = sqlx::query_as("SELECT id, sha256, bytes, width, height, state FROM media.assets WHERE job_id = $1 AND lease_token = $2 FOR UPDATE")
             .bind(job_id).bind(token).fetch_optional(&mut *tx).await?;
         if let Some(reserved) = reserved {
-            if !metadata.matches(&reserved.asset) || reserved.state == "deleting" {
+            let stored: VariantRecord = sqlx::query_as("SELECT md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height FROM media.assets WHERE id=$1")
+                .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
+            if !metadata.matches(&reserved.asset)
+                || !stored.matches(variants)
+                || reserved.state == "deleting"
+            {
                 return Err(unavailable());
             }
             if reserved.state == "approved" {
@@ -87,8 +139,10 @@ impl MediaQueue {
             }
         }
         // The statement that inserts or reuses pending metadata rechecks the lease.
-        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()) RETURNING id, sha256, bytes, width, height")
+        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()) RETURNING id, sha256, bytes, width, height")
             .bind(job_id).bind(token).bind(&metadata.sha256).bind(metadata.bytes).bind(metadata.width).bind(metadata.height)
+            .bind(variants.map(|v| &v.md5)).bind(variants.map(|v| &v.thumbnail.sha256))
+            .bind(variants.map(|v| v.thumbnail.bytes)).bind(variants.map(|v| v.thumbnail.width)).bind(variants.map(|v| v.thumbnail.height))
             .fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
         tx.commit().await?;
         Ok(asset)
@@ -132,6 +186,25 @@ impl MediaQueue {
     pub async fn output_cleanup_candidates(&self) -> Result<Vec<String>, StoreError> {
         Ok(sqlx::query_scalar("SELECT a.id FROM media.assets a WHERE a.state = 'deleting' OR (a.state = 'pending' AND NOT EXISTS (SELECT 1 FROM media.jobs j WHERE j.id = a.job_id AND j.state = 'processing' AND j.lease_token = a.lease_token AND j.expires_at > clock_timestamp())) ORDER BY a.created_at, a.id LIMIT 64")
             .fetch_all(&self.pool).await?)
+    }
+
+    /// IDs only: the coordinator cannot read the attachment or capability tables.
+    pub async fn output_retention_candidates(&self) -> Result<Vec<String>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT id FROM media.retirable_outputs ORDER BY approved_at,id LIMIT 64",
+        )
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    /// Recheck visibility/retention under the posting job lock. Retain the
+    /// publication storage lock through retirement, removal and forget_output.
+    pub async fn retire_output(&self, id: &str) -> Result<bool, StoreError> {
+        validate_hex(id, 32)?;
+        Ok(sqlx::query_scalar("SELECT media.retire_output($1)")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?)
     }
 
     /// Recheck abandonment before removing files; retain the storage lock through forget_output.
@@ -193,6 +266,9 @@ impl MediaReader {
         sqlx::query("SELECT id FROM media.approved_assets LIMIT 1")
             .fetch_optional(&self.pool)
             .await?;
+        sqlx::query("SELECT id FROM media.approved_post_assets LIMIT 1")
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -227,6 +303,9 @@ impl MediaReader {
              AND NOT has_table_privilege(current_user, 'media.approved_assets', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
              AND NOT has_any_column_privilege(current_user, 'media.approved_assets', 'INSERT,UPDATE,REFERENCES')
              AND has_table_privilege(current_user, 'media.approved_assets', 'SELECT')
+             AND NOT has_table_privilege(current_user, 'media.approved_post_assets', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+             AND NOT has_any_column_privilege(current_user, 'media.approved_post_assets', 'INSERT,UPDATE,REFERENCES')
+             AND has_table_privilege(current_user, 'media.approved_post_assets', 'SELECT')
              FROM pg_roles WHERE rolname = current_user")
             .fetch_one(&pool).await?;
         if !safe {
@@ -245,5 +324,34 @@ impl MediaReader {
         .fetch_optional(&self.pool)
         .await?
         .ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_thumbnail(&self, output_id: &str) -> Result<Asset, StoreError> {
+        validate_hex(output_id, 32)?;
+        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
+            .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_post(
+        &self,
+        board: &str,
+        tim: i64,
+        thumbnail: bool,
+    ) -> Result<Asset, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if !(1..=9_007_199_254_740_991).contains(&tim) {
+            return Err(StoreError::NotFound);
+        }
+        let statement = if thumbnail {
+            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
+        } else {
+            "SELECT id,sha256,bytes,width,height FROM media.approved_post_assets WHERE board=$1 AND tim=$2"
+        };
+        sqlx::query_as(statement)
+            .bind(board)
+            .bind(tim)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or(StoreError::NotFound)
     }
 }

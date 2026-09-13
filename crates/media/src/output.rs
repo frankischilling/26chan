@@ -1,4 +1,5 @@
 use crate::{MAX_DIMENSION, MAX_PNG_BYTES, MediaError, OUTPUT_DISK_BYTES};
+use md5::{Digest as _, Md5};
 use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -19,10 +20,15 @@ pub struct ValidatedOutput {
 pub struct EncodedOutput {
     pub(crate) bytes: Vec<u8>,
     sha256: String,
+    md5: String,
     dimensions: (u32, u32),
 }
 
 impl EncodedOutput {
+    /// Legacy interoperability only; never an integrity or authorization check.
+    pub fn md5(&self) -> &str {
+        &self.md5
+    }
     pub fn sha256(&self) -> &str {
         &self.sha256
     }
@@ -106,9 +112,58 @@ impl ValidatedOutput {
         let bytes = self.encode_png()?;
         Ok(EncodedOutput {
             sha256: format!("{:x}", Sha256::digest(&bytes)),
+            md5: Md5::digest(&bytes)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
             bytes,
             dimensions: self.dimensions(),
         })
+    }
+
+    /// Resize already validated RGBA pixels, without decoding an image again.
+    /// Integer area averaging preserves alpha through premultiplied channels.
+    pub fn thumbnail(&self) -> Result<EncodedOutput, MediaError> {
+        let longest = self.width.max(self.height);
+        if longest <= 250 {
+            return self.encode();
+        }
+        let width = (self.width * 250 / longest).max(1);
+        let height = (self.height * 250 / longest).max(1);
+        let mut pixels = Vec::with_capacity((width * height * 4) as usize);
+        for y in 0..height {
+            let top = y * self.height / height;
+            let bottom = ((y + 1) * self.height / height).max(top + 1);
+            for x in 0..width {
+                let left = x * self.width / width;
+                let right = ((x + 1) * self.width / width).max(left + 1);
+                let mut rgba = [0u64; 4];
+                for sy in top..bottom {
+                    for sx in left..right {
+                        let offset = ((sy * self.width + sx) * 4) as usize;
+                        let alpha = u64::from(self.pixels[offset + 3]);
+                        for (channel, sum) in rgba[..3].iter_mut().enumerate() {
+                            *sum += u64::from(self.pixels[offset + channel]) * alpha;
+                        }
+                        rgba[3] += alpha;
+                    }
+                }
+                for value in &rgba[..3] {
+                    pixels.push(if rgba[3] == 0 {
+                        0
+                    } else {
+                        (value / rgba[3]) as u8
+                    });
+                }
+                pixels.push((rgba[3] / u64::from((right - left) * (bottom - top))) as u8);
+            }
+        }
+        Self {
+            width,
+            height,
+            pixels,
+        }
+        .encode()
     }
 
     pub(crate) fn encode_png(&self) -> Result<Vec<u8>, MediaError> {
@@ -148,6 +203,84 @@ impl Write for BoundedPng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn decoded(output: &EncodedOutput) -> Vec<u8> {
+        let mut reader = png::Decoder::new(std::io::Cursor::new(&output.bytes))
+            .read_info()
+            .unwrap();
+        let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+        let info = reader.next_frame(&mut pixels).unwrap();
+        assert_eq!((info.width, info.height), output.dimensions());
+        assert_eq!(info.color_type, png::ColorType::Rgba);
+        pixels.truncate(info.buffer_size());
+        pixels
+    }
+
+    #[test]
+    fn thumbnail_preserves_small_images_and_bounds_extreme_aspect_ratios() {
+        for (width, height, expected) in [
+            (1, 1, (1, 1)),
+            (250, 249, (250, 249)),
+            (500, 300, (250, 150)),
+            (300, 500, (150, 250)),
+            (MAX_DIMENSION, 1, (250, 1)),
+            (1, MAX_DIMENSION, (1, 250)),
+        ] {
+            let pixels = [24, 87, 150, 255].repeat((width * height) as usize);
+            let output = ValidatedOutput {
+                width,
+                height,
+                pixels,
+            };
+            let thumbnail = output.thumbnail().unwrap();
+            assert_eq!(thumbnail.dimensions(), expected);
+            assert!(thumbnail.len() <= MAX_PNG_BYTES as u64);
+            assert_eq!(
+                decoded(&thumbnail),
+                [24, 87, 150, 255].repeat((expected.0 * expected.1) as usize)
+            );
+            if width.max(height) <= 250 {
+                assert_eq!(thumbnail.bytes, output.encode().unwrap().bytes);
+            }
+        }
+    }
+
+    #[test]
+    fn thumbnail_averages_premultiplied_alpha_without_transparent_color_bleed() {
+        for (pair, expected) in [
+            ([255, 0, 0, 255, 0, 0, 255, 0], [255, 0, 0, 127]),
+            ([255, 0, 0, 255, 0, 0, 255, 255], [127, 0, 127, 255]),
+            ([255, 0, 0, 0, 0, 0, 255, 0], [0, 0, 0, 0]),
+        ] {
+            let output = ValidatedOutput {
+                width: 500,
+                height: 1,
+                pixels: pair.repeat(250),
+            };
+            assert_eq!(decoded(&output.thumbnail().unwrap()), expected.repeat(250));
+        }
+    }
+
+    #[test]
+    fn legacy_checksum_describes_encoded_bytes_not_pixel_input() {
+        let output = ValidatedOutput {
+            width: 1,
+            height: 1,
+            pixels: vec![255, 0, 0, 255],
+        }
+        .encode()
+        .unwrap();
+        assert_eq!(output.md5().len(), 32);
+        let expected: String = Md5::digest(&output.bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(output.md5(), expected);
+        assert_eq!(
+            output.sha256(),
+            format!("{:x}", Sha256::digest(&output.bytes))
+        );
+    }
 
     #[test]
     fn encoded_sink_enforces_five_mib_before_extending_buffer() {

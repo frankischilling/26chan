@@ -1,12 +1,33 @@
 # Dependency and update inventory
 
+The public attachment workflow enables [Axum 0.8.9 multipart](https://docs.rs/axum/0.8.9/axum/extract/multipart/struct.Multipart.html)
+and reuses locked [Hyper 1.11.1 HTTP/1 client connections](https://docs.rs/hyper/1.11.1/hyper/client/conn/http1/struct.Builder.html)
+with Hyper-util 0.1.20's Tokio adapter. The client connects to one validated
+numeric loopback socket; it has no DNS, proxy, redirect or URL-fetch facility.
+Multipart parsing adds multer 3.1.0 and encoding_rs 0.8.40. The remaining new
+registry entries are core_detect 1.0.0, multiversion 0.8.0,
+multiversion-macros 0.8.0, multiversion_no_op 1.0.0, simdutf8 0.1.5,
+target-features 0.1.6, try-lock 0.2.5 and want 0.3.1. Existing registry versions
+are unchanged. The test-only media publisher/reader dependencies do not enter
+the public runtime dependency graph.
+
+The multipart crate forbids unsafe code, but its encoding_rs dependency contains
+unsafe byte/string and SIMD operations. Its CPU detection and multiversion
+dependencies belong to this review surface too. Public upload code reads raw
+field chunks, not charset-decoded text or media metadata; this does not establish
+that every transitive unsafe path is unreachable or sound. Hyper/Tokio socket
+and buffer implementations remain in the public trust base. No native decoder
+was added to the public process. Local cargo-audit 0.22.2 scanned 342 locked
+dependencies against 1,243 fetched advisories on September 12 without findings.
+That result covers known advisories, not a complete dependency security review.
+
 Authenticated HTTP intake adds pinned [Tokio-util 0.7.19](https://docs.rs/tokio-util/0.7.19/tokio_util/io/struct.StreamReader.html)
 with its `io` feature to adapt body frames to the existing bounded quarantine
 writer. The direct futures-util 0.3.34 declaration reuses its locked version;
 default features add futures-macro 0.3.34. Other registry versions and checksums
 are unchanged. Intake depends on the existing media crate for bounded storage;
-it does not invoke a decoder. No HTTP client package was added: the owned native
-qualification uses Python's standard-library client.
+it does not invoke a decoder. Its owned native qualification uses Python's
+standard-library client; the separate public caller uses the Hyper client above.
 
 The [maintenance observer](maintenance-observability.md) reuses locked Rustix,
 Tokio, Serde and board-observe; only its local package is added to Cargo.lock.
@@ -70,6 +91,7 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 | SQLx PostgreSQL driver | 0.9.0 | Bound SQL and PostgreSQL protocol. MySQL/SQLite packages can appear in the lock graph through macro metadata; no SQLite/MySQL driver is enabled in the public normal dependency tree |
 | Askama | 0.16.1 | Compiled templates and automatic escaping; application never uses the `safe` filter |
 | Argon2 | 0.5.3 | Local deletion passwords, default Argon2id parameters and random salts; four concurrent operations maximum |
+| MD5 | md-5 0.11.0, default features disabled | Legacy API checksum of the normalized PNG, not uploaded input. Reuses the version already locked through SQLx; adds no registry package. MD5 is cryptographically broken and is never used for integrity, authorization, IDs or deduplication. Approval and reader verification retain SHA-256. [Upstream documentation](https://docs.rs/md-5/0.11.0/md5/) checked September 12, 2026 |
 | PNG / temporary files / randomness | 0.18.1 / 3.27.0 / getrandom 0.4.3 | Host media promotion invokes only the encoder; the separate guest invokes the PNG decoder. Compression, SIMD checksum and OS filesystem/randomness implementations remain trusted dependencies |
 | WebAuthn / OpenSSL | webauthn-rs 0.5.5; vendored openssl-src 300.6.1+3.6.3 | Staff authentication only; native cryptography and authenticator-data parsing remain trusted dependencies. Server ceremony state is stored only in the protected database. No hardware attestation policy is claimed |
 | Native staff build | Local Strawberry Perl 5.42.2.1 and MSVC; CI Perl and C build tools | Required to compile vendored OpenSSL. Portable Perl was checked against its published SHA-256; it is an ignored local build prerequisite, not a shipped application asset |

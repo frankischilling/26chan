@@ -9,6 +9,17 @@
 <article id="report-{{ r.id }}"><h2>Report {{ r.id }}: /{{ r.board }}/ post {{ r.post_id }}</h2>
 <p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, removed: {{ r.deleted }}.</p>
 <p>Reason: {{ r.reason }}</p><h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
+{% if let Some(a) = r.attachment %}
+<section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
+{% if a.available %}
+<a href="{{ media_origin }}/{{ r.board }}/{{ a.tim }}.png" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% if a.spoiler %}Open spoiler image{% else %}Open normalized image{% endif %}</a>
+{% if !a.spoiler %}{% if let Some(width) = a.thumbnail_width %}{% if let Some(height) = a.thumbnail_height %}
+<p><img src="{{ media_origin }}/{{ r.board }}/{{ a.tim }}s.jpg" width="{{ width }}" height="{{ height }}" alt="Attachment thumbnail" loading="lazy" referrerpolicy="no-referrer"></p>
+{% endif %}{% endif %}{% endif %}
+{% call action(csrf,r.board,r.post_id,"remove-file","Remove file only") %}{% endcall %}
+{% else %}<p>File unavailable. Removed or expired files cannot be reopened here.</p>{% endif %}
+</section>
+{% endif %}
 {% if !r.deleted %}
 {% if r.closed %}{% call action(csrf,r.board,r.thread_id,"reopen","Reopen thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"close","Close thread") %}{% endcall %}{% endif %}
 {% if r.sticky %}{% call action(csrf,r.board,r.thread_id,"unsticky","Unsticky thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"sticky","Sticky thread") %}{% endcall %}{% endif %}

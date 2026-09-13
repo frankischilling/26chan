@@ -29,6 +29,7 @@ base64 = "0.22"
 openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
+board-media = { path = "../../crates/media" }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 

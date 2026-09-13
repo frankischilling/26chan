@@ -1,11 +1,21 @@
 {% extends "base.html" %}
 {% import "formatting.html" as formatting %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block content %}
 <header class="boardHeader"><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
 <nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a>{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
 {% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
 {% if !catalog && !archived() %}
+{% if !media_origin.is_empty() && board.image_limit > 0 %}
+<form action="/{{ board.slug }}/upload" method="post" enctype="multipart/form-data" class="postForm">
+<h2>Post with an image</h2>
+<input type="hidden" name="resto" value="{{ parent }}">
+<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="image/png" required>
+<p>Upload a PNG first, then complete your post after isolated processing. Maximum upload: 8 MiB.</p>
+<button type="submit">Upload file</button>
+</form>
+{% endif %}
 <form id="postForm" action="/{{ board.slug }}/post" method="post" class="postForm">
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
@@ -14,7 +24,7 @@
 {% if parent == 0 %}<div><label for="sub">Subject</label><input id="sub" name="sub" maxlength="120"></div>{% endif %}
 <div><label for="com">Comment</label><textarea id="com" name="com" rows="5" required aria-describedby="postHelp"></textarea></div>
 <div><label for="password">Deletion password</label><input id="password" type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
-<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. Save your deletion password. Media uploads are unavailable.</p>
+<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. Save your deletion password. {% if media_origin.is_empty() || board.image_limit == 0 %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
 <button type="submit">Post</button>
 </form>
 {% endif %}
@@ -31,10 +41,23 @@
 <a class="postNum" href="/{{ board.slug }}/thread/{{ view.thread.id }}#p{{ item.post.id }}">No.{{ item.post.id }}</a>
 {% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed || view.thread.archived_at.is_some() %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">{% if view.thread.archived_at.is_some() %}View thread{% else %}Reply{% endif %}</a>]{% endif %}
 </div>
+{% if let Some(file) = item.post.attachment %}
+{% if file.file_deleted %}<p class="fileDeleted">File deleted.</p>
+{% else if !media_origin.is_empty() %}
+<div class="file" id="f{{ item.post.id }}">
+<p>File: <a href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{{ file.filename }}</a> ({{ file.bytes }} bytes, {{ file.width }}×{{ file.height }}, normalized PNG)</p>
+{% if file.spoiler %}
+<details><summary>Spoiler image</summary><a href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">View spoiler image</a></details>
+{% else %}
+<a class="fileThumb" href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %}<img src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}s.jpg" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">{% else %}<img src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" alt="{{ file.filename }}" width="{{ file.width }}" height="{{ file.height }}" loading="lazy">{% endif %}</a>
+{% endif %}
+</div>
+{% endif %}
+{% endif %}
 <blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</blockquote>
 {% if !catalog %}
 <details class="postActions"><summary>Delete or report</summary>
-<form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="delete{{ item.post.id }}">Deletion password</label> <input id="delete{{ item.post.id }}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required> <button>Delete post</button></form>
+<form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="delete{{ item.post.id }}">Deletion password</label> <input id="delete{{ item.post.id }}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required>{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %} <label><input type="checkbox" name="file_only" value="true">File only</label>{% endif %}{% endif %} <button>Delete post</button></form>
 <form method="post" action="/{{ board.slug }}/report"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="report{{ item.post.id }}">Report reason</label> <input id="report{{ item.post.id }}" name="reason" maxlength="1000" required> <button>Report post</button></form>
 </details>
 {% endif %}

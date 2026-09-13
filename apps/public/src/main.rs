@@ -20,13 +20,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let metrics_endpoint = board_observe::Endpoint::bind(metrics_config).await?;
     let pool = board_store::connect_public(&settings.database_url).await?;
-    let (metrics, app, api_app) = board_public::observed_routers(
+    if let Some(media) = &settings.media {
+        board_public::media_ready(media).await?;
+    }
+    let (metrics, app, api_app) = board_public::observed_routers_with_media(
         pool.clone(),
         settings.public_origin.as_string(),
         settings.production,
         settings.api.is_some(),
+        settings.media.clone(),
     );
-    tracing::info!(bind = %settings.bind, media_enabled = false, "public server started");
+    tracing::info!(bind = %settings.bind, media_enabled = settings.media.is_some(), "public server started");
     if let Some(api) = &settings.api {
         tracing::info!(bind = %api.bind, origin = %api.origin.as_string(), "JSON API listener started");
     }

@@ -80,6 +80,7 @@ pub fn observed_router(state: AppState) -> (board_observe::Metrics, Router) {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/media/{name}", get(serving::image))
+        .route("/{board}/{name}", get(serving::post_image))
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(serving::ready))
         .fallback(|| async { security::error(axum::http::StatusCode::NOT_FOUND) })

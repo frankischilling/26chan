@@ -98,10 +98,12 @@ jobs:
       - name: Qualify authenticated HTTP intake through isolated processing and the separate reader
         run: |
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            PUBLIC_UPLOAD_NODE="$(command -v node)" \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            PUBLIC_UPLOAD_NODE="$(command -v node)" \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh --interrupt
@@ -115,6 +117,8 @@ jobs:
         run: sudo bash scripts/test-media-intake-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
+      - name: Restore populated attachments and normalized files
+        run: sudo bash scripts/test-attachment-restore.sh
       - name: Qualify aggregate observer and real queue alert delivery
         run: |
           sudo install -D -m 0755 target/debug/board-monitor /opt/paperboard/board-monitor
@@ -179,3 +183,6 @@ jobs:
       - name: Run archive desktop and mobile visual fixtures
         shell: pwsh
         run: npm run test:archive-visual
+      - name: Run attachment desktop and mobile visual fixtures
+        shell: pwsh
+        run: npm run test:media-visual

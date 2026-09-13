@@ -17,6 +17,7 @@ impl From<Report> for Preview {
 #[derive(Template)]
 #[template(path = "queue.html")]
 pub struct Queue {
+    pub media_origin: String,
     pub reports: Vec<Preview>,
     pub csrf: String,
     pub recent: bool,
@@ -39,8 +40,10 @@ mod tests {
             closed: false,
             sticky: false,
             deleted: false,
+            attachment: None,
         };
         let html = Queue {
+            media_origin: "http://127.0.0.1:3002".into(),
             reports: vec![report.into()],
             csrf: "example".into(),
             recent: true,
@@ -73,8 +76,10 @@ mod tests {
             closed: false,
             sticky: false,
             deleted: false,
+            attachment: None,
         };
         let html = Queue {
+            media_origin: "http://127.0.0.1:3002".into(),
             reports: vec![report.into()],
             csrf: "example".into(),
             recent: true,

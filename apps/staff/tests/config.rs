@@ -1,6 +1,20 @@
 use std::process::Command;
 
 #[test]
+fn staff_media_preview_rejects_port_only_cookie_separation() {
+    let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
+        .env_clear()
+        .env("STAFF_MODE", "development")
+        .env("STAFF_ORIGIN", "http://localhost:3001")
+        .env("PUBLIC_ORIGIN", "http://127.0.0.1:3000")
+        .env("MEDIA_ORIGIN", "http://localhost:3002")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("different cookie hostnames"));
+}
+
+#[test]
 fn staff_rejects_inherited_media_reader_credentials() {
     for credential in [
         "MEDIA_READ_DATABASE_URL",
@@ -51,7 +65,7 @@ fn startup_rejects_an_invalid_idle_timeout_before_connecting() {
         .env("STAFF_MODE", "development")
         .env("STAFF_ORIGIN", "http://localhost:3001")
         .env("PUBLIC_ORIGIN", "http://localhost:3000")
-        .env("MEDIA_ORIGIN", "http://localhost:3002")
+        .env("MEDIA_ORIGIN", "http://127.0.0.1:3002")
         .env("STAFF_BIND", "127.0.0.1:3001")
         .env(
             "AUTH_DATABASE_URL",
@@ -86,7 +100,7 @@ fn staff_metrics_failure_does_not_connect_stores_or_leave_staff_serving() {
             .env("STAFF_MODE", "development")
             .env("STAFF_ORIGIN", "http://localhost:3001")
             .env("PUBLIC_ORIGIN", "http://localhost:3000")
-            .env("MEDIA_ORIGIN", "http://localhost:3002")
+            .env("MEDIA_ORIGIN", "http://127.0.0.1:3002")
             .env("STAFF_BIND", staff_address.to_string())
             .env(
                 "AUTH_DATABASE_URL",

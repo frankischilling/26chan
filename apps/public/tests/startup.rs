@@ -10,6 +10,42 @@ fn media_cannot_be_enabled_even_without_database_configuration() {
 }
 
 #[test]
+fn complete_development_media_configuration_never_enables_production() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
+        .env_clear()
+        .env("APP_ENV", "production")
+        .env("MEDIA_ENABLED", "true")
+        .env("PUBLIC_MEDIA_PROFILE", "isolated-development")
+        .env("PUBLIC_INTAKE_ADDR", "127.0.0.1:3004")
+        .env("PUBLIC_INTAKE_TOKEN", "a".repeat(64))
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(error.contains("Media processing is unavailable"));
+    assert!(!error.contains(&"a".repeat(64)));
+}
+
+#[test]
+fn partial_or_unscoped_intake_configuration_fails_before_database_access() {
+    for (key, value) in [
+        ("PUBLIC_INTAKE_TOKEN", "synthetic-secret"),
+        ("PUBLIC_INTAKE_ADDR", "127.0.0.1:3004"),
+        ("PUBLIC_MEDIA_PROFILE", "isolated-development"),
+    ] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
+            .env_clear()
+            .env(key, value)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("explicit development media enablement"));
+        assert!(!error.contains("synthetic-secret"));
+    }
+}
+
+#[test]
 fn public_runtime_rejects_inherited_operator_credentials() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"))
         .env_clear()

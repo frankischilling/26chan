@@ -7,7 +7,7 @@ use board_media::{ApprovedFiles, ObjectId, PublicationStore, Quarantine, Validat
 use board_media_admin::{publish, read_approved, reconcile};
 use board_store::{
     media::MediaQueue,
-    media_assets::{MediaReader, OutputMetadata},
+    media_assets::{MediaReader, OutputMetadata, OutputVariants},
 };
 use std::{
     process::Command,
@@ -143,6 +143,35 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     );
     let bytes = read_approved(&reader, &files, &approved.id).await.unwrap();
     assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+    let thumbnail = reader.get_thumbnail(&approved.id).await.unwrap();
+    assert_eq!(
+        files
+            .read_thumbnail(
+                approved.id.parse().unwrap(),
+                &thumbnail.sha256,
+                thumbnail.bytes as u64
+            )
+            .unwrap(),
+        bytes
+    );
+    let mut changed_variants = OutputVariants {
+        md5: "00".repeat(16),
+        thumbnail: metadata.clone(),
+    };
+    assert!(
+        queue
+            .prepare_output_with_variants(&job.id, retry_token, &metadata, Some(&changed_variants))
+            .await
+            .is_err()
+    );
+    changed_variants.md5 = encoded.md5().to_owned();
+    changed_variants.thumbnail.width = 2;
+    assert!(
+        queue
+            .prepare_output_with_variants(&job.id, retry_token, &metadata, Some(&changed_variants))
+            .await
+            .is_err()
+    );
     sqlx::query("UPDATE media.jobs SET updated_at=clock_timestamp()-interval '2 days' WHERE id=$1")
         .bind(&job.id)
         .execute(&admin)
@@ -166,7 +195,106 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     std::fs::remove_file(approved_path).unwrap();
     assert!(read_approved(&reader, &files, &approved.id).await.is_err());
 
-    for window in ["part", "installed", "deleting", "removed"] {
+    // A failed thumbnail installation cannot approve an otherwise complete full image.
+    let partial_job = lease(&queue, &ids).await;
+    let partial_token = partial_job.lease_token.as_deref().unwrap();
+    let variants = OutputVariants {
+        md5: encoded.md5().to_owned(),
+        thumbnail: metadata.clone(),
+    };
+    let partial = queue
+        .prepare_output_with_variants(&partial_job.id, partial_token, &metadata, Some(&variants))
+        .await
+        .unwrap();
+    let obstacle = root.join(format!("{}.thumb.png", partial.id));
+    std::fs::create_dir(&obstacle).unwrap();
+    assert!(
+        publish(&queue, &store, &partial_job.id, partial_token, &pixels)
+            .await
+            .is_err()
+    );
+    assert!(root.join(format!("{}.png", partial.id)).is_file());
+    assert!(reader.get(&partial.id).await.is_err());
+    assert!(reader.get_thumbnail(&partial.id).await.is_err());
+    std::fs::remove_dir(&obstacle).unwrap();
+    assert_eq!(
+        publish(&queue, &store, &partial_job.id, partial_token, &pixels)
+            .await
+            .unwrap(),
+        partial
+    );
+    assert!(reader.get_thumbnail(&partial.id).await.is_ok());
+    assert!(
+        !queue.retire_output(&partial.id).await.unwrap(),
+        "Recent unused approval must survive"
+    );
+    sqlx::query(
+        "UPDATE media.assets SET approved_at=clock_timestamp()-interval '2 days' WHERE id=$1",
+    )
+    .bind(&partial.id)
+    .execute(&admin)
+    .await
+    .unwrap();
+    // Crash after durable retirement, before either file is removed.
+    let retention_guard = store.try_lock().unwrap();
+    assert!(queue.retire_output(&partial.id).await.unwrap());
+    assert!(reader.get(&partial.id).await.is_err());
+    assert!(reader.get_thumbnail(&partial.id).await.is_err());
+    assert!(root.join(format!("{}.png", partial.id)).is_file());
+    assert!(root.join(format!("{}.thumb.png", partial.id)).is_file());
+    drop(retention_guard);
+    assert_eq!(reconcile(&queue, &store).await.unwrap(), 1);
+    assert!(!root.join(format!("{}.png", partial.id)).exists());
+    assert!(!root.join(format!("{}.thumb.png", partial.id)).exists());
+    assert_eq!(reconcile(&queue, &store).await.unwrap(), 0);
+
+    // The normal reconciliation path discovers and removes an aged orphan.
+    let orphan_job = lease(&queue, &ids).await;
+    let orphan = publish(
+        &queue,
+        &store,
+        &orphan_job.id,
+        orphan_job.lease_token.as_deref().unwrap(),
+        &pixels,
+    )
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE media.assets SET approved_at=clock_timestamp()-interval '2 days' WHERE id=$1",
+    )
+    .bind(&orphan.id)
+    .execute(&admin)
+    .await
+    .unwrap();
+    let blocked_thumbnail = root.join(format!("{}.thumb.png", orphan.id));
+    std::fs::remove_file(&blocked_thumbnail).unwrap();
+    std::fs::create_dir(&blocked_thumbnail).unwrap();
+    assert!(reconcile(&queue, &store).await.is_err());
+    assert!(!root.join(format!("{}.png", orphan.id)).exists());
+    assert!(
+        blocked_thumbnail.is_dir(),
+        "Cleanup must not recursively remove an unexpected object"
+    );
+    let state: String = sqlx::query_scalar("SELECT state FROM media.assets WHERE id=$1")
+        .bind(&orphan.id)
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(state, "deleting");
+    assert!(reader.get(&orphan.id).await.is_err());
+    std::fs::remove_dir(&blocked_thumbnail).unwrap();
+    assert_eq!(reconcile(&queue, &store).await.unwrap(), 1);
+    assert!(!root.join(format!("{}.png", orphan.id)).exists());
+    assert!(!root.join(format!("{}.thumb.png", orphan.id)).exists());
+
+    for window in [
+        "part",
+        "installed",
+        "thumbnail-part",
+        "thumbnail-installed",
+        "deleting",
+        "removed",
+    ] {
         let job = lease(&queue, &ids).await;
         let guard = store.try_lock().unwrap();
         let pending = queue
@@ -178,6 +306,13 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
             std::fs::write(root.join(format!("{id}.part")), b"interrupted").unwrap();
         } else {
             guard.install(id, &encoded).unwrap();
+        }
+        if window == "thumbnail-part" {
+            std::fs::write(root.join(format!("{id}.thumb.part")), b"interrupted").unwrap();
+        } else if ["thumbnail-installed", "deleting", "removed"].contains(&window) {
+            guard
+                .install_thumbnail(id, &pixels.thumbnail().unwrap())
+                .unwrap();
         }
         expire(&admin, &job.id).await;
         if ["deleting", "removed"].contains(&window) {
@@ -196,6 +331,8 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         assert_eq!(reconcile(&queue, &store).await.unwrap(), 0);
         assert!(!root.join(format!("{id}.part")).exists());
         assert!(!root.join(format!("{id}.png")).exists());
+        assert!(!root.join(format!("{id}.thumb.part")).exists());
+        assert!(!root.join(format!("{id}.thumb.png")).exists());
         // Retire this fixture directly as owner; do not requeue it ahead of the next case.
         sqlx::query("UPDATE media.jobs SET state='failed',lease_token=NULL,expires_at=NULL,failure='abandoned' WHERE id=$1").bind(&job.id).execute(&admin).await.unwrap();
     }

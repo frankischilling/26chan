@@ -72,11 +72,12 @@ pub async fn thread_snapshot(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(StoreError::NotFound)?;
-    let entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted ORDER BY id LIMIT 1001")
+    let mut entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted ORDER BY id LIMIT 1001")
         .bind(slug)
         .bind(id)
         .fetch_all(&mut *tx)
         .await?;
+    crate::post_media::load(&mut tx, &mut entries).await?;
     tx.commit().await?;
     Ok(ThreadSnapshot {
         board,

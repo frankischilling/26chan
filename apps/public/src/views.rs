@@ -17,6 +17,24 @@ pub struct BoardPage {
     pub previous: String,
     pub next: String,
     pub catalog: bool,
+    pub media_origin: String,
+}
+
+#[derive(Template)]
+#[template(path = "upload.html")]
+pub struct UploadPage {
+    pub board: Board,
+    pub form: UploadForm,
+    pub ready: bool,
+    pub message: &'static str,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UploadForm {
+    pub upload_id: String,
+    pub upload_capability: String,
+    pub resto: i64,
 }
 
 impl BoardPage {

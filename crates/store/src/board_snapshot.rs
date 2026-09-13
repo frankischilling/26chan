@@ -10,6 +10,7 @@ pub struct ThreadPreview {
     pub thread: Thread,
     pub posts: Vec<Post>,
     pub visible_posts: i64,
+    pub visible_images: i64,
 }
 
 pub struct BoardSnapshot {
@@ -55,17 +56,21 @@ pub async fn board_snapshot(
     let ids: Vec<i64> = threads.iter().map(|thread| thread.id).collect();
     let counts: Vec<(i64, i64)> = sqlx::query_as("SELECT thread_id,count(*) FROM content.posts WHERE board=$1 AND thread_id=ANY($2) AND NOT deleted GROUP BY thread_id")
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
+    let images: Vec<(i64, i64)> = sqlx::query_as("SELECT p.thread_id,count(*) FROM content.posts p JOIN content.visible_post_media m ON m.post_id=p.id WHERE p.board=$1 AND p.thread_id=ANY($2) AND p.id<>p.thread_id AND NOT m.file_deleted GROUP BY p.thread_id")
+        .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
     // At most 1,000 selected threads, each with its OP and five latest replies.
     // Lateral limits keep unselected comment bodies out of the web process.
-    let posts: Vec<Post> = if let Some(replies) = replies {
+    let mut posts: Vec<Post> = if let Some(replies) = replies {
         sqlx::query_as("SELECT p.* FROM unnest($2::bigint[]) AS selected(id) CROSS JOIN LATERAL ((SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT $3)) p ORDER BY p.thread_id,p.id")
             .bind(slug).bind(&ids).bind(replies).fetch_all(&mut *tx).await?
     } else {
         Vec::new()
     };
+    crate::post_media::load(&mut tx, &mut posts).await?;
     tx.commit().await?;
 
     let counts: BTreeMap<_, _> = counts.into_iter().collect();
+    let images: BTreeMap<_, _> = images.into_iter().collect();
     let mut previews: BTreeMap<i64, Vec<Post>> = BTreeMap::new();
     for post in posts {
         previews.entry(post.thread_id).or_default().push(post);
@@ -75,6 +80,7 @@ pub async fn board_snapshot(
         .map(|thread| ThreadPreview {
             posts: previews.remove(&thread.id).unwrap_or_default(),
             visible_posts: counts.get(&thread.id).copied().unwrap_or(0),
+            visible_images: images.get(&thread.id).copied().unwrap_or(0),
             thread,
         })
         .collect();

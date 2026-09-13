@@ -42,14 +42,10 @@ async fn request_limits_inner(state: Arc<AppState>, request: Request, next: Next
     }
 }
 
-pub async fn security_headers(request: Request, next: Next) -> Response {
+pub async fn security_headers(State(state): Shared, request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
     for (key, value) in [
         ("cache-control", "private, no-store"),
-        (
-            "content-security-policy",
-            "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; connect-src 'self'",
-        ),
         ("x-content-type-options", "nosniff"),
         ("referrer-policy", "same-origin"),
         (
@@ -61,6 +57,16 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
             .headers_mut()
             .insert(key, HeaderValue::from_static(value));
     }
+    let policy = format!(
+        "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; connect-src 'self'; img-src {}",
+        state.config.media_origin
+    );
+    let Ok(policy) = HeaderValue::from_str(&policy) else {
+        return AppError::Internal.into_response();
+    };
+    response
+        .headers_mut()
+        .insert("content-security-policy", policy);
     response
 }
 pub async fn landing() -> Result<Html<String>, AppError> {
@@ -77,6 +83,9 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
         .execute(&state.auth)
         .await?;
     sqlx::query("SELECT id FROM content.moderation_audit LIMIT 0")
+        .execute(&state.staff)
+        .await?;
+    sqlx::query("SELECT post_id,available FROM content.staff_post_media LIMIT 0")
         .execute(&state.staff)
         .await?;
     Ok("ready")
@@ -343,6 +352,7 @@ pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<Stri
         .collect();
     Ok(Html(
         views::Queue {
+            media_origin: state.config.media_origin.clone(),
             reports,
             csrf,
             recent: session.recent,

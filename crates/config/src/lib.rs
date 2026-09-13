@@ -6,10 +6,14 @@ use std::{
 };
 use url::Url;
 
+mod legacy_media;
 mod media_http;
+pub use legacy_media::MediaBackfillSettings;
 pub use media_http::MediaHttpSettings;
 mod monitor;
 pub use monitor::MonitorSettings;
+mod public_media;
+pub use public_media::PublicMediaSettings;
 
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
@@ -110,6 +114,7 @@ pub struct Settings {
     pub public_origin: Origin,
     pub production: bool,
     pub api: Option<ApiListener>,
+    pub media: Option<PublicMediaSettings>,
 }
 
 #[derive(Clone)]
@@ -190,6 +195,7 @@ impl Settings {
             "AUTH_DATABASE_URL",
             "MONITOR_DATABASE_URL",
             "INTAKE_DATABASE_URL",
+            "MEDIA_INTAKE_TOKEN",
         ]
         .iter()
         .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
@@ -211,7 +217,13 @@ impl Settings {
             "production" => true,
             _ => return Err(ConfigError("APP_ENV must be development or production.")),
         };
-        if env::var("MEDIA_ENABLED").as_deref().unwrap_or("false") != "false" {
+        let media_enabled = env::var("MEDIA_ENABLED").unwrap_or_else(|_| "false".into());
+        if media_enabled != "false"
+            && (media_enabled != "true"
+                || production
+                || env::var("APP_ENV").as_deref() != Ok("development")
+                || env::var("PUBLIC_MEDIA_PROFILE").as_deref() != Ok("isolated-development"))
+        {
             return Err(ConfigError(
                 "Media processing is unavailable; MEDIA_ENABLED must be false.",
             ));
@@ -220,6 +232,7 @@ impl Settings {
         let staff = env::var("STAFF_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3001".into());
         let media = env::var("MEDIA_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3002".into());
         let origins = validate_origins(&public, &staff, &media, production)?;
+        let media = PublicMediaSettings::from_env(media_enabled == "true", &origins)?;
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
         let parsed = Url::parse(&database_url).map_err(|_| ConfigError("Invalid database URL."))?;
@@ -245,6 +258,14 @@ impl Settings {
             &origins,
             production,
         )?;
+        if media
+            .as_ref()
+            .is_some_and(|m| m.intake == bind || api.as_ref().is_some_and(|a| a.bind == m.intake))
+        {
+            return Err(ConfigError(
+                "Intake must use a separate listener from public and API serving.",
+            ));
+        }
         let [public_origin, _, _] = origins;
         Ok(Self {
             database_url,
@@ -252,6 +273,7 @@ impl Settings {
             public_origin,
             production,
             api,
+            media,
         })
     }
 }
@@ -278,6 +300,7 @@ impl MediaAdminSettings {
             "MONITOR_DATABASE_URL",
             "MEDIA_READ_DATABASE_URL",
             "INTAKE_DATABASE_URL",
+            "PUBLIC_INTAKE_TOKEN",
         ]
         .iter()
         .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))
@@ -350,6 +373,7 @@ impl MediaReaderSettings {
             "TEST_PUBLIC_DATABASE_URL",
             "MONITOR_DATABASE_URL",
             "INTAKE_DATABASE_URL",
+            "PUBLIC_INTAKE_TOKEN",
         ]
         .iter()
         .any(|name| env::var_os(name).is_some_and(|value| !value.is_empty()))

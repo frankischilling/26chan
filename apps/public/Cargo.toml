@@ -6,6 +6,7 @@ publish.workspace = true
 
 [features]
 database-tests = ["board-store/database-tests"]
+browser-tests = ["database-tests"]
 
 [dependencies]
 board-domain = { path = "../../crates/domain" }
@@ -14,7 +15,11 @@ board-store = { path = "../../crates/store" }
 board-http = { path = "../../crates/http" }
 board-observe = { path = "../../crates/observe" }
 askama.workspace = true
-axum.workspace = true
+axum = { workspace = true, features = ["multipart"] }
+hyper = { version = "=1.11.1", features = ["client", "http1"] }
+hyper-util = { version = "=0.1.20", features = ["tokio"] }
+futures-util.workspace = true
+bytes.workspace = true
 sqlx.workspace = true
 chrono.workspace = true
 tokio.workspace = true
@@ -29,6 +34,12 @@ httpdate = "1.0"
 chrono-tz = "0.10"
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["process", "io-util"] }
+board-media-admin = { path = "../media-admin" }
+board-media-http = { path = "../media-http" }
+board-media-intake = { path = "../media-intake" }
+board-media = { path = "../../crates/media" }
+tempfile = "3.27"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 proptest.workspace = true

@@ -24,7 +24,39 @@ async fn durable_approval_schema_exists() {
     assert!(barrier);
     let columns: Vec<String> = sqlx::query_scalar("SELECT attname::text FROM pg_attribute WHERE attrelid = 'media.approved_assets'::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum")
         .fetch_all(&admin).await.unwrap();
-    assert_eq!(columns, ["id", "sha256", "bytes", "width", "height"]);
+    assert_eq!(
+        columns,
+        [
+            "id",
+            "sha256",
+            "bytes",
+            "width",
+            "height",
+            "thumbnail_sha256",
+            "thumbnail_bytes",
+            "thumbnail_width",
+            "thumbnail_height"
+        ]
+    );
+    let post_barrier: bool = sqlx::query_scalar("SELECT 'security_barrier=true' = ANY(reloptions) FROM pg_class WHERE oid='media.approved_post_assets'::regclass").fetch_one(&admin).await.unwrap();
+    assert!(post_barrier);
+    let post_columns: Vec<String> = sqlx::query_scalar("SELECT attname::text FROM pg_attribute WHERE attrelid='media.approved_post_assets'::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum").fetch_all(&admin).await.unwrap();
+    assert_eq!(
+        post_columns,
+        [
+            "board",
+            "tim",
+            "id",
+            "sha256",
+            "bytes",
+            "width",
+            "height",
+            "thumbnail_sha256",
+            "thumbnail_bytes",
+            "thumbnail_width",
+            "thumbnail_height"
+        ]
+    );
     let installed_migration: bool =
         sqlx::query_scalar("SELECT success FROM public._sqlx_migrations WHERE version = 8")
             .fetch_one(&admin)
@@ -573,12 +605,20 @@ async fn reader_credentials_expose_only_approved_metadata() {
     read.execute("SELECT id, sha256, bytes, width, height FROM media.approved_assets LIMIT 1")
         .await
         .unwrap();
+    read.execute("SELECT board,tim,id,sha256,bytes,width,height,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height FROM media.approved_post_assets LIMIT 1").await.unwrap();
+    // PostgreSQL rejects writes to this join view before checking relation ACLs.
+    // Check effective grants explicitly instead of treating non-updatability as
+    // proof that the reader lacks write authority.
+    let post_view_read_only: bool = sqlx::query_scalar("SELECT has_table_privilege(current_user,'media.approved_post_assets','SELECT') AND NOT has_table_privilege(current_user,'media.approved_post_assets','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AND NOT has_any_column_privilege(current_user,'media.approved_post_assets','INSERT,UPDATE,REFERENCES')").fetch_one(&mut read).await.unwrap();
+    assert!(post_view_read_only);
     for query in [
         "SELECT * FROM media.assets",
         "SELECT * FROM media.jobs",
         "SELECT lease_token FROM media.assets",
         "SELECT * FROM media.queue_policy",
         "SELECT * FROM content.posts",
+        "SELECT * FROM content.media_clock",
+        "SELECT content.next_media_number()",
         "SELECT * FROM post_secrets.deletion",
         "SELECT * FROM staff_identity.accounts",
         "SELECT * FROM deployment.settings",
@@ -629,4 +669,30 @@ async fn reader_credentials_expose_only_approved_metadata() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn retention_owner_has_only_fixed_retirement_authority() {
+    let admin = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'media','CREATE') AND NOT has_schema_privilege(oid,'content','USAGE') AND NOT has_schema_privilege(oid,'media_intake','USAGE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_table_privilege(oid,'media.assets','INSERT,DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_media_retention_owner'").fetch_one(&admin).await.unwrap();
+    assert!(safe);
+    for (table, privilege, expected) in [
+        ("media.assets", "SELECT", vec!["id", "job_id", "state"]),
+        (
+            "media.assets",
+            "UPDATE",
+            vec!["approved_at", "state", "updated_at"],
+        ),
+        ("media.jobs", "SELECT", vec!["id"]),
+        ("media.jobs", "UPDATE", vec!["id"]),
+    ] {
+        let columns: Vec<String> = sqlx::query_scalar("SELECT attname::text FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped AND has_column_privilege('board_media_retention_owner',attrelid,attnum,$2) ORDER BY attname")
+            .bind(table).bind(privilege).fetch_all(&admin).await.unwrap();
+        assert_eq!(columns, expected, "{table} {privilege}");
+    }
+    let functions: bool = sqlx::query_scalar("SELECT count(*)=1 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_media_retention_owner'").fetch_one(&admin).await.unwrap();
+    assert!(functions);
+    admin.close().await;
 }

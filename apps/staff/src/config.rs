@@ -5,6 +5,7 @@ use url::Url;
 #[derive(Clone)]
 pub struct Config {
     pub origin: String,
+    pub media_origin: String,
     pub bind: SocketAddr,
     pub production: bool,
     pub auth_database: String,
@@ -84,6 +85,7 @@ impl Config {
             "MEDIA_READ_DATABASE_URL",
             "MONITOR_DATABASE_URL",
             "INTAKE_DATABASE_URL",
+            "PUBLIC_INTAKE_TOKEN",
         ] {
             if std::env::var_os(key).is_some_and(|s| !s.is_empty()) {
                 return Err("Staff runtime received an unrelated database credential");
@@ -100,8 +102,17 @@ impl Config {
         }
         let public = std::env::var("PUBLIC_ORIGIN").map_err(|_| "PUBLIC_ORIGIN required")?;
         let media = std::env::var("MEDIA_ORIGIN").map_err(|_| "MEDIA_ORIGIN required")?;
-        board_config::validate_origins(&public, &origin, &media, production)
+        let origins = board_config::validate_origins(&public, &origin, &media, production)
             .map_err(|_| "Invalid application origin separation")?;
+        if Url::parse(&origin)
+            .map_err(|_| "Invalid staff origin")?
+            .host_str()
+            == Url::parse(&media)
+                .map_err(|_| "Invalid media origin")?
+                .host_str()
+        {
+            return Err("Staff and media need different cookie hostnames, including development");
+        }
         let bind: SocketAddr = std::env::var("STAFF_BIND")
             .map_err(|_| "STAFF_BIND required")?
             .parse()
@@ -130,6 +141,7 @@ impl Config {
         }
         Ok(Self {
             origin,
+            media_origin: origins[2].as_string(),
             bind,
             production,
             auth_database,

@@ -3,6 +3,7 @@
 import errno
 import hashlib
 import http.client
+import json
 import os
 import pathlib
 import re
@@ -36,6 +37,8 @@ class MediaHttpExercise(SystemdExercise):
         super().setup()
         shutil.copyfile(self.binaries / 'board-media-http', self.bin / 'board-media-http')
         (self.bin / 'board-media-http').chmod(0o755)
+        shutil.copyfile(self.binaries / 'media-backfill', self.bin / 'media-backfill')
+        (self.bin / 'media-backfill').chmod(0o755)
         self.objects = self.directory('objects', self.coordinator)
         os.chown(self.objects, self.coordinator.pw_uid, self.http_user.pw_gid)
         self.objects.chmod(0o2750)
@@ -155,6 +158,61 @@ class MediaHttpExercise(SystemdExercise):
         self.reader_sql(f"SELECT id FROM media.approved_assets WHERE id='{asset}';", True)
         print('PASS actual reader identity, capabilities, kernel limits, read-only storage and protected database/private-file denials with healthy controls', flush=True)
 
+    def legacy_upgrade(self, asset, expected):
+        # Construct an old NULL-manifest approval without mutating/downgrading
+        # the current approval. Its upgrade uses the real gateway and microVM.
+        legacy, job = uuid.uuid4().hex, uuid.uuid4().hex
+        self.ids.append(job)
+        sql(f"INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at) SELECT '{legacy}','{job}','{uuid.uuid4().hex}',sha256,bytes,width,height,'approved',clock_timestamp() FROM media.assets WHERE id='{asset}';")
+        original = self.objects / f'{legacy}.png'
+        self.write(original, expected, mode=0o640)
+        os.chown(original, self.coordinator.pw_uid, self.http_user.pw_gid)
+        assert self.http(f'/media/{legacy}.png')[2] == expected
+        assert self.http(f'/media/{legacy}.thumb.png')[0] == 404
+        environment = {**SAFE, 'APP_ENV': 'development', 'MEDIA_GROUP_READ': 'true',
+                       'MIGRATION_DATABASE_URL': os.environ['MIGRATION_DATABASE_URL']}
+        # The offline operator is root, not the coordinator. The dispatcher
+        # deliberately rejects config/key material owned by a different nonroot
+        # UID, even when root can read it. Preserve this rejection and provision
+        # separate operator-owned files without changing runtime ownership.
+        command = [self.bin / 'media-backfill', self.private / 'client.json', self.objects,
+                   self.private / 'quarantine', legacy]
+        protected = [self.private / name for name in ('client.json', 'client.key', 'client.pem', 'ca.pem')]
+        before = [(path.stat().st_uid, path.stat().st_gid, path.stat().st_mode,
+                   hashlib.sha256(path.read_bytes()).hexdigest()) for path in protected]
+        self.finish(self.launch(command, env=environment), success=False)
+        assert not (self.objects / f'{legacy}.thumb.png').exists()
+        assert sql(f"SELECT md5 IS NULL FROM media.assets WHERE id='{legacy}';") == 't'
+        self.clean_vm()
+        operator = self.directory('legacy-operator')
+        settings = dict(self.client_config)
+        for key in ('server_ca', 'client_certificate', 'client_key'):
+            source = pathlib.Path(settings[key])
+            destination = operator / source.name
+            self.write(destination, source.read_bytes())
+            settings[key] = str(destination)
+        self.write(operator / 'client.json', json.dumps(settings))
+        command[1] = operator / 'client.json'
+        result = self.finish(self.launch(command, env=environment))
+        assert result.strip() == b'legacy manifest upgraded'
+        self.clean_vm()
+        assert original.read_bytes() == expected
+        assert self.http(f'/media/{legacy}.png')[2] == expected
+        status, headers, thumbnail = self.http(f'/media/{legacy}.thumb.png')
+        assert status == 200 and headers['content-type'] == 'image/png'
+        assert sql(f"SELECT md5 FROM media.assets WHERE id='{legacy}';") == hashlib.md5(expected).hexdigest()
+        assert sql(f"SELECT thumbnail_sha256 FROM media.assets WHERE id='{legacy}';") == hashlib.sha256(thumbnail).hexdigest()
+        assert sql(f"SELECT (a.md5,a.thumbnail_sha256,a.thumbnail_bytes,a.thumbnail_width,a.thumbnail_height)=(b.md5,b.thumbnail_sha256,b.thumbnail_bytes,b.thumbnail_width,b.thumbnail_height) FROM media.assets a,media.assets b WHERE a.id='{legacy}' AND b.id='{asset}';") == 't'
+        result = self.finish(self.launch(command, env=environment))
+        assert result.strip() == b'manifest already current; files verified'
+        self.clean_vm()
+        assert self.access(self.objects / f'{legacy}.thumb.png') == 0
+        assert self.access(self.objects / f'{legacy}.thumb.png', write=True) in (errno.EACCES, errno.EROFS)
+        after = [(path.stat().st_uid, path.stat().st_gid, path.stat().st_mode,
+                  hashlib.sha256(path.read_bytes()).hexdigest()) for path in protected]
+        assert after == before, 'offline upgrade must not change coordinator credential files'
+        print('PASS legacy NULL manifest -> authenticated real Firecracker decoding -> exact original verification -> thumbnail upgrade -> read-only HTTP; retry preserves original', flush=True)
+
     def exercise(self):
         job = self.intake()
         asset = self.finish(self.dispatch()).decode().strip()
@@ -171,6 +229,7 @@ class MediaHttpExercise(SystemdExercise):
         assert self.http(f'/media/{asset}.png', 'HEAD')[2] == b''
         assert self.http(f'/media/{asset}.png', headers={'If-None-Match': etag})[0] == 304
         self.boundaries(asset)
+        self.legacy_upgrade(asset, expected)
         pending = uuid.uuid4().hex
         pending_job = uuid.uuid4().hex
         self.ids.append(pending_job)

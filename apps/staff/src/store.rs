@@ -15,9 +15,42 @@ pub struct Report {
     pub closed: bool,
     pub sticky: bool,
     pub deleted: bool,
+    #[sqlx(skip)]
+    pub attachment: Option<Attachment>,
+}
+#[derive(Clone, sqlx::FromRow)]
+pub struct Attachment {
+    pub post_id: i64,
+    pub filename: String,
+    pub bytes: i64,
+    pub width: i32,
+    pub height: i32,
+    pub spoiler: bool,
+    pub tim: i64,
+    pub thumbnail_width: Option<i32>,
+    pub thumbnail_height: Option<i32>,
+    pub available: bool,
 }
 pub async fn reports(pool: &PgPool) -> Result<Vec<Report>, AppError> {
-    Ok(sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(pool).await?)
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
+        .await?;
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(&mut *tx).await?;
+    let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
+    let attachments: Vec<Attachment> =
+        sqlx::query_as("SELECT * FROM content.staff_post_media WHERE post_id=ANY($1)")
+            .bind(ids)
+            .fetch_all(&mut *tx)
+            .await?;
+    for report in &mut reports {
+        report.attachment = attachments
+            .iter()
+            .find(|a| a.post_id == report.post_id)
+            .cloned();
+    }
+    tx.commit().await?;
+    Ok(reports)
 }
 pub async fn moderate(
     pool: &PgPool,
@@ -39,6 +72,7 @@ pub async fn moderate(
             | "sticky"
             | "unsticky"
             | "remove-post"
+            | "remove-file"
             | "remove-thread"
             | "resolve"
             | "dismiss"
@@ -52,7 +86,20 @@ pub async fn moderate(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(AppError::NotFound)?;
-    if matches!(action, "resolve" | "dismiss") {
+    if action == "remove-file" {
+        sqlx::query("SELECT content.delete_post_attachment($1,$2)")
+            .bind(board)
+            .bind(target)
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| {
+                if error.as_database_error().and_then(|e| e.code()).as_deref() == Some("P0002") {
+                    AppError::NotFound
+                } else {
+                    AppError::Database(error)
+                }
+            })?;
+    } else if matches!(action, "resolve" | "dismiss") {
         let thread: i64 = sqlx::query_scalar("SELECT p.thread_id FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board WHERE r.board=$1 AND r.id=$2 FOR UPDATE OF r").bind(board).bind(target).fetch_optional(&mut *tx).await?.ok_or(AppError::NotFound)?;
         sqlx::query("UPDATE content.reports SET state=$3 WHERE board=$1 AND id=$2")
             .bind(board)

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Upload status - /{{ board.slug }}/{% endblock %}
+{% block feature_notice %}Development media workflow.{% endblock %}
+{% block content %}
+<h1>Upload status</h1>
+<p role="status">{{ message }}</p>
+{% if ready %}
+<form id="postForm" action="/{{ board.slug }}/post" method="post" class="postForm">
+<input type="hidden" name="upload_id" value="{{ form.upload_id }}">
+<input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
+<input type="hidden" name="resto" value="{{ form.resto }}">
+<div><label for="name">Name</label><input id="name" name="name" maxlength="80" placeholder="Anonymous"></div>
+<div><label for="email">Options</label><select id="email" name="email"><option value="">Bump thread</option><option value="sage">sage</option><option value="nonoko">nonoko</option><option value="nonokosage">nonokosage</option></select></div>
+{% if form.resto == 0 %}<div><label for="sub">Subject</label><input id="sub" name="sub" maxlength="120"></div>{% endif %}
+<div><label for="com">Comment</label><textarea id="com" name="com" rows="5" required></textarea></div>
+<div><label for="spoiler">Spoiler image</label><input id="spoiler" name="spoiler" type="checkbox" value="true"></div>
+<div><label for="password">Deletion password</label><input id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
+<p>Comments: {{ board.max_comment_chars }} characters. Save your deletion password.</p>
+<button type="submit">Post with image</button>
+</form>
+{% else %}
+<form method="post" action="/{{ board.slug }}/upload/status">
+<input type="hidden" name="upload_id" value="{{ form.upload_id }}">
+<input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
+<input type="hidden" name="resto" value="{{ form.resto }}">
+<button type="submit">Check upload status</button>
+</form>
+{% endif %}
+<form method="post" action="/{{ board.slug }}/upload/cancel">
+<input type="hidden" name="upload_id" value="{{ form.upload_id }}">
+<input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
+<input type="hidden" name="resto" value="{{ form.resto }}">
+<button type="submit">Cancel upload</button>
+</form>
+<p>The upload expires two hours after it was reserved. Keep this page open until you post or cancel.</p>
+<p><a href="/{{ board.slug }}/">Return to board</a></p>
+{% endblock %}
