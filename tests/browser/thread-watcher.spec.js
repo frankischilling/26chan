@@ -49,7 +49,8 @@ test('owned thread API refresh, cross-tab watch state and read acknowledgement w
   await expect(page.locator(`#watch-${a}-demo`)).toContainText('(1)');
   await expect(other.locator(`#watch-${a}-demo`)).toContainText('(1)');
   await other.goto(`/demo/thread/${a}#lr${a}`);
-  await expect(other.locator(`#watch-${a}-demo`)).toContainText('(0)');
+  await expect(other.locator(`#watch-${a}-demo a`)).toHaveText('/demo/ - Watch a paper model');
+  await expect(other.locator(`#watch-${a}-demo a`)).not.toHaveClass(/hasNewReplies/);
   await expect(other.locator(`#p${id}`)).toHaveClass(/watcherReadTarget/);
   expect(new URL(other.url()).hash).toBe('');
   await expect(page.locator(`#watch-${a}-demo a`)).toHaveAttribute('href', `/demo/thread/${a}#p${id}`);
@@ -88,7 +89,7 @@ test('local storage failure keeps same-tab watch controls usable without executa
   await expect(page.locator('#watchList img')).toHaveCount(0);
   await expect(page.locator('.watcherNotice')).toContainText('Changes stay in this tab');
   await page.getByRole('button', { name: `Unwatch /demo/ thread ${id}`, exact: true }).click();
-  await expect(page.locator('#watchList')).toHaveText('No watched threads.');
+  await expect(page.locator('#watchList > li')).toHaveCount(0);
 });
 
 test('disabling the watcher in another tab cancels an in-flight response', async ({ page, context, createThread }) => {

@@ -149,8 +149,12 @@ table.postForm button { padding: 1px 6px; }
 .watcherHeader button, #watchList button { padding: 1px 3px; font: inherit; }
 #watchList { list-style: none; padding: 4px; margin: 0; overflow-wrap: anywhere; }
 #watchList li { margin: 3px 0; }
-#watchList .deadlink a { text-decoration: line-through; }
-.watcherOwnReply { font-weight: bold; }
+#watchList a { text-decoration: none; }
+#watchList a.deadlink { text-decoration: line-through; }
+#watchList .hasNewReplies { font-weight: bold; }
+#watchList .hasYouReplies { font-style: italic; }
+#watchList .archivelink { opacity: 0.5; }
+#watchList .watcherRemove { border: 0; padding: 0; color: inherit; background: transparent; cursor: pointer; }
 .watcherNotice { padding: 0 4px; max-width: 32em; }
 .wbtn, .watcherLastRead { padding: 0 2px; font: inherit; }
 .watcherReadTarget { outline: 2px solid var(--link); outline-offset: 2px; }

@@ -1,5 +1,5 @@
 import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
-  sameEntry, orderedWatches, readTrackedReplies, autoRefreshEligible, acknowledgedEntry,
+  sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
 
@@ -221,17 +221,25 @@ function start(context) {
       const { board: slug, id } = splitWatchKey(key);
       const row = node('li');
       row.id = `watch-${key}`;
-      const link = node('a', `/${slug}/ - ${entry.label}`);
-      link.href = `/${slug}/thread/${id}${BigInt(entry.read) > 0n ? `#${catalog ? 'p' : 'lr'}${entry.read}` : ''}`;
-      const count = node('span', entry.read === '-1' ? ' (404)' : ` (${entry.unread})${entry.archived ? ' [Archived]' : ''}${entry.ownReply ? ' (You)' : ''}`);
-      if (entry.read === '-1') row.classList.add('deadlink');
-      if (entry.ownReply) row.classList.add('watcherOwnReply');
-      const remove = button('X', async () => { refresh.cancel(); await change(rows => { rows.delete(key); }); });
+      const dead = entry.read === '-1';
+      const unread = !dead && entry.unread > 0;
+      const link = node('a', `${unread ? `(${entry.unread}) ` : ''}/${slug}/ - ${entry.label}`);
+      const fragment = catalog ? (BigInt(entry.read) > 0n ? `#p${entry.read}` : '') : `#lr${entry.read}`;
+      link.href = `/${slug}/thread/${id}${fragment}`;
+      if (dead) link.classList.add('deadlink');
+      else {
+        if (unread) link.classList.add('hasNewReplies');
+        if (entry.archived) link.classList.add('archivelink');
+        if (entry.ownReply) {
+          link.classList.add('hasYouReplies');
+          link.title = 'This thread has replies to your posts';
+        }
+      }
+      const remove = button('\u00d7', async () => { refresh.cancel(); await change(rows => { rows.delete(key); }); }, 'watcherRemove');
       remove.setAttribute('aria-label', `Unwatch /${slug}/ thread ${id}`);
-      row.append(remove, ' ', link, count);
+      row.append(remove, ' ', link);
       list.append(row);
     }
-    if (!entries.size) list.append(node('li', 'No watched threads.'));
     if (!persistent) notice.textContent = 'Storage or cross-tab locking is unavailable. Changes stay in this tab.';
     controls();
   }

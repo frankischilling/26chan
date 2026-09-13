@@ -48,8 +48,10 @@ test('successful ordinary and board-return posts auto-watch, track own replies a
   const refreshed = page.waitForResponse(response => response.url().endsWith(`/_watch/test/thread/${thread}.json`));
   await page.goto('/test/catalog?q=');
   expect((await refreshed).status()).toBe(200);
-  await expect(page.locator(`#watch-${thread}-test`)).toContainText('(You)');
-  await expect(page.locator(`#watch-${thread}-test`)).toContainText('(1)');
+  const watched = page.locator(`#watch-${thread}-test a`);
+  await expect(watched).toHaveClass(/hasYouReplies/);
+  await expect(watched).toHaveAttribute('title', 'This thread has replies to your posts');
+  await expect(watched).toHaveText('(1) /test/ - Automatically watched paper model');
 });
 test('concurrent successful posts use distinct receipts and failed posts create none', async ({ page, context }) => {
   await autoWatch(page);
