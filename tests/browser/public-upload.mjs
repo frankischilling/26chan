@@ -4,12 +4,16 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
+import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
 const source = process.argv[4];
-assert.ok(process.argv[5] === undefined || process.argv[5] === '--attachment-only');
-const attachmentOnly = process.argv[5] === '--attachment-only';
+const flags = process.argv.slice(5);
+assert.ok(flags.length <= 2 && new Set(flags).size === flags.length
+  && flags.every(flag => ['--attachment-only', '--javascript'].includes(flag)));
+const attachmentOnly = flags.includes('--attachment-only');
+const javascript = flags.includes('--javascript');
 const screenshots = process.env.PUBLIC_UPLOAD_SCREENSHOTS;
 if (screenshots) assert.ok(path.isAbsolute(screenshots));
 assert.equal(origin.hostname, '127.0.0.1');
@@ -26,11 +30,12 @@ process.once('SIGINT', cancel);
 try {
   browser = await chromium.launch({ timeout: 15_000 });
   assert.equal(cancelled, false, 'browser qualification canceled');
-  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1280, height: 900 } });
+  const context = await browser.newContext({ javaScriptEnabled: javascript, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const requests = [];
   page.on('request', request => requests.push(request.url()));
   const screenshot = async name => {
+    if (javascript) name += '-javascript';
     if (screenshots) {
       await page.screenshot({ path: path.join(screenshots, `${name}.png`), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
@@ -41,6 +46,7 @@ try {
   };
   page.setDefaultTimeout(10_000);
   await page.goto(new URL(`/${board}/`, origin).href);
+  if (javascript) await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
   await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('required', '');
   await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg');
   await page.getByLabel('File', { exact: true }).setInputFiles(source);
@@ -65,6 +71,10 @@ try {
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
   await screenshot('approved-post-form');
+  if (javascript) {
+    await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
+    await expect(page.locator('form.postEditor input[name=awt]')).toHaveValue('1');
+  } else await expect(page.locator('input[name=track], input[name=awt]')).toHaveCount(0);
   await expect(page.locator('table#postForm')).toHaveAttribute('role', 'presentation');
   await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('aria-describedby', 'postHelp');
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
@@ -76,13 +86,27 @@ try {
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
   if (!attachmentOnly) {
-    await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel image, posted without site JavaScript.');
+    await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript.`);
   }
   await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
+  const posted = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/${board}/post`);
   await page.getByRole('button', { name: 'Post with image', exact: true }).click();
+  const postedResponse = await posted;
+  assert.equal(postedResponse.status(), 303);
   const threadUrl = page.url();
   assert.match(new URL(threadUrl).pathname, new RegExp(`^/${board}/thread/[0-9]+$`));
+  const thread = new URL(threadUrl).pathname.split('/').at(-1);
+  const receiptHeaders = (await postedResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+  if (javascript) {
+    assert.ok(receiptHeaders.some(header => header.value.startsWith(`board-posted-${thread}=${thread}.1;`)));
+    assert.ok(receiptHeaders.some(header => header.value.startsWith(`4chan_awt=${thread};`)));
+    await expect(page.locator(`#watch-${thread}-${board}`)).toBeVisible();
+    await expect.poll(() => page.evaluate(({ board, thread }) =>
+      JSON.parse(localStorage.getItem(`4chan-track-${board}-${thread}`))?.[`>>${thread}`], { board, thread })).toBe(1);
+    assert.equal((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt').length, 0);
+  } else assert.equal(receiptHeaders.length, 0);
   let revealedSource;
   if (attachmentOnly) {
     await page.goto(new URL(`/${board}/catalog`, origin).href);
@@ -93,7 +117,7 @@ try {
     assert.ok(!requests.includes(revealedSource), 'hidden spoiler must not fetch the thumbnail');
     assert.ok(!requests.includes(revealedSource.replace(/s\.jpg$/, '.png')), 'hidden spoiler must not fetch full media');
     await page.getByLabel('Spoilers:', { exact: true }).selectOption('on');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    if (!javascript) await page.getByRole('button', { name: 'Apply', exact: true }).click();
   }
   const img = page.locator(attachmentOnly ? '.catalogThumb img[data-spoiler-src]' : '.fileThumb img');
   await img.scrollIntoViewIfNeeded();
@@ -142,18 +166,46 @@ try {
     await page.goto(new URL(`/${board}/${suffix}`, origin).href);
     if (attachmentOnly) {
       await page.getByLabel('Spoilers:', { exact: true }).selectOption('on');
-      await page.getByRole('button', { name: 'Apply', exact: true }).click();
+      if (!javascript) await page.getByRole('button', { name: 'Apply', exact: true }).click();
     }
     assert.equal(await page.locator(suffix === 'catalog' ? `#thread-${post.no} .catalogThumb img` : `#p${post.no} .fileThumb img`).getAttribute('src'), thumbnailUrl.href);
     if (suffix === 'catalog') {
       assert.equal(await page.locator(`#thread-${post.no} .catalogThumb`).getAttribute('href'), `/${board}/thread/${post.no}`);
-      assert.equal(await page.locator(`#meta-${post.no}`).innerText(), 'R: 0');
+      const metadata = page.locator(`#meta-${post.no}`);
+      assert.equal(await metadata.evaluate(element => [...element.childNodes]
+        .filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim()), 'R:');
+      await expect(metadata.locator('b').first()).toHaveText('0');
+      if (javascript) await expect(metadata.locator('button.postMenuBtn')).toHaveCount(1);
     }
     if (suffix === 'catalog') await screenshot('attached-catalog');
   }
   await page.goto(threadUrl);
-  await page.getByText('Delete or report', { exact: true }).click();
-  const deletion = page.locator(`form[action="/${board}/delete"]`);
+  if (javascript) {
+    await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
+    await expect(page.locator('form.postEditor input[name=awt]')).toHaveCount(0);
+    await page.locator('#com').fill('Owned reply to an approved upload');
+    await page.locator('#password').fill('synthetic-browser-password');
+    await page.locator('#email').selectOption('nonoko');
+    const replied = page.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/${board}/post`);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const replyResponse = await replied;
+    assert.equal(replyResponse.status(), 303);
+    await expect(page).toHaveURL(new URL(`/${board}/`, origin).href);
+    const replies = (await (await page.request.get(apiUrl.href)).json()).posts;
+    assert.equal(replies.length, 2);
+    const reply = String(replies.at(-1).no);
+    const cookies = (await replyResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+    assert.ok(cookies.some(header => header.value.startsWith(`board-posted-${reply}=${thread}.0;`)));
+    assert.ok(!cookies.some(header => header.value.startsWith('4chan_awt=')));
+    await expect.poll(() => page.evaluate(({ board, thread, reply }) =>
+      JSON.parse(localStorage.getItem(`4chan-track-${board}-${thread}`))?.[`>>${reply}`], { board, thread, reply })).toBe(1);
+    await expect(page.locator(`#watch-${thread}-${board}`)).toBeVisible();
+    assert.equal((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt').length, 0);
+    await page.goto(threadUrl);
+  }
+  await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
+  const deletion = page.locator(`#p${thread} form[action="/${board}/delete"]`);
   await deletion.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
@@ -182,7 +234,7 @@ try {
   assert.deepEqual([placeholderBox.width, placeholderBox.height], [155, 53]);
   assert.equal(deletedRequests.length, 0, 'a deleted catalog file loads only the fixed UI asset');
   assert.equal((await context.cookies()).length, 0);
-  console.log('PASS no-JavaScript upload, isolated approval, persisted posting, image rendering and file-only deletion');
+  console.log(`PASS ${javascript ? 'JavaScript' : 'no-JavaScript'} upload, isolated approval, persisted posting, image rendering and file-only deletion${javascript ? ', automatic watching and own-reply tracking' : ''}`);
 } finally {
   if (browser) await browser.close();
 }

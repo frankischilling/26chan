@@ -81,13 +81,14 @@ class PublicUpload:
             connection.close()
 
     def exercise(self):
-        cases = [('png', red_png())]
-        cases.extend((name + '.jpg', (REPO / 'tests/media/fixtures/jpeg' / (name + '.jpg')).read_bytes())
+        cases = [('png', red_png(), False)]
+        cases.extend((name + '.jpg', (REPO / 'tests/media/fixtures/jpeg' / (name + '.jpg')).read_bytes(), False)
                      for name in ('baseline', 'progressive'))
-        for suffix, data in cases:
-            self.upload_one(suffix, data)
+        cases.append(('tracking.png', red_png(), True))
+        for suffix, data, javascript in cases:
+            self.upload_one(suffix, data, javascript)
 
-    def upload_one(self, suffix, data):
+    def upload_one(self, suffix, data, javascript=False):
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
@@ -102,7 +103,9 @@ class PublicUpload:
         assert os.path.isabs(node) and os.path.isfile(node)
         # Preserve text-plus-image coverage and also qualify image-only PNG/JPEG
         # through the actual isolated pipeline, not merely synthetic approvals.
-        flags = [] if suffix == 'baseline.jpg' else ['--attachment-only']
+        flags = [] if suffix in ('baseline.jpg', 'tracking.png') else ['--attachment-only']
+        if javascript:
+            flags.append('--javascript')
         process = f.launch([node, REPO / 'tests/browser/public-upload.mjs', self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
@@ -118,7 +121,8 @@ class PublicUpload:
         assert HEX.fullmatch(asset)
         f.clean_vm()
         output = f.finish(process)
-        assert output.startswith(b'PASS no-JavaScript upload, isolated approval, persisted posting')
+        mode = b'JavaScript' if javascript else b'no-JavaScript'
+        assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
         assert f.http(f'/media/{asset}.png')[0] == 404
         assert (f.objects / f'{asset}.png').is_file()
@@ -139,7 +143,7 @@ class PublicUpload:
             self.f.stop(self.unit)
         if self.created:
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|tracking\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

@@ -80,8 +80,33 @@ consumes and clears that receipt through the normal client path.
 
 This checks unavailable `document.cookie`, not every browser cookie policy or
 network-level rejection of Set-Cookie. Receipts remain optional public-ID hints,
-not proof of ownership or authentication. Approved-upload tracking and further
-production receipt integration still require their own evidence.
+not proof of ownership or authentication. Further production receipt integration
+still requires its own evidence.
+
+## Approved-upload tracking
+
+The public upload browser harness runs with and without JavaScript for both
+text-plus-image and image-only posts. JavaScript cases enable the actual watcher
+settings, check the approved form's `track` and `awt` fields, and verify successful
+post receipts, automatic watching, own-OP tracking and receipt cleanup. A normal
+reply to that uploaded thread uses the board-return option, emits its own tracking
+receipt without `awt`, and appears in tracked own replies after navigation.
+
+All four variants retain image, API metadata, validator, spoiler and file-only
+deletion assertions. The JavaScript catalog assertion checks the reply label,
+numeric count and menu control separately; its menu marker is not reply data.
+Deletion targets the OP explicitly when a tracked reply is also present. Existing
+no-JavaScript screenshots keep their names; optional JavaScript captures use a
+distinct suffix rather than overwriting those captures.
+
+`cargo test -p board-public --test upload_browser --all-features --locked --
+--test-threads=1` passes one integration test exercising all four variants. Its
+supervisor supplies validated synthetic pixels through the real publication path;
+this local test does not execute a decoder or establish a VM containment boundary.
+The owned Linux fixture also includes a JavaScript PNG case through its actual
+intake/Firecracker/promotion/reader pipeline. That added case requires a completed
+hosted run; compiling its Python harness is not equivalent evidence. Production
+media remains disabled and no runtime authority or origin policy changes here.
 
 ## Reference
 
