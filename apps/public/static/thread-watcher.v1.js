@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding,
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -203,16 +203,18 @@ function start(context) {
     }),
   });
 
-  let nativeReplies = null;
+  let nativeReplies = null, nativeThreads = null;
   const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration,
     read: () => read(filterKey), save: saveFilterRules,
     match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
     changed: () => refresh.cancel(),
-    applied: hidden => nativeReplies?.setFiltered(hidden),
+    applied: hidden => { nativeReplies?.setFiltered(hidden); nativeThreads?.setFiltered(hidden); },
   });
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
+  nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     openFilters: opener => nativeFilters?.open(opener),
+    clearThreads: () => { void nativeThreads?.clearHistory(); },
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
@@ -381,7 +383,7 @@ function start(context) {
     const item = node('li');
     item.setAttribute('role', 'none');
     const control = button(text, () => {
-      closePostMenu(command === 'watch' || command === 'hide-r');
+      closePostMenu(command === 'watch' || command === 'hide-r' || command === 'hide');
       action();
     });
     control.setAttribute('role', 'menuitem');
@@ -465,11 +467,15 @@ function start(context) {
     }
     const id = sectionId(menu.section);
     if (menu.hide) menu.hide.textContent = `${nativeReplies?.isHidden(menu.post.id.slice(1)) ? 'Unhide' : 'Hide'} post`;
+    if (menu.hideThread) {
+      menu.hideThread.parentElement.hidden = !nativeThreads?.enabled();
+      menu.hideThread.textContent = `${menu.section.classList.contains('post-hidden') ? 'Unhide' : 'Hide'} thread`;
+    }
     const canWatch = enabled && menu.post.classList.contains('op') && menu.post.id === `p${id}`;
     if (canWatch) {
       if (!menu.watch) {
         menu.watch = postMenuItem(menu, 'watch', '', () => { void toggleThread(menu.section); });
-        menu.list.insertBefore(menu.watch.parentElement, menu.list.children[1] || null);
+        menu.list.insertBefore(menu.watch.parentElement, menu.list.children[menu.hideThread ? 2 : 1] || null);
       }
       menu.watch.textContent = `${entries.has(watchKey(board, id)) ? 'Remove from' : 'Add to'} watch list`;
     } else if (menu.watch) {
@@ -505,6 +511,9 @@ function start(context) {
     const menu = { root, list, trigger, post, section, watch: null, filter: null,
       selection: nativeFilters?.selection() };
     postMenuItem(menu, 'report', 'Report post', () => openPostAction(post, 'report'));
+    if (!catalog && !threadId && post.classList.contains('op') && nativeThreads?.enabled()) {
+      menu.hideThread = postMenuItem(menu, 'hide', '', () => { void nativeThreads.toggle(post.id.slice(1)); });
+    }
     if (post.classList.contains('reply')) {
       menu.hide = postMenuItem(menu, 'hide-r', '', () => { void nativeReplies?.toggle(post.id.slice(1)); });
     }
@@ -572,6 +581,7 @@ function start(context) {
   }
   function render() {
     nativeReplies?.refresh();
+    nativeThreads?.refresh();
     tracking.prepareForms();
     panel.hidden = !enabled || (mobile.matches && collapsed);
     close.hidden = !mobile.matches;

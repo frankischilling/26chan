@@ -210,9 +210,9 @@ table.postForm button { padding: 1px 6px; }
   .threadNav.desktop { display: none !important; }
   .threadNav.mobile { display: block !important; margin-top: 9px; margin-bottom: 0; text-align: center; }
   .threadNav .mobileib { display: inline-block; }
-  .threadNav .button { border-radius: 3px; padding: 6px 10px 5px; font-weight: bold; background: #d6daf0 url('/static/watcher/buttonfade-blue.png') repeat-x; border: 1px solid #b7c5d9; user-select: none; text-decoration: none; color: #34345c; }
+  .threadNav .button, .nativeThreadRestore { border-radius: 3px; padding: 6px 10px 5px; font-weight: bold; background: #d6daf0 url('/static/watcher/buttonfade-blue.png') repeat-x; border: 1px solid #b7c5d9; user-select: none; text-decoration: none; color: #34345c; }
   .threadNav .button a, .threadNav .button a:hover, .threadNav .button a:visited { text-decoration: none; color: #34345c; }
-  .threadNav[data-worksafe="false"] .button { color: #800; background-color: #f0e0d6; background-image: url('/static/watcher/buttonfade.png'); border-color: #c0a69d; }
+  .threadNav[data-worksafe="false"] .button, .nativeThreadRestore[data-worksafe="false"] { color: #800; background-color: #f0e0d6; background-image: url('/static/watcher/buttonfade.png'); border-color: #c0a69d; }
   .threadNav[data-worksafe="false"] .button a, .threadNav[data-worksafe="false"] .button a:hover, .threadNav[data-worksafe="false"] .button a:visited { color: #800; }
 }
 #navtopright { float: right; }
@@ -300,3 +300,13 @@ dialog.filterHelp { width: 400px; }
     --watcher-cross: url('/static/watcher/futaba/cross@2x.png');
   }
 }
+
+/* Native thread-hiding controls use unchanged release-owned public icons. */
+.nativeThreadToggle { display: block; width: 18px; height: 18px; padding: 0; margin: 0 0 5px; border: 0; background: transparent; cursor: pointer; }
+.nativeThreadToggle img.threadHideButton { float: none; width: 18px; height: 18px; margin: 0; }
+.nativeThreadToggle[hidden], .nativeThreadRestore[hidden], .board .thread[hidden] { display: none !important; }
+.nativeThreadRestore { box-sizing: content-box; display: block; width: 150px; margin: auto; cursor: pointer; font: inherit; font-weight: bold; text-align: center; }
+.board .native-thread-hidden .postInfo { opacity: .5; }
+.board .native-thread-hidden .postMessage, .board .native-thread-hidden .file,
+.board .native-thread-hidden .postActions, .board .native-thread-hidden .wbtn,
+.board .native-thread-hidden .replyContainer, .board .native-thread-hidden .omitted { display: none; }

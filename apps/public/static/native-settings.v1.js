@@ -1,5 +1,5 @@
 // Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters }) {
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
   let opener = null;
@@ -55,7 +55,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.type = 'checkbox';
       input.dataset.option = key;
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
-      input.checked = initial[key] === true && (!catalog || initial.disableAll !== true);
+      input.checked = (key === 'threadHiding' ? initial[key] !== false : initial[key] === true) && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
       row.append(caption);
@@ -108,6 +108,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       filterHeading.append(filterExpand);
       const filter = option(filterCategory, 'filter', 'Filter and highlight specific threads/posts', 'Enable pattern-based filters');
       filter.parentElement.parentElement.append(' [', link('filters-edit', 'Edit', source => openFilters?.(source)), ']');
+      const hiding = option(filterCategory, 'threadHiding', 'Thread hiding', 'Hide entire threads by clicking the minus button');
+      hiding.parentElement.parentElement.append(' [', link('thread-hiding-clear', 'Clear History', () => clearThreads?.()), ']');
       option(filterCategory, 'hideStubs', 'Hide thread stubs', "Don't display stubs of hidden threads");
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');

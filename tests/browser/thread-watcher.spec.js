@@ -161,6 +161,8 @@ test('board post menus watch persisted threads and synchronize an open menu acro
   await trigger.press('ArrowDown');
   await expect(page.getByRole('menuitem', { name: 'Report post', exact: true })).toBeFocused();
   await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('menuitem', { name: 'Hide thread', exact: true })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
   await expect(page.getByRole('menuitem', { name: 'Add to watch list', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator(`#watch-${id}-demo`)).toContainText('<b>Menu watcher</b>');

@@ -75,6 +75,6 @@
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
 {% endif %}
 {% if catalog %}<template id="catalogFiltered">{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}</template>{% endif %}
-<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}"></div>
+<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}

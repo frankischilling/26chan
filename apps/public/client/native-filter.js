@@ -6,6 +6,7 @@ export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, pl
 export { readFilterRules } from './native-filter-rules.js';
 export { mountNativeFilters } from './native-page-filters.js';
 export { mountNativeReplyHiding } from './native-reply-hiding.js';
+export { mountNativeThreadHiding } from './native-thread-hiding.js';
 
 // Raw HTML and user patterns are evaluated only in a fresh worker, never in the client path.
 

@@ -1,5 +1,5 @@
 {
-  "scope": "Unchanged public watcher UI icons and mobile navigation gradients named by catalog v1025/CSS v705, extension v1191 and mobile CSS v716. No public post content or private source.",
+  "scope": "Unchanged public watcher and thread-hiding UI icons and mobile button gradients named by catalog v1025/CSS v705, extension v1191 and mobile CSS v716. No public post content or private source.",
   "source_base": "https://s.4cdn.org/image/buttons/",
   "local_base": "/static/watcher/",
   "source": "https://s.4cdn.org/js/extension.min.1191.js",
@@ -516,6 +516,198 @@
       "dimensions": [
         1,
         32
+      ]
+    },
+    {
+      "name": "futaba/post_expand_minus.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/post_expand_minus.png",
+      "mime": "image/png",
+      "bytes": 123,
+      "sha256": "1a8d1c2f69171b13e44dba68e2ab4022f3eecc5197cf9fbd3a0b285c3294fe26",
+      "collected_utc": "2026-09-13T20:59:19.479Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/post_expand_minus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/post_expand_minus@2x.png",
+      "mime": "image/png",
+      "bytes": 130,
+      "sha256": "286ab76b5ec382338a6189d658752498762e139e1978deb10d5d74364f76f841",
+      "collected_utc": "2026-09-13T20:59:19.514Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "futaba/post_expand_plus.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/post_expand_plus.png",
+      "mime": "image/png",
+      "bytes": 132,
+      "sha256": "e0bc643a601de4f4065dc517640917fabe60e9947914a30211fdcda4722f7910",
+      "collected_utc": "2026-09-13T20:59:19.536Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/post_expand_plus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/post_expand_plus@2x.png",
+      "mime": "image/png",
+      "bytes": 135,
+      "sha256": "83ca9262b472ab103f6315c2b8aff89427ba378e1566f866b01e21be39542539",
+      "collected_utc": "2026-09-13T20:59:19.560Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/post_expand_minus.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/post_expand_minus.png",
+      "mime": "image/png",
+      "bytes": 104,
+      "sha256": "c3baeaa1c464dfaf3effd0ce8556aa0b3d1b175c5f16a339484417dfc195e88c",
+      "collected_utc": "2026-09-13T20:59:19.581Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/post_expand_minus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/post_expand_minus@2x.png",
+      "mime": "image/png",
+      "bytes": 130,
+      "sha256": "08b0ce8ac5aca047c40c1b7482554045a945b16f1d378db1c65d07cb45a05cc1",
+      "collected_utc": "2026-09-13T20:59:19.603Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/post_expand_plus.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/post_expand_plus.png",
+      "mime": "image/png",
+      "bytes": 111,
+      "sha256": "f0200bef4204dab5bffbec553e1550ccdb6adc669f0cedaff2f7ac6f48db9217",
+      "collected_utc": "2026-09-13T20:59:19.624Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/post_expand_plus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/post_expand_plus@2x.png",
+      "mime": "image/png",
+      "bytes": 135,
+      "sha256": "8ac8c6768a4ddeb09412a62e7f0e43eccff105107631279d4af21361119304d4",
+      "collected_utc": "2026-09-13T20:59:19.643Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/post_expand_minus.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/post_expand_minus.png",
+      "mime": "image/png",
+      "bytes": 94,
+      "sha256": "922160d74f2a737ab6b40bc29e430d2abbd7ccb93379a3a986e1dab50d16395c",
+      "collected_utc": "2026-09-13T20:59:19.673Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/post_expand_minus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/post_expand_minus@2x.png",
+      "mime": "image/png",
+      "bytes": 111,
+      "sha256": "44e936b6d6d0d48860bb021d4cb9d0425504abe5e005ea6ea86f1017288a138d",
+      "collected_utc": "2026-09-13T20:59:19.906Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/post_expand_plus.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/post_expand_plus.png",
+      "mime": "image/png",
+      "bytes": 100,
+      "sha256": "6cdf24337ebf9debac6fc993a07ebf7e24ff174791b369663be58e2a0bb30c2b",
+      "collected_utc": "2026-09-13T20:59:19.933Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/post_expand_plus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/post_expand_plus@2x.png",
+      "mime": "image/png",
+      "bytes": 117,
+      "sha256": "a406a51c103a1516f115a108d1aeba45c9222f4da53fd4f91c206e2718952e18",
+      "collected_utc": "2026-09-13T20:59:19.957Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/post_expand_minus.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/post_expand_minus.png",
+      "mime": "image/png",
+      "bytes": 102,
+      "sha256": "07fff20a5751ca759b4a1279a64579a877e6887b26c8783b50b6e9ca5b5d4c21",
+      "collected_utc": "2026-09-13T20:59:19.980Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/post_expand_minus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/post_expand_minus@2x.png",
+      "mime": "image/png",
+      "bytes": 130,
+      "sha256": "330c4ad5bc614d9ac5258e4e88f833ab416fda4e8f7d043364ff716b4526c7de",
+      "collected_utc": "2026-09-13T20:59:20.011Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/post_expand_plus.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/post_expand_plus.png",
+      "mime": "image/png",
+      "bytes": 109,
+      "sha256": "7c9612c333b339e80b0ddf13d9fd2f7e73af3b7c7b6e225a0f09ebd8bd6a565d",
+      "collected_utc": "2026-09-13T20:59:20.038Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/post_expand_plus@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/post_expand_plus@2x.png",
+      "mime": "image/png",
+      "bytes": 135,
+      "sha256": "e4075ae005233b1a3e855b2d5aca91acc5438cb01f05d968bf6ed9460c637923",
+      "collected_utc": "2026-09-13T20:59:20.060Z",
+      "dimensions": [
+        36,
+        36
       ]
     }
   ]
