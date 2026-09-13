@@ -15,6 +15,64 @@ async function drag(page, x, y, release = true) {
 }
 const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings'))['TW-position']);
 
+test('mobile CSS contains saved desktop coordinates before breakpoint callbacks run', async ({ page, context }) => {
+  await context.addInitScript(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    const pending = [];
+    window.matchMedia = query => {
+      const media = nativeMatchMedia(query);
+      if (query !== '(max-width: 480px)') return media;
+      const listen = media.addEventListener.bind(media);
+      media.addEventListener = (type, callback, options) => {
+        if (type !== 'change') return listen(type, callback, options);
+        listen(type, event => pending.push(() => callback.call(media, event)), options);
+      };
+      return media;
+    };
+    window.releaseWatcherBreakpoint = () => { for (const run of pending.splice(0)) run(); };
+  });
+  for (const route of ['/test/', '/test/catalog']) {
+    for (const position of ['left: 20%; top: 10%;', 'right: 20%; bottom: 0;']) {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(route);
+      await page.evaluate(position => localStorage.setItem('4chan-settings', JSON.stringify({
+        threadWatcher: true, fixedThreadWatcher: true, 'TW-position': position,
+      })), position);
+      await page.reload();
+      const panel = page.locator('#threadWatcher');
+      await expect(panel).toBeVisible();
+      const desktop = await panel.boundingBox();
+      for (const width of [480, 390, 320]) {
+        await page.setViewportSize({ width, height: 844 });
+        // No polling or callback release: CSS must contain the still-open panel.
+        const measured = await panel.evaluate(panel => ({
+          hidden: panel.hidden, left: panel.getBoundingClientRect().left,
+          right: panel.getBoundingClientRect().right, width: innerWidth,
+          scroll: document.documentElement.scrollWidth,
+        }));
+        expect(measured.hidden).toBe(false);
+        expect(measured.left).toBe(0);
+        expect(measured.right).toBeLessThanOrEqual(measured.width);
+        expect(measured.scroll).toBeLessThanOrEqual(measured.width);
+      }
+      await page.waitForFunction(() => matchMedia('(max-width: 480px)').matches);
+      // Wait for the browser's change event, then run the deliberately held handler.
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await page.evaluate(() => window.releaseWatcherBreakpoint());
+      await expect(panel).toBeHidden();
+      await page.locator('#watcher-open-mobile').click();
+      await expect(panel).toBeVisible();
+      expect(await stored(page)).toBe(position);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await page.evaluate(() => window.releaseWatcherBreakpoint());
+      await expect(panel).toBeVisible();
+      expect((await panel.boundingBox()).x).toBeCloseTo(desktop.x, 3);
+      expect(await stored(page)).toBe(position);
+    }
+  }
+});
+
 test('dragged positions persist across reloads and tabs without changing unrelated preferences', async ({ page, context }) => {
   await seed(context);
   await page.goto('/test/catalog');

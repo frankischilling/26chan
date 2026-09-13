@@ -245,7 +245,8 @@ dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%;
 @media (max-width: 480px) {
   .settingsDesktop { display: none !important; }
   .settingsMobile { display: inline; }
-  .watcherPanel { width: 100%; max-width: 100%; margin: 0; box-sizing: border-box; border-left: 0; border-right: 0; }
+  /* Override desktop inline coordinates before the matchMedia callback runs. */
+  .watcherPanel { left: 0 !important; right: auto !important; width: 100%; max-width: 100%; margin: 0; box-sizing: border-box; border-left: 0; border-right: 0; }
 }
 @media (max-width: 360px) { dialog.catalogSettings { left: 10px; margin-left: 0; width: calc(100vw - 30px); } }
 
