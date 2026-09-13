@@ -62,7 +62,7 @@ Later compatibility checkpoints:
 
 | ID | Scope and evidence | Status | Tests / exception |
 |---|---|---|---|
-| V-011 | Native watcher, post menus, ordinary reply/thread hiding and menu-ready event; pinned public catalog v1025 and extension v1191 | Implemented on draft #89; exact-head hosted checks and broader reference qualification remain pending | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), and [menu event / recursive-helper reachability](native-post-menu-events.md). Persisted behavior, bounded state/races and targeted six-theme captures do not establish complete public-page parity. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
+| V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event and optional watcher/filter/navigation shortcuts; pinned public catalog v1025 and extension v1191 | Implemented on draft #89; exact-head hosted checks and broader reference qualification remain pending | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), and [keyboard integration](native-keyboard-shortcuts.md). Updater/Quick Reply shortcuts and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
 
 ## Security-driven and project-defined exceptions
 

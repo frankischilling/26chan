@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding,
+import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -212,9 +212,14 @@ function start(context) {
   });
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
+  const nativeKeys = catalog ? null : mountNativeKeybinds({ board, settings: configuration,
+    watch: () => { if (enabled && threadId) void toggleThread(document.getElementById(`t${threadId}`)); },
+    filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
+  });
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
+    openKeybinds: opener => nativeKeys?.openHelp(opener),
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,

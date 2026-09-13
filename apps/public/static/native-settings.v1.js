@@ -1,5 +1,5 @@
 // Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads }) {
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
   let opener = null;
@@ -65,7 +65,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     }
     let category;
     let expand;
-    let filterCategory, filterExpand;
+    let filterCategory, filterExpand, navigationCategory, navigationExpand;
     if (catalog) {
       form.append(node('h4', 'Options'));
       const options = node('ul', undefined, 'clickset');
@@ -77,6 +77,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       all.append('[', link('settings-expand-all', 'Expand All Settings', () => {
         category.hidden = false; expand.setAttribute('aria-expanded', 'true');
         filterCategory.hidden = false; filterExpand.setAttribute('aria-expanded', 'true');
+        navigationCategory.hidden = false; navigationExpand.setAttribute('aria-expanded', 'true');
       }), ']');
       form.append(all);
       const heading = node('h3', undefined, 'settings-cat-lbl');
@@ -111,9 +112,23 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       const hiding = option(filterCategory, 'threadHiding', 'Thread hiding', 'Hide entire threads by clicking the minus button');
       hiding.parentElement.parentElement.append(' [', link('thread-hiding-clear', 'Clear History', () => clearThreads?.()), ']');
       option(filterCategory, 'hideStubs', 'Hide thread stubs', "Don't display stubs of hidden threads");
+      const navigationHeading = node('h3', undefined, 'settings-cat-lbl');
+      navigationCategory = node('ul', undefined, 'settings-cat');
+      navigationCategory.id = 'settings-navigation';
+      navigationCategory.hidden = Object.keys(initial).length !== 0;
+      navigationExpand = button('Navigation', () => {
+        navigationCategory.hidden = !navigationCategory.hidden;
+        navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
+      }, 'settings-expand');
+      navigationExpand.setAttribute('aria-controls', navigationCategory.id);
+      navigationExpand.setAttribute('aria-label', 'Navigation');
+      navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
+      navigationHeading.append(navigationExpand);
+      const keys = option(navigationCategory, 'keyBinds', 'Use keyboard shortcuts', 'Enable handy keyboard shortcuts for common actions');
+      keys.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
-      form.append(filterHeading, filterCategory, heading, category, global);
+      form.append(filterHeading, filterCategory, navigationHeading, navigationCategory, heading, category, global);
     }
     const message = node('p', '', 'settingsMessage');
     message.setAttribute('role', 'status');

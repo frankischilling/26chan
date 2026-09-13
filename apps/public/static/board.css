@@ -310,3 +310,5 @@ dialog.filterHelp { width: 400px; }
 .board .native-thread-hidden .postMessage, .board .native-thread-hidden .file,
 .board .native-thread-hidden .postActions, .board .native-thread-hidden .wbtn,
 .board .native-thread-hidden .replyContainer, .board .native-thread-hidden .omitted { display: none; }
+
+.nativeKeybindsHelp li { padding: 3px 5px; }
