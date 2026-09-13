@@ -58,6 +58,10 @@ other page-level visual gaps remain under #6.
 Toolbar wrapping is local: each label stays with its control on narrow screens.
 These controls do not establish whole-client or whole-page parity.
 
+[Bump and image-limit indicators](catalog-limits.md) now use the same coherent
+snapshot and count rules as the JSON interface. Original teaser preprocessing
+remains unknown: the permitted client receives an already-prepared teaser.
+
 ## Verification
 
 The actual-role integration test covers all four sorts, sticky ordering,

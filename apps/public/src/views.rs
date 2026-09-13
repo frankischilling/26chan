@@ -62,6 +62,14 @@ pub struct ThreadView {
     pub image_replies: i64,
 }
 impl ThreadView {
+    pub fn bump_limited(&self, board: &Board) -> bool {
+        self.thread.reply_count >= board.bump_limit
+    }
+
+    pub fn image_limited(&self, board: &Board) -> bool {
+        board.image_limit > 0 && self.image_replies >= i64::from(board.image_limit)
+    }
+
     pub fn visible_replies(&self) -> usize {
         self.omitted
             .saturating_add(self.posts.len())
