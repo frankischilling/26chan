@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "formatting.html" as formatting %}
 {% import "attachments.html" as attachments %}
+{% import "post_fields.html" as posting %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
@@ -19,16 +20,11 @@
 <button type="submit">Upload file</button>
 </form>
 {% endif %}
-<form id="postForm" action="/{{ board.slug }}/post" method="post" class="postForm">
+<form action="/{{ board.slug }}/post" method="post" class="postEditor">
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-<div><label for="name">Name</label><input id="name" name="name" maxlength="80" autocomplete="off" placeholder="Anonymous"></div>
-<div><label for="email">Options</label><select id="email" name="email"><option value="">Bump thread</option><option value="sage">sage</option><option value="nonoko">nonoko</option><option value="nonokosage">nonokosage</option></select></div>
-{% if parent == 0 %}<div><label for="sub">Subject</label><input id="sub" name="sub" maxlength="120"></div>{% endif %}
-<div><label for="com">Comment</label><textarea id="com" name="com" rows="5" required aria-describedby="postHelp"></textarea></div>
-<div><label for="password">Deletion password</label><input id="password" type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
+{% call posting::fields(parent, false) %}{% endcall %}
 <p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. Save your deletion password. {% if media_origin.is_empty() || board.image_limit == 0 %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
-<button type="submit">Post</button>
 </form>
 {% endif %}
 <hr>

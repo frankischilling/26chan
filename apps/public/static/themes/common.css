@@ -8,6 +8,10 @@
   --quote-hover: var(--hover);
   --reply-border-width: 0 1px 1px 0; --reply-edge: var(--edge);
   --arrows: #e0bfb7; --target-edge: #d99f91;
+  --post-label-padding: 0 5px; --post-label-border: 1px;
+  --post-field-padding: 2px 4px 3px; --post-field-margin: 0 2px 0 0;
+  --post-text-padding: 2px 4px 3px; --post-text-margin: 0 2px -3px 0;
+  --post-text-font: arial, helvetica, sans-serif;
   --field: #ffffff; --field-ink: #111111; --control: #eeeeee;
   --muted: #707070; --focus: #0645ad; --font: Arial, Helvetica, sans-serif;
   --size: 10pt; --decoration: none; --scheme: light;
