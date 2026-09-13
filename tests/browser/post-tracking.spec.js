@@ -76,6 +76,34 @@ test('concurrent successful posts use distinct receipts and failed posts create 
   expect(await page.evaluate(() => localStorage.getItem('4chan-watch'))).toBe(before);
   expect((await context.cookies()).some(cookie => cookie.name.startsWith('board-posted-'))).toBe(false);
 });
+test('disabled document cookie access preserves posting and defers receipt consumption until access returns', async ({ page, context, request }) => {
+  await autoWatch(page);
+  await page.evaluate(() => { document.cookie = 'owned-watch-cookie-control=1; Path=/test/; SameSite=Strict'; });
+  expect(await page.evaluate(() => document.cookie)).toContain('owned-watch-cookie-control=1');
+  const session = await context.newCDPSession(page);
+  await session.send('Emulation.setDocumentCookieDisabled', { disabled: true });
+  expect(await page.evaluate(() => {
+    try { return document.cookie.includes('owned-watch-cookie-control=1'); }
+    catch { return false; }
+  })).toBe(false);
+  await post(page, 'Owned post while cookie access is disabled', { subject: 'Deferred receipt fixture' });
+  await expect(page).toHaveURL(/\/test\/thread\/(\d+)#p\d+$/);
+  const thread = page.url().match(/thread\/(\d+)/)[1];
+  owned.push(thread);
+  await expect(page.locator(`#m${thread}`)).toHaveText('Owned post while cookie access is disabled');
+  await expect(page.locator('input[name=track]')).toHaveValue('1');
+  expect((await request.get(`/test/thread/${thread}.json`)).status()).toBe(200);
+  // Network cookie storage still works. Only the actual document API is disabled.
+  expect((await context.cookies()).some(cookie => cookie.name === `board-posted-${thread}`)).toBe(true);
+  await expect(page.locator(`#watch-${thread}-test`)).toHaveCount(0);
+  expect(await page.evaluate(thread => localStorage.getItem(`4chan-track-test-${thread}`), thread)).toBeNull();
+  await session.send('Emulation.setDocumentCookieDisabled', { disabled: false });
+  await page.reload();
+  await expect(page.locator(`#watch-${thread}-test`)).toBeVisible();
+  await expect.poll(() => page.evaluate(thread => JSON.parse(localStorage.getItem(`4chan-track-test-${thread}`))?.[`>>${thread}`], thread)).toBe(1);
+  expect((await context.cookies()).some(cookie => cookie.name === `board-posted-${thread}`)).toBe(false);
+});
+
 test('disabled extension and no-JavaScript posting keep ordinary forms and redirects', async ({ page, browser }) => {
   await page.goto('/test/');
   await page.evaluate(() => localStorage.setItem('4chan-settings', '{"disableAll":true,"threadWatcher":true,"threadAutoWatcher":true}'));

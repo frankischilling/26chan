@@ -47,6 +47,42 @@ input. One case exercises all six themes at 1280px and 390px with nested-dialog
 focus checks. The sticky exception is tested through an explicit DOM fixture,
 not a staff mutation. These tests establish behavior, not screenshot parity.
 
+## Owned archive and expiry lifecycle
+
+`tests/browser/watcher-archive.spec.js` uses the existing synthetic archive-board
+helper and real public posting handlers. A second thread rolls over its owned
+one-thread board. The watcher retains unread state, applies the archive class,
+and acknowledges replies when the user opens the archived read-only thread.
+
+The fixture-only `expire` command ages both archive timestamps in their required
+order, within a transaction. It requires the migration identity, the synthetic
+board marker and exactly one archived fixture thread. Those credentials remain
+in the bounded helper process, not the public server or browser. The test then
+checks actual 404 responses, an empty archive listing, the watcher's dead state,
+and removal on the next refresh without another request for the dead thread.
+Cleanup is limited to the helper-created board.
+
+`npm run test:watcher-lifecycle` passes this case and the four existing deletion,
+failure and delayed-response cases. The new case initially used a boolean where
+native storage writes `1`; its first expiry fixture also allowed expiry to
+precede archive creation. Both fixture assertions/timestamps were corrected
+without changing application constraints, retention policy or watcher behavior.
+This is controlled fixture aging, not a deployed retention or clock-skew test.
+
+## Unavailable receipt access
+
+The posting browser suite uses the pinned Chromium protocol's
+`Emulation.setDocumentCookieDisabled` control, with a working cookie read before
+disabling it. Real posting still succeeds. Chromium retains the server's network
+receipt, but the extension creates neither an automatic watch nor an own-post
+hint while the document API is unavailable. Restoring access and reloading
+consumes and clears that receipt through the normal client path.
+
+This checks unavailable `document.cookie`, not every browser cookie policy or
+network-level rejection of Set-Cookie. Receipts remain optional public-ID hints,
+not proof of ownership or authentication. Approved-upload tracking and further
+production receipt integration still require their own evidence.
+
 ## Reference
 
 The catalog reference is `catalog.min.1025.js`, recorded in
@@ -88,7 +124,7 @@ cross-tab acknowledgement and own-reply tracking against the owned API. These
 checks do not establish whole-panel visual parity.
 
 Other native settings and post-menu actions remain unfinished. The filter editor
-still needs reviewed native visual comparisons. Archive/expiry and additional storage-race coverage, reviewed
+still needs reviewed native visual comparisons. Additional storage-race coverage, reviewed
 full watcher screenshots and passing exact-head CI are required before merge.
 Production media and deployment qualification remain separate requirements.
 
