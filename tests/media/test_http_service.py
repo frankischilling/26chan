@@ -3,6 +3,7 @@
 import errno
 import hashlib
 import http.client
+import json
 import os
 import pathlib
 import re
@@ -170,8 +171,28 @@ class MediaHttpExercise(SystemdExercise):
         assert self.http(f'/media/{legacy}.thumb.png')[0] == 404
         environment = {**SAFE, 'APP_ENV': 'development', 'MEDIA_GROUP_READ': 'true',
                        'MIGRATION_DATABASE_URL': os.environ['MIGRATION_DATABASE_URL']}
+        # The offline operator is root, not the coordinator. The dispatcher
+        # deliberately rejects config/key material owned by a different nonroot
+        # UID, even when root can read it. Preserve this rejection and provision
+        # separate operator-owned files without changing runtime ownership.
         command = [self.bin / 'media-backfill', self.private / 'client.json', self.objects,
                    self.private / 'quarantine', legacy]
+        protected = [self.private / name for name in ('client.json', 'client.key', 'client.pem', 'ca.pem')]
+        before = [(path.stat().st_uid, path.stat().st_gid, path.stat().st_mode,
+                   hashlib.sha256(path.read_bytes()).hexdigest()) for path in protected]
+        self.finish(self.launch(command, env=environment), success=False)
+        assert not (self.objects / f'{legacy}.thumb.png').exists()
+        assert sql(f"SELECT md5 IS NULL FROM media.assets WHERE id='{legacy}';") == 't'
+        self.clean_vm()
+        operator = self.directory('legacy-operator')
+        settings = dict(self.client_config)
+        for key in ('server_ca', 'client_certificate', 'client_key'):
+            source = pathlib.Path(settings[key])
+            destination = operator / source.name
+            self.write(destination, source.read_bytes())
+            settings[key] = str(destination)
+        self.write(operator / 'client.json', json.dumps(settings))
+        command[1] = operator / 'client.json'
         result = self.finish(self.launch(command, env=environment))
         assert result.strip() == b'legacy manifest upgraded'
         self.clean_vm()
@@ -187,6 +208,9 @@ class MediaHttpExercise(SystemdExercise):
         self.clean_vm()
         assert self.access(self.objects / f'{legacy}.thumb.png') == 0
         assert self.access(self.objects / f'{legacy}.thumb.png', write=True) in (errno.EACCES, errno.EROFS)
+        after = [(path.stat().st_uid, path.stat().st_gid, path.stat().st_mode,
+                  hashlib.sha256(path.read_bytes()).hexdigest()) for path in protected]
+        assert after == before, 'offline upgrade must not change coordinator credential files'
         print('PASS legacy NULL manifest -> authenticated real Firecracker decoding -> exact original verification -> thumbnail upgrade -> read-only HTTP; retry preserves original', flush=True)
 
     def exercise(self):
