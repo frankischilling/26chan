@@ -2,6 +2,67 @@ import { test, expect } from '@playwright/test';
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
+test('cross-board quotes navigate persisted replies and respect deletion without JavaScript', async ({ browser }) => {
+  const origin = 'http://127.0.0.1:3000';
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  const password = 'cross-board-browser-password';
+  const threads = [];
+  async function post(path, comment) {
+    await page.goto(`${origin}${path}`);
+    await page.locator('#com').fill(comment);
+    await page.locator('#password').fill(password);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
+    return /#p(\d+)$/.exec(page.url())[1];
+  }
+  try {
+    const target = await post('/demo/', 'Owned cross-board target');
+    threads.push(['demo', target]);
+    const reply = await post(`/demo/thread/${target}`, 'Owned target reply');
+    const source = await post('/test/', `See >>>/demo/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n[spoiler]>>>/demo/${reply}[/spoiler]`);
+    threads.push(['test', source]);
+    const sourceUrl = `${origin}/test/thread/${source}`;
+    const link = page.locator(`#m${source} a.quotelink`);
+    await expect(link).toHaveCount(1);
+    await expect(link).toHaveAttribute('href', `/demo/post/${reply}`);
+    await expect(link).toHaveText(`>>>/demo/${reply}`);
+    await expect(page.locator(`#m${source} script`)).toHaveCount(0);
+    await expect(page.locator(`#m${source} .spoiler a`)).toHaveCount(0);
+    await page.reload();
+    const json = await (await context.request.get(`${origin}/test/thread/${source}.json`)).json();
+    expect(json.posts[0].com).toContain(`<a class="quotelink" href="/demo/post/${reply}">&gt;&gt;&gt;/demo/${reply}</a>`);
+    expect(json.posts[0].com).not.toContain('<script>');
+    const redirect = await context.request.get(`${origin}/demo/post/${reply}`, { maxRedirects: 0 });
+    expect(redirect.status()).toBe(303);
+    expect(redirect.headers().location).toBe(`/demo/thread/${target}#p${reply}`);
+    expect((await context.request.get(`${origin}/test/post/${reply}`)).status()).toBe(404);
+    expect((await context.request.get(`${origin}/missing/post/${reply}`)).status()).toBe(404);
+    await link.click();
+    await expect(page).toHaveURL(`${origin}/demo/thread/${target}#p${reply}`);
+    await expect(page.locator(`#p${reply}`)).toBeVisible();
+    await page.locator(`#p${reply} summary`).click();
+    await page.locator(`#delete${reply}`).fill(password);
+    await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+    expect((await context.request.get(`${origin}/demo/post/${reply}`)).status()).toBe(404);
+    await page.goto(sourceUrl);
+    await expect(link).toHaveCount(1);
+    const navigation = page.waitForResponse(response => response.url() === `${origin}/demo/post/${reply}`);
+    await link.click();
+    expect((await navigation).status()).toBe(404);
+    await expect(page.getByText('Owned target reply', { exact: true })).toHaveCount(0);
+  } finally {
+    try {
+      for (const [board, no] of threads.reverse()) {
+        const deleted = await context.request.post(`${origin}/${board}/delete`, {
+          headers: { origin }, form: { no, password }, maxRedirects: 0,
+        });
+        expect(deleted.status()).toBe(303);
+      }
+    } finally { await context.close(); }
+  }
+});
+
 test('theme backgrounds have a narrow CSP with a healthy denied-origin control', async ({ page }) => {
   const response = await page.goto('/settings/theme');
   const origin = new URL(page.url()).origin;
