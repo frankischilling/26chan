@@ -124,6 +124,27 @@ class VmTest(unittest.TestCase):
             self.assertEqual(output[20:], bytes(4_194_796))
             self.assert_clean()
 
+    def test_jpeg_variants_decode_under_the_same_guest_boundary(self):
+        self.assertEqual(os.geteuid(), 0, 'owned disposable Linux root required')
+        config = os.environ['MEDIA_VM_TEST_CONFIG']
+        for name in ('baseline', 'progressive', 'grayscale', 'cmyk'):
+            with self.subTest(format=name), tempfile.TemporaryDirectory(prefix='26chan-jpeg-vm-') as name_root:
+                root = pathlib.Path(name_root)
+                source = root / 'input.jpg'
+                source.write_bytes((REPO / 'tests/media/fixtures/jpeg' / f'{name}.jpg').read_bytes())
+                result = subprocess.run(
+                    [sys.executable, str(REPO / 'scripts/media/run-job.py'), config, str(source), str(root / 'result.disk')],
+                    capture_output=True, text=True, timeout=45)
+                self.assert_clean()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = (root / 'result.disk').read_bytes()
+                self.assertEqual(len(output), 4_194_816)
+                self.assertEqual(output[:16], b'IBRGBA01\0\0\0\x01\0\0\0\x01')
+                expected = (80, 80, 80) if name == 'grayscale' else (255, 0, 0)
+                self.assertTrue(all(abs(actual - target) <= 3 for actual, target in zip(output[16:19], expected)))
+                self.assertEqual(output[19], 255)
+                self.assertEqual(output[20:], bytes(4_194_796))
+
     @contextlib.contextmanager
     def sleeping_vm(self):
         self.assert_clean()

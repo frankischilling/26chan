@@ -1,6 +1,6 @@
 # Local isolated media execution
 
-This profile runs one job in Firecracker 1.16.1 with its matching jailer. A small Rust init program starts the PNG decoder as guest UID/GID 1000, without capabilities, environment variables or inherited application descriptors. The guest has one read-only input disk and one fixed writable output disk. It has no network interface, vsock, Firecracker API socket or host directory share.
+This profile runs one job in Firecracker 1.16.1 with its matching jailer. A small Rust init program starts the PNG/JPEG decoder as guest UID/GID 1000, without capabilities, environment variables or inherited application descriptors. The guest has one read-only input disk and one fixed writable output disk. It has no network interface, vsock, Firecracker API socket or host directory share. [JPEG policy and verification](jpeg-media.md) distinguish local decoder checks from native qualification.
 
 The Python runner is an operator deployment utility for an owned disposable Linux host. Neither web application calls it. The [authenticated development dispatcher](media-dispatch.md) connects a separate coordinator and nonroot TLS gateway to the fixed root broker, which invokes this runner. The runner itself has no database connection or network listener. Public media enablement remains rejected. The [execution verification](verification-firecracker.md), [dispatch verification](verification-media-dispatch.md) and [job recovery record](media-recovery.md) distinguish executed tests from remaining qualification work.
 

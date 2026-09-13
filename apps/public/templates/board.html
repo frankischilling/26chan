@@ -11,8 +11,8 @@
 <form action="/{{ board.slug }}/upload" method="post" enctype="multipart/form-data" class="postForm">
 <h2>Post with an image</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="image/png" required>
-<p>Upload a PNG first, then complete your post after isolated processing. Maximum upload: 8 MiB.</p>
+<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="image/png,image/jpeg" required>
+<p>Upload a PNG or JPEG first, then complete your post after isolated processing. Maximum upload: 8 MiB.</p>
 <button type="submit">Upload file</button>
 </form>
 {% endif %}

@@ -9,6 +9,7 @@ set -euo pipefail
 : "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
 npm ci --ignore-scripts
