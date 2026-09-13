@@ -293,6 +293,16 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
         }
     }
     let html = String::from_utf8(get(&web, &format!("/{slug}/")).await).unwrap();
+    let catalog_html = String::from_utf8(get(&web, &format!("/{slug}/catalog")).await).unwrap();
+    assert!(catalog_html.contains(&format!("id=\"thread-{id}\"")));
+    assert!(
+        catalog_html.contains(&format!(
+            "id=\"meta-{id}\" title=\"(R)eplies / (I)mage Replies\">R: <b>8</b>"
+        )),
+        "catalog must count visible replies, not the lifetime count of nine"
+    );
+    assert!(!catalog_html.contains("posts omitted"));
+    assert!(!catalog_html.contains("class=\"postInfo\""));
     for suffix in ["2", "999"] {
         let response = web
             .clone()
@@ -319,9 +329,7 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
     }
     assert_eq!(html.matches("replyContainer").count(), 3);
     assert!(html.contains("5 posts omitted"));
-    let catalog_html = String::from_utf8(get(&web, &format!("/{slug}/catalog")).await).unwrap();
     assert!(!catalog_html.contains("replyContainer"));
-    assert!(catalog_html.contains("8 posts omitted"));
 
     let mut validators = Vec::new();
     for app in [&web, &api] {

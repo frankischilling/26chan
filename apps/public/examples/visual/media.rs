@@ -146,6 +146,7 @@ impl Fixture {
                     },
                     posts: vec![post],
                     omitted: 0,
+                    image_replies: 0,
                 })
                 .collect()
         } else {
@@ -153,6 +154,7 @@ impl Fixture {
                 thread,
                 posts,
                 omitted: 0,
+                image_replies: 0,
             }]
         };
         views::BoardPage {

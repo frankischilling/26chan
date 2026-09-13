@@ -58,6 +58,14 @@ pub struct ThreadView {
     pub thread: Thread,
     pub posts: Vec<PostView>,
     pub omitted: usize,
+    pub image_replies: i64,
+}
+impl ThreadView {
+    pub fn visible_replies(&self) -> usize {
+        self.omitted
+            .saturating_add(self.posts.len())
+            .saturating_sub(1)
+    }
 }
 pub struct PostView {
     pub post: Post,
@@ -65,6 +73,15 @@ pub struct PostView {
     pub now: String,
 }
 impl PostView {
+    pub fn catalog_size(&self) -> (i64, i64) {
+        let Some(file) = &self.post.attachment else {
+            return (1, 1);
+        };
+        catalog_dimensions(
+            file.thumbnail_width.unwrap_or(file.width),
+            file.thumbnail_height.unwrap_or(file.height),
+        )
+    }
     pub fn new(post: Post) -> Self {
         let lines = parse_comment(&post.comment);
         let now = post
@@ -73,6 +90,34 @@ impl PostView {
             .format("%m/%d/%y(%a)%H:%M:%S")
             .to_string();
         Self { post, lines, now }
+    }
+}
+
+fn catalog_dimensions(width: i32, height: i32) -> (i64, i64) {
+    let width = i64::from(width.max(1));
+    let height = i64::from(height.max(1));
+    let largest = width.max(height).max(150);
+    (
+        (width * 150 / largest).max(1),
+        (height * 150 / largest).max(1),
+    )
+}
+
+#[cfg(test)]
+mod catalog_tests {
+    #[test]
+    fn thumbnail_attributes_are_bounded_without_upscaling_or_integer_overflow() {
+        for (input, expected) in [
+            ((250, 150), (150, 90)),
+            ((100, 250), (60, 150)),
+            ((48, 32), (48, 32)),
+            ((1, 1), (1, 1)),
+            ((i32::MAX, i32::MAX), (150, 150)),
+            ((i32::MAX, 1), (150, 1)),
+            ((0, i32::MIN), (1, 1)),
+        ] {
+            assert_eq!(super::catalog_dimensions(input.0, input.1), expected);
+        }
     }
 }
 

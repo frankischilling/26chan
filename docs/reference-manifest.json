@@ -3,7 +3,7 @@
     "repository":  "https://github.com/4chan/4chan-API",
     "revision":  "2bd670d507ba2daa37a3961a661e088cf6f89d57",
     "provenance":  "Permitted public read-only API documentation. No production post/media fixtures.",
-    "visual_reference":  "Partial public theme/style, desktop post-layout and posting-field references collected September 13, 2026; see public-theme-reference.json, public-post-layout-reference.json and public-form-reference.json. Computed CSS facts use synthetic DOM; full original rendered-page and mobile-client snapshots remain uncollected.",
+    "visual_reference":  "Partial public theme/style, desktop post-layout, posting-field and catalog-card references collected September 13, 2026; see public-theme-reference.json, public-post-layout-reference.json, public-form-reference.json and public-catalog-reference.json. Computed CSS facts use synthetic DOM; full original rendered-page and mobile-client snapshots remain uncollected.",
     "behavioral_references": [
         {
             "name": "Official quoting FAQ",

@@ -1,0 +1,19 @@
+{% import "formatting.html" as formatting %}
+{% macro card(view, board, media_origin) %}
+<section class="thread" id="thread-{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
+{% for item in view.posts %}{% if item.post.id == view.thread.id %}
+<a class="catalogThumb" href="/{{ board }}/thread/{{ view.thread.id }}" aria-label="View thread {{ view.thread.id }}">
+{% if let Some(file) = item.post.attachment %}
+{% if file.file_deleted %}<span class="catalogPlaceholder fileDeleted">File deleted.</span>
+{% else if file.spoiler %}<span class="catalogPlaceholder">Spoiler image</span>
+{% else if !media_origin.is_empty() %}
+{% let (width, height) = item.catalog_size() %}<img class="thumb" id="thumb-{{ item.post.id }}" src="{{ media_origin }}/{{ board }}/{{ file.tim }}{% if file.thumbnail_width.is_some() && file.thumbnail_height.is_some() %}s.jpg{% else %}.png{% endif %}" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">
+{% else %}<span class="catalogPlaceholder">Image unavailable</span>{% endif %}
+{% else %}<span class="catalogPlaceholder">No image</span>{% endif %}
+</a>
+{% if view.thread.sticky || view.thread.closed %}<div class="threadIcons">{% if view.thread.sticky %}<span>Sticky</span>{% endif %} {% if view.thread.closed %}<span>Closed</span>{% endif %}</div>{% endif %}
+<div class="meta" id="meta-{{ view.thread.id }}" title="(R)eplies / (I)mage Replies">R: <b>{{ view.visible_replies() }}</b>{% if view.image_replies > 0 %} / I: <b>{{ view.image_replies }}</b>{% endif %}</div>
+<div class="teaser">{% if !item.post.subject.is_empty() %}<b>{{ item.post.subject }}</b>: {% endif %}{% call formatting::comment(item.lines.as_slice(), board) %}{% endcall %}</div>
+{% endif %}{% endfor %}
+</section>
+{% endmacro %}

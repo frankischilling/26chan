@@ -168,6 +168,7 @@ async fn board_page(
             thread: preview.thread,
             posts: posts.into_iter().map(PostView::new).collect(),
             omitted,
+            image_replies: preview.visible_images,
         });
     }
     Ok(Html(
@@ -223,6 +224,7 @@ pub async fn thread(
                 thread,
                 posts,
                 omitted: 0,
+                image_replies: 0,
             }],
             parent: id,
             previous: String::new(),

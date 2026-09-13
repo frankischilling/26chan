@@ -110,7 +110,14 @@ cargo fmt --all -- --check
 python scripts/check-media-parser-dependencies.py
 ```
 
-Exact-head hosted checks remain required before this slice can merge. No
+PR #61 merged as `96ea7001288698822f9559a5d3cabf0d92b6d62d` at
+2026-09-13T06:35:07Z after final source review and matching the merge-preview
+tree to tested head `d216b62aa51469a3466c2c4ec1d7560959328e72`.
+PR build 34742232569 passed Linux qualification (17m49s) and Windows visuals
+(4m35s); push build 34742229924 passed both (20m4s and 4m23s).
+Monitoring runs 34742232501 and 34742229909 passed. All native guest, dispatch,
+intake, restore, pressure and maintenance-alert steps completed successfully.
+The advisory workflow was path-filtered with no dependency changes. No
 dependency, migration, credential, workflow permission, production enablement,
 deployment or release is included. Browser pins, zero retries and zero-pixel
 tolerance are unchanged.

@@ -2,6 +2,7 @@
 {% import "formatting.html" as formatting %}
 {% import "attachments.html" as attachments %}
 {% import "post_fields.html" as posting %}
+{% import "catalog_card.html" as catalog_cards %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
@@ -28,8 +29,9 @@
 </form>
 {% endif %}
 <hr>
-<div class="{% if catalog %}catalog{% else %}board{% endif %}">
+<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog extended-small{% else %}board{% endif %}">
 {% for view in threads %}
+{% if catalog %}{% call catalog_cards::card(view, board.slug, media_origin) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 <article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
@@ -54,6 +56,7 @@
 {% endfor %}
 {% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
 </section>
+{% endif %}
 {% else %}<p class="empty">No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}</p>{% endfor %}
 </div>
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
