@@ -6,6 +6,8 @@
   --label: #eeaa88; --label-ink: #880000; --target: #f0c0b0;
   --label-edge: #880000; --field-edge: #aaaaaa; --select-edge: #aaaaaa; --placeholder: gray;
   --quote-hover: var(--hover);
+  --reply-border-width: 0 1px 1px 0; --reply-edge: var(--edge);
+  --arrows: #e0bfb7; --target-edge: #d99f91;
   --field: #ffffff; --field-ink: #111111; --control: #eeeeee;
   --muted: #707070; --focus: #0645ad; --font: Arial, Helvetica, sans-serif;
   --size: 10pt; --decoration: none; --scheme: light;
@@ -28,6 +30,8 @@ input, textarea, select { background: var(--field); color: var(--field-ink); bor
 select { border-color: var(--select-edge); }
 input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 1; }
 button { background: var(--control); color: var(--field-ink); }
-.post:target { background: var(--target); outline-color: var(--edge); }
+.reply { border-style: solid; border-width: var(--reply-border-width); border-color: var(--reply-edge); }
+.sideArrows { color: var(--arrows); }
+.reply:target { background: var(--target); border-color: var(--target-edge); }
 .omitted, .postActions { color: var(--muted); }
 a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline-color: var(--focus); }

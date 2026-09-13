@@ -73,9 +73,23 @@ cargo fmt --all -- --check
 node --check tests/public-states/states.spec.js
 ```
 
-Formatting, JavaScript syntax and whitespace checks passed. Exact-head hosted
-checks remain required. The Windows CI job now includes `npm run test:states`.
+Formatting, JavaScript syntax and whitespace checks passed. The Windows CI job
+now includes `npm run test:states`.
 Linux runs the actual database test
 through the existing all-feature workspace suite; Windows screenshots do not
 establish Linux or original-site visual parity. No dependency, migration,
 credential, production media setting or deployed service changes.
+
+## Completed pull-request verification
+
+Exact head `df68b48827528c14fe8aaea58ad4e376a732b495` passed complete build runs
+[34740263014](https://github.com/frankischilling/26chan/actions/runs/34740263014)
+and [34740261154](https://github.com/frankischilling/26chan/actions/runs/34740261154),
+including Linux native qualification and all Windows visual suites. Both
+[PR monitoring](https://github.com/frankischilling/26chan/actions/runs/34740263006)
+and [push monitoring](https://github.com/frankischilling/26chan/actions/runs/34740261144)
+passed. Advisory checks were path-filtered because no dependency changed.
+After source review and verification that the merge-preview tree exactly
+matched the tested head, [PR #57](https://github.com/frankischilling/26chan/pull/57)
+merged as `ae1417b4063057d000ef7e75f2839608e96bf461` on September 13, 2026.
+No check bypass or independent-audit claim is involved.

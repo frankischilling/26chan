@@ -27,6 +27,12 @@ for (const [name, viewport] of [
         const box = await img.boundingBox();
         expect([box.width, box.height]).toEqual(expected[index]);
         expect(await img.getAttribute('src')).toBe(`http://localhost:3004/img/${1000201 + index}${index === 3 ? '.png' : 's.jpg'}`);
+        if (kind !== 'catalog') {
+          // Keep desktop reference flow without squeezing narrow-screen comments.
+          const float = name === 'desktop' ? 'left' : 'none';
+          await expect(img).toHaveCSS('float', float);
+          await expect(page.locator('.fileThumb').nth(index)).toHaveCSS('float', float);
+        }
       }
       await expect(page.locator('#f1000201 p a')).toHaveText(`<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`);
       await expect(page.locator('.file b, .file script')).toHaveCount(0);

@@ -28,6 +28,10 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
       expect(await page.locator('html').evaluate(node => getComputedStyle(node).fontFamily.includes('Times New Roman'))).toBe(serif);
       expect(await page.locator('.postMessage').allTextContents()).toEqual(content);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const arrows = await page.locator('.sideArrows').boundingBox();
+      const reply = await page.locator('.reply').boundingBox();
+      expect(arrows.x + arrows.width).toBeLessThanOrEqual(reply.x);
+      expect(Math.abs(arrows.y - reply.y)).toBeLessThanOrEqual(4);
       const cookies = await context.cookies();
       expect(cookies).toHaveLength(1);
       expect(cookies[0]).toMatchObject({ name: 'board-theme-ws', value: id, path: '/', httpOnly: true, sameSite: 'Lax' });
@@ -41,7 +45,8 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
       expect(response.status()).toBe(200);
       expect(response.headers()['cache-control']).toBe('private, no-store');
       expect(response.headers().vary).toBe('Cookie');
-      await expect(page).toHaveScreenshot(`theme-${id}-${device}.png`, { fullPage: true });
+      // Collect every theme difference; any mismatch still fails the test.
+      await expect.soft(page).toHaveScreenshot(`theme-${id}-${device}.png`, { fullPage: true });
     }
     await page.goto('/settings/theme?worksafe=false');
     await expect(page.getByLabel('Style', { exact: true })).toHaveValue('yotsuba');

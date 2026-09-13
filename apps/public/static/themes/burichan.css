@@ -3,5 +3,6 @@
   --link: #34345c; --hover: #dd0000; --quote-link: #dd0000;
   --subject: #0f0c5d; --label: #9988ee; --label-ink: #000000; --target: #d6bad0;
   --label-edge: #000000;
+  --reply-border-width: 0; --reply-edge: #000000; --arrows: #000000; --target-edge: #000000;
   --font: 'Times New Roman', serif; --size: 12pt; --decoration: underline; --wash: none;
 }

@@ -4,4 +4,5 @@
   --name: #004a99; --subject: #111111; --label: #dddddd; --label-ink: #333333;
   --target: #cccccc; --wash: none;
   --label-edge: #cccccc;
+  --reply-border-width: 1px; --arrows: #333333; --target-edge: #cccccc;
 }

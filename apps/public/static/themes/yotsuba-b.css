@@ -3,5 +3,6 @@
   --link: #34345c; --hover: #dd0000; --quote-link: #dd0000;
   --subject: #0f0c5d; --label: #9988ee; --label-ink: #000000; --target: #d6bad0;
   --label-edge: #000000;
+  --arrows: #b7c5d9; --target-edge: #ba9dbf;
   --wash: url('/static/themes/fade-blue.png') top center repeat-x;
 }

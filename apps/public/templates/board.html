@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "formatting.html" as formatting %}
+{% import "attachments.html" as attachments %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
@@ -36,26 +37,16 @@
 <section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 <article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
+{% if item.post.id != view.thread.id %}<div class="sideArrows" aria-hidden="true">&gt;&gt;</div>{% endif %}
 <div class="post {% if item.post.id == view.thread.id %}op{% else %}reply{% endif %}" id="p{{ item.post.id }}">
+{% if !catalog && item.post.id == view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
 <div class="postInfo" id="pi{{ item.post.id }}">
 {% if !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
 <span class="name">{{ item.post.name }}</span> <time datetime="{{ item.post.created_at.to_rfc3339() }}">{{ item.now }}</time>
 <a class="postNum" href="/{{ board.slug }}/thread/{{ view.thread.id }}#p{{ item.post.id }}">No.{{ item.post.id }}</a>
 {% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed || view.thread.archived_at.is_some() %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">{% if view.thread.archived_at.is_some() %}View thread{% else %}Reply{% endif %}</a>]{% endif %}
 </div>
-{% if let Some(file) = item.post.attachment %}
-{% if file.file_deleted %}<p class="fileDeleted">File deleted.</p>
-{% else if !media_origin.is_empty() %}
-<div class="file" id="f{{ item.post.id }}">
-<p>File: <a href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{{ file.filename }}</a> ({{ file.bytes }} bytes, {{ file.width }}×{{ file.height }}, normalized PNG)</p>
-{% if file.spoiler %}
-<details><summary>Spoiler image</summary><a href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">View spoiler image</a></details>
-{% else %}
-<a class="fileThumb" href="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %}<img src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}s.jpg" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">{% else %}<img src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}.png" alt="{{ file.filename }}" width="{{ file.width }}" height="{{ file.height }}" loading="lazy">{% endif %}</a>
-{% endif %}
-</div>
-{% endif %}
-{% endif %}
+{% if catalog || item.post.id != view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
 <blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</blockquote>
 {% if !catalog %}
 <details class="postActions"><summary>Delete or report</summary>
