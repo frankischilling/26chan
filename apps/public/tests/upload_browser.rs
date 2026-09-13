@@ -133,8 +133,8 @@ async fn no_javascript_browser_posts_and_deletes_an_approved_attachment() {
         }).await.expect("public binary readiness deadline");
         // A second attachment leaves the first post's deletion tombstone on the
         // same board. Browser assertions must identify the post they changed.
-        for _ in 0..2 {
-            exercise(&test_admin, &test_root, &test_board, &public_origin, &store).await;
+        for attachment_only in [false, true] {
+            exercise(&test_admin, &test_root, &test_board, &public_origin, &store, attachment_only).await;
         }
     }).await;
     public.kill().await.unwrap();
@@ -183,6 +183,7 @@ async fn exercise(
     board: &str,
     origin: &str,
     store: &PublicationStore,
+    attachment_only: bool,
 ) {
     // Public/intake treat the file as opaque. This separate trusted fixture
     // supplies bounded synthetic pixels to the normal publication code.
@@ -202,6 +203,7 @@ async fn exercise(
         .arg(origin)
         .arg(board)
         .arg(&source)
+        .args(attachment_only.then_some("--attachment-only"))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

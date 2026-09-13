@@ -13,7 +13,7 @@
 <input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
 <input type="hidden" name="resto" value="{{ form.resto }}">
 {% call posting::fields(form.resto, true) %}{% endcall %}
-<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Save your deletion password.</p>
+<p id="postHelp">Comment optional with an approved image; maximum {{ board.max_comment_chars }} characters. Save your deletion password.</p>
 </form>
 {% else %}
 <form method="post" action="/{{ board.slug }}/upload/status">

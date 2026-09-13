@@ -300,6 +300,7 @@ pub struct PostForm {
     name: String,
     #[serde(default)]
     sub: String,
+    #[serde(default)]
     com: String,
     password: String,
     #[serde(default)]
@@ -335,11 +336,12 @@ pub async fn post(
             ));
         }
     };
-    board_domain::validate_post(
+    board_domain::validate_post_with_attachment(
         &form.name,
         &form.sub,
         &form.com,
         settings.max_comment_chars as usize,
+        attachment.is_some(),
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     let (sage, return_to_board) = match form.email.as_str() {

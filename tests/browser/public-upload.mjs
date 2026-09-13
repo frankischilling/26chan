@@ -8,6 +8,8 @@ import { chromium, expect } from '@playwright/test';
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
 const source = process.argv[4];
+assert.ok(process.argv[5] === undefined || process.argv[5] === '--attachment-only');
+const attachmentOnly = process.argv[5] === '--attachment-only';
 const screenshots = process.env.PUBLIC_UPLOAD_SCREENSHOTS;
 if (screenshots) assert.ok(path.isAbsolute(screenshots));
 assert.equal(origin.hostname, '127.0.0.1');
@@ -37,6 +39,7 @@ try {
   };
   page.setDefaultTimeout(10_000);
   await page.goto(new URL(`/${board}/`, origin).href);
+  await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('required', '');
   await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg');
   await page.getByLabel('File', { exact: true }).setInputFiles(source);
   await page.getByRole('button', { name: 'Upload file', exact: true }).click();
@@ -62,6 +65,7 @@ try {
   await screenshot('approved-post-form');
   await expect(page.locator('table#postForm')).toHaveAttribute('role', 'presentation');
   await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('aria-describedby', 'postHelp');
+  await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
     await page.setViewportSize(viewport);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -69,7 +73,9 @@ try {
   }
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
-  await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel image, posted without site JavaScript.');
+  if (!attachmentOnly) {
+    await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel image, posted without site JavaScript.');
+  }
   await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   await page.getByRole('button', { name: 'Post with image', exact: true }).click();
   const threadUrl = page.url();
@@ -99,6 +105,8 @@ try {
   const api = await page.request.get(apiUrl.href);
   assert.equal(api.status(), 200);
   const post = (await api.json()).posts[0];
+  if (attachmentOnly) assert.equal(post.com, undefined);
+  else assert.match(post.com, /A synthetic one-pixel image/);
   assert.equal(post.ext, '.png');
   assert.equal(post.tim, Number(mediaUrl.pathname.split('/').at(-1).replace('.png', '')));
   assert.equal(post.md5, createHash('md5').update(await media.body()).digest('base64'));
@@ -137,6 +145,7 @@ try {
   assert.equal(removed.status(), 404, 'deletion must override an old successful validator');
   assert.equal((await page.request.get(thumbnailUrl.href, { headers: { 'If-None-Match': thumbnail.headers().etag } })).status(), 404);
   const deleted = (await (await page.request.get(apiUrl.href)).json()).posts[0];
+  if (attachmentOnly) assert.equal(deleted.com, undefined);
   assert.equal(deleted.filedeleted, 1);
   for (const field of ['tim', 'md5', 'ext', 'fsize', 'tn_w', 'tn_h']) assert.equal(deleted[field], undefined);
   const deletedRequests = [];

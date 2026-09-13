@@ -118,7 +118,10 @@ fn post_json(
     .render()?;
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
-        "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name, "com": comment });
+        "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name });
+    if !post.post.comment.is_empty() {
+        value["com"] = json!(comment);
+    }
     if op {
         value["replies"] = json!(replies);
         value["images"] = json!(images);
