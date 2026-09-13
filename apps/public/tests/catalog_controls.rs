@@ -34,6 +34,24 @@ fn bump_limited(html: &str, id: i64) -> bool {
         .contains("<i>R: <b>")
 }
 
+fn latest_reply(html: &str, id: i64) -> Option<i64> {
+    let value = html
+        .split(&format!("id=\"thread-{id}\""))
+        .nth(1)
+        .unwrap()
+        .split("data-latest-reply=\"")
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.parse().unwrap())
+    }
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
     let mut threads = Vec::new();
@@ -66,6 +84,18 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert_eq!(status, 200);
         assert_eq!(ids(&page), expected, "{query}");
         assert!(!page.contains("<script>fold</script>"));
+        for (id, latest) in [
+            (*s, None),
+            (*a, Some(replies[3])),
+            (*b, Some(replies[5])),
+            (*c, Some(replies[2])),
+        ] {
+            assert_eq!(
+                latest_reply(&page, id),
+                latest,
+                "snapshot reply metadata {query} {id}"
+            );
+        }
         for (id, limited) in [(*a, true), (*b, true), (*c, false), (*s, false)] {
             assert_eq!(bump_limited(&page, id), limited, "{query} {id}");
         }
@@ -94,7 +124,15 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     )
     .await;
     assert!(large.contains("class=\"catalog large\""));
-    assert!(!large.contains("class=\"teaser\""));
+    assert_eq!(large.matches("class=\"teaser\"").count(), threads.len());
+    assert_eq!(
+        large
+            .matches("<template class=\"catalogTeaser\"><div class=\"teaser\">")
+            .count(),
+        threads.len()
+    );
+    assert_eq!(large.matches("</div></template>").count(), threads.len());
+    assert!(!large.contains("<script>fold</script>"));
     assert!(large.contains("value=\"r\" selected"));
     assert!(large.contains("value=\"large\" selected"));
     assert!(large.contains("value=\"off\" selected"));
@@ -105,6 +143,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .unwrap();
     let (_, page) = read(&app, &format!("/{slug}/catalog?order=absdate")).await;
     assert_eq!(ids(&page), vec![*s, *a, *c, *b]);
+    assert_eq!(
+        latest_reply(&page, *b),
+        None,
+        "deleted replies do not become client sort metadata"
+    );
     let (_, page) = read(&app, &format!("/{slug}/catalog?order=r")).await;
     assert_eq!(ids(&page), vec![*s, *c, *a, *b]);
     assert!(bump_limited(&page, *b), "deletion does not restore bumping");

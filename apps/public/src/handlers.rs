@@ -183,6 +183,7 @@ async fn board_page(
         let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
         views.push(ThreadView {
+            latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
             posts: posts.into_iter().map(PostView::new).collect(),
             omitted,
@@ -235,11 +236,17 @@ pub async fn thread(
         thread,
         posts,
     } = board_store::thread_snapshot(&state.pool, &board, id).await?;
+    let latest_reply_id = posts
+        .iter()
+        .filter(|post| post.id != thread.id)
+        .map(|post| post.id)
+        .max();
     let posts = posts.into_iter().map(PostView::new).collect();
     Ok(Html(
         BoardPage {
             board,
             threads: vec![ThreadView {
+                latest_reply_id,
                 thread,
                 posts,
                 omitted: 0,

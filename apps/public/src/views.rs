@@ -56,6 +56,7 @@ pub struct ArchivePage {
 }
 
 pub struct ThreadView {
+    pub latest_reply_id: Option<i64>,
     pub thread: Thread,
     pub posts: Vec<PostView>,
     pub omitted: usize,

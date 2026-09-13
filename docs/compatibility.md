@@ -54,7 +54,8 @@ client behavior and captcha equivalence remain unverified.
 
 Catalog display preferences now have bounded browser-local persistence; see
 [preference behavior and remaining differences](catalog-preferences.md).
-In-place redraw and full catalog interaction parity remain unfinished.
+In-place display controls are covered by [snapshot and rendering checks](catalog-inplace.md).
+Live search, other catalog interactions and full-page parity remain unfinished.
 
 Public request budgets are project-defined containment policy, not claimed reference behavior.
 Their existing defaults and bounded operator overrides are documented in

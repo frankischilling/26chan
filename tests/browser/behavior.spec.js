@@ -5,7 +5,7 @@ const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-as
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
-test('catalog controls sort persisted sage replies and filter literal text without JavaScript', async ({ browser }) => {
+test('catalog controls sort persisted sage replies with and without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   const origin = 'http://127.0.0.1:3000';
@@ -30,7 +30,7 @@ test('catalog controls sort persisted sage replies and filter literal text witho
     const c = await post(null, `${marker} Crane`);
     await post(a, '', true);
     await post(b, '');
-    await post(a, '', true);
+    const lastAReply = await post(a, '', true);
     await page.goto(`${origin}/test/catalog`);
     const controls = page.getByRole('form', { name: 'Catalog controls' });
     await controls.getByLabel('Search:', { exact: true }).fill(marker);
@@ -61,6 +61,44 @@ test('catalog controls sort persisted sage replies and filter literal text witho
     await expect(page).toHaveURL(`${origin}/test/catalog`);
     await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue('');
     await expect(page.locator('#threads')).toHaveClass('catalog extended-small');
+    const liveContext = await browser.newContext();
+    try {
+      const live = await liveContext.newPage();
+      await live.goto(`${origin}/test/catalog?q=${encodeURIComponent(marker)}`);
+      let navigations = 0;
+      live.on('request', request => { if (request.isNavigationRequest() && request.frame() === live.mainFrame()) navigations += 1; });
+      await live.evaluate(() => { window.originalCards = Array.from(document.querySelectorAll('.catalog .thread')); });
+      const ids = () => live.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
+      for (const [order, expected] of [['date',[c,b,a]], ['absdate',[a,b,c]], ['r',[a,b,c]], ['alt',[b,c,a]]]) {
+        await live.locator('#order-ctrl').selectOption(order);
+        expect(await ids()).toEqual(expected);
+        expect(new URL(live.url()).searchParams.get('order')).toBe(order);
+      }
+      await live.locator('#size-ctrl').selectOption('large');
+      await live.locator('#teaser-ctrl').selectOption('off');
+      await expect(live.locator('#threads')).toHaveClass('catalog large');
+      await expect(live.locator('.teaser')).toHaveCount(0);
+      await live.locator('#teaser-ctrl').selectOption('on');
+      await expect(live.locator('.teaser')).toHaveCount(3);
+      expect(await live.evaluate(() => window.originalCards.every(node => document.getElementById(node.id) === node))).toBe(true);
+      expect(navigations).toBe(0);
+
+      await page.goto(`${origin}/test/thread/${a}`);
+      const actions = page.locator(`#p${lastAReply} .postActions`);
+      await actions.getByText('Delete or report', { exact: true }).click();
+      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
+      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await live.reload();
+      await expect(live.locator(`#meta-${a} b`).first()).toHaveText('1');
+      for (const [order, expected] of [['absdate',[b,a,c]], ['r',[a,b,c]]]) {
+        await live.locator('#order-ctrl').selectOption(order);
+        expect(await ids()).toEqual(expected);
+        await page.goto(`${origin}/test/catalog?order=${order}&q=${encodeURIComponent(marker)}`);
+        const serverIds = await page.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
+        expect(await ids()).toEqual(serverIds);
+      }
+      expect(navigations).toBe(1);
+    } finally { await liveContext.close(); }
   } finally {
     for (const id of threads) {
       await page.goto(`${origin}/test/thread/${id}`);

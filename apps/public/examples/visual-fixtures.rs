@@ -76,6 +76,7 @@ fn page(catalog: bool) -> String {
     BoardPage {
         board,
         threads: vec![ThreadView {
+            latest_reply_id: Some(1_000_002),
             thread,
             posts,
             omitted: usize::from(catalog),
@@ -192,6 +193,11 @@ fn archived_thread() -> String {
         parent: thread.id,
         board,
         threads: vec![ThreadView {
+            latest_reply_id: posts
+                .iter()
+                .filter(|post| post.post.id != thread.id)
+                .map(|post| post.post.id)
+                .max(),
             thread,
             posts,
             omitted: 0,
