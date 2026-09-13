@@ -68,4 +68,24 @@ for (const [name, viewport] of [
       await expect(page).toHaveScreenshot(`media-${kind}-${name}.png`, { fullPage: true });
     });
   }
+  for (const [size, teaser] of [['small','off'], ['large','off'], ['large','on']]) {
+    test(`catalog ${size} teasers ${teaser} ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto(`/img/catalog?size=${size}&teaser=${teaser}`);
+      const images = page.locator('.catalogThumb img');
+      await expect(images).toHaveCount(4);
+      await expect(page.locator('.teaser')).toHaveCount(teaser === 'on' ? 6 : 0);
+      const expected = size === 'large' ? [[250,150],[100,250],[50,50],[250,150]] : [[150,90],[60,150],[50,50],[150,90]];
+      for (let index = 0; index < 4; index++) {
+        await images.nth(index).scrollIntoViewIfNeeded();
+        await expect.poll(() => images.nth(index).evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+        const box = await images.nth(index).boundingBox();
+        expect([box.width,box.height]).toEqual(expected[index]);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+      await page.evaluate(() => scrollTo(0,0));
+      await page.mouse.move(0,0);
+      await expect(page).toHaveScreenshot(`catalog-${size}-teasers-${teaser}-${name}.png`, { fullPage: true });
+    });
+  }
 }

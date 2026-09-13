@@ -1,0 +1,15 @@
+<form id="ctrl" class="catalogControls" action="/{{ board.slug }}/catalog" method="get" aria-label="Catalog controls">
+<span class="catalogControl"><label for="order-ctrl">Sort by:</label>
+<select id="order-ctrl" name="order">
+<option value="alt"{% if catalog_options.order_value() == "alt" %} selected{% endif %}>Bump order</option>
+<option value="absdate"{% if catalog_options.order_value() == "absdate" %} selected{% endif %}>Last reply</option>
+<option value="date"{% if catalog_options.order_value() == "date" %} selected{% endif %}>Creation date</option>
+<option value="r"{% if catalog_options.order_value() == "r" %} selected{% endif %}>Reply count</option>
+</select></span>
+<span class="catalogControl"><label for="size-ctrl">Image size:</label>
+<select id="size-ctrl" name="size"><option value="small"{% if !catalog_options.large() %} selected{% endif %}>Small</option><option value="large"{% if catalog_options.large() %} selected{% endif %}>Large</option></select></span>
+<span class="catalogControl"><label for="teaser-ctrl">Teasers:</label>
+<select id="teaser-ctrl" name="teaser"><option value="off"{% if !catalog_options.show_teaser() %} selected{% endif %}>Off</option><option value="on"{% if catalog_options.show_teaser() %} selected{% endif %}>On</option></select></span>
+<span class="catalogControl"><label for="qf-box">Search:</label><input id="qf-box" type="search" name="q" maxlength="128" value="{{ catalog_options.q }}"></span>
+<span class="catalogControl"><button type="submit">Apply</button> <a href="/{{ board.slug }}/catalog">Reset</a></span>
+</form>

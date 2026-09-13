@@ -40,6 +40,9 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
             (&api, "1.json"),
             (&web, ""),
             (&web, "catalog"),
+            (&web, "catalog?order=absdate"),
+            (&web, "catalog?order=date"),
+            (&web, "catalog?order=r&q=commit"),
         ] {
             sqlx::query(
                 "UPDATE content.boards SET title='Before commit',bump_limit=50 WHERE slug=$1",
@@ -218,6 +221,7 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
             .collect::<Vec<_>>(),
         last
     );
+    assert_eq!(preview.latest_reply_id, last.first().copied());
     let first = board_snapshot(public, slug, BoardSelection::Page(1), None)
         .await
         .unwrap();

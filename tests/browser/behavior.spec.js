@@ -2,6 +2,74 @@ import { test, expect } from '@playwright/test';
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
+test('catalog controls sort persisted sage replies and filter literal text without JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  const origin = 'http://127.0.0.1:3000';
+  const marker = `Catalog-${Date.now()}`;
+  const password = 'catalog-browser-password';
+  const threads = [];
+  async function post(parent, subject, sage = false) {
+    await page.goto(`${origin}/test/${parent ? `thread/${parent}` : ''}`);
+    if (!parent) await page.locator('#sub').fill(subject);
+    await page.locator('#com').fill(`${marker} synthetic <script>fold</script>`);
+    await page.locator('#password').fill(password);
+    if (sage) await page.locator('#email').selectOption('sage');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
+    const id = /#p(\d+)$/.exec(page.url())[1];
+    if (!parent) threads.push(id);
+    return id;
+  }
+  try {
+    const a = await post(null, `${marker} Alpha [.*]`);
+    const b = await post(null, `${marker} Bravo`);
+    const c = await post(null, `${marker} Crane`);
+    await post(a, '', true);
+    await post(b, '');
+    await post(a, '', true);
+    await page.goto(`${origin}/test/catalog`);
+    const controls = page.getByRole('form', { name: 'Catalog controls' });
+    await controls.getByLabel('Search:', { exact: true }).fill(marker);
+    for (const [order, expected] of [['alt',[b,c,a]], ['absdate',[a,b,c]], ['date',[c,b,a]], ['r',[a,b,c]]]) {
+      await controls.getByLabel('Sort by:', { exact: true }).selectOption(order);
+      await controls.getByRole('button', { name: 'Apply', exact: true }).click();
+      const actual = await page.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
+      expect(actual).toEqual(expected);
+      await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue(marker);
+      await page.reload();
+      await expect(controls.getByLabel('Sort by:', { exact: true })).toHaveValue(order);
+    }
+    await controls.getByLabel('Image size:', { exact: true }).selectOption('large');
+    await controls.getByLabel('Teasers:', { exact: true }).selectOption('off');
+    await controls.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.locator('#threads')).toHaveClass('catalog large');
+    await expect(page.locator('.teaser')).toHaveCount(0);
+    await controls.getByLabel('Search:', { exact: true }).fill(`${marker} Alpha [.*]`);
+    await controls.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.locator('.catalog .thread')).toHaveCount(1);
+    await expect(page.locator('.catalog .thread')).toHaveAttribute('id', `thread-${a}`);
+    await controls.getByLabel('Search:', { exact: true }).fill('(?=unsupported)<script>');
+    await controls.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.locator('.empty')).toContainText('No matching threads.');
+    await expect(page.locator('#ctrl script')).toHaveCount(0);
+    await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue('(?=unsupported)<script>');
+    await controls.getByRole('link', { name: 'Reset', exact: true }).click();
+    await expect(page).toHaveURL(`${origin}/test/catalog`);
+    await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue('');
+    await expect(page.locator('#threads')).toHaveClass('catalog extended-small');
+  } finally {
+    for (const id of threads) {
+      await page.goto(`${origin}/test/thread/${id}`);
+      const actions = page.locator(`#p${id} .postActions`);
+      await actions.getByText('Delete or report', { exact: true }).click();
+      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
+      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+    }
+    await context.close();
+  }
+});
+
 test('cross-board quotes navigate persisted replies and respect deletion without JavaScript', async ({ browser }) => {
   const origin = 'http://127.0.0.1:3000';
   const context = await browser.newContext({ javaScriptEnabled: false });

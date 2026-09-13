@@ -2,6 +2,7 @@
 
 mod api;
 mod api_http;
+pub mod catalog;
 mod handlers;
 mod intake;
 mod security;

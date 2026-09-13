@@ -42,8 +42,9 @@ deleted-file cards contain no image URL, so they cannot request those bytes.
 
 Explicit remaining differences: no-image, spoiler and deleted-file graphics
 are currently text fallbacks; sticky/closed indicators are text. Sorting,
-filtering, size/teaser settings, menus, watchers, hover previews and original
-teaser preprocessing are not implemented by this slice. Existing board-header
+filtering and size/teaser settings have separate [control verification](catalog-controls.md).
+Menus, watchers, hover previews and original teaser preprocessing remain
+incomplete. Existing board-header
 and page-navigation differences remain. Keyboard focus expands a clipped card
 and preserves the visible focus outline so links remain accessible. Core
 browsing needs no JavaScript, third-party code, cookies or new service access.
@@ -83,6 +84,15 @@ ordinary visual suites (`test:visual`, `test:archive-visual`, `test:media-visual
 `test:states`, `test:themes`, with `VISUAL_FIXTURE_SERVER=1`) passed 47 scenarios
 and all 39 screenshot comparisons. Formatting, JavaScript syntax, the pinned
 reference reproduction and credentialed-runtime decoder dependency guard
-also passed. Exact-head hosted checks remain required before merge.
+also passed.
+
+PR #63 merged as `e0b5660beb191879fd2cef70b910db83bc7127d6` at
+2026-09-13T07:01:44Z after final implementation review and a merge-preview tree
+matching tested head `09aa7d06a5729e113690ea7388b7afa8dc086747`. PR build
+34743287473 passed Linux qualification (18m35s) and Windows visuals (4m21s);
+push build 34743285500 passed both (20m18s and 4m9s). Monitoring runs
+34743287480 and 34743285515 passed. All native guest, dispatch, intake,
+restoration, pressure and maintenance-alert steps succeeded. The advisory
+workflow was path-filtered with no dependency changes.
 No migration, dependency, service authority or production setting changes
 are required.

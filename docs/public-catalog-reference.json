@@ -2,6 +2,18 @@
   "scope": "Default extended-small card geometry measured on synthetic DOM using public catalog CSS. No production post content or client execution.",
   "dom_observation": {"url":"https://boards.4chan.org/po/catalog","collected_utc":"2026-09-13T06:15:29.3063123Z","bytes":91333,"sha256":"e626c646f767bb9757fddd5369049ca85025f73f7692d6415310f6f623db7c12","retained":"Only static asset URLs and allowlisted container attributes. A subsequent in-memory inspection found fourcat.applyCSS(null, ws_style, 705). Neither response was retained."},
   "asset_base": "https://s.4cdn.org/",
+  "controls_observation": {
+    "url":"https://boards.4chan.org/po/catalog",
+    "collected_utc":"2026-09-13T06:42:01.5396533Z",
+    "bytes":91333,
+    "sha256":"e626c646f767bb9757fddd5369049ca85025f73f7692d6415310f6f623db7c12",
+    "retained":"Only option labels/values within order-ctrl, size-ctrl and teaser-ctrl were inspected. The response body was not retained.",
+    "order-ctrl":{"alt":"Bump order","absdate":"Last reply","date":"Creation date","r":"Reply count"},
+    "size-ctrl":{"small":"Small","large":"Large"},
+    "teaser-ctrl":{"off":"Off","on":"On"},
+    "client_defaults":{"orderby":"alt","large":false,"extended":true},
+    "client_semantics":"Pinned v1025 client sorts creation by descending thread ID, last reply by descending last-reply ID, reply count descending, and bump by supplied rank. Sticky cards are rendered first. Quick filtering escapes regex punctuation and matches case-insensitively against the generated teaser or filename. Preferences/search use browser storage; server query parameters are local behavior."
+  },
   "assets": [
     {"path":"js/catalog.min.1025.js","bytes":51921,"sha256":"ce645b150e747f9ad1682dc005daf30d7bc1a9f2cd473b4f1e55f99adf76fa9f","downloaded_utc":"2026-09-13T06:15:54Z"},
     {"path":"css/catalog_mobile.705.css","bytes":7492,"sha256":"df6577e72e1fa6837da522fe9da2cb56152203e9fb5b8ccaef242e4219a7a4f2","downloaded_utc":"2026-09-13T06:15:54Z"},
