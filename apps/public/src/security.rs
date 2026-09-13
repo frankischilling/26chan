@@ -60,7 +60,10 @@ pub async fn protect(State(state): State<AppState>, request: Request, next: Next
         [board, "thread", id] => !board.is_empty() && id.parse::<i64>().is_ok_and(|id| id > 0),
         _ => false,
     };
-    let page = (board_page && matches!(*request.method(), Method::GET | Method::HEAD))
+    let upload_page = *request.method() == Method::POST
+        && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
+    let page = ((board_page && matches!(*request.method(), Method::GET | Method::HEAD))
+        || upload_page)
         .then_some(parts.last() == Some(&"catalog"));
     let response = protect_inner(&state, request, next).await;
     headers(board_http::hold_permit(response, permit), &state, page)
@@ -147,6 +150,15 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
         }
     } else {
         "'none'".into()
+    };
+    let script = if interactive {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::POST_TRACKING_PATH
+        )
+    } else {
+        script
     };
     let connect = if interactive {
         format!("{}/_watch/", state.origin)

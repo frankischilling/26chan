@@ -1,6 +1,7 @@
 import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
   sameEntry, orderedWatches, readTrackedReplies, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
+import { PostTracking } from './post-tracking.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -96,19 +97,43 @@ function start(context) {
   list.id = 'watchList';
   const notice = node('p', '', 'watcherNotice');
   notice.setAttribute('role', 'status');
-  body.append(list, notice);
+  const autoLabel = node('label', ' Automatically watch threads you create');
+  const autoWatch = node('input');
+  autoWatch.type = 'checkbox';
+  autoWatch.id = 'watcher-auto-post';
+  autoLabel.prepend(autoWatch);
+  autoWatch.addEventListener('change', async () => {
+    const value = autoWatch.checked;
+    await locked(() => {
+      const settings = { ...configuration(), threadAutoWatcher: value };
+      try { localStorage.setItem(settingsKey, JSON.stringify(settings)); } catch { persistent = false; }
+    });
+    render();
+  });
+  body.append(list, autoLabel, notice);
   panel.append(heading, body);
   document.body.append(panel);
 
   const refresh = new WatcherRefresh({ origin: location.origin, getEntries: () => entries,
-    getTracked: key => {
-      const parts = splitWatchKey(key);
-      return readTrackedReplies(read(`4chan-track-${parts.board}-${parts.id}`));
-    },
+    getTracked: key => tracking.tracked(key),
     commit: (key, expected, next, signal) => change(rows => {
       if (!sameEntry(rows.get(key), expected)) return false;
       if (next) rows.set(key, next); else rows.delete(key);
     }, signal),
+  });
+  const tracking = new PostTracking({ board, settings: configuration, locked,
+    onPost: receipt => change(rows => {
+      const key = watchKey(board, receipt.thread);
+      let current = rows.get(key);
+      if (!current && receipt.watch && configuration().threadAutoWatcher === true) {
+        if (rows.size >= WATCH_LIMITS.entries) return false;
+        const section = sections().find(section => sectionId(section) === receipt.thread);
+        current = { label: section ? label(section) : watchLabel('', '', receipt.thread),
+          read: receipt.post, unread: 0, archived: false, ownReply: false };
+      }
+      if (!current) return false;
+      rows.set(key, receipt.track ? acknowledgedEntry(current, receipt.post) : current);
+    }),
   });
 
   function textWithBreaks(element) {
@@ -184,6 +209,8 @@ function start(context) {
     }
   }
   function render() {
+    autoWatch.checked = configuration().threadAutoWatcher === true;
+    tracking.prepareForms();
     toggle.setAttribute('aria-pressed', String(enabled));
     panel.hidden = !enabled;
     body.hidden = collapsed;
@@ -263,5 +290,7 @@ function start(context) {
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();
-  acknowledgeCurrent().then(() => { navigateReadPosition(); return refreshAll(true); });
+  tracking.consume(threadId).then(() => acknowledgeCurrent()).then(() => {
+    navigateReadPosition(); return refreshAll(true);
+  });
 }

@@ -5,6 +5,7 @@ mod api_http;
 pub mod catalog;
 mod handlers;
 mod intake;
+mod post_receipts;
 mod security;
 pub mod themes;
 mod ui_assets;

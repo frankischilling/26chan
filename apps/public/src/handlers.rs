@@ -313,12 +313,29 @@ pub struct PostForm {
     upload_capability: String,
     #[serde(default)]
     spoiler: bool,
+    #[serde(default)]
+    awt: Option<u8>,
+    #[serde(default)]
+    track: Option<u8>,
 }
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    headers: HeaderMap,
     Form(form): Form<PostForm>,
-) -> Result<Redirect, AppError> {
+) -> Result<Response, AppError> {
+    if [form.awt, form.track]
+        .into_iter()
+        .flatten()
+        .any(|value| value > 1)
+    {
+        return Err(AppError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Invalid posting preference.",
+        ));
+    }
+    let auto_watch = form.awt == Some(1);
+    let track = form.track == Some(1);
     let settings = board_store::board(&state.pool, &board).await?;
     let attachment = match (form.upload_id.is_empty(), form.upload_capability.is_empty()) {
         (true, true) if !form.spoiler => None,
@@ -411,11 +428,23 @@ pub async fn post(
         attachment.as_ref(),
     )
     .await?;
-    if return_to_board {
-        return Ok(Redirect::to(&format!("/{board}/")));
-    }
     let thread = if form.resto == 0 { id } else { form.resto };
-    Ok(Redirect::to(&format!("/{board}/thread/{thread}#p{id}")))
+    let location = if return_to_board {
+        format!("/{board}/")
+    } else {
+        format!("/{board}/thread/{thread}#p{id}")
+    };
+    let mut response = Redirect::to(&location).into_response();
+    crate::post_receipts::Receipt {
+        board: &board,
+        thread,
+        post: id,
+        track,
+        watch: auto_watch,
+        production: state.production,
+    }
+    .append(response.headers_mut(), &headers);
+    Ok(response)
 }
 
 #[derive(Deserialize)]

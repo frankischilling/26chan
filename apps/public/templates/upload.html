@@ -31,4 +31,6 @@
 </form>
 <p>The upload expires two hours after it was reserved. Keep this page open until you post or cancel.</p>
 <p><a href="/{{ board.slug }}/">Return to board</a></p>
+<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ form.resto }}" data-catalog="false"></div>
+<script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}
