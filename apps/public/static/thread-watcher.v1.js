@@ -458,7 +458,7 @@ function start(context) {
     if (details) details.open = true;
     form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]')?.focus();
   }
-  function syncOpenPostMenu() {
+  function syncOpenPostMenu(position = true) {
     const menu = activePostMenu;
     if (!menu) return;
     if (!menu.trigger.isConnected || menu.trigger.hidden || !menu.post.isConnected) {
@@ -496,7 +496,7 @@ function start(context) {
       menu.filter.parentElement.remove(); menu.filter = null;
       if (focused) menu.list.querySelector('[role="menuitem"]')?.focus();
     }
-    positionPostMenu(menu);
+    if (position) positionPostMenu(menu);
   }
   function openPostMenu(trigger, post, section, focus = null) {
     if (activePostMenu?.trigger === trigger) { closePostMenu(); return; }
@@ -532,11 +532,18 @@ function start(context) {
       event.preventDefault();
       items[index]?.focus();
     });
-    document.body.append(root);
     activePostMenu = menu;
     trigger.classList.add('menuOpen');
     trigger.setAttribute('aria-expanded', 'true');
-    syncOpenPostMenu();
+    syncOpenPostMenu(false);
+    // The pinned client publishes an ordinary, non-bubbling Event before
+    // insertion, with the live list available to same-document subscribers.
+    const ready = new Event('4chanPostMenuReady');
+    ready.detail = { postId: post.id.slice(1),
+      isOP: post.classList.contains('op') && sectionId(section) === post.id.slice(1), node: list };
+    document.dispatchEvent(ready);
+    document.body.append(root);
+    positionPostMenu(menu);
     if (focus) {
       const items = [...list.querySelectorAll('[role="menuitem"]')].filter(item => item.getClientRects().length);
       items[focus === 'last' ? items.length - 1 : 0]?.focus();

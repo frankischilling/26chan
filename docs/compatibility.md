@@ -58,6 +58,12 @@ Later compatibility checkpoints:
 | V-010 | Catalog spoiler-reveal preference; observed pinned public v1025 client | Implemented under #86; final qualification and merge remain pending | [Spoiler behavior and tests](catalog-spoilers.md); finite optional persistence, explicit no-JavaScript GET, visible-card-only client source changes and deletion precedence. Toolbar/URL extension and full-image fallback are documented differences; custom board spoilers remain unresolved |
 | M-008 | Attachment-only OP/reply and conditional comment representation; documented API field plus local posting policy | Merged in #85 after all six exact-head checks; ordinary text-only posts still require a comment | [Attachment-only contract](attachment-only-posts.md); atomic authorization, deferred empty-row guard, direct public-role rejection, 0018 upgrade, real HTTP/no-JavaScript and native PNG/JPEG flows. Whitespace-only rejection remains local policy; no production enablement |
 
+### Native extension checkpoint under draft PR #89
+
+| ID | Scope and evidence | Status | Tests / exception |
+|---|---|---|---|
+| V-011 | Native watcher, post menus, ordinary reply/thread hiding and menu-ready event; pinned public catalog v1025 and extension v1191 | Implemented on draft #89; exact-head hosted checks and broader reference qualification remain pending | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), and [menu event / recursive-helper reachability](native-post-menu-events.md). Persisted behavior, bounded state/races and targeted six-theme captures do not establish complete public-page parity. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
+
 ## Security-driven and project-defined exceptions
 
 Catalog display preferences now have bounded browser-local persistence; see
