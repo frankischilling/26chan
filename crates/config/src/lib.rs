@@ -6,7 +6,9 @@ use std::{
 };
 use url::Url;
 
+mod legacy_media;
 mod media_http;
+pub use legacy_media::MediaBackfillSettings;
 pub use media_http::MediaHttpSettings;
 mod monitor;
 pub use monitor::MonitorSettings;

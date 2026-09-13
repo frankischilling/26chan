@@ -2,6 +2,7 @@
 
 //! Trusted operator publication. The worker never receives this process's
 //! credentials or storage authority. Production media remains disabled.
+pub mod backfill;
 use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
 use board_media_dispatch::DispatchClient;
 use board_store::{

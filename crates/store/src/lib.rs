@@ -3,6 +3,7 @@
 mod archives;
 mod board_snapshot;
 pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_snapshot};
+pub mod legacy_media;
 pub mod media;
 pub mod media_assets;
 pub mod media_intake;
