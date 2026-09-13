@@ -34,9 +34,10 @@ assert.equal(result.outputFiles.length, 1, 'The worker must be one fixed release
 const outputs = Object.values(result.metafile.outputs);
 assert.equal(outputs.length, 1);
 assert.deepEqual(outputs[0].imports, [], 'No imports or external resources may remain in the worker');
-assert.deepEqual([...outputs[0].exports].sort(), ['FILTER_LIMITS', 'NativeFilterMatcher', 'autoWatchBoards', 'readNativeFilters', 'runNativeFilterJob'].sort());
+assert.deepEqual([...outputs[0].exports].sort(), ['FILTER_LIMITS', 'NativeCatalogTransport', 'NativeFilterMatcher', 'autoWatchBoards', 'catalogApiUrl', 'readNativeFilters', 'runNativeFilterJob'].sort());
 for (const path of Object.keys(result.metafile.inputs)) {
-  assert.ok(['apps/public/client/', 'node_modules/parse5/', 'node_modules/entities/'].some(prefix => path.startsWith(prefix)), `Unexpected worker source: ${path}`);
+  assert.ok(path === 'apps/public/static/thread-watcher-core.v1.js'
+    || ['apps/public/client/', 'node_modules/parse5/', 'node_modules/entities/'].some(prefix => path.startsWith(prefix)), `Unexpected worker source: ${path}`);
 }
 const bytes = result.outputFiles[0].contents;
 assert.ok(bytes.length <= 262144, 'Worker bundle exceeds its 256 KiB release budget');

@@ -362,3 +362,55 @@ raw comments, absent versus empty text, budget failures, lazy conversion and an
 owned healthy network control alongside markup that must not load resources.
 Catalog transport, blacklist transactions, the native filter editor and complete
 watcher integration still remain; this is not usable automatic watching yet.
+
+### Owned catalog transport
+
+The public-only GET/HEAD `/_watch/{board}/catalog.json` alias delegates to the
+existing catalog snapshot function, retaining its JSON and validators without
+new database grants. The API listener does not expose the private alias. The
+transport and lossless parser are bundled into the existing fixed filter module;
+no script or CSP URL is added. The parser source now lives under
+`apps/public/client/native-catalog.js`.
+
+`NativeCatalogTransport` uses fixed-origin, credential-free GET requests with
+redirect rejection and exact response URL/MIME checks. It shares the watcher
+budgets: two concurrent requests, 200 ms launch spacing, a 60-second refresh
+interval, 10-second request and 60-second cycle deadlines, 4 MiB per response
+and 16 MiB per cycle. Streaming bytes and fatal UTF-8 decoding are checked before
+catalog parsing. Only smaller test budgets may be supplied; the refresh interval
+cannot be shortened. Empty catalogs remain distinct from HTTP or parsing failure.
+
+Every requested board receives a terminal result. Cancellation, deadline or
+aggregate-budget exhaustion settles queued and in-flight work even when an
+injected transport ignores abort. Late responses are discarded and their bodies
+cancelled. Completed per-board data is retained in partial-cycle results, but the
+transport never changes watched threads or blacklists; the future transaction
+layer must only act on a current, applicable cycle and preserve failed-board
+blacklist state. Native board-token case is retained without accepting path or
+origin syntax from settings.
+
+Owned HTTP tests cover limits, ordering, redirects, cancellation, late responses,
+concurrency, staggering and cooldown. Real browser tests compare the alias to the
+actual catalog API, exercise HEAD/304 and denied write methods, and verify cookie
+omission against a healthy credentialed control. They run with the separate
+watcher server invocation so existing write-rate budgets remain unchanged.
+Catalog matching transactions, blacklist persistence, native editor and watcher
+integration remain unfinished.
+
+Transport checkpoint validation on the owned Windows/Chromium/PostgreSQL setup:
+
+- `npm run test:behavior`: 72 unit tests and 63 browser tests passed, across the
+  47 general, 13 watcher/transport and 3 posting cases.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy -p board-public --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test -p board-public --all-features --all-targets --locked -- --test-threads=1`:
+  all 74 test executions passed, including database-backed cases and the shared
+  visual-fixture example test.
+
+The first browser attempt used an inactive development database port and failed
+at startup. The rerun used the existing disposable native PostgreSQL instance.
+The first alias method assertion expected 405 without an Origin header, but
+the public cross-origin protection correctly returned 403. The test now checks
+both absent-origin rejection and same-origin method rejection; neither
+application protection was relaxed. No screenshot baseline changed. Hosted
+checks must qualify the committed head separately before merge.

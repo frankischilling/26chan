@@ -134,6 +134,7 @@ pub fn routers_with_limits(
         .route("/static/board.css", get(handlers::css))
         .route("/boards.json", get(api::boards))
         .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
+        .route("/_watch/{board}/catalog.json", get(watcher_catalog::get))
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))
         .route("/{board}/thread/{key}", get(handlers::thread))
@@ -175,3 +176,5 @@ pub async fn media_ready(settings: &board_config::PublicMediaSettings) -> Result
     .await
     .map_err(|_| "Media intake is unavailable.")
 }
+
+mod watcher_catalog;

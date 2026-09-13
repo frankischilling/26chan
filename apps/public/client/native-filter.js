@@ -1,6 +1,7 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { nativeCommentText } from './native-filter-html.js';
 export { FILTER_LIMITS };
+export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 
 // Raw HTML and user patterns are evaluated only in a fresh worker, never in the client path.
 

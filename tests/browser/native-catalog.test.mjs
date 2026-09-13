@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOG_LIMITS, parseNativeCatalog } from '../../apps/public/static/native-catalog.v1.js';
+import { CATALOG_LIMITS, parseNativeCatalog } from '../../apps/public/client/native-catalog.js';
 
 const catalog = threads => JSON.stringify([{ page: 1, threads }]);
 const invalid = raw => assert.deepEqual(parseNativeCatalog(raw), { status: 'invalid-catalog' });
