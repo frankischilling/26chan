@@ -76,6 +76,225 @@
   let timer;
   let composing = false;
 
+  const stateReady = searchReady && entries.every(entry => entry.replies <= BigInt(Number.MAX_SAFE_INTEGER)
+    && entry.node.querySelector('.meta > b, .meta > i > b') && entry.node.querySelector('a.catalogThumb[href]'));
+  const pinKey = `4chan-pin-${board}`;
+  const hideKey = `4chan-hide-t-${board}`;
+  const byId = new Map((entries ?? []).map(entry => [entry.id.toString(), entry]));
+  const newest = (entries ?? []).reduce((maximum, entry) => entry.id > maximum ? entry.id : maximum, 0n);
+  const persistState = (name, values) => {
+    try {
+      if (values.size) localStorage.setItem(name, JSON.stringify(Object.fromEntries(values)));
+      else localStorage.removeItem(name);
+    } catch { /* Thread state remains usable in memory without storage. */ }
+  };
+  const readState = (name, pins) => {
+    const values = new Map();
+    if (!stateReady) return values;
+    try {
+      const raw = localStorage.getItem(name);
+      if (raw === null) return values;
+      if (raw.length > 65536) throw new Error('Oversized thread state');
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid thread state');
+      const pairs = Object.entries(parsed);
+      if (pairs.length > 1024) throw new Error('Too many stored threads');
+      for (const [id, value] of pairs) {
+        if (!/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n) continue;
+        if (pins ? !Number.isSafeInteger(value) || value < 0 : value !== true) continue;
+        if (!byId.has(id) && BigInt(id) < newest) continue;
+        values.set(id, value);
+      }
+    } catch { /* Invalid optional state cannot disable the catalog. */ }
+    persistState(name, values);
+    return values;
+  };
+  const pins = readState(pinKey, true);
+  const hiddenThreads = readState(hideKey, false);
+  const remember = (values, id, value) => {
+    if (!values.has(id) && values.size >= 1024) {
+      const absent = Array.from(values.keys()).find(key => !byId.has(key));
+      values.delete(absent ?? values.keys().next().value);
+    }
+    values.set(id, value);
+  };
+  const pageSize = Number(container?.dataset.threadsPerPage);
+  const pages = new Map();
+  if (stateReady && Number.isInteger(pageSize) && pageSize >= 1 && pageSize <= 1000) {
+    [...entries].sort((a, b) => Number(b.sticky) - Number(a.sticky)
+      || compare(b.bumped, a.bumped) || compare(b.id, a.id))
+      .forEach((entry, index) => pages.set(entry.id.toString(), 1 + Math.floor(index / pageSize)));
+  }
+  let hiddenOnly = false;
+  let shownHiddenCount = 0;
+  const hiddenLabels = [];
+  let unpinAll;
+  let menu;
+  let menuButton;
+  const closeMenu = (restoreFocus = false) => {
+    const button = menuButton;
+    menu?.remove();
+    button?.classList.remove('menuOpen');
+    button?.closest('.thread')?.classList.remove('catalogMenuActive');
+    button?.setAttribute('aria-expanded', 'false');
+    menu = null;
+    menuButton = null;
+    if (restoreFocus && button?.isConnected) button.focus();
+  };
+  const updateStateControls = () => {
+    for (const { label, count, toggle } of hiddenLabels) {
+      label.hidden = shownHiddenCount === 0;
+      count.textContent = String(shownHiddenCount);
+      toggle.textContent = hiddenOnly ? 'Back' : 'Show';
+      toggle.setAttribute('aria-pressed', String(hiddenOnly));
+    }
+    if (unpinAll) unpinAll.hidden = pins.size === 0;
+  };
+  const togglePin = entry => {
+    closeMenu(true);
+    const id = entry.id.toString();
+    if (pins.has(id)) pins.delete(id);
+    else remember(pins, id, Number(entry.replies));
+    persistState(pinKey, pins);
+    renderedOrder = null;
+    apply(current());
+  };
+  const toggleHidden = (entry, unhide = hiddenOnly) => {
+    closeMenu();
+    const id = entry.id.toString();
+    if (unhide) hiddenThreads.delete(id);
+    else remember(hiddenThreads, id, true);
+    persistState(hideKey, hiddenThreads);
+    if (unhide && !hiddenOnly) { apply(current()); return; }
+    entry.node.remove();
+    shownHiddenCount += unhide ? -1 : 1;
+    if (hiddenOnly && shownHiddenCount === 0) { hiddenOnly = false; apply(current()); }
+    else if (!hiddenOnly && !renderedQuery && !container.querySelector(':scope > .thread')) apply(current());
+    else updateStateControls();
+  };
+  const openMenu = (entry, button) => {
+    if (menuButton === button) { closeMenu(true); return; }
+    closeMenu();
+    menuButton = button;
+    menu = document.createElement('div');
+    menu.id = 'post-menu';
+    menu.className = 'dd-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Thread actions');
+    const list = document.createElement('ul');
+    list.setAttribute('role', 'none');
+    const addItem = (label, action, href) => {
+      const item = document.createElement('li');
+      item.setAttribute('role', 'none');
+      const control = document.createElement(href ? 'a' : 'button');
+      if (href) control.href = href;
+      else { control.type = 'button'; control.addEventListener('click', action); }
+      control.setAttribute('role', 'menuitem');
+      control.textContent = label;
+      item.append(control);
+      list.append(item);
+    };
+    const id = entry.id.toString();
+    const report = new URL(entry.node.querySelector('a.catalogThumb').href);
+    report.hash = `report${id}`;
+    addItem('Report thread', null, report.href);
+    addItem(pins.has(id) ? 'Unpin thread' : 'Pin thread', () => togglePin(entry));
+    addItem(hiddenThreads.has(id) ? 'Unhide thread' : 'Hide thread', () => {
+      toggleHidden(entry, hiddenThreads.has(id));
+      if (hiddenLabels[0] && !hiddenLabels[0].label.hidden) hiddenLabels[0].toggle.focus();
+    });
+    menu.append(list);
+    entry.node.querySelector('.meta').append(menu);
+    entry.node.classList.add('catalogMenuActive');
+    button.classList.add('menuOpen');
+    button.setAttribute('aria-expanded', 'true');
+    menu.addEventListener('keydown', event => {
+      const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+      const index = items.indexOf(document.activeElement);
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeMenu(true); }
+      else if (event.key === 'Tab') closeMenu(true);
+      else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items[next].focus();
+      }
+    });
+    list.querySelector('[role="menuitem"]').focus();
+  };
+  const installThreadControls = () => {
+    for (const entry of entries) {
+      const meta = entry.node.querySelector('.meta');
+      const reply = meta.querySelector('b');
+      entry.pinDelta = document.createElement('span');
+      entry.pinDelta.className = 'catalogPinDelta';
+      entry.pinDelta.hidden = true;
+      (reply.closest('i') ?? reply).after(entry.pinDelta);
+      entry.pinPage = document.createElement('span');
+      entry.pinPage.className = 'catalogPinPage';
+      entry.pinPage.hidden = true;
+      const number = document.createElement('b');
+      number.textContent = String(pages.get(entry.id.toString()) ?? '');
+      entry.pinPage.append(' / P: ', number);
+      meta.append(entry.pinPage);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'postMenuBtn';
+      button.textContent = '\u25b6';
+      button.title = 'Thread Menu';
+      button.setAttribute('aria-label', `Thread ${entry.id} menu`);
+      button.setAttribute('aria-haspopup', 'menu');
+      button.setAttribute('aria-expanded', 'false');
+      button.addEventListener('click', event => { event.stopPropagation(); openMenu(entry, button); });
+      meta.append(button);
+    }
+    for (const suffix of ['', '-bottom']) {
+      const label = document.createElement('span');
+      label.id = `hidden-label${suffix}`;
+      label.className = 'catalogState';
+      label.hidden = true;
+      const count = document.createElement('span');
+      count.id = `hidden-count${suffix}`;
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.id = `filters-clear-hidden${suffix}`;
+      toggle.addEventListener('click', () => { hiddenOnly = !hiddenOnly; closeMenu(); apply(current()); });
+      label.append('Hidden: ', count, ' [', toggle, ']');
+      hiddenLabels.push({ label, count, toggle });
+      if (suffix) container.after(label);
+      else form.append(label);
+    }
+    unpinAll = document.createElement('button');
+    unpinAll.type = 'button';
+    unpinAll.id = 'catalog-unpin-all';
+    unpinAll.textContent = 'Unpin all threads';
+    unpinAll.hidden = true;
+    unpinAll.addEventListener('click', () => {
+      closeMenu(); pins.clear(); persistState(pinKey, pins); renderedOrder = null; apply(current());
+    });
+    form.append(unpinAll);
+    container.addEventListener('click', event => {
+      const link = event.target instanceof Element ? event.target.closest('a.catalogThumb') : null;
+      if (event.button !== 0 || !(event.altKey || event.shiftKey) || !link || !container.contains(link)) return;
+      const entry = byId.get(link.closest('.thread')?.dataset.threadId);
+      if (!entry) return;
+      event.preventDefault();
+      if (event.altKey) togglePin(entry);
+      else toggleHidden(entry);
+    });
+    container.addEventListener('contextmenu', event => {
+      const link = event.target instanceof Element ? event.target.closest('a.catalogThumb') : null;
+      const entry = link && byId.get(link.closest('.thread')?.dataset.threadId);
+      if (!entry) return;
+      event.preventDefault();
+      openMenu(entry, entry.node.querySelector('.postMenuBtn'));
+    });
+    document.addEventListener('click', event => {
+      if (menu && !menu.contains(event.target) && event.target !== menuButton) closeMenu();
+    });
+    updateStateControls();
+  };
+
   const save = () => {
     const value = current();
     if (!valid(value)) return;
@@ -109,8 +328,15 @@
   };
   const apply = (value, query = renderedQuery) => {
     if (entries === null || !valid(value) || (searchReady && !validQuery(query))) return false;
+    closeMenu();
+    if (stateReady) {
+      const total = entries.filter(entry => hiddenThreads.has(entry.id.toString())).length;
+      if (hiddenOnly && total === 0) hiddenOnly = false;
+      shownHiddenCount = hiddenOnly || !query ? total : 0;
+    }
     if (value.orderby !== renderedOrder) {
-      entries.sort((a, b) => Number(b.sticky) - Number(a.sticky) || (
+      entries.sort((a, b) => Number(b.sticky) - Number(a.sticky)
+        || (stateReady ? Number(pins.has(b.id.toString())) - Number(pins.has(a.id.toString())) : 0) || (
         value.orderby === 'date' ? compare(b.id, a.id)
           : value.orderby === 'absdate' ? compareOptional(b.latest, a.latest) || compare(a.id, b.id)
             : value.orderby === 'r' ? compare(b.replies, a.replies) || compare(a.id, b.id)
@@ -128,7 +354,20 @@
     const fragment = document.createDocumentFragment();
     let count = 0;
     for (const entry of entries) {
-      if (searchReady && pattern && !entry.fields.some(field => pattern.test(field))) continue;
+      const id = entry.id.toString();
+      if (stateReady && (hiddenOnly ? !hiddenThreads.has(id) : !query && hiddenThreads.has(id))) continue;
+      if (!hiddenOnly && searchReady && pattern && !entry.fields.some(field => pattern.test(field))) continue;
+      if (stateReady) {
+        const pinned = pins.has(id);
+        entry.node.querySelector('.catalogThumb .thumb')?.classList.toggle('pinned', pinned);
+        entry.pinDelta.hidden = !pinned;
+        entry.pinPage.hidden = !pinned || !pages.has(id);
+        if (pinned) {
+          const delta = Number(entry.replies) - pins.get(id);
+          entry.pinDelta.textContent = delta > 0 ? ` (+${delta})` : '(+0)';
+          if (delta > 0) pins.set(id, Number(entry.replies));
+        }
+      }
       if (entry.thumb) {
         const [width, height] = value.large ? entry.large : entry.small;
         entry.thumb.width = width;
@@ -146,13 +385,15 @@
         message.className = 'empty';
         const link = document.createElement('a');
         link.href = query ? action.href : new URL('./#postForm', action).href;
-        link.textContent = query ? 'Show all threads' : 'Start the first thread';
-        message.append(query ? 'No matching threads. ' : 'No threads yet. ', link, '.');
+        const allHidden = stateReady && !query && entries.length > 0;
+        link.textContent = query ? 'Show all threads' : allHidden ? 'Show hidden threads' : 'Start the first thread';
+        message.append(query ? 'No matching threads. ' : allHidden ? 'All threads are hidden. ' : 'No threads yet. ', link, '.');
         fragment.append(message);
       }
     }
     container.replaceChildren(fragment);
     if (searchReady) renderedQuery = query;
+    if (stateReady) { persistState(pinKey, pins); updateStateControls(); }
     return true;
   };
   const applySearch = () => {
@@ -188,6 +429,8 @@
         event.preventDefault();
         search.value = '';
         applySearch();
+      } else if (stateReady && link && container.contains(link) && entries.length && hiddenThreads.size) {
+        event.preventDefault(); hiddenOnly = true; apply(current());
       }
     });
     const schedule = () => { clearTimeout(timer); if (!composing) timer = setTimeout(applySearch, 250); };
@@ -207,6 +450,7 @@
     setOptions(url, defaults);
     reset.href = url.href;
     if (searchReady) {
+      hiddenOnly = false;
       search.value = '';
       search.setCustomValidity('');
       if (apply(defaults, '')) {
@@ -216,6 +460,9 @@
     }
   });
 
+  if (stateReady) installThreadControls();
+  const stateChanged = stateReady && (pins.size > 0 || hiddenThreads.size > 0);
+  if (stateChanged) renderedOrder = null;
   const url = new URL(location.href);
   let display = current();
   if (!['order', 'size', 'teaser'].some(name => url.searchParams.has(name))) {
@@ -246,7 +493,7 @@
   }
   const value = current();
   const changed = display.orderby !== value.orderby || display.large !== value.large
-    || display.extended !== value.extended || query !== renderedQuery;
+    || display.extended !== value.extended || query !== renderedQuery || stateChanged;
   if (changed) {
     if (searchReady) search.value = query;
     if (apply(display, query)) updateURL(display);
