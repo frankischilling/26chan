@@ -416,6 +416,18 @@ function start(context) {
       menu.watch = null;
       if (focused) menu.list.querySelector('[role="menuitem"]')?.focus();
     }
+    const canFilter = !catalog && configuration().filter === true;
+    if (canFilter && !menu.filter) {
+      menu.filter = postMenuItem(menu, 'filter-sel', 'Filter selected text', () => {
+        if (configuration().filter === true && configuration().disableAll !== true) {
+          nativeFilters?.addSelection(menu.trigger, menu.selection);
+        }
+      });
+    } else if (!canFilter && menu.filter) {
+      const focused = document.activeElement === menu.filter;
+      menu.filter.parentElement.remove(); menu.filter = null;
+      if (focused) menu.list.querySelector('[role="menuitem"]')?.focus();
+    }
     positionPostMenu(menu);
   }
   function openPostMenu(trigger, post, section, focus = null) {
@@ -428,7 +440,8 @@ function start(context) {
     list.setAttribute('role', 'menu');
     list.setAttribute('aria-label', `Actions for post ${post.id.slice(1)}`);
     root.append(list);
-    const menu = { root, list, trigger, post, section, watch: null };
+    const menu = { root, list, trigger, post, section, watch: null, filter: null,
+      selection: nativeFilters?.selection() };
     postMenuItem(menu, 'report', 'Report post', () => openPostAction(post, 'report'));
     if (mobile.matches) postMenuItem(menu, 'del-post', 'Delete post', () => openPostAction(post, 'delete'));
     root.addEventListener('keydown', event => {

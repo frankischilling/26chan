@@ -40,12 +40,34 @@ The renderer uses text nodes and parsed color values, not arbitrary CSS or HTML
 from saved preferences. Colors cannot contain declarations, custom-property
 substitutions or inherited values. Filtering is not applied to catalog cards.
 
-`npm run test:page-filters` passes ten owned Chromium/PostgreSQL cases covering
+`npm run test:page-filters` passes fourteen owned Chromium/PostgreSQL cases covering
 editor persistence, order and palette, effects, first-match precedence, own-post
 exemption, cross-tab conflict, queued-save cancellation, failed writes and hostile
 input. One case exercises all six themes at 1280px and 390px with nested-dialog
 focus checks. The sticky exception is tested through an explicit DOM fixture,
 not a staff mutation. These tests establish behavior, not screenshot parity.
+
+### Filtering selected text from a post menu
+
+With filtering enabled, board/thread post menus expose the pinned extension's
+`filter-sel` action, "Filter selected text". Opening the menu captures the current
+selection so moving keyboard focus into the menu does not discard it. The editor
+appends an unsaved active row with trimmed pattern text, blank/global board scope,
+and Auto/Hide off. The user still chooses effects and saves through the existing
+worker validation and conflict-aware storage path. Cancel does not persist it.
+
+The type follows the selection anchor's parent: Name, Tripcode, Subject, poster
+ID, Filename or otherwise Comment, as in extension v1191's `Filter.addSelection`.
+The release filename anchor is recognized alongside the native `fileText` class.
+Selected text remains an input value, not HTML. Text beyond the 1,024-character
+pattern bound is rejected visibly instead of silently truncated. Disabling
+filtering in another tab removes the action from an already-open menu.
+
+Browser cases cover persisted Name filtering, other type selections, cancellation,
+focus return, literal hostile text, mobile operation, oversized text and cross-tab
+disabling. Tripcode/ID/filename selection tests use explicitly inserted UI fixtures;
+they do not claim backend posting support for those fields. Other native post-menu
+actions and the optional keyboard shortcut remain outside this implementation.
 
 ## Owned archive and expiry lifecycle
 

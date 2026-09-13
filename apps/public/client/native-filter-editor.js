@@ -19,7 +19,7 @@ function button(text, action, className) {
 
 export function filterEditor({ board, read, save, match, changed }) {
   let active;
-  return function open(opener) {
+  return function open(opener, selected = null) {
     if (active) { active.dialog.focus(); return; }
     let expected = read();
     const parsed = readFilterRules(expected, { migrateLegacy: true });
@@ -137,6 +137,12 @@ export function filterEditor({ board, read, save, match, changed }) {
     }
     if (parsed.status === 'ok') for (const rule of parsed.rules) addRow(rule);
     else message.textContent = 'Stored filters are invalid. Saving will replace them with the entries shown here.';
+    if (selected) {
+      if (typeof selected.pattern !== 'string' || selected.pattern.length > FILTER_LIMITS.patterns
+        || !types.some(([type]) => type === selected.type)) {
+        message.textContent = `Selected text exceeds the ${FILTER_LIMITS.patterns}-character filter limit or is unavailable. No filter was added.`;
+      } else addRow({ active: true, pattern: selected.pattern, boards: '', type: selected.type, auto: false, hide: false });
+    }
     form.addEventListener('submit', async event => {
       event.preventDefault(); if (submit.disabled) return;
       const rules = [...list.children].map(row => {
@@ -168,6 +174,6 @@ export function filterEditor({ board, read, save, match, changed }) {
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
     document.body.append(dialog); active = { dialog }; dialog.showModal();
-    (list.querySelector('.fPattern') ?? add).focus();
+    ((selected ? list.lastElementChild?.querySelector('.fPattern') : list.querySelector('.fPattern')) ?? add).focus();
   };
 }

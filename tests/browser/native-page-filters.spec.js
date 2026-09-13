@@ -254,3 +254,82 @@ test('filter dialogs and nested help remain operable in six themes on desktop an
     }
   }
 });
+
+async function selectText(page, selector) {
+  await page.locator(selector).evaluate(element => {
+    const text = element.firstChild;
+    const range = document.createRange(); range.setStart(text, 0); range.setEnd(text, text.textContent.length);
+    const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+  });
+}
+
+test('post-menu selection opens an unsaved native Name filter and saves through the existing editor', async ({ page, fixture }) => {
+  await prepare(page, fixture, []);
+  await selectText(page, `#p${fixture.reply} .name`);
+  await page.getByRole('button', { name: `Post menu for post ${fixture.reply}`, exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Filter selected text', exact: true }).click();
+  await expect(page.locator('#filter-list tr')).toHaveCount(1);
+  await expect(page.locator('.fPattern')).toHaveValue('Anonymous');
+  await expect(page.locator('#filter-list select')).toHaveValue('1');
+  await expect(page.locator('.fBoards')).toHaveValue('');
+  await expect(page.getByLabel('Hide filter 1', { exact: true })).not.toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('4chan-filters'))).toBe('[]');
+  await page.getByLabel('Hide filter 1', { exact: true }).check();
+  await page.locator('[data-cmd=filters-save]').click();
+  await expect(page.locator('#filtersMenu')).toHaveCount(0);
+  await expect(page.locator(`#p${fixture.reply}`)).toHaveClass(/post-hidden/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-filters')))).toEqual([rule('Anonymous', { type: 1 })]);
+});
+
+test('selection infers native field types, trims text and cancelling never changes saved rules', async ({ page, fixture }) => {
+  await prepare(page, fixture, []);
+  // Tripcode, ID and filename nodes are explicit UI fixtures, not backend posting claims.
+  await page.locator(`#p${fixture.thread} .postInfo`).evaluate(info => {
+    for (const [className, text] of [['postertrip', '!OwnedTrip'], ['hand', 'OwnedID'], ['fileText', 'owned-file.png']]) {
+      const span = document.createElement('span'); span.className = className; span.textContent = text; info.append(span);
+    }
+  });
+  const cases = [[`.subject`, fixture.title, '5'], ['.postertrip', '!OwnedTrip', '0'], ['.hand', 'OwnedID', '4'],
+    ['.fileText', 'owned-file.png', '6'], ['.postMessage', 'Owned filter opening post', '2']];
+  for (const [selector, text, type] of cases) {
+    await selectText(page, `#p${fixture.thread} ${selector}`);
+    await page.getByRole('button', { name: `Post menu for post ${fixture.thread}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Filter selected text', exact: true }).click();
+    await expect(page.locator('.fPattern')).toHaveValue(text);
+    await expect(page.locator('#filter-list select')).toHaveValue(type);
+    await page.getByRole('button', { name: 'Close filters', exact: true }).click();
+    await expect(page.getByRole('button', { name: `Post menu for post ${fixture.thread}`, exact: true })).toBeFocused();
+    expect(await page.evaluate(() => localStorage.getItem('4chan-filters'))).toBe('[]');
+  }
+});
+
+test('mobile selection stays literal and oversized selections cannot create truncated filters', async ({ page, fixture }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepare(page, fixture, []);
+  for (const value of ['  <img src=/selection-attack onerror=alert(1)>  ', 'x'.repeat(1025)]) {
+    await page.locator(`#m${fixture.reply}`).evaluate((element, value) => { element.textContent = value; }, value);
+    await selectText(page, `#m${fixture.reply}`);
+    await page.getByRole('button', { name: `Post menu for post ${fixture.reply}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Filter selected text', exact: true }).click();
+    if (value.length > 1024) {
+      await expect(page.locator('#filter-list tr')).toHaveCount(0);
+      await expect(page.locator('.filterEditorMessage')).toHaveText(/Selected text exceeds/);
+    } else {
+      await expect(page.locator('.fPattern')).toHaveValue(value.trim());
+      await expect(page.locator('#filtersMenu img, #filtersMenu script')).toHaveCount(0);
+    }
+    await page.getByRole('button', { name: 'Close filters', exact: true }).click();
+    expect(await page.evaluate(() => localStorage.getItem('4chan-filters'))).toBe('[]');
+  }
+});
+
+test('an open menu removes its filter action when another tab disables filtering', async ({ page, context, fixture }) => {
+  await prepare(page, fixture, []);
+  await page.getByRole('button', { name: `Post menu for post ${fixture.reply}`, exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Filter selected text', exact: true })).toBeVisible();
+  const other = await context.newPage();
+  await other.goto(`/demo/thread/${fixture.thread}`);
+  await other.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ filter: false })));
+  await expect(page.getByRole('menuitem', { name: 'Filter selected text', exact: true })).toHaveCount(0);
+  await other.close();
+});

@@ -2,6 +2,20 @@ import { FILTER_LIMITS } from './native-filter-limits.js';
 import { readFilterRules, filterColor } from './native-filter-rules.js';
 import { filterEditor } from './native-filter-editor.js';
 
+function selectedFilter() {
+  try {
+    const selection = window.getSelection();
+    const element = selection?.anchorNode?.parentElement;
+    const pattern = selection?.toString().trim() ?? '';
+    const type = element?.classList.contains('name') ? 1
+      : element?.classList.contains('postertrip') ? 0
+        : element?.classList.contains('subject') ? 5
+          : element?.matches('.posteruid,.hand') ? 4
+            : element?.matches('.fileText,.file > p > a') ? 6 : 2;
+    return { pattern, type };
+  } catch { return { pattern: null, type: 2 }; }
+}
+
 export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed }) {
   const root = document.querySelector('.board');
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
@@ -129,11 +143,13 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
         && (node.matches('.post,.postContainer,.thread') || node.querySelector('.post'))))) schedule();
   }).observe(root, { childList: true, subtree: true, characterData: true });
   window.addEventListener('pagehide', () => { generation++; controller?.abort(); });
-  return { refresh, open: filterEditor({ board, read, save, match, changed: result => {
+  const open = filterEditor({ board, read, save, match, changed: result => {
     if (result.persisted === false) {
       storageNotice.textContent = 'Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.';
       storageNotice.hidden = false;
     }
     changed(); void refresh();
-  } }) };
+  } });
+  return { refresh, open, selection: selectedFilter,
+    addSelection: (opener, selected) => open(opener, selected) };
 }
