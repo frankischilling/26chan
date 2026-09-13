@@ -191,6 +191,20 @@ async fn exercise(
     );
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));
+    assert!(page.contains("rows=\"4\" required aria-describedby=\"postHelp\""));
+    for comment in ["&com=", "", "&com=+%09%0A"] {
+        assert_eq!(
+            app.clone()
+                .oneshot(post_request(
+                    &format!("/{board}/post"),
+                    format!("name=Test&password=synthetic-password-123{comment}")
+                ))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
     let input = vec![b'x'; 512_000]; // Intentionally opaque to the public/intake processes.
     let response = app
         .clone()
@@ -226,8 +240,7 @@ async fn exercise(
     .await;
     assert!(pending.contains("still being processed"));
     assert!(!pending.contains("Post with image"));
-    let posting =
-        format!("{body}&name=Test&sub=Image&com=An+image&password=synthetic-password-123");
+    let posting = format!("{body}&name=Test&sub=Image&com=&password=synthetic-password-123");
     assert_eq!(
         app.clone()
             .oneshot(post_request(&format!("/{board}/post"), posting.clone()))
@@ -267,6 +280,20 @@ async fn exercise(
     )
     .await;
     assert!(approved.contains("Post with image"));
+    assert!(approved.contains("rows=\"4\" aria-describedby=\"postHelp\""));
+    for comment in ["+%09%0A", "%00"] {
+        assert_eq!(
+            app.clone()
+                .oneshot(post_request(
+                    &format!("/{board}/post"),
+                    format!("{body}&com={comment}&password=synthetic-password-123")
+                ))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
     sqlx::query(
         "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
     )
@@ -299,6 +326,14 @@ async fn exercise(
     let location = response.headers()["location"].to_str().unwrap().to_owned();
     assert!(!location.contains(&id) && !location.contains(&capability));
     let thread: i64 = location.split("#p").nth(1).unwrap().parse().unwrap();
+    let (image_only, _) = json(&app, &format!("/{board}/thread/{thread}.json")).await;
+    assert!(image_only["posts"][0].get("com").is_none());
+    let comment: String = sqlx::query_scalar("SELECT comment FROM content.posts WHERE id=$1")
+        .bind(thread)
+        .fetch_one(admin)
+        .await
+        .unwrap();
+    assert!(comment.is_empty());
     let tim: i64 = sqlx::query_scalar("SELECT tim FROM content.post_media WHERE post_id=$1")
         .bind(thread)
         .fetch_one(admin)
@@ -385,6 +420,9 @@ async fn exercise(
     )
     .await;
     assert!(page.contains("File deleted."));
+    let (deleted_image_only, _) = json(&app, &format!("/{board}/thread/{thread}.json")).await;
+    assert!(deleted_image_only["posts"][0].get("com").is_none());
+    assert_eq!(deleted_image_only["posts"][0]["filedeleted"], 1);
     assert!(!page.contains(&format!("/{board}/{tim}.png")));
 
     image_reply_contract(&app, board, &queue, &intake, admin).await;
@@ -573,24 +611,45 @@ async fn image_reply_contract(
             .approve_output(&job.id, job.lease_token.as_deref().unwrap(), &asset.id)
             .await
             .unwrap();
-        let id = board_store::create_post_with_attachment(
-            &public,
-            board,
-            thread,
-            &board_store::NewPost {
-                name: "Anonymous".into(),
-                subject: "Image replies".into(),
-                comment: "Synthetic API fixture".into(),
-                deletion_hash: "not-a-password".into(),
-                sage: false,
-            },
-            Some(&board_store::post_media::NewAttachment {
-                upload,
-                spoiler: index == 1,
-            }),
-        )
-        .await
-        .unwrap();
+        let id = if index == 1 {
+            // Omitted com is equivalent to an empty form field, but only an
+            // approved attachment can make this actual HTTP reply succeed.
+            let response = app.clone().oneshot(post_request(&format!("/{board}/post"),
+                format!("upload_id={}&upload_capability={}&resto={thread}&spoiler=true&password=synthetic-password-123",
+                    upload.id, upload.capability))).await.unwrap();
+            assert_eq!(response.status(), StatusCode::SEE_OTHER);
+            response.headers()["location"]
+                .to_str()
+                .unwrap()
+                .split("#p")
+                .nth(1)
+                .unwrap()
+                .parse::<i64>()
+                .unwrap()
+        } else {
+            board_store::create_post_with_attachment(
+                &public,
+                board,
+                thread,
+                &board_store::NewPost {
+                    name: "Anonymous".into(),
+                    subject: "Image replies".into(),
+                    comment: if index % 2 == 0 {
+                        String::new()
+                    } else {
+                        "Synthetic API fixture".into()
+                    },
+                    deletion_hash: "not-a-password".into(),
+                    sage: false,
+                },
+                Some(&board_store::post_media::NewAttachment {
+                    upload,
+                    spoiler: index == 1,
+                }),
+            )
+            .await
+            .unwrap()
+        };
         if thread == 0 {
             thread = id;
         }
@@ -623,6 +682,11 @@ async fn image_reply_contract(
     );
     assert_eq!(full["posts"][0]["imagelimit"], 1);
     for (index, p) in full["posts"].as_array().unwrap().iter().enumerate() {
+        if index % 2 == 0 || index == 1 {
+            assert!(p.get("com").is_none());
+        } else {
+            assert!(p["com"].as_str().unwrap().contains("Synthetic API fixture"));
+        }
         assert_eq!(p["md5"], "AAAAAAAAAAAAAAAAAAAAAA==");
         assert_eq!(p["filename"], format!("<b>{board}</b>"));
         assert_eq!(p["tn_w"], 250);
@@ -653,6 +717,7 @@ async fn image_reply_contract(
         .find(|p| p["no"] == thread)
         .unwrap();
     assert_eq!(op["images"], 7);
+    assert!(op.get("com").is_none());
     catalog_counts(app, board, thread, 7, 7, true).await;
     board_store::post_media::delete_attachment(&public, board, posts[1])
         .await

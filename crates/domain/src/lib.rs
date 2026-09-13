@@ -39,6 +39,18 @@ pub fn validate_post(
     comment: &str,
     max_chars: usize,
 ) -> Result<(), ValidationError> {
+    validate_post_with_attachment(name, subject, comment, max_chars, false)
+}
+
+/// Validate requested content, not attachment authority. The store must still
+/// authorize and insert any attachment atomically before committing the post.
+pub fn validate_post_with_attachment(
+    name: &str,
+    subject: &str,
+    comment: &str,
+    max_chars: usize,
+    has_attachment: bool,
+) -> Result<(), ValidationError> {
     if name.len() > 80 || subject.len() > 120 {
         return Err(ValidationError("Name or subject is too long."));
     }
@@ -47,7 +59,9 @@ pub fn validate_post(
             "Enter a comment within this board's character limit.",
         ));
     }
-    if comment.trim().is_empty() || comment.chars().count() > max_chars.min(MAX_COMMENT_CHARS) {
+    if (comment.trim().is_empty() && !(has_attachment && comment.is_empty()))
+        || comment.chars().count() > max_chars.min(MAX_COMMENT_CHARS)
+    {
         return Err(ValidationError(
             "Enter a comment within this board's character limit.",
         ));

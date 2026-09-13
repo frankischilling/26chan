@@ -100,7 +100,10 @@ class PublicUpload:
         environment = {**SAFE, 'HOME': browser_user.pw_dir}
         node = os.environ['PUBLIC_UPLOAD_NODE']
         assert os.path.isabs(node) and os.path.isfile(node)
-        process = f.launch([node, REPO / 'tests/browser/public-upload.mjs', self.origin, self.board, source],
+        # Preserve text-plus-image coverage and also qualify image-only PNG/JPEG
+        # through the actual isolated pipeline, not merely synthetic approvals.
+        flags = [] if suffix == 'baseline.jpg' else ['--attachment-only']
+        process = f.launch([node, REPO / 'tests/browser/public-upload.mjs', self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
         query = f"SELECT j.id FROM media.jobs j WHERE j.filename='{filename}' AND j.state='queued';"

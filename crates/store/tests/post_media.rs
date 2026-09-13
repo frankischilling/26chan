@@ -18,6 +18,7 @@ struct Fixture {
     reader: MediaReader,
     board: String,
     jobs: Arc<Mutex<Vec<String>>>,
+    attachment_only: bool,
 }
 
 fn post() -> NewPost {
@@ -86,7 +87,11 @@ impl Fixture {
     }
 
     async fn insert(&self, thread: i64, a: &NewAttachment) -> Result<i64, StoreError> {
-        create_post_with_attachment(&self.public, &self.board, thread, &post(), Some(a)).await
+        let mut post = post();
+        if self.attachment_only {
+            post.comment.clear();
+        }
+        create_post_with_attachment(&self.public, &self.board, thread, &post, Some(a)).await
     }
 
     async fn denied(&self, sql: &'static str) {
@@ -106,6 +111,12 @@ impl Fixture {
 
 #[tokio::test]
 async fn attachment_authorization_is_atomic_one_use_and_visible_only_while_live() {
+    // Sequential cases share an otherwise idle disposable media queue.
+    run(false).await;
+    run(true).await;
+}
+
+async fn run(attachment_only: bool) {
     let admin = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -134,6 +145,7 @@ async fn attachment_authorization_is_atomic_one_use_and_visible_only_while_live(
             .unwrap(),
         board: board.clone(),
         jobs: jobs.clone(),
+        attachment_only,
     };
     let outcome = tokio::spawn(async move { exercise(&f).await }).await;
     // Cleanup runs even when an assertion in the spawned test fails.
@@ -191,12 +203,15 @@ async fn exercise(f: &Fixture) {
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=5 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
+    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=6 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(functions_safe);
 
     let a = f.reserve().await;
     let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    if f.attachment_only {
+        reject_unattached_empty_posts(f, thread).await;
+    }
     assert!(matches!(
         f.insert(thread, &a).await,
         Err(StoreError::Conflict(_))
@@ -241,6 +256,9 @@ async fn exercise(f: &Fixture) {
 
     // A later statement failure must roll back both the insertion and one-use claim.
     let mut invalid = post();
+    if f.attachment_only {
+        invalid.comment.clear();
+    }
     invalid.deletion_hash = "x".repeat(257);
     assert!(matches!(
         create_post_with_attachment(&f.public, &f.board, thread, &invalid, Some(&a)).await,
@@ -455,6 +473,53 @@ async fn exercise(f: &Fixture) {
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn reject_unattached_empty_posts(f: &Fixture, thread: i64) {
+    let safe: bool = sqlx::query_scalar("SELECT NOT has_function_privilege('board_public','content.require_attachment_for_empty_post()','EXECUTE') AND NOT has_table_privilege('board_public','content.posts','TRIGGER') AND NOT has_column_privilege('board_public','content.posts','comment','UPDATE')")
+        .fetch_one(&f.admin).await.unwrap();
+    assert!(safe);
+    let mut empty = post();
+    empty.comment.clear();
+    for parent in [0, thread] {
+        assert!(matches!(
+            create_post(&f.public, &f.board, parent, &empty).await,
+            Err(StoreError::Invalid(_))
+        ));
+    }
+    for immediate in [false, true] {
+        let mut tx = f.public.begin().await.unwrap();
+        let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,'Anonymous','','')")
+            .bind(id).bind(&f.board).bind(thread).execute(&mut *tx).await.unwrap();
+        let error = if immediate {
+            let error = tx
+                .execute("SET CONSTRAINTS ALL IMMEDIATE")
+                .await
+                .unwrap_err();
+            tx.rollback().await.unwrap();
+            error
+        } else {
+            tx.commit().await.unwrap_err()
+        };
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("23514")
+        );
+        let present: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts WHERE id=$1)")
+                .bind(id)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        assert!(
+            !present,
+            "The failed constraint must roll back the empty row"
+        );
+    }
 }
 
 async fn exercise_waits_and_moderation(f: &Fixture) {

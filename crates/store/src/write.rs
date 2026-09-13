@@ -31,11 +31,12 @@ pub async fn create_post_with_attachment(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
-    board_domain::validate_post(
+    board_domain::validate_post_with_attachment(
         &post.name,
         &post.subject,
         &post.comment,
         board.max_comment_chars as usize,
+        attachment.is_some(),
     )
     .map_err(|error| StoreError::Invalid(error.0))?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
