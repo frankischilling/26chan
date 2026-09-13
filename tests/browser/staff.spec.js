@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { spawnSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 const binary = process.platform === 'win32' ? '.exe' : '';
@@ -19,7 +19,26 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
   const recoveryDir = path.resolve(`.local/staff-recovery-${board}`);
   const invitationFile = path.join(invitationDir, 'invitation.txt');
   const data = fixture('setup', board);
+  const mediaRoot = path.resolve(`.local/staff-media-${board}`);
+  expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+  const reader = spawn(path.resolve(`target/debug/board-media-http${binary}`), [], {
+    windowsHide: true, stdio: 'ignore',
+    env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
+      APP_ENV: 'development', MEDIA_ENABLED: 'false',
+      MEDIA_READ_DATABASE_URL: process.env.MEDIA_READ_DATABASE_URL,
+      PUBLIC_ORIGIN: 'http://127.0.0.1:3000', STAFF_ORIGIN: 'http://localhost:3001',
+      MEDIA_ORIGIN: 'http://127.0.0.1:3002', MEDIA_BIND_ADDR: '127.0.0.1:3002',
+      MEDIA_APPROVED_DIR: path.join(mediaRoot, 'objects') },
+  });
+  let readerError;
+  reader.on('error', error => { readerError = error; });
+  const mediaRequests = [];
+  context.on('request', request => { if (request.url().startsWith('http://127.0.0.1:3002/')) mediaRequests.push(request.allHeaders()); });
   try {
+    await expect.poll(async () => {
+      if (readerError || reader.exitCode !== null) throw new Error('Synthetic reader failed to start');
+      try { return (await page.request.get('http://127.0.0.1:3002/readyz')).status(); } catch { return 0; }
+    }, { timeout: 10_000 }).toBe(200);
     run('staff-operator', ['provision', board, 'moderator', invitationFile]);
     const invitation = readFileSync(invitationFile, 'utf8').trim();
     expect(fixture('inspect', board).credentials).toBe(0);
@@ -66,6 +85,36 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const report = page.locator(`#report-${data.report}`);
     await expect(report).toContainText('Review <b>text</b>');
     expect(await report.locator('b').count()).toBe(0);
+    await expect(report).toContainText('<img src=x onerror=alert(1)> & "fixture".png');
+    const thumbnail = report.getByRole('img', { name: 'Attachment thumbnail' });
+    await expect(thumbnail).toBeVisible();
+    await expect.poll(() => thumbnail.evaluate(image => image.complete && image.naturalWidth)).toBe(250);
+    expect(await thumbnail.getAttribute('height')).toBe('150');
+    expect(await report.locator('img').count()).toBe(1);
+    expect(mediaRequests.length).toBeGreaterThan(0);
+    for (const request of mediaRequests) {
+      const headers = await request;
+      expect(headers.cookie).toBeUndefined(); expect(headers.referer).toBeUndefined();
+    }
+    fixture('spoiler', board);
+    const requestCount = mediaRequests.length;
+    await page.reload();
+    await expect(report.getByRole('link', { name: 'Open spoiler image' })).toBeVisible();
+    expect(await report.locator('img').count()).toBe(0);
+    expect(mediaRequests.length).toBe(requestCount);
+    const popupPromise = context.waitForEvent('page');
+    await report.getByRole('link', { name: 'Open spoiler image' }).click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState();
+    expect(popup.url()).toBe(`http://127.0.0.1:3002/${board}/${data.tim}.png`);
+    expect(await popup.evaluate(() => window.opener === null)).toBe(true);
+    await popup.close();
+    const full = await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}.png`);
+    expect(full.status()).toBe(200);
+    const mediaEtag = full.headers().etag;
+    const thumb = await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}s.jpg`);
+    expect(thumb.status()).toBe(200);
+    const thumbnailEtag = thumb.headers().etag;
     const cookies = await context.cookies();
     const sessionCookie = cookies.find(c => c.name === 'staff');
     expect(sessionCookie.httpOnly).toBe(true); expect(sessionCookie.sameSite).toBe('Strict'); expect(sessionCookie.domain).toBe('localhost');
@@ -98,6 +147,8 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await page.reload(); await expect(report).toBeVisible();
     const stale = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'close' }) })).status, { csrf, board, target: String(data.thread) });
     expect(stale).toBe(403);
+    const staleFile = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'remove-file' }) })).status, { csrf, board, target: String(data.post) });
+    expect(staleFile).toBe(403);
     await login();
     const idleCsrf = await page.locator('input[name=csrf]').first().inputValue();
     const idleCookie = (await context.cookies()).find(cookie => cookie.name === 'staff').value;
@@ -116,6 +167,24 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await login();
     expect((await context.cookies()).find(cookie => cookie.name === 'staff').value !== idleCookie).toBe(true);
     expect(fixture('inspect', board).sessions).toBe(1);
+    const attachmentBefore = await page.request.get(publicUrl);
+    expect((await attachmentBefore.json()).posts[1].tim).toBe(data.tim);
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await report.getByRole('button', { name: 'Remove file only', exact: true }).click();
+    await expect(report).toContainText('File unavailable');
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+    await expect(report).toContainText('Harmless reply');
+    expect(await report.getByRole('link', { name: 'Open spoiler image' }).count()).toBe(0);
+    const attachmentAfter = await page.request.get(publicUrl, { headers: { 'If-None-Match': attachmentBefore.headers().etag } });
+    expect(attachmentAfter.status()).toBe(200);
+    const deletedFilePost = (await attachmentAfter.json()).posts[1];
+    expect(deletedFilePost.filedeleted).toBe(1); expect(deletedFilePost.tim).toBeUndefined();
+    expect((await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}.png`, { headers: { 'If-None-Match': mediaEtag } })).status()).toBe(404);
+    expect((await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}s.jpg`, { headers: { 'If-None-Match': thumbnailEtag } })).status()).toBe(404);
+    for (const request of mediaRequests) {
+      const headers = await request;
+      expect(headers.cookie).toBeUndefined(); expect(headers.referer).toBeUndefined();
+    }
     await report.getByRole('button', { name: 'Resolve report', exact: true }).click(); await expect(report).toContainText('resolved');
     await report.getByRole('button', { name: 'Dismiss report', exact: true }).click(); await expect(report).toContainText('dismissed');
     await report.getByRole('button', { name: 'Remove post', exact: true }).click(); await expect(report).toContainText('removed: true');
@@ -126,7 +195,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect((await page.request.get(publicUrl, { headers: { 'If-None-Match': oldEtag } })).status()).toBe(404);
     const persisted = fixture('inspect', board);
     expect(persisted.states).toEqual([[false, false, true]]);
-    expect(persisted.audit).toEqual(['close', 'reopen', 'sticky', 'unsticky', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
+    expect(persisted.audit).toEqual(['close', 'reopen', 'sticky', 'unsticky', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);
@@ -146,10 +215,18 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     run('staff-operator', ['revoke', board]);
     expect((await page.request.get('/reports')).status()).toBe(401);
   } finally {
+    if (reader.exitCode === null && reader.signalCode === null && !readerError) {
+      const stopped = new Promise(resolve => reader.once('exit', resolve));
+      reader.kill();
+      await stopped;
+    }
     fixture('cleanup', board);
     const privateRoot = path.resolve('.local');
     if (path.dirname(invitationDir) !== privateRoot || path.dirname(recoveryDir) !== privateRoot) throw new Error('Invalid fixture cleanup path');
     rmSync(invitationDir, { recursive: true, force: true });
     rmSync(recoveryDir, { recursive: true, force: true });
+    if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
+        || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid media fixture cleanup path');
+    rmSync(mediaRoot, { recursive: true });
   }
 });

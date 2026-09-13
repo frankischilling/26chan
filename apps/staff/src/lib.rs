@@ -134,7 +134,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             state.clone(),
             handlers::request_limits,
         ))
-        .layer(middleware::from_fn(handlers::security_headers))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            handlers::security_headers,
+        ))
         .layer(middleware::from_fn(board_http::retain_response_body))
         .with_state(state)
 }

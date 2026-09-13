@@ -20,6 +20,7 @@ fn state() -> Arc<AppState> {
     Arc::new(AppState {
         config: Config {
             origin: "http://localhost:3001".into(),
+            media_origin: "http://127.0.0.1:3002".into(),
             bind: "127.0.0.1:3001".parse().unwrap(),
             production: false,
             auth_database: String::new(),
@@ -157,31 +158,35 @@ async fn unauthenticated_and_unavailable_sessions_fail_closed() {
 }
 #[tokio::test]
 async fn state_changes_reject_origin_and_metadata_before_database() {
-    for (origin, site) in [
-        (None, None),
-        (Some("http://localhost:3000"), Some("same-site")),
-        (Some("http://localhost:3001"), Some("cross-site")),
-        (Some("http://localhost:3001"), None),
-    ] {
-        let mut request = Request::builder()
-            .method("POST")
-            .uri("/moderate")
-            .header("content-type", "application/x-www-form-urlencoded");
-        if let Some(v) = origin {
-            request = request.header("origin", v);
+    for action in ["close", "remove-file"] {
+        for (origin, site) in [
+            (None, None),
+            (Some("http://localhost:3000"), Some("same-site")),
+            (Some("http://localhost:3001"), Some("cross-site")),
+            (Some("http://localhost:3001"), None),
+        ] {
+            let mut request = Request::builder()
+                .method("POST")
+                .uri("/moderate")
+                .header("content-type", "application/x-www-form-urlencoded");
+            if let Some(v) = origin {
+                request = request.header("origin", v);
+            }
+            if let Some(v) = site {
+                request = request.header("sec-fetch-site", v);
+            }
+            let response = app()
+                .oneshot(
+                    request
+                        .body(Body::from(format!(
+                            "csrf=bad&board=test&target=1&action={action}"
+                        )))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
         }
-        if let Some(v) = site {
-            request = request.header("sec-fetch-site", v);
-        }
-        let response = app()
-            .oneshot(
-                request
-                    .body(Body::from("csrf=bad&board=test&target=1&action=close"))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 }
 

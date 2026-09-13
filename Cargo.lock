@@ -577,6 +577,7 @@ dependencies = [
  "board-config",
  "board-domain",
  "board-http",
+ "board-media",
  "board-observe",
  "chrono",
  "http-body-util",

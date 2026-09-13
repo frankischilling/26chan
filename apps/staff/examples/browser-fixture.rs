@@ -1,5 +1,6 @@
 //! Synthetic browser data only; this executable requires migration authority.
 #![forbid(unsafe_code)]
+use board_media::{ObjectId, PublicationStore, Quarantine, ValidatedOutput};
 use serde_json::json;
 #[tokio::main]
 async fn main() {
@@ -38,8 +39,37 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .execute(&mut *tx)
                 .await?;
             let report:i64=sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Review <b>text</b>') RETURNING id").bind(board).bind(post).fetch_one(&mut *tx).await?;
+            // Trusted synthetic pixels only. This fixture bypasses intake and
+            // guest execution; browser assertions concern staff and reader HTTP.
+            let media_root = std::env::current_dir()?
+                .join(".local")
+                .join(format!("staff-media-{board}"));
+            std::fs::create_dir(&media_root)?;
+            let quarantine = Quarantine::new(media_root.join("quarantine"))?;
+            let store = PublicationStore::new(media_root.join("objects"), &quarantine)?;
+            let mut pixels = b"IBRGBA01".to_vec();
+            pixels.extend_from_slice(&500u32.to_be_bytes());
+            pixels.extend_from_slice(&300u32.to_be_bytes());
+            for _ in 0..500 * 300 {
+                pixels.extend_from_slice(&[50, 120, 180, 255]);
+            }
+            let output = ValidatedOutput::read(pixels.as_slice()).await?;
+            let full = output.encode()?;
+            let thumb = output.thumbnail()?;
+            let asset = uuid::Uuid::new_v4().simple().to_string();
+            let id: ObjectId = asset.parse()?;
+            let guard = store.try_lock()?;
+            guard.install(id, &full)?;
+            guard.install_thumbnail(id, &thumb)?;
+            sqlx::query("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height) VALUES ($1,$1,$1,$2,$3,500,300,'approved',clock_timestamp(),$4,$5,$6,250,150)")
+                .bind(&asset).bind(full.sha256()).bind(full.len() as i64).bind(full.md5()).bind(thumb.sha256()).bind(thumb.len() as i64).execute(&mut *tx).await?;
+            let tim: i64 = sqlx::query_scalar("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES ($1,$2,$2,$3,$4,500,300,false) RETURNING tim")
+                .bind(post).bind(&asset).bind("<img src=x onerror=alert(1)> & \"fixture\".png").bind(full.len() as i64).fetch_one(&mut *tx).await?;
             tx.commit().await?;
-            println!("{}", json!({"thread":thread,"post":post,"report":report}));
+            println!(
+                "{}",
+                json!({"thread":thread,"post":post,"report":report,"tim":tim,"mediaRoot":media_root})
+            );
         }
         "inspect" => {
             let states: Vec<(bool, bool, bool)> =
@@ -59,6 +89,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 "{}",
                 json!({"states":states,"audit":audit,"credentials":credentials,"sessions":sessions})
             );
+        }
+        "spoiler" => {
+            sqlx::query("UPDATE content.post_media SET spoiler=true WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
+                .bind(board).execute(&pool).await?;
         }
         "stale" => {
             sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
@@ -108,6 +142,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .bind(board)
                 .execute(&mut *tx)
                 .await?;
+            sqlx::query("DELETE FROM media.assets WHERE id IN (SELECT m.asset_id FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board=$1)")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
+                .bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM content.posts WHERE board=$1")
                 .bind(board)
                 .execute(&mut *tx)

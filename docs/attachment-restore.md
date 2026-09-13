@@ -49,7 +49,7 @@ python scripts/test-attachment-restore.py
 
 The harness checks the private cluster marker, data directory, loopback port and PostgreSQL major version. Scratch files inherit the existing private Windows cluster ACLs. It accepts only expected role names and loopback endpoints, clears unrelated child credentials, and keeps passwords out of PostgreSQL command arguments.
 
-Focused public-app clippy with all targets/features and warnings denied, formatting, Python compilation and shell syntax checks passed locally. This Linux CI addition has not run yet. The earlier normalized-metadata head `74722e8` passed [Linux/PostgreSQL/Firecracker and Windows CI](https://github.com/frankischilling/26chan/actions/runs/34731591970); those results do not cover this addition.
+Focused public-app clippy with all targets/features and warnings denied, formatting, Python compilation and shell syntax checks passed locally. The populated-attachment restore step passed on Linux for head `36672c8` in [PR CI](https://github.com/frankischilling/26chan/actions/runs/34732733196), including its missing-file and corrupt-file controls. This is same-cluster recovery evidence with the limits below.
 
 ## Production limits
 
