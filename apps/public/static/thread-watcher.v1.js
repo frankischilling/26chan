@@ -88,7 +88,35 @@ function start(context) {
   refreshButton.id = 'twPrune';
   const close = button('Close', () => { refresh.cancel(); collapsed = true; render(); });
   close.id = 'twClose';
-  heading.append(title, refreshButton, close);
+  panel.classList.add(catalog ? 'watcherCatalog' : 'watcherExtension');
+  const iconFamily = getComputedStyle(document.documentElement).getPropertyValue('--watcher-icon-family').trim();
+  const family = ['futaba', 'burichan', 'tomorrow', 'photon'].includes(iconFamily) ? iconFamily : 'futaba';
+  const highDensity = matchMedia('(min-resolution: 2dppx)');
+  function icon(control, name, description) {
+    control.setAttribute('aria-label', description);
+    control.title = description;
+    if (catalog) {
+      control.classList.remove('watchIcon', 'unwatchIcon', 'refreshIcon', 'rotateIcon', 'closeIcon');
+      control.classList.add({ watch_thread_off: 'watchIcon', watch_thread_on: 'unwatchIcon',
+        refresh: 'refreshIcon', post_expand_rotate: 'rotateIcon', cross: 'closeIcon' }[name]);
+    } else {
+      let image = control.querySelector('img');
+      if (!image) {
+        image = node('img');
+        image.alt = '';
+        image.width = image.height = 18;
+        image.draggable = false;
+        control.append(image);
+      }
+      const path = `/static/watcher/${family}/${name}${highDensity.matches ? '@2x' : ''}.${name === 'post_expand_rotate' ? 'gif' : 'png'}`;
+      if (image.getAttribute('src') !== path) image.src = path;
+    }
+  }
+  refreshButton.textContent = close.textContent = '';
+  refreshButton.classList.add('watcherIcon');
+  close.classList.add('watcherIcon');
+  highDensity.addEventListener('change', () => render());
+  heading.append(close, title, refreshButton);
   const body = node('div');
   body.id = 'watcher-body';
   const list = node('ul');
@@ -205,15 +233,17 @@ function start(context) {
       if (!id) continue;
       let control = section.querySelector('.wbtn');
       if (!control) {
-        control = button('Watch', () => toggleThread(section), 'wbtn');
+        control = button('', () => toggleThread(section), 'wbtn watcherIcon');
         control.id = `leaf-${id}`;
-        (section.querySelector('.meta') || section.querySelector('.op .postInfo'))?.append(' ', control);
+        if (catalog) section.prepend(control);
+        else section.querySelector('.op .postInfo')?.append(' ', control);
       }
       const watched = entries.has(watchKey(board, id));
       control.hidden = !enabled;
-      control.textContent = watched ? 'Unwatch' : 'Watch';
-      control.setAttribute('aria-label', `${watched ? 'Unwatch' : 'Watch'} thread ${id}`);
+      icon(control, watched ? 'watch_thread_on' : 'watch_thread_off', `${watched ? 'Unwatch' : 'Watch'} thread ${id}`);
+      control.title = catalog ? (watched ? 'Unwatch' : 'Watch') : (watched ? 'Remove from watch list' : 'Add to watch list');
       control.setAttribute('aria-pressed', String(watched));
+      if (watched) control.dataset.active = '1'; else delete control.dataset.active;
       if (threadId && enabled && watched) {
         for (const post of section.querySelectorAll('.post[id]')) {
           if (post.querySelector('.watcherLastRead')) continue;
@@ -238,6 +268,9 @@ function start(context) {
     settingsNavigation.setWatcherEnabled(enabled, !panel.hidden);
     body.hidden = collapsed;
     refreshButton.disabled = busy || !enabled;
+    icon(refreshButton, busy ? 'post_expand_rotate' : 'refresh', 'Refresh');
+    icon(close, 'cross', 'Close');
+    panel.setAttribute('aria-busy', String(busy));
     list.replaceChildren();
     for (const [key, entry] of orderedWatches(entries)) {
       const { board: slug, id } = splitWatchKey(key);

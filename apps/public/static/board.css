@@ -146,11 +146,27 @@ table.postForm button { padding: 1px 6px; }
 .watcherTitle { font-weight: bold; }
 #twHeader { cursor: move; touch-action: none; user-select: none; }
 #twHeader:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.watcherPanel { position: absolute; left: 10px; top: 75px; z-index: 30; max-width: min(420px, calc(100% - 20px)); color: var(--ink); background: var(--panel); border: 1px solid var(--edge); font-size: 12px; }
-.watcherHeader { display: flex; align-items: center; gap: 8px; padding: 4px; border-bottom: 1px solid var(--edge); }
-.watcherHeader button, #watchList button { padding: 1px 3px; font: inherit; }
-#watchList { list-style: none; padding: 4px; margin: 0; overflow-wrap: anywhere; }
-#watchList li { margin: 3px 0; }
+.watcherPanel { position: absolute; left: 10px; top: 75px; z-index: 30; max-width: 265px; padding: 3px; color: var(--ink); background: var(--panel); border: 1px solid rgba(0, 0, 0, .2); font: inherit; }
+.watcherCatalog { border-color: var(--edge); border-width: var(--watcher-catalog-border-width, 0 1px 1px 0); }
+.watcherExtension { border-color: var(--watcher-extension-edge, rgba(0, 0, 0, .2)); }
+.watcherHeader { height: 17px; font-weight: bold; text-align: center; line-height: var(--watcher-header-line-height, normal); }
+.watcherIcon { display: inline-block; width: 18px; height: 18px; box-sizing: content-box; border: 0; padding: 0; margin: 0; color: inherit; background: transparent; background-size: 100%; cursor: pointer; font: inherit; line-height: 0; }
+.watcherIcon img { display: block; width: 18px; height: 18px; }
+.watcherIcon:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#twPrune { position: relative; top: 0; float: right; margin-left: 3px; margin-top: -1px; }
+#twClose { position: relative; top: 0; float: left; margin-top: -1px; }
+.watchIcon { background-image: var(--watcher-watch-off); }
+.unwatchIcon { background-image: var(--watcher-watch-on); }
+.refreshIcon { background-image: var(--watcher-refresh); }
+.rotateIcon { background-image: var(--watcher-rotate); }
+.closeIcon { background-image: var(--watcher-cross); }
+.catalog .wbtn { position: absolute; opacity: 0; margin: 0; }
+.catalog .thread:hover > .wbtn, .catalog .thread:focus-within > .wbtn { opacity: 1; }
+#watchList { list-style: none; padding: 0; margin: 0; user-select: none; }
+.watcherCatalog #watchList { overflow: auto; display: block; max-height: 100vh; }
+#watchList li { margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#watchList li:first-child { margin-top: 3px; padding-top: 2px; border-top: 1px solid var(--watcher-list-edge, var(--edge)); }
+.watcherCatalog #watchList li:first-child { border-top-color: var(--watcher-catalog-list-edge, var(--edge)); }
 #watchList a { text-decoration: none; }
 #watchList a.deadlink { text-decoration: line-through; }
 #watchList .hasNewReplies { font-weight: bold; }
@@ -158,10 +174,15 @@ table.postForm button { padding: 1px 6px; }
 #watchList .archivelink { opacity: 0.5; }
 #watchList .watcherRemove { border: 0; padding: 0; color: inherit; background: transparent; cursor: pointer; }
 .watcherNotice { padding: 0 4px; max-width: 32em; }
-.wbtn, .watcherLastRead { padding: 0 2px; font: inherit; }
+.wbtn { margin-bottom: -4px; }
+.watcherLastRead { padding: 0 2px; font: inherit; }
 .watcherReadTarget { outline: 2px solid var(--link); outline-offset: 2px; }
 .watcherPanel[hidden], #watcher-body[hidden], .wbtn[hidden], .watcherLastRead[hidden] { display: none !important; }
 .watcherNotice:empty { display: none; }
+@media (max-width: 480px) {
+  .watcherPanel { padding: 3px 0; }
+  #watchList { padding: 0 10px; }
+}
 #navtopright { float: right; }
 .settingsMobile { display: none; }
 .nativeSettings { color: var(--ink); font-family: var(--font); font-size: 14px; }
@@ -197,3 +218,22 @@ dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%;
   .watcherPanel { width: 100%; max-width: 100%; margin: 0; box-sizing: border-box; border-left: 0; border-right: 0; }
 }
 @media (max-width: 360px) { dialog.catalogSettings { left: 10px; margin-left: 0; width: calc(100vw - 30px); } }
+
+/* Pinned public watcher images; only release-owned URLs are permitted. */
+:root {
+  --watcher-icon-family: futaba;
+  --watcher-watch-off: url('/static/watcher/futaba/watch_thread_off.png');
+  --watcher-watch-on: url('/static/watcher/futaba/watch_thread_on.png');
+  --watcher-refresh: url('/static/watcher/futaba/refresh.png');
+  --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate.gif');
+  --watcher-cross: url('/static/watcher/futaba/cross.png');
+}
+@media (min-resolution: 2dppx) {
+  :root {
+    --watcher-watch-off: url('/static/watcher/futaba/watch_thread_off@2x.png');
+    --watcher-watch-on: url('/static/watcher/futaba/watch_thread_on@2x.png');
+    --watcher-refresh: url('/static/watcher/futaba/refresh@2x.png');
+    --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate@2x.gif');
+    --watcher-cross: url('/static/watcher/futaba/cross@2x.png');
+  }
+}

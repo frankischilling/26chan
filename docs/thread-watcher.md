@@ -110,3 +110,39 @@ steps. New gestures wait while a position save is pending; storage failures keep
 the current tab usable. `watcher-position.test.mjs` covers the parser and native
 geometry; `watcher-position.spec.js` covers real pointer movement, reloads, tabs,
 keyboard movement, cancellation, invalid settings and unavailable storage.
+
+## Pinned watcher icons and panel geometry
+
+The 40 unchanged UI images in `public-watcher-assets.json` were captured from
+public static URLs on September 13, 2026. The manifest records each URL, hash,
+byte count, dimensions and collection time. Catalog v1025/CSS v705 uses image
+backgrounds; extension v1191 uses image elements. Both select the 2x assets at
+a device pixel ratio of at least 2 and render them in 18px boxes. The four image
+families cover all six themes. No upstream JavaScript is executed.
+
+Watch/unwatch, refresh, in-flight refresh and mobile close controls now use
+these assets. The catalog leaf precedes the thumbnail instead of appearing in
+its metadata row. The panel uses the observed 265px desktop maximum width,
+3px padding, 17px header, theme borders and single-line ellipsis rows. The
+mobile panel retains its full width and close/reopen behavior.
+
+Controls remain semantic buttons with accessible labels, pressed/busy state
+and keyboard activation. Catalog leaves become visible on keyboard focus as
+well as hover; the reference's `visibility: hidden` would exclude an unfocused
+leaf from keyboard navigation. Stored values cannot choose image paths. Rust
+embeds a fixed asset table and CSP names each complete image URL, without an
+image-directory wildcard or a filesystem-serving route.
+
+`tests/themes/watcher-icons.spec.js` covers the six themes at 1x and 2x on
+catalog/board pages at desktop/mobile widths, checks decoded image dimensions,
+watch toggles, the busy/error refresh transition, close/reopen, catalog placement
+and keyboard access. `tests/browser/behavior.spec.js` loads all pinned images
+under the real server's CSP and checks denied-origin and unlisted-path violations;
+the synthetic visual-fixture pages do not send CSP headers. `apps/public/tests/ui_assets.rs`
+checks fixed bytes against both image manifests, GET/HEAD behavior, response
+headers, denied writes and missing paths. Test results are recorded per commit
+in the PR; adding this coverage is not itself a passing result.
+
+This is not a full watcher parity claim. Native thread-navigation watch controls,
+filter-driven watching/blacklisting, additional settings and position edge cases,
+and reviewed full watcher/settings reference captures remain unfinished.

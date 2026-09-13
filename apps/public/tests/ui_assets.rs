@@ -72,31 +72,48 @@ async fn catalog_script_is_release_owned_and_not_an_image_source() {
 
 #[tokio::test]
 async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
-    let manifest: serde_json::Value =
-        serde_json::from_str(include_str!("../../../docs/public-catalog-assets.json")).unwrap();
+    let manifests: [serde_json::Value; 2] = [
+        serde_json::from_str(include_str!("../../../docs/public-catalog-assets.json")).unwrap(),
+        serde_json::from_str(include_str!("../../../docs/public-watcher-assets.json")).unwrap(),
+    ];
+    let assets: Vec<_> = manifests
+        .iter()
+        .flat_map(|manifest| {
+            manifest["assets"].as_array().unwrap().iter().map(|asset| {
+                (
+                    format!(
+                        "{}{}",
+                        manifest["local_base"].as_str().unwrap(),
+                        asset["name"].as_str().unwrap()
+                    ),
+                    asset,
+                )
+            })
+        })
+        .collect();
     for origin in ["http://127.0.0.1:3000", "https://board.example"] {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
             .unwrap();
-        let app = board_public::router(pool, origin.into(), origin.starts_with("https:"));
+        let app = board_public::router(pool.clone(), origin.into(), origin.starts_with("https:"));
         let mut sources =
             format!("img-src {origin}/static/themes/fade.png {origin}/static/themes/fade-blue.png");
-        for asset in manifest["assets"].as_array().unwrap() {
-            sources.push_str(&format!(
-                " {origin}/static/catalog/{}",
-                asset["name"].as_str().unwrap()
-            ));
+        for (path, _) in &assets {
+            sources.push_str(&format!(" {origin}{path}"));
         }
         sources.push(';');
-        for asset in manifest["assets"].as_array().unwrap() {
-            let path = format!("/static/catalog/{}", asset["name"].as_str().unwrap());
+        for (path, asset) in &assets {
+            // Each route contract gets a fresh request budget. Do not relax the
+            // production write limit to accommodate this growing asset table.
+            let app =
+                board_public::router(pool.clone(), origin.into(), origin.starts_with("https:"));
             for method in ["GET", "HEAD"] {
                 let response = app
                     .clone()
                     .oneshot(
                         Request::builder()
                             .method(method)
-                            .uri(&path)
+                            .uri(path.as_str())
                             .body(Body::empty())
                             .unwrap(),
                     )
@@ -135,7 +152,7 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
                 .oneshot(
                     Request::builder()
                         .method("POST")
-                        .uri(&path)
+                        .uri(path.as_str())
                         .header("origin", origin)
                         .body(Body::empty())
                         .unwrap(),
@@ -148,6 +165,10 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
             "/static/catalog/unknown.png",
             "/static/catalog/spoiler-other.png",
             "/static/catalog/../secret",
+            "/static/watcher/unknown.png",
+            "/static/watcher/futaba/unknown.png",
+            "/static/watcher/futaba/watch_thread_on@3x.png",
+            "/static/watcher/../secret",
         ] {
             let response = app
                 .clone()

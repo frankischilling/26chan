@@ -1,0 +1,498 @@
+{
+  "scope": "Unchanged public watcher UI icons named by catalog v1025/CSS v705 and extension v1191. No public post content or private source.",
+  "source_base": "https://s.4cdn.org/image/buttons/",
+  "local_base": "/static/watcher/",
+  "source": "https://s.4cdn.org/js/extension.min.1191.js",
+  "source_sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+  "theme_families": {
+    "yotsuba": "futaba",
+    "yotsuba-b": "burichan",
+    "futaba": "futaba",
+    "burichan": "burichan",
+    "tomorrow": "tomorrow",
+    "photon": "photon"
+  },
+  "density": "18px CSS boxes; 36px @2x image selected at min-resolution: 2dppx, otherwise 18px image",
+  "assets": [
+    {
+      "name": "futaba/watch_thread_off.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/watch_thread_off.png",
+      "mime": "image/png",
+      "bytes": 138,
+      "sha256": "314d79680bed0f3fe8821ae7882b3e1a19ea58719b37dd38fc82350047b77aff",
+      "collected_utc": "2026-09-13T13:36:08.768Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/watch_thread_off@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/watch_thread_off@2x.png",
+      "mime": "image/png",
+      "bytes": 159,
+      "sha256": "e8de2a5ffe8fa517ff7bceeb262bfa8e20eb5212291860839ee4792c7c21a5cd",
+      "collected_utc": "2026-09-13T13:36:08.79Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "futaba/watch_thread_on.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/watch_thread_on.png",
+      "mime": "image/png",
+      "bytes": 156,
+      "sha256": "7e5900a3ce9b5b02011151ef20cc17280cf259e5970d10926a947be6bd3dfddf",
+      "collected_utc": "2026-09-13T13:36:08.806Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/watch_thread_on@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/watch_thread_on@2x.png",
+      "mime": "image/png",
+      "bytes": 161,
+      "sha256": "e67e266a8dc73fa3f872f184252344efe062f53a9dffcde0c4c6cb0a9afbc45a",
+      "collected_utc": "2026-09-13T13:36:08.815Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "futaba/refresh.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/refresh.png",
+      "mime": "image/png",
+      "bytes": 152,
+      "sha256": "38efeea1cb30b8a7160ccedb0ceae4d01932ec56ff862d7551d65b5f04b3ec7b",
+      "collected_utc": "2026-09-13T13:36:08.833Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/refresh@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/refresh@2x.png",
+      "mime": "image/png",
+      "bytes": 161,
+      "sha256": "7d7c11b31cf59f8a395868d21d362cdcc6bf5aa9617eb44634f23ab9480e729c",
+      "collected_utc": "2026-09-13T13:36:08.845Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "futaba/cross.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/cross.png",
+      "mime": "image/png",
+      "bytes": 140,
+      "sha256": "0671f197e02880ebf5621864e1bc9219c2599750ef767ac8539eb99daf25746f",
+      "collected_utc": "2026-09-13T13:36:08.858Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/cross@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/cross@2x.png",
+      "mime": "image/png",
+      "bytes": 145,
+      "sha256": "76322d9371552daf4e62f7cd4dec69e25a274ee59136b0c7d0e65029be3fd5e4",
+      "collected_utc": "2026-09-13T13:36:08.868Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "futaba/post_expand_rotate.gif",
+      "url": "https://s.4cdn.org/image/buttons/futaba/post_expand_rotate.gif",
+      "mime": "image/gif",
+      "bytes": 281,
+      "sha256": "a32060e026c00da7fbff3691629822cd08a3f1bd422391acaddde7868bc8c621",
+      "collected_utc": "2026-09-13T13:36:08.878Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "futaba/post_expand_rotate@2x.gif",
+      "url": "https://s.4cdn.org/image/buttons/futaba/post_expand_rotate@2x.gif",
+      "mime": "image/gif",
+      "bytes": 492,
+      "sha256": "97fd019ef2e9e6a32777d470a0f84dd27e825d39a7cd3c890693dd6e8cc11c1b",
+      "collected_utc": "2026-09-13T13:36:08.889Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/watch_thread_off.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/watch_thread_off.png",
+      "mime": "image/png",
+      "bytes": 138,
+      "sha256": "314d79680bed0f3fe8821ae7882b3e1a19ea58719b37dd38fc82350047b77aff",
+      "collected_utc": "2026-09-13T13:36:08.903Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/watch_thread_off@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/watch_thread_off@2x.png",
+      "mime": "image/png",
+      "bytes": 159,
+      "sha256": "e8de2a5ffe8fa517ff7bceeb262bfa8e20eb5212291860839ee4792c7c21a5cd",
+      "collected_utc": "2026-09-13T13:36:08.913Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/watch_thread_on.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/watch_thread_on.png",
+      "mime": "image/png",
+      "bytes": 156,
+      "sha256": "63b4f7363869b46ab3ec108e38869c23eddd3b4072266fc4ca2ab92f80d5b18f",
+      "collected_utc": "2026-09-13T13:36:08.925Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/watch_thread_on@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/watch_thread_on@2x.png",
+      "mime": "image/png",
+      "bytes": 161,
+      "sha256": "f117c2ca646b36ff89e7d395128cc6fc4c972bc6c6d1732aef832b057886b238",
+      "collected_utc": "2026-09-13T13:36:08.936Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/refresh.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/refresh.png",
+      "mime": "image/png",
+      "bytes": 132,
+      "sha256": "1f099c1b2a31e1b6dc8530abd62fa62d1cb434726b686a1a151a2d3328535956",
+      "collected_utc": "2026-09-13T13:36:08.958Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/refresh@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/refresh@2x.png",
+      "mime": "image/png",
+      "bytes": 158,
+      "sha256": "2a3fd683b9bcdf985a843e239627ef2f7194cf7a7e64f70c0ab6dcc5427df199",
+      "collected_utc": "2026-09-13T13:36:08.969Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/cross.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/cross.png",
+      "mime": "image/png",
+      "bytes": 122,
+      "sha256": "7d07d2d636c8ac39baa8050ea2df086d2f8f1a0610ed10b5b8d4a003b78754f2",
+      "collected_utc": "2026-09-13T13:36:08.981Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/cross@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/cross@2x.png",
+      "mime": "image/png",
+      "bytes": 145,
+      "sha256": "65e556b87585a7d819c50d5fcd64843d6cb7aed344a35722083dc6cf11d603df",
+      "collected_utc": "2026-09-13T13:36:08.991Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "burichan/post_expand_rotate.gif",
+      "url": "https://s.4cdn.org/image/buttons/burichan/post_expand_rotate.gif",
+      "mime": "image/gif",
+      "bytes": 281,
+      "sha256": "cbfdb092f7565c49a230eafe2c2422a520dedf7376a668baf2cf8e755a7e4557",
+      "collected_utc": "2026-09-13T13:36:09.002Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "burichan/post_expand_rotate@2x.gif",
+      "url": "https://s.4cdn.org/image/buttons/burichan/post_expand_rotate@2x.gif",
+      "mime": "image/gif",
+      "bytes": 492,
+      "sha256": "35e75a6a60194c4910c360ac4975eb7e4908d7fe2c41d26546f5e4111b9bb000",
+      "collected_utc": "2026-09-13T13:36:09.014Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/watch_thread_off.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/watch_thread_off.png",
+      "mime": "image/png",
+      "bytes": 138,
+      "sha256": "314d79680bed0f3fe8821ae7882b3e1a19ea58719b37dd38fc82350047b77aff",
+      "collected_utc": "2026-09-13T13:36:09.028Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/watch_thread_off@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/watch_thread_off@2x.png",
+      "mime": "image/png",
+      "bytes": 159,
+      "sha256": "e8de2a5ffe8fa517ff7bceeb262bfa8e20eb5212291860839ee4792c7c21a5cd",
+      "collected_utc": "2026-09-13T13:36:09.038Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/watch_thread_on.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/watch_thread_on.png",
+      "mime": "image/png",
+      "bytes": 138,
+      "sha256": "53cb623e042da9f3eb59bb4b3b8ceabb448a38e1d54155635b0069ff2a2f98d1",
+      "collected_utc": "2026-09-13T13:36:09.051Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/watch_thread_on@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/watch_thread_on@2x.png",
+      "mime": "image/png",
+      "bytes": 160,
+      "sha256": "9732781356b2a57aa602d0db0d328cafb4a0a966167673d4f48c898e9ff4b4cf",
+      "collected_utc": "2026-09-13T13:36:09.063Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/refresh.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/refresh.png",
+      "mime": "image/png",
+      "bytes": 122,
+      "sha256": "acdc32815875b7421d610f3be543239ba259350fba65928a4294ed6771c9bc99",
+      "collected_utc": "2026-09-13T13:36:09.077Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/refresh@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/refresh@2x.png",
+      "mime": "image/png",
+      "bytes": 144,
+      "sha256": "1d4d74d93063e8d1444f85bd509e42fc07f1cd4170d8cd1793a7c902c240fecf",
+      "collected_utc": "2026-09-13T13:36:09.086Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/cross.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/cross.png",
+      "mime": "image/png",
+      "bytes": 115,
+      "sha256": "f91afc6e6b4c1985cd2f89a823876ce466b2c36f0be14c11b4e9223d6f5bb39e",
+      "collected_utc": "2026-09-13T13:36:09.1Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/cross@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/cross@2x.png",
+      "mime": "image/png",
+      "bytes": 126,
+      "sha256": "2d50bd24c123d8df628be750aee6e509ec91e4fe114cacc0eeb13b97f41353b2",
+      "collected_utc": "2026-09-13T13:36:09.11Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "tomorrow/post_expand_rotate.gif",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/post_expand_rotate.gif",
+      "mime": "image/gif",
+      "bytes": 281,
+      "sha256": "a9abaa1c98c5594aa37ede3487140eca059174c4959d41f6f5f2c9eaa75d9446",
+      "collected_utc": "2026-09-13T13:36:09.123Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "tomorrow/post_expand_rotate@2x.gif",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/post_expand_rotate@2x.gif",
+      "mime": "image/gif",
+      "bytes": 492,
+      "sha256": "2a19c2175970de8f809e4dc280ff0459a753d01bad3a82e6f308da67dc3b3bbc",
+      "collected_utc": "2026-09-13T13:36:09.133Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/watch_thread_off.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/watch_thread_off.png",
+      "mime": "image/png",
+      "bytes": 138,
+      "sha256": "314d79680bed0f3fe8821ae7882b3e1a19ea58719b37dd38fc82350047b77aff",
+      "collected_utc": "2026-09-13T13:36:09.162Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/watch_thread_off@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/watch_thread_off@2x.png",
+      "mime": "image/png",
+      "bytes": 159,
+      "sha256": "e8de2a5ffe8fa517ff7bceeb262bfa8e20eb5212291860839ee4792c7c21a5cd",
+      "collected_utc": "2026-09-13T13:36:09.187Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/watch_thread_on.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/watch_thread_on.png",
+      "mime": "image/png",
+      "bytes": 148,
+      "sha256": "232a7bf0d91cfe1831f19937abe890a8001855bff1ea598c9653cb2b3aa0cb43",
+      "collected_utc": "2026-09-13T13:36:09.292Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/watch_thread_on@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/watch_thread_on@2x.png",
+      "mime": "image/png",
+      "bytes": 161,
+      "sha256": "84a12e06a2fab6641af3903d71c2cf6cf7c6c983188384051359f1f51fb3c26b",
+      "collected_utc": "2026-09-13T13:36:09.382Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/refresh.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/refresh.png",
+      "mime": "image/png",
+      "bytes": 130,
+      "sha256": "20e339e748aeb8ec39eee1ce5912690bc0ec645d2d95ccb071382c41fcfb4c06",
+      "collected_utc": "2026-09-13T13:36:09.426Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/refresh@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/refresh@2x.png",
+      "mime": "image/png",
+      "bytes": 156,
+      "sha256": "4f53de1587c2258ace6cf4e590517bb72dd9adae5ce0523d03a35968cee81a51",
+      "collected_utc": "2026-09-13T13:36:09.454Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/cross.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/cross.png",
+      "mime": "image/png",
+      "bytes": 120,
+      "sha256": "5e9a58a0ef701b632e37343b1398150c573fee4118757802bdc9a4a3c2014453",
+      "collected_utc": "2026-09-13T13:36:09.467Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/cross@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/cross@2x.png",
+      "mime": "image/png",
+      "bytes": 145,
+      "sha256": "8fa26c8b67d160ecf96e41d728a9c3406d66ec00db30ded23ddd2b64a83505de",
+      "collected_utc": "2026-09-13T13:36:09.477Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    },
+    {
+      "name": "photon/post_expand_rotate.gif",
+      "url": "https://s.4cdn.org/image/buttons/photon/post_expand_rotate.gif",
+      "mime": "image/gif",
+      "bytes": 281,
+      "sha256": "33569345ef0b318418f402db51fd038da9bc0f97a6eecef5ab806628bcea773d",
+      "collected_utc": "2026-09-13T13:36:09.486Z",
+      "dimensions": [
+        18,
+        18
+      ]
+    },
+    {
+      "name": "photon/post_expand_rotate@2x.gif",
+      "url": "https://s.4cdn.org/image/buttons/photon/post_expand_rotate@2x.gif",
+      "mime": "image/gif",
+      "bytes": 492,
+      "sha256": "1089aa768e2802f7afa76a13b7542451048ab9e7a5190b61f519fd6062a5b101",
+      "collected_utc": "2026-09-13T13:36:09.508Z",
+      "dimensions": [
+        36,
+        36
+      ]
+    }
+  ]
+}
