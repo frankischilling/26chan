@@ -1,0 +1,23 @@
+{
+  "scope": "Computed desktop posting-field styles on synthetic markup, not full original form behavior or rendered-page parity.",
+  "stylesheets": "public-theme-reference.json",
+  "dom_observation": {
+    "url": "https://boards.4chan.org/po/",
+    "collected_utc": "2026-09-13T05:52:56.0661909Z",
+    "bytes": 165018,
+    "sha256": "690f3e64c719992ec0cbfa247c5762b20ef08758e4ef5e9c7052819c513fc4ac",
+    "retained": "Structural tags and non-value field attributes only. No response body, field values, URLs, post text or user images retained as fixtures.",
+    "structure": "table.postForm#postForm with name/email/sub text inputs, submit in subject row, com textarea cols=48 rows=4, captcha and file rows. No reply posting form separately observed.",
+    "expanded_state": "The pinned core.min.1128.js showPostForm sets display=table. Only that style is applied to the synthetic reference; no original script or captcha is executed."
+  },
+  "environment": {"chromium":"151.0.7922.34","viewport":[1280,900],"scale":1,"network":"All browser requests aborted"},
+  "common": {"table_width":"468px","table_spacing":"1px","field_width":"244px","textarea_width":"292px","field_size":"13.3333px","box_sizing":"content-box","label_alignment":"middle"},
+  "themes": {
+    "yotsuba": {"source":"yotsubanew.716.css","label_padding":"0px 5px","label_border":"1px","label_size":"13.3333px","field_padding":"2px 4px 3px","field_margin":"0px 2px 0px 0px","textarea_padding":"2px 4px 3px","textarea_margin":"0px 2px -3px 0px","textarea_height":"60px","textarea_font":"arial, helvetica, sans-serif"},
+    "yotsuba-b": {"source":"yotsubluenew.716.css","label_padding":"0px 5px","label_border":"1px","label_size":"13.3333px","field_padding":"2px 4px 3px","field_margin":"0px 2px 0px 0px","textarea_padding":"2px 4px 3px","textarea_margin":"0px 2px -3px 0px","textarea_height":"60px","textarea_font":"arial, helvetica, sans-serif"},
+    "futaba": {"source":"futabanew.716.css","label_padding":"0px","label_border":"0px","label_size":"16px","field_padding":"1px 2px","field_margin":"0px","textarea_padding":"2px","textarea_margin":"0px 0px -3px","textarea_height":"60px","textarea_font":"monospace"},
+    "burichan": {"source":"burichannew.716.css","label_padding":"0px","label_border":"0px","label_size":"16px","field_padding":"1px 2px","field_margin":"0px","textarea_padding":"2px","textarea_margin":"0px 0px -3px","textarea_height":"60px","textarea_font":"monospace"},
+    "tomorrow": {"source":"tomorrow.716.css","label_padding":"0px 5px","label_border":"1px","label_size":"13.3333px","field_padding":"2px 4px 3px","field_margin":"0px 2px 0px 0px","textarea_padding":"2px 4px 3px","textarea_margin":"0px 2px 0px 0px","textarea_height":"60px","textarea_font":"arial, helvetica, sans-serif"},
+    "photon": {"source":"photon.716.css","label_padding":"0px 5px","label_border":"1px","label_size":"13.3333px","field_padding":"2px 4px 3px","field_margin":"0px 2px 0px 0px","textarea_padding":"2px 4px 3px","textarea_margin":"0px 2px -3px 0px","textarea_height":"60px","textarea_font":"arial, helvetica, sans-serif"}
+  }
+}

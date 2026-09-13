@@ -104,3 +104,18 @@ python scripts/check-media-parser-dependencies.py
 No dependency, migration, credential, workflow permission, production media
 setting, deployment or release change is included. Parent #57 is merged; its
 completed verification is recorded in [the public-state notes](verification-public-states.md).
+
+## Completed pull-request verification
+
+Exact head `c5aaab0c19ebd96dfa3c69a306156f5bc25142e9` passed complete build runs
+[34741331850](https://github.com/frankischilling/26chan/actions/runs/34741331850)
+and [34741329985](https://github.com/frankischilling/26chan/actions/runs/34741329985),
+including Linux native media/restore/pressure/maintenance qualification and all
+Windows visual suites. Both
+[PR monitoring](https://github.com/frankischilling/26chan/actions/runs/34741331844)
+and [push monitoring](https://github.com/frankischilling/26chan/actions/runs/34741329976)
+passed. Advisory checks were path-filtered because no dependency changed.
+After final source review and an identical tested/merge-preview tree check,
+[PR #59](https://github.com/frankischilling/26chan/pull/59) merged as
+`bc62e0b7295c139b1acd513f803fc8dca1a95f76` on September 13, 2026. No checks
+were bypassed; this does not establish independent audit or full page parity.

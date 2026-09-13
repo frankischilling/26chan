@@ -1,0 +1,10 @@
+{% macro fields(parent, image) %}
+<table id="postForm" class="postForm" role="presentation"><tbody>
+<tr><td><label for="name">Name</label></td><td><input id="name" name="name" type="text" maxlength="80" autocomplete="off" placeholder="Anonymous">{% if parent != 0 %}<button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button>{% endif %}</td></tr>
+<tr><td><label for="email">Options</label></td><td><select id="email" name="email"><option value="">Bump thread</option><option value="sage">sage</option><option value="nonoko">nonoko</option><option value="nonokosage">nonokosage</option></select></td></tr>
+{% if parent == 0 %}<tr><td><label for="sub">Subject</label></td><td><input id="sub" name="sub" type="text" maxlength="120"><button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button></td></tr>{% endif %}
+<tr><td><label for="com">Comment</label></td><td><textarea id="com" name="com" cols="48" rows="4" required aria-describedby="postHelp"></textarea></td></tr>
+{% if image %}<tr><td><label for="spoiler">Spoiler image</label></td><td><input id="spoiler" name="spoiler" type="checkbox" value="true"></td></tr>{% endif %}
+<tr><td><label for="password">Deletion password</label></td><td><input id="password" type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required></td></tr>
+</tbody></table>
+{% endmacro %}

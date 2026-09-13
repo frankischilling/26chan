@@ -8,4 +8,5 @@
   --label-edge: #111111; --field-edge: #000000; --select-edge: #575a60; --placeholder: #919191;
   --quote-hover: #81a2be;
   --reply-border-width: 1px; --arrows: #c5c8c6; --target-edge: #111111;
+  --post-text-margin: 0 2px 0 0;
 }

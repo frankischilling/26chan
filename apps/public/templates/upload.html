@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "post_fields.html" as posting %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block title %}Upload status - /{{ board.slug }}/{% endblock %}
@@ -7,18 +8,12 @@
 <h1>Upload status</h1>
 <p role="status">{{ message }}</p>
 {% if ready %}
-<form id="postForm" action="/{{ board.slug }}/post" method="post" class="postForm">
+<form action="/{{ board.slug }}/post" method="post" class="postEditor">
 <input type="hidden" name="upload_id" value="{{ form.upload_id }}">
 <input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
 <input type="hidden" name="resto" value="{{ form.resto }}">
-<div><label for="name">Name</label><input id="name" name="name" maxlength="80" placeholder="Anonymous"></div>
-<div><label for="email">Options</label><select id="email" name="email"><option value="">Bump thread</option><option value="sage">sage</option><option value="nonoko">nonoko</option><option value="nonokosage">nonokosage</option></select></div>
-{% if form.resto == 0 %}<div><label for="sub">Subject</label><input id="sub" name="sub" maxlength="120"></div>{% endif %}
-<div><label for="com">Comment</label><textarea id="com" name="com" rows="5" required></textarea></div>
-<div><label for="spoiler">Spoiler image</label><input id="spoiler" name="spoiler" type="checkbox" value="true"></div>
-<div><label for="password">Deletion password</label><input id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
-<p>Comments: {{ board.max_comment_chars }} characters. Save your deletion password.</p>
-<button type="submit">Post with image</button>
+{% call posting::fields(form.resto, true) %}{% endcall %}
+<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Save your deletion password.</p>
 </form>
 {% else %}
 <form method="post" action="/{{ board.slug }}/upload/status">

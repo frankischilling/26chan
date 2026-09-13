@@ -4,5 +4,6 @@
   --subject: #0f0c5d; --label: #9988ee; --label-ink: #000000; --target: #d6bad0;
   --label-edge: #000000;
   --reply-border-width: 0; --reply-edge: #000000; --arrows: #000000; --target-edge: #000000;
+  --post-label-padding: 0; --post-label-border: 0; --post-field-padding: 1px 2px; --post-field-margin: 0; --post-text-padding: 2px; --post-text-margin: 0 0 -3px; --post-text-font: monospace;
   --font: 'Times New Roman', serif; --size: 12pt; --decoration: underline; --wash: none;
 }

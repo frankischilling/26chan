@@ -61,6 +61,23 @@ footer { text-align: center; font-size: 11px; margin-top: 30px; }
 .fileThumb img { max-width: 250px; max-height: 250px; width: auto; height: auto; }
 .catalog .fileThumb img { max-width: 150px; max-height: 150px; }
 .file p { overflow-wrap: anywhere; font-size: 0.85em; }
+/* Expanded posting fields use measured public desktop table geometry. */
+.postEditor { width: min(100%, 468px); margin: 18px auto; }
+.postEditor h2 { text-align: center; }
+table.postForm { width: 100%; margin: 0 auto; border-spacing: 1px; }
+table.postForm td { padding: 0; }
+table.postForm td:first-child { background: var(--label); color: var(--label-ink); font-weight: bold; padding: var(--post-label-padding); border: var(--post-label-border) solid var(--label-edge); vertical-align: middle; }
+table.postForm label { display: block; background: transparent; border: 0; padding: 0; }
+table.postForm input[type=text], table.postForm input[type=password], table.postForm select { width: 244px; max-width: 100%; padding: var(--post-field-padding); margin: var(--post-field-margin); font: 10pt arial, helvetica, sans-serif; }
+table.postForm textarea { width: 292px; max-width: 100%; padding: var(--post-text-padding); margin: var(--post-text-margin); font: 10pt var(--post-text-font); line-height: normal; }
+table.postForm input[type=text], table.postForm input[type=password], table.postForm textarea { box-sizing: content-box; }
+table.postForm button { padding: 1px 6px; }
+@media (max-width: 600px) {
+  table.postForm { table-layout: fixed; }
+  table.postForm td:first-child { width: 95px; }
+  table.postForm input[type=text], table.postForm input[type=password], table.postForm select, table.postForm textarea { width: 100%; font-size: 16px; box-sizing: border-box; }
+  table.postForm button { margin-top: 2px; }
+}
 /* Desktop post flow follows the pinned public v716 stylesheet measurements. */
 .board .postContainer { margin: 0; }
 .board .opContainer, .board .op { display: inline; }

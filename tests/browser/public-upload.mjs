@@ -60,6 +60,13 @@ try {
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
   await screenshot('approved-post-form');
+  await expect(page.locator('table#postForm')).toHaveAttribute('role', 'presentation');
+  await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('aria-describedby', 'postHelp');
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await expect(page.getByRole('button', { name: 'Post with image', exact: true })).toBeVisible();
+  }
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
   await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel image, posted without site JavaScript.');

@@ -50,6 +50,7 @@ for (const [name, viewport] of [
       if (kind === 'archived') await expect(page.getByText('This thread is archived and read-only.')).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
       await page.evaluate(() => window.scrollTo(0, 0));
+      await page.mouse.move(0, 0);
       await expect(page).toHaveScreenshot(`media-${kind}-${name}.png`, { fullPage: true });
     });
   }

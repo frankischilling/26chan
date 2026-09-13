@@ -1,2 +1,3 @@
 :root { --font: 'Times New Roman', serif; --size: 12pt; --decoration: underline; --wash: none; }
 :root { --reply-border-width: 0; --reply-edge: #800000; --arrows: #800000; --target-edge: #800000; }
+:root { --post-label-padding: 0; --post-label-border: 0; --post-field-padding: 1px 2px; --post-field-margin: 0; --post-text-padding: 2px; --post-text-margin: 0 0 -3px; --post-text-font: monospace; }
