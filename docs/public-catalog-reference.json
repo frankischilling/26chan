@@ -1,0 +1,18 @@
+{
+  "scope": "Default extended-small card geometry measured on synthetic DOM using public catalog CSS. No production post content or client execution.",
+  "dom_observation": {"url":"https://boards.4chan.org/po/catalog","collected_utc":"2026-09-13T06:15:29.3063123Z","bytes":91333,"sha256":"e626c646f767bb9757fddd5369049ca85025f73f7692d6415310f6f623db7c12","retained":"Only static asset URLs and allowlisted container attributes. A subsequent in-memory inspection found fourcat.applyCSS(null, ws_style, 705). Neither response was retained."},
+  "asset_base": "https://s.4cdn.org/",
+  "assets": [
+    {"path":"js/catalog.min.1025.js","bytes":51921,"sha256":"ce645b150e747f9ad1682dc005daf30d7bc1a9f2cd473b4f1e55f99adf76fa9f","downloaded_utc":"2026-09-13T06:15:54Z"},
+    {"path":"css/catalog_mobile.705.css","bytes":7492,"sha256":"df6577e72e1fa6837da522fe9da2cb56152203e9fb5b8ccaef242e4219a7a4f2","downloaded_utc":"2026-09-13T06:15:54Z"},
+    {"path":"css/catalog_yotsuba_new.705.css","bytes":28015,"sha256":"1c277be1b3963220228d8981abc26328d2c444b82292f9d23ee2e44e93588410","downloaded_utc":"2026-09-13T06:20:14.5904824Z"},
+    {"path":"css/catalog_yotsuba_b_new.705.css","bytes":28098,"sha256":"7d2731cec02c89685d2fd3a3230b0837dbc8dcfb7c5992dfae747d1613dc7d0c","downloaded_utc":"2026-09-13T06:20:14.6512871Z"},
+    {"path":"css/catalog_futaba_new.705.css","bytes":27482,"sha256":"b1ac2ceab0d075a7089a8ccf5ecea53909aa12697e189202ee3ee8e445eff77b","downloaded_utc":"2026-09-13T06:20:14.6768221Z"},
+    {"path":"css/catalog_burichan_new.705.css","bytes":27257,"sha256":"df8300559e21147bebaa130f45b2175e1d2ffe1dcc0f9e8dbefa2faa73361c9f","downloaded_utc":"2026-09-13T06:20:14.7013541Z"},
+    {"path":"css/catalog_tomorrow.705.css","bytes":27725,"sha256":"581df4378f0b915bf950a838b28e3e0d103cae9844d5f3b20d1544796d071dc1","downloaded_utc":"2026-09-13T06:20:14.7249174Z"},
+    {"path":"css/catalog_photon.705.css","bytes":27510,"sha256":"ad0f3c28ac04f7059cac7c2e6ccf32808c361a61462fc5db4399d945bb4d625d","downloaded_utc":"2026-09-13T06:20:14.7454892Z"}
+  ],
+  "environment": {"chromium":"151.0.7922.34","device_scale_factor":1,"viewports":[[1280,900],[390,900]],"network":"All browser requests aborted. Synthetic embedded SVG supplies thumbnail dimensions. Download dates are filesystem UTC timestamps."},
+  "common": {"display":"inline-block","maxHeight":"320px","margin":"5px 0px 20px","padding":"5px 0px 3px","borderWidth":"0px","backgroundColor":"rgba(0, 0, 0, 0)","textAlign":"center","lineHeight":"normal"},
+  "themes": {"yotsuba":"yotsuba_new","yotsuba-b":"yotsuba_b_new","futaba":"futaba_new","burichan":"burichan_new","tomorrow":"tomorrow","photon":"photon"}
+}

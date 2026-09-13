@@ -478,6 +478,22 @@ async fn json(app: &Router, path: &str) -> (serde_json::Value, String) {
     (serde_json::from_slice(&bytes).unwrap(), etag)
 }
 
+async fn catalog_counts(app: &Router, board: &str, thread: i64, replies: i64, images: i64) {
+    let page = html(
+        app.clone()
+            .oneshot(
+                Request::get(format!("/{board}/catalog"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    assert!(page.contains(&format!("id=\"meta-{thread}\" title=\"(R)eplies / (I)mage Replies\">R: <b>{replies}</b> / I: <b>{images}</b>")));
+}
+
 async fn image_reply_contract(
     app: &Router,
     board: &str,
@@ -620,6 +636,7 @@ async fn image_reply_contract(
         .find(|p| p["no"] == thread)
         .unwrap();
     assert_eq!(op["images"], 7);
+    catalog_counts(app, board, thread, 7, 7).await;
     board_store::post_media::delete_attachment(&public, board, posts[1])
         .await
         .unwrap();
@@ -654,5 +671,22 @@ async fn image_reply_contract(
         .unwrap();
     assert_eq!(preview["posts"][0]["images"], 6);
     assert_eq!(preview["posts"][0]["omitted_images"], 1);
+    catalog_counts(app, board, thread, 7, 6).await;
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1 AND board=$2")
+        .bind(posts[2])
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    catalog_counts(app, board, thread, 6, 5).await;
+    let (catalog, _) = json(app, &format!("/{board}/catalog.json")).await;
+    let op = catalog[0]["threads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|post| post["no"] == thread)
+        .unwrap();
+    assert_eq!(op["replies"], 6);
+    assert_eq!(op["images"], 5);
     public.close().await;
 }

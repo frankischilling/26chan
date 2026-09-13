@@ -116,7 +116,11 @@ try {
   }
   for (const suffix of ['', 'catalog']) {
     await page.goto(new URL(`/${board}/${suffix}`, origin).href);
-    assert.equal(await page.locator('.fileThumb img').getAttribute('src'), thumbnailUrl.href);
+    assert.equal(await page.locator(suffix === 'catalog' ? '.catalogThumb img' : '.fileThumb img').getAttribute('src'), thumbnailUrl.href);
+    if (suffix === 'catalog') {
+      assert.equal(await page.locator(`#thread-${post.no} .catalogThumb`).getAttribute('href'), `/${board}/thread/${post.no}`);
+      assert.equal(await page.locator(`#meta-${post.no}`).innerText(), 'R: 0');
+    }
     if (suffix === 'catalog') await screenshot('attached-catalog');
   }
   await page.goto(threadUrl);

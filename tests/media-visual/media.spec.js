@@ -16,9 +16,9 @@ for (const [name, viewport] of [
         if (new URL(request.url()).port === '3004') requested.push(request.url());
       });
       await page.goto(path);
-      const images = page.locator('.fileThumb img');
+      const images = page.locator(kind === 'catalog' ? '.catalogThumb img' : '.fileThumb img');
       await expect(images).toHaveCount(4);
-      const expected = kind === 'catalog' ? [[150, 90], [60, 150], [48, 32], [150, 90]]
+      const expected = kind === 'catalog' ? [[150, 90], [60, 150], [50, 50], [150, 90]]
         : [[250, 150], [100, 250], [48, 32], [250, 150]];
       for (let index = 0; index < 4; index++) {
         const img = images.nth(index);
@@ -34,12 +34,26 @@ for (const [name, viewport] of [
           await expect(page.locator('.fileThumb').nth(index)).toHaveCSS('float', float);
         }
       }
-      await expect(page.locator('#f1000201 p a')).toHaveText(`<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`);
-      await expect(page.locator('.file b, .file script')).toHaveCount(0);
-      await expect(page.locator('#p1000205 img, #p1000206 img, #p1000206 .file a')).toHaveCount(0);
-      await expect(page.locator('#p1000206 .fileDeleted')).toHaveText('File deleted.');
-      await page.getByText('Spoiler image', { exact: true }).click();
-      await expect(page.getByRole('link', { name: 'View spoiler image', exact: true })).toBeVisible();
+      if (kind === 'catalog') {
+        await expect(images.first()).toHaveAttribute('alt', `<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`);
+        await expect(page.locator('#thread-1000201 script, #thread-1000201 .catalogThumb b')).toHaveCount(0);
+        await expect(page.locator('#thread-1000205 img, #thread-1000206 img')).toHaveCount(0);
+        await expect(page.locator('#thread-1000206 .fileDeleted')).toHaveText('File deleted.');
+        await expect(page.locator('#thread-1000205 .catalogThumb')).toHaveText('Spoiler image');
+        const links = page.locator('.catalogThumb');
+        await expect(links).toHaveCount(6);
+        for (let index = 0; index < 6; index++) {
+          await expect(links.nth(index)).toHaveAttribute('href', `/img/thread/${1000201 + index}`);
+          await expect(page.locator('.meta').nth(index)).toHaveText('R: 0');
+        }
+      } else {
+        await expect(page.locator('#f1000201 p a')).toHaveText(`<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`);
+        await expect(page.locator('.file b, .file script')).toHaveCount(0);
+        await expect(page.locator('#p1000205 img, #p1000206 img, #p1000206 .file a')).toHaveCount(0);
+        await expect(page.locator('#p1000206 .fileDeleted')).toHaveText('File deleted.');
+        await page.getByText('Spoiler image', { exact: true }).click();
+        await expect(page.getByRole('link', { name: 'View spoiler image', exact: true })).toBeVisible();
+      }
       expect(requested.some(url => /100020[56]/.test(url))).toBe(false);
       expect(new Set(requested).size).toBe(4);
       for (const link of await page.locator('.file a').all()) {

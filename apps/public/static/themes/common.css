@@ -22,7 +22,7 @@
 body { background: var(--wash); }
 a { color: var(--link); text-decoration: var(--decoration); }
 a:hover { color: var(--hover); }
-.reply, .catalog .thread, .boardDirectory, .message { background: var(--panel); border-color: var(--edge); }
+.reply, .boardDirectory, .message { background: var(--panel); border-color: var(--edge); }
 hr, .thread, .boardDirectory article { border-color: var(--edge); }
 .subject { color: var(--subject); }
 .name { color: var(--name); }
