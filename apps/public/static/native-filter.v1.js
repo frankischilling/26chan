@@ -107,7 +107,8 @@ function matchesPrepared(filter, pattern, post) {
   if (filter.type === 0) return pattern === post.trip;
   if (filter.type === 1) return pattern === post.name;
   if (filter.type === 4) return pattern === post.id;
-  if (filter.type === 2) return !!post.comment && pattern.test(post.comment);
+  // Preparation omits absent/empty raw comments, but nonempty HTML can decode to "".
+  if (filter.type === 2) return post.comment !== undefined && pattern.test(post.comment);
   // Native RegExp.test converts missing subject/filename fields to "undefined".
   if (filter.type === 5) return pattern.test(post.sub);
   return pattern.test(post.filename);

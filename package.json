@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:watcher-core": "node --test tests/browser/thread-watcher-core.test.mjs tests/browser/post-tracking.test.mjs tests/browser/watcher-position.test.mjs tests/browser/native-filter.test.mjs",
+    "test:watcher-core": "node --test tests/browser/thread-watcher-core.test.mjs tests/browser/post-tracking.test.mjs tests/browser/watcher-position.test.mjs tests/browser/native-filter.test.mjs tests/browser/native-catalog.test.mjs",
     "test:post-tracking": "playwright test tests/browser/post-tracking.spec.js",
     "test:thread-watcher": "playwright test tests/browser/thread-watcher.spec.js",
     "test:behavior": "npm run test:watcher-core && playwright test tests/browser/behavior.spec.js tests/browser/archive.spec.js tests/browser/catalog-preferences.spec.js tests/browser/catalog-inplace.spec.js tests/browser/catalog-search-contract.spec.js tests/browser/catalog-live-search.spec.js tests/browser/catalog-thread-state.spec.js tests/browser/catalog-search-fields.spec.js tests/browser/native-filter-worker.spec.js tests/browser/watcher-settings.spec.js tests/browser/watcher-position.spec.js && npm run test:thread-watcher && npm run test:post-tracking",

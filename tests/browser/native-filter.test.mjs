@@ -84,8 +84,10 @@ test('native regex syntax supports alternation, case flags, lookaheads and liter
     [{ no: '1', comment: '<img src=x onerror=alert(1)>' }]), { status: 'ok', matches: [{ id: '1', filter: 0 }] });
 });
 
-test('empty comments are skipped while missing subject and filename fields retain native undefined coercion', async () => {
-  assert.deepEqual(await match([filter(2, '/^$/')], [{ no: '1' }, { no: '2', comment: '' }]), { status: 'ok', matches: [] });
+test('missing comments are skipped but empty prepared text still matches, retaining native subject and filename coercion', async () => {
+  // Nonempty raw HTML such as <span></span> produces an empty, present comment.
+  assert.deepEqual(await match([filter(2, '/^$/')], [{ no: '1' }, { no: '2', comment: '' }, { no: '3', comment: 'text' }]),
+    { status: 'ok', matches: [{ id: '2', filter: 0 }] });
   assert.deepEqual(await match([filter(5, '/^undefined$/')], [{ no: '1' }, { no: '2', sub: '' }]),
     { status: 'ok', matches: [{ id: '1', filter: 0 }] });
   assert.deepEqual(await match([filter(6, '/^undefined$/')], [{ no: '1' }, { no: '2', filename: '' }]),

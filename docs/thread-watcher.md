@@ -299,3 +299,32 @@ The healthy unrestricted worker control still runs before the denial probes.
 
 These results qualify this local checkpoint, not the complete watcher or 1:1
 frontend. Exact-head CI remains a separate gate, and production media stays off.
+
+### Catalog parser and prepared-comment contract
+
+`native-catalog.v1.js` parses catalog JSON without converting numeric post IDs
+through JavaScript Number. It retains exact positive i64 ID strings, source page
+and thread order, and only the raw fields used by filters. It rejects duplicate
+JSON keys, duplicate pages or threads, malformed field types, and inputs exceeding
+the source, nesting, value-count, container, page, post or string budgets. Limits
+on strings are UTF-16 code units; transport byte limits remain separate. Oversized
+or malformed catalogs fail as a whole rather than applying partial matches.
+
+The parser does not decode HTML, fetch catalogs, or add watches, and it is not yet
+served as a release asset or connected to the watcher. Raw `com` presence and text
+are retained for the next conversion stage. That stage must omit prepared
+`comment` when raw `com` is absent or empty. A nonempty raw comment whose HTML
+parses to empty text instead produces a present `comment: ""`, which the worker
+must test normally. This distinguishes `<span></span>` from an absent comment
+for `/^$/` filters. Node and actual browser-worker regressions cover the prepared
+field distinction; HTML decoding itself still needs reference and security tests.
+
+Parser checkpoint validation on the owned Windows/Chromium/PostgreSQL setup:
+
+- `npm run test:behavior`: 54 unit tests and all 60 browser tests passed, retaining the separate general, watcher and posting server invocations.
+- The two actual worker browser tests also passed separately; the normal worker case now checks the empty-present versus absent comment distinction and termination of all five worker jobs.
+- `cargo fmt --all -- --check` and all-target, all-feature public Clippy passed.
+- `cargo test -p board-public --test ui_assets --all-features --locked`: all three release-asset tests passed with the changed worker bytes.
+
+The prior 74-test Rust and 111-test visual/theme results apply to the earlier
+worker checkpoint, not this parser change. No screenshot baseline was changed.

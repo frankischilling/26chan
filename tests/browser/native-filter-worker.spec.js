@@ -30,7 +30,9 @@ test('native filter module workers match exact IDs, terminate on deadlines and c
     const pending = engine.match([slow], 'demo', posts, { signal: controller.signal });
     controller.abort();
     const cancelled = await pending;
-    return { matched, invalid, timed, cancelled, ticks, created, terminated };
+    const emptyText = await engine.match([{ ...row, type: 2, pattern: '/^$/' }], 'demo',
+      [{ no: '1', comment: '' }, { no: '2' }, { no: '3', comment: 'text' }]);
+    return { matched, invalid, timed, cancelled, emptyText, ticks, created, terminated };
   }, workerPath);
   expect(outcome.matched).toEqual({ status: 'ok', matches: [
     { id: '9007199254740992', filter: 0 }, { id: '9223372036854775807', filter: 0 },
@@ -38,9 +40,10 @@ test('native filter module workers match exact IDs, terminate on deadlines and c
   expect(outcome.invalid).toEqual({ status: 'invalid-filter', index: 0 });
   expect(outcome.timed.status).toBe('timeout');
   expect(outcome.cancelled.status).toBe('cancelled');
+  expect(outcome.emptyText).toEqual({ status: 'ok', matches: [{ id: '1', filter: 0 }] });
   expect(outcome.ticks).toBeGreaterThan(0);
-  expect(outcome.created).toBe(4);
-  expect(outcome.terminated).toBe(4);
+  expect(outcome.created).toBe(5);
+  expect(outcome.terminated).toBe(5);
 });
 
 test('actual worker response CSP denies network, imports and nested workers with healthy browser controls', async ({ page, context, request }) => {
