@@ -3,6 +3,12 @@ use board_store::BoardSnapshot;
 use serde::Deserialize;
 
 mod filter;
+mod search_fields;
+
+/// Shared by the public view and the independently compiled visual fixtures.
+pub fn search_text(subject: &str, lines: &[board_domain::Line]) -> String {
+    search_fields::from_parts(subject, lines)
+}
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 pub enum Order {
@@ -92,8 +98,7 @@ impl Options {
                         .iter()
                         .find(|post| post.id == preview.thread.id)
                         .is_some_and(|post| {
-                            query.matches(&post.subject)
-                                || query.matches(&post.comment)
+                            query.matches(&search_fields::from_raw(&post.subject, &post.comment))
                                 || post.attachment.as_ref().is_some_and(|file| {
                                     !file.file_deleted && query.matches(&file.filename)
                                 })

@@ -84,6 +84,10 @@ pub struct PostView {
     pub now: String,
 }
 impl PostView {
+    pub fn catalog_search_text(&self) -> String {
+        crate::catalog::search_text(&self.post.subject, &self.lines)
+    }
+
     pub fn catalog_size(&self, large: bool) -> (i64, i64) {
         let Some(file) = &self.post.attachment else {
             return (1, 1);

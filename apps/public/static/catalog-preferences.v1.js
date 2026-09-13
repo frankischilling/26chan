@@ -53,9 +53,9 @@
       const thumb = node.querySelector('.catalogThumb img[id^="thumb-"]');
       const fields = node.querySelector('.catalogThumb')?.dataset;
       const searchable = fields && ['true', 'false'].includes(fields.hasFile)
-        && ['searchSubject', 'searchComment', 'searchFile'].every(name => typeof fields[name] === 'string');
+        && ['searchText', 'searchFile'].every(name => typeof fields[name] === 'string');
       return { node, teaser: teaserNode, thumb,
-        fields: searchable ? [fields.searchSubject, fields.searchComment, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
+        fields: searchable ? [fields.searchText, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
         small: thumb ? dimensions(thumb, 'small', 150) : null,
         large: thumb ? dimensions(thumb, 'large', 250) : null,
         id: integer(data.threadId), bumped: integer(data.bumped, true),

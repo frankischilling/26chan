@@ -28,3 +28,17 @@ for (const entry of contract.cases) {
   assert.equal(pattern.test(entry.text), entry.matches, JSON.stringify(entry));
 }
 console.log(`PASS ${contract.cases.length} catalog search cases; pinned client bytes and escape list verified, no full-client execution`);
+
+const fields = JSON.parse(await readFile(new URL('../tests/fixtures/catalog-search-fields.json', import.meta.url), 'utf8'));
+assert(source.includes('(o="<b>"+t.sub+"</b>",t.teaser&&(o+=": "+t.teaser)):o=t.teaser'));
+let fieldQueries = 0;
+for (const entry of fields.composition_cases) {
+  const text = entry.subject ? `<b>${entry.subject}</b>${entry.teaser ? `: ${entry.teaser}` : ''}` : entry.teaser;
+  assert.equal(text, entry.text);
+  for (const check of entry.checks) {
+    const pattern = new RegExp(check.query.replace(escape, '\\$1'), contract.flags);
+    assert.equal(pattern.test(text) || (entry.file !== null && pattern.test(entry.file)), check.matches, JSON.stringify(check));
+    fieldQueries += 1;
+  }
+}
+console.log(`PASS ${fields.composition_cases.length} serialized field cases and ${fieldQueries} queries; pinned composition verified without client execution`);

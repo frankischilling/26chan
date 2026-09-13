@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "composition_cases": [
+    {"subject":"Alpha","teaser":"Beta","file":null,"text":"<b>Alpha</b>: Beta","checks":[{"query":"^Alpha","matches":false},{"query":"Alpha$","matches":false},{"query":"^<b>Alpha</b>: Beta$","matches":true}]},
+    {"subject":"Alpha","teaser":"","file":null,"text":"<b>Alpha</b>","checks":[{"query":"^<b>Alpha</b>$","matches":true},{"query":":","matches":false}]},
+    {"subject":"","teaser":"Beta","file":null,"text":"Beta","checks":[{"query":"^Beta$","matches":true}]},
+    {"subject":"","teaser":"","file":null,"text":"","checks":[{"query":"^$","matches":true},{"query":"^undefined$","matches":false}]},
+    {"subject":"A&amp;B","teaser":"&lt;tag&gt;","file":null,"text":"<b>A&amp;B</b>: &lt;tag&gt;","checks":[{"query":"A&B","matches":false},{"query":"A&amp;B","matches":true},{"query":"<tag>","matches":false},{"query":"&lt;tag&gt;","matches":true}]},
+    {"subject":"&quot;Q&quot;","teaser":"&#039;R&#039;","file":null,"text":"<b>&quot;Q&quot;</b>: &#039;R&#039;","checks":[{"query":"&quot;Q&quot;","matches":true},{"query":"'R'","matches":false}]},
+    {"subject":"Alpha","teaser":"Beta","file":"owned[1].png","text":"<b>Alpha</b>: Beta","checks":[{"query":"^owned[1].png$","matches":true},{"query":"^absent$|Beta$","matches":true}]},
+    {"subject":"","teaser":"a\u00a0b","file":null,"text":"a\u00a0b","checks":[{"query":"a b","matches":false},{"query":"^a\u00a0b$","matches":true}]}
+  ],
+  "post_cases": [
+    {"name":"empty","subject":"","comment":"","text":"","checks":[{"query":"^$","matches":true}]},
+    {"name":"subject only","subject":"Alpha","comment":"","text":"<b>Alpha</b>","checks":[{"query":"^Alpha","matches":false},{"query":"^<b>Alpha</b>$","matches":true}]},
+    {"name":"subject boundary","subject":"Alpha","comment":"Beta","text":"<b>Alpha</b>: Beta","checks":[{"query":"Alpha$","matches":false},{"query":"Beta$","matches":true},{"query":"^<b>Alpha</b>: Beta$","matches":true}]},
+    {"name":"ASCII whitespace","subject":"","comment":" \talpha\r\n\r\n beta   ","text":"alpha beta","checks":[{"query":"^alpha beta$","matches":true},{"query":"alpha  beta","matches":false}]},
+    {"name":"reserved characters","subject":"A&B \"Q\" 'R'","comment":"<tag> & ' \"","text":"<b>A&amp;B &quot;Q&quot; &#039;R&#039;</b>: &lt;tag&gt; &amp; &#039; &quot;","checks":[{"query":"A&B","matches":false},{"query":"A&amp;B","matches":true},{"query":"&#039;R&#039;","matches":true}]},
+    {"name":"supported spoiler","subject":"","comment":"[spoiler]hidden text[/spoiler]","text":"hidden text","checks":[{"query":"^hidden text$","matches":true},{"query":"[spoiler]","matches":false}]},
+    {"name":"unclosed spoiler remains literal","subject":"","comment":"[spoiler]open","text":"[spoiler]open","checks":[{"query":"^[spoiler]open$","matches":true}]},
+    {"name":"quote text","subject":"","comment":">greentext\n>>42 >>>/po/43","text":"&gt;greentext &gt;&gt;42 &gt;&gt;&gt;/po/43","checks":[{"query":">>42","matches":false},{"query":"&gt;&gt;42","matches":true},{"query":"&gt;&gt;&gt;/po/43$","matches":true}]},
+    {"name":"existing link normalization","subject":"","comment":"https://example.test?a=1&b=2","text":"https://example.test/?a=1&amp;b=2","checks":[{"query":"^https://example.test/?a=1&amp;b=2$","matches":true}]},
+    {"name":"literal HTML is not stripped","subject":"","comment":"<script>safe</script>","text":"&lt;script&gt;safe&lt;/script&gt;","checks":[{"query":"<script>","matches":false},{"query":"&lt;script&gt;","matches":true}]},
+    {"name":"entity-shaped user text","subject":"","comment":"&amp; already text","text":"&amp;amp; already text","checks":[{"query":"^&amp;amp; already text$","matches":true},{"query":"^&amp; already text$","matches":false}]},
+    {"name":"Unicode spaces remain explicit","subject":"","comment":"a\u00a0\u00a0b","text":"a\u00a0\u00a0b","checks":[{"query":"a b","matches":false},{"query":"^a\u00a0\u00a0b$","matches":true}]},
+    {"name":"Unicode text is not normalized","subject":"","comment":"e\u0301 \ud83d\ude00","text":"e\u0301 \ud83d\ude00","checks":[{"query":"^e\u0301 \ud83d\ude00$","matches":true}]}
+  ]
+}
