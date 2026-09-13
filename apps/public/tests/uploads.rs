@@ -187,7 +187,7 @@ async fn exercise(
         response.headers()["content-security-policy"]
             .to_str()
             .unwrap()
-            .contains("img-src http://localhost:3002 http://127.0.0.1:3000/static/themes/fade.png http://127.0.0.1:3000/static/themes/fade-blue.png;")
+            .contains("img-src http://localhost:3002 http://127.0.0.1:3000/static/themes/fade.png http://127.0.0.1:3000/static/themes/fade-blue.png http://127.0.0.1:3000/static/catalog/filedeleted-res.gif")
     );
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));

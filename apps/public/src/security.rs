@@ -102,11 +102,13 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
 
 fn headers(mut response: Response, state: &AppState) -> Response {
     let headers = response.headers_mut();
-    // Only two fixed, release-owned UI images may load from the public origin.
+    // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
     let mut images = format!(
-        "{}/static/themes/fade.png {}/static/themes/fade-blue.png",
-        state.origin, state.origin
+        "{}/static/themes/fade.png {}/static/themes/fade-blue.png {}",
+        state.origin,
+        state.origin,
+        crate::ui_assets::image_sources(&state.origin)
     );
     if let Some(media) = &state.media {
         images = format!("{} {images}", media.settings.origin.as_string());

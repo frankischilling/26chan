@@ -1,0 +1,22 @@
+{
+  "scope": "Catalog UI images named by public catalog client v1025 and CSS v705. Generic spoiler only; no production post content or leaked source. Image copies are unchanged public static assets, not project-created artwork.",
+  "source_base": "https://s.4cdn.org/image/",
+  "local_base": "/static/catalog/",
+  "assets": [
+    {"name":"filedeleted-res.gif","mime":"image/gif","bytes":317,"sha256":"c58c7aad311b3b953fb564c9909f6870948238810edb87cbfb4c094bb813d4a9","collected_utc":"2026-09-13T07:12:57.4775653Z","dimensions":[127,13]},
+    {"name":"nofile.png","mime":"image/png","bytes":221,"sha256":"af97c45de5cbe77568f82a04ced5e66726228d1176060757bdb876ec3155e93b","collected_utc":"2026-09-13T07:12:57.5442676Z","dimensions":[77,13]},
+    {"name":"spoiler.png","mime":"image/png","bytes":1115,"sha256":"19dd0d717884c377a11e2d3d709317fb761c3074399b66c15275d1c76730730c","collected_utc":"2026-09-13T07:12:57.5697710Z","dimensions":[100,100]},
+    {"name":"sticky.gif","mime":"image/gif","bytes":552,"sha256":"d1acdb0c52f79ac791cb6286c97358a03a4453f879ce5f64fe7a0752b4350a04","collected_utc":"2026-09-13T07:12:57.5912825Z","dimensions":[16,16]},
+    {"name":"closed.gif","mime":"image/gif","bytes":341,"sha256":"b50a9168bb37b5a8711c921224e978b38bafa543412a32f6deb85dde613d338e","collected_utc":"2026-09-13T07:12:57.6182946Z","dimensions":[16,16]},
+    {"name":"sticky@2x.gif","mime":"image/gif","bytes":808,"sha256":"8ca449e455b14ca09d7697e438063ef7c0109264cbced71e29c71c3295bbd457","collected_utc":"2026-09-13T07:13:10.4931401Z","dimensions":[32,32]},
+    {"name":"closed@2x.gif","mime":"image/gif","bytes":525,"sha256":"a34d463f3009c0e7dc7f81431c34ded5ffea59e5e4962b37d0ce8e443ad8b196","collected_utc":"2026-09-13T07:13:10.5427374Z","dimensions":[32,32]}
+  ],
+  "styles": {
+    ".imgdel":{"box":[155,53],"css":{"width":"127px","height":"13px","padding":"20px 14px","minHeight":"0px","boxSizing":"content-box"}},
+    ".nofile":{"box":[149,53],"css":{"width":"77px","height":"13px","padding":"20px 36px","minHeight":"0px","boxSizing":"content-box"}},
+    ".spoilerImage":{"box":[100,100],"css":{"width":"100px","height":"100px","padding":"0px"}},
+    ".threadIcons":{"box":[100,16],"css":{"position":"absolute","margin":"2px 0px 0px -101px","textAlign":"right"}},
+    ".threadIcon":{"box":[16,16],"css":{"display":"inline-block"}}
+  },
+  "environment":{"chromium":"151.0.7922.34","device_scale_factors":[1,2],"viewports":[[1280,900],[390,844]],"modes":["small","extended-small","large","extended-large"],"network":"Reference browsers deny all requests; pinned local images replace the fixed public URLs with embedded bytes. Original client JavaScript is not executed."}
+}

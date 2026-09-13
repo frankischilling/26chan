@@ -16,7 +16,7 @@ for (const [name, viewport] of [
         if (new URL(request.url()).port === '3004') requested.push(request.url());
       });
       await page.goto(path);
-      const images = page.locator(kind === 'catalog' ? '.catalogThumb img' : '.fileThumb img');
+      const images = page.locator(kind === 'catalog' ? '.catalogThumb img[src^="http://localhost:3004/"]' : '.fileThumb img');
       await expect(images).toHaveCount(4);
       const expected = kind === 'catalog' ? [[150, 90], [60, 150], [50, 50], [150, 90]]
         : [[250, 150], [100, 250], [48, 32], [250, 150]];
@@ -37,9 +37,18 @@ for (const [name, viewport] of [
       if (kind === 'catalog') {
         await expect(images.first()).toHaveAttribute('alt', `<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`);
         await expect(page.locator('#thread-1000201 script, #thread-1000201 .catalogThumb b')).toHaveCount(0);
-        await expect(page.locator('#thread-1000205 img, #thread-1000206 img')).toHaveCount(0);
-        await expect(page.locator('#thread-1000206 .fileDeleted')).toHaveText('File deleted.');
-        await expect(page.locator('#thread-1000205 .catalogThumb')).toHaveText('Spoiler image');
+        await expect(page.locator('#thread-1000206 .fileDeleted')).toHaveAttribute('alt', 'File deleted.');
+        await expect(page.locator('#thread-1000205 img')).toHaveAttribute('alt', 'Spoiler image');
+        for (const [id, src, dimensions] of [[1000205,'spoiler.png',[100,100]], [1000206,'filedeleted-res.gif',[155,53]]]) {
+          const image = page.locator(`#thread-${id} img`);
+          await expect(image).toHaveAttribute('src', `/static/catalog/${src}`);
+          await image.scrollIntoViewIfNeeded();
+          await expect.poll(() => image.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+          const box = await image.boundingBox();
+          expect([box.width,box.height]).toEqual(dimensions);
+        }
+        await expect(page.getByRole('img', { name: 'Sticky', exact: true })).toBeVisible();
+        await expect(page.getByRole('img', { name: 'Closed', exact: true })).toBeVisible();
         const links = page.locator('.catalogThumb');
         await expect(links).toHaveCount(6);
         for (let index = 0; index < 6; index++) {
@@ -72,7 +81,7 @@ for (const [name, viewport] of [
     test(`catalog ${size} teasers ${teaser} ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(`/img/catalog?size=${size}&teaser=${teaser}`);
-      const images = page.locator('.catalogThumb img');
+      const images = page.locator('.catalogThumb img[src^="http://localhost:3004/"]');
       await expect(images).toHaveCount(4);
       await expect(page.locator('.teaser')).toHaveCount(teaser === 'on' ? 6 : 0);
       const expected = size === 'large' ? [[250,150],[100,250],[50,50],[250,150]] : [[150,90],[60,150],[50,50],[150,90]];
@@ -81,6 +90,10 @@ for (const [name, viewport] of [
         await expect.poll(() => images.nth(index).evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
         const box = await images.nth(index).boundingBox();
         expect([box.width,box.height]).toEqual(expected[index]);
+      }
+      for (const placeholder of await page.locator('.imgdel, .spoilerImage').all()) {
+        await placeholder.scrollIntoViewIfNeeded();
+        await expect.poll(() => placeholder.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
       await page.evaluate(() => scrollTo(0,0));

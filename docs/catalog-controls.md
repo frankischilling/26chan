@@ -53,7 +53,8 @@ not make user-controlled parameters executable. Search uses each stored field
 and Unicode lowercasing, not the original generated-teaser markup or JavaScript
 regex casing rules. Original teaser preprocessing, preference persistence,
 instant filtering, watchers, menus and hover previews remain incomplete.
-Text fallback graphics and other page-level visual gaps remain under #6.
+[Catalog fallback graphics](catalog-state-assets.md) are tracked by #66;
+other page-level visual gaps remain under #6.
 Toolbar wrapping is local: each label stays with its control on narrow screens.
 These controls do not establish whole-client or whole-page parity.
 
@@ -87,7 +88,15 @@ and `test:themes` runs passed 53 scenarios and 45 screenshot comparisons with
 captures were individually inspected; all eleven accepted PNGs match the
 final reviewed captures byte-for-byte. The other 34 baselines are unchanged.
 JavaScript syntax checks passed. Browser pins, zero retries and zero-pixel
-tolerance are unchanged. Exact-head hosted CI remains required before merge.
+tolerance are unchanged. PR #65 merged as
+`0cf5d94bb2b3ec1b0cf55043857b91be0d7a8d3e` after all six checks passed on
+`b448b56506c2d0018117b39d9a2c8955854f4b8b`: [PR build and native qualification](https://github.com/frankischilling/26chan/actions/runs/34744428010),
+[push build and native qualification](https://github.com/frankischilling/26chan/actions/runs/34744425898),
+[PR monitoring](https://github.com/frankischilling/26chan/actions/runs/34744428021)
+and [push monitoring](https://github.com/frankischilling/26chan/actions/runs/34744426010).
+The build workflows include Windows visual checks. The merged-main build and
+monitoring workflows also passed. These disposable-runner results do not
+qualify the production deployment.
 
 Initial failures were confined to test scaffolding and expected screenshots:
 SQLx rejected dynamically composed fixture-cleanup SQL, which now uses fixed

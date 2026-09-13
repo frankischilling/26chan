@@ -116,7 +116,7 @@ try {
   }
   for (const suffix of ['', 'catalog']) {
     await page.goto(new URL(`/${board}/${suffix}`, origin).href);
-    assert.equal(await page.locator(suffix === 'catalog' ? '.catalogThumb img' : '.fileThumb img').getAttribute('src'), thumbnailUrl.href);
+    assert.equal(await page.locator(suffix === 'catalog' ? `#thread-${post.no} .catalogThumb img` : `#p${post.no} .fileThumb img`).getAttribute('src'), thumbnailUrl.href);
     if (suffix === 'catalog') {
       assert.equal(await page.locator(`#thread-${post.no} .catalogThumb`).getAttribute('href'), `/${board}/thread/${post.no}`);
       assert.equal(await page.locator(`#meta-${post.no}`).innerText(), 'R: 0');
@@ -139,6 +139,19 @@ try {
   const deleted = (await (await page.request.get(apiUrl.href)).json()).posts[0];
   assert.equal(deleted.filedeleted, 1);
   for (const field of ['tim', 'md5', 'ext', 'fsize', 'tn_w', 'tn_h']) assert.equal(deleted[field], undefined);
+  const deletedRequests = [];
+  page.on('request', request => {
+    if ([mediaUrl.href, thumbnailUrl.href].includes(request.url())) deletedRequests.push(request.url());
+  });
+  await page.goto(new URL(`/${board}/catalog`, origin).href);
+  const placeholder = page.locator(`#thread-${post.no} .catalogThumb img`);
+  await expect(placeholder).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
+  await expect(placeholder).toHaveAttribute('alt', 'File deleted.');
+  await placeholder.scrollIntoViewIfNeeded();
+  await expect.poll(() => placeholder.evaluate(img => img.complete && img.naturalWidth === 127)).toBe(true);
+  const placeholderBox = await placeholder.boundingBox();
+  assert.deepEqual([placeholderBox.width, placeholderBox.height], [155, 53]);
+  assert.equal(deletedRequests.length, 0, 'a deleted catalog file loads only the fixed UI asset');
   assert.equal((await context.cookies()).length, 0);
   console.log('PASS no-JavaScript upload, isolated approval, persisted posting, image rendering and file-only deletion');
 } finally {
