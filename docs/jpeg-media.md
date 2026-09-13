@@ -102,3 +102,18 @@ and passed afterward on owned Windows PostgreSQL 16.15. Focused all-feature
 browser-test clippy passed with warnings denied. Native multi-format intake,
 negative JPEG cases and complete corrected-head CI still require a fresh run;
 no application behavior or assertion was disabled.
+
+The next PR run [34737438391](https://github.com/frankischilling/26chan/actions/runs/34737438391)
+on `fd3f4ef` passed the PNG, baseline-JPEG and progressive-JPEG native browser
+flows through publication, deletion, reader denial and physical cleanup. It then
+failed in the excessive-dimension JPEG check: the failed-status API omits
+`output_id`, but the test indexed that absent key while expecting null. The
+handler deliberately emits the field only for a published output.
+
+The native assertion now requires that the field is absent, retaining the failed
+state, no approved asset, clean VM/broker staging and `invalid_output` checks.
+A local actual-router/database regression reproduced the mistaken field-presence
+assumption on a failed streamed upload. It failed before the corrected absence
+assertion and passed afterward. This local check verifies the status contract,
+not JPEG guest execution. The complete corrected-head native negative cases and
+remaining CI stages still require a new run.
