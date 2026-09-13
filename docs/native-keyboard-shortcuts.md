@@ -17,6 +17,7 @@ watcher, filtering and navigation shortcuts use actual existing actions:
 - `I` and `C`: navigate to the current board's index and catalog.
 - `B` and `N`: follow the server-rendered previous and next page links when present.
 - `R`: fetch and insert new replies through the bounded [thread updater](native-thread-updater.md) on active thread pages.
+- `A`: toggle the same updater's automatic countdown, subject to thread/updater/busy-state guards.
 
 The resolver preserves the pinned numeric key map, ignores INPUT/TEXTAREA targets
 and Alt/Shift/Ctrl/Meta combinations, and prevents default/propagation for a
@@ -33,12 +34,10 @@ public-only snapshot route and fixed native bundle without expanding CSP authori
 
 ## Explicitly unfinished native behavior
 
-The reference also maps `A` to auto-updater and `Q` to Quick Reply, with
-feature/runtime guards. Those runtime features are
-not implemented here. Their keys remain recognized but have no action while the
-features are absent, and the help panel explicitly says so. A reload is not
-substituted for an in-place update, and an ordinary posting form is not presented
-as Quick Reply. The Quick Reply-specific shortcut group is likewise unfinished.
+The reference also maps `Q` to Quick Reply, with feature/runtime guards.
+Quick Reply is not implemented here. Its key remains recognized with no action,
+and the help panel explicitly says so. The Quick Reply-specific shortcut group
+is likewise unfinished.
 
 This is a completed watcher/filter/navigation integration step, not a claim that
 all native shortcuts or the full extension are complete. The help uses the

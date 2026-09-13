@@ -1,4 +1,5 @@
 import { NativeUpdaterTransport } from './native-updater-transport.js';
+import { NativeUpdaterSchedule } from './native-updater-schedule.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 function build(node) {
@@ -13,22 +14,41 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
   const section = document.getElementById(`t${thread}`);
   if (!postId(thread) || !section || section.dataset.archived === 'true') return null;
   const transport = new NativeUpdaterTransport({ board, thread, mediaOrigin });
-  const controls = [], statuses = [], mobileLinks = [];
+  const controls = [], statuses = [], mobileLinks = [], autoInputs = [];
   let busy = false, dead = false, stopped = false, generation = 0;
   let currentCycle = null;
-  const disabled = () => settings().disableAll === true;
+  let wasDisabled = true, hadAuto = false, unread = 0, marker = null;
+  const title = document.title, sessionKey = `4chan-auto-${thread}`;
+  let wanted = settings().alwaysAutoUpdate === true;
+  try { wanted ||= Boolean(sessionStorage.getItem(sessionKey)); } catch { /* Auto remains usable without storage. */ }
+  const disabled = () => settings().disableAll === true || settings().threadUpdater === false;
+  const schedule = new NativeUpdaterSchedule({ poll: () => { void update(false); }, tick: seconds => status(String(seconds)) });
+  function remember(value) {
+    wanted = value;
+    try { if (value) sessionStorage.setItem(sessionKey, '1'); else sessionStorage.removeItem(sessionKey); }
+    catch { /* Session preference is optional, never request authority. */ }
+  }
+  function toggleAuto() {
+    if (disabled() || stopped || dead || busy) { sync(); return; }
+    if (schedule.auto) { schedule.stop(); remember(false); status(''); }
+    else { hadAuto = true; schedule.start(); remember(true); }
+    sync();
+  }
   for (const nav of document.querySelectorAll('.threadNav')) {
-    const group = document.createElement('span'); group.className = 'nativeUpdater';
+    const mobile = nav.classList.contains('mobile');
+    const group = document.createElement(mobile ? 'div' : 'span'); group.className = `nativeUpdater${mobile ? ' btn-row' : ''}`;
     const status = document.createElement('span'); status.className = 'nativeUpdaterStatus';
     status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); statuses.push(status);
-    if (nav.classList.contains('mobile')) {
+    if (mobile) {
       const link = nav.querySelector('[data-thread-refresh]');
       if (!link) continue;
       link.addEventListener('click', event => {
         if (disabled() || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault(); void update();
       });
-      mobileLinks.push(link);
+      const wrapper = link.parentElement, anchor = document.createComment('refresh');
+      wrapper.before(anchor); group.append(wrapper, ' ');
+      mobileLinks.push({ link, wrapper, anchor, group });
     } else {
       const link = document.createElement('a'); link.href = `/${board}/thread/${thread}`;
       link.textContent = 'Update'; link.dataset.cmd = 'update';
@@ -38,17 +58,36 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
       });
       group.append(' [', link, '] ');
     }
+    const label = document.createElement('label'), input = document.createElement('input');
+    input.type = 'checkbox'; input.dataset.cmd = 'auto'; input.title = 'Fetch new replies automatically';
+    input.addEventListener('change', toggleAuto); label.append(input, 'Auto'); autoInputs.push(input);
+    if (mobile) {
+      const button = document.createElement('span'); button.className = 'mobileib button'; button.append(label);
+      group.append(button); status.classList.add('mobile-tu-status');
+    } else group.append('[', label, '] ');
     group.append(status); nav.append(group); controls.push(group);
   }
   function status(text, error = false) {
     for (const node of statuses) { node.textContent = text; node.classList.toggle('tu-error', error); }
   }
   function sync() {
-    if (disabled()) { generation++; currentCycle?.abort(); currentCycle = null; transport.cancel(); busy = false; status(''); }
+    if (disabled() || stopped) {
+      if (!wasDisabled) {
+        generation++; currentCycle?.abort(); currentCycle = null; transport.cancel(); busy = false;
+        schedule.suspend(); status('');
+      }
+      wasDisabled = true;
+    } else if (wasDisabled) {
+      wasDisabled = false;
+      if (wanted && !dead) { hadAuto = true; schedule.start(); remember(true); }
+    }
     for (const node of controls) { node.hidden = disabled(); node.setAttribute('aria-busy', String(busy)); }
-    for (const node of mobileLinks) {
-      node.textContent = disabled() ? 'Refresh' : 'Update'; node.dataset.cmd = 'update';
-      node.dataset.updaterReady = String(!disabled());
+    for (const input of autoInputs) { input.checked = schedule.auto; input.disabled = busy || dead; }
+    for (const { link, wrapper, anchor, group } of mobileLinks) {
+      if (disabled() && wrapper.parentNode === group) anchor.after(wrapper);
+      else if (!disabled() && wrapper.parentNode !== group) group.prepend(wrapper);
+      link.textContent = disabled() ? 'Refresh' : 'Update'; link.dataset.cmd = 'update';
+      link.dataset.updaterReady = String(!disabled());
     }
   }
   function threadState(snapshot) {
@@ -72,17 +111,23 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
       }
     }
   }
-  async function update() {
+  function atBottom() { return document.documentElement.scrollHeight <= Math.ceil(innerHeight + scrollY); }
+  function onScroll() {
+    if (!hadAuto || document.hidden || !atBottom() || !marker) return;
+    unread = 0; document.title = title; marker.classList.remove('newPostsMarker'); marker = null;
+  }
+  async function update(forced = true) {
     if (disabled() || stopped || dead || busy) return;
     const current = ++generation;
     const cycle = new AbortController(); currentCycle = cycle;
-    busy = true; status('Updating...'); sync();
+    let added = 0;
+    schedule.begin(); busy = true; status('Updating...'); sync();
     const result = await transport.refresh({ signal: cycle.signal });
     if (current !== generation || disabled() || stopped || !section.isConnected) return;
     try {
       if (result.status !== 'ok') {
         if (result.status === 'http-error' && result.httpStatus === 404) {
-          dead = true; status('This thread has been pruned or deleted', true);
+          dead = true; schedule.stop(); remember(false); status('This thread has been pruned or deleted', true);
         } else if (result.status === 'cooldown') status('Please wait before updating again.');
         else if (result.status !== 'cancelled') status('Connection Error. Open the thread page to retry.', true);
         return;
@@ -92,6 +137,9 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
       const last = existing.at(-1)?.id.slice(2);
       if (!postId(last)) throw new Error('invalid-current-thread');
       const additions = snapshot.posts.filter(post => BigInt(post.no) > BigInt(last));
+      const previous = existing.at(-1);
+      const scroll = settings().autoScroll === true && document.hidden
+        && document.documentElement.scrollHeight === Math.ceil(innerHeight + scrollY);
       // Build the entire append detached. Validate every ID against the live
       // page before inserting anything, including names used by form labels.
       function checkIds(tree) {
@@ -108,22 +156,36 @@ export function mountNativeThreadUpdater({ board, thread, mediaOrigin, settings,
         fragment.append(element);
       }
       section.append(fragment);
+      added = additions.length;
       threadState(snapshot);
       if (additions.length) {
+        const offset = previous.offsetTop;
         await applied?.(snapshot, cycle.signal);
         if (current !== generation || disabled() || stopped) return;
+        const moved = previous.offsetTop - offset;
+        if (moved) window.scrollBy(0, moved);
+        if (!forced && document.documentElement.scrollHeight > innerHeight) {
+          if (!marker && last !== thread) {
+            marker = previous.querySelector(':scope > .post'); marker?.classList.add('newPostsMarker');
+          }
+          unread += additions.length; document.title = `(${unread}) ${title}`;
+        }
+        if (scroll) window.scrollTo(0, document.documentElement.scrollHeight);
         const event = new Event('4chanThreadUpdated'); event.detail = { count: additions.length };
         document.dispatchEvent(event);
       }
       status(additions.length ? `${additions.length} new post${additions.length === 1 ? '' : 's'}` : 'No new posts');
-      if (snapshot.archived) { dead = true; status('This thread is archived', true); }
+      if (snapshot.archived) { dead = true; schedule.stop(); remember(false); status('This thread is archived', true); }
     } catch { status('Thread update could not be applied. Open the thread page to continue.', true); }
     finally {
       cycle.abort(); if (currentCycle === cycle) currentCycle = null;
-      if (current === generation) { busy = false; sync(); }
+      if (current === generation) { busy = false; schedule.finish(added, forced); sync(); }
     }
   }
-  window.addEventListener('pagehide', () => { stopped = true; generation++; currentCycle?.abort(); currentCycle = null; transport.cancel(); }, { once: true });
+  document.addEventListener('visibilitychange', () => schedule.visibility());
+  document.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('pagehide', () => { stopped = true; sync(); });
+  window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; sync(); } });
   sync();
-  return { update, sync };
+  return { update, sync, toggleAuto };
 }

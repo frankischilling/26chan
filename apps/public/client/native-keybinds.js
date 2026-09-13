@@ -20,14 +20,14 @@ export function siblingPageUrl(origin, board, href) {
   } catch { return null; }
 }
 
-export function mountNativeKeybinds({ board, settings, watch, filter, update }) {
+export function mountNativeKeybinds({ board, settings, watch, filter, update, auto }) {
   let help = null, opener = null;
   const page = direction => {
     const link = document.querySelector(`.pages > a[rel="${direction}"]`);
     const url = link && siblingPageUrl(location.origin, board, link.getAttribute('href'));
     if (url) location.assign(url);
   };
-  const actions = { watch, filter, update, previous: () => page('prev'), next: () => page('next'),
+  const actions = { watch, filter, update, auto, previous: () => page('prev'), next: () => page('next'),
     index: () => location.assign(`/${board}/`), catalog: () => location.assign(`/${board}/catalog`) };
   const resolve = event => {
     const action = nativeShortcut(event, settings());
@@ -53,12 +53,12 @@ export function mountNativeKeybinds({ board, settings, watch, filter, update }) 
     dismiss.addEventListener('click', close); header.append(title, dismiss); panel.append(header);
     const list = document.createElement('ul');
     for (const [key, label] of [['W', 'Watch/Unwatch thread'], ['B', 'Previous page'], ['N', 'Next page'],
-      ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text'], ['R', 'Update thread']]) {
+      ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text'], ['R', 'Update thread'], ['A', 'Toggle auto-updater']]) {
       const row = document.createElement('li'), keycap = document.createElement('kbd');
       keycap.textContent = key; row.append(keycap, ` - ${label}`); list.append(row);
     }
     const pending = document.createElement('p'); pending.className = 'settings-tip';
-    pending.textContent = 'Auto-updater (A) and Quick Reply (Q) are not available yet.';
+    pending.textContent = 'Quick Reply (Q) is not available yet.';
     panel.append(list, pending); dialog.append(panel);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     document.body.append(dialog); help = dialog; dialog.showModal(); dismiss.focus();

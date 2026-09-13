@@ -55,7 +55,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.type = 'checkbox';
       input.dataset.option = key;
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
-      input.checked = (key === 'threadHiding' ? initial[key] !== false : initial[key] === true) && (!catalog || initial.disableAll !== true);
+      input.checked = (['threadHiding', 'threadUpdater'].includes(key) ? initial[key] !== false : initial[key] === true) && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
       row.append(caption);
@@ -92,9 +92,12 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       expand.setAttribute('aria-label', 'Monitoring');
       expand.setAttribute('aria-expanded', String(!category.hidden));
       heading.append(expand);
+      option(category, 'threadUpdater', 'Thread updater', 'Append new posts to bottom of thread without refreshing the page');
+      option(category, 'alwaysAutoUpdate', 'Auto-update by default', 'Always auto-update threads', 'settings-sub');
       option(category, 'threadWatcher', 'Thread Watcher', "Keep track of threads you're watching and see when they receive new posts");
       option(category, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
       option(category, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', 'settingsDesktop');
+      option(category, 'autoScroll', 'Auto-scroll with auto-updated posts', 'Automatically scroll the page as new posts are added');
       const filterHeading = node('h3', undefined, 'settings-cat-lbl');
       filterCategory = node('ul', undefined, 'settings-cat');
       filterCategory.id = 'settings-filters';

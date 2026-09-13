@@ -233,6 +233,7 @@ function start(context) {
   });
   const nativeKeys = catalog ? null : mountNativeKeybinds({ board, settings: configuration,
     update: () => { void nativeUpdater?.update(); },
+    auto: () => nativeUpdater?.toggleAuto(),
     watch: () => { if (enabled && threadId) void toggleThread(document.getElementById(`t${threadId}`)); },
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });

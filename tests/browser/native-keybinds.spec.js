@@ -106,7 +106,8 @@ test('shortcut help is keyboard-dismissable and names unavailable features witho
   await page.getByRole('link', { name: 'Show', exact: true }).click();
   const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
   await expect(help).toBeVisible(); await expect(help).toContainText('Watch/Unwatch thread');
-  await expect(help).toContainText('are not available yet');
+  await expect(help).toContainText('Quick Reply (Q) is not available yet');
+  await expect(help).toContainText('Toggle auto-updater');
   await page.keyboard.press('Escape'); await expect(help).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Show', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');

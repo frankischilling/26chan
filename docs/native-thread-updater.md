@@ -1,9 +1,10 @@
 # Native thread updater
 
-Desktop Update links, mobile Update controls and the optional `R` shortcut
+Desktop/mobile Update and Auto controls, and optional `R`/`A` shortcuts,
 fetch and insert new replies in place. Existing drafts, post nodes and document
-state remain intact. Automatic updating and Quick Reply are still unfinished;
-this is not complete native updater compatibility.
+state remain intact. Automatic updates also maintain the unread title and
+last-reply marker. Sound, favicon notifications and Quick Reply coordination
+are still unfinished; this is not complete native updater compatibility.
 
 ## Public reference
 
@@ -14,9 +15,55 @@ as text, not executed. They fetch thread data, append new replies, reparse the
 thread, update state and unread indicators, notify the watcher, and dispatch
 `4chanThreadUpdated` with a count. Manual update is not a page reload.
 The manual path implements new-reply insertion, status, thread flags, watcher
-acknowledgement and the update event. Tail responses, automatic scheduling,
-unread indicators, scrolling, sound and Quick Reply coordination remain separate
-unfinished behaviors.
+acknowledgement and the update event. The same validated transport serves Auto.
+Its scheduling and unread rules below come from inspection of `start`, `stop`,
+`pulse`, `adjustDelay`, `onVisibilityChange`, `onScroll` and `clearUnread` in that
+same file. These are static-source findings, not live public-page observations.
+
+## Automatic scheduling and unread state
+
+Auto begins with a ten-second countdown. Empty results and transient failures
+advance through 10, 15, 20, 30, 60, 90, 120, 180, 240 and 300 seconds, remaining
+at 300 thereafter. New replies reset the interval to ten seconds in visible tabs
+or sixty seconds in hidden tabs. An empty manual update retains the current
+interval. Both desktop and both mobile checkboxes reflect the same state;
+`A` invokes that control when keyboard shortcuts are enabled.
+
+The per-tab preference uses the native `4chan-auto-{thread}` session key.
+Starting writes `1`; stopping removes it. The reference accepts any nonempty
+stored value as enabled, including `0`. This is a preference, never authority
+to select a request URL. Unavailable session storage leaves in-tab controls
+usable. Monitoring settings exposes `threadUpdater` (default true),
+`alwaysAutoUpdate` (default false), and `autoScroll` (default false). Always Auto
+is an initialization default: a user can stop it for the current document,
+and loading the thread again starts it. Global or updater-specific disabling
+cancels work and restores the ordinary mobile Refresh link.
+
+Visibility changes reset the displayed countdown to ten seconds. The reference
+sets the delay index to four when hidden and below four, and zero otherwise.
+The replacement preserves that rule but holds one timer and one active request:
+visibility changes during a response cannot create another polling loop.
+Request completion owns the next countdown. This bounds request concurrency
+and prevents a timer race from multiplying network and parsing work.
+Page exit cancels pending work; a persisted `pageshow` can rearm this updater
+once. That lifecycle path is tested with synthetic browser events, not claimed
+as complete back/forward-cache qualification of every native component.
+
+Automatic insertion on a scrollable page adds to the title's unread count and
+marks the previous last reply with `newPostsMarker`. Manual insertion does
+neither. A visible scroll to the bottom clears the count and marker; stopping
+Auto itself does not clear them. The pinned code only creates a marker when
+the previous last post is a reply, and only clears unread when a marker exists.
+Consequently the first automatic reply on an OP-only page can leave an unread
+title without a marker. This unusual static-source condition is preserved and
+tested; its live behavior remains unverified.
+
+The pinned Auto Scroll condition is also unusual: it requires a hidden tab
+already exactly at the bottom before insertion. When enabled, that state
+scrolls to the new bottom. A visible reader is not moved to new replies.
+Changes in the previous last post's offset are compensated after post parsing.
+Tests supply explicit hidden/visible states to exercise both paths; they do not
+claim browser background-tab timing matches an accelerated test clock.
 
 ## Owned response contract
 
@@ -89,7 +136,7 @@ posting controls without erasing their values. Archived responses and 404 are
 terminal. Other failures retain a usable retry. The server continues to
 authorize every write independently of these browser controls.
 
-Cross-tab global disabling and page exit cancel pending work; stale responses
+Cross-tab global/updater disabling and page exit cancel pending work; stale responses
 cannot append after cancellation. With the extension disabled, mobile controls
 retain their ordinary anchored refresh behavior. With JavaScript disabled,
 server-rendered navigation and posting remain available. Modifier clicks retain
@@ -124,8 +171,17 @@ navigation. A separate synthetic media case checks shared rendering and image
 menus after insertion. Six-theme desktop/mobile captures check control fit,
 keyboard focus and error visibility; they are not public-page pixel parity.
 
-Still required: automatic controls and `A`, tail/cache behavior, unread/title/icon
-and scrolling/sound behavior, Quick Reply coordination, existing-post deletion
+Four scheduler tests use bounded virtual time to exercise every interval,
+the five-minute ceiling, manual/automatic delay changes, hidden/visible results,
+repeated visibility events, stale callbacks, stopping and resumption. Eight
+additional persisted browser cases cover the actual countdown/request path,
+mirrored controls, `A`, drafts, unread clearing, per-tab storage, persisted
+settings, cancellation, terminal archival, unavailable storage, lifecycle
+events, scrolling and the OP-only marker edge. Theme captures include Auto,
+countdown, error, Monitoring settings and shortcut help at both viewports.
+
+Still required: tail/cache behavior, favicon and sound notifications,
+Quick Reply coordination, existing-post deletion
 reconciliation, remaining native settings and live public-reference comparison.
 The full snapshot route and the one-second request floor are explicit local
 transport choices. The pending reference qualification remains tracked in #6
