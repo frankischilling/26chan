@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 // Test-only renderer for screenshot CI. It compiles the actual production view
 // module/templates. Persistence and real HTTP mutations have separate tests.
+#[path = "visual/media.rs"]
+mod media;
 #[path = "../src/views.rs"]
 mod views;
 use askama::Template;
@@ -203,7 +205,14 @@ async fn main() {
     }
     .render()
     .unwrap();
+    let (media_fixture, media_app) = media::Fixture::build().await;
+    let media_listener = tokio::net::TcpListener::bind("127.0.0.1:3004")
+        .await
+        .unwrap();
+    let media_server =
+        tokio::spawn(async move { axum::serve(media_listener, media_app).await.unwrap() });
     let app = Router::new()
+        .merge(media_fixture.routes())
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/arc/archive", get(|| async { Html(archive_page(false)) }))
@@ -228,5 +237,8 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    tokio::select! {
+        result = axum::serve(listener, app) => result.unwrap(),
+        result = media_server => { result.unwrap(); panic!("fixture media server stopped"); }
+    }
 }

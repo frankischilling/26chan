@@ -183,3 +183,6 @@ jobs:
       - name: Run archive desktop and mobile visual fixtures
         shell: pwsh
         run: npm run test:archive-visual
+      - name: Run attachment desktop and mobile visual fixtures
+        shell: pwsh
+        run: npm run test:media-visual
