@@ -98,10 +98,12 @@ jobs:
       - name: Qualify authenticated HTTP intake through isolated processing and the separate reader
         run: |
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            PUBLIC_UPLOAD_NODE="$(command -v node)" \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            PUBLIC_UPLOAD_NODE="$(command -v node)" \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh --interrupt

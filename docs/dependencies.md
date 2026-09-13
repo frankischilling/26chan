@@ -1,12 +1,33 @@
 # Dependency and update inventory
 
+The public attachment workflow enables [Axum 0.8.9 multipart](https://docs.rs/axum/0.8.9/axum/extract/multipart/struct.Multipart.html)
+and reuses locked [Hyper 1.11.1 HTTP/1 client connections](https://docs.rs/hyper/1.11.1/hyper/client/conn/http1/struct.Builder.html)
+with Hyper-util 0.1.20's Tokio adapter. The client connects to one validated
+numeric loopback socket; it has no DNS, proxy, redirect or URL-fetch facility.
+Multipart parsing adds multer 3.1.0 and encoding_rs 0.8.40. The remaining new
+registry entries are core_detect 1.0.0, multiversion 0.8.0,
+multiversion-macros 0.8.0, multiversion_no_op 1.0.0, simdutf8 0.1.5,
+target-features 0.1.6, try-lock 0.2.5 and want 0.3.1. Existing registry versions
+are unchanged. The test-only media publisher/reader dependencies do not enter
+the public runtime dependency graph.
+
+The multipart crate forbids unsafe code, but its encoding_rs dependency contains
+unsafe byte/string and SIMD operations. Its CPU detection and multiversion
+dependencies belong to this review surface too. Public upload code reads raw
+field chunks, not charset-decoded text or media metadata; this does not establish
+that every transitive unsafe path is unreachable or sound. Hyper/Tokio socket
+and buffer implementations remain in the public trust base. No native decoder
+was added to the public process. Local cargo-audit 0.22.2 scanned 342 locked
+dependencies against 1,243 fetched advisories on September 12 without findings.
+That result covers known advisories, not a complete dependency security review.
+
 Authenticated HTTP intake adds pinned [Tokio-util 0.7.19](https://docs.rs/tokio-util/0.7.19/tokio_util/io/struct.StreamReader.html)
 with its `io` feature to adapt body frames to the existing bounded quarantine
 writer. The direct futures-util 0.3.34 declaration reuses its locked version;
 default features add futures-macro 0.3.34. Other registry versions and checksums
 are unchanged. Intake depends on the existing media crate for bounded storage;
-it does not invoke a decoder. No HTTP client package was added: the owned native
-qualification uses Python's standard-library client.
+it does not invoke a decoder. Its owned native qualification uses Python's
+standard-library client; the separate public caller uses the Hyper client above.
 
 The [maintenance observer](maintenance-observability.md) reuses locked Rustix,
 Tokio, Serde and board-observe; only its local package is added to Cargo.lock.

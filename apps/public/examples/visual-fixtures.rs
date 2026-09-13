@@ -25,6 +25,7 @@ fn board() -> Board {
         worksafe: true,
         archive_retention_seconds: 0,
         archive_limit: 1000,
+        image_limit: 0,
     }
 }
 fn page(catalog: bool) -> String {
@@ -51,6 +52,7 @@ fn page(catalog: bool) -> String {
         comment: ">start with a single sheet".into(),
         created_at: time("2026-09-08T12:00:00Z"),
         deleted: false,
+        attachment: None,
     })];
     posts[0] = PostView::new(Post { comment: "Share your latest paper project.\n>start with a single sheet\n[spoiler]Mine is another crane.[/spoiler]".into(), ..posts[0].post.clone() });
     if !catalog {
@@ -63,6 +65,7 @@ fn page(catalog: bool) -> String {
             comment: ">>1000001\nA small paper lighthouse. Still working on the roof.".into(),
             created_at: time("2026-09-08T12:05:00Z"),
             deleted: false,
+            attachment: None,
         }));
     }
     BoardPage {
@@ -76,6 +79,7 @@ fn page(catalog: bool) -> String {
         previous: String::new(),
         next: String::new(),
         catalog,
+        media_origin: String::new(),
     }
     .render()
     .expect("production templates")
@@ -145,6 +149,7 @@ fn archived_thread() -> String {
             comment: "The completed paper lighthouse.\n>fold each edge carefully\n[spoiler]There is a tiny door at the back.[/spoiler]".into(),
             created_at: thread.created_at,
             deleted: false,
+            attachment: None,
         }),
         PostView::new(Post {
             id: 1000104,
@@ -155,6 +160,7 @@ fn archived_thread() -> String {
             comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
             created_at: thread.bumped_at,
             deleted: false,
+            attachment: None,
         }),
     ];
     BoardPage {
@@ -168,6 +174,7 @@ fn archived_thread() -> String {
         previous: String::new(),
         next: String::new(),
         catalog: false,
+        media_origin: String::new(),
     }
     .render()
     .expect("production archived thread template")

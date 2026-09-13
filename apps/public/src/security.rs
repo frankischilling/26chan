@@ -16,6 +16,7 @@ use tokio::sync::Semaphore;
 pub struct Limits {
     active: std::sync::Arc<Semaphore>,
     pub hashes: std::sync::Arc<Semaphore>,
+    pub uploads: Semaphore,
     peers: Mutex<HashMap<IpAddr, (Instant, u32)>>,
 }
 
@@ -24,6 +25,7 @@ impl Default for Limits {
         Self {
             active: std::sync::Arc::new(Semaphore::new(32)),
             hashes: std::sync::Arc::new(Semaphore::new(4)),
+            uploads: Semaphore::new(4),
             peers: Mutex::new(HashMap::new()),
         }
     }
@@ -37,11 +39,11 @@ pub async fn protect(State(state): State<AppState>, request: Request, next: Next
                 "Server is busy. Try again shortly.",
             )
                 .into_response(),
-            state.production,
+            &state,
         );
     };
     let response = protect_inner(&state, request, next).await;
-    headers(board_http::hold_permit(response, permit), state.production)
+    headers(board_http::hold_permit(response, permit), &state)
 }
 
 async fn protect_inner(state: &AppState, request: Request, next: Next) -> Response {
@@ -98,9 +100,19 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
     }
 }
 
-fn headers(mut response: Response, production: bool) -> Response {
+fn headers(mut response: Response, state: &AppState) -> Response {
     let headers = response.headers_mut();
     headers.insert("content-security-policy", HeaderValue::from_static("default-src 'none'; style-src 'self'; img-src 'none'; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"));
+    if let Some(media) = &state.media {
+        let policy = format!(
+            "default-src 'none'; style-src 'self'; img-src {}; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+            media.settings.origin.as_string()
+        );
+        headers.insert(
+            "content-security-policy",
+            HeaderValue::from_str(&policy).expect("validated media origin"),
+        );
+    }
     headers.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),
@@ -116,7 +128,7 @@ fn headers(mut response: Response, production: bool) -> Response {
     headers
         .entry("cache-control")
         .or_insert(HeaderValue::from_static("no-store"));
-    if production {
+    if state.production {
         headers.insert(
             "strict-transport-security",
             HeaderValue::from_static("max-age=31536000"),

@@ -57,12 +57,13 @@ pub async fn board_snapshot(
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
     // At most 1,000 selected threads, each with its OP and five latest replies.
     // Lateral limits keep unselected comment bodies out of the web process.
-    let posts: Vec<Post> = if let Some(replies) = replies {
+    let mut posts: Vec<Post> = if let Some(replies) = replies {
         sqlx::query_as("SELECT p.* FROM unnest($2::bigint[]) AS selected(id) CROSS JOIN LATERAL ((SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT $3)) p ORDER BY p.thread_id,p.id")
             .bind(slug).bind(&ids).bind(replies).fetch_all(&mut *tx).await?
     } else {
         Vec::new()
     };
+    crate::post_media::load(&mut tx, &mut posts).await?;
     tx.commit().await?;
 
     let counts: BTreeMap<_, _> = counts.into_iter().collect();

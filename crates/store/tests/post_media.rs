@@ -188,7 +188,7 @@ async fn exercise(f: &Fixture) {
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=2 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
+    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=4 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(functions_safe);
 
@@ -573,4 +573,73 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
         Err(StoreError::NotFound)
     ));
     staff.close().await;
+    cancellation(f).await;
+}
+
+async fn cancellation(f: &Fixture) {
+    use board_store::post_media::{cancel_upload, check_upload};
+    let a = f.reserve().await;
+    f.approve(&a).await;
+    check_upload(&f.public, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    assert!(matches!(
+        check_upload(&f.public, &a.upload.id, &"0".repeat(64)).await,
+        Err(StoreError::NotFound)
+    ));
+    for statement in [
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+        "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+    ] {
+        let mut tx = f.public.begin().await.unwrap();
+        tx.execute(statement).await.unwrap();
+        let error = sqlx::query("SELECT content.cancel_attachment_upload($1,$2)")
+            .bind(&a.upload.id)
+            .bind(&a.upload.capability)
+            .execute(&mut *tx)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("22023")
+        );
+        tx.rollback().await.unwrap();
+    }
+    // Either attach or cancel wins; the job lock prevents both from succeeding.
+    let (inserted, cancelled) = tokio::join!(
+        f.insert(0, &a),
+        cancel_upload(&f.public, &a.upload.id, &a.upload.capability)
+    );
+    assert_eq!(
+        usize::from(inserted.is_ok()) + usize::from(cancelled.is_ok()),
+        1
+    );
+    assert!(
+        check_upload(&f.public, &a.upload.id, &a.upload.capability)
+            .await
+            .is_err()
+    );
+    assert!(f.insert(0, &a).await.is_err());
+    if inserted.is_ok() {
+        assert!(matches!(cancelled, Err(StoreError::Conflict(_))));
+    } else {
+        assert!(matches!(inserted, Err(StoreError::NotFound)));
+    }
+    let expired = f.reserve().await;
+    f.approve(&expired).await;
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
+    )
+    .bind(&expired.upload.id)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(matches!(
+        check_upload(&f.public, &expired.upload.id, &expired.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        cancel_upload(&f.public, &expired.upload.id, &expired.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
 }

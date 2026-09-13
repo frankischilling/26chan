@@ -3,7 +3,9 @@
 mod api;
 mod api_http;
 mod handlers;
+mod intake;
 mod security;
+mod uploads;
 mod views;
 use axum::{
     Router,
@@ -20,6 +22,7 @@ pub struct AppState {
     origin: String,
     production: bool,
     limits: Arc<security::Limits>,
+    media: Option<intake::IntakeClient>,
 }
 
 pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
@@ -33,6 +36,16 @@ pub fn observed_routers(
     production: bool,
     api_enabled: bool,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_media(pool, origin, production, api_enabled, None)
+}
+
+pub fn observed_routers_with_media(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    api_enabled: bool,
+    media: Option<board_config::PublicMediaSettings>,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -43,7 +56,7 @@ pub fn observed_routers(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers(pool, origin, production);
+    let (public, api) = routers_with_media(pool, origin, production, media);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -54,13 +67,27 @@ pub fn observed_routers(
 }
 
 pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Router) {
+    routers_with_media(pool, origin, production, None)
+}
+
+pub fn routers_with_media(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    media: Option<board_config::PublicMediaSettings>,
+) -> (Router, Router) {
+    assert!(
+        !production || media.is_none(),
+        "Production media is not qualified"
+    );
     let state = AppState {
         pool,
         origin,
         production,
         limits: Arc::new(security::Limits::default()),
+        media: media.map(|settings| intake::IntakeClient { settings }),
     };
-    let public = Router::new()
+    let mut public = Router::new()
         .route("/", get(handlers::home))
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(handlers::ready))
@@ -73,7 +100,17 @@ pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Route
         .route("/{board}/post", post(handlers::post))
         .route("/{board}/imgboard.php", post(handlers::post))
         .route("/{board}/delete", post(handlers::delete))
-        .route("/{board}/report", post(handlers::report))
+        .route("/{board}/report", post(handlers::report));
+    if state.media.is_some() {
+        public = public
+            .route(
+                "/{board}/upload",
+                post(uploads::upload).layer(DefaultBodyLimit::max(8_388_608 + 16_384)),
+            )
+            .route("/{board}/upload/status", post(uploads::status))
+            .route("/{board}/upload/cancel", post(uploads::cancel));
+    }
+    let public = public
         .route("/{board}/{page}", get(handlers::page))
         .fallback(handlers::not_found)
         // A 16,000-character comment can occupy 192,000 bytes when four-byte
@@ -87,4 +124,13 @@ pub fn routers(pool: PgPool, origin: String, production: bool) -> (Router, Route
         .with_state(state.clone());
     let api = api_http::router(state);
     (public, api)
+}
+
+pub async fn media_ready(settings: &board_config::PublicMediaSettings) -> Result<(), &'static str> {
+    intake::IntakeClient {
+        settings: settings.clone(),
+    }
+    .ready()
+    .await
+    .map_err(|_| "Media intake is unavailable.")
 }

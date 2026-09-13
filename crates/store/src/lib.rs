@@ -46,6 +46,7 @@ pub struct Board {
     pub worksafe: bool,
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
+    pub image_limit: i32,
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -73,6 +74,8 @@ pub struct Post {
     pub comment: String,
     pub created_at: DateTime<Utc>,
     pub deleted: bool,
+    #[sqlx(skip)]
+    pub attachment: Option<post_media::PostAttachment>,
 }
 
 pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {

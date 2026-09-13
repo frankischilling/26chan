@@ -45,6 +45,7 @@ impl Settings {
                         || name.starts_with("DEPLOY_")
                         || name == "GH_TOKEN"
                         || name == "GITHUB_TOKEN"
+                        || name == "PUBLIC_INTAKE_TOKEN"
                         || name == "DOCKER_HOST"
                         || name == "SSH_AUTH_SOCK")
             })

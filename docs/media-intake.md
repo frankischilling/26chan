@@ -59,16 +59,26 @@ design. It also checks healthy permission controls, real chunked overflow,
 disconnect/deadline cleanup, service shutdown and interruption cleanup:
 
 ```bash
-# After the development database, workspace binaries and disposable VM profile exist:
+# After database, binaries and VM setup; install pinned npm/Chromium as the nonroot checkout owner:
+npm ci --ignore-scripts
+npx playwright install chromium
 sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+  PUBLIC_UPLOAD_NODE="$(command -v node)" \
   MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
   MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
   bash scripts/test-media-intake.sh
 sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+  PUBLIC_UPLOAD_NODE="$(command -v node)" \
   MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
   MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
   bash scripts/test-media-intake.sh --interrupt
 ```
+
+The qualification also starts a nonroot development public service and runs a
+no-JavaScript browser through upload, actual guest processing, attachment posting,
+separate-reader display and file-only deletion. This new portion awaits CI;
+[attachment notes](post-attachments.md) distinguish it from the passed local
+browser test with synthetic validated pixels.
 
 See [verification](verification-media-intake.md) for actual outcomes. Production
 service authentication, network and storage policies, post attachment, additional

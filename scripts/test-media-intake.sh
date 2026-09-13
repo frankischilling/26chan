@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 [[ $(id -u) = 0 ]] || { echo 'Run on an owned disposable Linux host as root.' >&2; exit 1; }
 : "${MEDIA_VM_TEST_CONFIG:?Set the disposable decoder configuration}"
 : "${MEDIA_VM_PROBE_CONFIG:?Set the disposable boundary probe configuration}"
+: "${PUBLIC_UPLOAD_NODE:?Set the absolute pinned Node executable for the nonroot browser qualification}"
 [[ $# = 0 || ( $# = 1 && $1 = --interrupt ) ]] || exit 2
 source .local/database.env
 source .local/media.env

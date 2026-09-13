@@ -29,6 +29,48 @@ pub async fn attachment(pool: &PgPool, post_id: i64) -> Result<Option<PostAttach
     )
 }
 
+pub(crate) async fn load(
+    connection: &mut sqlx::PgConnection,
+    posts: &mut [crate::Post],
+) -> Result<(), StoreError> {
+    let ids: Vec<i64> = posts.iter().map(|p| p.id).collect();
+    let rows: Vec<PostAttachment> =
+        sqlx::query_as("SELECT * FROM content.visible_post_media WHERE post_id=ANY($1)")
+            .bind(&ids)
+            .fetch_all(connection)
+            .await?;
+    let mut rows: std::collections::BTreeMap<_, _> =
+        rows.into_iter().map(|a| (a.post_id, a)).collect();
+    for post in posts {
+        post.attachment = rows.remove(&post.id);
+    }
+    Ok(())
+}
+
+pub async fn check_upload(pool: &PgPool, job_id: &str, capability: &str) -> Result<(), StoreError> {
+    sqlx::query("SELECT content.check_attachment_upload($1,$2)")
+        .bind(job_id)
+        .bind(capability)
+        .execute(pool)
+        .await
+        .map_err(scoped_error)?;
+    Ok(())
+}
+
+pub async fn cancel_upload(
+    pool: &PgPool,
+    job_id: &str,
+    capability: &str,
+) -> Result<(), StoreError> {
+    sqlx::query("SELECT content.cancel_attachment_upload($1,$2)")
+        .bind(job_id)
+        .bind(capability)
+        .execute(pool)
+        .await
+        .map_err(scoped_error)?;
+    Ok(())
+}
+
 /// Caller verifies the post's deletion password or the staff session first.
 pub async fn delete_attachment(pool: &PgPool, board: &str, post_id: i64) -> Result<(), StoreError> {
     sqlx::query("SELECT content.delete_post_attachment($1, $2)")
