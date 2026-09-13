@@ -91,7 +91,7 @@ test('unavailable browser storage leaves controls and reset usable', async ({ pa
   expect(errors).toEqual([]);
 });
 
-test('catalog CSP permits only the fixed script and denies healthy alternate and inline scripts', async ({ page, context }) => {
+test('catalog CSP permits only fixed scripts and denies healthy alternate and inline scripts', async ({ page, context }) => {
   let alternateRequests = 0;
   await context.route('**/static/catalog-denied.js', route => {
     alternateRequests += 1;
@@ -104,7 +104,11 @@ test('catalog CSP permits only the fixed script and denies healthy alternate and
   const script = page.waitForResponse(response => response.url().endsWith('/static/catalog-preferences.v1.js'));
   const response = await page.goto(catalog);
   expect((await script).status()).toBe(200);
-  expect(response.headers()['content-security-policy']).toContain("script-src http://127.0.0.1:3000/static/catalog-preferences.v1.js;");
+  expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
+    'http://127.0.0.1:3000/static/catalog-preferences.v1.js',
+    'http://127.0.0.1:3000/static/thread-watcher.v1.js',
+    'http://127.0.0.1:3000/static/thread-watcher-core.v1.js',
+  ]);
   await page.evaluate(() => {
     window.violations = [];
     document.addEventListener('securitypolicyviolation', event => window.violations.push(event.blockedURI));
@@ -120,8 +124,9 @@ test('catalog CSP permits only the fixed script and denies healthy alternate and
   await page.locator('#size-ctrl').selectOption('large');
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   const index = await page.goto('/test/');
-  expect(index.headers()['content-security-policy']).toContain("script-src 'none';");
-  await expect(page.locator('script')).toHaveCount(0);
+  expect(index.headers()['content-security-policy']).toContain('script-src http://127.0.0.1:3000/static/thread-watcher.v1.js http://127.0.0.1:3000/static/thread-watcher-core.v1.js;');
+  await expect(page.locator('script')).toHaveCount(1);
+  await expect(page.locator('#thread-watcher-enable')).toBeVisible();
   const invalid = await page.goto(`${catalog}?order=invalid`);
   expect(invalid.status()).toBe(400);
   expect(invalid.headers()['content-security-policy']).toContain("script-src 'none';");

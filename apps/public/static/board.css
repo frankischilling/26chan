@@ -141,3 +141,18 @@ table.postForm button { padding: 1px 6px; }
 .catalogState[hidden], #catalog-unpin-all[hidden], .catalogPinDelta[hidden], .catalogPinPage[hidden] { display: none !important; }
 @media (hover: none) { .catalog .postMenuBtn { opacity: .5; pointer-events: auto; } }
 @media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
+
+/* Watcher controls inherit each public theme's palette. */
+.watcherToggle, .watcherFold { border: 0; padding: 0; color: var(--link); background: transparent; font: inherit; }
+.watcherPanel { position: absolute; left: 10px; top: 75px; z-index: 30; max-width: min(420px, calc(100% - 20px)); color: var(--ink); background: var(--panel); border: 1px solid var(--edge); font-size: 12px; }
+.watcherHeader { display: flex; align-items: center; gap: 8px; padding: 4px; border-bottom: 1px solid var(--edge); }
+.watcherHeader button, #watchList button { padding: 1px 3px; font: inherit; }
+#watchList { list-style: none; padding: 4px; margin: 0; overflow-wrap: anywhere; }
+#watchList li { margin: 3px 0; }
+#watchList .deadlink a { text-decoration: line-through; }
+.watcherOwnReply { font-weight: bold; }
+.watcherNotice { padding: 0 4px; max-width: 32em; }
+.wbtn, .watcherLastRead { padding: 0 2px; font: inherit; }
+.watcherReadTarget { outline: 2px solid var(--link); outline-offset: 2px; }
+.watcherPanel[hidden], #watcher-body[hidden], .wbtn[hidden], .watcherLastRead[hidden] { display: none !important; }
+@media (max-width: 600px) { .watcherPanel { position: relative; left: auto; top: auto; max-width: 100%; margin: 10px 0; } }

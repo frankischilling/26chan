@@ -5,7 +5,7 @@ use crate::{
 };
 use askama::Template;
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -201,6 +201,21 @@ fn full_thread(board: &Board, thread: &Thread, posts: Vec<Post>) -> Result<Vec<V
         .into_iter()
         .map(|post| post_json(post, thread, board, replies, images))
         .collect()
+}
+
+// A read-only alias lets browser CSP allow watcher requests by path without
+// granting connect access to the public posting routes or other origins.
+pub async fn watcher_thread(
+    State(state): State<AppState>,
+    Path((board, key)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let id = key
+        .strip_suffix(".json")
+        .and_then(|id| id.parse::<i64>().ok())
+        .filter(|id| *id > 0)
+        .ok_or(AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
+    thread(&state, &board, id, &headers).await
 }
 
 pub async fn thread(

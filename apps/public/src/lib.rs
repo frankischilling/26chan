@@ -132,6 +132,7 @@ pub fn routers_with_limits(
         .route("/readyz", get(handlers::ready))
         .route("/static/board.css", get(handlers::css))
         .route("/boards.json", get(api::boards))
+        .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))
         .route("/{board}/thread/{key}", get(handlers::thread))
