@@ -30,7 +30,7 @@
 {% endif %}
 <hr>
 {% if catalog %}{% include "catalog_controls.html" %}{% endif %}
-<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}">
+<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}"{% if catalog %} data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
 {% for view in threads %}
 {% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">

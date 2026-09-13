@@ -10,3 +10,4 @@
   --reply-border-width: 1px; --arrows: #c5c8c6; --target-edge: #111111;
   --post-text-margin: 0 2px 0 0;
 }
+:root { --catalog-menu-ink: #5f89ac; --catalog-menu-edge: #000000; --catalog-menu-right: 1px; --catalog-menu-bottom: 0; }

@@ -6,3 +6,4 @@
   --arrows: #b7c5d9; --target-edge: #ba9dbf;
   --wash: url('/static/themes/fade-blue.png') top center repeat-x;
 }
+:root { --catalog-menu-font: 13px; --catalog-menu-right: 1px; --catalog-menu-bottom: 0; }

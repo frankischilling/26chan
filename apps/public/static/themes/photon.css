@@ -6,3 +6,4 @@
   --label-edge: #cccccc;
   --reply-border-width: 1px; --arrows: #333333; --target-edge: #cccccc;
 }
+:root { --catalog-menu-ink: #ff6600; --catalog-menu-right: 1px; --catalog-menu-bottom: 0; }

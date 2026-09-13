@@ -120,3 +120,24 @@ table.postForm button { padding: 1px 6px; }
   .board .postMessage { margin: 10px 5px; }
   .board .fileThumb, .board .fileThumb img { float: none; }
 }
+
+/* Catalog menus use the measured public v705 colors and geometry. */
+:root { --catalog-menu-font: 12px; --catalog-menu-ink: #000080; --catalog-menu-edge: var(--edge); --catalog-menu-right: 2px; --catalog-menu-bottom: 1px; }
+.catalog .thumb.pinned { border: 3px dashed #34345c; box-sizing: content-box; }
+.catalog .thumb.pinned:hover { border-color: red; }
+.catalog .meta { position: relative; }
+.catalog .postMenuBtn { position: absolute; margin: -1px 0 0 5px; padding: 0; border: 0; background: transparent; color: var(--catalog-menu-ink); font: inherit; line-height: 1em; width: 1em; height: 1em; text-align: center; opacity: 0; pointer-events: none; transition: transform .1s; }
+.catalog .thread:hover .postMenuBtn, .catalog .thread:focus-within .postMenuBtn { opacity: .5; pointer-events: auto; }
+.catalog .postMenuBtn:hover, .catalog .postMenuBtn:focus-visible { opacity: 1; }
+.catalog .postMenuBtn.menuOpen { transform: rotate(90deg); }
+.catalog .thread.catalogMenuActive { overflow: visible; z-index: 20; }
+.catalog .dd-menu { position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 100%; z-index: 21; font-size: var(--catalog-menu-font); line-height: 1.3em; text-align: left; }
+.catalog .dd-menu ul { background: var(--panel); color: var(--ink); border: 1px solid var(--catalog-menu-edge); border-right-width: var(--catalog-menu-right); border-bottom-width: var(--catalog-menu-bottom); list-style: none; padding: 0; margin: 0; }
+.catalog .dd-menu li { position: relative; padding: 0; border-bottom: 1px solid var(--catalog-menu-edge); }
+.catalog .dd-menu a, .catalog .dd-menu button { display: block; width: 100%; padding: 2px 4px; border: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.catalog .dd-menu a:hover, .catalog .dd-menu button:hover, .catalog .dd-menu a:focus-visible, .catalog .dd-menu button:focus-visible { background: var(--paper); }
+.catalogState button { border: 0; padding: 0; background: transparent; color: var(--link); text-decoration: underline; }
+#hidden-label-bottom { display: block; text-align: center; }
+.catalogState[hidden], #catalog-unpin-all[hidden], .catalogPinDelta[hidden], .catalogPinPage[hidden] { display: none !important; }
+@media (hover: none) { .catalog .postMenuBtn { opacity: .5; pointer-events: auto; } }
+@media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
