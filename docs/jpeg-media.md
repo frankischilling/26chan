@@ -90,3 +90,15 @@ The Linux-musl cross-build also passed locally with
 `CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld` and
 `cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked --jobs 1`.
 This verifies compilation, not execution of the new guest.
+
+PR run [34736728273](https://github.com/frankischilling/26chan/actions/runs/34736728273)
+on `e0335f9` passed Linux guest qualification, including the four JPEG variants,
+and native dispatch, but failed during the second public browser upload. A local
+two-upload regression reproduced the exact failure: after deletion redirects
+to the board, two legitimate posts contain "File deleted", making the browser's
+unscoped locator ambiguous. The browser now verifies the marker inside the exact
+post identified by the API. The new two-upload test failed before that change
+and passed afterward on owned Windows PostgreSQL 16.15. Focused all-feature
+browser-test clippy passed with warnings denied. Native multi-format intake,
+negative JPEG cases and complete corrected-head CI still require a fresh run;
+no application behavior or assertion was disabled.

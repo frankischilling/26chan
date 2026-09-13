@@ -118,7 +118,8 @@ try {
   await deletion.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
-  await expect(page.getByText('File deleted.', { exact: true })).toBeVisible();
+  assert.ok(Number.isSafeInteger(post.no) && post.no > 0);
+  await expect(page.locator(`#p${post.no}`).getByText('File deleted.', { exact: true })).toBeVisible();
   await screenshot('file-deleted');
   assert.equal(await page.locator('.fileThumb img').count(), 0);
   const removed = await page.request.get(mediaUrl.href, { headers: { 'If-None-Match': etag } });
