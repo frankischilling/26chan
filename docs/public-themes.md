@@ -115,8 +115,12 @@ npm run test:media-visual
 npm run test:themes
 ```
 
-This is not yet a completed theme slice. A reviewed green PR head remains
-required. The Windows CI job includes
+[PR #53](https://github.com/frankischilling/26chan/pull/53) merged as
+`8ceffb7ca375cc07f6a94348e00752676c4ddc49` after reviewed head `9ad6d2a`
+passed complete [PR](https://github.com/frankischilling/26chan/actions/runs/34739165013)
+and [push](https://github.com/frankischilling/26chan/actions/runs/34739163311)
+Linux/Windows, advisory and monitoring checks. The main merge-preview tree
+matched the tested head. The Windows CI job includes
 `npm run test:themes`; the real CSP test runs in the existing Linux behavior step.
 Full original layout, spacing, responsive
 behavior, additional UI states and the separate architectural brief remain

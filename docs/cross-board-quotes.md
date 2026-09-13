@@ -1,6 +1,6 @@
 # Cross-board quote navigation
 
-Work in progress for [issue #54](https://github.com/frankischilling/26chan/issues/54).
+Implemented under [issue #54](https://github.com/frankischilling/26chan/issues/54).
 The [official quoting FAQ](https://4chan.org/faq#quote) documents `>>123` for a
 post on the current board and `>>>/po/123` for a post on another board. The
 [reference manifest](reference-manifest.json) records the September 13 response
@@ -71,5 +71,11 @@ npm run test:themes
 
 Formatting, JavaScript syntax, whitespace and the media parser dependency guard
 passed. No dependency version, screenshot, CI permission or processing boundary
-changed. Exact-head PR checks and review remain required before this slice is
-complete. No production readiness or complete reference parity claim is made.
+changed. [PR #55](https://github.com/frankischilling/26chan/pull/55) merged as
+`db2111153eab0d95701bd27bb0b55767a3732392` after reviewed head `c0326de`
+passed complete [PR](https://github.com/frankischilling/26chan/actions/runs/34739166289)
+and [push](https://github.com/frankischilling/26chan/actions/runs/34739164526)
+Linux/Windows builds and both monitoring workflows. The path-filtered advisory
+workflow did not run for this dependency-unchanged slice. The main merge-preview
+tree matched the tested head. No production readiness or complete reference
+parity claim is made.

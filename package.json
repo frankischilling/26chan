@@ -9,6 +9,7 @@
     "test:archive-visual": "playwright test --config playwright.archive-visual.config.js",
     "test:media-visual": "playwright test --config playwright.media-visual.config.js",
     "test:themes": "playwright test --config playwright.themes.config.js",
+    "test:states": "playwright test --config playwright.states.config.js",
     "test:staff": "playwright test --config playwright.staff.config.js"
   },
   "devDependencies": { "@playwright/test": "1.62.0" }

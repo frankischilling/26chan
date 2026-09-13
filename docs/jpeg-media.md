@@ -77,8 +77,8 @@ The owned Linux CI profile rebuilds the guest and runs four actual VM cases
 complete PNG, baseline-JPEG and progressive-JPEG browser uploads through real
 authenticated dispatch, posting, separate-origin reads, deletion and physical
 cleanup. Excess-dimension and truncated JPEG cases must fail with no approval,
-no output identifier and no surviving VM. These new native cases await CI;
-local WSL was unavailable. Existing containment tests and their healthy
+no output identifier and no surviving VM. These native cases passed the
+corrected-head CI runs recorded below; local WSL was unavailable. Existing containment tests and their healthy
 connectivity controls remain required. No production guest rollout is included.
 
 This slice adds no migration or runtime credential. Rebuild both guest binaries
@@ -115,5 +115,18 @@ state, no approved asset, clean VM/broker staging and `invalid_output` checks.
 A local actual-router/database regression reproduced the mistaken field-presence
 assumption on a failed streamed upload. It failed before the corrected absence
 assertion and passed afterward. This local check verifies the status contract,
-not JPEG guest execution. The complete corrected-head native negative cases and
-remaining CI stages still require a new run.
+not JPEG guest execution. At that checkpoint, the corrected-head native negative
+cases and remaining CI stages still required a new run.
+
+## Merged qualification
+
+[PR #51](https://github.com/frankischilling/26chan/pull/51) merged as
+`2ff2441a5d0726c9018ec98b0faa771ce4306751` after reviewed head `6be7a57`
+passed complete [PR](https://github.com/frankischilling/26chan/actions/runs/34739156392)
+and [push](https://github.com/frankischilling/26chan/actions/runs/34739155312)
+Linux/Windows builds, advisory and monitoring checks. The native logs confirm
+all four JPEG variants, all three browser publication/deletion/physical-cleanup
+flows, both malformed-JPEG rejections, populated attachment restoration and
+the remaining resource/maintenance checks. The merge-preview tree matched the
+tested head. This completes the development JPEG slice, not production host
+qualification or a decoder/sandbox security guarantee.

@@ -95,6 +95,23 @@ fn archive_board(slug: &str) -> Board {
     }
 }
 
+fn empty_page(catalog: bool) -> String {
+    BoardPage {
+        board: Board {
+            slug: "empty".into(),
+            ..board()
+        },
+        threads: vec![],
+        parent: 0,
+        previous: String::new(),
+        next: String::new(),
+        catalog,
+        media_origin: String::new(),
+    }
+    .render()
+    .expect("production empty board template")
+}
+
 fn archive_page(empty: bool) -> String {
     let entries = if empty {
         vec![]
@@ -211,12 +228,25 @@ async fn main() {
         .unwrap();
     let media_server =
         tokio::spawn(async move { axum::serve(media_listener, media_app).await.unwrap() });
+    // The fallback uses actual public routing, middleware and error rendering.
+    // Closing a lazy pool makes storage unavailable without touching a service,
+    // making a connection or loading any database credential.
+    let unavailable = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused@127.0.0.1:1/unused")
+        .unwrap();
+    unavailable.close().await;
     let app = Router::new()
         .merge(board_public::themes::routes(
             "http://127.0.0.1:3000".into(),
             false,
         ))
         .merge(media_fixture.routes())
+        .route(
+            "/",
+            get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),
+        )
+        .route("/empty/", get(|| async { Html(empty_page(false)) }))
+        .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/arc/archive", get(|| async { Html(archive_page(false)) }))
@@ -237,7 +267,12 @@ async fn main() {
                 )
             }),
         )
-        .route("/readyz", get(|| async { "synthetic fixture renderer" }));
+        .route("/readyz", get(|| async { "synthetic fixture renderer" }))
+        .fallback_service(board_public::router(
+            unavailable,
+            "http://127.0.0.1:3000".into(),
+            false,
+        ));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();

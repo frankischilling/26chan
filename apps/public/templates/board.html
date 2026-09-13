@@ -67,7 +67,7 @@
 {% endfor %}
 {% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
 </section>
-{% else %}<p class="empty">No threads yet. Start the first thread above.</p>{% endfor %}
+{% else %}<p class="empty">No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}</p>{% endfor %}
 </div>
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
 {% endblock %}
