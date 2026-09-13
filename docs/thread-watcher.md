@@ -146,3 +146,37 @@ in the PR; adding this coverage is not itself a passing result.
 This is not a full watcher parity claim. Native thread-navigation watch controls,
 filter-driven watching/blacklisting, additional settings and position edge cases,
 and reviewed full watcher/settings reference captures remain unfinished.
+
+## Thread navigation controls
+
+The captured public thread markup has mobile and desktop navigation at both
+ends of the page. Extension v1191 prepends bracketed watch icons to the desktop
+bars and appends a mobile button to each mobile bar. Thread pages now use those
+placements instead of an icon appended to OP metadata. All four controls share
+one watched state and accessible action names. The catalog leaf is unchanged.
+
+Return, Catalog and Top/Bottom are ordinary links. Mobile Refresh follows core
+v1128's full-page reload and top/bottom fragment behavior, using safe browser
+APIs rather than injected meta HTML. Its server-rendered URL also works without
+JavaScript. No watcher buttons are generated without JavaScript. The mobile
+button gradients are unchanged pinned images served through the fixed asset
+table and exact image CSP. Desktop Futaba/Burichan navigation keeps its 10px
+bottom margin; the lower bar has no bottom margin. Mobile controls use the
+observed 480px breakpoint, padding, rounded border and centered navigation.
+
+`public-watcher-navigation-reference.json` records the source hashes and CSS
+collection details. The work-safe mobile stylesheet was linked by the captured
+thread. Its publicly available non-work-safe counterpart was separately fetched
+for the warm button rules; selecting the counterpart follows the application's
+explicit board work-safe flag. Full page placement and all mobile post-layout
+styles are not qualified by this slice.
+
+`tests/browser/thread-watcher.spec.js` covers synchronized top/bottom controls
+in all six themes at desktop/mobile widths, fresh persisted replies through
+both mobile refresh links, retained watches, and no-JavaScript navigation.
+The release-image browser and Rust tests cover both added gradient assets.
+Results are recorded per commit in the draft PR.
+
+Board-page post-menu watching remains unfinished; the temporary board inline
+control is not claimed as native placement. Full reference screenshots,
+filter-driven watching/blacklisting and the other gaps above remain required.

@@ -31,11 +31,14 @@ test('archive navigation, read-only threads, reports and deletion work without J
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
     const archived = /#p(\d+)$/.exec(page.url())[1];
-    await page.getByRole('link', { name: 'Index', exact: true }).click();
+    await page.getByRole('link', { name: 'Return', exact: true }).first().click();
+    await expect(page).toHaveURL(`${origin}/${slug}/`);
     await page.locator('#com').fill('Owned replacement thread triggers rollover.');
     await page.locator('#password').fill(password);
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
+    await page.getByRole('link', { name: 'Return', exact: true }).first().click();
+    await expect(page).toHaveURL(`${origin}/${slug}/`);
     await page.getByRole('link', { name: 'Archive', exact: true }).click();
     const summary = page.getByRole('link', { name: `No.${archived} — <b>Synthetic archive subject</b>`, exact: true });
     await expect(summary).toBeVisible();

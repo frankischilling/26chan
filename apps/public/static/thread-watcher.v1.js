@@ -117,6 +117,16 @@ function start(context) {
   close.classList.add('watcherIcon');
   highDensity.addEventListener('change', () => render());
   heading.append(close, title, refreshButton);
+  for (const control of document.querySelectorAll('[data-thread-refresh]')) {
+    control.addEventListener('click', event => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const target = control.dataset.threadRefresh;
+      if (target !== 'top' && target !== 'bottom') return;
+      event.preventDefault();
+      history.replaceState(null, '', `${location.pathname}${location.search}#${target}`);
+      location.reload();
+    });
+  }
   const body = node('div');
   body.id = 'watcher-body';
   const list = node('ul');
@@ -231,19 +241,41 @@ function start(context) {
     for (const section of sections()) {
       const id = sectionId(section);
       if (!id) continue;
-      let control = section.querySelector('.wbtn');
-      if (!control) {
-        control = button('', () => toggleThread(section), 'wbtn watcherIcon');
-        control.id = `leaf-${id}`;
-        if (catalog) section.prepend(control);
-        else section.querySelector('.op .postInfo')?.append(' ', control);
-      }
       const watched = entries.has(watchKey(board, id));
-      control.hidden = !enabled;
-      icon(control, watched ? 'watch_thread_on' : 'watch_thread_off', `${watched ? 'Unwatch' : 'Watch'} thread ${id}`);
-      control.title = catalog ? (watched ? 'Unwatch' : 'Watch') : (watched ? 'Remove from watch list' : 'Add to watch list');
-      control.setAttribute('aria-pressed', String(watched));
-      if (watched) control.dataset.active = '1'; else delete control.dataset.active;
+      const update = control => {
+        control.hidden = !enabled;
+        icon(control, watched ? 'watch_thread_on' : 'watch_thread_off', `${watched ? 'Unwatch' : 'Watch'} thread ${id}`);
+        control.title = catalog ? (watched ? 'Unwatch' : 'Watch') : 'Add to watch list';
+        control.setAttribute('aria-pressed', String(watched));
+        control.dataset.id = id;
+        control.dataset.cmd = 'watch';
+        if (watched) control.dataset.active = '1'; else delete control.dataset.active;
+      };
+      if (threadId && !catalog) {
+        for (const nav of document.querySelectorAll('.threadNav')) {
+          let wrapper = nav.querySelector('.watcherNavControl');
+          if (!wrapper && !enabled) continue;
+          if (!wrapper) {
+            const compact = nav.classList.contains('mobile');
+            wrapper = node('span', undefined, compact ? 'mobileib button watcherNavControl' : 'watcherNavControl');
+            const control = button('', () => toggleThread(section), `wbtn watcherIcon wbtn-${id}-${board}`);
+            control.id = `wbtn-${id}-${nav.dataset.watchPosition}`;
+            if (compact) { wrapper.append(control); nav.append(' ', wrapper); }
+            else { wrapper.append('[', control, '] '); nav.prepend(wrapper); }
+          }
+          wrapper.hidden = !enabled;
+          update(wrapper.querySelector('.wbtn'));
+        }
+      } else {
+        let control = section.querySelector('.wbtn');
+        if (!control) {
+          control = button('', () => toggleThread(section), 'wbtn watcherIcon');
+          control.id = `leaf-${id}`;
+          if (catalog) section.prepend(control);
+          else section.querySelector('.op .postInfo')?.append(' ', control);
+        }
+        update(control);
+      }
       if (threadId && enabled && watched) {
         for (const post of section.querySelectorAll('.post[id]')) {
           if (post.querySelector('.watcherLastRead')) continue;

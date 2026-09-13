@@ -1,0 +1,54 @@
+{
+  "scope": "Thread navigation markup and watcher placement from permitted public HTML and JavaScript, with mobile navigation rules from public CSS. No upstream JavaScript executed; no public posts imported.",
+  "html": {
+    "file": "thread-109769505.html",
+    "sha256": "3c37b685d0f93ae13b13b4f36065b634d7a7e01551e102f530cd0c062b3b6521",
+    "source": "Previously captured public thread HTML, catalog-fields-20260913-113750. Only navigation structure and stylesheet links used; individual HTML collection time is not asserted."
+  },
+  "extension": {
+    "url": "https://s.4cdn.org/js/extension.min.1191.js",
+    "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+    "evidence": "Parser.parseThread and ThreadWatcher.initMobileButtons: prepend bracketed controls in desktop navLinks[1] and [2]; append mobileib button controls in navLinks[0] and [3]. Board OP watching is a post-menu action, not an inline leaf."
+  },
+  "core": {
+    "url": "https://s.4cdn.org/js/core.min.1128.js",
+    "sha256": "688d4a950499d3eef915549d5db28c1410cf08e067c9cd6598d62d42e595f1ea",
+    "evidence": "locationHashChanged uses a full reload with #top or #bottom for the corresponding mobile refresh link."
+  },
+  "stylesheets": [
+    {
+      "url": "https://s.4cdn.org/css/yotsubluemobile.716.css",
+      "collected_utc": "2026-09-13T15:23:18.943Z",
+      "status": 200,
+      "bytes": 16247,
+      "sha256": "917ac6c89c84efedf2893c51f70344b182cd730a907993388745d8c43d1be8fa"
+    },
+    {
+      "url": "https://s.4cdn.org/css/yotsubamobile.716.css",
+      "file": "yotsubamobile.716.css",
+      "collected_utc": "2026-09-13T15:25:32.204Z",
+      "status": 200,
+      "bytes": 16311,
+      "sha256": "9b9c23b3321b03457d8bbef6de5bc43a9dddad46916a1b56c74d1976e4755b36"
+    }
+  ],
+  "assets": [
+    {
+      "url": "https://s.4cdn.org/image/buttonfade-blue.png",
+      "file": "buttonfade-blue.png",
+      "collected_utc": "2026-09-13T15:25:32.252Z",
+      "status": 200,
+      "bytes": 113,
+      "sha256": "5a08b65825b6090fced4c652510ccee11c08a1dcfc1c2434c4dbfb0d5f413b3d"
+    },
+    {
+      "url": "https://s.4cdn.org/image/buttonfade.png",
+      "file": "buttonfade.png",
+      "collected_utc": "2026-09-13T15:25:32.274Z",
+      "status": 200,
+      "bytes": 113,
+      "sha256": "9ee7e6f152b09e958ffd72a72b9b8a1ba4f6db0bf3c68f0dbe4326432fa79cae"
+    }
+  ],
+  "boundaries": "Release-owned image routes and exact CSP only. Refresh uses replaceState and reload, not injected meta HTML. Without JavaScript, refresh links retain a real GET target. Desktop/mobile visibility is responsive at 480px."
+}

@@ -30,7 +30,7 @@ for (const [name, viewport] of [
     await page.goto('/arc/thread/1000101');
     await expect(page.getByText('This thread is archived and read-only.', { exact: true })).toBeVisible();
     await expect(page.locator('#postForm')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Archive', exact: true })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Return', exact: true }).first()).toBeVisible();
     await page.locator('#p1000101 summary').click();
     await expect(page.getByRole('button', { name: 'Delete post', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Report post', exact: true })).toBeVisible();

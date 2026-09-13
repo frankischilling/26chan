@@ -3,13 +3,19 @@
 {% import "attachments.html" as attachments %}
 {% import "post_fields.html" as posting %}
 {% import "catalog_card.html" as catalog_cards %}
+{% import "thread_navigation.html" as thread_navigation %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block content %}
-<header class="boardHeader"><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
+<header class="boardHeader"{% if parent > 0 %} id="top"{% endif %}><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
+{% if parent > 0 %}
+{% call thread_navigation::mobile(board.slug, parent, board.worksafe, false) %}{% endcall %}
+{% call thread_navigation::desktop(board.slug, false) %}{% endcall %}
+{% else %}
 <nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a>{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
+{% endif %}
 {% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
 {% if !catalog && !archived() %}
 {% if !media_origin.is_empty() && board.image_limit > 0 %}
@@ -60,7 +66,14 @@
 {% endif %}
 {% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
 </div>
+{% if parent > 0 %}
+<div id="bottom">
+{% call thread_navigation::desktop(board.slug, true) %}{% endcall %}
+{% call thread_navigation::mobile(board.slug, parent, board.worksafe, true) %}{% endcall %}
+</div>
+{% else %}
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
+{% endif %}
 {% if catalog %}<template id="catalogFiltered">{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}</template>{% endif %}
 <div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>

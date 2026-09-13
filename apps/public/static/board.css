@@ -179,9 +179,19 @@ table.postForm button { padding: 1px 6px; }
 .watcherReadTarget { outline: 2px solid var(--link); outline-offset: 2px; }
 .watcherPanel[hidden], #watcher-body[hidden], .wbtn[hidden], .watcherLastRead[hidden] { display: none !important; }
 .watcherNotice:empty { display: none; }
+.threadNav.mobile, .watcherNavControl[hidden] { display: none !important; }
+.threadNav.desktop { display: block; margin-bottom: var(--thread-nav-margin, 0px); }
+.threadNav.navLinksBot { margin-bottom: 0; }
 @media (max-width: 480px) {
   .watcherPanel { padding: 3px 0; }
   #watchList { padding: 0 10px; }
+  .threadNav.desktop { display: none !important; }
+  .threadNav.mobile { display: block !important; margin-top: 9px; margin-bottom: 0; text-align: center; }
+  .threadNav .mobileib { display: inline-block; }
+  .threadNav .button { border-radius: 3px; padding: 6px 10px 5px; font-weight: bold; background: #d6daf0 url('/static/watcher/buttonfade-blue.png') repeat-x; border: 1px solid #b7c5d9; user-select: none; text-decoration: none; color: #34345c; }
+  .threadNav .button a, .threadNav .button a:hover, .threadNav .button a:visited { text-decoration: none; color: #34345c; }
+  .threadNav[data-worksafe="false"] .button { color: #800; background-color: #f0e0d6; background-image: url('/static/watcher/buttonfade.png'); border-color: #c0a69d; }
+  .threadNav[data-worksafe="false"] .button a, .threadNav[data-worksafe="false"] .button a:hover, .threadNav[data-worksafe="false"] .button a:visited { color: #800; }
 }
 #navtopright { float: right; }
 .settingsMobile { display: none; }

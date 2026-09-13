@@ -244,6 +244,16 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "image/gif",
         include_bytes!("../static/watcher/photon/post_expand_rotate@2x.gif"),
     ),
+    (
+        "/static/watcher/buttonfade-blue.png",
+        "image/png",
+        include_bytes!("../static/watcher/buttonfade-blue.png"),
+    ),
+    (
+        "/static/watcher/buttonfade.png",
+        "image/png",
+        include_bytes!("../static/watcher/buttonfade.png"),
+    ),
 ];
 
 pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {

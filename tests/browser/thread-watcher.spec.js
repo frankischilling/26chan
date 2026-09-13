@@ -61,6 +61,92 @@ test('owned thread API refresh, cross-tab watch state and read acknowledgement w
   await expect(page.locator(`#watch-${a}-demo`)).toHaveCount(0);
 });
 
+test('thread navigation watch controls stay synchronized across both placements in all six themes', async ({ page, context, createThread }) => {
+  const id = await createThread('demo', 'Navigation watcher fixture');
+  await context.addInitScript(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true }));
+    localStorage.setItem('4chan-watch', '{}');
+    localStorage.setItem('4chan-tw-timestamp', String(Date.now()));
+  });
+  const families = { yotsuba: 'futaba', 'yotsuba-b': 'burichan', futaba: 'futaba',
+    burichan: 'burichan', tomorrow: 'tomorrow', photon: 'photon' };
+  for (const [theme, family] of Object.entries(families)) {
+    await context.addCookies([{ name: 'board-theme-ws', value: theme, url: origin, httpOnly: true, sameSite: 'Lax' }]);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/demo/thread/${id}`);
+      await expect(page.locator('.threadNav')).toHaveCount(4);
+      await expect(page.locator('.threadNav:visible')).toHaveCount(2);
+      await expect(page.locator('.postInfo .wbtn')).toHaveCount(0);
+      const controls = page.locator('.threadNav .wbtn');
+      await expect(controls).toHaveCount(4);
+      const visible = page.getByRole('button', { name: `Watch thread ${id}`, exact: true });
+      await expect(visible).toHaveCount(2);
+      await visible.first().press('Space');
+      for (let index = 0; index < 4; index++) {
+        await expect(controls.nth(index)).toHaveAttribute('aria-pressed', 'true');
+        await expect(controls.nth(index)).toHaveAttribute('data-active', '1');
+        await expect(controls.nth(index).locator('img')).toHaveAttribute('src', `/static/watcher/${family}/watch_thread_on.png`);
+      }
+      expect(await page.locator('.threadNav.desktop').evaluateAll(navs => navs.every(nav => nav.firstElementChild.classList.contains('watcherNavControl')))).toBe(true);
+      expect(await page.locator('.threadNav.mobile').evaluateAll(navs => navs.every(nav => nav.lastElementChild.classList.contains('watcherNavControl')))).toBe(true);
+      if (width === 390) {
+        const wrapper = page.locator('.threadNav.mobile .watcherNavControl').first();
+        await expect(wrapper).toHaveCSS('padding', '6px 10px 5px');
+        await expect(wrapper).toHaveCSS('background-image', `url("${origin}/static/watcher/buttonfade-blue.png")`);
+        await expect(wrapper).toHaveCSS('border-radius', '3px');
+      }
+      await page.getByRole('button', { name: `Unwatch thread ${id}`, exact: true }).last().press('Enter');
+      for (let index = 0; index < 4; index++) await expect(controls.nth(index)).toHaveAttribute('aria-pressed', 'false');
+      await expect(page.locator('#watchList li')).toHaveCount(0);
+    }
+  }
+});
+
+test('mobile navigation refresh reloads actual replies at the requested anchor and retains watches', async ({ page, context, request, createThread }) => {
+  const id = await createThread('demo', 'Refresh navigation fixture');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await context.addInitScript(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true }));
+    localStorage.setItem('4chan-tw-timestamp', String(Date.now()));
+  });
+  await page.goto(`/demo/thread/${id}`);
+  await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).first().click();
+  const response = await request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: id, com: 'Reply fetched by native mobile refresh', password: 'watcher-test-password' }, maxRedirects: 0 });
+  expect(response.status()).toBe(303);
+  const reply = response.headers().location.match(/#p(\d+)/)[1];
+  await expect(page.locator(`#p${reply}`)).toHaveCount(0);
+  for (const target of ['bottom', 'top']) {
+    const loaded = page.waitForResponse(response => response.request().isNavigationRequest()
+      && new URL(response.url()).pathname === `/demo/thread/${id}`);
+    await page.locator(`#refresh_${target}`).click();
+    expect((await loaded).status()).toBe(200);
+    await expect(page).toHaveURL(`${origin}/demo/thread/${id}#${target}`);
+    await expect(page.locator(`#p${reply}`)).toBeVisible();
+    await expect(page.getByRole('button', { name: `Unwatch thread ${id}`, exact: true })).toHaveCount(2);
+    for (let index = 0; index < 4; index++) await expect(page.locator('.threadNav .wbtn').nth(index)).toHaveAttribute('aria-pressed', 'true');
+  }
+});
+
+test('thread navigation keeps real return and refresh links without JavaScript', async ({ browser, createThread }) => {
+  const id = await createThread('demo', 'No JavaScript navigation fixture');
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${origin}/demo/thread/${id}`);
+    await expect(page.locator('.threadNav:visible')).toHaveCount(2);
+    await expect(page.locator('.wbtn')).toHaveCount(0);
+    const loaded = page.waitForResponse(response => response.request().isNavigationRequest()
+      && new URL(response.url()).pathname === `/demo/thread/${id}`);
+    await page.locator('#refresh_top').click();
+    expect((await loaded).status()).toBe(200);
+    await page.getByRole('link', { name: 'Return', exact: true }).first().click();
+    await expect(page).toHaveURL(`${origin}/demo/`);
+    await expect(page.getByRole('heading', { name: 'Start a new thread' })).toBeVisible();
+  } finally { await context.close(); }
+});
+
 test('watcher connect CSP permits its owned alias and denies healthy unrelated routes', async ({ page, context, request, createThread }) => {
   const id = await createThread('demo', 'CSP watcher fixture');
   let forbiddenRequests = 0;
@@ -85,7 +171,7 @@ test('local storage failure keeps same-tab watch controls usable without executa
   const id = await createThread('demo', '<img src=x onerror=alert(1)>');
   await context.addInitScript(() => { for (const method of ['getItem', 'setItem', 'removeItem']) Storage.prototype[method] = () => { throw new Error('Storage unavailable'); }; });
   await enable(page, `/demo/thread/${id}`, { reload: false });
-  await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).click();
+  await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).first().click();
   await expect(page.locator(`#watch-${id}-demo`)).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('#watchList img')).toHaveCount(0);
   await expect(page.locator('.watcherNotice')).toContainText('Changes stay in this tab');

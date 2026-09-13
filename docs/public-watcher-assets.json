@@ -1,5 +1,5 @@
 {
-  "scope": "Unchanged public watcher UI icons named by catalog v1025/CSS v705 and extension v1191. No public post content or private source.",
+  "scope": "Unchanged public watcher UI icons and mobile navigation gradients named by catalog v1025/CSS v705, extension v1191 and mobile CSS v716. No public post content or private source.",
   "source_base": "https://s.4cdn.org/image/buttons/",
   "local_base": "/static/watcher/",
   "source": "https://s.4cdn.org/js/extension.min.1191.js",
@@ -12,7 +12,7 @@
     "tomorrow": "tomorrow",
     "photon": "photon"
   },
-  "density": "18px CSS boxes; 36px @2x image selected at min-resolution: 2dppx, otherwise 18px image",
+  "density": "Watcher icons use 18px CSS boxes and 36px @2x images at min-resolution: 2dppx. Mobile navigation gradients keep their original dimensions.",
   "assets": [
     {
       "name": "futaba/watch_thread_off.png",
@@ -492,6 +492,30 @@
       "dimensions": [
         36,
         36
+      ]
+    },
+    {
+      "name": "buttonfade-blue.png",
+      "url": "https://s.4cdn.org/image/buttonfade-blue.png",
+      "mime": "image/png",
+      "bytes": 113,
+      "sha256": "5a08b65825b6090fced4c652510ccee11c08a1dcfc1c2434c4dbfb0d5f413b3d",
+      "collected_utc": "2026-09-13T15:25:32.252Z",
+      "dimensions": [
+        1,
+        32
+      ]
+    },
+    {
+      "name": "buttonfade.png",
+      "url": "https://s.4cdn.org/image/buttonfade.png",
+      "mime": "image/png",
+      "bytes": 113,
+      "sha256": "9ee7e6f152b09e958ffd72a72b9b8a1ba4f6db0bf3c68f0dbe4326432fa79cae",
+      "collected_utc": "2026-09-13T15:25:32.274Z",
+      "dimensions": [
+        1,
+        32
       ]
     }
   ]
