@@ -28,6 +28,8 @@ try {
   assert.equal(cancelled, false, 'browser qualification canceled');
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
+  const requests = [];
+  page.on('request', request => requests.push(request.url()));
   const screenshot = async name => {
     if (screenshots) {
       await page.screenshot({ path: path.join(screenshots, `${name}.png`), fullPage: true });
@@ -77,19 +79,33 @@ try {
     await page.getByLabel('Comment', { exact: true }).fill('A synthetic one-pixel image, posted without site JavaScript.');
   }
   await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
+  if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
   await page.getByRole('button', { name: 'Post with image', exact: true }).click();
   const threadUrl = page.url();
   assert.match(new URL(threadUrl).pathname, new RegExp(`^/${board}/thread/[0-9]+$`));
-  const img = page.locator('.fileThumb img');
+  let revealedSource;
+  if (attachmentOnly) {
+    await page.goto(new URL(`/${board}/catalog`, origin).href);
+    const hidden = page.locator('.catalogThumb .spoilerImage');
+    await expect(hidden).toHaveAttribute('src', '/static/catalog/spoiler.png');
+    revealedSource = await hidden.getAttribute('data-spoiler-src');
+    assert.ok(revealedSource);
+    assert.ok(!requests.includes(revealedSource), 'hidden spoiler must not fetch the thumbnail');
+    assert.ok(!requests.includes(revealedSource.replace(/s\.jpg$/, '.png')), 'hidden spoiler must not fetch full media');
+    await page.getByLabel('Spoilers:', { exact: true }).selectOption('on');
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  }
+  const img = page.locator(attachmentOnly ? '.catalogThumb img[data-spoiler-src]' : '.fileThumb img');
   await img.scrollIntoViewIfNeeded();
   await expect.poll(() => img.evaluate(image => image.naturalWidth)).toBe(1);
   assert.equal(await img.evaluate(image => image.naturalHeight), 1);
   const thumbnailUrl = new URL(await img.getAttribute('src'));
-  const mediaUrl = new URL(await page.locator('.fileThumb').getAttribute('href'));
+  const mediaUrl = new URL(attachmentOnly ? revealedSource.replace(/s\.jpg$/, '.png') : await page.locator('.fileThumb').getAttribute('href'));
   assert.notEqual(mediaUrl.origin, origin.origin);
   assert.match(mediaUrl.pathname, new RegExp(`^/${board}/[0-9]+\\.png$`));
   assert.equal(thumbnailUrl.pathname, mediaUrl.pathname.replace('.png', 's.jpg'));
   const media = await page.request.get(mediaUrl.href);
+  if (attachmentOnly) await page.goto(threadUrl);
   await screenshot('attached-thread');
   assert.equal(media.status(), 200);
   assert.equal(media.headers()['content-type'], 'image/png');
@@ -122,8 +138,12 @@ try {
       assert.equal((await page.request.get(new URL(path, url.origin).href)).status(), 404);
     }
   }
-  for (const suffix of ['', 'catalog']) {
+  for (const suffix of attachmentOnly ? ['catalog'] : ['', 'catalog']) {
     await page.goto(new URL(`/${board}/${suffix}`, origin).href);
+    if (attachmentOnly) {
+      await page.getByLabel('Spoilers:', { exact: true }).selectOption('on');
+      await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    }
     assert.equal(await page.locator(suffix === 'catalog' ? `#thread-${post.no} .catalogThumb img` : `#p${post.no} .fileThumb img`).getAttribute('src'), thumbnailUrl.href);
     if (suffix === 'catalog') {
       assert.equal(await page.locator(`#thread-${post.no} .catalogThumb`).getAttribute('href'), `/${board}/thread/${post.no}`);
@@ -152,7 +172,7 @@ try {
   page.on('request', request => {
     if ([mediaUrl.href, thumbnailUrl.href].includes(request.url())) deletedRequests.push(request.url());
   });
-  await page.goto(new URL(`/${board}/catalog`, origin).href);
+  await page.goto(new URL(`/${board}/catalog${attachmentOnly ? '?spoilers=on' : ''}`, origin).href);
   const placeholder = page.locator(`#thread-${post.no} .catalogThumb img`);
   await expect(placeholder).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
   await expect(placeholder).toHaveAttribute('alt', 'File deleted.');

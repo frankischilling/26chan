@@ -6,6 +6,10 @@
   const teaser = document.getElementById('teaser-ctrl');
   const reset = document.getElementById('catalog-reset');
   const search = document.getElementById('qf-box');
+  const spoilers = document.getElementById('theme-nospoiler');
+  const spoilerControl = spoilers instanceof HTMLSelectElement;
+  const themeKey = 'catalog-theme';
+  const revealSpoilers = () => spoilerControl && spoilers.value === 'on';
   if (!(form instanceof HTMLFormElement) || !(order instanceof HTMLSelectElement)
       || !(size instanceof HTMLSelectElement) || !(teaser instanceof HTMLSelectElement)
       || !(reset instanceof HTMLAnchorElement)) return;
@@ -34,6 +38,16 @@
     if (number < 1 || number > maximum) throw new Error('Invalid thumbnail dimension');
     return number;
   });
+  const spoilerSource = thumb => {
+    if (!thumb?.hasAttribute('data-spoiler-src')) return null;
+    const source = new URL(thumb.dataset.spoilerSrc);
+    const origin = new URL(form.dataset.mediaOrigin);
+    if (!['http:', 'https:'].includes(source.protocol) || source.origin !== origin.origin
+        || source.username || source.password || source.search || source.hash
+        || !new RegExp(`^/${board}/[1-9][0-9]{0,18}(?:s\\.jpg|\\.png)$`).test(source.pathname)
+        || typeof thumb.dataset.spoilerAlt !== 'string') throw new Error('Invalid spoiler thumbnail');
+    return source.href;
+  };
   let entries = null;
   let hiddenCount = 0;
   try {
@@ -54,7 +68,7 @@
       const fields = node.querySelector('.catalogThumb')?.dataset;
       const searchable = fields && ['true', 'false'].includes(fields.hasFile)
         && ['searchText', 'searchFile'].every(name => typeof fields[name] === 'string');
-      return { node, teaser: teaserNode, thumb,
+      return { node, teaser: teaserNode, thumb, spoiler: spoilerSource(thumb),
         fields: searchable ? [fields.searchText, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
         small: thumb ? dimensions(thumb, 'small', 150) : null,
         large: thumb ? dimensions(thumb, 'large', 250) : null,
@@ -315,6 +329,8 @@
     url.searchParams.set('order', value.orderby);
     url.searchParams.set('size', value.large ? 'large' : 'small');
     url.searchParams.set('teaser', value.extended ? 'on' : 'off');
+    if (revealSpoilers()) url.searchParams.set('spoilers', 'on');
+    else if (spoilerControl && url.searchParams.has('spoilers')) url.searchParams.set('spoilers', 'off');
   };
   const updateURL = value => {
     const url = new URL(location.href);
@@ -329,6 +345,7 @@
   const apply = (value, query = renderedQuery) => {
     if (entries === null || !valid(value) || (searchReady && !validQuery(query))) return false;
     closeMenu();
+    document.body.classList.toggle('reveal-img-spoilers', revealSpoilers());
     if (stateReady) {
       const total = entries.filter(entry => hiddenThreads.has(entry.id.toString())).length;
       if (hiddenOnly && total === 0) hiddenOnly = false;
@@ -369,7 +386,14 @@
         }
       }
       if (entry.thumb) {
-        const [width, height] = value.large ? entry.large : entry.small;
+        const revealed = !entry.spoiler || revealSpoilers();
+        if (entry.spoiler) {
+          const source = revealed ? entry.spoiler : '/static/catalog/spoiler.png';
+          if (entry.thumb.getAttribute('src') !== source) entry.thumb.setAttribute('src', source);
+          entry.thumb.classList.toggle('spoilerImage', !revealed);
+          entry.thumb.alt = revealed ? entry.thumb.dataset.spoilerAlt : 'Spoiler image';
+        }
+        const [width, height] = revealed ? (value.large ? entry.large : entry.small) : [100, 100];
         entry.thumb.width = width;
         entry.thumb.height = height;
       }
@@ -414,6 +438,14 @@
     save();
     if (searchReady) { event.preventDefault(); applySearch(); }
   });
+  if (spoilerControl) spoilers.addEventListener('change', () => {
+    try {
+      if (revealSpoilers()) localStorage.setItem(themeKey, JSON.stringify({ nospoiler: true }));
+      else localStorage.removeItem(themeKey);
+    } catch { /* Explicit reveal remains usable without storage. */ }
+    if (apply(current())) updateURL(current());
+    else form.requestSubmit();
+  });
   for (const control of [order, size, teaser]) {
     control.addEventListener('change', () => {
       const value = current();
@@ -445,6 +477,10 @@
     clearTimeout(timer);
     try { localStorage.removeItem(key); } catch { /* Explicit defaults are also safe without removal. */ }
     saveSearch('');
+    if (spoilerControl) {
+      spoilers.value = 'off';
+      try { localStorage.removeItem(themeKey); } catch { /* Explicit defaults still apply. */ }
+    }
     const defaults = { orderby: 'alt', large: false, extended: true };
     const url = new URL(action.href);
     setOptions(url, defaults);
@@ -464,6 +500,19 @@
   const stateChanged = stateReady && (pins.size > 0 || hiddenThreads.size > 0);
   if (stateChanged) renderedOrder = null;
   const url = new URL(location.href);
+  let spoilerChanged = false;
+  if (spoilerControl && !url.searchParams.has('spoilers')) {
+    try {
+      const raw = localStorage.getItem(themeKey);
+      if (raw !== null && raw.length <= 4096) {
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object' && !Array.isArray(saved) && saved.nospoiler === true) {
+          spoilerChanged = !revealSpoilers();
+          spoilers.value = 'on';
+        }
+      }
+    } catch { /* Never apply arbitrary catalog-theme fields or stored CSS. */ }
+  }
   let display = current();
   if (!['order', 'size', 'teaser'].some(name => url.searchParams.has(name))) {
     try {
@@ -493,7 +542,7 @@
   }
   const value = current();
   const changed = display.orderby !== value.orderby || display.large !== value.large
-    || display.extended !== value.extended || query !== renderedQuery || stateChanged;
+    || display.extended !== value.extended || query !== renderedQuery || stateChanged || spoilerChanged;
   if (changed) {
     if (searchReady) search.value = query;
     if (apply(display, query)) updateURL(display);

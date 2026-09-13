@@ -240,7 +240,8 @@ async fn exercise(
     .await;
     assert!(pending.contains("still being processed"));
     assert!(!pending.contains("Post with image"));
-    let posting = format!("{body}&name=Test&sub=Image&com=&password=synthetic-password-123");
+    let posting =
+        format!("{body}&name=Test&sub=Image&com=&spoiler=true&password=synthetic-password-123");
     assert_eq!(
         app.clone()
             .oneshot(post_request(&format!("/{board}/post"), posting.clone()))
@@ -339,6 +340,41 @@ async fn exercise(
         .fetch_one(admin)
         .await
         .unwrap();
+    for (option, source, dimensions) in [
+        (
+            "off",
+            "/static/catalog/spoiler.png".to_owned(),
+            "width=\"100\" height=\"100\"",
+        ),
+        (
+            "on",
+            format!("http://localhost:3002/{board}/{tim}.png"),
+            "width=\"10\" height=\"20\"",
+        ),
+    ] {
+        let page = html(
+            app.clone()
+                .oneshot(
+                    Request::get(format!("/{board}/catalog?spoilers={option}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+            StatusCode::OK,
+        )
+        .await;
+        let card = page
+            .split(&format!("id=\"thread-{thread}\""))
+            .nth(1)
+            .unwrap()
+            .split("</section>")
+            .next()
+            .unwrap();
+        assert!(card.contains(&format!(" src=\"{source}\"")));
+        assert!(card.contains(dimensions));
+        assert!(card.contains(&format!("href=\"/{board}/thread/{thread}\"")));
+    }
     for action in ["status", "cancel"] {
         assert_eq!(
             app.clone()
@@ -423,6 +459,27 @@ async fn exercise(
     let (deleted_image_only, _) = json(&app, &format!("/{board}/thread/{thread}.json")).await;
     assert!(deleted_image_only["posts"][0].get("com").is_none());
     assert_eq!(deleted_image_only["posts"][0]["filedeleted"], 1);
+    let revealed_deleted = html(
+        app.clone()
+            .oneshot(
+                Request::get(format!("/{board}/catalog?spoilers=on"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    let deleted_card = revealed_deleted
+        .split(&format!("id=\"thread-{thread}\""))
+        .nth(1)
+        .unwrap()
+        .split("</section>")
+        .next()
+        .unwrap();
+    assert!(deleted_card.contains("src=\"/static/catalog/filedeleted-res.gif\""));
+    assert!(!deleted_card.contains("data-spoiler-src"));
     assert!(!page.contains(&format!("/{board}/{tim}.png")));
 
     image_reply_contract(&app, board, &queue, &intake, admin).await;
