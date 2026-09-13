@@ -106,15 +106,22 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     for (query, expected) in [
         ("q=aLpHa", vec![*a]),
         ("q=%5B.*%5D", vec![*a]),
-        ("q=%5EAlpha", vec![*a]),
-        ("q=%5EBravo%24%7C%5ECrane%24", vec![*c, *b]),
-        ("q=%5B.*%5D%24", vec![*a]),
+        ("q=%5EAlpha", vec![]),
+        ("q=%5E%3Cb%3EAlpha", vec![*a]),
+        ("q=%5EBravo%24%7C%5ECrane%24", vec![]),
+        (
+            "q=%5E%3Cb%3EBravo%3C%2Fb%3E%3A%7C%5E%3Cb%3ECrane%3C%2Fb%3E%3A",
+            vec![*c, *b],
+        ),
+        ("q=%5B.*%5D%24", vec![]),
+        ("q=%5B.*%5D%3C%2Fb%3E%3A", vec![*a]),
         ("q=Alpha%5E", vec![]),
         ("q=%5E%24", vec![]),
         (
-            "q=%3Cscript%3E",
+            "q=%26lt%3Bscript%26gt%3B",
             threads.iter().copied().rev().collect::<Vec<_>>(),
         ),
+        ("q=%3Cscript%3E", vec![]),
         ("q=absent", vec![]),
     ] {
         let (status, page) = read(&app, &format!("/{slug}/catalog?order=date&{query}")).await;
