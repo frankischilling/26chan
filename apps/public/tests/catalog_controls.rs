@@ -24,6 +24,16 @@ fn ids(html: &str) -> Vec<i64> {
         .collect()
 }
 
+fn bump_limited(html: &str, id: i64) -> bool {
+    html.split(&format!("id=\"meta-{id}\""))
+        .nth(1)
+        .unwrap()
+        .split("</div>")
+        .next()
+        .unwrap()
+        .contains("<i>R: <b>")
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
     let mut threads = Vec::new();
@@ -56,6 +66,9 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert_eq!(status, 200);
         assert_eq!(ids(&page), expected, "{query}");
         assert!(!page.contains("<script>fold</script>"));
+        for (id, limited) in [(*a, true), (*b, true), (*c, false), (*s, false)] {
+            assert_eq!(bump_limited(&page, id), limited, "{query} {id}");
+        }
     }
     for (query, expected) in [
         ("q=aLpHa", vec![*a]),
@@ -94,6 +107,24 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     assert_eq!(ids(&page), vec![*s, *a, *c, *b]);
     let (_, page) = read(&app, &format!("/{slug}/catalog?order=r")).await;
     assert_eq!(ids(&page), vec![*s, *c, *a, *b]);
+    assert!(bump_limited(&page, *b), "deletion does not restore bumping");
+    let (_, json) = read(&app, &format!("/{slug}/thread/{b}.json")).await;
+    let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(json["posts"][0]["replies"], 0);
+    assert_eq!(json["posts"][0]["bumplimit"], 1);
+    for (limit, limited) in [(100, false), (0, true)] {
+        sqlx::query("UPDATE content.boards SET bump_limit=$1 WHERE slug=$2")
+            .bind(limit)
+            .bind(&slug)
+            .execute(&owner)
+            .await
+            .unwrap();
+        let (_, page) = read(&app, &format!("/{slug}/catalog")).await;
+        assert_eq!(bump_limited(&page, *b), limited);
+        let (_, json) = read(&app, &format!("/{slug}/thread/{b}.json")).await;
+        let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(json["posts"][0]["bumplimit"].as_i64(), limited.then_some(1));
+    }
     sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
         .bind(a)
         .execute(&owner)
@@ -127,7 +158,7 @@ async fn catalog_options_use_visible_persisted_data_and_escape_literal_filters()
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Catalog control fixture','Owned synthetic data',1000,100,50,10,10)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Catalog control fixture','Owned synthetic data',1000,100,99,10,10)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     for query in [

@@ -2,6 +2,8 @@
 // Test-only renderer for screenshot CI. It compiles the actual production view
 // module/templates. Persistence and real HTTP mutations have separate tests.
 use board_public::catalog;
+#[path = "visual/catalog_limits.rs"]
+mod catalog_limits;
 #[path = "visual/media.rs"]
 mod media;
 #[path = "../src/views.rs"]
@@ -255,6 +257,14 @@ async fn main() {
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
+        .route(
+            "/limits/catalog",
+            get(|| async { Html(catalog_limits::page(false)) }),
+        )
+        .route(
+            "/limits/text/catalog",
+            get(|| async { Html(catalog_limits::page(true)) }),
+        )
         .route("/arc/archive", get(|| async { Html(archive_page(false)) }))
         .route(
             "/emptyarc/archive",

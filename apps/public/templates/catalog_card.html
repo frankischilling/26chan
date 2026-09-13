@@ -2,18 +2,18 @@
 {% macro card(view, board, media_origin, options) %}
 <section class="thread" id="thread-{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}{% if item.post.id == view.thread.id %}
-<a class="catalogThumb" href="/{{ board }}/thread/{{ view.thread.id }}" aria-label="View thread {{ view.thread.id }}">
+<a class="catalogThumb" href="/{{ board.slug }}/thread/{{ view.thread.id }}" aria-label="View thread {{ view.thread.id }}">
 {% if let Some(file) = item.post.attachment %}
 {% if file.file_deleted %}<img class="thumb imgdel fileDeleted" src="/static/catalog/filedeleted-res.gif" alt="File deleted." width="127" height="13" loading="lazy">
 {% else if file.spoiler %}<img class="thumb spoilerImage" src="/static/catalog/spoiler.png" alt="Spoiler image" width="100" height="100" loading="lazy">
 {% else if !media_origin.is_empty() %}
-{% let (width, height) = item.catalog_size(options.large()) %}<img class="thumb" id="thumb-{{ item.post.id }}" src="{{ media_origin }}/{{ board }}/{{ file.tim }}{% if file.thumbnail_width.is_some() && file.thumbnail_height.is_some() %}s.jpg{% else %}.png{% endif %}" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">
+{% let (width, height) = item.catalog_size(options.large()) %}<img class="thumb" id="thumb-{{ item.post.id }}" src="{{ media_origin }}/{{ board.slug }}/{{ file.tim }}{% if file.thumbnail_width.is_some() && file.thumbnail_height.is_some() %}s.jpg{% else %}.png{% endif %}" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">
 {% else %}<span class="catalogPlaceholder">Image unavailable</span>{% endif %}
 {% else %}<img class="thumb nofile" src="/static/catalog/nofile.png" alt="No image" width="77" height="13" loading="lazy">{% endif %}
 </a>
 {% if view.thread.sticky || view.thread.closed %}<div class="threadIcons">{% if view.thread.sticky %}<span class="threadIcon stickyIcon" role="img" aria-label="Sticky" title="Sticky"></span>{% endif %}{% if view.thread.closed %}<span class="threadIcon closedIcon" role="img" aria-label="Closed" title="Closed"></span>{% endif %}</div>{% endif %}
-<div class="meta" id="meta-{{ view.thread.id }}" title="(R)eplies / (I)mage Replies">R: <b>{{ view.visible_replies() }}</b>{% if view.image_replies > 0 %} / I: <b>{{ view.image_replies }}</b>{% endif %}</div>
-{% if options.show_teaser() %}<div class="teaser">{% if !item.post.subject.is_empty() %}<b>{{ item.post.subject }}</b>: {% endif %}{% call formatting::comment(item.lines.as_slice(), board) %}{% endcall %}</div>{% endif %}
+<div class="meta" id="meta-{{ view.thread.id }}" title="(R)eplies / (I)mage Replies">{% if view.bump_limited(board) %}<i>{% endif %}R: <b>{{ view.visible_replies() }}</b>{% if view.bump_limited(board) %}</i>{% endif %}{% if view.image_replies > 0 %} / {% if view.image_limited(board) %}<i>{% endif %}I: <b>{{ view.image_replies }}</b>{% if view.image_limited(board) %}</i>{% endif %}{% endif %}</div>
+{% if options.show_teaser() %}<div class="teaser">{% if !item.post.subject.is_empty() %}<b>{{ item.post.subject }}</b>: {% endif %}{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</div>{% endif %}
 {% endif %}{% endfor %}
 </section>
 {% endmacro %}

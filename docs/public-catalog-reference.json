@@ -1,7 +1,8 @@
 {
-  "scope": "Default extended-small card geometry measured on synthetic DOM using public catalog CSS. No production post content or client execution.",
+  "scope": "Catalog card geometry, display modes and limit-count styles measured on synthetic DOM using public catalog CSS; control and count markup inspected in the pinned public client. No production post content or client execution.",
   "dom_observation": {"url":"https://boards.4chan.org/po/catalog","collected_utc":"2026-09-13T06:15:29.3063123Z","bytes":91333,"sha256":"e626c646f767bb9757fddd5369049ca85025f73f7692d6415310f6f623db7c12","retained":"Only static asset URLs and allowlisted container attributes. A subsequent in-memory inspection found fourcat.applyCSS(null, ws_style, 705). Neither response was retained."},
   "asset_base": "https://s.4cdn.org/",
+  "limit_indicators": {"evidence":"Pinned catalog.min.1025.js function be wraps R: <b>count</b> in <i> when bumplimit is set, and I: <b>count</b> when imagelimit is set. The I segment is omitted for zero images. Counts use n.r and n.i. The corresponding Threads.md flags are documented in the pinned API reference.","normal_font_style":"normal","reached_font_style":"italic","unknown":"The client receives already-prepared teaser data; its source alone does not establish server teaser preprocessing."},
   "controls_observation": {
     "url":"https://boards.4chan.org/po/catalog",
     "collected_utc":"2026-09-13T06:42:01.5396533Z",

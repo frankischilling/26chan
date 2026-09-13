@@ -32,7 +32,7 @@
 {% if catalog %}{% include "catalog_controls.html" %}{% endif %}
 <div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}">
 {% for view in threads %}
-{% if catalog %}{% call catalog_cards::card(view, board.slug, media_origin, catalog_options) %}{% endcall %}{% else %}
+{% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 <article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">

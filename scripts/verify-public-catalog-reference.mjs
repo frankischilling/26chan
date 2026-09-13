@@ -46,6 +46,17 @@ try {
         return [box.width, box.height];
       });
       assert.deepEqual(tiny, [50, 50], 'public CSS independently floors both thumbnail axes');
+      const limitStyles = await page.locator('.meta').evaluate(meta => {
+        const normal = document.createElement('b');
+        normal.textContent = '1';
+        const reached = document.createElement('i');
+        const count = document.createElement('b');
+        count.textContent = '2';
+        reached.append('R: ', count);
+        meta.replaceChildren('R: ', normal, ' / ', reached);
+        return [getComputedStyle(normal).fontStyle, getComputedStyle(count).fontStyle];
+      });
+      assert.deepEqual(limitStyles, ['normal', 'italic'], 'pinned count markup retains normal/limit styles');
       for (const [mode, cardWidth, heightLimit] of [['small',width <= 480 ? '155px' : '165px','none'], ['large','270px','none'], ['extended-large','270px','410px']]) {
         const actual = await page.evaluate(mode => {
           document.querySelector('#threads').className = mode;

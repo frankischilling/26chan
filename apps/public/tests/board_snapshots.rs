@@ -301,7 +301,7 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
     assert!(catalog_html.contains(&format!("id=\"thread-{id}\"")));
     assert!(
         catalog_html.contains(&format!(
-            "id=\"meta-{id}\" title=\"(R)eplies / (I)mage Replies\">R: <b>8</b>"
+            "id=\"meta-{id}\" title=\"(R)eplies / (I)mage Replies\"><i>R: <b>8</b></i>"
         )),
         "catalog must count visible replies, not the lifetime count of nine"
     );
