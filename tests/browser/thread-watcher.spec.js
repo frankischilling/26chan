@@ -207,7 +207,8 @@ test('post menus select the actual report and password-gated deletion forms with
   const reported = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/report'));
   await page.locator(`#p${reply} form[action="/demo/report"] button`).click();
   expect((await reported).status()).toBe(200);
-  await expect(page.getByText('Your report was saved. Staff review is not available in this development build.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('Your report was saved.');
   await page.goto(`/demo/thread/${id}`);
   await trigger.click();
   await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
