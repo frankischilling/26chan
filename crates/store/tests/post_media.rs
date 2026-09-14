@@ -588,6 +588,18 @@ async fn comment_spacing(f: &Fixture) {
         (false, true, " Ｚⓦ✘😀│𠮷 ", "Ｚ│𠮷"),
         (true, false, "\u{31350} A \u{31350}", " A "),
         (false, false, "😀\u{31350}", ""),
+        (
+            false,
+            false,
+            ">>>/{board}/0001 >>>/other/2",
+            ">>0001 >>>/other/2",
+        ),
+        (
+            true,
+            true,
+            "[spoiler]>>>/{board}/3[/spoiler]",
+            "[spoiler]>>3[/spoiler]",
+        ),
     ] {
         sqlx::query("UPDATE content.boards SET comment_code_spacing=$2,comment_sjis_spacing=$3 WHERE slug=$1")
             .bind(&f.board).bind(code).bind(sjis).execute(&f.admin).await.unwrap();
@@ -604,7 +616,7 @@ async fn comment_spacing(f: &Fixture) {
             create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
             Err(StoreError::Invalid(_))
         ));
-        draft.comment = raw.into();
+        draft.comment = raw.replace("{board}", &f.board);
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();

@@ -156,6 +156,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     .unwrap();
     assert!(html.contains("C &#60;script&#62;"));
     assert!(!html.contains("C <script>"));
+    local_quotes(&app, &owner, &public, &slug, thread).await;
 
     let denied = sqlx::query("UPDATE content.boards SET comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1")
         .bind(&slug).execute(&public).await.unwrap_err();
@@ -281,6 +282,178 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             before.http_modified_at
         )
     );
+}
+
+async fn local_quotes(
+    app: &axum::Router,
+    owner: &PgPool,
+    public: &PgPool,
+    slug: &str,
+    thread: i64,
+) {
+    let target = board_store::create_post(public, slug, thread, &post("Owned quote target"))
+        .await
+        .unwrap();
+    let raw = format!(
+        "See >>>/{slug}/{target} and >>>/other/{target}.\n[spoiler]>>>/{slug}/{target}[/spoiler]\n>>>/{slug}/0000 >>>/{slug}/-1"
+    );
+    let expected = format!(
+        "See >>{target} and >>>/other/{target}.\n[spoiler]>>{target}[/spoiler]\n>>0000 >>>/{slug}/-1"
+    );
+    // Existing text is read literally even after later posts use the rewrite.
+    sqlx::query("UPDATE content.posts SET comment=$2 WHERE id=$1")
+        .bind(target)
+        .bind(&raw)
+        .execute(owner)
+        .await
+        .unwrap();
+    for (index, (code, sjis)) in [(false, false), (true, false), (false, true), (true, true)]
+        .into_iter()
+        .enumerate()
+    {
+        sqlx::query("UPDATE content.boards SET comment_code_spacing=$2,comment_sjis_spacing=$3 WHERE slug=$1")
+            .bind(slug).bind(code).bind(sjis).execute(owner).await.unwrap();
+        let route = if index % 2 == 0 {
+            "post"
+        } else {
+            "imgboard.php"
+        };
+        let fields = [
+            ("mode", "regist".to_owned()),
+            ("resto", thread.to_string()),
+            ("com", raw.clone()),
+            ("pwd", "owned-password".to_owned()),
+        ];
+        let (content_type, body) = if index < 2 {
+            (
+                "application/x-www-form-urlencoded",
+                url::form_urlencoded::Serializer::new(String::new())
+                    .extend_pairs(fields.iter().map(|(key, value)| (*key, value)))
+                    .finish(),
+            )
+        } else {
+            let mut body = String::new();
+            for (name, value) in fields {
+                body.push_str(&format!("--owned-quotes\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"));
+            }
+            body.push_str("--owned-quotes--\r\n");
+            ("multipart/form-data; boundary=owned-quotes", body)
+        };
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(format!("/{slug}/{route}"))
+                    .header("origin", "http://127.0.0.1:3000")
+                    .header("accept", "application/json")
+                    .header("content-type", content_type)
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let value: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        let id = value["pid"].as_i64().expect("accepted owned quote post");
+        assert_eq!(
+            board_store::find_post(public, slug, id)
+                .await
+                .unwrap()
+                .comment,
+            expected
+        );
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/{slug}/thread/{thread}.json"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap())
+                .unwrap();
+        let saved = json["posts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|post| post["no"] == id)
+            .unwrap();
+        let markup = saved["com"].as_str().unwrap();
+        assert!(markup.contains(&format!(
+            "href=\"/{slug}/post/{target}\">&gt;&gt;{target}</a>"
+        )));
+        assert!(markup.contains(&format!(
+            "href=\"/other/post/{target}\">&gt;&gt;&gt;/other/{target}</a>"
+        )));
+        assert!(markup.contains(&format!(
+            "aria-label=\"Spoiler; focus to reveal\">&#62;&#62;{target}</span>"
+        )));
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/{slug}/thread/{thread}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let html = String::from_utf8(
+            to_bytes(response.into_body(), 1024 * 1024)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        let fragment = html
+            .split(&format!("id=\"m{id}\""))
+            .nth(1)
+            .unwrap()
+            .split("</blockquote>")
+            .next()
+            .unwrap();
+        assert!(fragment.contains(&format!(
+            "href=\"/{slug}/post/{target}\">&gt;&gt;{target}</a>"
+        )));
+        assert!(fragment.contains(&format!(
+            "href=\"/other/post/{target}\">&gt;&gt;&gt;/other/{target}</a>"
+        )));
+        assert_eq!(
+            board_store::find_post(public, slug, target)
+                .await
+                .unwrap()
+                .comment,
+            raw
+        );
+    }
+    // A later reduction in raw budget cannot be evaded by shortening a quote.
+    sqlx::query("UPDATE content.boards SET max_comment_chars=3 WHERE slug=$1")
+        .bind(slug)
+        .execute(owner)
+        .await
+        .unwrap();
+    let before = board_store::thread(public, slug, thread).await.unwrap();
+    assert!(matches!(
+        board_store::create_post(public, slug, thread, &post(&format!(">>>/{slug}/1"))).await,
+        Err(StoreError::Invalid(_))
+    ));
+    let after = board_store::thread(public, slug, thread).await.unwrap();
+    assert_eq!(
+        (after.reply_count, after.modified_at, after.http_modified_at),
+        (
+            before.reply_count,
+            before.modified_at,
+            before.http_modified_at
+        )
+    );
+    sqlx::query("UPDATE content.boards SET max_comment_chars=1000 WHERE slug=$1")
+        .bind(slug)
+        .execute(owner)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

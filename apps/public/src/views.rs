@@ -182,6 +182,29 @@ mod comment_tests {
     use board_domain::{CommentSpacing, prepare_post_comment};
 
     #[test]
+    fn stored_local_quote_rewrite_uses_normal_links_and_escaped_spoiler_text() {
+        let text = prepare_post_comment(
+            "",
+            "",
+            "See >>>/test/42 and >>>/other/42.\n[spoiler]>>>/test/42[/spoiler]",
+            1000,
+            false,
+            CommentSpacing::for_board("test", true, false),
+        )
+        .unwrap();
+        let lines = parse_comment(&text);
+        let html = Comment {
+            lines: &lines,
+            board: "test",
+        }
+        .render()
+        .unwrap();
+        assert!(html.contains("href=\"/test/post/42\">&gt;&gt;42</a>"));
+        assert!(html.contains("href=\"/other/post/42\">&gt;&gt;&gt;/other/42</a>"));
+        assert!(html.contains("aria-label=\"Spoiler; focus to reveal\">&#62;&#62;42</span>"));
+    }
+
+    #[test]
     fn prepared_comment_remains_escaped_text_in_the_real_template() {
         for (code, sjis) in [(false, false), (true, false), (false, true), (true, true)] {
             for raw in [" \tC <script> \r\n", " \tC ＜script＞ \r\n"] {

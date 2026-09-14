@@ -5,16 +5,18 @@ use crate::{
 
 /// Source comment sanitation policy, independent of markup rendering support.
 #[derive(Clone, Copy)]
-pub struct CommentSpacing {
+pub struct CommentSpacing<'a> {
+    board: &'a str,
     pub code: bool,
     pub sjis: bool,
     pub preserve_wide_spaces: bool,
     pub strip_zero_width: bool,
 }
 
-impl CommentSpacing {
-    pub fn for_board(board: &str, code: bool, sjis: bool) -> Self {
+impl<'a> CommentSpacing<'a> {
+    pub fn for_board(board: &'a str, code: bool, sjis: bool) -> Self {
         Self {
+            board,
             code,
             sjis,
             preserve_wide_spaces: sjis || matches!(board, "a" | "b" | "jp"),
@@ -31,11 +33,12 @@ pub fn prepare_post_comment(
     comment: &str,
     max_chars: usize,
     has_attachment: bool,
-    spacing: CommentSpacing,
+    spacing: CommentSpacing<'_>,
 ) -> Result<String, ValidationError> {
     validate_post_with_attachment(name, subject, comment, max_chars, has_attachment)?;
     let normalized = normalize_comment(comment)?;
     let normalized = crate::comment_unicode::before_spacing(&normalized, spacing);
+    let normalized = crate::comment_quotes::same_board_quotes(&normalized, spacing.board);
     let preserve = spacing.code || spacing.sjis;
     let mut text = String::with_capacity(normalized.len());
     let mut previous_space = false;

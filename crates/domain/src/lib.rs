@@ -2,6 +2,7 @@
 
 pub mod bump;
 mod comment_ascii;
+mod comment_quotes;
 pub mod comment_spacing;
 mod comment_unicode;
 pub use comment_spacing::{CommentSpacing, prepare_post_comment};

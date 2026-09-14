@@ -80,6 +80,8 @@ Local compilation/unit results do not establish database or browser posting
 results. Complete current-head Linux CI is required before merge. Production
 containment, recovery and independent review remain launch prerequisites.
 
-Name/subject sanitation, spoiler/code/SJIS markup, same-board quote rewriting,
-word filters, repeated-line rejection and `MAX_LINES` remain unfinished. This
-slice establishes the implemented Unicode stages, not complete posting parity.
+[Same-board quote rewriting](source-local-quotes.md) follows the early Unicode
+filters for new comments, pending current-head qualification. Name/subject
+sanitation, intra-word spoiler removal, spoiler/code/SJIS markup, word filters,
+repeated-line rejection and `MAX_LINES` remain unfinished. These stages do not
+establish complete posting parity.
