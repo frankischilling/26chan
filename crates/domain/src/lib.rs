@@ -6,6 +6,59 @@ pub use formatting::{Line, Token, parse_comment};
 pub const MAX_COMMENT_CHARS: usize = 16_000;
 pub const MAX_COMMENT_BYTES: usize = 64_000;
 
+/// The posting reference converts CRLF and lone CR to LF before length checks.
+/// Bound input before allocating; normalization never increases its byte size.
+pub fn normalize_comment(value: &str) -> Result<std::borrow::Cow<'_, str>, ValidationError> {
+    if value.len() > MAX_COMMENT_BYTES {
+        return Err(ValidationError(
+            "Enter a comment within this board's character limit.",
+        ));
+    }
+    if !value.contains('\r') {
+        return Ok(std::borrow::Cow::Borrowed(value));
+    }
+    let mut normalized = String::with_capacity(value.len());
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\r' {
+            if chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            normalized.push('\n');
+        } else {
+            normalized.push(ch);
+        }
+    }
+    Ok(std::borrow::Cow::Owned(normalized))
+}
+
+/// Original tail eligibility uses visible replies; sticky alone does not double it.
+pub fn thread_tail_size(configured: u16, sticky: bool, undead: bool, replies: usize) -> usize {
+    let size = usize::from(configured) * if sticky && undead { 2 } else { 1 };
+    if size > 0 && replies >= size * 2 {
+        size
+    } else {
+        0
+    }
+}
+
+#[test]
+fn native_tail_threshold_and_sticky_undead_rules() {
+    for (size, sticky, undead, replies, expected) in [
+        (0, false, false, 1000, 0),
+        (5, false, false, 9, 0),
+        (5, false, false, 10, 5),
+        (50, true, false, 100, 50),
+        (50, false, true, 100, 50),
+        (50, true, true, 199, 0),
+        (50, true, true, 200, 100),
+        (500, false, false, 999, 0),
+        (500, false, false, 1000, 500),
+    ] {
+        assert_eq!(thread_tail_size(size, sticky, undead, replies), expected);
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct ValidationError(pub &'static str);
@@ -54,11 +107,7 @@ pub fn validate_post_with_attachment(
     if name.len() > 80 || subject.len() > 120 {
         return Err(ValidationError("Name or subject is too long."));
     }
-    if comment.len() > MAX_COMMENT_BYTES {
-        return Err(ValidationError(
-            "Enter a comment within this board's character limit.",
-        ));
-    }
+    let comment = normalize_comment(comment)?;
     if (comment.trim().is_empty() && !(has_attachment && comment.is_empty()))
         || comment.chars().count() > max_chars.min(MAX_COMMENT_CHARS)
     {
@@ -66,7 +115,7 @@ pub fn validate_post_with_attachment(
             "Enter a comment within this board's character limit.",
         ));
     }
-    if [name, subject, comment].iter().any(|s| {
+    if [name, subject, comment.as_ref()].iter().any(|s| {
         s.chars()
             .any(|c| c.is_control() && c != '\n' && c != '\r' && c != '\t')
     }) {
@@ -119,7 +168,8 @@ mod tests {
         assert!(validate_post("A", "", "e\u{301}", 2).is_ok());
         assert!(validate_post("A", "", "e\u{301}", 1).is_err());
         assert!(validate_post("A", "", "a\r\nb", 4).is_ok());
-        assert!(validate_post("A", "", "a\r\nb", 3).is_err());
+        assert!(validate_post("A", "", "a\r\nb", 3).is_ok());
+        assert!(validate_post("A", "", "a\r\nb", 2).is_err());
         assert!(validate_post("A", "", &"x".repeat(16_001), 16_000).is_err());
         assert!(validate_post("A", "", &"😀".repeat(16_000), 16_000).is_ok());
         assert!(validate_post("A", "", &"😀".repeat(16_001), 16_000).is_err());

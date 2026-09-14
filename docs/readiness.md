@@ -4,7 +4,7 @@ The working board includes development attachments, private isolated media proce
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|
-| Approved design brief | No separate attachment found | Resolve its location and check the implementation against it |
+| Approved design brief | User clarified on September 13, 2026: recreate the old 4chan frontend 1:1, rather than redesign it; no separate attachment is required | Match the reference layout, typography, colors, assets, controls and states on desktop and mobile using source permitted by the rewrite prompt; record differences and verify visual and behavioral parity |
 | Rewrite publication | Authorized target: [frankischilling/26chan](https://github.com/frankischilling/26chan); recent merged slices include [JPEG input #51](jpeg-media.md), [themes #53](public-themes.md), [cross-board quotes #55](cross-board-quotes.md), [empty/error states #57](verification-public-states.md) and [desktop post layout #59](public-post-layout.md), each with reviewed-head passing checks and matching merge trees | Require passing checks before each merge; repository integration does not qualify a production release |
 | Public text slice | Implemented and locally tested, including Unicode scalar limits and request admission retained through response data lifetime | Review compatibility exceptions, production abuse limits, aggregate response-memory budgets and transport timeouts |
 | Reference snapshot | API docs revision and selected public FAQ behavior pinned; original visual states and live posting observations missing; [issue #6](https://github.com/frankischilling/26chan/issues/6) | Collect permitted desktop/mobile/reference states and establish exact supported clients/features |

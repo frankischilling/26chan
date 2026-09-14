@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-assets.json', import.meta.url), 'utf8'));
+const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watcher-assets.json', import.meta.url), 'utf8'));
+const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updater-assets.json', import.meta.url), 'utf8'));
+const releaseImages = [uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
+  manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` })));
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
@@ -181,14 +185,14 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
   const origin = new URL(page.url()).origin;
   const policy = response.headers()['content-security-policy'];
   const sources = policy.split(';').map(part => part.trim()).find(part => part.startsWith('img-src '));
-  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${uiAssets.assets.map(asset => `${origin}${uiAssets.local_base}${asset.name}`).join(' ')}`);
-  for (const asset of uiAssets.assets) {
+  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${releaseImages.map(asset => `${origin}${asset.path}`).join(' ')}`);
+  for (const asset of releaseImages) {
     const dimensions = await page.evaluate(src => new Promise(resolve => {
       const image = new Image();
       image.onload = () => resolve([image.naturalWidth, image.naturalHeight]);
       image.onerror = () => resolve(null);
       image.src = src;
-    }), `${origin}${uiAssets.local_base}${asset.name}`);
+    }), `${origin}${asset.path}`);
     expect(dimensions).toEqual(asset.dimensions);
   }
   const allowed = `${origin}/static/themes/fade-blue.png`;
@@ -200,7 +204,8 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
   expect(healthy.status()).toBe(200);
   expect(healthy.headers()['content-type']).toBe('image/png');
   expect(await healthy.body()).toEqual(await positive.body());
-  const outcome = await page.evaluate(async ({ allowed, denied }) => {
+  const unlisted = `${origin}/static/watcher/unknown.png`;
+  const outcome = await page.evaluate(async ({ allowed, denied, unlisted }) => {
     const violations = [];
     document.addEventListener('securitypolicyviolation', event => violations.push({ uri: event.blockedURI, directive: event.effectiveDirective }));
     const load = src => new Promise(resolve => {
@@ -211,12 +216,15 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
     });
     const positive = await load(allowed);
     const negative = await load(denied);
+    const unknown = await load(unlisted);
     await new Promise(resolve => setTimeout(resolve, 50));
-    return { positive, negative, violations };
-  }, { allowed, denied: denied.href });
+    return { positive, negative, unknown, violations };
+  }, { allowed, denied: denied.href, unlisted });
   expect(outcome.positive).toEqual([1, 200]);
   expect(outcome.negative).toBeNull();
+  expect(outcome.unknown).toBeNull();
   expect(outcome.violations).toContainEqual({ uri: denied.href, directive: 'img-src' });
+  expect(outcome.violations).toContainEqual({ uri: unlisted, directive: 'img-src' });
 });
 
 async function apiClient(page, origin = 'http://127.0.0.1:3000') {
@@ -401,7 +409,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:3000/demo/');
   await expect(page.getByRole('heading', { name: '/demo/ - Paper craft' })).toBeVisible();
-  await page.getByRole('link', { name: 'Reply', exact: true }).click();
+  await page.locator('#t1000001').getByRole('link', { name: 'Reply', exact: true }).click();
   await expect(page.locator('#postForm')).toBeVisible();
   await page.goto('http://127.0.0.1:3000/test/');
   const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
@@ -432,6 +440,18 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(await after.json()).toEqual(beforeJson);
   expect(after.headers().etag).toBe(before.headers().etag);
   await page.goto(threadUrl);
+  const multiline = `${'😀'.repeat(limit - 2)}\nX`;
+  await page.locator('#com').fill(multiline);
+  await page.locator('#password').fill('no-javascript-password');
+  const submitted = page.waitForRequest(request => request.url().endsWith('/test/post') && request.method() === 'POST');
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  expect(new URLSearchParams((await submitted).postData()).get('com')).toBe(multiline.replace('\n', '\r\n'));
+  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  const reply = /#p(\d+)$/.exec(page.url())[1];
+  expect(reply).not.toBe(op);
+  await expect(page.locator(`#m${reply} br`)).toHaveCount(1);
+  const multilineJson = await (await page.request.get(jsonUrl)).json();
+  expect(multilineJson.posts.find(post => String(post.no) === reply).com).toBe(multiline.replace('\n', '<br>'));
   await page.locator(`#p${op} summary`).click();
   await page.locator(`#delete${op}`).fill('no-javascript-password');
   await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();

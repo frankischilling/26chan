@@ -1,0 +1,7 @@
+{% macro desktop(slug, bottom) %}
+<nav class="navLinks desktop threadNav{% if bottom %} navLinksBot{% endif %}" aria-label="Thread navigation {% if bottom %}bottom{% else %}top{% endif %}" data-watch-position="{% if bottom %}bottom{% else %}top{% endif %}-desktop">[<a href="/{{ slug }}/" accesskey="a">Return</a>] [<a href="/{{ slug }}/catalog">Catalog</a>] [<a href="#{% if bottom %}top{% else %}bottom{% endif %}">{% if bottom %}Top{% else %}Bottom{% endif %}</a>]</nav>
+{% endmacro %}
+
+{% macro mobile(slug, parent, worksafe, bottom) %}
+<nav class="navLinks mobile threadNav" aria-label="Thread navigation {% if bottom %}bottom{% else %}top{% endif %} mobile" data-watch-position="{% if bottom %}bottom{% else %}top{% endif %}-mobile" data-worksafe="{{ worksafe }}"><span class="mobileib button"><a href="/{{ slug }}/" accesskey="a">Return</a></span> <span class="mobileib button"><a href="/{{ slug }}/catalog">Catalog</a></span> <span class="mobileib button"><a href="#{% if bottom %}top{% else %}bottom{% endif %}">{% if bottom %}Top{% else %}Bottom{% endif %}</a></span> <span class="mobileib button"><a href="/{{ slug }}/thread/{{ parent }}" id="refresh_{% if bottom %}bottom{% else %}top{% endif %}" data-thread-refresh="{% if bottom %}bottom{% else %}top{% endif %}">Refresh</a></span></nav>
+{% endmacro %}

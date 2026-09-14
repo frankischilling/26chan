@@ -50,7 +50,7 @@ fn server(
 }
 
 #[tokio::test]
-async fn no_javascript_browser_posts_and_deletes_an_approved_attachment() {
+async fn browsers_post_and_delete_approved_attachments_with_and_without_javascript() {
     let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -133,8 +133,10 @@ async fn no_javascript_browser_posts_and_deletes_an_approved_attachment() {
         }).await.expect("public binary readiness deadline");
         // A second attachment leaves the first post's deletion tombstone on the
         // same board. Browser assertions must identify the post they changed.
-        for attachment_only in [false, true] {
-            exercise(&test_admin, &test_root, &test_board, &public_origin, &store, attachment_only).await;
+        for javascript in [false, true] {
+            for attachment_only in [false, true] {
+                exercise(&test_admin, &test_root, &test_board, &public_origin, &store, attachment_only, javascript).await;
+            }
         }
     }).await;
     public.kill().await.unwrap();
@@ -184,6 +186,7 @@ async fn exercise(
     origin: &str,
     store: &PublicationStore,
     attachment_only: bool,
+    javascript: bool,
 ) {
     // Public/intake treat the file as opaque. This separate trusted fixture
     // supplies bounded synthetic pixels to the normal publication code.
@@ -204,6 +207,7 @@ async fn exercise(
         .arg(board)
         .arg(&source)
         .args(attachment_only.then_some("--attachment-only"))
+        .args(javascript.then_some("--javascript"))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

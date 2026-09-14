@@ -77,6 +77,7 @@ fn page(catalog: bool) -> String {
         catalog_hidden: Vec::new(),
         board,
         threads: vec![ThreadView {
+            tail_size: 0,
             latest_reply_id: Some(1_000_002),
             thread,
             posts,
@@ -196,6 +197,7 @@ fn archived_thread() -> String {
         parent: thread.id,
         board,
         threads: vec![ThreadView {
+            tail_size: 0,
             latest_reply_id: posts
                 .iter()
                 .filter(|post| post.post.id != thread.id)

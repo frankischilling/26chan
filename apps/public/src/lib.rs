@@ -5,6 +5,8 @@ mod api_http;
 pub mod catalog;
 mod handlers;
 mod intake;
+mod native_updater_snapshot;
+mod post_receipts;
 mod security;
 pub mod themes;
 mod ui_assets;
@@ -132,6 +134,16 @@ pub fn routers_with_limits(
         .route("/readyz", get(handlers::ready))
         .route("/static/board.css", get(handlers::css))
         .route("/boards.json", get(api::boards))
+        .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
+        .route(
+            "/_watch/{board}/thread/{key}/posts",
+            get(native_updater_snapshot::get),
+        )
+        .route(
+            "/_watch/{board}/thread/{key}/posts-tail",
+            get(native_updater_snapshot::get_tail),
+        )
+        .route("/_watch/{board}/catalog.json", get(watcher_catalog::get))
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))
         .route("/{board}/thread/{key}", get(handlers::thread))
@@ -173,3 +185,5 @@ pub async fn media_ready(settings: &board_config::PublicMediaSettings) -> Result
     .await
     .map_err(|_| "Media intake is unavailable.")
 }
+
+mod watcher_catalog;

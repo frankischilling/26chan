@@ -2,6 +2,13 @@
 use axum::{Router, http::header, routing::get};
 
 pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
+pub(crate) const WATCHER_SCRIPT_PATH: &str = "/static/thread-watcher.v1.js";
+pub(crate) const WATCHER_CORE_PATH: &str = "/static/thread-watcher-core.v1.js";
+pub(crate) const POST_TRACKING_PATH: &str = "/static/post-tracking.v1.js";
+pub(crate) const NATIVE_SETTINGS_PATH: &str = "/static/native-settings.v1.js";
+pub(crate) const WATCHER_POSITION_PATH: &str = "/static/watcher-position.v1.js";
+pub(crate) const NATIVE_FILTER_PATH: &str = "/static/native-filter.v1.js";
+pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
@@ -39,10 +46,361 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "image/gif",
         include_bytes!("../static/catalog/closed@2x.gif"),
     ),
+    (
+        "/static/watcher/futaba/watch_thread_off.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/watch_thread_off.png"),
+    ),
+    (
+        "/static/watcher/futaba/watch_thread_off@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/watch_thread_off@2x.png"),
+    ),
+    (
+        "/static/watcher/futaba/watch_thread_on.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/watch_thread_on.png"),
+    ),
+    (
+        "/static/watcher/futaba/watch_thread_on@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/watch_thread_on@2x.png"),
+    ),
+    (
+        "/static/watcher/futaba/refresh.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/refresh.png"),
+    ),
+    (
+        "/static/watcher/futaba/refresh@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/refresh@2x.png"),
+    ),
+    (
+        "/static/watcher/futaba/cross.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/cross.png"),
+    ),
+    (
+        "/static/watcher/futaba/cross@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/cross@2x.png"),
+    ),
+    (
+        "/static/watcher/futaba/post_expand_rotate.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/futaba/post_expand_rotate.gif"),
+    ),
+    (
+        "/static/watcher/futaba/post_expand_rotate@2x.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/futaba/post_expand_rotate@2x.gif"),
+    ),
+    (
+        "/static/watcher/burichan/watch_thread_off.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/watch_thread_off.png"),
+    ),
+    (
+        "/static/watcher/burichan/watch_thread_off@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/watch_thread_off@2x.png"),
+    ),
+    (
+        "/static/watcher/burichan/watch_thread_on.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/watch_thread_on.png"),
+    ),
+    (
+        "/static/watcher/burichan/watch_thread_on@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/watch_thread_on@2x.png"),
+    ),
+    (
+        "/static/watcher/burichan/refresh.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/refresh.png"),
+    ),
+    (
+        "/static/watcher/burichan/refresh@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/refresh@2x.png"),
+    ),
+    (
+        "/static/watcher/burichan/cross.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/cross.png"),
+    ),
+    (
+        "/static/watcher/burichan/cross@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/cross@2x.png"),
+    ),
+    (
+        "/static/watcher/burichan/post_expand_rotate.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/burichan/post_expand_rotate.gif"),
+    ),
+    (
+        "/static/watcher/burichan/post_expand_rotate@2x.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/burichan/post_expand_rotate@2x.gif"),
+    ),
+    (
+        "/static/watcher/tomorrow/watch_thread_off.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/watch_thread_off.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/watch_thread_off@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/watch_thread_off@2x.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/watch_thread_on.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/watch_thread_on.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/watch_thread_on@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/watch_thread_on@2x.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/refresh.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/refresh.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/refresh@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/refresh@2x.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/cross.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/cross.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/cross@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/cross@2x.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/post_expand_rotate.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/tomorrow/post_expand_rotate.gif"),
+    ),
+    (
+        "/static/watcher/tomorrow/post_expand_rotate@2x.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/tomorrow/post_expand_rotate@2x.gif"),
+    ),
+    (
+        "/static/watcher/photon/watch_thread_off.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/watch_thread_off.png"),
+    ),
+    (
+        "/static/watcher/photon/watch_thread_off@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/watch_thread_off@2x.png"),
+    ),
+    (
+        "/static/watcher/photon/watch_thread_on.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/watch_thread_on.png"),
+    ),
+    (
+        "/static/watcher/photon/watch_thread_on@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/watch_thread_on@2x.png"),
+    ),
+    (
+        "/static/watcher/photon/refresh.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/refresh.png"),
+    ),
+    (
+        "/static/watcher/photon/refresh@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/refresh@2x.png"),
+    ),
+    (
+        "/static/watcher/photon/cross.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/cross.png"),
+    ),
+    (
+        "/static/watcher/photon/cross@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/cross@2x.png"),
+    ),
+    (
+        "/static/watcher/photon/post_expand_rotate.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/photon/post_expand_rotate.gif"),
+    ),
+    (
+        "/static/watcher/photon/post_expand_rotate@2x.gif",
+        "image/gif",
+        include_bytes!("../static/watcher/photon/post_expand_rotate@2x.gif"),
+    ),
+    (
+        "/static/watcher/buttonfade-blue.png",
+        "image/png",
+        include_bytes!("../static/watcher/buttonfade-blue.png"),
+    ),
+    (
+        "/static/watcher/buttonfade.png",
+        "image/png",
+        include_bytes!("../static/watcher/buttonfade.png"),
+    ),
+    (
+        "/static/watcher/futaba/post_expand_minus.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/post_expand_minus.png"),
+    ),
+    (
+        "/static/watcher/futaba/post_expand_minus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/post_expand_minus@2x.png"),
+    ),
+    (
+        "/static/watcher/futaba/post_expand_plus.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/post_expand_plus.png"),
+    ),
+    (
+        "/static/watcher/futaba/post_expand_plus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/futaba/post_expand_plus@2x.png"),
+    ),
+    (
+        "/static/watcher/burichan/post_expand_minus.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/post_expand_minus.png"),
+    ),
+    (
+        "/static/watcher/burichan/post_expand_minus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/post_expand_minus@2x.png"),
+    ),
+    (
+        "/static/watcher/burichan/post_expand_plus.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/post_expand_plus.png"),
+    ),
+    (
+        "/static/watcher/burichan/post_expand_plus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/burichan/post_expand_plus@2x.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/post_expand_minus.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/post_expand_minus.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/post_expand_minus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/post_expand_minus@2x.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/post_expand_plus.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/post_expand_plus.png"),
+    ),
+    (
+        "/static/watcher/tomorrow/post_expand_plus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/tomorrow/post_expand_plus@2x.png"),
+    ),
+    (
+        "/static/watcher/photon/post_expand_minus.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/post_expand_minus.png"),
+    ),
+    (
+        "/static/watcher/photon/post_expand_minus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/post_expand_minus@2x.png"),
+    ),
+    (
+        "/static/watcher/photon/post_expand_plus.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/post_expand_plus.png"),
+    ),
+    (
+        "/static/watcher/photon/post_expand_plus@2x.png",
+        "image/png",
+        include_bytes!("../static/watcher/photon/post_expand_plus@2x.png"),
+    ),
+    (
+        "/static/notifications/favicon.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-newposts.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-newposts.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-newreplies.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-newreplies.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-deadthread.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-deadthread.ico"),
+    ),
+    (
+        "/static/notifications/favicon-ws-newfilters.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-ws-newfilters.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-newposts.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-newposts.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-newreplies.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-newreplies.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-deadthread.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-deadthread.ico"),
+    ),
+    (
+        "/static/notifications/favicon-nws-newfilters.ico",
+        "image/x-icon",
+        include_bytes!("../static/notifications/favicon-nws-newfilters.ico"),
+    ),
 ];
 
 pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
-    let mut router = Router::new();
+    let mut router = Router::new().route(
+        UPDATER_SOUND_PATH,
+        get(|| async {
+            (
+                [
+                    (header::CONTENT_TYPE, "audio/ogg"),
+                    (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+                ],
+                include_bytes!("../static/notifications/beep.ogg").as_slice(),
+            )
+        }),
+    );
     for &(path, mime, bytes) in ASSETS {
         router = router.route(
             path,
@@ -57,18 +415,50 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
             }),
         );
     }
-    router.route(
-        CATALOG_SCRIPT_PATH,
-        get(|| async {
-            (
-                [
-                    (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
-                    (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
-                ],
-                include_bytes!("../static/catalog-preferences.v1.js").as_slice(),
-            )
-        }),
-    )
+    for (path, bytes) in [
+        (
+            NATIVE_FILTER_PATH,
+            include_bytes!("../static/native-filter.v1.js").as_slice(),
+        ),
+        (
+            WATCHER_POSITION_PATH,
+            include_bytes!("../static/watcher-position.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_SETTINGS_PATH,
+            include_bytes!("../static/native-settings.v1.js").as_slice(),
+        ),
+        (
+            POST_TRACKING_PATH,
+            include_bytes!("../static/post-tracking.v1.js").as_slice(),
+        ),
+        (
+            CATALOG_SCRIPT_PATH,
+            include_bytes!("../static/catalog-preferences.v1.js").as_slice(),
+        ),
+        (
+            WATCHER_SCRIPT_PATH,
+            include_bytes!("../static/thread-watcher.v1.js").as_slice(),
+        ),
+        (
+            WATCHER_CORE_PATH,
+            include_bytes!("../static/thread-watcher-core.v1.js").as_slice(),
+        ),
+    ] {
+        router = router.route(
+            path,
+            get(move || async move {
+                (
+                    [
+                        (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
+                        (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+                    ],
+                    bytes,
+                )
+            }),
+        );
+    }
+    router
 }
 
 pub(crate) fn image_sources(origin: &str) -> String {

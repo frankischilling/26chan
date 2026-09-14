@@ -57,6 +57,7 @@ pub struct ArchivePage {
 }
 
 pub struct ThreadView {
+    pub tail_size: usize,
     pub latest_reply_id: Option<i64>,
     pub thread: Thread,
     pub posts: Vec<PostView>,
@@ -83,6 +84,17 @@ pub struct PostView {
     pub lines: Vec<Line>,
     pub now: String,
 }
+
+#[derive(Template)]
+#[template(path = "post_fragment.html")]
+pub struct PostFragment<'a> {
+    pub item: &'a PostView,
+    pub view: &'a ThreadView,
+    pub board: &'a Board,
+    pub media_origin: &'a str,
+    pub catalog: bool,
+}
+
 impl PostView {
     pub fn catalog_search_text(&self) -> String {
         crate::catalog::search_text(&self.post.subject, &self.lines)

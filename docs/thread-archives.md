@@ -52,7 +52,8 @@ threads remain at their existing HTML and JSON URLs. The OP JSON includes
 integer `archived: 1`, `archived_on` and `closed: 1`; active OPs omit archive
 fields. Boards JSON includes `is_archived: 1` only when enabled.
 
-`/{board}/archive` provides escaped HTML summaries and thread links. Navigation
+`/{board}/archive` provides escaped HTML summaries and thread links. Thread pages
+use the native Return link to reach the board and its Archive link. Navigation
 appears on enabled boards. Archived threads show read-only status and no reply
 form; password deletion and reporting still work. Staff cannot reopen or pin an
 archived thread, but can remove it with the existing audit trail. The separate

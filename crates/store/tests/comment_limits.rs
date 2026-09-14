@@ -46,11 +46,27 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
     board_store::create_post(&public, &slug, thread, &post("e\u{301}".repeat(2)))
         .await
         .unwrap();
+    for raw in ["é\r\n😀\r", "é\r😀\n", "é\n😀\n"] {
+        let id = board_store::create_post(&public, &slug, thread, &post(raw.into()))
+            .await
+            .unwrap();
+        assert_eq!(
+            board_store::find_post(&public, &slug, id)
+                .await
+                .unwrap()
+                .comment,
+            "é\n😀\n"
+        );
+    }
     let before = board_store::visible_post_count(&public, &slug, thread)
         .await
         .unwrap();
     assert!(matches!(
         board_store::create_post(&public, &slug, thread, &post("é".repeat(5))).await,
+        Err(StoreError::Invalid(_))
+    ));
+    assert!(matches!(
+        board_store::create_post(&public, &slug, thread, &post("é\r\n😀\rb".into())).await,
         Err(StoreError::Invalid(_))
     ));
     assert_eq!(

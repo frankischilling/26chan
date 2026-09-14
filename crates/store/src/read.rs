@@ -45,6 +45,10 @@ pub struct ThreadSnapshot {
     pub board: Board,
     pub thread: Thread,
     pub posts: Vec<Post>,
+    pub replies: usize,
+    pub images: usize,
+    pub tail_size: usize,
+    pub tail_id: Option<i64>,
 }
 
 /// Read board settings, thread metadata and posts from one database snapshot.
@@ -53,6 +57,16 @@ pub async fn thread_snapshot(
     pool: &PgPool,
     slug: &str,
     id: i64,
+) -> Result<ThreadSnapshot, StoreError> {
+    thread_snapshot_selection(pool, slug, id, false).await
+}
+
+/// Full counts, policy, boundary and selected posts share one read transaction.
+pub async fn thread_snapshot_selection(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    tail: bool,
 ) -> Result<ThreadSnapshot, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     let mut tx = pool.begin().await?;
@@ -64,7 +78,7 @@ pub async fn thread_snapshot(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
-    let metadata = sqlx::query_as(
+    let metadata: Thread = sqlx::query_as(
         "SELECT * FROM content.visible_threads WHERE board=$1 AND id=$2 AND NOT deleted",
     )
     .bind(slug)
@@ -72,17 +86,46 @@ pub async fn thread_snapshot(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(StoreError::NotFound)?;
-    let mut entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted ORDER BY id LIMIT 1001")
+    let (configured, undead): (i32, bool) = sqlx::query_as("SELECT b.json_tail_size,t.undead FROM content.boards b JOIN content.threads t ON t.board=b.slug WHERE b.slug=$1 AND t.id=$2")
+        .bind(slug).bind(id).fetch_one(&mut *tx).await?;
+    let (reply_count, image_count): (i64, i64) = sqlx::query_as("SELECT count(*),count(*) FILTER (WHERE m.post_id IS NOT NULL AND NOT m.file_deleted) FROM content.posts p LEFT JOIN content.visible_post_media m ON m.post_id=p.id WHERE p.board=$1 AND p.thread_id=$2 AND p.id<>$2 AND NOT p.deleted")
+        .bind(slug).bind(id).fetch_one(&mut *tx).await?;
+    if !(0..=1000).contains(&reply_count) || !(0..=500).contains(&configured) {
+        return Err(StoreError::Invalid("Thread exceeds snapshot limits."));
+    }
+    let replies = reply_count as usize;
+    let images = image_count as usize;
+    let tail_size =
+        board_domain::thread_tail_size(configured as u16, metadata.sticky, undead, replies);
+    if tail && tail_size == 0 {
+        return Err(StoreError::NotFound);
+    }
+    let tail_id = if tail {
+        Some(sqlx::query_scalar::<_, i64>("SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted ORDER BY id DESC OFFSET $3 LIMIT 1")
+            .bind(slug).bind(id).bind(tail_size as i64).fetch_one(&mut *tx).await?)
+    } else {
+        None
+    };
+    let mut entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3) ORDER BY id LIMIT 1001")
         .bind(slug)
         .bind(id)
+        .bind(tail_id)
         .fetch_all(&mut *tx)
         .await?;
+    let expected = 1 + if tail { tail_size } else { replies };
+    if entries.len() != expected {
+        return Err(StoreError::Invalid("Incomplete thread snapshot."));
+    }
     crate::post_media::load(&mut tx, &mut entries).await?;
     tx.commit().await?;
     Ok(ThreadSnapshot {
         board,
         thread: metadata,
         posts: entries,
+        replies,
+        images,
+        tail_size,
+        tail_id,
     })
 }
 pub async fn threads(

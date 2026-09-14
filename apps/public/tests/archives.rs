@@ -149,10 +149,13 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
     assert!(!html.contains("id=\"postForm\""));
     assert!(html.contains(&format!("action=\"/{slug}/delete\"")));
     assert!(html.contains(&format!("action=\"/{slug}/report\"")));
-    for suffix in ["", "catalog", &format!("thread/{active}")] {
+    for suffix in ["", "catalog"] {
         let html = body(request(&web, &format!("/{slug}/{suffix}"), "GET", None).await).await;
         assert!(html.contains(&format!("href=\"/{slug}/archive\"")));
     }
+    // Native thread navigation returns to the board, where Archive is linked.
+    let html = body(request(&web, &format!("/{slug}/thread/{active}"), "GET", None).await).await;
+    assert!(html.contains(&format!("href=\"/{slug}/\" accesskey=\"a\">Return</a>")));
     let denied = web
         .clone()
         .oneshot(

@@ -191,6 +191,7 @@ async fn board_page(
         let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
         let view = ThreadView {
+            tail_size: 0,
             latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
             posts: posts.into_iter().map(PostView::new).collect(),
@@ -237,10 +238,16 @@ pub async fn thread(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     if let Some(id) = key.strip_suffix(".json") {
+        let tail = id.ends_with("-tail");
+        let id = id.strip_suffix("-tail").unwrap_or(id);
+        let raw = id;
         let id = id
-            .parse()
+            .parse::<i64>()
             .map_err(|_| AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-        return api::thread(&state, &board, id, &headers).await;
+        if tail && (id <= 0 || id.to_string() != raw) {
+            return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
+        }
+        return api::thread_selection(&state, &board, id, &headers, tail).await;
     }
     let id = key
         .parse()
@@ -249,6 +256,9 @@ pub async fn thread(
         board,
         thread,
         posts,
+        tail_size,
+        images,
+        ..
     } = board_store::thread_snapshot(&state.pool, &board, id).await?;
     let latest_reply_id = posts
         .iter()
@@ -261,11 +271,12 @@ pub async fn thread(
             catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {
+                tail_size,
                 latest_reply_id,
                 thread,
                 posts,
                 omitted: 0,
-                image_replies: 0,
+                image_replies: images as i64,
             }],
             parent: id,
             previous: String::new(),
@@ -313,12 +324,29 @@ pub struct PostForm {
     upload_capability: String,
     #[serde(default)]
     spoiler: bool,
+    #[serde(default)]
+    awt: Option<u8>,
+    #[serde(default)]
+    track: Option<u8>,
 }
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    headers: HeaderMap,
     Form(form): Form<PostForm>,
-) -> Result<Redirect, AppError> {
+) -> Result<Response, AppError> {
+    if [form.awt, form.track]
+        .into_iter()
+        .flatten()
+        .any(|value| value > 1)
+    {
+        return Err(AppError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Invalid posting preference.",
+        ));
+    }
+    let auto_watch = form.awt == Some(1);
+    let track = form.track == Some(1);
     let settings = board_store::board(&state.pool, &board).await?;
     let attachment = match (form.upload_id.is_empty(), form.upload_capability.is_empty()) {
         (true, true) if !form.spoiler => None,
@@ -411,11 +439,23 @@ pub async fn post(
         attachment.as_ref(),
     )
     .await?;
-    if return_to_board {
-        return Ok(Redirect::to(&format!("/{board}/")));
-    }
     let thread = if form.resto == 0 { id } else { form.resto };
-    Ok(Redirect::to(&format!("/{board}/thread/{thread}#p{id}")))
+    let location = if return_to_board {
+        format!("/{board}/")
+    } else {
+        format!("/{board}/thread/{thread}#p{id}")
+    };
+    let mut response = Redirect::to(&location).into_response();
+    crate::post_receipts::Receipt {
+        board: &board,
+        thread,
+        post: id,
+        track,
+        watch: auto_watch,
+        production: state.production,
+    }
+    .append(response.headers_mut(), &headers);
+    Ok(response)
 }
 
 #[derive(Deserialize)]
@@ -485,5 +525,11 @@ pub async fn report(
     Form(form): Form<ReportForm>,
 ) -> Result<Html<String>, AppError> {
     board_store::report(&state.pool, &board, form.no, &form.reason).await?;
-    Ok(Html(Message { title: "Report received", message: "Your report was saved. Staff review is not available in this development build." }.render()?))
+    Ok(Html(
+        Message {
+            title: "Report received",
+            message: "Your report was saved.",
+        }
+        .render()?,
+    ))
 }

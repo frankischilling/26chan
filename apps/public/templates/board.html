@@ -3,13 +3,20 @@
 {% import "attachments.html" as attachments %}
 {% import "post_fields.html" as posting %}
 {% import "catalog_card.html" as catalog_cards %}
+{% import "thread_navigation.html" as thread_navigation %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block content %}
-<header class="boardHeader"><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
+<header class="boardHeader"{% if parent > 0 %} id="top"{% endif %}><h1>/{{ board.slug }}/ - {{ board.title }}</h1><p>{{ board.description }}</p></header>
+{% if parent > 0 %}
+{% call thread_navigation::mobile(board.slug, parent, board.worksafe, false) %}{% endcall %}
+{% call thread_navigation::desktop(board.slug, false) %}{% endcall %}
+{% else %}
 <nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a>{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
+{% endif %}
 {% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
 {% if !catalog && !archived() %}
 {% if !media_origin.is_empty() && board.image_limit > 0 %}
@@ -33,33 +40,24 @@
 <div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}"{% if catalog %} data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
 {% for view in threads %}
 {% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
-<section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
+<section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" data-tail-size="{{ view.tail_size }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
-<article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
-{% if item.post.id != view.thread.id %}<div class="sideArrows" aria-hidden="true">&gt;&gt;</div>{% endif %}
-<div class="post {% if item.post.id == view.thread.id %}op{% else %}reply{% endif %}" id="p{{ item.post.id }}">
-{% if !catalog && item.post.id == view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
-<div class="postInfo" id="pi{{ item.post.id }}">
-{% if !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
-<span class="name">{{ item.post.name }}</span> <time datetime="{{ item.post.created_at.to_rfc3339() }}">{{ item.now }}</time>
-<a class="postNum" href="/{{ board.slug }}/thread/{{ view.thread.id }}#p{{ item.post.id }}">No.{{ item.post.id }}</a>
-{% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed || view.thread.archived_at.is_some() %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">{% if view.thread.archived_at.is_some() %}View thread{% else %}Reply{% endif %}</a>]{% endif %}
-</div>
-{% if catalog || item.post.id != view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
-<blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</blockquote>
-{% if !catalog %}
-<details class="postActions"><summary>Delete or report</summary>
-<form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="delete{{ item.post.id }}">Deletion password</label> <input id="delete{{ item.post.id }}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required>{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %} <label><input type="checkbox" name="file_only" value="true">File only</label>{% endif %}{% endif %} <button>Delete post</button></form>
-<form method="post" action="/{{ board.slug }}/report"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="report{{ item.post.id }}">Report reason</label> <input id="report{{ item.post.id }}" name="reason" maxlength="1000" required> <button>Report post</button></form>
-</details>
-{% endif %}
-</div></article>
+{% include "post_content.html" %}
 {% endfor %}
 {% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
 </section>
 {% endif %}
 {% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
 </div>
-<nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}">Next</a>{% endif %}</nav>
+{% if parent > 0 %}
+<div id="bottom">
+{% call thread_navigation::desktop(board.slug, true) %}{% endcall %}
+{% call thread_navigation::mobile(board.slug, parent, board.worksafe, true) %}{% endcall %}
+</div>
+{% else %}
+<nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
+{% endif %}
 {% if catalog %}<template id="catalogFiltered">{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}</template>{% endif %}
+<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
+<script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}

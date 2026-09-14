@@ -42,18 +42,31 @@ pub async fn protect(State(state): State<AppState>, request: Request, next: Next
             )
                 .into_response(),
             &state,
-            false,
+            None,
         );
     };
-    let catalog = matches!(*request.method(), Method::GET | Method::HEAD)
-        && request
-            .uri()
-            .path()
-            .strip_prefix('/')
-            .and_then(|path| path.strip_suffix("/catalog"))
-            .is_some_and(|board| !board.is_empty() && !board.contains('/'));
+    let parts: Vec<_> = request
+        .uri()
+        .path()
+        .trim_start_matches('/')
+        .split('/')
+        .collect();
+    let board_page = match parts.as_slice() {
+        [board, ""] => !board.is_empty(),
+        [board, page] => {
+            !board.is_empty()
+                && (*page == "catalog" || page.parse::<u16>().is_ok_and(|page| page < 1000))
+        }
+        [board, "thread", id] => !board.is_empty() && id.parse::<i64>().is_ok_and(|id| id > 0),
+        _ => false,
+    };
+    let upload_page = *request.method() == Method::POST
+        && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
+    let page = ((board_page && matches!(*request.method(), Method::GET | Method::HEAD))
+        || upload_page)
+        .then_some(parts.last() == Some(&"catalog"));
     let response = protect_inner(&state, request, next).await;
-    headers(board_http::hold_permit(response, permit), &state, catalog)
+    headers(board_http::hold_permit(response, permit), &state, page)
 }
 
 async fn protect_inner(state: &AppState, request: Request, next: Next) -> Response {
@@ -110,19 +123,69 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
     }
 }
 
-fn headers(mut response: Response, state: &AppState, catalog: bool) -> Response {
-    let script = if catalog
+fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Response {
+    let interactive = page.is_some()
         && response.status().is_success()
         && response
             .headers()
             .get("content-type")
             .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.starts_with("text/html"))
-    {
-        format!("{}{}", state.origin, crate::ui_assets::CATALOG_SCRIPT_PATH)
+            .is_some_and(|value| value.starts_with("text/html"));
+    let script = if interactive {
+        let watcher = format!(
+            "{}{} {}{}",
+            state.origin,
+            crate::ui_assets::WATCHER_SCRIPT_PATH,
+            state.origin,
+            crate::ui_assets::WATCHER_CORE_PATH
+        );
+        if page == Some(true) {
+            format!(
+                "{}{} {watcher}",
+                state.origin,
+                crate::ui_assets::CATALOG_SCRIPT_PATH
+            )
+        } else {
+            watcher
+        }
     } else {
         "'none'".into()
     };
+    let script = if interactive {
+        format!(
+            "{script} {}{} {}{} {}{} {}{}",
+            state.origin,
+            crate::ui_assets::POST_TRACKING_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_SETTINGS_PATH,
+            state.origin,
+            crate::ui_assets::WATCHER_POSITION_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_FILTER_PATH
+        )
+    } else {
+        script
+    };
+    let connect = if interactive {
+        format!("{}/_watch/", state.origin)
+    } else {
+        "'none'".into()
+    };
+    let worker = if interactive {
+        format!("{}{}", state.origin, crate::ui_assets::NATIVE_FILTER_PATH)
+    } else {
+        "'none'".into()
+    };
+    let sound = if interactive {
+        format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
+    } else {
+        "'none'".into()
+    };
+    let script_resource = response
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("text/javascript"));
     let headers = response.headers_mut();
     // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
@@ -135,9 +198,15 @@ fn headers(mut response: Response, state: &AppState, catalog: bool) -> Response 
     if let Some(media) = &state.media {
         images = format!("{} {images}", media.settings.origin.as_string());
     }
-    let policy = format!(
-        "default-src 'none'; style-src 'self'; img-src {images}; script-src {script}; script-src-attr 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
-    );
+    let policy = if script_resource {
+        // A script used as a worker receives this policy in its own execution
+        // context. The initial module has no imports or network authority.
+        "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
+    } else {
+        format!(
+            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+        )
+    };
     headers.insert(
         "content-security-policy",
         HeaderValue::from_str(&policy).expect("validated application origins"),

@@ -141,3 +141,183 @@ table.postForm button { padding: 1px 6px; }
 .catalogState[hidden], #catalog-unpin-all[hidden], .catalogPinDelta[hidden], .catalogPinPage[hidden] { display: none !important; }
 @media (hover: none) { .catalog .postMenuBtn { opacity: .5; pointer-events: auto; } }
 @media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
+
+/* Extension post menus use the pinned v1191 controls and v716 menu rules. */
+.postMenuBtn[data-post-menu] { display: inline-block; width: 1em; height: 1em; margin: 0 0 0 5px; padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; line-height: 1em; text-align: center; opacity: .8; cursor: pointer; transition: transform .1s; }
+.postMenuBtn[data-post-menu][data-family="futaba"] { color: #000080; }
+.postMenuBtn[data-post-menu][data-family="tomorrow"] { color: #5f89ac; }
+.postMenuBtn[data-post-menu][data-family="tomorrow"]:hover { color: #81a2be; }
+.postMenuBtn[data-post-menu][data-family="photon"]:hover { color: #ff3300; }
+.postMenuBtn[data-post-menu]:hover { opacity: 1; }
+.postMenuBtn[data-post-menu].menuOpen { transform: rotate(90deg); }
+.postMenuBtn[data-post-menu][hidden] { display: none !important; }
+#post-menu.nativePostMenu { position: absolute; z-index: 40; max-width: 100vw; font: var(--post-menu-font, 12px) var(--font); line-height: 1.3em; color: var(--ink); text-align: left; }
+.nativePostMenu ul { background: var(--panel); border: 1px solid var(--catalog-menu-edge); border-right-width: var(--post-menu-right, 2px); border-bottom-width: var(--post-menu-bottom, 1px); list-style: none; padding: 0; margin: 0; white-space: nowrap; }
+.nativePostMenu li { position: relative; padding: 0; border-bottom: 1px solid var(--catalog-menu-edge); }
+.nativePostMenu button, .nativePostMenu a { display: block; width: 100%; padding: 2px 4px; border: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.nativePostMenu button:hover, .nativePostMenu button:focus-visible, .nativePostMenu a:hover, .nativePostMenu a:focus-visible { background: var(--paper); }
+.nativePostMenu .imageSearchSubmenu { position: absolute; top: 0; left: 100%; min-width: 100%; }
+.nativePostMenu.dd-menu-left .imageSearchSubmenu { left: auto; right: 100%; }
+@media (max-width: 480px) {
+  .postMenuBtn[data-post-menu] { transform: rotate(90deg); margin: 4px -5px 0 4px; float: left; font-weight: bold; opacity: 1; height: .5em; font-size: 16px; }
+  #post-menu.nativePostMenu { font-size: 16px; line-height: 2.5em; }
+}
+@media (prefers-reduced-motion: reduce) { .postMenuBtn[data-post-menu] { transition: none; } }
+
+/* Watcher controls inherit each public theme's palette. */
+.watcherTitle { font-weight: bold; }
+#twHeader { cursor: move; touch-action: none; user-select: none; }
+#twHeader:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.watcherPanel { position: absolute; left: 10px; top: 75px; z-index: 30; max-width: 265px; padding: 3px; color: var(--ink); background: var(--panel); border: 1px solid rgba(0, 0, 0, .2); font: inherit; }
+.watcherCatalog { border-color: var(--edge); border-width: var(--watcher-catalog-border-width, 0 1px 1px 0); }
+.watcherExtension { border-color: var(--watcher-extension-edge, rgba(0, 0, 0, .2)); }
+.watcherHeader { height: 17px; font-weight: bold; text-align: center; line-height: var(--watcher-header-line-height, normal); }
+.watcherIcon { display: inline-block; width: 18px; height: 18px; box-sizing: content-box; border: 0; padding: 0; margin: 0; color: inherit; background: transparent; background-size: 100%; cursor: pointer; font: inherit; line-height: 0; }
+.watcherIcon img { display: block; width: 18px; height: 18px; }
+.watcherIcon:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#twPrune { position: relative; top: 0; float: right; margin-left: 3px; margin-top: -1px; }
+#twClose { position: relative; top: 0; float: left; margin-top: -1px; }
+.watchIcon { background-image: var(--watcher-watch-off); }
+.unwatchIcon { background-image: var(--watcher-watch-on); }
+.refreshIcon { background-image: var(--watcher-refresh); }
+.rotateIcon { background-image: var(--watcher-rotate); }
+.closeIcon { background-image: var(--watcher-cross); }
+.catalog .wbtn { position: absolute; opacity: 0; margin: 0; }
+.catalog .thread:hover > .wbtn, .catalog .thread:focus-within > .wbtn { opacity: 1; }
+#watchList { list-style: none; padding: 0; margin: 0; user-select: none; }
+.watcherCatalog #watchList { overflow: auto; display: block; max-height: 100vh; }
+#watchList li { margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#watchList li:first-child { margin-top: 3px; padding-top: 2px; border-top: 1px solid var(--watcher-list-edge, var(--edge)); }
+.watcherCatalog #watchList li:first-child { border-top-color: var(--watcher-catalog-list-edge, var(--edge)); }
+#watchList a { text-decoration: none; }
+#watchList a.deadlink { text-decoration: line-through; }
+#watchList .hasNewReplies { font-weight: bold; }
+#watchList .hasYouReplies { font-style: italic; }
+#watchList .archivelink { opacity: 0.5; }
+#watchList .watcherRemove { border: 0; padding: 0; color: inherit; background: transparent; cursor: pointer; }
+.watcherNotice { padding: 0 4px; max-width: 32em; }
+.wbtn { margin-bottom: -4px; }
+.watcherLastRead { padding: 0 2px; font: inherit; }
+.watcherReadTarget { outline: 2px solid var(--link); outline-offset: 2px; }
+.watcherPanel[hidden], #watcher-body[hidden], .wbtn[hidden], .watcherLastRead[hidden] { display: none !important; }
+.watcherNotice:empty { display: none; }
+.threadNav.mobile, .watcherNavControl[hidden] { display: none !important; }
+.threadNav.desktop { display: block; margin-bottom: var(--thread-nav-margin, 0px); }
+.threadNav.navLinksBot { margin-bottom: 0; }
+@media (max-width: 480px) {
+  .watcherPanel { padding: 3px 0; }
+  #watchList { padding: 0 10px; }
+  .threadNav.desktop { display: none !important; }
+  .threadNav.mobile { display: block !important; margin-top: 9px; margin-bottom: 0; text-align: center; }
+  .threadNav .mobileib { display: inline-block; }
+  .threadNav .button, .nativeThreadRestore { border-radius: 3px; padding: 6px 10px 5px; font-weight: bold; background: #d6daf0 url('/static/watcher/buttonfade-blue.png') repeat-x; border: 1px solid #b7c5d9; user-select: none; text-decoration: none; color: #34345c; }
+  .threadNav .button a, .threadNav .button a:hover, .threadNav .button a:visited { text-decoration: none; color: #34345c; }
+  .threadNav[data-worksafe="false"] .button, .nativeThreadRestore[data-worksafe="false"] { color: #800; background-color: #f0e0d6; background-image: url('/static/watcher/buttonfade.png'); border-color: #c0a69d; }
+  .threadNav[data-worksafe="false"] .button a, .threadNav[data-worksafe="false"] .button a:hover, .threadNav[data-worksafe="false"] .button a:visited { color: #800; }
+}
+#navtopright { float: right; }
+.settingsMobile { display: none; }
+.nativeSettings { color: var(--ink); font-family: var(--font); font-size: 14px; }
+.nativeSettings::backdrop { background: rgba(0, 0, 0, 0.25); }
+.nativeSettings .panelHeader { position: relative; font-size: 16px; font-weight: bold; text-align: center; line-height: 14px; margin: 5px 0; padding: 0 0 5px; border-bottom: 1px solid var(--settings-edge, var(--edge)); }
+.nativeSettings .panelCtrl { position: absolute; right: 5px; top: -2px; border: 0; padding: 0; background: transparent; color: inherit; font-size: 18px; line-height: 18px; cursor: pointer; }
+.nativeSettings ul { list-style: none; padding: 0; margin: 0 0 10px; }
+.nativeSettings label { display: inline-block; user-select: none; }
+.nativeSettings input { margin-right: 5px; }
+.nativeSettings button { font-family: inherit; }
+.nativeSettings .center { text-align: center; margin-bottom: 5px; }
+.nativeSettings .settingsMessage:empty { display: none; }
+.nativeSettings .settingsMessage { margin: 5px; }
+dialog.catalogSettings { position: absolute; inset: auto; top: 60px; left: 50%; margin: 0 0 0 -178px; width: 330px; max-width: calc(100vw - 20px); max-height: calc(100dvh - 80px); box-sizing: content-box; padding: 2px 5px 5px; border: 0; background: var(--panel); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); overflow: auto; }
+.catalogSettings h4 { font-size: 14px; padding: 0; margin: 10px 0 5px; }
+.catalogSettings .clickset { margin-bottom: 8px; }
+.catalogSettings .clickset li { clear: both; margin-bottom: 2px; line-height: 20px; }
+dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
+.extensionSettings .nativeSettingsBody { box-sizing: border-box; position: relative; top: 25px; width: 400px; max-width: calc(100% - 20px); max-height: 85%; margin: 0 auto; overflow: auto; background: var(--panel); border: 1px solid var(--settings-frame, rgba(0, 0, 0, 0.2)); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); }
+.settingsExpandAll { text-align: center; margin: 0 0 10px; padding-left: 7px; }
+.nativeSettings .settings-cat-lbl { font-size: 14px; font-weight: bold; margin: 10px 0 5px; padding-left: 5px; }
+.nativeSettings .settings-expand { border: 0; padding: 0; font: inherit; color: inherit; background: transparent; cursor: pointer; }
+.settings-expand::before { content: '+'; display: inline-block; width: 18px; margin-right: 5px; }
+.settings-expand[aria-expanded=true]::before { content: '-'; }
+.nativeSettings .settings-cat { margin-left: 3px; }
+.nativeSettings .settings-tip { font-size: 0.85em; margin: 2px 0 5px; padding-left: 23px; }
+.nativeSettings .settings-sub { padding-left: 23px; }
+.nativeSettings .settings-off { padding-left: 3px; }
+.nativeSettings [hidden], #watcher-open-mobile[hidden], #twClose[hidden] { display: none !important; }
+@media (max-width: 480px) {
+  .settingsDesktop { display: none !important; }
+  .settingsMobile { display: inline; }
+  /* Override desktop inline coordinates before the matchMedia callback runs. */
+  .watcherPanel { left: 0 !important; right: auto !important; width: 100%; max-width: 100%; margin: 0; box-sizing: border-box; border-left: 0; border-right: 0; }
+}
+@media (max-width: 360px) { dialog.catalogSettings { left: 10px; margin-left: 0; width: calc(100vw - 30px); } }
+
+/* Native filter controls are built from text and bounded, typed preferences. */
+dialog.nativeFilters { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
+.nativeFilters > .extPanel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); box-sizing: border-box; overflow: auto; padding: 5px; background: var(--panel); border: 1px solid var(--settings-frame, var(--edge)); box-shadow: 0 0 5px rgba(0, 0, 0, .25); }
+#filtersMenu table { width: 100%; border-spacing: 1px; }
+#filtersMenu th { font-size: 12px; }
+#filter-list { text-align: center; }
+#filter-list td { padding: 0; }
+#filter-list input { margin: 0; }
+#filter-list select, #filter-list .fPattern, #filter-list .fBoards, #palette-custom-input { padding: 1px; font-size: 11px; }
+#filter-list select { width: 75px; }
+#filter-list .fPattern { width: 110px; }
+#filter-list .fBoards { width: 25px; }
+#filter-list button { padding: 0; cursor: pointer; }
+#filter-list .fDel { width: 16px; border: 0; background: transparent; color: inherit; }
+#filtersMenu tfoot td { padding-top: 10px; }
+#filtersMenu .right { float: right; }
+.nativeSettings .colorbox { display: inline-block; width: 16px; height: 16px; padding: 0; font-size: 10px; line-height: 17px; background: white; border: 1px solid #aaa; color: black; cursor: pointer; }
+.nativeSettings .filterHelpButton { position: absolute; left: 5px; top: -2px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.filterEditorMessage { margin: 5px 0; }
+.filterEditorMessage:empty, .nativeFilterNotice:empty { display: none; }
+dialog.nativeFilterPalette, dialog.filterHelp { background: var(--panel); color: var(--ink); border: 1px solid var(--settings-frame, var(--edge)); padding: 8px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 0 5px rgba(0, 0, 0, .25); }
+dialog.filterHelp { width: 400px; }
+.filterPaletteGrid { display: flex; gap: 2px; margin-bottom: 8px; }
+#palette-custom-input { width: 45px; margin-right: 2px; }
+.board .filter-preview { cursor: pointer; margin-left: 3px; padding: 0; border: 0; font: inherit; background: transparent; color: var(--link); }
+.board .post-hidden .postInfo { opacity: .5; }
+.board .post-hidden .postMessage, .board .post-hidden .file, .board .post-hidden .postActions,
+.board .post-hidden .wbtn, .board .thread.post-hidden .replyContainer, .board .thread.post-hidden .omitted { display: none; }
+.board .native-filter-no-stub { display: none !important; }
+
+/* Pinned public watcher images; only release-owned URLs are permitted. */
+:root {
+  --watcher-icon-family: futaba;
+  --watcher-watch-off: url('/static/watcher/futaba/watch_thread_off.png');
+  --watcher-watch-on: url('/static/watcher/futaba/watch_thread_on.png');
+  --watcher-refresh: url('/static/watcher/futaba/refresh.png');
+  --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate.gif');
+  --watcher-cross: url('/static/watcher/futaba/cross.png');
+}
+@media (min-resolution: 2dppx) {
+  :root {
+    --watcher-watch-off: url('/static/watcher/futaba/watch_thread_off@2x.png');
+    --watcher-watch-on: url('/static/watcher/futaba/watch_thread_on@2x.png');
+    --watcher-refresh: url('/static/watcher/futaba/refresh@2x.png');
+    --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate@2x.gif');
+    --watcher-cross: url('/static/watcher/futaba/cross@2x.png');
+  }
+}
+
+/* Native thread-hiding controls use unchanged release-owned public icons. */
+.nativeThreadToggle { display: block; width: 18px; height: 18px; padding: 0; margin: 0 0 5px; border: 0; background: transparent; cursor: pointer; }
+.nativeThreadToggle img.threadHideButton { float: none; width: 18px; height: 18px; margin: 0; }
+.nativeThreadToggle[hidden], .nativeThreadRestore[hidden], .board .thread[hidden] { display: none !important; }
+.nativeThreadRestore { box-sizing: content-box; display: block; width: 150px; margin: auto; cursor: pointer; font: inherit; font-weight: bold; text-align: center; }
+.board .native-thread-hidden .postInfo { opacity: .5; }
+.board .native-thread-hidden .postMessage, .board .native-thread-hidden .file,
+.board .native-thread-hidden .postActions, .board .native-thread-hidden .wbtn,
+.board .native-thread-hidden .replyContainer, .board .native-thread-hidden .omitted { display: none; }
+
+.nativeKeybindsHelp li { padding: 3px 5px; }
+.nativeUpdater[hidden] { display: none !important; }
+.nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
+.nativeUpdaterStatus.tu-error { color: #d00; }
+.newPostsMarker:not(#quote-preview) { box-shadow: 0 3px red; }
+@media (max-width: 480px) {
+  .threadNav.mobile > .nativeUpdater { display: block; margin-top: 5px; }
+  .nativeUpdater .mobile-tu-status { display: block; height: 20px; line-height: 20px; }
+  .nativeUpdater .button input { margin: 0 3px 0 0; position: relative; top: -2px; border-radius: 0; height: 10px; width: 10px; }
+}
