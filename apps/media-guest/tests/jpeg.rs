@@ -188,3 +188,19 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn minimized_progressive_mutation_is_rejected_without_a_panic() {
+    let original = encoded(8, 8, ColorType::Rgb, &[230, 40, 25].repeat(64), true);
+    let expected = frame(&original, 8, 8);
+    let mut input = original.clone();
+    let position = 785 % input.len();
+    input[position] = 34;
+    assert_eq!(
+        input,
+        include_bytes!("../../../tests/media/fixtures/jpeg/minimized-progressive.jpg")
+    );
+    let error = decode_image(&input).unwrap_err();
+    assert_eq!(error.to_string(), "JPEG decoder panicked");
+    assert_eq!(decode_image(&original).unwrap(), expected);
+}
