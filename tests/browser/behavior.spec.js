@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { request as httpRequest } from 'node:http';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-assets.json', import.meta.url), 'utf8'));
@@ -145,7 +146,30 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     const b = await post(null, `${marker} Bravo`);
     const c = await post(null, `${marker} Crane`);
     await post(a, '', true);
-    await post(b, '');
+    // Browser requests share the OP's transport address. A different local
+    // peer supplies the bump, without bypassing the source OP cooldown.
+    const otherPeerReply = await new Promise((resolve, reject) => {
+      const body = new URLSearchParams({ resto: b, com: `${marker} other peer`, pwd: password }).toString();
+      const request = httpRequest(`${origin}/test/imgboard.php`, {
+        method: 'POST', localAddress: '127.0.0.2', timeout: 5000,
+        headers: { Origin: origin, Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
+      }, response => {
+        let value = '';
+        response.setEncoding('utf8');
+        response.on('data', chunk => {
+          value += chunk;
+          if (value.length > 65536) request.destroy(new Error('Oversized owned reply response'));
+        });
+        response.on('error', reject);
+        response.on('end', () => resolve({ status: response.statusCode, body: value }));
+      });
+      request.on('timeout', () => request.destroy(new Error('Owned peer request timed out')));
+      request.on('error', reject);
+      request.end(body);
+    });
+    expect(otherPeerReply.status).toBe(200);
+    expect(JSON.parse(otherPeerReply.body).tid).toBe(Number(b));
     const lastAReply = await post(a, '', true);
     await page.goto(`${origin}/test/catalog`);
     const controls = page.getByRole('form', { name: 'Catalog controls' });
