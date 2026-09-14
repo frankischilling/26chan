@@ -271,8 +271,12 @@ subjects, with escaped JSON text and bounded tab expansion in migration 0029.
 [Required subjects](source-required-subject.md) enforce the active `/qst/` and
 `/vg/` OP rule on cleaned text using migration 0030 operator policy; replies
 remain exempt and historical subjects stay unchanged.
+[Source OP markup](source-op-markup.md) adds the five ordered bold, italic and
+color passes on enabled boards for the OP and replies matching its address or
+deletion password. Migration 0034 enables existing `/qst/` and `/test/` boards
+and stamps new posts so later policy changes preserve their rendering.
 Current-head qualification remains required. Name/trip cleanup, forced-anonymous
-policy, markup and word filters remain unfinished;
+policy, remaining markup and word filters remain unfinished;
 the old handler's deployed encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the

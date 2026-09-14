@@ -1,5 +1,6 @@
 use crate::*;
 use chrono::Timelike;
+use sha2::{Digest, Sha256};
 
 #[derive(Clone)]
 pub struct NewPost {
@@ -15,6 +16,8 @@ pub struct NewPost {
 pub struct PostingContext {
     pub request_start: DateTime<Utc>,
     pub peer: Option<std::net::IpAddr>,
+    /// Fingerprint of the OP hash actually verified by the server; never client input.
+    pub op_password_proof: Option<[u8; 32]>,
 }
 
 pub async fn create_post(
@@ -55,6 +58,7 @@ pub async fn create_post_with_attachment_at(
         PostingContext {
             request_start,
             peer: None,
+            op_password_proof: None,
         },
     )
     .await
@@ -81,6 +85,32 @@ pub async fn create_post_with_context(
         .await?
         .ok_or(StoreError::NotFound)?;
     board.check_attachment_allowed(parent, attachment.is_some())?;
+    let peer = context.peer.map(|peer| peer.to_canonical().to_string());
+    let own_reply = if parent > 0 {
+        if let Some(peer) = &peer {
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.op_peers WHERE thread_id=$1 AND peer=$2::text::inet)")
+                .bind(parent).bind(peer).fetch_one(&mut *tx).await?
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    let password_matches = if board.op_markup && parent > 0 {
+        if let Some(proof) = context.op_password_proof {
+            let hash: Option<String> = sqlx::query_scalar(crate::read::OP_DELETION_HASH)
+                .bind(slug)
+                .bind(parent)
+                .fetch_optional(&mut *tx)
+                .await?;
+            hash.is_some_and(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) == proof)
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    let op_markup = board.op_markup && (parent == 0 || own_reply || password_matches);
     let board_domain::PreparedPostContent { comment, subject } =
         board_domain::prepare_post_content(
             &post.name,
@@ -88,7 +118,7 @@ pub async fn create_post_with_context(
             &comment,
             board.max_comment_chars as usize,
             attachment.is_some(),
-            board.comment_spacing(),
+            board.comment_spacing().with_op_markup(op_markup),
             if parent == 0 {
                 board_domain::PostKind::Thread {
                     subject_required: board.require_subject,
@@ -102,8 +132,6 @@ pub async fn create_post_with_context(
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await?;
-    let mut own_reply = false;
-    let peer = context.peer.map(|peer| peer.to_canonical().to_string());
     let thread_id = if parent == 0 {
         crate::archives::make_room(&mut tx, &board).await?;
         sqlx::query(
@@ -134,10 +162,6 @@ pub async fn create_post_with_context(
         // row is not inserted yet; the source's decision includes that reply.
         let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
             .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
-        if let Some(peer) = &peer {
-            own_reply = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.op_peers WHERE thread_id=$1 AND peer=$2::text::inet)")
-                .bind(parent).bind(peer).fetch_one(&mut *tx).await?;
-        }
         let mut self_sage = false;
         if own_reply && board.op_bump_limit {
             let latest: Option<DateTime<Utc>> = sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
@@ -172,6 +196,13 @@ pub async fn create_post_with_context(
     } else {
         post.name.trim()
     };
+    // Cosmetic source eligibility is supplied by this server-owned context.
+    // SET LOCAL cannot leak to a later request on the pooled connection. The
+    // trigger independently locks and checks the operator's board setting.
+    sqlx::query("SELECT set_config('board.source_op_reply', $1, true)")
+        .bind(if op_markup { "true" } else { "false" })
+        .execute(&mut *tx)
+        .await?;
     if let Some(attachment) = attachment {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)

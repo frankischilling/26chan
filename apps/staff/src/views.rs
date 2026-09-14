@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn stamped_preview_keeps_markup_and_escapes_hostile_text() {
-        for format in [0, 8, 9, 15] {
+        for format in [0, 8, 9, 15, 24, 31] {
             let preview = Preview::from(Report {
                 id: 1,
                 board: "test".into(),
@@ -84,7 +84,8 @@ mod tests {
                 name: "Anonymous".into(),
                 subject: String::new(),
                 comment_format: format,
-                comment: "[spoiler]<b>first</b>\n>>42[/spoiler]".into(),
+                comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b]"
+                    .into(),
                 state: "open".into(),
                 closed: false,
                 sticky: false,
@@ -103,6 +104,8 @@ mod tests {
             .render()
             .unwrap();
             assert_eq!(html.contains("<s>"), format & 1 != 0);
+            assert_eq!(html.contains("class=\"mu-s\""), format & 16 != 0);
+            assert!(!html.contains("<script>owned"));
             assert!(!html.contains("<b>first"));
             assert!(!html.contains("href=\"/test/post/42\""));
             assert!(html.contains("<span>&gt;&gt;42</span>"));

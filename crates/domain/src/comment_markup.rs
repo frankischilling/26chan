@@ -6,16 +6,18 @@ pub struct MarkupPolicy {
     pub spoilers: bool,
     pub code: bool,
     pub sjis: bool,
+    pub op: bool,
 }
 
 impl MarkupPolicy {
     /// Version zero belongs to the historical formatter. Unknown versions do
     /// not grant markup authority. Storage constrains the currently known set.
     pub fn from_post_format(value: i16) -> Option<Self> {
-        (8..=15).contains(&value).then_some(Self {
+        matches!(value, 8..=15 | 24..=31).then_some(Self {
             spoilers: value & 1 != 0,
             code: value & 2 != 0,
             sjis: value & 4 != 0,
+            op: value & 16 != 0,
         })
     }
 }
@@ -25,6 +27,11 @@ pub enum Tag {
     Spoiler,
     Code,
     Sjis,
+    Bold,
+    Italic,
+    Red,
+    Green,
+    Blue,
 }
 
 impl Tag {
@@ -36,6 +43,16 @@ impl Tag {
             (Self::Code, false) => "[/code]",
             (Self::Sjis, true) => "[sjis]",
             (Self::Sjis, false) => "[/sjis]",
+            (Self::Bold, true) => "[b]",
+            (Self::Bold, false) => "[/b]",
+            (Self::Italic, true) => "[i]",
+            (Self::Italic, false) => "[/i]",
+            (Self::Red, true) => "[red]",
+            (Self::Red, false) => "[/red]",
+            (Self::Green, true) => "[green]",
+            (Self::Green, false) => "[/green]",
+            (Self::Blue, true) => "[blue]",
+            (Self::Blue, false) => "[/blue]",
         }
     }
 
@@ -47,6 +64,12 @@ impl Tag {
             (Self::Code, false) => "</pre>".len(),
             (Self::Sjis, true) => "<span class=\"sjis\">".len(),
             (Self::Sjis, false) => "</span>".len(),
+            (Self::Bold | Self::Italic | Self::Red | Self::Green | Self::Blue, true) => {
+                "<span class=\"mu-s\">".len()
+            }
+            (Self::Bold | Self::Italic | Self::Red | Self::Green | Self::Blue, false) => {
+                "</span>".len()
+            }
         }
     }
 }
@@ -111,6 +134,11 @@ pub fn parse_markup(input: &str, policy: MarkupPolicy) -> Vec<MarkupToken> {
         atoms = unwrap_short_code(atoms);
         atoms = parse_one(atoms, Tag::Code, 2, false);
         atoms = code_breaks(atoms);
+    }
+    if policy.op {
+        for tag in [Tag::Bold, Tag::Italic, Tag::Red, Tag::Green, Tag::Blue] {
+            atoms = parse_one(atoms, tag, 1, false);
+        }
     }
     coalesce(atoms)
 }
@@ -369,13 +397,17 @@ mod tests {
             pieces in prop::collection::vec(prop_oneof![
                 ".{0,16}", Just("[spoiler]".into()), Just("[/spoiler]".into()),
                 Just("[sjis]".into()), Just("[/sjis]".into()),
-                Just("[code]".into()), Just("[/code]".into()), Just("\n".into())
+                Just("[code]".into()), Just("[/code]".into()), Just("\n".into()),
+                Just("[b]".into()), Just("[/b]".into()), Just("[i]".into()), Just("[/i]".into()),
+                Just("[red]".into()), Just("[/red]".into()), Just("[green]".into()), Just("[/green]".into()),
+                Just("[blue]".into()), Just("[/blue]".into())
             ], 0..120), skip in any::<bool>(),
         ) {
             let raw = pieces.concat();
             let input: Vec<_> = raw.chars().map(|ch| if ch == '\n' { Atom::Break } else { Atom::Char(ch) }).collect();
             let escaped = projection(&input);
-            for (tag, name, limit) in [(Tag::Spoiler, "spoiler", 2), (Tag::Code, "code", 2), (Tag::Sjis, "sjis", 1)] {
+            for (tag, name, limit) in [(Tag::Spoiler, "spoiler", 2), (Tag::Code, "code", 2), (Tag::Sjis, "sjis", 1),
+                (Tag::Bold, "b", 1), (Tag::Italic, "i", 1), (Tag::Red, "red", 1), (Tag::Green, "green", 1), (Tag::Blue, "blue", 1)] {
                 let actual = projection(&parse_one(input.clone(), tag, limit, skip));
                 prop_assert_eq!(actual, reference(&escaped, name, limit, skip));
             }

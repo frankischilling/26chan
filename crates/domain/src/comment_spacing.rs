@@ -9,6 +9,7 @@ pub struct CommentSpacing<'a> {
     board: &'a str,
     max_lines: usize,
     spoiler_cleanup: bool,
+    op_markup: bool,
     pub code: bool,
     pub sjis: bool,
     pub preserve_wide_spaces: bool,
@@ -21,6 +22,7 @@ impl<'a> CommentSpacing<'a> {
             spoilers: self.spoiler_cleanup,
             code: self.code,
             sjis: self.sjis,
+            op: self.op_markup,
         }
     }
 
@@ -29,6 +31,7 @@ impl<'a> CommentSpacing<'a> {
             board,
             max_lines: 70,
             spoiler_cleanup: false,
+            op_markup: false,
             code,
             sjis,
             preserve_wide_spaces: sjis || matches!(board, "a" | "b" | "jp"),
@@ -39,6 +42,11 @@ impl<'a> CommentSpacing<'a> {
     pub fn with_line_rules(mut self, max_lines: usize, spoiler_cleanup: bool) -> Self {
         self.max_lines = max_lines;
         self.spoiler_cleanup = spoiler_cleanup;
+        self
+    }
+
+    pub fn with_op_markup(mut self, enabled: bool) -> Self {
+        self.op_markup = enabled;
         self
     }
 }

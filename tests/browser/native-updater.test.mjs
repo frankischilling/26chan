@@ -41,6 +41,11 @@ test('active content, foreign namespaces, unapproved fetches and credential-bear
 });
 
 test('approved formatting and normalized media are allowed without accepting unrelated URLs', () => {
+  for (const color of ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b']) {
+    assert.equal(parse(snapshot(`<span class="${color}">&lt;script&gt;literal&lt;/script&gt;</span>`)).status, 'ok');
+    assert.equal(parse(snapshot(`<div class="${color}">wrong element</div>`)).status, 'invalid-snapshot');
+    assert.equal(parse(snapshot(`<span class="${color} quote">mixed</span>`)).status, 'invalid-snapshot');
+  }
   const content = '<span class="quote">&gt;green</span><br><span class="spoiler" tabindex="0" aria-label="Spoiler; focus to reveal">secret</span>'
     + '<a class="quotelink" href="/other/post/42">&gt;&gt;&gt;/other/42</a>'
     + '<a href="https://example.org/path?q=test" rel="nofollow noreferrer noopener">link</a>'

@@ -5,7 +5,7 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes
   depth: 32, requestMs: 10000, parseMs: 2000, intervalMs: 1000 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
   'op', 'reply', 'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted',
-  'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'prettyprint', 'postActions']);
+  'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden'], span: ['class', 'tabindex', 'aria-label'],
   time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
@@ -110,6 +110,9 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }) {
     }
     if (node.tag === 'button') require(form !== null);
     if (node.tag === 'pre') require(node.attrs.class === 'prettyprint');
+    if ((node.attrs.class || '').split(' ').some(value => ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(value))) {
+      require(node.tag === 'span' && ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(node.attrs.class));
+    }
     if (node.tag === 'img') require(typeof node.attrs.src === 'string' && typeof node.attrs.alt === 'string');
     if (node.tag === 'a') {
       require(typeof node.attrs.href === 'string');

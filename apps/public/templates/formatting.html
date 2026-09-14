@@ -10,9 +10,9 @@
 {%- when Token::Spoiler with (text) -%}<span class="spoiler" tabindex="0" aria-label="Spoiler; focus to reveal">{{ text }}</span>
 {%- when Token::Link with (url) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{{ url }}</a>
 {%- when Token::OpenMarkup with (tag) -%}
-{%- match tag -%}{%- when Tag::Spoiler -%}<s>{%- when Tag::Code -%}<pre class="prettyprint">{%- when Tag::Sjis -%}<span class="sjis">{%- endmatch -%}
+{%- match tag -%}{%- when Tag::Spoiler -%}<s>{%- when Tag::Code -%}<pre class="prettyprint">{%- when Tag::Sjis -%}<span class="sjis">{%- when Tag::Bold -%}<span class="mu-s">{%- when Tag::Italic -%}<span class="mu-i">{%- when Tag::Red -%}<span class="mu-r">{%- when Tag::Green -%}<span class="mu-g">{%- when Tag::Blue -%}<span class="mu-b">{%- endmatch -%}
 {%- when Token::CloseMarkup with (tag) -%}
-{%- match tag -%}{%- when Tag::Spoiler -%}</s>{%- when Tag::Code -%}</pre>{%- when Tag::Sjis -%}</span>{%- endmatch -%}
+{%- match tag -%}{%- when Tag::Spoiler -%}</s>{%- when Tag::Code -%}</pre>{%- when Tag::Sjis -%}</span>{%- when Tag::Bold -%}</span>{%- when Tag::Italic -%}</span>{%- when Tag::Red -%}</span>{%- when Tag::Green -%}</span>{%- when Tag::Blue -%}</span>{%- endmatch -%}
 {%- when Token::OpenQuote -%}<span class="quote">
 {%- when Token::CloseQuote -%}</span>
 {%- endmatch -%}
