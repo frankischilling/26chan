@@ -17,13 +17,30 @@ actual=$(runuser -u postgres -- "$pg_bin/psql" -XAt -h /tmp -p 55432 -d postgres
 fixture_job=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT replace(gen_random_uuid()::text, '-', '')")
 [[ $fixture_job =~ ^[0-9a-f]{32}$ ]] || exit 1
 fixture_intake=''
+fixture_op=''
 cleanup_media_fixture() {
-  "$pg_bin/psql" "$MIGRATION_DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -v fixture_job="$fixture_job" -v fixture_intake="$fixture_intake" <<'SQL'
+  "$pg_bin/psql" "$MIGRATION_DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -v fixture_job="$fixture_job" -v fixture_intake="$fixture_intake" -v fixture_op="$fixture_op" <<'SQL'
 DELETE FROM media.assets WHERE job_id=:'fixture_job';
 DELETE FROM media.jobs WHERE id=:'fixture_intake';
+DELETE FROM content.posts WHERE thread_id=NULLIF(:'fixture_op','')::bigint;
+DELETE FROM content.threads WHERE id=NULLIF(:'fixture_op','')::bigint;
 SQL
 }
 trap cleanup_media_fixture EXIT
+fixture_op=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+SELECT nextval('content.post_number') AS fixture_op, nextval('content.post_number') AS fixture_reply \gset
+INSERT INTO content.threads(id,board,reply_count) VALUES(:fixture_op,'test',1);
+INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+VALUES(:fixture_op,'test',:fixture_op,'Anonymous','','Owned restore OP'),
+      (:fixture_reply,'test',:fixture_op,'Anonymous','','Owned restore reply');
+INSERT INTO post_secrets.op_peers(thread_id,peer) VALUES(:fixture_op,'192.0.2.50');
+INSERT INTO post_secrets.op_replies(post_id,thread_id) VALUES(:fixture_reply,:fixture_op);
+COMMIT;
+SELECT :fixture_op;
+SQL
+)
+[[ $fixture_op =~ ^[0-9]+$ ]] || exit 1
 reservation=$("$pg_bin/psql" "$INTAKE_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT id,capability FROM media_intake.reserve('restore-synthetic.png')")
 IFS='|' read -r fixture_intake INTAKE_RESTORE_CAPABILITY <<< "$reservation"
 unset reservation
@@ -59,10 +76,16 @@ fingerprint_sql="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY id)) FR
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 [[ -n $before && $before = "$after" ]] || { echo 'Restored post data differs.' >&2; exit 1; }
-for table in content.boards content.threads content.reports content.moderation_audit post_secrets.deletion staff_identity.accounts staff_identity.credentials staff_identity.invitations staff_identity.ceremonies staff_identity.sessions deployment.settings public._sqlx_migrations media.jobs media.queue_policy media.assets media_intake.handles; do
+for table in content.boards content.threads content.reports content.moderation_audit post_secrets.deletion post_secrets.op_peers post_secrets.op_replies staff_identity.accounts staff_identity.credentials staff_identity.invitations staff_identity.ceremonies staff_identity.sessions deployment.settings public._sqlx_migrations media.jobs media.queue_policy media.assets media_intake.handles; do
   before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")
   after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")
   [[ $before = "$after" ]] || { echo "Restored row count differs: $table" >&2; exit 1; }
+done
+for table in post_secrets.op_peers post_secrets.op_replies; do
+  fingerprint="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY row_to_json(p)::text)) FROM $table p"
+  before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint")
+  after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint")
+  [[ -n $before && $before = "$after" ]] || { echo 'Restored private posting state differs.' >&2; exit 1; }
 done
 handle_fingerprint="SELECT md5(string_agg(row_to_json(h)::text, '' ORDER BY job_id)) FROM media_intake.handles h"
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")
@@ -133,6 +156,20 @@ for query in 'SELECT * FROM media.jobs' 'SELECT * FROM content.posts' 'SELECT * 
 done
 auth_restore="${AUTH_DATABASE_URL%/imageboard}/$restore_db"
 staff_restore="${STAFF_DATABASE_URL%/imageboard}/$restore_db"
+for denied_role_url in "$staff_restore" "$media_restore" "$reader_restore" "$monitor_restore" "$auth_restore"; do
+  "$pg_bin/psql" "$denied_role_url" -Xq -v ON_ERROR_STOP=1 <<'SQL'
+DO $$ BEGIN
+  BEGIN
+    PERFORM * FROM post_secrets.op_peers;
+    RAISE EXCEPTION 'Restored runtime can read OP addresses';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    PERFORM * FROM post_secrets.op_replies;
+    RAISE EXCEPTION 'Restored runtime can read own reply membership';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+SQL
+done
 "$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM staff_identity.accounts' > .local/restored-auth-check.txt
 "$pg_bin/psql" "$auth_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT last_activity_at FROM staff_identity.sessions LIMIT 0; UPDATE staff_identity.sessions SET last_activity_at=clock_timestamp() WHERE false' > .local/restored-activity-check.txt
 "$pg_bin/psql" "$staff_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM content.reports' > .local/restored-staff-check.txt
@@ -151,5 +188,5 @@ grep -q 'permission denied' .local/restored-staff-denial.txt
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 DROP DATABASE :"restore_db";
 SQL
-printf 'Restore exercise passed: post, asset and intake-handle fingerprints, sixteen table counts, restored capability and upload claims, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
+printf 'Restore exercise passed: post, private OP, asset and intake-handle fingerprints, eighteen table counts, restored capability and upload claims, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
 printf 'Source PostgreSQL: '; "$pg_bin/pg_dump" --version

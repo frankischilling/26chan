@@ -9,6 +9,13 @@ pub struct NewPost {
     pub sage: bool,
 }
 
+/// Server-owned posting context; never deserialize this from a request body.
+#[derive(Clone, Copy)]
+pub struct PostingContext {
+    pub request_start: DateTime<Utc>,
+    pub peer: Option<std::net::IpAddr>,
+}
+
 pub async fn create_post(
     pool: &PgPool,
     slug: &str,
@@ -38,6 +45,28 @@ pub async fn create_post_with_attachment_at(
     attachment: Option<&post_media::NewAttachment>,
     request_start: DateTime<Utc>,
 ) -> Result<i64, StoreError> {
+    create_post_with_context(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        PostingContext {
+            request_start,
+            peer: None,
+        },
+    )
+    .await
+}
+
+pub async fn create_post_with_context(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+) -> Result<i64, StoreError> {
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let mut tx = pool.begin().await?;
@@ -57,6 +86,8 @@ pub async fn create_post_with_attachment_at(
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await?;
+    let mut own_reply = false;
+    let peer = context.peer.map(|peer| peer.to_canonical().to_string());
     let thread_id = if parent == 0 {
         crate::archives::make_room(&mut tx, &board).await?;
         sqlx::query("INSERT INTO content.threads(id,board) VALUES ($1,$2)")
@@ -84,15 +115,32 @@ pub async fn create_post_with_attachment_at(
         // row is not inserted yet; the source's decision includes that reply.
         let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
             .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
+        if let Some(peer) = &peer {
+            own_reply = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.op_peers WHERE thread_id=$1 AND peer=$2::text::inet)")
+                .bind(parent).bind(peer).fetch_one(&mut *tx).await?;
+        }
+        let mut self_sage = false;
+        if own_reply && board.op_bump_limit {
+            let latest: Option<DateTime<Utc>> = sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
+                .bind(parent).bind(slug).fetch_optional(&mut *tx).await?;
+            self_sage = board_domain::op_bump::limited(
+                true,
+                context.request_start.timestamp(),
+                op_created.timestamp(),
+                latest.map(|time| time.timestamp()),
+                board.op_bump_initial_seconds as u32,
+                board.op_bump_repeat_seconds as u32,
+            );
+        }
         let bump = board_domain::bump::should_bump(
             thread.sticky,
             thread.permasage,
             thread.permaage,
-            post.sage,
+            post.sage || self_sage,
             replies as u64 + 1,
             board.bump_limit as u32,
             board_domain::bump::age_limited(
-                request_start.timestamp(),
+                context.request_start.timestamp(),
                 op_created.timestamp(),
                 board.permasage_hours as u32,
             ),
@@ -127,6 +175,23 @@ pub async fn create_post_with_attachment_at(
         .bind(&post.deletion_hash)
         .execute(&mut *tx)
         .await?;
+    if parent == 0 {
+        if let Some(peer) = peer {
+            sqlx::query(
+                "INSERT INTO post_secrets.op_peers(thread_id,peer) VALUES($1,$2::text::inet)",
+            )
+            .bind(id)
+            .bind(peer)
+            .execute(&mut *tx)
+            .await?;
+        }
+    } else if own_reply {
+        sqlx::query("INSERT INTO post_secrets.op_replies(post_id,thread_id) VALUES($1,$2)")
+            .bind(id)
+            .bind(parent)
+            .execute(&mut *tx)
+            .await?;
+    }
     tx.commit().await?;
     Ok(id)
 }

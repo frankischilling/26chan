@@ -1,5 +1,13 @@
 # Architecture and threat model
 
+[OP self-bump matching](source-op-bumps.md) keeps one active OP address and
+same-address reply membership in `post_secrets`. Public posting credentials
+can read/insert these sensitive records; staff, authentication, media and
+monitoring credentials cannot read them. A compromised public process can
+therefore recover active OP addresses. Fixed-search-path cleanup triggers
+remove them on deletion/archival without granting staff private-table access.
+No addresses or membership fields enter public representations or metrics.
+
 The implemented domain is a modular monolith: `board-domain` owns identifiers, posting validation and formatting; `board-config` validates origins and runtime configuration; `board-store` owns public and media queue SQL; `board-public` serves Axum routes and escaped Askama templates. An optional [JSON API listener](api.md) runs in that same public process with a restricted route surface and board-origin CORS. It shares the public pool, request budget and authority; it is not a new privilege boundary. `board-staff` is a separate Axum deployment with its own authentication and moderation SQL. `board-migrate` and `staff-operator` are operator binaries. First-party crates forbid unsafe Rust.
 
 ```mermaid

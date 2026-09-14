@@ -85,6 +85,6 @@ integration, containment and recovery checks.
 Local domain and public library tests, all-target/all-feature Clippy and Bash
 syntax checks passed. PostgreSQL is unavailable locally; the new persisted
 and upgrade tests require complete current-head Linux CI before merge. No
-visual baselines or production media authority change. OP self-bump rules,
-conditional spam policies, source reply admission, full board configuration
+visual baselines or production media authority change. [OP self-bump rules](source-op-bumps.md)
+have separate private-data and migration coverage. Conditional spam policies, source reply admission, full board configuration
 and production deployment/recovery qualification remain unfinished.
