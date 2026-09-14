@@ -348,7 +348,7 @@ async fn exercise(
             .await
             .unwrap()
             .status(),
-        StatusCode::CONFLICT
+        StatusCode::NOT_FOUND
     );
     sqlx::query("UPDATE media.jobs SET created_at=clock_timestamp() WHERE id=$1")
         .bind(&id)
