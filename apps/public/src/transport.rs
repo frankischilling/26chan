@@ -134,6 +134,60 @@ mod tests {
     use std::os::unix::fs::{PermissionsExt, symlink};
 
     #[tokio::test]
+    async fn unix_shutdown_retains_the_owned_socket_until_requests_drain() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("public.sock");
+        let listener = PublicListener::Unix(UnixListener::bind(&path).unwrap());
+        let active = std::sync::Arc::new(tokio::sync::Notify::new());
+        let release = std::sync::Arc::new(tokio::sync::Notify::new());
+        let started = active.clone();
+        let ready = release.clone();
+        let app = axum::Router::new().route(
+            "/hold",
+            axum::routing::get(move || {
+                let started = started.clone();
+                let ready = ready.clone();
+                async move {
+                    started.notify_one();
+                    ready.notified().await;
+                    "drained"
+                }
+            }),
+        );
+        let (stop, stopped) = tokio::sync::watch::channel(false);
+        let server = tokio::spawn(listener.serve(app, stopped));
+        let mut client = tokio::net::UnixStream::connect(&path).await.unwrap();
+        client
+            .write_all(b"GET /hold HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), active.notified())
+            .await
+            .unwrap();
+        stop.send(true).unwrap();
+        tokio::task::yield_now().await;
+        assert!(!server.is_finished());
+        assert!(path.exists());
+        release.notify_one();
+        let mut response = String::new();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            client.read_to_string(&mut response),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(response.starts_with("HTTP/1.1 200") && response.ends_with("drained"));
+        tokio::time::timeout(std::time::Duration::from_secs(2), server)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(!path.exists());
+    }
+
+    #[tokio::test]
     async fn real_socket_uses_kernel_uid_and_rejects_missing_or_duplicate_headers() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let dir = tempfile::tempdir().unwrap();
@@ -206,6 +260,12 @@ mod tests {
         std::fs::write(&path, "keep").unwrap();
         assert!(UnixListener::bind(&path).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "keep");
+        std::fs::remove_file(&path).unwrap();
+        let socket = UnixListener::bind(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        std::fs::write(&path, "replacement").unwrap();
+        drop(socket);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "replacement");
         std::fs::remove_file(&path).unwrap();
         symlink(dir.path().join("missing"), &path).unwrap();
         assert!(UnixListener::bind(&path).is_err());

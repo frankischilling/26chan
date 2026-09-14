@@ -102,14 +102,22 @@ def main():
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             cleanup.callback(stop, edge)
             deadline = time.monotonic() + 15
+            last_status, last_error = None, None
             while True:
                 assert public.poll() is None and edge.poll() is None, 'Owned service exited at startup'
                 try:
-                    if request('GET', '/readyz')[0] == 200:
+                    last_status, _ = request('GET', '/readyz')
+                    if last_status == 200:
                         break
-                except (OSError, http.client.HTTPException):
-                    pass
-                assert time.monotonic() < deadline, 'Owned HTTPS listener did not become ready'
+                except (OSError, http.client.HTTPException) as error:
+                    last_error = type(error).__name__ + ': ' + str(error)
+                if time.monotonic() >= deadline:
+                    # Only synthetic edge requests reach these logs. The public
+                    # environment and database credentials are never printed.
+                    edge_log = root / 'edge-error.log'
+                    detail = edge_log.read_text()[-4000:] if edge_log.exists() else ''
+                    raise AssertionError(f'Owned HTTPS readiness failed: status={last_status}, '
+                                         f'error={last_error}, socket={path.exists()}, edge={detail}')
                 time.sleep(0.05)
             with socket.socket() as probe:
                 assert probe.connect_ex(('127.0.0.1', unused_port)) != 0, 'Unexpected public TCP listener'
