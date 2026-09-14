@@ -100,6 +100,9 @@ pub async fn boards(
         if board.archive_retention_seconds > 0 {
             value["is_archived"] = json!(1);
         }
+        if board.require_subject {
+            value["require_subject"] = json!(1);
+        }
         if state.media.is_some() && board.image_limit > 0 {
             value.as_object_mut().expect("board object").remove("text_only");
             value["max_filesize"] = json!(8_388_608);

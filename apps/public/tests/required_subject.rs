@@ -99,6 +99,66 @@ async fn accepted_id(response: axum::response::Response, index: usize) -> i64 {
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
+    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    for router in [&app, &api] {
+        let mut previous_etag = String::new();
+        for enabled in [false, true, false] {
+            sqlx::query("UPDATE content.boards SET require_subject=$2 WHERE slug=$1")
+                .bind(&slug)
+                .bind(enabled)
+                .execute(&owner)
+                .await
+                .unwrap();
+            let mut request = Request::get("/boards.json");
+            if !previous_etag.is_empty() {
+                request = request.header("if-none-match", &previous_etag);
+            }
+            let response = router
+                .clone()
+                .oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                200,
+                "Changed policy must invalidate the board validator"
+            );
+            let etag = response.headers()["etag"].to_str().unwrap().to_owned();
+            assert_ne!(etag, previous_etag);
+            let json: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap())
+                    .unwrap();
+            let board = json["boards"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|board| board["board"] == slug)
+                .unwrap();
+            if enabled {
+                assert_eq!(board["require_subject"].as_i64(), Some(1));
+            } else {
+                assert!(board.get("require_subject").is_none());
+            }
+            let unchanged = router
+                .clone()
+                .oneshot(
+                    Request::get("/boards.json")
+                        .header("if-none-match", &etag)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(unchanged.status(), 304);
+            assert!(
+                to_bytes(unchanged.into_body(), 1024)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+            previous_etag = etag;
+        }
+    }
     let historical = board_store::create_post(&public, &slug, 0, &post(""))
         .await
         .unwrap();
@@ -122,7 +182,6 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         denied.as_database_error().unwrap().code().as_deref(),
         Some("42501")
     );
-    let (app, _) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
     for index in 0..8 {
         let before = snapshot(&owner, &slug).await;
         let response = submit(&app, &slug, index, 0, "＃##😀").await;
