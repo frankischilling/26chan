@@ -192,8 +192,8 @@ Clippy and the corrected domain cases passed. Local migration execution failed
 with `PoolTimedOut`; database, migration, restore and browser results require
 fresh hosted checks.
 
-The source's `TEXT_ONLY` branch separately requires an OP subject. That board
-policy and the privileged options/image bypass are still unimplemented; neither
-is inferred from production media being disabled. OP markup, word filters,
+The source's [`TEXT_ONLY` policy](source-text-only.md) separately requires an OP
+subject after final admission. The privileged options/image bypass remains
+unimplemented and is not inferred from production media being disabled. OP markup, word filters,
 linkification, wrapping, full quote equivalence and syntax highlighting remain
 open under #143/#6. This slice does not establish complete formatting parity.

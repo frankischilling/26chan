@@ -240,6 +240,7 @@ mod tests {
             comment_max_lines: 100,
             comment_spoiler_cleanup: true,
             require_subject: false,
+            text_only: false,
             reply_limit: 1000,
             bump_limit: 300,
             permasage_hours: 0,

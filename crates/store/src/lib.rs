@@ -45,6 +45,7 @@ pub struct Board {
     pub comment_max_lines: i32,
     pub comment_spoiler_cleanup: bool,
     pub require_subject: bool,
+    pub text_only: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,
     pub permasage_hours: i32,
@@ -60,6 +61,13 @@ pub struct Board {
 }
 
 impl Board {
+    pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
+        if self.text_only && parent != 0 && attached {
+            return Err(StoreError::Invalid("You cannot upload files on this board"));
+        }
+        Ok(())
+    }
+
     pub fn comment_spacing(&self) -> board_domain::CommentSpacing<'_> {
         board_domain::CommentSpacing::for_board(
             &self.slug,
