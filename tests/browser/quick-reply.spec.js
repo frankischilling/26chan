@@ -33,7 +33,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await expect(page.locator('#quickReply')).toBeVisible();
     await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('');
     await page.locator('#quickReply input[type=submit]').click();
-    await expect(page.locator('#qrError')).toContainText('comment');
+    await expect(page.locator('#qrError')).toHaveText('Error: No text entered.');
     await expect(page.locator('#qr-pwd')).toHaveValue(password);
     await page.locator('#qrCom').fill(`>>${id}\nOwned Quick Reply result`);
     await observePostingBody(page);
