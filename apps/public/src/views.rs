@@ -83,8 +83,14 @@ impl ThreadView {
         )
     }
 
+    /// HTML catalog rule; public JSON additionally excludes undead threads.
     pub fn image_limited(&self, board: &Board) -> bool {
-        board.image_limit > 0 && self.image_replies >= i64::from(board.image_limit)
+        board_domain::image_limit::catalog_limited(
+            self.thread.sticky,
+            self.thread.permaage,
+            self.image_replies as u64,
+            board.image_limit as u32,
+        )
     }
 
     pub fn visible_replies(&self) -> usize {

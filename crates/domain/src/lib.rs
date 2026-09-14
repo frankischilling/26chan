@@ -2,6 +2,7 @@
 
 pub mod bump;
 pub mod formatting;
+pub mod image_limit;
 pub mod posting_options;
 pub use formatting::{Line, Token, parse_comment};
 

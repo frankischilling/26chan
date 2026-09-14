@@ -369,6 +369,12 @@ async fn exercise(f: &Fixture) {
     }
     let c = f.reserve().await;
     let c_asset = f.approve(&c).await;
+    // Suppressed limit indicators do not grant another image slot.
+    sqlx::query("UPDATE content.threads SET sticky=true,permaage=true,undead=true WHERE id=$1")
+        .bind(thread)
+        .execute(&f.admin)
+        .await
+        .unwrap();
     let (left, right) = tokio::join!(f.insert(thread, &b), f.insert(thread, &c));
     assert_eq!(usize::from(left.is_ok()) + usize::from(right.is_ok()), 1);
     let (winner, remaining, remaining_asset) = match (left, right) {
@@ -380,6 +386,11 @@ async fn exercise(f: &Fixture) {
         f.insert(thread, remaining).await,
         Err(StoreError::Conflict(_))
     ));
+    sqlx::query("UPDATE content.threads SET sticky=false,permaage=false,undead=false WHERE id=$1")
+        .bind(thread)
+        .execute(&f.admin)
+        .await
+        .unwrap();
     let revision = board_store::thread(&f.public, &f.board, thread)
         .await
         .unwrap()

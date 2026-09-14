@@ -254,6 +254,7 @@ mod tests {
             sticky: false,
             permasage: false,
             permaage: false,
+            undead: false,
             closed: false,
             deleted: false,
             archived_at: None,

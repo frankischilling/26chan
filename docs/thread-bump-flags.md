@@ -84,7 +84,8 @@ Perl build modules; the installed Git Perl also lacks those modules. Local
 PostgreSQL is unavailable. Staff compilation, persisted tests, browser sign-in
 and the upgrade exercise require this change's complete Linux CI before merge.
 
-Image-limit exclusions, age suppression, OP self-bumps, board-specific spam
+[Image-limit exclusions](source-image-limits.md) have separate implementation
+and qualification. Age suppression, OP self-bumps, board-specific spam
 rules and source reply admission remain unfinished. These flags do not bypass
 closed/archive/reply/image admission or expand processing authority. Production
 launch/recovery and full source parity remain separate unfinished work.

@@ -640,6 +640,140 @@ async fn catalog_counts(
     );
 }
 
+async fn image_flags(
+    app: &Router,
+    board: &str,
+    thread: i64,
+    images: i64,
+    replies: i64,
+    json_limited: bool,
+    html_limited: bool,
+) -> String {
+    let mut full_etag = String::new();
+    for (suffix, kind) in [
+        (format!("thread/{thread}.json"), 0),
+        (format!("thread/{thread}-tail.json"), 1),
+        ("1.json".into(), 2),
+        ("catalog.json".into(), 3),
+    ] {
+        let (value, etag) = json(app, &format!("/{board}/{suffix}")).await;
+        if kind == 0 {
+            full_etag = etag;
+        }
+        let op = match kind {
+            0 | 1 => &value["posts"][0],
+            2 => &value["threads"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["posts"][0]["no"] == thread)
+                .unwrap()["posts"][0],
+            _ => value[0]["threads"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|p| p["no"] == thread)
+                .unwrap(),
+        };
+        assert_eq!(op["no"], thread, "{suffix}");
+        assert_eq!(op["images"], images, "{suffix}");
+        assert_eq!(op["replies"], replies, "{suffix}");
+        assert_eq!(
+            op["imagelimit"].as_i64(),
+            if kind == 1 {
+                Some(i64::from(json_limited))
+            } else {
+                json_limited.then_some(1)
+            },
+            "{suffix}"
+        );
+        for internal in ["undead", "permaage", "permasage"] {
+            assert!(op.get(internal).is_none(), "{internal} is not a JSON field");
+        }
+    }
+    let page = html(
+        app.clone()
+            .oneshot(
+                Request::get(format!("/{board}/catalog"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    let meta = page
+        .split(&format!("id=\"meta-{thread}\""))
+        .nth(1)
+        .unwrap()
+        .split("</div>")
+        .next()
+        .unwrap();
+    if images > 0 {
+        assert!(meta.contains(&format!("I: <b>{images}</b>")));
+    } else {
+        assert!(!meta.contains("I:"), "zero images omit the image segment");
+    }
+    assert_eq!(meta.contains("<i>I: <b>"), html_limited && images > 0);
+    full_etag
+}
+
+async fn image_flag_transitions(app: &Router, board: &str, thread: i64, admin: &PgPool) {
+    sqlx::query("UPDATE content.boards SET json_tail_size=1 WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    let mut previous: Option<(String, bool)> = None;
+    for sticky in [false, true] {
+        for permaage in [false, true] {
+            for undead in [false, true] {
+                let mut same_flags = String::new();
+                for permasage in [false, true] {
+                    sqlx::query("UPDATE content.threads SET sticky=$2,permaage=$3,undead=$4,permasage=$5,modified_at=clock_timestamp() WHERE id=$1")
+                        .bind(thread).bind(sticky).bind(permaage).bind(undead).bind(permasage).execute(admin).await.unwrap();
+                    let json_limited = !sticky && !permaage && !undead;
+                    let etag =
+                        image_flags(app, board, thread, 7, 7, json_limited, !sticky && !permaage)
+                            .await;
+                    if let Some((old, old_limited)) = &previous
+                        && *old_limited != json_limited
+                    {
+                        assert_ne!(&etag, old);
+                        let response = app
+                            .clone()
+                            .oneshot(
+                                Request::get(format!("/{board}/thread/{thread}.json"))
+                                    .header("if-none-match", old)
+                                    .body(Body::empty())
+                                    .unwrap(),
+                            )
+                            .await
+                            .unwrap();
+                        assert_eq!(response.status(), StatusCode::OK);
+                    }
+                    if permasage {
+                        assert_eq!(
+                            etag, same_flags,
+                            "permasage does not change image indicators"
+                        );
+                    } else {
+                        same_flags = etag.clone();
+                    }
+                    previous = Some((etag, json_limited));
+                }
+            }
+        }
+    }
+    sqlx::query("UPDATE content.threads SET sticky=false,permaage=false,undead=false,permasage=false WHERE id=$1").bind(thread).execute(admin).await.unwrap();
+    sqlx::query("UPDATE content.boards SET json_tail_size=0 WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+}
+
 async fn image_reply_contract(
     app: &Router,
     board: &str,
@@ -841,6 +975,7 @@ async fn image_reply_contract(
     assert_eq!(op["images"], 7);
     assert!(op.get("com").is_none());
     catalog_counts(app, board, thread, 7, 7, true).await;
+    image_flag_transitions(app, board, thread, admin).await;
     board_store::post_media::delete_attachment(&public, board, posts[1])
         .await
         .unwrap();
@@ -883,7 +1018,7 @@ async fn image_reply_contract(
         .await
         .unwrap();
     catalog_counts(app, board, thread, 6, 5, false).await;
-    for (limit, limited) in [(5, true), (4, true), (0, false), (7, false)] {
+    for (limit, limited) in [(5, true), (4, true), (0, true), (7, false)] {
         sqlx::query("UPDATE content.boards SET image_limit=$1 WHERE slug=$2")
             .bind(limit)
             .bind(board)
@@ -956,5 +1091,35 @@ async fn image_reply_contract(
         card.contains("data-search-file=\"\" data-has-file=\"false\""),
         "inert cards cannot restore deleted filenames as live search metadata"
     );
+    // The zero-capacity boundary applies even to a thread with no attachments.
+    sqlx::query("UPDATE content.boards SET image_limit=0,json_tail_size=1 WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    let text = board_store::NewPost {
+        name: "Anonymous".into(),
+        subject: String::new(),
+        comment: "Owned zero-image fixture".into(),
+        deletion_hash: "synthetic-unused-hash".into(),
+        sage: false,
+    };
+    let text_thread = board_store::create_post(&public, board, 0, &text)
+        .await
+        .unwrap();
+    for _ in 0..2 {
+        board_store::create_post(&public, board, text_thread, &text)
+            .await
+            .unwrap();
+    }
+    image_flags(app, board, text_thread, 0, 2, true, true).await;
+    board_store::delete_post(&public, board, text_thread)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET image_limit=7,json_tail_size=0 WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
     public.close().await;
 }

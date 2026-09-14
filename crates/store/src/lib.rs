@@ -61,6 +61,7 @@ pub struct Thread {
     pub sticky: bool,
     pub permasage: bool,
     pub permaage: bool,
+    pub undead: bool,
     pub closed: bool,
     pub deleted: bool,
     pub archived_at: Option<DateTime<Utc>>,
