@@ -2,9 +2,11 @@ use board_domain::{CommentSpacing, PostKind, prepare_post_content};
 
 const REQUIRED: PostKind = PostKind::Thread {
     subject_required: true,
+    text_only: false,
 };
 const OPTIONAL: PostKind = PostKind::Thread {
     subject_required: false,
+    text_only: false,
 };
 
 const MISSING: &str = "Error: New threads require a subject.";

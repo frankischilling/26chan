@@ -4,7 +4,10 @@ use crate::{CommentSpacing, ValidationError, prepare_post_comment, prepare_post_
 /// Server-selected post position and operator-owned OP subject rule.
 #[derive(Clone, Copy)]
 pub enum PostKind {
-    Thread { subject_required: bool },
+    Thread {
+        subject_required: bool,
+        text_only: bool,
+    },
     Reply,
 }
 
@@ -30,7 +33,8 @@ pub fn prepare_post_content(
     if matches!(
         kind,
         PostKind::Thread {
-            subject_required: true
+            subject_required: true,
+            ..
         }
     ) && subject.is_empty()
     {
@@ -62,6 +66,16 @@ pub fn prepare_post_content(
             }
             _ => {}
         }
+    }
+    if matches!(
+        kind,
+        PostKind::Thread {
+            text_only: true,
+            ..
+        }
+    ) && subject.is_empty()
+    {
+        return Err(ValidationError("Error: New threads require a subject."));
     }
     Ok(PreparedPostContent { subject, comment })
 }

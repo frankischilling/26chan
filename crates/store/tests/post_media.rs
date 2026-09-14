@@ -9,6 +9,7 @@ use board_store::{
 };
 use sqlx::{Executor, PgPool};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 struct Fixture {
     admin: PgPool,
@@ -505,6 +506,7 @@ async fn exercise(f: &Fixture) {
     image_admission_flags(f).await;
     comment_spacing(f).await;
     final_content_admission(f).await;
+    text_only_policy(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
@@ -556,6 +558,100 @@ async fn final_content_admission(f: &Fixture) {
             create_post_with_attachment(&f.public, &f.board, thread, &draft, Some(&upload)).await,
             Err(StoreError::Conflict(_))
         ));
+    }
+}
+
+async fn text_only_policy(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET image_limit=100,require_subject=false,text_only=true WHERE slug=$1")
+        .bind(&f.board).execute(&f.admin).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let upload = f.reserve().await;
+    let asset = f.approve(&upload).await;
+    assert!(matches!(
+        f.insert(thread, &upload).await,
+        Err(StoreError::Invalid("You cannot upload files on this board"))
+    ));
+    let mut subjectless = post();
+    subjectless.subject.clear();
+    assert!(matches!(
+        create_post_with_attachment(&f.public, &f.board, 0, &subjectless, Some(&upload)).await,
+        Err(StoreError::Invalid("Error: New threads require a subject."))
+    ));
+    // A public caller cannot bypass the policy by invoking the scoped SQL
+    // inserter directly. The invoker trigger rejects its real row insertion.
+    let mut tx = f.public.begin().await.unwrap();
+    let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    let error = sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+        .bind(id)
+        .bind(&f.board)
+        .bind(thread)
+        .bind("Anonymous")
+        .bind("Reply")
+        .bind("Owned text-only attachment check")
+        .bind(&upload.upload.id)
+        .bind(&upload.upload.capability)
+        .bind(false)
+        .execute(&mut *tx)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().unwrap().code().as_deref(),
+        Some("23514")
+    );
+    assert_eq!(
+        error.as_database_error().unwrap().message(),
+        "You cannot upload files on this board"
+    );
+    tx.rollback().await.unwrap();
+    // The active source handler permits an OP attachment on TEXT_ONLY. The
+    // same approval remains usable after both Rust and database rejections.
+    let op = f.insert(0, &upload).await.unwrap();
+    assert_eq!(
+        attachment(&f.public, op).await.unwrap().unwrap().asset_id,
+        asset
+    );
+    for enabled in [false, true] {
+        let upload = Arc::new(f.reserve().await);
+        f.approve(&upload).await;
+        let mut locked = f.admin.begin().await.unwrap();
+        let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *locked)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.boards SET text_only=$2 WHERE slug=$1")
+            .bind(&f.board)
+            .bind(enabled)
+            .execute(&mut *locked)
+            .await
+            .unwrap();
+        let pending = {
+            let public = f.public.clone();
+            let board = f.board.clone();
+            let upload = upload.clone();
+            tokio::spawn(async move {
+                create_post_with_attachment(&public, &board, thread, &post(), Some(&upload)).await
+            })
+        };
+        let witnessed = tokio::time::timeout(Duration::from_secs(5), async { loop {
+            let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
+                .bind(pid).fetch_one(&f.admin).await.unwrap();
+            if waiting { break; } tokio::time::sleep(Duration::from_millis(10)).await;
+        }}).await;
+        locked.commit().await.unwrap();
+        let result = pending.await.unwrap();
+        witnessed.expect("attachment posting waited for text-only policy");
+        if enabled {
+            assert!(matches!(
+                result,
+                Err(StoreError::Invalid("You cannot upload files on this board"))
+            ));
+            f.insert(0, &upload).await.unwrap();
+        } else {
+            assert!(result.is_ok());
+        }
     }
 }
 

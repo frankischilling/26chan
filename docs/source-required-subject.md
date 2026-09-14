@@ -29,10 +29,11 @@ not add client-side required validation. The source JSON builder at
 enabled, and omits the field otherwise. Both public read-only JSON routers use
 the saved board setting and invalidate `/boards.json` ETags when it changes.
 Development media availability does not imply this policy. The separate source
-`TEXT_ONLY` policy also emits the flag, but that policy remains unimplemented.
+[`TEXT_ONLY` policy](source-text-only.md) also emits the flag and applies its
+own later subject check and reply attachment restriction.
 
 HTML denial is 422; JSON posting retains the implemented HTTP 200 error object.
-Image-required, upload-board, text-only, forced-anonymous
+Image-required, upload-board, forced-anonymous
 and other posting errors remain separate unfinished policies. Ordinary OP
 subject-or-comment admission is implemented in the [markup pipeline](source-comment-markup.md).
 In particular, media-disabled development still permits text-only
