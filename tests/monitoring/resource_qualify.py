@@ -493,6 +493,7 @@ def qualify(root, binary, binary_directory, lifecycle_state):
                 raise AssertionError('Resource observer did not stop normally')
     finally:
         fixture.cleanup()
+    auth.check_signal_cleanup()
 
 
 if __name__ == '__main__':
