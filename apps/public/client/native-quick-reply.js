@@ -1,12 +1,12 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
-import { quoteInsertion, sendQuickReply } from './native-quick-reply-transport.js';
+import { commentLengthWarning, quoteInsertion, sendQuickReply } from './native-quick-reply-transport.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
   if (!source || !/^[a-z0-9]{1,10}$/.test(board)) return null;
   const approvedThread = source.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;
   let dialog, form, comment, error, submit, current, controller, opener, position, epoch = 0;
-  let busy = false;
+  let busy = false, commentTimer;
   const disabled = () => settings().disableAll === true || settings().quickReply === false;
   const section = id => document.getElementById(`t${id}`);
   const closed = id => section(id) ? ['closed', 'archived'].some(key => section(id).dataset[key] === 'true')
@@ -18,9 +18,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     return element;
   };
   const mobile = () => matchMedia('(max-width: 480px)').matches;
-  function place(value) {
+  function place(value, reopening = false) {
     if (!dialog) return;
-    if (mobile()) { dialog.style.left = '5px'; dialog.style.right = 'auto'; dialog.style.top = `${scrollY + 28}px`; return; }
+    if (mobile()) { dialog.style.left = '5px'; dialog.style.right = 'auto'; dialog.style.top = `${scrollY + (reopening ? 25 : 28)}px`; return; }
     if (!value || !Number.isFinite(value.left) || !Number.isFinite(value.top)) {
       dialog.style.left = 'auto'; dialog.style.right = '0px'; dialog.style.top = '10%'; return;
     }
@@ -31,10 +31,17 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   function close() {
     if (!dialog) return;
     epoch++; controller?.abort(); controller = null; busy = false;
+    clearTimeout(commentTimer); commentTimer = null;
     dialog?.remove(); dialog = form = comment = error = submit = null; current = null;
     opener?.focus();
   }
-  function message(text) { if (error) { error.textContent = text; error.hidden = !text; } }
+  function message(text, type = '') { if (error) { error.textContent = text; error.hidden = !text; error.dataset.type = type; } }
+  function checkComment() {
+    if (!dialog || closed(current)) return;
+    const warning = commentLengthWarning(comment.value, source.dataset.commentLimit);
+    if (warning) message(warning, 'length');
+    else if (error.dataset.type === 'length') message('');
+  }
   function sync() {
     if (disabled()) close();
     if (entry) entry.hidden = disabled() || closed(thread) || mobile();
@@ -52,11 +59,12 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       }
       if (quote || selected) insert(quote, selected);
       else comment.focus();
-      if (mobile()) place();
+      if (mobile()) place(null, true);
       return true;
     }
     current = id; opener = document.activeElement;
     dialog = node('dialog', undefined, 'extPanel reply nativeQuickReply'); dialog.id = 'quickReply';
+    dialog.dataset.trackpos = 'QR-position';
     dialog.setAttribute('aria-labelledby', 'qrHeader');
     const header = node('div', undefined, 'drag postblock'); header.id = 'qrHeader';
     const title = node('span', 'Reply to Thread No.'); const number = node('span', id); number.id = 'qrTid'; title.append(number);
@@ -66,6 +74,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     form.action = `/${board}/imgboard.php`; form.enctype = 'multipart/form-data';
     for (const [name, value] of [['mode', 'regist'], ['resto', id]]) {
       const input = node('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input);
+      if (name === 'resto') input.id = 'qrResto';
     }
     const fields = node('div'); fields.id = 'qrForm'; form.append(fields);
     function field(name, label, type = 'text') {
@@ -98,13 +107,14 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     form.addEventListener('submit', event => { event.preventDefault(); void send(); });
     comment.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) { event.preventDefault(); close(); }
+      if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) { event.preventDefault(); close(); return; }
       else if (event.ctrlKey && event.key.toLowerCase() === 's') {
         event.preventDefault(); event.stopPropagation();
         const start = comment.selectionStart, end = comment.selectionEnd, empty = comment.value.length === 0;
         const value = `[spoiler]${comment.value.slice(start, end)}[/spoiler]`;
         comment.setRangeText(value, start, end, 'end'); if (empty) comment.setSelectionRange(9, 9);
       }
+      clearTimeout(commentTimer); commentTimer = setTimeout(checkComment, 500);
     });
     let drag;
     header.addEventListener('pointerdown', event => {
@@ -121,7 +131,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   }
   function insert(id, selected) {
     const result = quoteInsertion(comment.value, comment.selectionStart, comment.selectionEnd, id, selected.slice(0, 65536));
-    comment.value = result.value; comment.setSelectionRange(result.caret, result.caret); comment.focus(); comment.scrollTop = comment.scrollHeight;
+    comment.value = result.value; comment.setSelectionRange(result.caret, result.caret);
+    if (result.caret === comment.value.length) comment.scrollTop = comment.scrollHeight;
+    comment.focus();
   }
   async function send() {
     if (busy) { controller?.abort(); return; }

@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { quoteInsertion, postingResult, sendQuickReply } from '../../apps/public/client/native-quick-reply-transport.js';
+import { commentLengthWarning, quoteInsertion, postingResult, sendQuickReply } from '../../apps/public/client/native-quick-reply-transport.js';
+
+test('the source comment advisory counts UTF-8 bytes against the configured character limit', () => {
+  assert.equal(commentLengthWarning('abcd', '4'), '');
+  assert.equal(commentLengthWarning('😀', '4'), '');
+  assert.equal(commentLengthWarning('😀a', '4'), 'Error: Comment too long (5/4).');
+  assert.equal(commentLengthWarning('a\r\nb', '3'), 'Error: Comment too long (4/3).');
+  assert.equal(commentLengthWarning('é'.repeat(8001), '16000'), 'Error: Comment too long (16002/16000).');
+  for (const limit of [undefined, null, '', '0', '01', '16001', '1e3', 'Infinity', '1; color:red']) assert.equal(commentLengthWarning('xx', limit), '');
+});
 
 test('source quotes replace selection and preserve exact large IDs', () => {
   assert.deepEqual(quoteInsertion('beforeafter', 6, 6, '9223372036854775807', ' a\r\n\nb '), {

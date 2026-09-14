@@ -101,3 +101,41 @@ test('an approved Quick Reply consumes both editors capability fields and reopen
   await expect(qr).toBeVisible(); await expect(qr.locator('[name=upload_id], [name=upload_capability], [name=spoiler]')).toHaveCount(0);
   await expect(qr.locator('input[type=submit]')).toBeEnabled();
 });
+
+test('source length advice is debounced, typed, cancelable and does not hide server errors', async ({ page }) => {
+  await page.goto('/demo/'); await page.locator('.postInfo > .postNum').first().click();
+  await expect(page.locator('#qrResto')).toHaveValue('1000001');
+  await expect(page.locator('#quickReply')).toHaveAttribute('data-trackpos', 'QR-position');
+  const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
+  const limit = Number(await page.locator('form.postEditor').first().getAttribute('data-comment-limit'));
+  const value = '😀'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
+  const comment = page.locator('#qrCom'), error = page.locator('#qrError');
+  await comment.fill(value); await comment.press('ArrowLeft');
+  await page.clock.runFor(499); await expect(error).toBeHidden();
+  await comment.press('ArrowRight'); await page.clock.runFor(499); await expect(error).toBeHidden();
+  await page.clock.runFor(1); await expect(error).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
+  await expect(error).toHaveAttribute('data-type', 'length'); await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
+  await comment.fill('Short'); await comment.press('ArrowLeft'); await page.clock.runFor(500); await expect(error).toBeHidden();
+  await page.locator('#qr-pwd').fill('owned-password');
+  await page.route('**/demo/imgboard.php', route => route.fulfill({ contentType: 'application/json', body: '{"error":"Server rule rejected this post"}' }));
+  await page.locator('#quickReply input[type=submit]').click(); await expect(error).toHaveText('Server rule rejected this post');
+  await comment.press('ArrowRight'); await page.clock.runFor(500); await expect(error).toHaveText('Server rule rejected this post');
+  await comment.fill(value); await comment.press('ArrowLeft'); await comment.press('Escape');
+  await page.locator('.postInfo > .postNum').first().click(); await page.clock.runFor(1000);
+  await expect(page.locator('#qrError')).toBeHidden(); await expect(comment).toHaveValue('>>1000001\n');
+});
+
+test('source mobile reopening uses 25px while initial placement uses 28px and prefix quotes retain editing position', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/demo/');
+  const link = page.locator('.postInfo > .postNum').first(); await link.click();
+  expect(await page.locator('#quickReply').evaluate(node => parseFloat(node.style.top) - scrollY)).toBe(28);
+  await link.click(); expect(await page.locator('#quickReply').evaluate(node => parseFloat(node.style.top) - scrollY)).toBe(25);
+  const comment = page.locator('#qrCom'); await comment.fill('Long line\n'.repeat(100));
+  await comment.evaluate(node => { node.setSelectionRange(0, 0); node.scrollTop = 0; });
+  await link.click();
+  expect(await comment.evaluate(node => node.selectionStart)).toBe('>>1000001\n'.length);
+  expect(await comment.evaluate(node => node.scrollTop < node.scrollHeight - node.clientHeight)).toBe(true);
+  await comment.evaluate(node => node.setSelectionRange(node.value.length, node.value.length)); await link.click();
+  expect(await comment.evaluate(node => node.selectionStart === node.value.length)).toBe(true);
+  expect(await comment.evaluate(node => Math.abs(node.scrollTop + node.clientHeight - node.scrollHeight) <= 1)).toBe(true);
+});
