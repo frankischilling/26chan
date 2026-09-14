@@ -69,3 +69,7 @@ teaser. The twelve desktop/mobile menu crops also change where the teaser shows
 beside their edges. Pixel comparison against the prior baselines found no change
 more than two pixels from the crop edges. Menu colors, fonts, bounds and pin
 behavior retain their existing assertions; no menu CSS changes are included.
+Four attachment-catalog baselines also reflect the same teaser transformation
+in small/large desktop/mobile modes. Their reviewed diffs retain image geometry
+and show text reflow; the large mobile page becomes one 15-pixel line shorter.
+Board, thread, archived and teaser-off baselines are unchanged.
