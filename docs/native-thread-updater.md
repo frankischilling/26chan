@@ -97,8 +97,12 @@ no fallback audio URL, remote media fetch or notification-permission request.
 files and `https://s.4cdn.org/media/beep.ogg` by URL, length and SHA-256. Names
 and priority come from the same pinned v1191 updater. The worksafe default was
 observed in captured thread HTML. The general `favicon.ico` was observed on the
-public FAQ; its non-worksafe board mapping is inferred and remains unverified
-because a catalog request returned 403. That denial was not bypassed.
+public FAQ. The supplied old category settings establish the defaults:
+`config/categories/ws.config.ini:11` selects `favicon-ws.ico`, and
+`config/categories/nws.config.ini:6` selects `favicon.ico`. Their hashes are
+pinned in the [source inventory](compatibility.md#source-inventory). This
+resolves the mapping for that checkout; current live-board rendering was not
+observed because the catalog request returned 403. That denial was not bypassed.
 
 The application embeds these fixed release assets. ICO routes are added to the
 explicit `img-src` list; they do not broaden it to `self` or a directory. The
@@ -234,8 +238,11 @@ Audio tests control the document's hidden flag and confirm playback through the
 real HTMLMediaElement API; background-tab autoplay behavior is still subject to
 browser policy and requires live-reference qualification.
 
-Still required: tail/cache behavior, Quick Reply coordination, existing-post deletion
-reconciliation, remaining native settings and live public-reference comparison.
+Still required: tail/cache behavior, Quick Reply coordination, remaining native
+settings and live public-reference comparison. The supplied old updater does
+not reconcile deletion of already-rendered posts: its `deletionQueue` appears
+only at initialization. Adding reconciliation would be a local enhancement,
+not a missing original behavior; see the [native source audit](compatibility.md#native-extension).
 The full snapshot route and the one-second request floor are explicit local
 transport choices. The pending reference qualification remains tracked in #6
 and draft PR #89. No production rollout is implied.
