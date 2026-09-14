@@ -218,3 +218,13 @@ jobs:
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
+      - name: Retain synthetic Windows visual failure images
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-visual-failure-images-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false

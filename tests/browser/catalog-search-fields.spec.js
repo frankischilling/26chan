@@ -38,7 +38,10 @@ test('server GET and release live search agree on escaped formatted fields from 
       await server.locator('#sub').fill(entry.subject);
       await server.locator('#com').fill(entry.comment);
       await server.locator('#password').fill(password);
+      const submitted = server.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
       await server.getByRole('button', { name: 'Post', exact: true }).click();
+      const response = await submitted;
+      expect(response.status(), `Native posting status; retry-after=${response.headers()['retry-after'] ?? 'absent'}`).toBe(303);
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);
       entry.id = /#p(\d+)$/.exec(server.url())[1];
       created.push(entry.id);
