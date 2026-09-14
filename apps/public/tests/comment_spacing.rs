@@ -25,7 +25,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     // Policy changes apply only to new posts, including an existing unnormalized row.
-    let historical = " historical\t  text\r\n\r\n\r\n\r\n ";
+    let historical = " historical\t  text Ｚ😀\u{31350}\r\n\r\n\r\n\r\n ";
     sqlx::query("UPDATE content.posts SET comment=$2 WHERE id=$1")
         .bind(thread)
         .bind(historical)
@@ -33,12 +33,12 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
-    let raw = " \t A\t  B\r\n \r\n　\r\n\t\r\nC <script> \r\n";
+    let raw = " \t A\t  B\r\n \r\n　\r\n\t\r\nC <script> Ｚⓦ✘😀│𠮷 \r\n";
     for (index, (code, sjis, expected)) in [
-        (false, false, "A B\nC <script>"),
-        (true, false, "A      B\n \n \n    \nC <script>"),
-        (false, true, "A      B\n \n　\n    \nC <script>"),
-        (true, true, "A      B\n \n　\n    \nC <script>"),
+        (false, false, "A B\nC <script> awx𠮷"),
+        (true, false, "A      B\n \n \n    \nC <script> awx𠮷"),
+        (false, true, "A      B\n \n　\n    \nC <script> Ｚ│𠮷"),
+        (true, true, "A      B\n \n　\n    \nC <script> Ｚ│𠮷"),
     ]
     .into_iter()
     .enumerate()
@@ -103,6 +103,32 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .comment,
             expected
         );
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/{slug}/thread/{thread}.json"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap())
+                .unwrap();
+        let saved = json["posts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|post| post["no"] == id)
+            .unwrap();
+        assert_eq!(
+            saved["com"],
+            expected
+                .replace('<', "&#60;")
+                .replace('>', "&#62;")
+                .replace('\n', "<br>")
+        );
     }
     assert_eq!(
         board_store::find_post(&public, &slug, thread)
@@ -151,7 +177,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(async move {
-                board_store::create_post(&public, &slug, thread, &post("A\t  B")).await
+                board_store::create_post(&public, &slug, thread, &post("Ａ\t  B😀")).await
             })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async {
@@ -192,7 +218,41 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .comment,
         "A    B"
     );
+    let id = board_store::create_post(&public, &slug, thread, &post("😀X"))
+        .await
+        .unwrap();
+    assert_eq!(
+        board_store::find_post(&public, &slug, id)
+            .await
+            .unwrap()
+            .comment,
+        "X"
+    );
     let before = board_store::thread(&public, &slug, thread).await.unwrap();
+    for route in ["post", "imgboard.php"] {
+        for raw in ["😀", "\u{31350}", "|||", "😀😀😀X"] {
+            let body = url::form_urlencoded::Serializer::new(String::new())
+                .extend_pairs([
+                    ("mode", "regist"),
+                    ("resto", &thread.to_string()),
+                    ("com", raw),
+                    ("pwd", "owned-password"),
+                ])
+                .finish();
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::post(format!("/{slug}/{route}"))
+                        .header("origin", "http://127.0.0.1:3000")
+                        .header("content-type", "application/x-www-form-urlencoded")
+                        .body(Body::from(body))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), 422, "{route}: {raw:?}");
+        }
+    }
     assert!(matches!(
         board_store::create_post(&public, &slug, thread, &post(" A  ")).await,
         Err(StoreError::Invalid(_))

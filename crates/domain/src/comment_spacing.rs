@@ -35,15 +35,11 @@ pub fn prepare_post_comment(
 ) -> Result<String, ValidationError> {
     validate_post_with_attachment(name, subject, comment, max_chars, has_attachment)?;
     let normalized = normalize_comment(comment)?;
+    let normalized = crate::comment_unicode::before_spacing(&normalized, spacing);
     let preserve = spacing.code || spacing.sjis;
     let mut text = String::with_capacity(normalized.len());
     let mut previous_space = false;
     for mut ch in normalized.chars() {
-        // The earlier comment pass removes NBSP/soft hyphen on every board.
-        // Its zero-width filter has different exceptions from sanitize_text.
-        if matches!(ch, '\u{00a0}' | '\u{00ad}') || (spacing.strip_zero_width && zero_width(ch)) {
-            continue;
-        }
         if !spacing.preserve_wide_spaces && ch == '\u{3000}' {
             ch = ' ';
         }
@@ -64,11 +60,16 @@ pub fn prepare_post_comment(
         }
     }
     // PHP trim's default ASCII set, not Unicode-wide Rust str::trim.
-    let text = text.trim_matches([' ', '\t', '\n', '\r', '\0', '\u{000b}']);
+    let mut text = text
+        .trim_matches([' ', '\t', '\n', '\r', '\0', '\u{000b}'])
+        .to_owned();
+    // Source strip_private_unicode runs after trim, so removal can expose
+    // spaces at the edges. Do not trim those a second time.
+    text.retain(|ch| ch as u32 <= 0x3134f);
     let text = if preserve {
-        text.to_owned()
+        text
     } else {
-        collapse_blank_lines(text)
+        collapse_blank_lines(&text)
     };
     // Tab expansion can exceed the independent database storage ceiling even
     // though the pre-cleanup board budget passed. Reject before any mutation.
@@ -83,7 +84,7 @@ pub fn prepare_post_comment(
     Ok(text)
 }
 
-fn zero_width(ch: char) -> bool {
+pub(crate) fn zero_width(ch: char) -> bool {
     matches!(ch as u32,
         0x0702 | 0x1d176 | 0x008d | 0x00a0 | 0x205f | 0xfeff | 0x11a6 |
         0x00ad | 0x3164 | 0x2800 | 0x180b..=0x180e | 0x115f | 0x1160 |

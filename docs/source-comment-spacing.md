@@ -72,8 +72,10 @@ Local compilation and domain tests do not establish database or upgrade results.
 Complete current-head Linux qualification remains required. No baselines or
 production media permissions change.
 
-This is not the complete source comment pipeline. ASCII-lookalike conversion,
-emoticon/private-Unicode filtering, board markup, same-board quote rewriting,
-word filters, repeated-line rejection and `MAX_LINES` admission remain unfinished.
-Those stages can change text further; tests here establish the implemented
-spacing stages, not final source equivalence for every Unicode input.
+The [source Unicode stages](source-comment-unicode.md) apply the finite
+ASCII-lookalike mapping before zero-width cleanup, emoticon exclusions before
+spacing, and the codepoint ceiling after trim. These stages can remove characters
+even when SJIS exempts them from the earlier zero-width filter. Board markup,
+same-board quote rewriting, name/subject cleanup, word filters, repeated-line
+rejection and `MAX_LINES` admission remain unfinished. These tests do not establish
+complete source equivalence for every input.

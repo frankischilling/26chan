@@ -252,9 +252,11 @@ The rewrite normalizes CRLF and bare CR before its bounded scalar/byte checks
 for new posts. [Source spacing cleanup](source-comment-spacing.md) then removes
 NBSP/soft hyphen, applies the conditional zero-width filter, and follows the
 ordinary/code/SJIS whitespace rules under locked operator policy. Historical
-comments stay unchanged. ASCII-lookalike conversion, emoticon/private-Unicode
-filters and other source stages remain unfinished; the old handler's deployed
-encoding is still unknown.
+comments stay unchanged. [Source Unicode cleanup](source-comment-unicode.md)
+applies the finite lookalike mapping and emoticon/private-codepoint exclusions in
+source order, pending current-head qualification. Name/subject cleanup, markup,
+same-board quotes, repeated-line and total-line admission remain unfinished;
+the old handler's deployed encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the
 email/options field and removes all matching substrings. The remaining value,

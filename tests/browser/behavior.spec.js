@@ -575,7 +575,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
   const limit = listing.boards.find(board => board.board === 'test').max_comment_chars;
   expect(limit).toBe(4000);
-  const comment = '😀'.repeat(limit);
+  const comment = '𠮷'.repeat(limit);
   await expect(page.locator('#postHelp')).toContainText(`${limit} characters`);
   await expect(page.locator('#com')).not.toHaveAttribute('maxlength');
   await page.locator('#com').fill(comment);
@@ -599,8 +599,21 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const after = await page.request.get(jsonUrl);
   expect(await after.json()).toEqual(beforeJson);
   expect(after.headers().etag).toBe(before.headers().etag);
+  // Emoticons clean to empty and cannot create a fileless reply. Removed
+  // characters still count toward the raw budget before that cleanup.
+  for (const raw of ['😀', `${'😀'.repeat(limit)}X`]) {
+    await page.goto(threadUrl);
+    await page.locator('#com').fill(raw);
+    await page.locator('#password').fill('no-javascript-password');
+    const rejected = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    expect((await rejected).status()).toBe(422);
+    const unchanged = await page.request.get(jsonUrl);
+    expect(await unchanged.json()).toEqual(beforeJson);
+    expect(unchanged.headers().etag).toBe(before.headers().etag);
+  }
   await page.goto(threadUrl);
-  const multiline = `${'😀'.repeat(limit - 2)}\nX`;
+  const multiline = `${'𠮷'.repeat(limit - 2)}\nX`;
   await page.locator('#com').fill(multiline);
   await page.locator('#password').fill('no-javascript-password');
   const submitted = page.waitForRequest(request => request.url().endsWith('/test/imgboard.php') && request.method() === 'POST');

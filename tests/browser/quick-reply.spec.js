@@ -108,7 +108,7 @@ test('the source byte advisory does not block a Unicode reply within the server 
   try {
     await page.goto(`/test/thread/${id}`);
     const limit = Number(await page.locator('form.postEditor').getAttribute('data-comment-limit')); expect(limit).toBeGreaterThanOrEqual(4);
-    const value = '😀'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
+    const value = '𠮷'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
     await page.locator('.open-qr-link').click();
     await expect(page.locator('#qrResto')).toHaveValue(id);
     await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill(value); await page.locator('#qrCom').press('ArrowLeft');
@@ -116,7 +116,7 @@ test('the source byte advisory does not block a Unicode reply within the server 
     await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
     const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
     await page.locator('#quickReply input[type=submit]').click(); const response = await posted;
-    expect(response.status()).toBe(200); const result = await response.json(); expect(String(result.tid)).toBe(id);
+    expect(response.status()).toBe(200); const result = await response.json(); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
     await expect(page.locator('#quickReply')).toHaveCount(0);
     await expect(page.locator(`#m${result.pid}`)).toHaveText(value);
     const data = await (await request.get(`/test/thread/${id}.json`)).json(); expect(data.posts.at(-1).com).toBe(value);
