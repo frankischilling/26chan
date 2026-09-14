@@ -11,7 +11,7 @@ To reproduce, create an empty directory and run:
 cargo run -p board-media-guest --example jpeg-fixtures --locked -- ABSOLUTE_EMPTY_DIRECTORY
 ```
 
-The generator refuses to overwrite files. The guest Rust test compares all five
+The generator refuses to overwrite files. The guest Rust tests compare all six
 committed byte arrays with freshly encoded output using the same settings.
 Native tests read these exact files; generated test output never replaces them.
 
@@ -22,3 +22,10 @@ Native tests read these exact files; generated test output never replaces them.
 | grayscale.jpg | 1x1 gray 80, baseline | `4289bb3680b6c8c943396ee8f767b0d09110d8f77ad99649e52eb52ce1bf3be7` |
 | cmyk.jpg | 1x1 CMYK (0,255,255,0), baseline | `f9915aa8c0e94075da5c925daadbe9b46e1f0af867ad5730e1dcd6c3faca3e7f` |
 | too-wide.jpg | 1025x1 gray 80, baseline, deliberate dimension rejection | `30178c4f96113aac24fb76a7c10c3826900534357485e85cca81fb5529102778` |
+| minimized-progressive.jpg | 8x8 RGB (230,40,25), progressive, one bounded mutation | `a25ee38b8ff2f1cdc6a134b52f011af7005f6c563ba13c47faec40bbba1234bc` |
+
+The last fixture was generated on September 14, 2026 from the property-test
+failure in [CI run 34887278457](https://github.com/frankischilling/26chan/actions/runs/34887278457).
+It sets byte `785 % 751` to `34` in the 751-byte synthetic encoding. The pinned
+decoder panics on this input; the guest rejects it without returning pixels.
+The original 64-case property test and its minimized seed remain checked in.
