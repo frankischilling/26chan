@@ -56,7 +56,7 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     expect(receipts.every(cookie => cookie.path === '/test/' && cookie.sameSite === 'Strict')).toBe(true);
     const denied = await submit('post', { resto: thread, com: '' });
     expect(denied.status).toBe(200); expect(Object.keys(denied.value)).toEqual(['error']);
-    expect(denied.value.error).toContain('comment');
+    expect(denied.value.error).toBe('Error: No text entered.');
     expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual(receipts);
     const data = await (await context.request.get(`${origin}/test/thread/${thread}.json`)).json();
     expect(data.posts.map(post => String(post.no))).toEqual([thread, ownReply]);

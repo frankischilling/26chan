@@ -68,11 +68,11 @@ test('posting CSP permits only the current board handler and preserves healthy d
   await page.goto('/demo/');
   const healthy = await request.get('/healthz'); expect(healthy.status()).toBe(200);
   const other = await request.post('/test/imgboard.php', { headers: { Origin: origin, Accept: 'application/json' }, form: { pwd: password, com: '' } });
-  expect(other.status()).toBe(200); expect((await other.json()).error).toContain('comment');
+  expect(other.status()).toBe(200); expect((await other.json()).error).toBe('Error: New threads require a subject or comment.');
   expect(await page.evaluate(() => fetch('/healthz').then(() => 'allowed', () => 'blocked'))).toBe('blocked');
   expect(await page.evaluate(() => fetch('/test/imgboard.php', { method: 'POST' }).then(() => 'allowed', () => 'blocked'))).toBe('blocked');
   const result = await page.evaluate(() => fetch('/demo/imgboard.php', { method: 'POST', headers: { Accept: 'application/json' }, body: new URLSearchParams({ pwd: 'owned-password', com: '' }) }).then(async response => ({ status: response.status, value: await response.json() })));
-  expect(result.status).toBe(200); expect(result.value.error).toContain('comment');
+  expect(result.status).toBe(200); expect(result.value.error).toBe('Error: New threads require a subject or comment.');
   await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false, keyBinds: true })));
   await page.reload(); await page.locator('h1').click(); await page.keyboard.press('q'); await expect(page.locator('#quickReply')).toHaveCount(0);
 });
