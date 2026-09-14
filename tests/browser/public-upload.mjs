@@ -47,7 +47,7 @@ try {
   page.setDefaultTimeout(10_000);
   await page.goto(new URL(`/${board}/`, origin).href);
   if (javascript) await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
-  await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('required', '');
+  await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
   await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg');
   await page.getByLabel('File', { exact: true }).setInputFiles(source);
   await page.getByRole('button', { name: 'Upload file', exact: true }).click();
