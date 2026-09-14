@@ -22,7 +22,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | I-006 | `/{board}/archive.json`; documented `Archive.md`; **source**: [original rules](#archives-and-retention) | Implemented for enabled boards, with automatic rollover, read-only archived threads and expiry | Optional per-board retention/count policy; actual JSON/HTML/cache/CORS and lifecycle tests in [archive verification](verification-thread-archives.md) |
 | I-007 | Conditional JSON responses; documented API guidance; **source**: [original rules](#http-and-deployment) | ETag implemented everywhere; Last-Modified/If-Modified-Since on individual threads | Cache unit/integration tests; board and thread responses use one snapshot; board-only bump-limit changes invalidate thread body ETags; deletion invalidates list/catalog/index validators; same-second date requests conservatively revalidate |
 | I-008 | Public HTML routes and DOM IDs; project plus pinned navigation/menu/filter observations; **source**: [original rules](#layout-and-themes) | Board index, zero-based numbered HTML pages, thread/post navigation, catalog, `t/pc/p/pi/m` IDs and native filter controls | Board/catalog/thread snapshot regressions plus browser behavior and visual tests; [thread navigation reference](public-watcher-navigation-reference.json) covers Return/Catalog, top/bottom anchors, mobile refresh and watcher placement. [Post-menu watching](thread-watcher.md#board-and-thread-post-menu-watching) has persisted browser and six-theme desktop/mobile coverage. [Native filter editing and page effects](thread-watcher.md#native-filter-editor-and-page-effects) have owned persistence, conflict, cancellation, hostile-input and six-theme usability tests. Other native post-menu actions and full page placement remain unfinished; no claim these cover every client selector or establish full visual parity |
-| I-009 | Legacy-looking posting endpoint; project; **source**: [original rules](#posting-and-text) | `/{board}/imgboard.php` POST alias handled by Rust | Same form contract as `/post`; source-known original multipart mode/field contract is not fully supported; see E-010/E-011 |
+| I-009 | Legacy-looking posting endpoint; project; **source**: [original rules](#posting-and-text) | `/{board}/imgboard.php` POST alias handled by Rust; exact Accept JSON success/error responses | Same URL-encoded form contract as `/post`; [JSON response contract and coverage](posting-json.md) includes committed OP/reply IDs and error envelopes. Source-known original multipart mode/field contract and complete Quick Reply flow are not supported; see E-010/E-011 |
 | I-010 | CORS, redirects, status/header details; API README plus project decisions; **source**: [original rules](#http-and-deployment) | Optional JSON-only listener with board-origin CORS, GET/HEAD/OPTIONS and conditional headers; public routes retain 303 posting, 308 board slash and same-origin writes | `api_cors`, startup and real cross-origin Chromium tests; no credentialed CORS. Header exposure/error details and deployment-domain mapping are project-defined; see [API contract](api.md) |
 | B-001 | Persistent thread creation/replies; project; **source**: [original rules](#posting-and-text) | Implemented | Real PostgreSQL and browser tests; no copied posting internals |
 | B-002 | `sage`; documented FAQ meaning; source-known original bump/count rules; local lifetime limits remain project-defined; **source**: [original rules](#counts-bumping-and-admission) | Implemented, serialized per board | Posting-options and concurrent reply tests; lifetime counts do not decrease after deletion |
@@ -260,9 +260,15 @@ in JSON alone was never evidence of OP admission.
 `imgboard.php:6815-6879` returns `tid`/`pid` JSON only for the exact
 `Accept: application/json` branch. Otherwise it renders a success page with
 meta-refresh, normally one second or ten seconds in the delayed branch,
-and optional configured success content. Original single-request upload/post
-sequencing and this response flow are known. The rewrite's 303 and
-upload/status/approval/post sequence remain E-010, not unspecified old behavior.
+and optional configured success content. The rewrite implements the exact
+Accept JSON branch with `tid: 0` for an OP, the parent ID for a reply and
+the inserted `pid`. The source's `error_json` branch at 3808-3816 returns an
+HTTP 200 error envelope for posting-rule failures. The rewrite preserves
+4xx parser/containment rejections and 5xx dependency failures;
+[posting JSON](posting-json.md) records the contract and tests. Original
+single-request upload/post sequencing and the HTML response flow are known.
+The rewrite's 303 and upload/status/approval/post sequence remain E-010,
+not unspecified old behavior. Quick Reply UI and its lifecycle remain open.
 
 ### Formatting and quotes
 
@@ -627,7 +633,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | I-006 | Ascending archive IDs, source rollover/redaction/expiry; rewrite bounded/fixed policy differs. |
 | I-007 | Original client's conditional-date use is known; complete CDN/server validator policy is not. |
 | I-008 | Templates, DOM/menu/navigation and CSS rules are available; complete matching/rendering remains unqualified. |
-| I-009 | Original multipart modes/fields and handler are known; Rust alias is not full endpoint parity. |
+| I-009 | Original multipart modes/fields and handler are known; exact Accept JSON responses are implemented, but the Rust alias is not full endpoint parity. |
 | I-010 | Source-specific methods/301/meta-refresh are known; proxy/CORS/status/header deployment remains missing. |
 | B-001 | Original posting/identity/transformation flow is known; PostgreSQL persistence is a replacement. |
 | B-002 | Sage substring processing and current-count bump decisions differ from exact options/lifetime rules. |

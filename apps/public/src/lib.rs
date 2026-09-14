@@ -7,6 +7,7 @@ mod handlers;
 mod intake;
 mod native_updater_snapshot;
 mod post_receipts;
+mod posting_response;
 mod security;
 pub mod themes;
 mod ui_assets;

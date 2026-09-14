@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-assets.json', import.meta.url), 'utf8'));
 const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watcher-assets.json', import.meta.url), 'utf8'));
@@ -8,6 +9,73 @@ const releaseImages = [uiAssets, watcherAssets, updaterAssets].flatMap(manifest 
   manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` })));
 
 const apiOrigin = 'http://127.0.0.1:3003';
+
+test('same-origin JSON posting returns persisted IDs and receipts without navigation', async ({ browser }) => {
+  const context = await browser.newContext(), page = await context.newPage();
+  const origin = 'http://127.0.0.1:3000', password = 'owned-json-browser-password';
+  const client = `${origin}/test/__owned-post-json-client`;
+  let thread;
+  try {
+    await page.goto(`${origin}/test/`);
+    await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
+    // Only this owned client document is synthetic. Posting and subsequent
+    // reads/deletion use the real server; production CSP is not changed here.
+    await page.route(client, route => route.fulfill({
+      contentType: 'text/html',
+      headers: { 'content-security-policy': "default-src 'none'; connect-src 'self'" },
+      body: '<!doctype html><title>Owned JSON posting client</title>',
+    }));
+    await page.goto(client);
+    async function submit(route, form) {
+      return page.evaluate(async ({ route, form }) => {
+        const response = await fetch(`/test/${route}`, {
+          method: 'POST', credentials: 'same-origin', redirect: 'error',
+          headers: { Accept: 'application/json' }, body: new URLSearchParams(form),
+        });
+        return { status: response.status, type: response.headers.get('content-type'),
+          cache: response.headers.get('cache-control'), value: await response.json() };
+      }, { route, form: { ...form, password, track: '1', awt: '1' } });
+    }
+    const op = await submit('post', { com: 'Owned JSON thread\r\nSecond line', sub: 'JSON browser thread', email: 'nonoko' });
+    expect(op.status).toBe(200); expect(op.type).toBe('application/json'); expect(op.cache).toBe('no-store');
+    expect(Object.keys(op.value).sort()).toEqual(['pid', 'tid']); expect(op.value.tid).toBe(0);
+    // Fixture sequence IDs are small; production clients must parse full i64s losslessly.
+    expect(Number.isSafeInteger(op.value.pid)).toBe(true); expect(op.value.pid).toBeGreaterThan(0);
+    thread = String(op.value.pid);
+    const reply = await submit('imgboard.php', { resto: thread, com: `>>${thread}\nOwned JSON reply` });
+    expect(reply.status).toBe(200); expect(reply.value.tid).toBe(op.value.pid);
+    expect(Number.isSafeInteger(reply.value.pid)).toBe(true); expect(reply.value.pid).toBeGreaterThan(op.value.pid);
+    const ownReply = String(reply.value.pid);
+    await expect(page).toHaveURL(client);
+    const receipts = (await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt');
+    expect(receipts.map(cookie => cookie.name).sort()).toEqual(['4chan_awt', `board-posted-${thread}`, `board-posted-${ownReply}`].sort());
+    expect(receipts.every(cookie => cookie.path === '/test/' && cookie.sameSite === 'Strict')).toBe(true);
+    const denied = await submit('post', { resto: thread, com: '' });
+    expect(denied.status).toBe(200); expect(Object.keys(denied.value)).toEqual(['error']);
+    expect(denied.value.error).toContain('comment');
+    expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual(receipts);
+    const data = await (await context.request.get(`${origin}/test/thread/${thread}.json`)).json();
+    expect(data.posts.map(post => String(post.no))).toEqual([thread, ownReply]);
+    expect(data.posts[0].com).toBe('Owned JSON thread<br>Second line');
+    await page.goto(`${origin}/test/thread/${thread}`);
+    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveText(`>>${thread} (You)`);
+    await expect(page.locator(`#watch-${thread}-test`)).toContainText('JSON browser thread');
+    for (const id of [thread, ownReply]) {
+      await expect.poll(() => page.evaluate(({ thread, id }) =>
+        JSON.parse(localStorage.getItem(`4chan-track-test-${thread}`) || '{}')[`>>${id}`], { thread, id })).toBe(1);
+    }
+    expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual([]);
+  } finally {
+    try {
+      if (thread) {
+        const deleted = await context.request.post(`${origin}/test/delete`, {
+          headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+        });
+        expect(deleted.status()).toBe(303);
+      }
+    } finally { await context.close(); }
+  }
+});
 
 test('native posting fields accept 100 input bytes and reject over-limit names and subjects without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });

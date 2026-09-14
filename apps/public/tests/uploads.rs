@@ -408,6 +408,23 @@ async fn exercise(
         );
         assert!(!page.contains(&capability));
     }
+    let mut replay = post_request(&format!("/{board}/post"), posting.clone());
+    replay
+        .headers_mut()
+        .insert("accept", "application/json".parse().unwrap());
+    let replay = app.clone().oneshot(replay).await.unwrap();
+    assert_eq!(replay.status(), StatusCode::OK);
+    assert!(!replay.headers().contains_key("set-cookie"));
+    let value: serde_json::Value =
+        serde_json::from_slice(&to_bytes(replay.into_body(), 1024).await.unwrap()).unwrap();
+    assert!(value["error"].is_string());
+    assert_eq!(value.as_object().unwrap().len(), 1);
+    assert_eq!(
+        board_store::visible_post_count(admin, board, thread)
+            .await
+            .unwrap(),
+        1
+    );
     assert_eq!(
         app.clone()
             .oneshot(post_request(&format!("/{board}/post"), posting))
@@ -668,7 +685,26 @@ async fn image_reply_contract(
             .approve_output(&job.id, job.lease_token.as_deref().unwrap(), &asset.id)
             .await
             .unwrap();
-        let id = if index == 1 {
+        let id = if index == 0 {
+            let mut request = post_request(
+                &format!("/{board}/post"),
+                format!(
+                    "upload_id={}&upload_capability={}&sub=Image+replies&password=synthetic-password-123",
+                    upload.id, upload.capability
+                ),
+            );
+            request
+                .headers_mut()
+                .insert("accept", "application/json".parse().unwrap());
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert!(!response.headers().contains_key("location"));
+            let value: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 1024).await.unwrap())
+                    .unwrap();
+            assert_eq!(value["tid"], 0);
+            value["pid"].as_i64().unwrap()
+        } else if index == 1 {
             // Omitted com is equivalent to an empty form field, but only an
             // approved attachment can make this actual HTTP reply succeed.
             let response = app.clone().oneshot(post_request(&format!("/{board}/post"),
