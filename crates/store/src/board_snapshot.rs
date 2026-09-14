@@ -12,6 +12,15 @@ pub struct ThreadPreview {
     pub visible_posts: i64,
     pub visible_images: i64,
     pub latest_reply_id: Option<i64>,
+    pub catalog_last_reply: Option<CatalogReply>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CatalogReply {
+    pub thread_id: i64,
+    pub id: i64,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub struct BoardSnapshot {
@@ -57,6 +66,16 @@ pub async fn board_snapshot(
     let ids: Vec<i64> = threads.iter().map(|thread| thread.id).collect();
     let counts: Vec<(i64, i64, Option<i64>)> = sqlx::query_as("SELECT thread_id,count(*),max(id) FILTER (WHERE id<>thread_id) FROM content.posts WHERE board=$1 AND thread_id=ANY($2) AND NOT deleted GROUP BY thread_id")
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
+    // Catalog hover details need only the latest visible reply's public header.
+    // The count and this bounded batch share the same repeatable-read snapshot.
+    let mut catalog_replies: BTreeMap<i64, CatalogReply> = if replies == Some(0) {
+        let latest: Vec<i64> = counts.iter().filter_map(|entry| entry.2).collect();
+        sqlx::query_as::<_, CatalogReply>("SELECT thread_id,id,name,created_at FROM content.posts WHERE board=$1 AND id=ANY($2) AND NOT deleted")
+            .bind(slug).bind(latest).fetch_all(&mut *tx).await?
+            .into_iter().map(|reply| (reply.thread_id, reply)).collect()
+    } else {
+        BTreeMap::new()
+    };
     let images: Vec<(i64, i64)> = sqlx::query_as("SELECT p.thread_id,count(*) FROM content.posts p JOIN content.visible_post_media m ON m.post_id=p.id WHERE p.board=$1 AND p.thread_id=ANY($2) AND p.id<>p.thread_id AND NOT m.file_deleted GROUP BY p.thread_id")
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
     // At most 1,000 selected threads, each with its OP and five latest replies.
@@ -86,6 +105,7 @@ pub async fn board_snapshot(
             visible_posts: counts.get(&thread.id).map_or(0, |value| value.0),
             visible_images: images.get(&thread.id).copied().unwrap_or(0),
             latest_reply_id: counts.get(&thread.id).and_then(|value| value.1),
+            catalog_last_reply: catalog_replies.remove(&thread.id),
             thread,
         })
         .collect();

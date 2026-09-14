@@ -1,4 +1,5 @@
 {% import "formatting.html" as formatting %}
+{% import "catalog_preview.html" as catalog_previews %}
 {% macro row(view, board) %}
 <tr class="thread" id="thread-{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}" data-thread-id="{{ view.thread.id }}" data-bumped="{{ view.thread.bumped_at.timestamp_micros() }}" data-latest-reply="{% if let Some(id) = view.latest_reply_id %}{{ id }}{% endif %}" data-replies="{{ view.visible_replies() }}" data-sticky="{{ view.thread.sticky }}">
 {% for item in view.posts %}{% if item.post.id == view.thread.id %}
@@ -6,7 +7,7 @@
 <td class="txt-no"><a href="/{{ board.slug }}/thread/{{ view.thread.id }}" aria-label="View thread {{ view.thread.id }}">»</a></td>
 <td class="txt-sub"><a class="catalogThumb" href="/{{ board.slug }}/thread/{{ view.thread.id }}" data-search-text="{{ item.catalog_search_text(teaser) }}" data-search-file="{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %}{{ file.filename }}{% endif %}{% endif %}" data-has-file="{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %}true{% else %}false{% endif %}{% else %}false{% endif %}">{{ item.post.subject }}</a><template class="catalogTeaser"><div class="teaser">{% if !item.post.subject.is_empty() %}<b>{{ item.post.subject }}</b>{% if !teaser.serialized.is_empty() %}: {% endif %}{% endif %}{% call formatting::comment(teaser.lines.as_slice(), board.slug) %}{% endcall %}</div></template></td>
 <td class="txt-rep">{% if view.bump_limited(board) %}<i>{% endif %}<span data-replies-count>{{ view.visible_replies() }}</span>{% if view.bump_limited(board) %}</i>{% endif %}</td>
-<td class="txt-date" data-id="{{ view.thread.id }}">{{ item.now }}</td><td class="txt-ctrl"></td>
+<td class="txt-date" data-id="{{ view.thread.id }}">{{ item.now }}</td><td class="txt-ctrl">{% call catalog_previews::preview(item, view, board, teaser) %}{% endcall %}</td>
 {% endif %}{% endfor %}
 </tr>
 {% endmacro %}

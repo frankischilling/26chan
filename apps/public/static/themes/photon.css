@@ -30,3 +30,4 @@
     --watcher-cross: url('/static/watcher/photon/cross@2x.png');
   }
 }
+:root { --catalog-preview-subject: #dedede; --catalog-preview-author: #dedede; }

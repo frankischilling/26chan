@@ -3,23 +3,36 @@ use askama::Template;
 use board_store::{Post, Thread};
 
 pub fn page(disabled_images: bool) -> String {
-    render(disabled_images, None, false)
+    render(disabled_images, None, false, false)
 }
 
 pub fn text_page() -> String {
-    render(true, None, true)
+    render(true, None, true, false)
+}
+
+pub fn preview_pages() -> String {
+    render(false, None, false, true)
 }
 
 pub fn flagged_page(sticky: bool, permaage: bool, undead: bool) -> String {
-    render(false, Some((sticky, permaage, undead)), false)
+    render(false, Some((sticky, permaage, undead)), false, false)
 }
 
-fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>, text_only: bool) -> String {
+fn render(
+    disabled_images: bool,
+    flags: Option<(bool, bool, bool)>,
+    text_only: bool,
+    preview_pages: bool,
+) -> String {
     let mut board = board();
     board.slug = "limits".into();
     board.text_only = text_only;
     if text_only {
         board.slug = "text-catalog".into();
+    }
+    if preview_pages {
+        board.slug = "preview-pages".into();
+        board.threads_per_page = 2;
     }
     board.title = "Catalog limits".into();
     board.description = "Synthetic reply and image-count states.".into();
@@ -38,6 +51,12 @@ fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>, text_only: b
     .map(|(index, (lifetime, visible, images, subject))| {
         let id = 1_000_400 + index as i64;
         views::ThreadView {
+            catalog_last_reply: (visible > 0).then(|| board_store::CatalogReply {
+                thread_id: id,
+                id: id + visible as i64,
+                name: "Synthetic reply author".into(),
+                created_at: time("2026-09-08T12:05:00Z"),
+            }),
             tail_size: 0,
             latest_reply_id: (visible > 0).then_some(id + visible as i64),
             thread: Thread {

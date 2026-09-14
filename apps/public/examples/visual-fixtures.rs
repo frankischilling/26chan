@@ -130,6 +130,12 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         catalog_hidden: Vec::new(),
         board,
         threads: vec![ThreadView {
+            catalog_last_reply: Some(board_store::CatalogReply {
+                thread_id: 1_000_001,
+                id: 1_000_002,
+                name: "Synthetic reply author".into(),
+                created_at: time("2026-09-08T12:05:00Z"),
+            }),
             tail_size: 0,
             latest_reply_id: Some(1_000_002),
             thread,
@@ -260,6 +266,7 @@ fn archived_thread() -> String {
         parent: thread.id,
         board,
         threads: vec![ThreadView {
+            catalog_last_reply: None,
             tail_size: 0,
             latest_reply_id: posts
                 .iter()
@@ -335,6 +342,7 @@ async fn main() {
         .route("/text-only/", get(|| async { Html(render_page(false, false, true, false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/text-catalog/catalog", get(|| async { Html(catalog_limits::text_page()) }))
+        .route("/preview-pages/catalog", get(|| async { Html(catalog_limits::preview_pages()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
                 board: board(),

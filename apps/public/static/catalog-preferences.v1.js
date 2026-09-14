@@ -150,6 +150,68 @@
   let unpinAll;
   let menu;
   let menuButton;
+  let previewTimer;
+  let preview;
+  const hidePreview = () => {
+    clearTimeout(previewTimer);
+    preview?.remove();
+    preview = null;
+  };
+  // Source catalog.js getDuration, including its omitted singular remainder.
+  const duration = delta => {
+    if (delta < 2) return 'less than a second';
+    if (delta < 60) return `${delta | 0} seconds`;
+    if (delta < 3600) { const count = delta / 60 | 0; return count > 1 ? `${count} minutes` : 'one minute'; }
+    const hours = delta < 86400;
+    const count = delta / (hours ? 3600 : 86400) | 0;
+    const tail = delta / (hours ? 60 : 3600) - count * (hours ? 60 : 24) | 0;
+    const head = count > 1 ? `${count} ${hours ? 'hours' : 'days'}` : hours ? 'one hour' : 'one day';
+    return tail > 1 ? `${head} and ${tail} ${hours ? 'minutes' : 'hours'}` : head;
+  };
+  const showPreview = (target, entry) => {
+    if (!target.isConnected || !container.contains(target)) return;
+    const template = entry.node.querySelector('template.catalogPreview');
+    if (!(template instanceof HTMLTemplateElement)) return;
+    const root = template.content.firstElementChild;
+    if (!(root instanceof HTMLDivElement)) return;
+    const date = Number(root.dataset.createdAt);
+    const last = root.querySelector('.post-last');
+    if (!Number.isSafeInteger(date) || (last && !Number.isSafeInteger(Number(last.dataset.createdAt)))) return;
+    hidePreview();
+    const tip = root.cloneNode(true);
+    tip.id = 'post-preview';
+    tip.setAttribute('role', 'tooltip');
+    const now = Date.now() / 1000;
+    // The source subtracts the formatted text-board date, yielding NaN and
+    // getDuration's "one day" fallback. Keep that observable spelling.
+    tip.querySelector(':scope > .post-ago').textContent = `${duration(textOnly ? NaN : now - date)} ago`;
+    const page = tip.querySelector('.post-page');
+    if (pages.has(entry.id.toString())) page.textContent = `Page ${pages.get(entry.id.toString())}`;
+    else page.remove();
+    if (!textOnly && current().extended) tip.querySelector('.post-teaser')?.remove();
+    if (last) tip.querySelector('.post-last .post-ago').textContent = `${duration(now - Number(last.dataset.createdAt))} ago`;
+    document.body.append(tip);
+    const rect = target.getBoundingClientRect();
+    const width = document.documentElement.offsetWidth;
+    const left = width - rect.right < (width * .3 | 0) ? rect.left - tip.offsetWidth - 5 : rect.right + 5;
+    const bottom = rect.top + tip.offsetHeight;
+    const height = document.documentElement.clientHeight;
+    const top = bottom > height ? rect.top - (bottom - height) - 20 : rect.top;
+    tip.style.left = `${left + window.scrollX}px`;
+    tip.style.top = `${(top < 0 ? 3 : top) + window.scrollY}px`;
+    preview = tip;
+  };
+  if (stateReady) {
+    container.addEventListener('mouseover', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches(textOnly ? '.txt-date' : '.thumb')) return;
+      const entry = byId.get(target.closest('.thread')?.dataset.threadId);
+      if (!entry) return;
+      hidePreview();
+      previewTimer = setTimeout(() => showPreview(target, entry), 250);
+    });
+    container.addEventListener('mouseout', hidePreview);
+  }
   const closeMenu = (restoreFocus = false) => {
     const button = menuButton;
     menu?.remove();
@@ -179,6 +241,7 @@
     apply(current());
   };
   const toggleHidden = (entry, unhide = hiddenOnly) => {
+    hidePreview();
     closeMenu();
     const id = entry.id.toString();
     if (unhide) hiddenThreads.delete(id);
@@ -192,6 +255,7 @@
     else updateStateControls();
   };
   const openMenu = (entry, button) => {
+    hidePreview();
     if (menuButton === button) { closeMenu(true); return; }
     closeMenu();
     menuButton = button;
@@ -349,6 +413,7 @@
   };
   const apply = (value, query = renderedQuery) => {
     if (entries === null || !valid(value) || (searchReady && !validQuery(query))) return false;
+    hidePreview();
     closeMenu();
     document.body.classList.toggle('reveal-img-spoilers', revealSpoilers());
     if (stateReady) {

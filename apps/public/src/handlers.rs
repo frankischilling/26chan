@@ -217,6 +217,7 @@ async fn board_page(
         let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
         let view = ThreadView {
+            catalog_last_reply: preview.catalog_last_reply,
             tail_size: 0,
             latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
@@ -297,6 +298,7 @@ pub async fn thread(
             catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {
+                catalog_last_reply: None,
                 tail_size,
                 latest_reply_id,
                 thread,

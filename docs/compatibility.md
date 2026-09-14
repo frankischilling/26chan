@@ -65,9 +65,11 @@ Later compatibility checkpoints:
 
 Text-only catalog tables and their GET/live search, sorting, pin/hide controls
 are implemented under #159; see [source evidence and checks](source-text-catalog.md).
-This advances V-005/V-009's text-only layout work. Date-hover previews and
-complete surrounding catalog-page matching remain open; current-head CI is
-required before qualification.
+This advances V-005/V-009's text-only layout work. [Source hover previews](source-catalog-previews.md)
+under #163 add author/time/page headers, prepared teasers and the latest visible
+reply with current anonymous policy. Their complete current-head CI remains
+required. Surrounding catalog-page matching and identity-dependent preview
+fields remain open.
 
 ### Native extension checkpoint under draft PR #89
 
