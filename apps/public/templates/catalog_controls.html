@@ -6,12 +6,12 @@
 <option value="date"{% if catalog_options.order_value() == "date" %} selected{% endif %}>Creation date</option>
 <option value="r"{% if catalog_options.order_value() == "r" %} selected{% endif %}>Reply count</option>
 </select></span>
-<span class="catalogControl"><label for="size-ctrl">Image size:</label>
+<span class="catalogControl"{% if board.text_only %} hidden{% endif %}><label for="size-ctrl">Image size:</label>
 <select id="size-ctrl" name="size"><option value="small"{% if !catalog_options.large() %} selected{% endif %}>Small</option><option value="large"{% if catalog_options.large() %} selected{% endif %}>Large</option></select></span>
-<span class="catalogControl"><label for="teaser-ctrl">Teasers:</label>
+<span class="catalogControl"{% if board.text_only %} hidden{% endif %}><label for="teaser-ctrl">Teasers:</label>
 <select id="teaser-ctrl" name="teaser"><option value="off"{% if !catalog_options.show_teaser() %} selected{% endif %}>Off</option><option value="on"{% if catalog_options.show_teaser() %} selected{% endif %}>On</option></select></span>
 <span class="catalogControl"><label for="qf-box">Search:</label><input id="qf-box" type="search" name="q" value="{{ catalog_options.q }}" aria-describedby="catalog-search-help"></span>
-<span class="catalogControl"><label for="theme-nospoiler">Spoilers:</label><select id="theme-nospoiler" name="spoilers"><option value="off"{% if !catalog_options.reveal_spoilers() %} selected{% endif %}>Hidden</option><option value="on"{% if catalog_options.reveal_spoilers() %} selected{% endif %}>Reveal</option></select></span>
+<span class="catalogControl"{% if board.text_only %} hidden{% endif %}><label for="theme-nospoiler">Spoilers:</label><select id="theme-nospoiler" name="spoilers"><option value="off"{% if !catalog_options.reveal_spoilers() %} selected{% endif %}>Hidden</option><option value="on"{% if catalog_options.reveal_spoilers() %} selected{% endif %}>Reveal</option></select></span>
 <span class="catalogControl"><button type="submit">Apply</button> <a id="catalog-reset" href="/{{ board.slug }}/catalog">Reset</a></span>
 </form>
 <span id="catalog-search-help" hidden>Search accepts up to 128 characters.</span>

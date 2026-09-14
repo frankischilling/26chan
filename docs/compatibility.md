@@ -63,6 +63,12 @@ Later compatibility checkpoints:
 | V-010 | Catalog spoiler-reveal preference; observed pinned public v1025 client; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Merged in #87 on September 13, 2026 | [Spoiler behavior and tests](catalog-spoilers.md); finite optional persistence, explicit no-JavaScript GET, visible-card-only client source changes and deletion precedence. Toolbar/URL extension and full-image fallback are documented differences; custom board spoiler selection is source-known; matching board-specific assets remains unfinished |
 | M-008 | Attachment-only OP/reply and conditional comment representation; documented API field plus local posting policy; **source**: [original rules](#posting-and-text) | Merged in #85 after all six exact-head checks; ordinary text-only posts still require a comment | [Attachment-only contract](attachment-only-posts.md); atomic authorization, deferred empty-row guard, direct public-role rejection, 0018 upgrade, real HTTP/no-JavaScript and native PNG/JPEG flows. [New comment spacing](source-comment-spacing.md) permits whitespace-only image comments after cleanup and authorization, pending current-head qualification. Original image-only replies are permitted, but an ordinary OP still needs subject or comment; empty-OP admission remains a local difference. No production enablement |
 
+Text-only catalog tables and their GET/live search, sorting, pin/hide controls
+are implemented under #159; see [source evidence and checks](source-text-catalog.md).
+This advances V-005/V-009's text-only layout work. Date-hover previews and
+complete surrounding catalog-page matching remain open; current-head CI is
+required before qualification.
+
 ### Native extension checkpoint under draft PR #89
 
 | ID | Scope and evidence | Status | Tests / exception |
@@ -528,6 +534,12 @@ not removed there (`catalog.php:105, 177`). Deleted filenames excluded
 from rewrite search are therefore a local privacy/representation difference.
 Missing-field coercion behavior must also be kept distinct from deliberately
 bounded rewrite inputs.
+
+Text-only catalogs use the source OP date string and subject/reply/date/menu
+table, with no inline teaser or image-card decorations. Their sorting omits
+the image renderer's separate sticky-first branch. The table, mobile breakpoint
+and pin/hide behavior are recorded in [text catalog verification](source-text-catalog.md).
+Date-hover previews remain unfinished.
 
 The source client handles catalog display preferences, session search,
 pin/hide maps and watcher settings using native storage keys:

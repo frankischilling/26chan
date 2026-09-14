@@ -16,4 +16,5 @@ npm ci --ignore-scripts
 npm run test:quick-reply
 npm run test:behavior
 npx playwright test tests/browser/catalog-teasers.spec.js
+npx playwright test tests/browser/text-catalog.spec.js
 npx playwright test --config playwright.staff.config.js

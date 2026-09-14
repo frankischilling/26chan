@@ -25,12 +25,16 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       entry.id = /#p(\d+)$/.exec(server.url())[1];
       created.push(entry);
       await server.goto(`${origin}/${entry.board}/catalog?q=${encodeURIComponent(entry.query)}`);
-      const card = server.locator(`#threads > #thread-${entry.id}`);
+      const card = server.locator(`#threads #thread-${entry.id}`);
       await expect(card).toBeVisible();
       await expect(card.locator('.catalogThumb')).toHaveAttribute('data-search-text', `<b>${title}</b>${entry.teaser ? `: ${entry.teaser}` : ''}`);
       if (!entry.teaser) await expect(card.locator('.teaser')).toHaveText(title);
       if (entry.board === 'b') await expect(card.locator('wbr')).toHaveCount(entry.comment.length === 40 ? 1 : 0);
-      if (entry.board === 'news') await expect(card.locator('.teaser')).toHaveText(`${title}: first\nsecond`, { useInnerText: false });
+      if (entry.board === 'news') {
+        expect(await card.locator('template.catalogTeaser').evaluate(node => node.content.querySelector('.teaser').textContent)).toBe(`${title}: first\nsecond`);
+        await expect(card.locator('.txt-sub > a')).toHaveText(title);
+        await expect(card.locator('.teaser')).toHaveCount(0);
+      }
       if (entry.board === 'sjis') {
         await expect(card.locator('s')).toHaveText('quiet');
         await expect(card.locator('.sjis, script')).toHaveCount(0);
@@ -41,13 +45,13 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       live.on('request', request => { if (request.isNavigationRequest()) navigations += 1; });
       await live.locator('#qf-box').fill(entry.query);
       await live.getByRole('button', { name: 'Apply', exact: true }).click();
-      await expect(live.locator(`#threads > #thread-${entry.id}`)).toBeVisible();
+      await expect(live.locator(`#threads #thread-${entry.id}`)).toBeVisible();
       await live.locator('#qf-box').fill('^absent-owned-teaser$');
       await live.getByRole('button', { name: 'Apply', exact: true }).click();
-      await expect(live.locator('#threads > .thread')).toHaveCount(0);
+      await expect(live.locator('#threads .thread')).toHaveCount(0);
       await live.locator('#qf-box').fill(entry.query);
       await live.getByRole('button', { name: 'Apply', exact: true }).click();
-      await expect(live.locator(`#threads > #thread-${entry.id}`)).toBeVisible();
+      await expect(live.locator(`#threads #thread-${entry.id}`)).toBeVisible();
       expect(navigations).toBe(0);
       live.removeAllListeners('request');
       for (const width of [1280, 390]) {

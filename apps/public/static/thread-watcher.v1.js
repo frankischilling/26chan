@@ -339,6 +339,8 @@ function start(context) {
     return text;
   }
   function sections() {
+    // The source text catalog has no watch buttons on its rows.
+    if (catalog && document.getElementById('threads')?.dataset.textOnly === 'true') return [];
     return [...document.querySelectorAll('.board > .thread, #threads > .thread'),
       ...document.getElementById('catalogFiltered')?.content.querySelectorAll('.thread') || []];
   }

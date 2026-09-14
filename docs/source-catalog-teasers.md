@@ -51,7 +51,8 @@ short `/b/` comments retain the existing safe link representation, and its
 generated attributes contribute to the helper's length and search text. This
 does not prove identical source link spelling or identical cutoffs around
 those unresolved attributes. The rewrite does not generate abbreviation spans;
-literal user text resembling them must not be removed. Full text-only catalog
+literal user text resembling them must not be removed. The [text-only table](source-text-catalog.md)
+keeps its teaser inert for search. Date-hover previews, complete surrounding
 layout and filename serialization remain under issue #82 and the compatibility
 inventory. These limits do not prevent the known teaser transformations from
 being applied to the formatter that exists today.

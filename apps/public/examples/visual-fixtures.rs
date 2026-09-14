@@ -334,6 +334,7 @@ async fn main() {
         .route("/forced-anonymous/", get(|| async { Html(render_page(false, false, false, true)) }))
         .route("/text-only/", get(|| async { Html(render_page(false, false, true, false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
+        .route("/text-catalog/catalog", get(|| async { Html(catalog_limits::text_page()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
                 board: board(),
