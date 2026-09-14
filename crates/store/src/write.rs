@@ -25,6 +25,19 @@ pub async fn create_post_with_attachment(
     post: &NewPost,
     attachment: Option<&post_media::NewAttachment>,
 ) -> Result<i64, StoreError> {
+    create_post_with_attachment_at(pool, slug, parent, post, attachment, Utc::now()).await
+}
+
+/// Internal callers supply a server-owned request start, never a client field.
+/// Capture it before parsing, hashing, pool acquisition or mutation lock waits.
+pub async fn create_post_with_attachment_at(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    request_start: DateTime<Utc>,
+) -> Result<i64, StoreError> {
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let mut tx = pool.begin().await?;
@@ -69,7 +82,7 @@ pub async fn create_post_with_attachment(
         }
         // Count under the same board lock as posting/deletion. The incoming
         // row is not inserted yet; the source's decision includes that reply.
-        let replies: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted")
+        let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
             .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
         let bump = board_domain::bump::should_bump(
             thread.sticky,
@@ -78,6 +91,11 @@ pub async fn create_post_with_attachment(
             post.sage,
             replies as u64 + 1,
             board.bump_limit as u32,
+            board_domain::bump::age_limited(
+                request_start.timestamp(),
+                op_created.timestamp(),
+                board.permasage_hours as u32,
+            ),
         );
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=clock_timestamp(), bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).execute(&mut *tx).await?;
         parent

@@ -237,6 +237,7 @@ mod tests {
             max_comment_chars: 16_000,
             reply_limit: 1000,
             bump_limit: 300,
+            permasage_hours: 0,
             thread_limit: 10,
             threads_per_page: 10,
             worksafe: true,

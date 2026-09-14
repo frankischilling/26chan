@@ -119,6 +119,8 @@ jobs:
         run: sudo bash scripts/test-public-field-migration.sh
       - name: Upgrade thread bump flags with runtime privilege checks
         run: sudo bash scripts/test-thread-bump-migration.sh
+      - name: Upgrade board bump ages with operator-only policy checks
+        run: sudo bash scripts/test-bump-age-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

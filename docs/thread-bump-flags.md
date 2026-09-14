@@ -81,11 +81,14 @@ pass. All 118 theme, 39 media/interaction and ten public-state cases pass
 without snapshot updates. Local staff
 compilation cannot reach the crate because vendored OpenSSL needs unavailable
 Perl build modules; the installed Git Perl also lacks those modules. Local
-PostgreSQL is unavailable. Staff compilation, persisted tests, browser sign-in
-and the upgrade exercise require this change's complete Linux CI before merge.
+PostgreSQL is unavailable locally. Both complete Linux Build runs 34810597569
+and 34810593343 passed staff compilation, persisted tests, browser sign-in,
+the upgrade exercise and remaining integration/containment/recovery steps.
+All six checks passed before PR #117 merged with the tested tree unchanged.
 
 [Image-limit exclusions](source-image-limits.md) have separate implementation
-and qualification. Age suppression, OP self-bumps, board-specific spam
+and qualification. [Age suppression](source-bump-age.md) has separate request-clock
+and upgrade coverage. OP self-bumps, board-specific spam
 rules and source reply admission remain unfinished. These flags do not bypass
 closed/archive/reply/image admission or expand processing authority. Production
 launch/recovery and full source parity remain separate unfinished work.

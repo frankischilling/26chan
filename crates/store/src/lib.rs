@@ -42,6 +42,7 @@ pub struct Board {
     pub max_comment_chars: i32,
     pub reply_limit: i32,
     pub bump_limit: i32,
+    pub permasage_hours: i32,
     pub thread_limit: i32,
     pub threads_per_page: i32,
     pub worksafe: bool,
