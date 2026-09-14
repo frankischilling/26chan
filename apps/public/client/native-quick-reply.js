@@ -106,16 +106,17 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.append(header, form, error); document.body.append(dialog); dialog.show();
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     form.addEventListener('submit', event => { event.preventDefault(); void send(); });
-    comment.addEventListener('keydown', event => {
+    const onEdit = event => {
       if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) { event.preventDefault(); close(); return; }
-      else if (event.ctrlKey && event.key.toLowerCase() === 's') {
+      else if (event.ctrlKey && event.key?.toLowerCase() === 's') {
         event.preventDefault(); event.stopPropagation();
         const start = comment.selectionStart, end = comment.selectionEnd, empty = comment.value.length === 0;
         const value = `[spoiler]${comment.value.slice(start, end)}[/spoiler]`;
         comment.setRangeText(value, start, end, 'end'); if (empty) comment.setSelectionRange(9, 9);
       }
       clearTimeout(commentTimer); commentTimer = setTimeout(checkComment, 500);
-    });
+    };
+    for (const type of ['keydown', 'paste', 'cut']) comment.addEventListener(type, onEdit);
     let drag;
     header.addEventListener('pointerdown', event => {
       if (mobile() || event.button !== 0 || event.target.closest('button')) return;

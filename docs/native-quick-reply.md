@@ -25,7 +25,8 @@ prevents opening or submitting; updater state changes refresh this guard.
 
 Ordinary and approved forms expose the board's max_comment_chars as an escaped
 data-comment-limit. As in `imgboard.php:3407/3434` and
-`js/extension.js:4337-4379`, a keydown schedules one comment check after 500 ms.
+`js/extension.js:4175-4178,4337-4379`, keydown, paste and cut schedule one
+comment check after 500 ms.
 It counts UTF-8 bytes and shows `Error: Comment too long (bytes/limit).` with
 data-type=length. A shorter comment clears only a length warning, preserving
 unrelated server errors. Closing cancels the pending check. The advisory does

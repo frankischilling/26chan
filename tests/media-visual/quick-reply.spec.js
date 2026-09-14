@@ -116,6 +116,10 @@ test('source length advice is debounced, typed, cancelable and does not hide ser
   await page.clock.runFor(1); await expect(error).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
   await expect(error).toHaveAttribute('data-type', 'length'); await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
   await comment.fill('Short'); await comment.press('ArrowLeft'); await page.clock.runFor(500); await expect(error).toBeHidden();
+  await comment.evaluate((node, value) => { node.dispatchEvent(new Event('paste')); node.value = value; }, value);
+  await page.clock.runFor(500); await expect(error).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
+  await comment.evaluate(node => { node.dispatchEvent(new Event('cut')); node.value = 'Short'; });
+  await page.clock.runFor(500); await expect(error).toBeHidden();
   await page.locator('#qr-pwd').fill('owned-password');
   await page.route('**/demo/imgboard.php', route => route.fulfill({ contentType: 'application/json', body: '{"error":"Server rule rejected this post"}' }));
   await page.locator('#quickReply input[type=submit]').click(); await expect(error).toHaveText('Server rule rejected this post');
