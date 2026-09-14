@@ -128,10 +128,16 @@ pub async fn exercise(app: &Router, owner: &PgPool, public: &PgPool, slug: &str,
                 .to_vec(),
         )
         .unwrap();
-        assert!(html.contains(&format!(
-            "class=\"subject\">{}</span>",
-            expected.replace('<', "&#60;").replace('>', "&#62;")
-        )));
+        let reply = html
+            .split(&format!("id=\"pi{id}\""))
+            .nth(1)
+            .unwrap()
+            .split("</div>")
+            .next()
+            .unwrap();
+        // Source retains reply subjects in JSON but suppresses them in HTML.
+        assert!(!reply.contains("class=\"subject\""));
+        assert!(!reply.contains("<b>"));
     }
     for code in [false, true] {
         let mut locked = owner.begin().await.unwrap();

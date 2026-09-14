@@ -589,8 +589,8 @@ test('source subject cleanup preserves expanded text and reply subjects without 
     });
     expect(response.status()).toBe(200); const reply = await response.json(); expect(reply.error).toBeUndefined();
     await page.reload();
-    await expect(page.locator(`#pi${reply.pid} .subject`)).toHaveText('aw <b>');
-    await expect(page.locator(`#pi${reply.pid} .subject > *`)).toHaveCount(0);
+    await expect(page.locator(`#m${reply.pid}`)).toHaveText('Owned subject reply');
+    await expect(page.locator(`#pi${reply.pid} .subject`)).toHaveCount(0);
     const data = await (await context.request.get(`${origin}/test/thread/${op}.json`)).json();
     expect(data.posts[0].sub).toBe(expanded);
     expect(data.posts.find(post => post.no === reply.pid).sub).toBe('aw &lt;b&gt;');

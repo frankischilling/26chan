@@ -320,6 +320,13 @@ mod tests {
         assert_eq!(value["posts"][1]["no"], "9223372036854775807");
         assert_eq!(value["replies"], 1);
         let html = value["posts"][1]["html"].as_str().unwrap();
+        assert!(!html.contains("class=\"subject\""));
+        assert!(
+            value["posts"][0]["html"]
+                .as_str()
+                .unwrap()
+                .contains("class=\"subject\">&#60;script&#62;subject&#60;/script&#62;</span>")
+        );
         assert!(html.contains("id=\"pc9223372036854775807\""));
         assert!(html.contains("/test/thread/9223372036854775806#p9223372036854775807"));
         assert!(html.contains("action=\"/test/delete\""));

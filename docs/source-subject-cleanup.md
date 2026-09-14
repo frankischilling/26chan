@@ -28,8 +28,18 @@ The read-only JSON `sub` field uses the source's `ENT_QUOTES` representation:
 `&amp;`, `&lt;`, `&gt;`, `&quot;` and `&#039;`. Existing entity-looking input is
 escaped, not decoded or trusted. `json.php:303-527` retains nonempty subjects
 on replies as well as OPs; both posting and JSON now preserve that behavior.
-Empty subjects omit `sub`. Historical stored values are not cleaned on reads,
+Empty subjects omit `sub`. Server HTML (`imgboard.php:2333-2341`) and the source
+extension (`js/extension.js:839-853`) display subjects only on OPs, even when
+a reply has a retained JSON subject. The shared HTML/updater template follows
+that distinction. Historical stored values are not cleaned on reads,
 although JSON now applies this source text representation to them too.
+
+Removing fixture reply subjects shortens their headers and changes reply width
+and wrapping. The six attachment board/thread/archive desktop/mobile baselines
+cover that change. Source-exact comment wrapping is still unfinished; the current
+`overflow-wrap: anywhere` fallback can make text beside a wide desktop thumbnail
+narrower than the source layout. These synthetic baselines are not a claim of
+complete page geometry parity.
 
 The public handler validates early, while the authoritative normal and approved
 attachment insertion paths prepare raw input once under the board transaction
@@ -60,7 +70,7 @@ Database/HTTP cases exercise both aliases and form encodings, retained replies,
 escaped HTML/JSON, observed board-lock waits, historical values, expanded OPs and
 unchanged rejection clocks. Approved-attachment cases retain receipt rejection
 and reuse checks. A no-JavaScript browser case checks expanded native posting,
-reply subjects, inert markup and full catalog search fields; the watcher case
+reply subjects in JSON but not HTML, and full catalog search fields; the watcher case
 checks decoded subject text without adding HTML elements.
 
 `sudo bash scripts/test-subject-migration.sh` upgrades an owned disposable
