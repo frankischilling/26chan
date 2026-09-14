@@ -31,9 +31,9 @@ described in [thread bump flags](thread-bump-flags.md).
 
 This change adds no migration, grant, dependency or processing capability.
 Public/staff mutation of undead remains outside their existing SQL grants.
-Suppressing an indicator does not bypass image admission: the supplied
-`imgboard.php:5051` checks admission separately from these flags. Existing
-bounded, approved-attachment requirements and image-slot enforcement remain.
+[Image admission](source-image-admission.md) has a separate source predicate
+at `imgboard.php:5045-5052`: sticky or undead bypasses the count cap; permaage
+alone does not. Approval, capability checks and disabled-media policy remain.
 
 ## Verification
 
@@ -50,8 +50,8 @@ deletion and policy transitions remain, with zero capacity now expecting a
 reached limit. A separate text-only thread checks zero images at zero capacity
 through all five representations; HTML omits its image segment.
 
-The existing actual-public-role attachment race now runs with sticky,
-permaage and undead enabled. Exactly one of two approved capabilities can
+The actual-public-role attachment race runs with permaage enabled but sticky
+and undead disabled. Exactly one of two approved capabilities can
 consume the final slot, and the loser remains rejected until a file is deleted.
 Both ordinary-comment and attachment-only variants retain their prior checks.
 

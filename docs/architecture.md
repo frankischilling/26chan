@@ -1,5 +1,10 @@
 # Architecture and threat model
 
+[Protected-thread image admission](source-image-admission.md) skips the
+reply-image count cap for sticky or undead threads. The attachment owner
+can read those flags under the thread lock but cannot change them. Approval,
+capability expiry, single-use and closed/archive checks retain their authority.
+
 [Posting timestamps](source-posting-times.md) use whole-second server request
 time, while bump ordering and the separate HTTP change clock use database
 time. Public posting can insert new creation times but cannot rewrite

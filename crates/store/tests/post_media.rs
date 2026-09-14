@@ -372,8 +372,8 @@ async fn exercise(f: &Fixture) {
     }
     let c = f.reserve().await;
     let c_asset = f.approve(&c).await;
-    // Suppressed limit indicators do not grant another image slot.
-    sqlx::query("UPDATE content.threads SET sticky=true,permaage=true,undead=true WHERE id=$1")
+    // Permaage suppresses the indicator but does not exempt image admission.
+    sqlx::query("UPDATE content.threads SET sticky=false,permaage=true,undead=false WHERE id=$1")
         .bind(thread)
         .execute(&f.admin)
         .await
@@ -502,6 +502,7 @@ async fn exercise(f: &Fixture) {
     exercise_waits_and_moderation(f).await;
     tail_counts(f).await;
     posting_times(f).await;
+    image_admission_flags(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
@@ -553,6 +554,166 @@ async fn tail_counts(f: &Fixture) {
         .unwrap();
     assert_eq!(tail.images, 0);
     assert!(tail.posts[1].attachment.as_ref().unwrap().file_deleted);
+}
+
+async fn image_admission_flags(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET image_limit=1 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let first = f.reserve().await;
+    f.approve(&first).await;
+    f.insert(thread, &first).await.unwrap();
+    for sticky in [false, true] {
+        for undead in [false, true] {
+            for permaage in [false, true] {
+                for permasage in [false, true] {
+                    sqlx::query("UPDATE content.threads SET sticky=$2,undead=$3,permaage=$4,permasage=$5 WHERE id=$1")
+                        .bind(thread).bind(sticky).bind(undead).bind(permaage).bind(permasage).execute(&f.admin).await.unwrap();
+                    let candidate = f.reserve().await;
+                    f.approve(&candidate).await;
+                    let before = board_store::thread(&f.public, &f.board, thread)
+                        .await
+                        .unwrap();
+                    let result = f.insert(thread, &candidate).await;
+                    if sticky || undead {
+                        let id = result.unwrap();
+                        assert!(attachment(&f.public, id).await.unwrap().is_some());
+                        assert_eq!(
+                            board_store::thread(&f.public, &f.board, thread)
+                                .await
+                                .unwrap()
+                                .reply_count,
+                            before.reply_count + 1
+                        );
+                        assert!(
+                            matches!(
+                                f.insert(thread, &candidate).await,
+                                Err(StoreError::Conflict(_))
+                            ),
+                            "exemption cannot reuse a capability"
+                        );
+                        delete_attachment(&f.public, &f.board, id).await.unwrap();
+                    } else {
+                        assert!(matches!(result, Err(StoreError::Conflict(_))));
+                        let after = board_store::thread(&f.public, &f.board, thread)
+                            .await
+                            .unwrap();
+                        assert_eq!(
+                            (after.reply_count, after.modified_at, after.http_modified_at),
+                            (
+                                before.reply_count,
+                                before.modified_at,
+                                before.http_modified_at
+                            )
+                        );
+                    }
+                }
+            }
+        }
+    }
+    // A flag change committed while a real public writer waits must decide
+    // admission after the lock, both when granting and removing the exemption.
+    for exempt in [true, false] {
+        let candidate = f.reserve().await;
+        f.approve(&candidate).await;
+        let mut held = f.admin.begin().await.unwrap();
+        let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *held)
+            .await
+            .unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(&f.board)
+            .execute(&mut *held)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.threads SET sticky=$2,undead=false WHERE id=$1")
+            .bind(thread)
+            .bind(exempt)
+            .execute(&mut *held)
+            .await
+            .unwrap();
+        let pool = f.public.clone();
+        let board = f.board.clone();
+        let mut draft = post();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let writer = tokio::spawn(async move {
+            create_post_with_attachment(&pool, &board, thread, &draft, Some(&candidate)).await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let blocked: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
+                    .bind(pid).fetch_one(&f.admin).await.unwrap();
+                if blocked { break; }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }).await.expect("healthy public attachment writer reaches owned board lock");
+        held.commit().await.unwrap();
+        let result = writer.await.unwrap();
+        if exempt {
+            delete_attachment(&f.public, &f.board, result.unwrap())
+                .await
+                .unwrap();
+        } else {
+            assert!(matches!(result, Err(StoreError::Conflict(_))));
+        }
+    }
+    sqlx::query("UPDATE content.threads SET sticky=true,undead=true WHERE id=$1")
+        .bind(thread)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let candidate = f.reserve().await;
+    f.approve(&candidate).await;
+    sqlx::query("UPDATE content.boards SET image_limit=0 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    assert!(
+        matches!(
+            f.insert(thread, &candidate).await,
+            Err(StoreError::Conflict(_))
+        ),
+        "disabled media is not a count exemption"
+    );
+    sqlx::query("UPDATE content.boards SET image_limit=1 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET closed=true WHERE id=$1")
+        .bind(thread)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.insert(thread, &candidate).await,
+        Err(StoreError::Conflict(_))
+    ));
+    sqlx::query("UPDATE content.threads SET closed=false WHERE id=$1")
+        .bind(thread)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
+    )
+    .bind(&candidate.upload.id)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(
+        matches!(
+            f.insert(thread, &candidate).await,
+            Err(StoreError::NotFound)
+        ),
+        "exemption does not renew capabilities"
+    );
 }
 
 async fn posting_times(f: &Fixture) {

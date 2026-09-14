@@ -126,11 +126,19 @@ async fn real_intake_streaming_status_posting_and_file_deletion() {
     )
     .unwrap();
     board_public::media_ready(&settings).await.unwrap();
-    let app = board_public::routers_with_media(
+    // Expanded admission cases share one synthetic peer; production limits
+    // remain independently exercised by http_limits.rs.
+    let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        _ => None,
+    })
+    .unwrap();
+    let app = board_public::routers_with_limits(
         public.clone(),
         "http://127.0.0.1:3000".into(),
         false,
         Some(settings),
+        limits,
     )
     .0;
     let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
@@ -517,6 +525,7 @@ async fn exercise(
     assert!(!page.contains(&format!("/{board}/{tim}.png")));
 
     image_reply_contract(&app, board, &queue, &intake, admin).await;
+    image_admission_http(&app, board, &queue, &intake, admin).await;
 
     let response = app
         .clone()
@@ -768,6 +777,179 @@ async fn image_flag_transitions(app: &Router, board: &str, thread: i64, admin: &
     }
     sqlx::query("UPDATE content.threads SET sticky=false,permaage=false,undead=false,permasage=false WHERE id=$1").bind(thread).execute(admin).await.unwrap();
     sqlx::query("UPDATE content.boards SET json_tail_size=0 WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+}
+
+async fn image_admission_http(
+    app: &Router,
+    board: &str,
+    queue: &MediaQueue,
+    intake: &IntakeStore,
+    admin: &PgPool,
+) {
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET image_limit=1 WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    let draft = board_store::NewPost {
+        name: "Anonymous".into(),
+        subject: String::new(),
+        comment: "Owned image admission".into(),
+        deletion_hash: "unused-owned-hash".into(),
+        sage: false,
+    };
+    let thread = board_store::create_post(&public, board, 0, &draft)
+        .await
+        .unwrap();
+    for (index, (sticky, undead, permaage, accepted)) in [
+        (false, false, false, true), // Fill the sole ordinary slot.
+        (false, false, true, false),
+        (true, false, false, true),
+        (false, true, false, true),
+        (false, false, false, false),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        // Metadata-only approval fixture; the independent publisher/browser
+        // qualification tests real normalized bytes and file visibility.
+        let upload = intake
+            .reserve(&format!("<b>{board}</b>.png"))
+            .await
+            .unwrap();
+        intake
+            .begin_upload(&upload.id, &upload.capability)
+            .await
+            .unwrap();
+        intake
+            .finish_upload(&upload.id, &upload.capability, 100)
+            .await
+            .unwrap();
+        let job = queue.claim().await.unwrap().unwrap();
+        assert_eq!(job.id, upload.id);
+        let asset = queue
+            .prepare_output(
+                &job.id,
+                job.lease_token.as_deref().unwrap(),
+                &OutputMetadata {
+                    sha256: "c".repeat(64),
+                    bytes: 123,
+                    width: 10,
+                    height: 20,
+                },
+            )
+            .await
+            .unwrap();
+        queue
+            .approve_output(&job.id, job.lease_token.as_deref().unwrap(), &asset.id)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.threads SET sticky=$2,undead=$3,permaage=$4 WHERE id=$1")
+            .bind(thread)
+            .bind(sticky)
+            .bind(undead)
+            .bind(permaage)
+            .execute(admin)
+            .await
+            .unwrap();
+        let route = if index % 2 == 0 {
+            "post"
+        } else {
+            "imgboard.php"
+        };
+        let make_request = |forged| {
+            let mut request = if index % 2 == 0 {
+                post_request(
+                    &format!("/{board}/{route}"),
+                    format!(
+                        "resto={thread}&upload_id={}&upload_capability={}&pwd=owned-image-password{}",
+                        upload.id,
+                        upload.capability,
+                        if forged { "&sticky=1&undead=1" } else { "" }
+                    ),
+                )
+            } else {
+                let mut fields = vec![
+                    ("resto", thread.to_string()),
+                    ("upload_id", upload.id.clone()),
+                    ("upload_capability", upload.capability.clone()),
+                    ("pwd", "owned-image-password".into()),
+                ];
+                if forged {
+                    fields.extend([("sticky", "1".into()), ("undead", "1".into())]);
+                }
+                multipart_post_request(&format!("/{board}/{route}"), &fields)
+            };
+            request
+                .headers_mut()
+                .insert("accept", "application/json".parse().unwrap());
+            request
+        };
+        let before = board_store::thread(&public, board, thread).await.unwrap();
+        let rejected = app.clone().oneshot(make_request(true)).await.unwrap();
+        assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let unchanged = board_store::thread(&public, board, thread).await.unwrap();
+        assert_eq!(
+            (
+                unchanged.reply_count,
+                unchanged.modified_at,
+                unchanged.http_modified_at
+            ),
+            (
+                before.reply_count,
+                before.modified_at,
+                before.http_modified_at
+            )
+        );
+        let response = app.clone().oneshot(make_request(false)).await.unwrap();
+        // Negotiated source rule failures remain JSON errors with HTTP 200.
+        assert_eq!(response.status(), StatusCode::OK);
+        let value: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        let after = board_store::thread(&public, board, thread).await.unwrap();
+        if accepted {
+            let id = value["pid"].as_i64().unwrap();
+            assert_eq!(value["tid"], thread);
+            assert_eq!(after.reply_count, before.reply_count + 1);
+            let attachment = board_store::post_media::attachment(&public, id)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(attachment.asset_id, asset.id);
+        } else {
+            assert_eq!(
+                value,
+                serde_json::json!({
+                    "error": "Attachment is unavailable, already used, or the image limit was reached."
+                })
+            );
+            assert_eq!(
+                (after.reply_count, after.modified_at, after.http_modified_at),
+                (
+                    before.reply_count,
+                    before.modified_at,
+                    before.http_modified_at
+                )
+            );
+        }
+        assert_eq!(
+            (after.sticky, after.undead),
+            (sticky, undead),
+            "client flags cannot grant the exception"
+        );
+    }
+    let (value, _) = json(app, &format!("/{board}/thread/{thread}.json")).await;
+    assert_eq!(value["posts"][0]["images"], 3);
+    assert_eq!(value["posts"][0]["imagelimit"], 1);
+    public.close().await;
+    sqlx::query("UPDATE content.boards SET image_limit=7 WHERE slug=$1")
         .bind(board)
         .execute(admin)
         .await

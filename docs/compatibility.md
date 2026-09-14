@@ -336,6 +336,10 @@ every similarly named constant is enforced in every path.
 
 Reply-image admission counts existing non-file-deleted reply files and excludes
 the OP (`imgboard.php:5045-5052`). Deleting a file can free capacity.
+[Sticky/undead exceptions](source-image-admission.md) now bypass that count
+comparison under the mutation lock; permaage alone does not. Their new
+persisted, HTTP and upgrade tests await complete current-head CI. The
+explicit media-disabled setting remains fail-closed on every thread.
 The API/cache limit flags use current reply/image counts and exclude permaage
 and sticky; image flags also exclude undead (`imgboard.php:1036-1073`).
 This includes catalog.json, which uses the cache and shared JSON generator
