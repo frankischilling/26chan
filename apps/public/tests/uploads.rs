@@ -265,8 +265,9 @@ async fn exercise(
     .await;
     assert!(pending.contains("still being processed"));
     assert!(!pending.contains("Post with image"));
-    let posting =
-        format!("{body}&name=Test&sub=Image&com=&spoiler=true&password=synthetic-password-123");
+    let posting = format!(
+        "{body}&name=Test&sub=Image&com=+%09%0A&spoiler=true&password=synthetic-password-123"
+    );
     assert_eq!(
         app.clone()
             .oneshot(post_request(&format!("/{board}/post"), posting.clone()))
@@ -307,7 +308,10 @@ async fn exercise(
     .await;
     assert!(approved.contains("Post with image"));
     assert!(approved.contains("rows=\"4\" aria-describedby=\"postHelp\""));
-    for comment in ["+%09%0A", "%00"] {
+    // Unsupported controls reject without consuming the approved receipt.
+    // Whitespace is exercised by `posting`, which must clean to empty only
+    // when the same receipt is approved, unexpired and unused.
+    for comment in ["%00", "%0B", "%0C"] {
         assert_eq!(
             app.clone()
                 .oneshot(post_request(
@@ -337,6 +341,14 @@ async fn exercise(
             .unwrap()
             .status(),
         StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        app.clone()
+            .oneshot(post_request(&format!("/{board}/post"), posting.clone()))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::CONFLICT
     );
     sqlx::query("UPDATE media.jobs SET created_at=clock_timestamp() WHERE id=$1")
         .bind(&id)
