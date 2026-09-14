@@ -40,7 +40,7 @@
 <div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}"{% if catalog %} data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
 {% for view in threads %}
 {% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
-<section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" aria-label="Thread {{ view.thread.id }}">
+<section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" data-tail-size="{{ view.tail_size }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 {% include "post_content.html" %}
 {% endfor %}

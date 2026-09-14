@@ -29,6 +29,7 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
             board,
             thread: metadata,
             posts,
+            ..
         } = board_store::thread_snapshot(&pool, "test", id)
             .await
             .unwrap();

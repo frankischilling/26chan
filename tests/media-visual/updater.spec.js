@@ -8,7 +8,7 @@ test('updater retains owned normal, spoiler and deleted-file rendering and nativ
   const posts = await source.locator('.postContainer').evaluateAll(nodes => nodes.map(node => ({ no: node.id.slice(2),
     file_deleted: !!node.querySelector('.fileDeleted'), html: node.outerHTML })));
   await plain.close();
-  const snapshot = { version: 1, board: 'img', thread: '1000201', closed: false, archived: false, sticky: false,
+  const snapshot = { version: 2, tail_size: 0, tail_id: null, board: 'img', thread: '1000201', closed: false, archived: false, sticky: false,
     replies: posts.length - 1, images: 4, posts };
   await page.goto('/img/thread/1000201');
   await page.locator('.replyContainer').evaluateAll(nodes => nodes.forEach(node => node.remove()));

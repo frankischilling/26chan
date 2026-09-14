@@ -25,6 +25,14 @@ fn response(
             "JSON could not be rendered.",
         )
     })?;
+    bytes_response(bytes, modified, headers)
+}
+
+pub(crate) fn bytes_response(
+    bytes: Vec<u8>,
+    modified: Option<DateTime<Utc>>,
+    headers: &HeaderMap,
+) -> Result<Response, AppError> {
     let etag = format!("\"{:x}\"", Sha256::digest(&bytes));
     let unchanged = if let Some(candidate) = headers.get("if-none-match") {
         candidate.to_str().is_ok_and(|c| {
@@ -188,21 +196,6 @@ fn semantic_url(subject: &str) -> String {
         .collect()
 }
 
-fn full_thread(board: &Board, thread: &Thread, posts: Vec<Post>) -> Result<Vec<Value>, AppError> {
-    if posts.is_empty() {
-        return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
-    }
-    let replies = posts.len() - 1;
-    let images = posts
-        .iter()
-        .filter(|p| p.id != thread.id && p.attachment.as_ref().is_some_and(|a| !a.file_deleted))
-        .count();
-    posts
-        .into_iter()
-        .map(|post| post_json(post, thread, board, replies, images))
-        .collect()
-}
-
 // A read-only alias lets browser CSP allow watcher requests by path without
 // granting connect access to the public posting routes or other origins.
 pub async fn watcher_thread(
@@ -224,12 +217,44 @@ pub async fn thread(
     id: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
+    thread_selection(state, slug, id, headers, false).await
+}
+
+pub async fn thread_selection(
+    state: &AppState,
+    slug: &str,
+    id: i64,
+    headers: &HeaderMap,
+    tail: bool,
+) -> Result<Response, AppError> {
     let board_store::ThreadSnapshot {
         board,
         thread,
         posts,
-    } = board_store::thread_snapshot(&state.pool, slug, id).await?;
-    let posts = full_thread(&board, &thread, posts)?;
+        replies,
+        images,
+        tail_size,
+        tail_id,
+    } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
+    let mut posts: Vec<Value> = posts
+        .into_iter()
+        .map(|post| post_json(post, &thread, &board, replies, images))
+        .collect::<Result<_, _>>()?;
+    if tail {
+        let original = &posts[0];
+        let mut op = json!({"no": thread.id, "replies": replies, "images": images,
+            "bumplimit": i32::from(thread.reply_count >= board.bump_limit),
+            "imagelimit": i32::from(board.image_limit > 0 && images >= board.image_limit as usize),
+            "tail_size": tail_size, "tail_id": tail_id});
+        for key in ["sticky", "closed", "archived"] {
+            if let Some(value) = original.get(key) {
+                op[key] = value.clone();
+            }
+        }
+        posts[0] = op;
+    } else if tail_size > 0 {
+        posts[0]["tail_size"] = json!(tail_size);
+    }
     response(json!({"posts": posts}), Some(thread.modified_at), headers)
 }
 

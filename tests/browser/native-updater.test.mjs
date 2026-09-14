@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { createHash } from 'node:crypto';
+import { useUpdaterTail } from '../../apps/public/client/native-updater-tail.js';
 import { parseUpdaterSnapshot, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
 import { NativeUpdaterTransport } from '../../apps/public/client/native-updater-transport.js';
 
 const context = { origin: 'https://board.example', board: 'demo', thread: '9007199254740992', mediaOrigin: 'https://media.example' };
 const html = (no, inside = 'Safe &lt;script&gt; &amp; text') => `<article class="postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}" id="pc${no}"><div class="post ${no === context.thread ? 'op' : 'reply'}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><a class="postNum" href="/demo/thread/${context.thread}#p${no}">No.${no}</a></div><blockquote class="postMessage" id="m${no}">${inside}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><label for="delete${no}">Deletion password</label><input id="delete${no}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required><button>Delete post</button></form></details></div></article>`;
 function snapshot(inside) {
-  return { version: 1, board: 'demo', thread: context.thread, closed: false, archived: false, sticky: false,
+  return { version: 2, tail_size: 0, tail_id: null, board: 'demo', thread: context.thread, closed: false, archived: false, sticky: false,
     replies: 1, images: 0, posts: [context.thread, '9007199254740993'].map(no => ({ no, file_deleted: false, html: html(no, inside) })) };
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
@@ -52,7 +54,7 @@ test('approved formatting and normalized media are allowed without accepting unr
 
 test('partial, oversized, duplicate, unordered and mismatched snapshots fail as a whole', () => {
   for (const edit of [s => s.posts.pop(), s => s.posts.reverse(), s => s.posts[1].no = s.posts[0].no,
-    s => s.board = 'other', s => s.closed = 1, s => s.version = 2, s => s.images = 2,
+    s => s.board = 'other', s => s.closed = 1, s => s.version = 99, s => s.images = 2,
     s => s.extra = 1, s => s.posts[1].html = s.posts[1].html.replace('id="pi9007199254740993"', 'id="p9007199254740993"'),
     s => s.posts[1].html += '<p>extra root</p>', s => s.posts = Array(1002).fill(s.posts[0])]) {
     const s = snapshot(); edit(s); assert.equal(parse(s).status, 'invalid-snapshot');
@@ -145,4 +147,119 @@ test('hung or hostile worker results are terminated and cannot become DOM instru
     assert.equal((await transport.refresh()).status, { hung: 'parse-timeout', hostile: 'invalid-snapshot', cancel: 'cancelled' }[mode]);
     assert.equal(terminated, 1); assert.equal(transport.active, null);
   }
+});
+
+function rangedSnapshot(count, size, tail = false) {
+  const ids = Array.from({ length: count + 1 }, (_, i) => String(BigInt(context.thread) + BigInt(i)));
+  const s = snapshot(); s.replies = count; s.tail_size = size;
+  s.tail_id = tail ? ids[count - size] : null;
+  s.posts = (tail ? [ids[0], ...ids.slice(-size)] : ids).map(no => ({ no, file_deleted: false, html: html(no) }));
+  return s;
+}
+const tokenFor = value => `"${createHash('sha256').update(JSON.stringify(value)).digest('hex')}"`;
+const modified = 'Mon, 14 Sep 2026 00:00:00 GMT';
+function sendSnapshot(req, res, value) {
+  const etag = tokenFor(value);
+  const headers = { 'content-type': 'application/json', etag, 'last-modified': modified };
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); res.end(); }
+  else { res.writeHead(200, headers); res.end(JSON.stringify(value)); }
+}
+
+test('tail metadata retains full counts and exact omitted boundaries while rejecting partial or inconsistent representations', () => {
+  const s = rangedSnapshot(4, 2, true);
+  assert.equal(parse(s).status, 'ok'); assert.equal(s.tail_id, '9007199254740994');
+  for (const edit of [s => s.tail_id = s.posts[1].no, s => s.tail_id = context.thread,
+    s => s.tail_size = 1, s => s.replies = 3, s => s.tail_id = 0, s => s.tail_size = 1.5,
+    s => s.tail_size = 1001, s => s.replies = 1001, s => s.tail_id = '9223372036854775808',
+    s => s.tail_id = null, s => delete s.tail_size]) {
+    const candidate = structuredClone(s); edit(candidate); assert.equal(parse(candidate).status, 'invalid-snapshot');
+  }
+  assert.equal(updaterUrl(context, true), 'https://board.example/_watch/demo/thread/9007199254740992/posts-tail');
+});
+
+test('tail selection follows reply-window age and uses full responses for disabled, stale or invalid timing', () => {
+  assert.equal(useUpdaterTail(2, [1000, 2000, 3000], 10000, 17000), true);
+  assert.equal(useUpdaterTail(2, [1000, 2000, 3000], 10000, 18000), false);
+  assert.equal(useUpdaterTail(2, [1000], 10000, 100000), true);
+  for (const values of [[0, [1000], 10000, 11000], [2, [NaN, 2000], 10000, 11000],
+    [2, [1000], 10000, 9999], [1001, [], 10000, 11000]]) assert.equal(useUpdaterTail(...values), false);
+  // Avoid signed 32-bit timestamp wrapping after 2038.
+  assert.equal(useUpdaterTail(1, [3000000000000], 3000000010000, 3000000011000), true);
+});
+
+test('actual full and tail HTTP validators remain separate and 304 avoids parsing or replaying a snapshot', async t => {
+  let count = 4, clock = 0; const requests = [], record = { created: 0, terminated: 0 };
+  const origin = await serverFor(t, (req, res) => {
+    assert.equal(req.headers.cookie, undefined); assert.equal(req.headers.authorization, undefined);
+    requests.push({ path: req.url, tag: req.headers['if-none-match'], date: req.headers['if-modified-since'] });
+    sendSnapshot(req, res, rangedSnapshot(count, 2, req.url.endsWith('posts-tail')));
+  });
+  const transport = new NativeUpdaterTransport({ ...context, origin, createWorker: workerFactory(record), now: () => clock });
+  const known = new Set(rangedSnapshot(4, 2).posts.map(p => p.no));
+  assert.equal((await transport.refresh()).status, 'ok'); clock += 1001;
+  assert.equal((await transport.refresh()).status, 'not-modified'); clock += 1001;
+  assert.equal((await transport.refresh({ tail: true, known })).status, 'ok'); clock += 1001;
+  assert.equal((await transport.refresh({ tail: true, known })).status, 'not-modified'); clock += 1001;
+  assert.equal(record.created, 2); assert.equal(record.terminated, 2);
+  assert.equal(requests[0].date, '0'); assert.equal(requests[0].tag, undefined);
+  assert.equal(requests[1].tag, tokenFor(rangedSnapshot(4, 2)));
+  assert.equal(requests[2].date, '0'); assert.equal(requests[2].tag, undefined);
+  assert.equal(requests[3].tag, tokenFor(rangedSnapshot(4, 2, true))); assert.equal(requests[3].date, modified);
+  count = 5;
+  assert.equal((await transport.refresh({ tail: true, known })).snapshot.replies, 5);
+  transport.invalidate(); clock += 1001;
+  assert.equal((await transport.refresh()).status, 'ok'); assert.equal(requests.at(-1).tag, undefined);
+});
+
+test('an actual missing tail boundary retries one full response inside the same refresh slot', async t => {
+  const requests = [], record = { created: 0, terminated: 0 };
+  const origin = await serverFor(t, (req, res) => { requests.push(req.url); sendSnapshot(req, res, rangedSnapshot(6, 2, req.url.endsWith('posts-tail'))); });
+  const transport = new NativeUpdaterTransport({ ...context, origin, createWorker: workerFactory(record), now: () => 0 });
+  const known = new Set(rangedSnapshot(2, 0).posts.map(p => p.no));
+  const result = await transport.refresh({ tail: true, known });
+  assert.equal(result.status, 'ok'); assert.equal(result.snapshot.tail_id, null); assert.equal(result.snapshot.posts.length, 7);
+  assert.deepEqual(requests.map(url => url.split('/').at(-1)), ['posts-tail', 'posts']);
+  assert.equal(record.created, 2); assert.equal(record.terminated, 2);
+  assert.equal((await transport.refresh()).status, 'cooldown');
+});
+
+test('tail fallback shares an aggregate byte ceiling with a healthy complete-response control', async t => {
+  const full = rangedSnapshot(6, 2), tail = rangedSnapshot(6, 2, true), record = { created: 0, terminated: 0 };
+  const bytes = Buffer.byteLength(JSON.stringify(full)) + Buffer.byteLength(JSON.stringify(tail)) - 1;
+  const origin = await serverFor(t, (req, res) => sendSnapshot(req, res, req.url.endsWith('posts-tail') ? tail : full));
+  const make = () => new NativeUpdaterTransport({ ...context, origin, createWorker: workerFactory(record), limits: { bytes } });
+  assert.equal((await make().refresh()).status, 'ok');
+  assert.equal((await make().refresh({ tail: true, known: new Set([context.thread]) })).status, 'response-limit');
+});
+
+test('tail 404 retries full, full 404 is terminal, and other errors or unsolicited 304 do not become success', async t => {
+  let mode = 'missing-tail', clock = 0; const requests = [], record = { created: 0, terminated: 0 };
+  const origin = await serverFor(t, (req, res) => {
+    requests.push(req.url);
+    if (mode === 'unsolicited') { res.writeHead(304); res.end(); }
+    else if (mode === 'missing-all' || (mode === 'missing-tail' && req.url.endsWith('posts-tail'))) { res.writeHead(404); res.end(); }
+    else if (mode === 'failure') { res.writeHead(503); res.end(); }
+    else sendSnapshot(req, res, rangedSnapshot(4, 2));
+  });
+  const transport = new NativeUpdaterTransport({ ...context, origin, createWorker: workerFactory(record), now: () => clock });
+  const options = { tail: true, known: new Set([context.thread]) };
+  assert.equal((await transport.refresh(options)).status, 'ok'); assert.equal(requests.length, 2); clock += 1001;
+  mode = 'missing-all'; assert.deepEqual(await transport.refresh(options), { status: 'http-error', httpStatus: 404 }); assert.equal(requests.length, 4); clock += 1001;
+  mode = 'failure'; assert.deepEqual(await transport.refresh(options), { status: 'http-error', httpStatus: 503 }); assert.equal(requests.length, 5); clock += 1001;
+  transport.invalidate(); mode = 'unsolicited'; assert.equal((await transport.refresh()).status, 'invalid-response');
+});
+
+test('a hung full fallback settles at the original deadline and a fresh healthy request still works', async t => {
+  let hang = false, clock = 0; const requests = [], record = { created: 0, terminated: 0 };
+  const origin = await serverFor(t, (req, res) => {
+    requests.push(req.url);
+    if (hang && !req.url.endsWith('posts-tail')) return;
+    sendSnapshot(req, res, rangedSnapshot(6, 2, req.url.endsWith('posts-tail')));
+  });
+  const transport = new NativeUpdaterTransport({ ...context, origin, createWorker: workerFactory(record), now: () => clock, limits: { requestMs: 150 } });
+  assert.equal((await transport.refresh()).status, 'ok'); clock += 1001; hang = true;
+  assert.equal((await transport.refresh({ tail: true, known: new Set([context.thread]) })).status, 'timeout');
+  assert.equal(requests.length, 3); clock += 1001; hang = false;
+  assert.equal((await transport.refresh()).status, 'not-modified');
+  assert.equal(requests.length, 4);
 });

@@ -191,6 +191,7 @@ async fn board_page(
         let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
         let view = ThreadView {
+            tail_size: 0,
             latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
             posts: posts.into_iter().map(PostView::new).collect(),
@@ -237,10 +238,16 @@ pub async fn thread(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     if let Some(id) = key.strip_suffix(".json") {
+        let tail = id.ends_with("-tail");
+        let id = id.strip_suffix("-tail").unwrap_or(id);
+        let raw = id;
         let id = id
-            .parse()
+            .parse::<i64>()
             .map_err(|_| AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-        return api::thread(&state, &board, id, &headers).await;
+        if tail && (id <= 0 || id.to_string() != raw) {
+            return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
+        }
+        return api::thread_selection(&state, &board, id, &headers, tail).await;
     }
     let id = key
         .parse()
@@ -249,6 +256,9 @@ pub async fn thread(
         board,
         thread,
         posts,
+        tail_size,
+        images,
+        ..
     } = board_store::thread_snapshot(&state.pool, &board, id).await?;
     let latest_reply_id = posts
         .iter()
@@ -261,11 +271,12 @@ pub async fn thread(
             catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {
+                tail_size,
                 latest_reply_id,
                 thread,
                 posts,
                 omitted: 0,
-                image_replies: 0,
+                image_replies: images as i64,
             }],
             parent: id,
             previous: String::new(),

@@ -15,7 +15,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | ID | Scope and evidence | Status | Tests / exception |
 |---|---|---|---|
 | I-001 | `/boards.json`; documented `Boards.md`; **source**: [original rules](#configuration-and-board-settings) | Partial: required settings, integer switches, text-only flag; character limits agree with posting | Public HTTP API and Unicode form/browser tests; development attachment settings in M-007; source-known original text/cooldown branches below; ambient encoding and external policy remain unresolved |
-| I-002 | `/{board}/thread/{id}.json`; documented `Threads.md`; **source**: [original rules](#read-only-api) | Implemented text-post subset and development normalized media fields | `public_flow` and [thread snapshot regression](verification-thread-snapshots.md); numeric `no/resto/time`, escaped `com`, OP reply/image counts, conditional subject/sticky/closed/bump flags; archive OP fields and M-007 media metadata; no unique-poster count, capcodes, trips, flags |
+| I-002 | `/{board}/thread/{id}.json` and `/{id}-tail.json`; documented `Threads.md`; **source**: [original rules](#read-only-api) | Implemented text-post subset and development normalized media fields; full/tail support in #90 | `public_flow` and [thread snapshot regression](verification-thread-snapshots.md); numeric `no/resto/time`, escaped `com`, OP reply/image counts, conditional subject/sticky/closed/bump flags; archive OP fields and M-007 media metadata; [tail thresholds, counts and boundary](native-updater-tail.md); no unique-poster count, capcodes, trips, flags |
 | I-003 | `/{board}/threads.json`; documented `Threadlist.md`; **source**: [original rules](#read-only-api) | Implemented page groups and visible-reply counts | One response snapshot; concurrent-commit regression; SQL aggregates avoid loading comment bodies |
 | I-004 | `/{board}/{page}.json`; documented `Indexes.md`; **source**: [original rules](#read-only-api) | Implemented OP + latest five replies, omission counts | One response snapshot; concurrent-commit regression; positive 1-based JSON pages |
 | I-005 | `/{board}/catalog.json`; documented `Catalog.md`; **source**: [original rules](#read-only-api) | Implemented OP + latest five replies, modification time | One response snapshot; concurrent-commit regression; M-007 normalized attachment metadata |
@@ -60,7 +60,7 @@ Later compatibility checkpoints:
 
 | ID | Scope and evidence | Status | Tests / exception |
 |---|---|---|---|
-| V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event, optional shortcuts and manual/automatic in-place updating; pinned public catalog v1025 and extension v1191; **source**: [original rules](#native-extension) | Implemented on draft #89; exact-head hosted checks and broader reference qualification remain pending | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), [keyboard integration](native-keyboard-shortcuts.md), and [thread updater](native-thread-updater.md). Update/R and Auto/A use bounded full snapshots, validated DOM construction, native events and existing menu/filter/watch integration. Auto adds per-tab state, backoff, unread title/marker, fixed favicon/sound notifications and the pinned hidden-tab scroll rule. Posting receipts decorate tracked quotes; notification priority waits for page filters. Quick Reply coordination, tail/cache behavior, live non-worksafe board observation and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
+| V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event, optional shortcuts and manual/automatic in-place updating; pinned public catalog v1025 and extension v1191; **source**: [original rules](#native-extension) | Implemented on draft #89; exact-head hosted checks and broader reference qualification remain pending | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), [keyboard integration](native-keyboard-shortcuts.md), and [thread updater](native-thread-updater.md). Update/R and Auto/A use bounded snapshots; [full/tail selection and conditional revalidation](native-updater-tail.md) are implemented in #90, with validated DOM construction, native events and existing menu/filter/watch integration. Auto adds per-tab state, backoff, unread title/marker, fixed favicon/sound notifications and the pinned hidden-tab scroll rule. Posting receipts decorate tracked quotes; notification priority waits for page filters. Quick Reply coordination, live non-worksafe board observation and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
 
 ## Security-driven and project-defined exceptions
 
@@ -539,8 +539,11 @@ Updater (`6089-6720`) provides these source-known rules:
   validators, marker edges and watcher acknowledgements are concrete targets,
   not unspecified native behavior.
 
-The owned full-snapshot endpoint, no-store transport, string identifiers,
-DOM budgets and one-second request floor are deliberate substitutions.
+The owned full/tail renderer projections, exact string identifiers, DOM budgets
+and one-second update-cycle floor are deliberate substitutions. The
+[tail implementation](native-updater-tail.md) follows the source selection and
+fallback rules, with separate validators and bounded transport. Fetch uses
+manual conditional headers; response bodies are revalidatable.
 Deletion reconciliation, if added locally, should be labeled an enhancement,
 not a missing original updater feature.
 
@@ -681,10 +684,10 @@ unspecified:
 
 Source-known implementation gaps remain separately tracked: full formatting/
 search-field matching, custom-board assets, Quick Reply and related lifecycle,
-tail/conditional transport, remaining native settings/features, omitted API
-identity fields, unsupported media formats and full rendered-page comparison.
+remaining native settings/features, omitted API identity fields, unsupported media formats and full rendered-page comparison.
 Deliberate security/retention exceptions require an explicit decision, not an
-invented parity claim. This audit changes documentation only and runs no tests.
+invented parity claim. The original source audit changed documentation only and ran no tests. Later
+implementation checks are recorded in their linked feature contracts.
 
 ### Public setting declarations
 

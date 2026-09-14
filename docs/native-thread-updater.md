@@ -6,6 +6,10 @@ state remain intact. Automatic updates also maintain the unread title and
 last-reply marker, favicon notifications and optional reply sounds. Quick Reply
 coordination is still unfinished; this is not complete native updater compatibility.
 
+[Full/tail selection and conditional responses](native-updater-tail.md) follow
+the supplied old source. They share the insertion, filtering and notification
+path described below.
+
 ## Public reference
 
 The pinned public `extension.min.1191.js` from September 13, 2026 has SHA-256
@@ -115,9 +119,10 @@ are unchanged.
 
 ## Owned response contract
 
-`GET /_watch/{board}/thread/{id}/posts` returns JSON with `version: 1`, string
+`GET /_watch/{board}/thread/{id}/posts` returns JSON with `version: 2`, string
 `board` and `thread`, boolean `closed`, `archived`, and `sticky`, visible reply
-and image counts, and ordered `posts`. Each post has string `no`, boolean
+and image counts, `tail_size`, nullable string `tail_id`, and ordered `posts`.
+Each post has string `no`, boolean
 `file_deleted`, and `html`. `HEAD` has matching status/headers and no body.
 IDs are canonical positive signed-64-bit decimal strings, never JavaScript
 numbers. Query parameters and `.json`/`.html` suffixes are rejected.
@@ -143,18 +148,19 @@ stream/parser and validates the complete response before constructing elements.
 
 This is a public-listener-only, read-only path under the already permitted
 `/_watch/` CSP prefix. It adds no script, worker, image, form, CORS, or connection
-authority. Responses are `application/json`, `no-store`, `nosniff`, and issue no
-cookies. The public thread JSON API and its cache validators are unchanged.
-This internal projection deliberately does not add cache validators or tail
-responses yet; a client cannot infer a complete result from a partial window.
+authority. Responses are `application/json`, `nosniff`, issue no cookies and
+use content-derived validators with mandatory revalidation. Projection version 2
+adds bounded tail responses and an exact omitted-boundary ID. The public JSON
+API also exposes the source-defined `-tail.json` route; see the
+[tail contract](native-updater-tail.md) for counts, eligibility and fallback.
 
 ## Client transport and rendering
 
-The client permits one request at a time with a one-second minimum interval,
-a ten-second overall deadline and a two-second parser deadline within it.
+The client permits one update cycle at a time with a one-second minimum interval,
+a ten-second overall deadline and a two-second parser deadline per response.
 Requests omit credentials, reject redirects, use same-origin mode and accept
 only the exact configured public URL with a successful JSON response. Actual
-streamed bytes must fit 4 MiB regardless of Content-Length. UTF-8 errors,
+streamed bytes, including a tail's full fallback, must fit 4 MiB regardless of Content-Length. UTF-8 errors,
 partial JSON, HTTP failures and oversized responses cannot append posts.
 
 A fresh worker from the fixed native bundle parses JSON and HTML. It terminates
@@ -174,14 +180,15 @@ It creates elements and text nodes through DOM APIs; response HTML is never
 assigned to innerHTML. Only replies newer than the last displayed post append,
 in a single fragment. Existing replies are not replaced, so drafts, open menus
 and form inputs are preserved. Later snapshots do not reconcile deletion or
-file-removal changes in already displayed posts; that integration remains open.
+file-removal changes in already displayed posts, matching the inspected old
+updater. Adding reconciliation would be a separate enhancement.
 
 New replies receive existing menus, hiding/filter behavior and watcher read
 acknowledgement. After integration, document receives an ordinary,
 non-bubbling, non-cancelable `4chanThreadUpdated` event with `detail: { count }`.
 No event fires for a response without new replies. Closed/reopened state updates
-posting controls without erasing their values. Archived responses and 404 are
-terminal. Other failures retain a usable retry. The server continues to
+posting controls without erasing their values. Archived responses and full-response 404 are
+terminal; a tail 404 first retries the full response. Other failures retain a usable retry. The server continues to
 authorize every write independently of these browser controls.
 
 Cross-tab global/updater disabling and page exit cancel pending work; stale responses
@@ -238,7 +245,7 @@ Audio tests control the document's hidden flag and confirm playback through the
 real HTMLMediaElement API; background-tab autoplay behavior is still subject to
 browser policy and requires live-reference qualification.
 
-Still required: tail/cache behavior, Quick Reply coordination, remaining native
+Still required: Quick Reply coordination, remaining native
 settings and live public-reference comparison. The supplied old updater does
 not reconcile deletion of already-rendered posts: its `deletionQueue` appears
 only at initialization. Adding reconciliation would be a local enhancement,
