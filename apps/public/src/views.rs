@@ -193,9 +193,22 @@ mod comment_tests {
 
     #[test]
     fn stamped_policy_controls_only_literal_approved_markup() {
-        for mask in 0..8 {
+        for mask in (0..8).chain(16..24) {
             let format = 8 + mask;
             for (flag, raw, expected) in [
+                (
+                    16,
+                    "[b]<script>[/b]",
+                    "<span class=\"mu-s\">&#60;script&#62;</span>",
+                ),
+                (16, "[i]italic[/i]", "<span class=\"mu-i\">italic</span>"),
+                (16, "[red]red[/red]", "<span class=\"mu-r\">red</span>"),
+                (
+                    16,
+                    "[green]green[/green]",
+                    "<span class=\"mu-g\">green</span>",
+                ),
+                (16, "[blue]blue[/blue]", "<span class=\"mu-b\">blue</span>"),
                 (1, "[spoiler]a\nb[/spoiler]", "<s>a<br>b</s>"),
                 (
                     2,

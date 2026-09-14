@@ -153,3 +153,18 @@ pub async fn deletion_hash(pool: &PgPool, slug: &str, id: i64) -> Result<String,
         .await?
         .ok_or(StoreError::NotFound)
 }
+
+/// Missing historical password state cannot establish OP ownership.
+pub(crate) const OP_DELETION_HASH: &str = "SELECT d.password_hash FROM post_secrets.deletion d JOIN content.posts p ON p.id=d.post_id JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.id=$2 AND p.id=p.thread_id AND NOT p.deleted";
+
+pub async fn op_deletion_hash(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+) -> Result<Option<String>, StoreError> {
+    Ok(sqlx::query_scalar(OP_DELETION_HASH)
+        .bind(slug)
+        .bind(parent)
+        .fetch_optional(pool)
+        .await?)
+}

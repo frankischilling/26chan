@@ -25,3 +25,10 @@ s:hover a { text-decoration: underline; }
   max-width: 600px;
   margin: 0;
 }
+
+/* Supplied yotsubanew.css:120-124. */
+.mu-s { font-weight: bold; }
+.mu-i { font-style: italic; }
+.mu-r { color: #C41E3A; }
+.mu-g { color: #00A550; }
+.mu-b { color: #1d8dc4; }

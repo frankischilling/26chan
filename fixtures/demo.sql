@@ -28,3 +28,6 @@ SELECT setval('content.post_number', GREATEST((SELECT last_value FROM content.po
 -- These two immutable historical rows match the format-zero visual fixtures.
 -- Newly submitted /demo/ posts still receive the trigger's disabled-policy stamp.
 UPDATE content.posts SET comment_format=0 WHERE board='demo' AND id IN (1000001,1000002);
+
+-- Active source OP_MARKUP overrides, including already-seeded boards.
+UPDATE content.boards SET op_markup=true WHERE slug IN ('qst','test');

@@ -45,6 +45,7 @@ pub struct Board {
     pub comment_max_lines: i32,
     pub comment_spoiler_cleanup: bool,
     pub require_subject: bool,
+    pub op_markup: bool,
     pub text_only: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,

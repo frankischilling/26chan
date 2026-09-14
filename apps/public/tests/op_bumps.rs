@@ -19,6 +19,7 @@ fn post(sage: bool) -> NewPost {
 }
 fn context(seconds: i64, peer: &str) -> PostingContext {
     PostingContext {
+        op_password_proof: None,
         request_start: DateTime::from_timestamp(seconds, 0).unwrap(),
         peer: Some(peer.parse().unwrap()),
     }

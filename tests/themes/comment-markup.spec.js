@@ -30,6 +30,13 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
       await expect(art).toHaveCSS('font-size', '16px');
       await expect(art).toHaveCSS('line-height', '17px');
       await expect(art).toHaveCSS('white-space', 'pre');
+      const op = page.locator('#m1000004');
+      await expect(op.locator('.mu-s').first()).toHaveCSS('font-weight', '700');
+      await expect(op.locator('.mu-i')).toHaveCSS('font-style', 'italic');
+      await expect(op.locator('.mu-r')).toHaveCSS('color', 'rgb(196, 30, 58)');
+      await expect(op.locator('.mu-g')).toHaveCSS('color', 'rgb(0, 165, 80)');
+      await expect(op.locator('.mu-b')).toHaveCSS('color', 'rgb(29, 141, 196)');
+      await expect(op.locator('.mu-s').last()).toHaveText('<script>text stays text</script>');
       await expect(page.locator('.postMessage img, .postMessage script')).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       const path = info.outputPath(`${theme}-${width}-markup.png`);

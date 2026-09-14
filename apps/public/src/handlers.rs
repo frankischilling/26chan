@@ -10,6 +10,28 @@ use axum::{
 use board_store::{NewPost, StoreError};
 use rand_core::OsRng;
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
+
+// The stored hash is not allowed to choose an unbounded verification workload.
+// Public posting creates exactly this Argon2id profile; other encodings cannot
+// prove OP ownership. Keep this work inside the shared hash semaphore.
+fn same_op_password(password: &str, encoded: &str) -> bool {
+    if encoded.len() > 256 {
+        return false;
+    }
+    PasswordHash::new(encoded).is_ok_and(|hash| {
+        hash.algorithm.as_str() == "argon2id"
+            && hash.version == Some(19)
+            && hash.params.iter().count() == 3
+            && hash.params.get_decimal("m") == Some(19_456)
+            && hash.params.get_decimal("t") == Some(2)
+            && hash.params.get_decimal("p") == Some(1)
+            && hash.hash.as_ref().is_some_and(|output| output.len() == 32)
+            && Argon2::default()
+                .verify_password(password.as_bytes(), &hash)
+                .is_ok()
+    })
+}
 
 #[derive(Debug)]
 pub struct AppError(pub StatusCode, pub &'static str);
@@ -363,6 +385,7 @@ pub async fn post(
                 board_store::PostingContext {
                     request_start: start.0,
                     peer: peer.0,
+                    op_password_proof: None,
                 },
             )
             .await
@@ -382,7 +405,7 @@ async fn submit_post(
     headers: HeaderMap,
     form: PostForm,
     format: crate::posting_response::Format,
-    context: board_store::PostingContext,
+    mut context: board_store::PostingContext,
 ) -> Result<Response, AppError> {
     if state.production && context.peer.is_none() {
         return Err(AppError(
@@ -447,6 +470,13 @@ async fn submit_post(
             "Deletion password must contain 8 to 128 bytes.",
         ));
     }
+    // The operator may enable OP markup while this request waits on the board
+    // lock. Capture proof independently of the earlier policy snapshot.
+    let op_hash = if form.resto > 0 {
+        board_store::op_deletion_hash(&state.pool, &board, form.resto).await?
+    } else {
+        None
+    };
     let permit = state
         .limits
         .hashes
@@ -458,11 +488,15 @@ async fn submit_post(
                 "Password processing is busy. Try again.",
             )
         })?;
-    let hash = tokio::task::spawn_blocking(move || {
+    let (hash, op_password_proof) = tokio::task::spawn_blocking(move || {
         let _permit = permit;
+        let proof = op_hash
+            .as_deref()
+            .filter(|hash| same_op_password(&form.password, hash))
+            .map(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())));
         Argon2::default()
             .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
-            .map(|hash| hash.to_string())
+            .map(|hash| (hash.to_string(), proof))
     })
     .await
     .map_err(|_| {
@@ -477,6 +511,7 @@ async fn submit_post(
             "Password processing failed.",
         )
     })?;
+    context.op_password_proof = op_password_proof;
     let post = NewPost {
         name: if options.anonymous {
             String::new()
@@ -590,4 +625,32 @@ pub async fn report(
         }
         .render()?,
     ))
+}
+
+#[cfg(test)]
+mod op_password_tests {
+    use super::*;
+
+    #[test]
+    fn op_password_checks_the_real_hash_and_rejects_unbounded_profiles() {
+        let hash = Argon2::default()
+            .hash_password(b"owned-op-password", &SaltString::generate(&mut OsRng))
+            .unwrap()
+            .to_string();
+        assert!(same_op_password("owned-op-password", &hash));
+        assert!(!same_op_password("different-password", &hash));
+        assert!(!same_op_password(
+            "owned-op-password",
+            &hash.replace("m=19456", "m=4294967295")
+        ));
+        assert!(!same_op_password(
+            "owned-op-password",
+            &hash.replace("t=2", "t=4294967295")
+        ));
+        assert!(!same_op_password(
+            "owned-op-password",
+            &hash.replace("argon2id", "argon2i")
+        ));
+        assert!(!same_op_password("owned-op-password", "missing"));
+    }
 }

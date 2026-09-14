@@ -28,6 +28,7 @@ fn board() -> Board {
         comment_max_lines: 70,
         comment_spoiler_cleanup: false,
         require_subject: false,
+        op_markup: false,
         text_only: false,
         reply_limit: 100,
         bump_limit: 75,
@@ -115,7 +116,13 @@ fn render_page(catalog: bool, markup: bool, text_only: bool) -> String {
             comment: "[sjis]a  b\n c[/sjis]".into(),
             ..posts[1].post.clone()
         }));
-        thread.reply_count = 2;
+        posts.push(PostView::new(Post {
+            id: 1_000_004,
+            comment_format: 24,
+            comment: "[b]bold[/b] [i]italic[/i]\n[red]red[/red] [green]green[/green] [blue]blue[/blue]\n[b]<script>text stays text</script>[/b]".into(),
+            ..posts[1].post.clone()
+        }));
+        thread.reply_count = 3;
     }
     BoardPage {
         catalog_hidden: Vec::new(),

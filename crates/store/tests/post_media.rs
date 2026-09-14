@@ -507,11 +507,48 @@ async fn exercise(f: &Fixture) {
     comment_spacing(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
+    source_op_markup_attachment(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn source_op_markup_attachment(f: &Fixture) {
+    sqlx::query(
+        "UPDATE content.boards SET op_markup=true,text_only=false,image_limit=100 WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    let upload = f.reserve().await;
+    f.approve(&upload).await;
+    let draft = NewPost {
+        comment: "[b]Owned attached OP[/b]".into(),
+        ..post()
+    };
+    let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(saved.comment_format & 16, 16);
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET op_markup=false WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap()
+            .comment_format,
+        saved.comment_format
+    );
 }
 
 async fn final_content_admission(f: &Fixture) {

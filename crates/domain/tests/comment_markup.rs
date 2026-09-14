@@ -14,9 +14,60 @@ fn project(tokens: &[MarkupToken]) -> String {
             MarkupToken::Close(Tag::Code) => "</pre>".into(),
             MarkupToken::Open(Tag::Sjis) => "<span class=\"sjis\">".into(),
             MarkupToken::Close(Tag::Sjis) => "</span>".into(),
+            MarkupToken::Open(Tag::Bold) => "<span class=\"mu-s\">".into(),
+            MarkupToken::Close(Tag::Bold) => "</span>".into(),
+            MarkupToken::Open(Tag::Italic) => "<span class=\"mu-i\">".into(),
+            MarkupToken::Close(Tag::Italic) => "</span>".into(),
+            MarkupToken::Open(Tag::Red) => "<span class=\"mu-r\">".into(),
+            MarkupToken::Close(Tag::Red) => "</span>".into(),
+            MarkupToken::Open(Tag::Green) => "<span class=\"mu-g\">".into(),
+            MarkupToken::Close(Tag::Green) => "</span>".into(),
+            MarkupToken::Open(Tag::Blue) => "<span class=\"mu-b\">".into(),
+            MarkupToken::Close(Tag::Blue) => "</span>".into(),
         });
     }
     output
+}
+
+#[test]
+fn source_op_passes_are_ordered_case_sensitive_and_limit_each_kind_to_one_level() {
+    let policy = MarkupPolicy {
+        op: true,
+        code: true,
+        ..Default::default()
+    };
+    for (raw, expected) in [
+        (
+            "[b]one[b]two[/b]three[/b]",
+            "<span class=\"mu-s\">onetwothree</span>",
+        ),
+        (
+            "[b]one[/b][b]two[/b]",
+            "<span class=\"mu-s\">one</span><span class=\"mu-s\">two</span>",
+        ),
+        (
+            "[i]<script>\nend",
+            "<span class=\"mu-i\">&lt;script&gt;<br>end</span>",
+        ),
+        (
+            "[red]r[/red][green]g[/green][blue]b[/blue]",
+            "<span class=\"mu-r\">r</span><span class=\"mu-g\">g</span><span class=\"mu-b\">b</span>",
+        ),
+        ("[/b]orphan[B]upper[/B]", "[/b]orphan[B]upper[/B]"),
+        (
+            "[red][b]x[/red]y[/b]",
+            "<span class=\"mu-r\"><span class=\"mu-s\">x</span>y</span>",
+        ),
+        ("[code][b][/code]", "<span class=\"mu-s\"></span>"),
+        (
+            "[code][b]x[/b][/code]",
+            "<pre class=\"prettyprint\"><span class=\"mu-s\">x</span></pre>",
+        ),
+    ] {
+        assert_eq!(project(&parse_markup(raw, policy)), expected, "{raw}");
+    }
+    let raw = "[b]x[/b][i]y[/i][red]r[/red][green]g[/green][blue]b[/blue]";
+    assert_eq!(project(&parse_markup(raw, MarkupPolicy::default())), raw);
 }
 
 #[test]
@@ -156,6 +207,7 @@ fn ordered_passes_preserve_crossing_boundaries_and_code_break_cleanup() {
         code: true,
         sjis: true,
         spoilers: true,
+        op: false,
     };
     for (raw, expected) in [
         ("[spoiler][code][/code][/spoiler]", "<s></s>"),
@@ -197,13 +249,16 @@ proptest! {
         pieces in prop::collection::vec(prop_oneof![
             ".{0,40}", Just("[spoiler]".into()), Just("[/spoiler]".into()),
             Just("[sjis]".into()), Just("[/sjis]".into()),
-            Just("[code]".into()), Just("[/code]".into()), Just("\n".into())
-        ], 0..800), spoilers in any::<bool>(), code in any::<bool>(), sjis in any::<bool>(),
+            Just("[code]".into()), Just("[/code]".into()), Just("\n".into()),
+            Just("[b]".into()), Just("[/b]".into()), Just("[i]".into()), Just("[/i]".into()),
+            Just("[red]".into()), Just("[/red]".into()), Just("[green]".into()), Just("[/green]".into()),
+            Just("[blue]".into()), Just("[/blue]".into())
+        ], 0..800), spoilers in any::<bool>(), code in any::<bool>(), sjis in any::<bool>(), op in any::<bool>(),
     ) {
         let input = pieces.concat();
-        let tokens = parse_markup(&input, MarkupPolicy { spoilers, code, sjis });
-        prop_assert!(tokens.len() <= board_domain::MAX_COMMENT_CHARS + 6);
-        let mut depths = [0usize; 3];
+        let tokens = parse_markup(&input, MarkupPolicy { spoilers, code, sjis, op });
+        prop_assert!(tokens.len() <= board_domain::MAX_COMMENT_CHARS + 16);
+        let mut depths = [0usize; 8];
         for token in tokens {
             let (tag, opening) = match token {
                 MarkupToken::Open(tag) => (tag, true),
@@ -212,12 +267,14 @@ proptest! {
             };
             let (index, enabled, limit) = match tag {
                 Tag::Spoiler => (0, spoilers, 2), Tag::Code => (1, code, 2), Tag::Sjis => (2, sjis, 1),
+                Tag::Bold => (3, op, 1), Tag::Italic => (4, op, 1), Tag::Red => (5, op, 1),
+                Tag::Green => (6, op, 1), Tag::Blue => (7, op, 1),
             };
             prop_assert!(enabled);
             if opening { depths[index] += 1; prop_assert!(depths[index] <= limit); }
             else { prop_assert!(depths[index] > 0); depths[index] -= 1; }
         }
-        prop_assert_eq!(depths, [0, 0, 0]);
+        prop_assert_eq!(depths, [0; 8]);
     }
 }
 
