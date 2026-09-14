@@ -54,6 +54,15 @@ async fn exercise(public: PgPool, slug: String) {
         "root ordering uses the database clock"
     );
     let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let tail_path = format!("/{slug}/thread/{id}-tail.json");
+    assert_eq!(get(&app, &tail_path, None).await.status(), 404);
+    // A one-reply tail is available only after two surviving replies.
+    // Establish that source threshold before testing its cache validators.
+    for _ in 0..2 {
+        board_store::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
+            .await
+            .unwrap();
+    }
     let paths = [
         format!("/{slug}/thread/{id}.json"),
         format!("/{slug}/thread/{id}-tail.json"),
@@ -62,7 +71,7 @@ async fn exercise(public: PgPool, slug: String) {
     let mut validators = Vec::new();
     for path in &paths {
         let response = get(&app, path, None).await;
-        assert_eq!(response.status(), 200);
+        assert_eq!(response.status(), 200, "{path}");
         validators.push((
             response.headers()["etag"].to_str().unwrap().to_owned(),
             response.headers()["last-modified"]
