@@ -28,7 +28,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | B-002 | `sage`; documented FAQ meaning; source-known original bump/count rules; local lifetime limits remain project-defined; **source**: [original rules](#counts-bumping-and-admission) | Implemented, serialized per board | Posting-options and concurrent reply tests; lifetime counts do not decrease after deletion |
 | B-003 | Board settings and thread limits; project; **source**: [original rules](#counts-bumping-and-admission) | Unicode scalar comment limits, independent UTF-8 byte ceiling, [100-byte public name/subject limits](public-field-limits.md), active-thread cap, reply/bump limits | Domain/store/HTTP/browser tests; full boards displace oldest nonsticky threads; optional archives retain read-only threads, otherwise soft deletion; migration 0021 preserves historical fields and deletion |
 | B-004 | Deletion; project; **source**: [original rules](#deletion) | Argon2 password; OP deletion hides whole thread | Wrong credential/origin, absent store, persisted deletion tests; no staff identity involved |
-| B-008 | Post-submit destination and `nonoko`/`nonokosage`; documented FAQ; **source**: [original rules](#posting-and-text) | Implemented for new threads and replies through both posting aliases | Actual database redirect/bump tests and JavaScript-disabled browser controls; existing 303 status and exact unlisted-value rejection remain project behavior |
+| B-008 | Post-submit destination and `nonoko`/`nonokosage`; documented FAQ; **source**: [original rules](#posting-and-text) | Source raw-text parsing implemented for new threads and replies through both posting aliases | [Options rules and qualification](verification-posting-options.md): case-insensitive sage removal, exact remaining nonoko, 100-byte bounds, free-text controls and public capcode denial. Expanded persisted coverage awaits current-head CI; existing HTML 303 remains project behavior |
 | B-005 | Greentext, same-board/cross-board quotes and spoilers; documented FAQ syntax with project grammar; HTTP(S) links; **source**: [original rules](#formatting-and-quotes) | Nonrecursive typed nodes; cross-board slice merged in #55 after reviewed-head Linux/Windows and monitoring checks | [Cross-board quoting](cross-board-quotes.md); bounded properties, escaped public/JSON/staff rendering and actual no-JavaScript navigation/deletion test. Original server parser rules are source-known; matching those rules and the complete inline extension remains unverified |
 | B-006 | Reports; project; **source**: [original rules](#reports-and-staff) | Validated reasons persist; protected staff queue supports resolution and dismissal | Public reporting and staff database/HTTP/browser suites; original popup, weighted category queue and staff clearing are source-known; runtime category rows and operational policy are missing |
 | B-007 | Staff moderation/authentication; project requirement; **source**: [original rules](#reports-and-staff) | Separate WebAuthn app, absolute and idle session expiry, recent-authentication/CSRF checks, audited close/sticky/removal actions and operator-controlled enrollment/revocation/recovery | Staff database/HTTP tests including concurrent expiry and virtual-authenticator browser flow; hardware authenticator, production policies and independent review remain unverified |
@@ -254,9 +254,10 @@ still need to be distinguished from the old handler's deployed environment.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the
 email/options field and removes all matching substrings. The remaining value,
-lowercased, is compared exactly with `nonoko`. Thus original processing is
-not the rewrite's finite exact options allowlist; the FAQ meanings remain
-documented, while acceptance and response mechanics differ.
+lowercased, is compared exactly with `nonoko` without trimming. The rewrite's
+[bounded raw-text parser](verification-posting-options.md) follows these rules
+and the public 100-byte limit at lines 5299/5304. HTML response mechanics,
+special board options and identity cookies remain separate work.
 
 `imgboard.php:5789-5802` requires an ordinary OP to have a subject or
 nonblank comment, even with an image; configured/authorized exceptions apply.
@@ -649,7 +650,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | I-009 | Multipart text fields/modes and exact Accept JSON responses are implemented; original identity, single-request file posting and complete client flow remain unfinished. |
 | I-010 | Source-specific methods/301/meta-refresh are known; proxy/CORS/status/header deployment remains missing. |
 | B-001 | Original posting/identity/transformation flow is known; PostgreSQL persistence is a replacement. |
-| B-002 | Sage substring processing and current-count bump decisions differ from exact options/lifetime rules. |
+| B-002 | Sage substring processing is implemented; current-count bump decisions still differ from lifetime rules. |
 | B-003 | Board/category limits, image admission and protected-thread counting are known; local bounds differ. |
 | B-004 | Token/host/staff/automatic deletion branches are known; Argon2/soft deletion differ. |
 | B-005 | Active escaping/markup/link/quote pipeline is known; bounded grammar does not imply matching. |

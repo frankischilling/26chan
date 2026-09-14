@@ -44,7 +44,7 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
           await page.locator('#togglePostFormLink a').click();
           await page.locator('#com').fill(`Owned cookie policy ${cookies}, parent ${parent}`);
           await page.locator('#password').fill(password);
-          await page.locator('#email').selectOption(option);
+          await page.locator('#email').fill(option);
           if (parent === '0') await page.locator('#sub').fill('Owned network cookie policy');
           const pending = page.waitForResponse(response => response.request().method() === 'POST'
             && response.url() === `${origin}/test/imgboard.php`);

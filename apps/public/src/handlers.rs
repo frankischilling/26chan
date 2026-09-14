@@ -404,18 +404,8 @@ async fn submit_post(
         attachment.is_some(),
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
-    let (sage, return_to_board) = match form.email.as_str() {
-        "" => (false, false),
-        "sage" => (true, false),
-        "nonoko" => (false, true),
-        "nonokosage" => (true, true),
-        _ => {
-            return Err(AppError(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Options may be empty, sage, nonoko, or nonokosage.",
-            ));
-        }
-    };
+    let options = board_domain::posting_options::parse(&form.email)
+        .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.0))?;
     if !(8..=128).contains(&form.password.len()) {
         return Err(AppError(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -453,7 +443,11 @@ async fn submit_post(
         )
     })?;
     let post = NewPost {
-        name: form.name,
+        name: if options.anonymous {
+            String::new()
+        } else {
+            form.name
+        },
         subject: if form.resto == 0 {
             form.sub
         } else {
@@ -461,7 +455,7 @@ async fn submit_post(
         },
         comment: form.com,
         deletion_hash: hash,
-        sage,
+        sage: options.sage,
     };
     let id = board_store::create_post_with_attachment(
         &state.pool,
@@ -472,7 +466,7 @@ async fn submit_post(
     )
     .await?;
     let thread = if form.resto == 0 { id } else { form.resto };
-    let location = if return_to_board {
+    let location = if options.return_to_board {
         format!("/{board}/")
     } else {
         format!("/{board}/thread/{thread}#p{id}")

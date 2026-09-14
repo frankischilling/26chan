@@ -133,7 +133,7 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     if (!parent) await page.locator('#sub').fill(subject);
     await page.locator('#com').fill(`${marker} synthetic <script>fold</script>`);
     await page.locator('#password').fill(password);
-    if (sage) await page.locator('#email').selectOption('sage');
+    if (sage) await page.locator('#email').fill('sage');
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     const id = /#p(\d+)$/.exec(page.url())[1];
@@ -508,9 +508,9 @@ test('documented board-return options work with JavaScript disabled', async ({ b
     await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
     op = /#p(\d+)$/.exec(page.url())[1];
     const thread = `${origin}/test/thread/${op}`;
-    for (const option of ['nonoko', 'nonokosage']) {
+    for (const option of ['nonoko', 'nonokosage', 'NONOKO', 'sageNONOKOSaGe']) {
       await page.goto(thread);
-      await page.getByLabel('Options', { exact: true }).selectOption(option);
+      await page.getByLabel('Options', { exact: true }).fill(option);
       const comment = `A persisted ${option} browser reply`;
       await page.locator('#com').fill(comment);
       await page.locator('#password').fill(password);

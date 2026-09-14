@@ -37,10 +37,11 @@ Normal and approved-image posting share an escaped Askama field macro. The
 `form.postEditor` keeps the actual POST action and hidden parent/receipt fields.
 Explicit labels preserve accessible names. The table has `role="presentation"`
 because it arranges controls rather than tabular data. Comment help is linked
-with `aria-describedby` in both flows. Field names, validation limits, posting
-options, required password, capability handling and upload authority are
-unchanged. A new thread's submit control shares the subject row; replies, which
-retain the project's subject omission, put it beside the name field.
+with `aria-describedby` in both flows. The source Options text input accepts
+bounded raw text under the [posting-options rules](verification-posting-options.md).
+A new thread's submit control shares the subject row; replies omit Subject
+and put the submit control beside Options, following `views/imgboard.php:84-119`.
+Required passwords, capability handling and upload authority are unchanged.
 
 The reference properties include 468px desktop table width, 1px spacing, 244px
 text-field content width, and 292px by 60px textarea content dimensions. These
@@ -48,7 +49,7 @@ controls use the measured content-box sizing. Theme-specific label borders,
 padding, textarea margins and serif-theme monospace comments are preserved.
 At up to 600px, fields fill their available column with border-box sizing and
 16px text so they remain usable without horizontal scrolling. Mobile adaptation,
-the options selector, explicit deletion password and approved-image submit
+explicit deletion password and approved-image submit
 wording are local behavior, not observations of the original form.
 
 The script-free CSP keeps the form expanded; original client scripts and

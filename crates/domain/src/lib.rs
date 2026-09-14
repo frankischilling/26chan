@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod formatting;
+pub mod posting_options;
 pub use formatting::{Line, Token, parse_comment};
 
 pub const MAX_COMMENT_CHARS: usize = 16_000;

@@ -21,6 +21,12 @@ for (const [theme, value] of Object.entries(reference.themes)) {
     await expect(name).toHaveCSS('margin', value.field_margin);
     await expect(name).toHaveCSS('font-size', common.field_size);
     await expect(name).toHaveCSS('box-sizing', common.box_sizing);
+    const options = page.getByLabel('Options', { exact: true });
+    await expect(options).toHaveAttribute('type', 'text');
+    await expect(options).toHaveAttribute('name', 'email');
+    await expect(options).toHaveCSS('width', common.field_width);
+    await options.fill('😀'.repeat(25));
+    await expect(options).toHaveValue('😀'.repeat(25));
     const comment = page.getByLabel('Comment', { exact: true });
     await expect(comment).toHaveCSS('width', common.textarea_width);
     await expect(comment).toHaveCSS('height', value.textarea_height);
@@ -45,6 +51,10 @@ for (const [theme, value] of Object.entries(reference.themes)) {
       await page.locator('form.postEditor').getByLabel('Deletion password', { exact: true }).fill('synthetic-form-password');
       expect(await page.locator('form.postEditor').evaluate(node => node.checkValidity())).toBe(true);
       await expect(page.locator('form.postEditor button[type=submit]')).toHaveCount(1);
+      const submitRow = page.locator('form.postEditor button[type=submit]').locator('xpath=ancestor::tr');
+      await expect(submitRow.locator(route === '/demo/' ? '#sub' : '#email')).toHaveCount(1);
+      await page.getByLabel('Options', { exact: true }).fill('sageNONOKOSaGe');
+      await expect(page.getByLabel('Options', { exact: true })).toHaveValue('sageNONOKOSaGe');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
   });
