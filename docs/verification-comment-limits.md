@@ -1,5 +1,31 @@
 # Comment character-limit verification
 
+## Posting newline normalization
+
+The supplied `imgboard.php:5295-5302` converts CRLF and lone CR to LF before
+checking the comment length. New comments follow that order in both public
+posting routes and the store's text/attachment insertion paths. This fixes
+native browser forms whose CRLF submission exceeded the advertised scalar
+limit despite the textarea holding a valid number of characters. The input
+byte bound applies before allocation; normalization never increases byte size.
+LF-only input stays borrowed. Other Unicode text, spaces and tabs are preserved.
+
+[Issue #92](https://github.com/frankischilling/26chan/issues/92) covers this
+change. `comment_newlines` tests mixed line endings, controls, byte limits and
+128 bounded Unicode property cases. Store tests check exact persisted LF text
+for ordinary and approved attachment posts. The HTTP `comment_limits` suite
+checks both write routes, normalized limits, HTML/JSON breaks and unchanged
+ETags on rejected replies. The JavaScript-disabled browser test submits an
+actual maximum-size multiline form and checks its CRLF wire encoding and
+rendered reply. Hosted database/browser qualification remains required.
+
+No migration rewrites existing posts. This does not implement the source's
+later board-specific Unicode cleanup, establish its ambient mbstring encoding,
+or change media/staff authority. The earlier checkpoint below records its own
+scope and historical results.
+
+## Earlier character-limit checkpoint
+
 This checkpoint addresses compatibility I-001 and B-003 and narrows exception E-005. The advertised `max_comment_chars` setting now governs posting as a Unicode scalar count. A board allowing 4,000 characters accepts 4,000 instances of `é` or `😀`; a combining mark, modifier or joiner counts separately. The pinned reference does not establish whether the original service counts scalars, graphemes or UTF-16 units. No broader 1:1 parity claim is made.
 
 ## Implementation

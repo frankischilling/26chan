@@ -152,6 +152,63 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
             .unwrap();
     assert_eq!(stored, vec![comment.clone(), comment]);
 
+    // CRLF and bare CR each become one LF before the board's scalar limit,
+    // both through ordinary posting and the legacy endpoint.
+    sqlx::query("UPDATE content.boards SET max_comment_chars=5 WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for (route, parent) in [("post", 0), ("imgboard.php", thread)] {
+        let response = app
+            .clone()
+            .oneshot(form_request(
+                &format!("/{board}/{route}"),
+                "é\r\n😀\rb",
+                parent,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let location = response.headers()["location"].to_str().unwrap();
+        let id: i64 = location.split("#p").nth(1).unwrap().parse().unwrap();
+        let thread_id = if parent == 0 { id } else { parent };
+        assert_eq!(
+            board_store::find_post(&public, &board, id)
+                .await
+                .unwrap()
+                .comment,
+            "é\n😀\nb"
+        );
+        let endpoint = format!("/{board}/thread/{thread_id}.json");
+        let current = get(&app, &endpoint).await;
+        let tag = current.headers()["etag"].clone();
+        let value: serde_json::Value = serde_json::from_str(&body_text(current).await).unwrap();
+        let inserted = value["posts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|post| post["no"] == id)
+            .unwrap();
+        assert_eq!(inserted["com"], "é<br>😀<br>b");
+        assert!(
+            body_text(get(&app, &format!("/{board}/thread/{thread_id}")).await)
+                .await
+                .contains("é<br>😀<br>b")
+        );
+        let rejected = app
+            .clone()
+            .oneshot(form_request(
+                &format!("/{board}/{route}"),
+                "é\r\n😀\rbx",
+                thread_id,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(get(&app, &endpoint).await.headers()["etag"], tag);
+    }
+
     // Remove only this test's isolated rows with the fixture owner.
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&board).execute(&owner).await.unwrap();
     sqlx::query("DELETE FROM content.posts WHERE board=$1")
