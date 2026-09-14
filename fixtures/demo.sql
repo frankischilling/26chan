@@ -1,5 +1,10 @@
 -- Synthetic fixtures. No production content or credentials.
 -- Created after migrations, so source overrides must be explicit here too.
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,comment_sjis_spacing)
+VALUES ('b','Truncation fixtures','Synthetic catalog truncation tests.',4000,100,75,100,10,true,false),
+       ('sjis','SJIS fixtures','Synthetic catalog formatting tests.',4000,100,75,100,10,true,true)
+ON CONFLICT (slug) DO NOTHING;
+
 INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_max_lines,comment_spoiler_cleanup,require_subject)
 VALUES ('qst','Quests','Synthetic required-subject posting fixture.',4000,100,75,100,10,100,true,true)
 ON CONFLICT (slug) DO NOTHING;

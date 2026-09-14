@@ -23,8 +23,8 @@ test('server GET and release live search agree on escaped formatted fields from 
   const marker = `Fields${Date.now()}`;
   const password = 'catalog-field-fixture-password';
   const cases = [
-    { subject: `${marker} A&B`, comment: 'line one\n\nline   two', text: `<b>${marker} A&amp;B</b>: line one line two` },
-    { subject: `${marker} "quoted"`, comment: '[spoiler]quiet[/spoiler]\n>>1', text: `<b>${marker} &quot;quoted&quot;</b>: quiet &gt;&gt;1` },
+    { subject: `${marker} A&B`, comment: 'line one\n\nline   two', text: `<b>${marker} A&amp;B</b>: line one line   two` },
+    { subject: `${marker} "quoted"`, comment: '[spoiler]quiet[/spoiler]\n>>1', text: `<b>${marker} &quot;quoted&quot;</b>: <s>quiet</s> &gt;&gt;1` },
     { subject: `${marker} <tag>`, comment: 'literal <b>not HTML</b>', text: `<b>${marker} &lt;tag&gt;</b>: literal &lt;b&gt;not HTML&lt;/b&gt;` },
   ];
   const noScript = await browser.newContext({ javaScriptEnabled: false });
@@ -47,6 +47,9 @@ test('server GET and release live search agree on escaped formatted fields from 
       created.push(entry.id);
     }
     await live.goto(`${origin}/test/catalog?q=${marker}`);
+    for (const entry of cases) {
+      await expect(live.locator(`#thread-${entry.id} .catalogThumb`)).toHaveAttribute('data-search-text', entry.text);
+    }
     let navigations = 0;
     live.on('request', request => { if (request.isNavigationRequest()) navigations += 1; });
     for (const entry of cases) {

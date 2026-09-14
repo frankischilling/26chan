@@ -14,7 +14,7 @@
     {"name":"empty","subject":"","comment":"","text":"","checks":[{"query":"^$","matches":true}]},
     {"name":"subject only","subject":"Alpha","comment":"","text":"<b>Alpha</b>","checks":[{"query":"^Alpha","matches":false},{"query":"^<b>Alpha</b>$","matches":true}]},
     {"name":"subject boundary","subject":"Alpha","comment":"Beta","text":"<b>Alpha</b>: Beta","checks":[{"query":"Alpha$","matches":false},{"query":"Beta$","matches":true},{"query":"^<b>Alpha</b>: Beta$","matches":true}]},
-    {"name":"ASCII whitespace","subject":"","comment":" \talpha\r\n\r\n beta   ","text":"alpha beta","checks":[{"query":"^alpha beta$","matches":true},{"query":"alpha  beta","matches":false}]},
+    {"name":"ASCII whitespace","subject":"","comment":" \talpha\r\n\r\n beta   ","text":" \talpha  beta   ","checks":[{"query":"^alpha beta$","matches":false},{"query":"alpha  beta","matches":true}]},
     {"name":"reserved characters","subject":"A&B \"Q\" 'R'","comment":"<tag> & ' \"","text":"<b>A&amp;B &quot;Q&quot; &#039;R&#039;</b>: &lt;tag&gt; &amp; &#039; &quot;","checks":[{"query":"A&B","matches":false},{"query":"A&amp;B","matches":true},{"query":"&#039;R&#039;","matches":true}]},
     {"name":"supported spoiler","subject":"","comment":"[spoiler]hidden text[/spoiler]","text":"hidden text","checks":[{"query":"^hidden text$","matches":true},{"query":"[spoiler]","matches":false}]},
     {"name":"unclosed spoiler remains literal","subject":"","comment":"[spoiler]open","text":"[spoiler]open","checks":[{"query":"^[spoiler]open$","matches":true}]},

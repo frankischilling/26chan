@@ -118,8 +118,12 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
-    pub fn catalog_search_text(&self) -> String {
-        crate::catalog::search_text(&self.post.subject, &self.lines)
+    pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
+        crate::catalog::teaser::prepare(&self.lines, &board.slug, board.into())
+    }
+
+    pub fn catalog_search_text(&self, teaser: &crate::catalog::teaser::Prepared) -> String {
+        crate::catalog::search_text(&self.post.subject, teaser)
     }
 
     pub fn catalog_size(&self, large: bool) -> (i64, i64) {
