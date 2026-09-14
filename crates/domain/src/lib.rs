@@ -12,7 +12,7 @@ pub mod formatting;
 pub mod image_limit;
 pub mod op_bump;
 mod post_content;
-pub use post_content::{PreparedPostContent, prepare_post_content};
+pub use post_content::{PostKind, PreparedPostContent, prepare_post_content};
 pub mod posting_options;
 mod subject;
 pub use formatting::{Line, Token, parse_comment, parse_post_comment};

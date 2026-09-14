@@ -16,6 +16,14 @@ pub struct CommentSpacing<'a> {
 }
 
 impl<'a> CommentSpacing<'a> {
+    pub(crate) fn markup_policy(self) -> crate::comment_markup::MarkupPolicy {
+        crate::comment_markup::MarkupPolicy {
+            spoilers: self.spoiler_cleanup,
+            code: self.code,
+            sjis: self.sjis,
+        }
+    }
+
     pub fn for_board(board: &'a str, code: bool, sjis: bool) -> Self {
         Self {
             board,

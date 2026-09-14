@@ -724,3 +724,42 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
   await context.close();
 });
+
+for (const javaScriptEnabled of [false, true]) {
+  test(`subject-only threads submit through the native form (JavaScript ${javaScriptEnabled})`, async ({ browser }) => {
+    const origin = 'http://127.0.0.1:3000', password = 'owned-subject-only-password';
+    const context = await browser.newContext({ javaScriptEnabled });
+    const page = await context.newPage(); let op;
+    try {
+      await page.goto(`${origin}/test/`);
+      if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
+      await expect(page.locator('#com')).not.toHaveAttribute('required');
+      await page.locator('#sub').fill('Owned subject-only thread');
+      await page.locator('#password').fill(password);
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+      op = /#p(\d+)$/.exec(page.url())[1];
+      await expect(page.locator(`#m${op}`)).toBeEmpty();
+      await expect(page.locator(`#p${op} .subject`).first()).toHaveText('Owned subject-only thread');
+      const jsonUrl = `${origin}/test/thread/${op}.json`;
+      const before = await context.request.get(jsonUrl), snapshot = await before.json();
+      expect(snapshot.posts[0].sub).toBe('Owned subject-only thread');
+      expect(snapshot.posts[0]).not.toHaveProperty('com');
+      if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
+      await page.locator('#com').fill('[spoiler] \n[/spoiler]');
+      await page.locator('#password').fill(password);
+      const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      expect((await denied).status()).toBe(422);
+      await expect(page.locator('body')).toContainText('Error: No text entered.');
+      const after = await context.request.get(jsonUrl);
+      expect(await after.json()).toEqual(snapshot); expect(after.headers().etag).toBe(before.headers().etag);
+    } finally {
+      try {
+        if (op) expect((await context.request.post(`${origin}/test/delete`, {
+          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        })).status()).toBe(303);
+      } finally { await context.close(); }
+    }
+  });
+}

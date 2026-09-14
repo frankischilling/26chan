@@ -153,3 +153,47 @@ September 14, 2026. Its actual log confirms the policy/lock test, eight-mask
 upgrade exercise and populated restore succeeded, together with the complete
 job. This qualifies that metadata implementation, not the later renderer or
 expanded HTTP assertions. Full exact-head checks are still required for those.
+
+## Final comment admission
+
+`prepare_post_content` applies the source check at `imgboard.php:5790-5802`
+after sanitation and the typed SJIS/spoiler/code passes. An ordinary OP needs
+a nonempty cleaned subject or rendered comment, including when an attachment
+is supplied. A reply with blank rendered content needs an authorized attachment;
+its subject does not replace that requirement. Empty spoilers and short empty
+code blocks can disappear. Literal disabled markers, escaped user HTML and
+generated code/SJIS elements count as content. The final blank check uses ASCII
+whitespace and generated breaks, without applying another Unicode trim.
+
+The HTTP handler and the insertion transaction use the same function. The
+transaction checks the board policy while holding its row lock, before assigning
+a post number or changing threads. Rejected attachment posts leave their approval
+available for a subsequent valid reply. Public forms allow an empty OP comment;
+fileless replies retain browser-required comments. Server checks still decide
+whether sanitized or generated content is blank.
+
+Migration 0032 permits an empty stored OP comment when its subject is nonempty.
+The deferred attachment constraint reads the final row and also runs for subject
+updates. Clearing a subject without replacement comment or attachment fails.
+The attachment owner gains only a subject-column read; temporary function/schema
+authority is revoked. Historical content and formatting stamps are unchanged.
+Apply 0031 and 0032 before the new binary. Retain both migrations on binary
+rollback: old admission may reject new subject-only submissions but existing
+subject-only posts remain readable. The restore fixture includes such an OP.
+
+Coverage includes domain admission/precedence cases, both POST routes and form
+encodings, HTML/JSON responses, all eight markup masks, observed policy-lock
+waits, approved-attachment rejection/reuse, a populated 0031-to-0032 migration,
+final-row deferred updates, and native-form browser cases with JavaScript on and
+off. The first local domain run exposed incorrect expectations for NBSP and
+ideographic-only whitespace in the tests; the earlier source sanitation removes
+those, so the tests now distinguish sanitation from final admission. Strict
+Clippy and the corrected domain cases passed. Local migration execution failed
+with `PoolTimedOut`; database, migration, restore and browser results require
+fresh hosted checks.
+
+The source's `TEXT_ONLY` branch separately requires an OP subject. That board
+policy and the privileged options/image bypass are still unimplemented; neither
+is inferred from production media being disabled. OP markup, word filters,
+linkification, wrapping, full quote equivalence and syntax highlighting remain
+open under #143/#6. This slice does not establish complete formatting parity.

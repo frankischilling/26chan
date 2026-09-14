@@ -504,11 +504,59 @@ async fn exercise(f: &Fixture) {
     posting_times(f).await;
     image_admission_flags(f).await;
     comment_spacing(f).await;
+    final_content_admission(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn final_content_admission(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET image_limit=100,require_subject=false,comment_spoiler_cleanup=true,comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1")
+        .bind(&f.board).execute(&f.admin).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    for raw in ["", "[spoiler] \n[/spoiler]", "[code]      [/code]"] {
+        let upload = f.reserve().await;
+        let asset = f.approve(&upload).await;
+        let draft = NewPost {
+            subject: String::new(),
+            comment: raw.into(),
+            ..post()
+        };
+        let before: String = sqlx::query_scalar("SELECT jsonb_build_object('posts',(SELECT count(*) FROM content.posts WHERE board=$1),'threads',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t WHERE board=$1),'sequence',(SELECT last_value FROM content.post_number))::text")
+            .bind(&f.board).fetch_one(&f.admin).await.unwrap();
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid(
+                "Error: New threads require a subject or comment."
+            ))
+        ));
+        assert!(matches!(
+            create_post(&f.public, &f.board, thread, &draft).await,
+            Err(StoreError::Invalid("Error: No text entered."))
+        ));
+        let after: String = sqlx::query_scalar("SELECT jsonb_build_object('posts',(SELECT count(*) FROM content.posts WHERE board=$1),'threads',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t WHERE board=$1),'sequence',(SELECT last_value FROM content.post_number))::text")
+            .bind(&f.board).fetch_one(&f.admin).await.unwrap();
+        assert_eq!(before, after);
+        // Reusing the same approval after rejection proves failed admission
+        // neither consumed the capability nor inserted a partial attachment.
+        let id = create_post_with_attachment(&f.public, &f.board, thread, &draft, Some(&upload))
+            .await
+            .unwrap();
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.comment_format, 15);
+        assert_eq!(
+            attachment(&f.public, id).await.unwrap().unwrap().asset_id,
+            asset
+        );
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, thread, &draft, Some(&upload)).await,
+            Err(StoreError::Conflict(_))
+        ));
+    }
 }
 
 async fn tail_counts(f: &Fixture) {
@@ -997,6 +1045,7 @@ async fn reject_unattached_empty_posts(f: &Fixture, thread: i64) {
     assert!(safe);
     let mut empty = post();
     empty.comment.clear();
+    empty.subject.clear();
     for parent in [0, thread] {
         assert!(matches!(
             create_post(&f.public, &f.board, parent, &empty).await,
