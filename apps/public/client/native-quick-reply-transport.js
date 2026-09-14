@@ -1,5 +1,11 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 
+export function commentLengthWarning(value, limit) {
+  if (typeof value !== 'string' || !/^[1-9][0-9]{0,4}$/.test(limit) || Number(limit) > 16000) return '';
+  const bytes = new TextEncoder().encode(value).length;
+  return bytes > Number(limit) ? `Error: Comment too long (${bytes}/${limit}).` : '';
+}
+
 export function quoteInsertion(value, start, end, id, selected = '') {
   const quote = (postId(id) ? `>>${id}\n` : '')
     + (selected ? `>${selected.trim().replace(/[\r\n]+/g, '\n>')}\n` : '');

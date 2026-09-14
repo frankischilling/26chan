@@ -28,7 +28,7 @@
 <button type="submit">Upload file</button>
 </form>
 {% endif %}
-<form name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor">
+<form name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}">
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
 {% call posting::fields(parent, false) %}{% endcall %}

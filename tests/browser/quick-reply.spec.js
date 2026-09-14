@@ -101,3 +101,24 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
     expect(calls).toBe(2); await page.clock.runFor(2000); expect(calls).toBe(2);
   } finally { await page.unrouteAll({ behavior: 'ignoreErrors' }); expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
 });
+
+test('the source byte advisory does not block a Unicode reply within the server character limit', async ({ page, request }) => {
+  const created = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: 'Owned Unicode advisory thread', password } });
+  expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
+  try {
+    await page.goto(`/test/thread/${id}`);
+    const limit = Number(await page.locator('form.postEditor').getAttribute('data-comment-limit')); expect(limit).toBeGreaterThanOrEqual(4);
+    const value = '😀'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
+    await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+    await expect(page.locator('#qrResto')).toHaveValue(id);
+    await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill(value); await page.locator('#qrCom').press('ArrowLeft');
+    await expect(page.locator('#qrError')).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
+    await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
+    const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
+    await page.locator('#quickReply input[type=submit]').click(); const response = await posted;
+    expect(response.status()).toBe(200); const result = await response.json(); expect(String(result.tid)).toBe(id);
+    await expect(page.locator('#quickReply')).toHaveCount(0);
+    await expect(page.locator(`#m${result.pid}`)).toHaveText(value);
+    const data = await (await request.get(`/test/thread/${id}.json`)).json(); expect(data.posts.at(-1).com).toBe(value);
+  } finally { expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
+});

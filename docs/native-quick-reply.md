@@ -23,9 +23,24 @@ Escape or Close removes the dialog and its draft. Switching target threads
 clears the comment but retains identity fields. Closed/archived thread state
 prevents opening or submitting; updater state changes refresh this guard.
 
+Ordinary and approved forms expose the board's max_comment_chars as an escaped
+data-comment-limit. As in `imgboard.php:3407/3434` and
+`js/extension.js:4175-4178,4337-4379`, keydown, paste and cut schedule one
+comment check after 500 ms.
+It counts UTF-8 bytes and shows `Error: Comment too long (bytes/limit).` with
+data-type=length. A shorter comment clears only a length warning, preserving
+unrelated server errors. Closing cancels the pending check. The advisory does
+not disable posting: the source server separately counts normalized characters
+at `imgboard.php:5295-5302`, and the rewrite retains that distinction. A
+multibyte comment may therefore warn yet post successfully.
+
 Desktop dragging stores bounded numeric coordinates through the shared
 settings lock, never persisted CSS. The default position is right/top 10%;
-mobile placement uses the current scroll offset. The dialog uses the current
+mobile placement uses the current scroll offset plus 28 pixels initially and
+25 when reopening the existing dialog. The qrResto target ID and QR-position
+data-trackpos marker follow the source; position storage remains numeric.
+Quote insertion scrolls to the bottom only when its caret reaches the end.
+The dialog uses the current
 theme's fields, borders and reply colors. These are rewrite fixture checks,
 not a claim of pixel-identical complete original Quick Reply rendering.
 
@@ -87,7 +102,8 @@ assertions. Existing native/no-JavaScript upload cases still run unchanged.
   denied controls, automatic notification suppression and busy-update races.
 - `npm run test:media-visual`: six-theme desktop/mobile dialog captures,
   dragging, spoiler caret behavior, closed-thread guards, safe error text,
-  aborts and ignored late responses, alongside existing attachment coverage.
+  aborts, ignored late responses, debounced byte advice, typed-error preservation
+  and source editing positions, alongside existing attachment coverage.
 - `npm run test:themes` and `npm run test:watcher-core`: existing theme,
   watcher, tracking, keyboard, filter and updater regression coverage.
 
@@ -95,7 +111,7 @@ Local transport and fixture checks have passed. The new persisted-browser
 and approved-image pipeline cases await CI because this Windows environment has no available PostgreSQL
 service. CI outcomes must be recorded on the tested PR head before merge.
 
-Cooldown/automatic posting, the source comment-byte advisory, identity-cookie
+Cooldown/automatic posting, identity-cookie
 remembering, Pass/captcha, drawing, inline file selection, remaining shortcut
 groups and full rendered-source comparison remain unfinished. These are
 known source features, not evidence of unknown original behavior. Deployment
