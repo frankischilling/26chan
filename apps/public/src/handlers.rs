@@ -426,6 +426,8 @@ async fn submit_post(
         settings.comment_spacing(),
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
+    board_domain::prepare_post_subject(&form.sub, settings.comment_spacing())
+        .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     let options = board_domain::posting_options::parse(&form.email)
         .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.0))?;
     if !(8..=128).contains(&form.password.len()) {
@@ -470,11 +472,7 @@ async fn submit_post(
         } else {
             form.name
         },
-        subject: if form.resto == 0 {
-            form.sub
-        } else {
-            String::new()
-        },
+        subject: form.sub,
         comment: form.com,
         deletion_hash: hash,
         sage: options.sage,

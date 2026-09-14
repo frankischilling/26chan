@@ -55,32 +55,7 @@ pub fn prepare_post_comment(
     };
     let normalized = crate::comment_quotes::same_board_quotes(&normalized, spacing.board);
     let preserve = spacing.code || spacing.sjis;
-    let mut text = String::with_capacity(normalized.len());
-    let mut previous_space = false;
-    for mut ch in normalized.chars() {
-        if !spacing.preserve_wide_spaces && ch == '\u{3000}' {
-            ch = ' ';
-        }
-        if preserve {
-            if ch == '\t' {
-                text.push_str("    ");
-            } else {
-                text.push(ch);
-            }
-        } else if matches!(ch, ' ' | '\t' | '\u{000c}' | '\u{200b}' | '\u{2029}') {
-            if !previous_space {
-                text.push(' ');
-            }
-            previous_space = true;
-        } else {
-            text.push(ch);
-            previous_space = false;
-        }
-    }
-    // PHP trim's default ASCII set, not Unicode-wide Rust str::trim.
-    let mut text = text
-        .trim_matches([' ', '\t', '\n', '\r', '\0', '\u{000b}'])
-        .to_owned();
+    let mut text = sanitize_spacing(&normalized, spacing);
     // Source strip_private_unicode runs after trim, so removal can expose
     // spaces at the edges. Do not trim those a second time.
     text.retain(|ch| ch as u32 <= 0x3134f);
@@ -108,6 +83,35 @@ pub fn prepare_post_comment(
         ));
     }
     Ok(text)
+}
+
+pub(crate) fn sanitize_spacing(normalized: &str, spacing: CommentSpacing<'_>) -> String {
+    let preserve = spacing.code || spacing.sjis;
+    let mut text = String::with_capacity(normalized.len());
+    let mut previous_space = false;
+    for mut ch in normalized.chars() {
+        if !spacing.preserve_wide_spaces && ch == '\u{3000}' {
+            ch = ' ';
+        }
+        if preserve {
+            if ch == '\t' {
+                text.push_str("    ");
+            } else {
+                text.push(ch);
+            }
+        } else if matches!(ch, ' ' | '\t' | '\u{000c}' | '\u{200b}' | '\u{2029}') {
+            if !previous_space {
+                text.push(' ');
+            }
+            previous_space = true;
+        } else {
+            text.push(ch);
+            previous_space = false;
+        }
+    }
+    // PHP trim's default ASCII set, not Unicode-wide Rust str::trim.
+    text.trim_matches([' ', '\t', '\n', '\r', '\0', '\u{000b}'])
+        .to_owned()
 }
 
 pub(crate) fn zero_width(ch: char) -> bool {

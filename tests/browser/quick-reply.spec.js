@@ -36,9 +36,11 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await expect(page.locator('#qrError')).toContainText('comment');
     await expect(page.locator('#qr-pwd')).toHaveValue(password);
     await page.locator('#qrCom').fill(`>>${id}\nOwned Quick Reply result`);
-    const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
-    await page.locator('#quickReply input[type=submit]').click();
-    const response = await posted; expect(response.status()).toBe(200); const result = await response.json();
+    await observePostingBody(page);
+    const posted = page.evaluate(() => window.ownedPostingResponse);
+    const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+    expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
+    const result = JSON.parse(response.text); expect(result.error).toBeUndefined();
     const reply = String(result.pid); expect(String(result.tid)).toBe(id);
     await expect(page.locator('#qrCom')).toHaveValue(''); await expect(page.locator('#quickReply')).toBeVisible();
     await expect(page.locator(`#m${reply}`)).toContainText('Owned Quick Reply result');

@@ -637,6 +637,12 @@ async fn comment_spacing(f: &Fixture) {
             );
         }
         draft.comment = raw.replace("{board}", &f.board);
+        draft.subject = "#".repeat(101);
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid("Name or subject is too long."))
+        ));
+        draft.subject = " Ｚ##ⓦ\t  <b>│\r\nEND ".into();
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();
@@ -646,6 +652,19 @@ async fn comment_spacing(f: &Fixture) {
                 .unwrap()
                 .comment,
             expected
+        );
+        assert_eq!(
+            board_store::find_post(&f.public, &f.board, id)
+                .await
+                .unwrap()
+                .subject,
+            if sjis {
+                "aw      <b>│END"
+            } else if code {
+                "aw      <b>END"
+            } else {
+                "aw <b>END"
+            }
         );
         assert_eq!(
             attachment(&f.public, id).await.unwrap().unwrap().asset_id,

@@ -3,7 +3,7 @@
 <div class="post {% if item.post.id == view.thread.id %}op{% else %}reply{% endif %}" id="p{{ item.post.id }}">
 {% if !catalog && item.post.id == view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
 <div class="postInfo" id="pi{{ item.post.id }}">
-{% if !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
+{% if item.post.id == view.thread.id && !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
 <span class="name">{{ item.post.name }}</span> <time datetime="{{ item.post.created_at.to_rfc3339() }}">{{ item.now }}</time>
 <a class="postNum" href="/{{ board.slug }}/thread/{{ view.thread.id }}#p{{ item.post.id }}">No.{{ item.post.id }}</a>
 {% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed || view.thread.archived_at.is_some() %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">{% if view.thread.archived_at.is_some() %}View thread{% else %}Reply{% endif %}</a>]{% endif %}

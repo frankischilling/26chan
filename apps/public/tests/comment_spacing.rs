@@ -10,6 +10,9 @@ use sqlx::PgPool;
 use std::time::Duration;
 use tower::ServiceExt;
 
+#[path = "support/subjects.rs"]
+mod subject_cases;
+
 fn post(comment: &str) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
@@ -171,6 +174,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     assert!(!html.contains("C <script>"));
     local_quotes(&app, &owner, &public, &slug, thread).await;
     line_rules(&app, &owner, &public, &slug, thread).await;
+    subject_cases::exercise(&app, &owner, &public, &slug, thread).await;
 
     let denied = sqlx::query("UPDATE content.boards SET comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1")
         .bind(&slug).execute(&public).await.unwrap_err();

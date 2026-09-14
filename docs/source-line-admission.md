@@ -78,5 +78,6 @@ public privileges, and removes that database afterward.
 
 Local unit/compile checks do not establish database, upgrade or posting-browser
 results. Complete current-head hosted qualification is required before merge.
-Source markup, name/subject sanitation and word filters remain unfinished.
+[Subject sanitation](source-subject-cleanup.md) is a separate posting stage.
+Source markup, name/trip sanitation and word filters remain unfinished.
 Production containment, recovery and independent review remain launch prerequisites.

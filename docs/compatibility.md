@@ -258,8 +258,11 @@ source order, pending current-head qualification. [Same-board quote cleanup](sou
 then rewrites explicit local prefixes in new stored comments. [Line admission](source-line-admission.md)
 removes enabled intra-word spoilers before that rewrite, rejects source repeated-line
 spam before blank collapse, and enforces the final LF limit under locked operator
-policy. Current-head qualification remains required. Name/subject cleanup, markup
-and word filters remain unfinished;
+policy. [Subject cleanup](source-subject-cleanup.md) applies unconditional source
+normalization, fake-capcode removal and single-line spacing to new OP/reply
+subjects, with escaped JSON text and bounded tab expansion in migration 0029.
+Current-head qualification remains required. Name/trip cleanup, forced-anonymous
+policy, markup and word filters remain unfinished;
 the old handler's deployed encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the

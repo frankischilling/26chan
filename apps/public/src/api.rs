@@ -130,13 +130,13 @@ fn post_json(
     if !post.post.comment.is_empty() {
         value["com"] = json!(comment);
     }
+    if !post.post.subject.is_empty() {
+        value["sub"] = json!(board_domain::source_html_entities(&post.post.subject));
+    }
     if op {
         value["replies"] = json!(replies);
         value["images"] = json!(images);
         value["semantic_url"] = json!(semantic_url(&post.post.subject));
-        if !post.post.subject.is_empty() {
-            value["sub"] = json!(post.post.subject);
-        }
         if thread.sticky {
             value["sticky"] = json!(1);
         }

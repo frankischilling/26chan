@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, attachComparedImage } from '../helpers/visual-diagnostics.js';
 import { readFile } from 'node:fs/promises';
 
 // Only this interactive suite overrides the inherited static, no-JavaScript mode.
@@ -6,7 +6,7 @@ test.use({ javaScriptEnabled: true });
 
 const reference = JSON.parse(await readFile(new URL('../../docs/public-catalog-reference.json', import.meta.url), 'utf8'));
 for (const theme of Object.keys(reference.themes)) {
-  test(`in-place catalog dimensions and pixels match server modes in ${theme}`, async ({ context }) => {
+  test(`in-place catalog dimensions and pixels match server modes in ${theme}`, async ({ context }, info) => {
     await context.addCookies([{ name: 'board-theme-ws', value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
     const live = await context.newPage();
     const server = await context.newPage();
@@ -26,7 +26,13 @@ for (const theme of Object.keys(reference.themes)) {
         }
         const attrs = page => page.locator('#threads img').evaluateAll(nodes => nodes.map(image => [image.getAttribute('src'), image.width, image.height]));
         expect(await attrs(live)).toEqual(await attrs(server));
-        expect(await live.locator('#threads').screenshot({ animations: 'disabled' })).toEqual(await server.locator('#threads').screenshot({ animations: 'disabled' }));
+        const liveImage = await live.locator('#threads').screenshot({ animations: 'disabled' });
+        const serverImage = await server.locator('#threads').screenshot({ animations: 'disabled' });
+        if (!liveImage.equals(serverImage)) {
+          await attachComparedImage(info, `live-${theme}-${width}-${size}-${teaser}`, liveImage);
+          await attachComparedImage(info, `server-${theme}-${width}-${size}-${teaser}`, serverImage);
+        }
+        expect(liveImage).toEqual(serverImage);
         expect(navigations).toBe(0);
       }
       live.off('request', listener);

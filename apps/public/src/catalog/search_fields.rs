@@ -1,8 +1,7 @@
 use board_domain::{Line, Token, parse_comment};
 
-// Public posting currently bounds subjects to 120 bytes. The scalar cap also
-// bounds this helper when invoked independently with oversized synthetic data.
-const SUBJECT_SCALARS: usize = 120;
+// Preserve source tab expansion while bounding independent synthetic inputs.
+const SUBJECT_SCALARS: usize = board_domain::MAX_SUBJECT_BYTES;
 
 fn escape_into(output: &mut String, text: &str) {
     for ch in text.chars() {
@@ -127,6 +126,16 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn expanded_subject_is_not_cut_at_the_old_storage_bound() {
+        let expanded = format!("A{}B", " ".repeat(392));
+        assert_eq!(
+            from_raw(&expanded, "body"),
+            format!("<b>{expanded}</b>: body")
+        );
+        assert!(Filter::new("B</b>").matches(&from_raw(&expanded, "body")));
     }
 
     #[test]
