@@ -105,7 +105,7 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
     await expect(page.locator(`#pi${id} .subject > *`)).toHaveCount(0);
     const data = await (await context.request.get(`${origin}/test/thread/${id}.json`)).json();
     expect(data.posts[0].name).toBe(name);
-    expect(data.posts[0].sub).toBe(subject);
+    expect(data.posts[0].sub).toBe('&lt;&amp;'.repeat(50));
     for (const [who, title] of [[`${name}x`, subject], [name, `${subject}x`]]) {
       await fill(who, title);
       const rejected = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
@@ -569,6 +569,39 @@ test('documented board-return options work with JavaScript disabled', async ({ b
     } finally {
       await context.close();
     }
+  }
+});
+
+test('source subject cleanup preserves expanded text and reply subjects without JavaScript', async ({ browser }) => {
+  const origin = 'http://127.0.0.1:3000', password = 'owned-subject-browser-password';
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage(); let op;
+  try {
+    await page.goto(`${origin}/test/`);
+    const raw = `A${'\t'.repeat(98)}B`, expanded = `A${' '.repeat(392)}B`;
+    await page.locator('#sub').fill(raw); await page.locator('#com').fill('Owned expanded subject');
+    await page.locator('#password').fill(password); await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
+    await expect(page.locator(`#pi${op} .subject`)).toHaveJSProperty('textContent', expanded);
+    const response = await context.request.post(`${origin}/test/imgboard.php`, {
+      headers: { Origin: origin, Accept: 'application/json' },
+      form: { resto: op, sub: 'Ｚ##ⓦ <b>😀', com: 'Owned subject reply', pwd: password },
+    });
+    expect(response.status()).toBe(200); const reply = await response.json(); expect(reply.error).toBeUndefined();
+    await page.reload();
+    await expect(page.locator(`#pi${reply.pid} .subject`)).toHaveText('aw <b>');
+    await expect(page.locator(`#pi${reply.pid} .subject > *`)).toHaveCount(0);
+    const data = await (await context.request.get(`${origin}/test/thread/${op}.json`)).json();
+    expect(data.posts[0].sub).toBe(expanded);
+    expect(data.posts.find(post => post.no === reply.pid).sub).toBe('aw &lt;b&gt;');
+    await page.goto(`${origin}/test/catalog`);
+    const card = page.locator(`#thread-${op}`);
+    await expect(card.locator('.teaser b')).toHaveJSProperty('textContent', expanded);
+    await expect(card.locator('.catalogThumb')).toHaveAttribute('data-search-text', `<b>${expanded}</b>: Owned expanded subject`);
+  } finally {
+    try { if (op) expect((await context.request.post(`${origin}/test/delete`, {
+      headers: { Origin: origin }, form: { no: op, password }, maxRedirects: 0,
+    })).status()).toBe(303); } finally { await context.close(); }
   }
 });
 

@@ -76,7 +76,8 @@ The [source Unicode stages](source-comment-unicode.md) apply the finite
 ASCII-lookalike mapping before zero-width cleanup, emoticon exclusions before
 spacing, and the codepoint ceiling after trim. These stages can remove characters
 even when SJIS exempts them from the earlier zero-width filter. Board markup,
-name/subject cleanup and word filters remain unfinished. [Line admission](source-line-admission.md)
+name/trip cleanup and word filters remain unfinished. [Subject cleanup](source-subject-cleanup.md)
+shares the spacing stage but has different surrounding rules. [Line admission](source-line-admission.md)
 covers intra-word spoilers, repeated-line rejection and `MAX_LINES`. These tests do not establish
 complete source equivalence for every input.
 

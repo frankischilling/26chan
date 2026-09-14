@@ -11,7 +11,9 @@ pub mod formatting;
 pub mod image_limit;
 pub mod op_bump;
 pub mod posting_options;
+mod subject;
 pub use formatting::{Line, Token, parse_comment};
+pub use subject::{MAX_SUBJECT_BYTES, prepare_post_subject, source_html_entities};
 
 pub const MAX_COMMENT_CHARS: usize = 16_000;
 pub const MAX_COMMENT_BYTES: usize = 64_000;

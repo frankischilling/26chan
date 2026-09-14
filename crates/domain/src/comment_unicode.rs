@@ -29,7 +29,7 @@ pub(super) fn before_spacing(text: &str, spacing: CommentSpacing<'_>) -> String 
 }
 
 // Fixed supplied-source exclusions, not a changing Unicode emoji property.
-fn emoticon(ch: char, sjis: bool) -> bool {
+pub(crate) fn emoticon(ch: char, sjis: bool) -> bool {
     matches!(ch as u32,
         0x2300..=0x2311 | 0x2313..=0x23ff | 0x3200..=0x32ff |
         0x2190..=0x21ff | 0x2580..=0x259f | 0x2600..=0x26ff |

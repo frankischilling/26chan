@@ -57,17 +57,7 @@ pub(super) fn repeated_lines(text: &str) -> bool {
     // Entity suffixes can match a later literal line ("&" then "amp;").
     // This projection is only for admission, never trusted rendering or storage.
     if text.contains(['&', '<', '>', '"', '\'']) {
-        let mut escaped = String::with_capacity(text.len());
-        for ch in text.chars() {
-            match ch {
-                '&' => escaped.push_str("&amp;"),
-                '<' => escaped.push_str("&lt;"),
-                '>' => escaped.push_str("&gt;"),
-                '"' => escaped.push_str("&quot;"),
-                '\'' => escaped.push_str("&#039;"),
-                _ => escaped.push(ch),
-            }
-        }
+        let escaped = crate::source_html_entities(text);
         repeated_line_runs(&escaped)
     } else {
         repeated_line_runs(text)

@@ -89,6 +89,8 @@ pub async fn create_post_with_context(
         board.comment_spacing(),
     )
     .map_err(|error| StoreError::Invalid(error.0))?;
+    let subject = board_domain::prepare_post_subject(&post.subject, board.comment_spacing())
+        .map_err(|error| StoreError::Invalid(error.0))?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await?;
@@ -168,7 +170,7 @@ pub async fn create_post_with_context(
             .bind(slug)
             .bind(thread_id)
             .bind(name)
-            .bind(&post.subject)
+            .bind(&subject)
             .bind(comment.as_str())
             .bind(&attachment.upload.id)
             .bind(&attachment.upload.capability)
@@ -178,7 +180,7 @@ pub async fn create_post_with_context(
             .await
             .map_err(post_media::scoped_error)?;
     } else {
-        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(comment.as_str()).bind(posted_at).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&subject).bind(comment.as_str()).bind(posted_at).execute(&mut *tx).await?;
     }
     sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
         .bind(id)

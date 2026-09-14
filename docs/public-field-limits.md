@@ -15,13 +15,15 @@ store validates again under the board lock, including attachment writes.
 Run `cargo run -p board-store --bin board-migrate --locked` using the migration
 login before deploying this version. Migration 0021 expands the name storage
 ceiling from 80 to 100 bytes. It preserves all existing rows and grants.
-Subject storage retains its 120-byte ceiling for older data; the application
-enforces 100 bytes on new input. This avoids breaking deletion or moderation
+At migration 0021, subject storage retains its 120-byte ceiling for older data;
+the application enforces 100 bytes on new input. This avoids breaking deletion or moderation
 of older subjects. A compromised public database login retains its existing
 ability to insert subjects up to that storage ceiling; this change adds no
 such authority. Keep the wider name constraint on rollback while any names
 over 80 bytes exist. Earlier binaries can still read them but enforce their
-earlier input policy.
+earlier input policy. Later [subject cleanup](source-subject-cleanup.md) requires
+migration 0029's 400-byte storage ceiling for source tab expansion. Its raw
+input limit remains 100 bytes, and historical subjects remain unchanged.
 
 [Issue #94](https://github.com/frankischilling/26chan/issues/94) tracks this
 change. Domain and HTTP tests cover ASCII/multibyte boundaries, both posting

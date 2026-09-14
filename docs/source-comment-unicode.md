@@ -81,8 +81,9 @@ results. Complete current-head Linux CI is required before merge. Production
 containment, recovery and independent review remain launch prerequisites.
 
 [Same-board quote rewriting](source-local-quotes.md) follows the early Unicode
-filters for new comments, pending current-head qualification. Name/subject
-sanitation, spoiler/code/SJIS markup and word filters remain unfinished.
+filters for new comments, pending current-head qualification.
+[Subject sanitation](source-subject-cleanup.md) uses unconditional normalization.
+Name/trip sanitation, spoiler/code/SJIS markup and word filters remain unfinished.
 [Line admission](source-line-admission.md) covers intra-word spoiler cleanup,
 repeated-line rejection and `MAX_LINES`. These stages do not
 establish complete posting parity.

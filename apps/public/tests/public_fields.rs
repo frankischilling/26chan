@@ -64,7 +64,8 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
             accepted += 1;
             let stored = board_store::find_post(&public, &board, id).await.unwrap();
             assert_eq!(stored.name, value);
-            assert_eq!(stored.subject, value);
+            let expected_subject = if value.contains('😀') { "" } else { &value };
+            assert_eq!(stored.subject, expected_subject);
             let response = app
                 .clone()
                 .oneshot(
@@ -79,7 +80,14 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             assert_eq!(json["posts"][0]["name"], value);
-            assert_eq!(json["posts"][0]["sub"], value);
+            if expected_subject.is_empty() {
+                assert!(json["posts"][0].get("sub").is_none());
+            } else {
+                assert_eq!(
+                    json["posts"][0]["sub"],
+                    expected_subject.replace('&', "&amp;").replace('<', "&lt;")
+                );
+            }
             for (name, subject) in [
                 (format!("{value}x"), value.clone()),
                 (value.clone(), format!("{value}x")),

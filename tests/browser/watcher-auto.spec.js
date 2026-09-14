@@ -59,9 +59,9 @@ test('manual extension refresh discovers two boards, counts replies and retains 
   await expect(page.locator('#watchList li')).toHaveCount(0);
   const source = await request.get(`/_watch/demo/thread/${fixture.demo}.json`);
   expect(source.status()).toBe(200);
-  expect((await source.json()).posts[0].sub).toBe(`<b>${fixture.tag} & paper</b>`);
+  expect((await source.json()).posts[0].sub).toBe(`&lt;b&gt;${fixture.tag} &amp; paper&lt;/b&gt;`);
   await refresh(page);
-  await expect(page.locator(`#watch-${fixture.demo}-demo a`)).toHaveText(`(1) /demo/ - ${fixture.tag} & paper`);
+  await expect(page.locator(`#watch-${fixture.demo}-demo a`)).toHaveText(`(1) /demo/ - <b>${fixture.tag} & paper</b>`);
   await expect(page.locator(`#watch-${fixture.other}-test a`)).toHaveText(`/test/ - ${fixture.tag} fold`);
   await expect(page.locator('#watchList b, #watchList img')).toHaveCount(0);
   expect(requests.slice(0, 2).map(url => new URL(url).pathname)).toEqual(['/_watch/demo/catalog.json', '/_watch/test/catalog.json']);
