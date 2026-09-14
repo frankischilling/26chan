@@ -54,8 +54,8 @@ password handler. That test does not change production CSP or implement a
 Quick Reply interface. CI must pass the persisted/browser tests; a local
 unit or compile pass alone does not qualify them.
 
-The original password-cookie flow, captcha, full success page and Quick
-Reply interface remain separate work under
-I-009 and E-010/E-011. Production CSP still permits no posting fetch from
-ordinary pages. No schema, dependency, database grant or media-boundary
-change is required by this response layer.
+The original password-cookie flow, captcha and full success page remain work
+under I-009 and E-010/E-011. [Quick Reply](native-quick-reply.md) uses this
+response contract and adds a current-board posting path to ordinary page CSP;
+its full source lifecycle remains unfinished. No schema, dependency, database
+grant or media-boundary change is required by this response layer.

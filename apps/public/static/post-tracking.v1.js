@@ -115,6 +115,17 @@ export class PostTracking {
     return parts ? readTrackedReplies(this.storage.getItem(`4chan-track-${parts.board}-${parts.id}`)) : new Set();
   }
 
+  async committed(thread, post) {
+    await this.consume(thread);
+    const saved = await this.locked(() => {
+      if (this.settings().disableAll === true) return false;
+      recordTrackedPost(this.storage, this.board, thread, post);
+      return true;
+    });
+    if (saved) await this.onPost({ thread, post, track: true, watch: false });
+    return saved;
+  }
+
   async consume(thread) {
     const events = await this.locked(() => {
       const events = [];

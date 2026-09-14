@@ -3,8 +3,9 @@
 Desktop/mobile Update and Auto controls, and optional `R`/`A` shortcuts,
 fetch and insert new replies in place. Existing drafts, post nodes and document
 state remain intact. Automatic updates also maintain the unread title and
-last-reply marker, favicon notifications and optional reply sounds. Quick Reply
-coordination is still unfinished; this is not complete native updater compatibility.
+last-reply marker, favicon notifications and optional reply sounds.
+[Quick Reply](native-quick-reply.md) coordinates committed replies and delayed
+updates; complete native updater compatibility still needs reference qualification.
 
 [Full/tail selection and conditional responses](native-updater-tail.md) follow
 the supplied old source. They share the insertion, filtering and notification
@@ -76,9 +77,9 @@ store. Quotes to tracked posts receive the native `ql-tracked` class and
 ` (You)` text suffix. Repeated rendering does not duplicate the suffix or change
 the link destination. Disabling the extension removes only its own decoration.
 The pinned `Parser.init` loads tracked replies only on thread pages; no new
-board-index decoration is inferred. Quick Reply's single-own-reply suppression
-still requires the actual Quick Reply lifecycle and is not approximated from
-the ordinary posting receipt store.
+board-index decoration is inferred. Quick Reply's last committed ID suppresses
+notifications when it is the sole addition. Ordinary posting receipts do not
+set this marker, and multiple additions retain the usual notification path.
 
 After automatic insertion, quotes to tracked posts select the reply favicon.
 New filter highlights select the highlight icon unless a reply notification is
@@ -245,11 +246,11 @@ Audio tests control the document's hidden flag and confirm playback through the
 real HTMLMediaElement API; background-tab autoplay behavior is still subject to
 browser policy and requires live-reference qualification.
 
-Still required: Quick Reply coordination, remaining native
+Still required: the complete Quick Reply lifecycle, remaining native
 settings and live public-reference comparison. The supplied old updater does
 not reconcile deletion of already-rendered posts: its `deletionQueue` appears
 only at initialization. Adding reconciliation would be a local enhancement,
 not a missing original behavior; see the [native source audit](compatibility.md#native-extension).
 The full snapshot route and the one-second request floor are explicit local
 transport choices. The pending reference qualification remains tracked in #6
-and draft PR #89. No production rollout is implied.
+and #88 after #89 merged. No production rollout is implied.

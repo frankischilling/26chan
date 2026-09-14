@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, markNativeTrackedQuotes,
+import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -257,7 +257,16 @@ function start(context) {
       } finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); acknowledgement.abort(); }
     },
   });
+  const nativeQuickReply = catalog ? null : mountNativeQuickReply({ board, thread: threadId, settings: configuration,
+    savePosition: position => saveSettings({ 'QR-position': position }),
+    committed: (id, post) => {
+      const saved = tracking.committed(id, post).catch(() => false);
+      nativeUpdater?.posted(post, saved);
+      return saved.then(() => { render(); });
+    },
+  });
   const nativeKeys = catalog ? null : mountNativeKeybinds({ board, settings: configuration,
+    quickReply: () => nativeQuickReply?.open(),
     update: () => { void nativeUpdater?.update(); },
     auto: () => nativeUpdater?.toggleAuto(),
     watch: () => { if (enabled && threadId) void toggleThread(document.getElementById(`t${threadId}`)); },
@@ -642,6 +651,7 @@ function start(context) {
     if (!catalog && threadId) markNativeTrackedQuotes(document.getElementById(`t${threadId}`),
       tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true);
     nativeUpdater?.sync();
+    nativeQuickReply?.sync();
     nativeReplies?.refresh();
     nativeThreads?.refresh();
     tracking.prepareForms();

@@ -83,6 +83,6 @@ draft retention, cancellation, tracked-quote notifications and unread counts.
 The CORS client document is synthetic; its loopback permission is scoped to
 the test origins, and browser CORS remains active.
 
-Quick Reply coordination, remaining native settings and full rendered-reference
+The complete Quick Reply lifecycle, remaining native settings and full rendered-reference
 comparisons remain unfinished. These checks do not qualify production media
 execution, deployment or whole-application back/forward-cache behavior.

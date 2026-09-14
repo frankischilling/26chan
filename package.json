@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:quick-reply": "node --test tests/browser/native-quick-reply.test.mjs && playwright test tests/browser/quick-reply.spec.js",
     "test": "playwright test",
     "build:native-filter": "node scripts/build-native-filter.mjs",
     "check:native-filter": "node scripts/build-native-filter.mjs --check",

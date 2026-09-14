@@ -43,6 +43,7 @@ pub async fn protect(State(state): State<AppState>, request: Request, next: Next
                 .into_response(),
             &state,
             None,
+            None,
         );
     };
     let parts: Vec<_> = request
@@ -65,8 +66,19 @@ pub async fn protect(State(state): State<AppState>, request: Request, next: Next
     let page = ((board_page && matches!(*request.method(), Method::GET | Method::HEAD))
         || upload_page)
         .then_some(parts.last() == Some(&"catalog"));
+    let posting = (page == Some(false)
+        && parts[0].len() <= 10
+        && parts[0]
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+    .then(|| format!("{}/{}/imgboard.php", state.origin, parts[0]));
     let response = protect_inner(&state, request, next).await;
-    headers(board_http::hold_permit(response, permit), &state, page)
+    headers(
+        board_http::hold_permit(response, permit),
+        &state,
+        page,
+        posting.as_deref(),
+    )
 }
 
 async fn protect_inner(state: &AppState, request: Request, next: Next) -> Response {
@@ -123,7 +135,12 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
     }
 }
 
-fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Response {
+fn headers(
+    mut response: Response,
+    state: &AppState,
+    page: Option<bool>,
+    posting: Option<&str>,
+) -> Response {
     let interactive = page.is_some()
         && response.status().is_success()
         && response
@@ -167,7 +184,10 @@ fn headers(mut response: Response, state: &AppState, page: Option<bool>) -> Resp
         script
     };
     let connect = if interactive {
-        format!("{}/_watch/", state.origin)
+        match posting {
+            Some(posting) => format!("{}/_watch/ {posting}", state.origin),
+            None => format!("{}/_watch/", state.origin),
+        }
     } else {
         "'none'".into()
     };
