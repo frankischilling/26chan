@@ -104,6 +104,7 @@ impl Fixture {
     fn page(&self, kind: &str, options: catalog::Options) -> String {
         let catalog = kind == "catalog";
         let archived = kind == "archived";
+        let closed = kind == "closed" || kind == "closed-board";
         let board = board_store::Board {
             slug: "img".into(),
             title: "Paper image fixtures".into(),
@@ -120,7 +121,7 @@ impl Fixture {
             modified_at: time("2026-09-08T12:05:00Z"),
             reply_count: 5,
             sticky: false,
-            closed: false,
+            closed,
             deleted: false,
             archived_at: archived.then(|| time("2026-09-08T13:00:00Z")),
             archive_expires_at: archived.then(|| time("2026-09-08T14:00:00Z")),
@@ -172,7 +173,7 @@ impl Fixture {
             catalog_hidden: Vec::new(),
             board,
             threads,
-            parent: if kind == "thread" || archived {
+            parent: if kind == "thread" || kind == "closed" || archived {
                 1_000_201
             } else {
                 0
@@ -194,6 +195,8 @@ impl Fixture {
             ("/img/thread/1000201", "thread"),
             ("/img/catalog", "catalog"),
             ("/img/archived/1000201", "archived"),
+            ("/img/closed/1000201", "closed"),
+            ("/img/closed-board", "closed-board"),
         ] {
             let fixture = self.clone();
             app = app.route(

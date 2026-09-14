@@ -3,8 +3,8 @@ import { commentLengthWarning, quoteInsertion, sendQuickReply } from './native-q
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
-  if (!source || !/^[a-z0-9]{1,10}$/.test(board)) return null;
-  const approvedThread = source.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;
+  if (!/^[a-z0-9]{1,10}$/.test(board)) return null;
+  const approvedThread = source?.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;
   let dialog, form, comment, error, submit, current, controller, opener, position, epoch = 0;
   let busy = false, commentTimer;
   const disabled = () => settings().disableAll === true || settings().quickReply === false;
@@ -52,7 +52,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     else if (error.textContent === 'This thread is closed.') message('');
   }
   function open(id = thread, quote = null, selected = '', quoting = false) {
-    if (disabled() || !postId(id) || closed(id) || busy) return false;
+    if (!source || disabled() || !postId(id) || closed(id) || busy) return false;
     if (dialog) {
       if (current !== id) { current = id; form.elements.resto.value = id; document.getElementById('qrTid').textContent = id; comment.value = '';
         const upload = form.querySelector('.qr-upload-link'); if (upload) upload.href = `/${board}/thread/${id}#upfile`;
@@ -172,7 +172,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     } finally { if (active === epoch) { busy = false; controller = null; submit.value = 'Post'; sync(); } }
   }
   const nav = document.querySelector('.threadNav.desktop'); let entry;
-  if ((nav || source.elements.namedItem('upload_id')) && thread && !closed(thread)) {
+  if (source && (nav || source.elements.namedItem('upload_id')) && thread && !closed(thread)) {
     entry = node('div', undefined, 'open-qr-wrap'); const link = node('a', 'Post a Reply', 'open-qr-link'); link.href = '#postForm'; link.dataset.cmd = 'open-qr';
     link.addEventListener('click', event => { if (!disabled()) { event.preventDefault(); open(thread); } }); entry.append('[', link, ']'); if (nav) nav.prepend(entry); else source.before(entry);
   }
