@@ -59,6 +59,8 @@ pub struct Thread {
     pub modified_at: DateTime<Utc>,
     pub reply_count: i32,
     pub sticky: bool,
+    pub permasage: bool,
+    pub permaage: bool,
     pub closed: bool,
     pub deleted: bool,
     pub archived_at: Option<DateTime<Utc>>,

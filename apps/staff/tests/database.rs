@@ -96,6 +96,26 @@ async fn actual_runtime_logins_enforce_identity_boundaries() {
     }
     denied(&public, "SELECT * FROM staff_identity.sessions LIMIT 1").await;
     denied(&public, "SELECT * FROM content.moderation_audit LIMIT 1").await;
+    denied(
+        &public,
+        "UPDATE content.threads SET permasage=true WHERE false",
+    )
+    .await;
+    denied(
+        &public,
+        "UPDATE content.threads SET permaage=true WHERE false",
+    )
+    .await;
+    denied(
+        &public,
+        "INSERT INTO content.threads(id,board,permasage) SELECT 1,'none',true WHERE false",
+    )
+    .await;
+    denied(
+        &public,
+        "INSERT INTO content.threads(id,board,permaage) SELECT 1,'none',true WHERE false",
+    )
+    .await;
     if let Ok(url) = std::env::var("MEDIA_DATABASE_URL") {
         let media = PgPool::connect(&url).await.unwrap();
         denied(&media, "SELECT * FROM staff_identity.accounts LIMIT 1").await;

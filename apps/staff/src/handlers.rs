@@ -356,6 +356,7 @@ pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<Stri
             reports,
             csrf,
             recent: session.recent,
+            admin: session.role == "admin",
         }
         .render()
         .map_err(|_| AppError::Internal)?,

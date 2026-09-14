@@ -21,6 +21,7 @@ pub struct Queue {
     pub reports: Vec<Preview>,
     pub csrf: String,
     pub recent: bool,
+    pub admin: bool,
 }
 #[cfg(test)]
 mod tests {
@@ -40,6 +41,8 @@ mod tests {
             state: "open".into(),
             closed: false,
             sticky: false,
+            permasage: false,
+            permaage: false,
             deleted: false,
             attachment: None,
         };
@@ -48,6 +51,7 @@ mod tests {
             reports: vec![report.into()],
             csrf: "example".into(),
             recent: true,
+            admin: false,
         }
         .render()
         .unwrap();
@@ -61,6 +65,9 @@ mod tests {
         assert!(html.contains("class=\"spoiler\""));
         assert!(html.contains("<span>&gt;&gt;&gt;/po/42</span>"));
         assert!(!html.contains("href=\"/po/post/42\""));
+        assert!(html.contains("Enable permasage"));
+        assert!(!html.contains("Enable permaage"));
+        assert!(!html.contains("Disable permaage"));
     }
 
     #[test]
@@ -78,6 +85,8 @@ mod tests {
             state: "open".into(),
             closed: false,
             sticky: false,
+            permasage: true,
+            permaage: true,
             deleted: false,
             attachment: None,
         };
@@ -86,9 +95,13 @@ mod tests {
             reports: vec![report.into()],
             csrf: "example".into(),
             recent: true,
+            admin: true,
         }
         .render()
         .unwrap();
         assert!(html.contains(&comment));
+        assert!(html.contains("permasage: true, permaage: true"));
+        assert!(html.contains("Disable permasage"));
+        assert!(html.contains("Disable permaage"));
     }
 }

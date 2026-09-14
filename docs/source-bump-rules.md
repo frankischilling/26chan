@@ -16,14 +16,15 @@ three. Sage never bumps an ordinary thread.
 
 Full/tail thread JSON, board JSON and catalog JSON/HTML use the surviving
 counts already present in their coherent snapshots. The bump-limit flag is
-set at or above the limit, except on sticky threads, following
+set at or above the limit, except on sticky or permaage threads, following
 `imgboard.php:1036-1073` and `catalog.php:149-152`. Tail responses retain an
 explicit zero; full responses omit a false flag. Deletion and policy changes
 continue to change body ETags when the representation changes.
 
 Lifetime metadata remains available for the current reply-admission ceiling.
 It no longer decides bumping or bump-limit indicators. That admission policy
-still needs source matching. Permaage/permasage, age-based suppression,
+still needs source matching. [Persisted permaage/permasage controls](thread-bump-flags.md)
+now extend these rules, with their own authority and migration coverage. Age-based suppression,
 OP self-bumps, board-specific spam rules and image-limit exclusions remain
 unfinished. These ordinary/sticky rules do not establish full bump-policy parity.
 
@@ -38,8 +39,9 @@ Six-theme desktop/mobile fixture checks cover deleted replies and a sticky
 thread above the limit. The two reviewed catalog snapshots change the
 deleted-reply marker and include the added sticky fixture. No other baseline
 is intentionally changed. Local PostgreSQL is unavailable; persisted and
-concurrency results require current-head CI. No schema, grants, dependencies,
-processing authority or deployment settings change.
+concurrency results require current-head CI. The original count-only slice
+changed no schema, grants, dependencies, processing authority or deployment
+settings; the later flag slice has the additive migration described above.
 
 Local checks passed all 17 domain tests, 35 public library tests, all-target
 Clippy with denied warnings, 118 theme tests, 39 media/interaction cases,

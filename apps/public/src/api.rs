@@ -147,7 +147,12 @@ fn post_json(
             value["archived"] = json!(1);
             value["archived_on"] = json!(archived_at.timestamp());
         }
-        if board_domain::bump::limited(thread.sticky, replies as u64, board.bump_limit as u32) {
+        if board_domain::bump::limited(
+            thread.sticky,
+            thread.permaage,
+            replies as u64,
+            board.bump_limit as u32,
+        ) {
             value["bumplimit"] = json!(1);
         }
         if board.image_limit > 0 && images >= board.image_limit as usize {
@@ -243,7 +248,7 @@ pub async fn thread_selection(
     if tail {
         let original = &posts[0];
         let mut op = json!({"no": thread.id, "replies": replies, "images": images,
-            "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, replies as u64, board.bump_limit as u32)),
+            "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
             "imagelimit": i32::from(board.image_limit > 0 && images >= board.image_limit as usize),
             "tail_size": tail_size, "tail_id": tail_id});
         for key in ["sticky", "closed", "archived"] {

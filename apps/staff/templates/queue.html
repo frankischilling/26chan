@@ -7,7 +7,7 @@
 <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
 {% for preview in reports %}{% let r = preview.report %}
 <article id="report-{{ r.id }}"><h2>Report {{ r.id }}: /{{ r.board }}/ post {{ r.post_id }}</h2>
-<p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, removed: {{ r.deleted }}.</p>
+<p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, permasage: {{ r.permasage }}, permaage: {{ r.permaage }}, removed: {{ r.deleted }}.</p>
 <p>Reason: {{ r.reason }}</p><h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
 {% if let Some(a) = r.attachment %}
 <section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
@@ -23,6 +23,8 @@
 {% if !r.deleted %}
 {% if r.closed %}{% call action(csrf,r.board,r.thread_id,"reopen","Reopen thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"close","Close thread") %}{% endcall %}{% endif %}
 {% if r.sticky %}{% call action(csrf,r.board,r.thread_id,"unsticky","Unsticky thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"sticky","Sticky thread") %}{% endcall %}{% endif %}
+{% if r.permasage %}{% call action(csrf,r.board,r.thread_id,"unpermasage","Disable permasage") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"permasage","Enable permasage") %}{% endcall %}{% endif %}
+{% if admin %}{% if r.permaage %}{% call action(csrf,r.board,r.thread_id,"unpermaage","Disable permaage") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"permaage","Enable permaage") %}{% endcall %}{% endif %}{% endif %}
 {% call action(csrf,r.board,r.post_id,"remove-post","Remove post") %}{% endcall %}
 {% call action(csrf,r.board,r.thread_id,"remove-thread","Remove thread") %}{% endcall %}
 {% endif %}

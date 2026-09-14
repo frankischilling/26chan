@@ -32,6 +32,8 @@ pub fn page(disabled_images: bool) -> String {
                 modified_at: time("2026-09-08T12:00:00Z"),
                 reply_count: lifetime,
                 sticky: index == 5,
+                permasage: false,
+                permaage: false,
                 closed: false,
                 deleted: false,
                 archived_at: None,

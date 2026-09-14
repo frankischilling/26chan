@@ -73,6 +73,8 @@ pub async fn create_post_with_attachment(
             .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
         let bump = board_domain::bump::should_bump(
             thread.sticky,
+            thread.permasage,
+            thread.permaage,
             post.sage,
             replies as u64 + 1,
             board.bump_limit as u32,

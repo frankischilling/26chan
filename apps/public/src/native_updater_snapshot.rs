@@ -252,6 +252,8 @@ mod tests {
             modified_at: now,
             reply_count: 1,
             sticky: false,
+            permasage: false,
+            permaage: false,
             closed: false,
             deleted: false,
             archived_at: None,
