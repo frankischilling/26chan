@@ -117,12 +117,22 @@ test('mobile native update inserts actual replies without navigation and retains
   expect(response.status()).toBe(303);
   const reply = response.headers().location.match(/#p(\d+)/)[1];
   await expect(page.locator(`#p${reply}`)).toHaveCount(0);
-  for (const target of ['bottom', 'top']) {
-    // The manual transport has a one-second request floor.
+  let etag;
+  for (const [target, expectedStatus] of [['bottom', 200], ['top', 304]]) {
+    // The first response inserts the reply; the unchanged second response
+    // must revalidate without navigation or losing the watch state.
     await page.waitForTimeout(1100);
     const loaded = page.waitForResponse(response => new URL(response.url()).pathname === `/_watch/demo/thread/${id}/posts`);
     await page.locator(`#refresh_${target}`).click();
-    expect((await loaded).status()).toBe(200);
+    const updated = await loaded;
+    expect(updated.status()).toBe(expectedStatus);
+    if (expectedStatus === 200) {
+      etag = updated.headers().etag;
+      expect(etag).toMatch(/^"[0-9a-f]{64}"$/);
+    } else {
+      expect(updated.request().headers()['if-none-match']).toBe(etag);
+      expect(updated.headers().etag).toBe(etag);
+    }
     await expect(page).toHaveURL(`${origin}/demo/thread/${id}`);
     await expect(page.locator(`#p${reply}`)).toBeVisible();
     await expect(page.getByRole('button', { name: `Unwatch thread ${id}`, exact: true })).toHaveCount(2);
