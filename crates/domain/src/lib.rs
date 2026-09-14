@@ -3,6 +3,7 @@
 pub mod bump;
 mod comment_ascii;
 mod comment_lines;
+pub mod comment_markup;
 mod comment_quotes;
 pub mod comment_spacing;
 mod comment_unicode;
