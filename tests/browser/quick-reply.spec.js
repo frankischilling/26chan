@@ -147,7 +147,10 @@ test('the source byte advisory does not block a Unicode reply within the server 
     expect(response.status()).toBe(200); const result = await response.json(); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
     await expect(page.locator('#quickReply')).toHaveCount(0);
     await expect(page.locator(`#m${result.pid}`)).toHaveText(value);
-    const data = await (await request.get(`/test/thread/${id}.json`)).json(); expect(data.posts.at(-1).com).toBe(value);
+    const scalars = Array.from(value).length;
+    const wrapped = `${'𠮷'.repeat(35)}<wbr>`.repeat(Math.floor(scalars / 35)) + '𠮷'.repeat(scalars % 35);
+    await expect(page.locator(`#m${result.pid} wbr`)).toHaveCount(Math.floor(scalars / 35));
+    const data = await (await request.get(`/test/thread/${id}.json`)).json(); expect(data.posts.at(-1).com).toBe(wrapped);
   } finally { expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
 });
 
