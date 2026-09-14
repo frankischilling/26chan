@@ -284,7 +284,7 @@ test('watcher connect CSP permits its owned alias and denies healthy unrelated r
   expect(await page.evaluate(() => fetch('/watcher-denied').then(response => response.json()))).toEqual({ ok: true });
   expect(forbiddenRequests).toBe(1);
   const response = await page.goto(`/demo/thread/${id}`);
-  expect(response.headers()['content-security-policy']).toContain(`connect-src ${origin}/_watch/;`);
+  expect(response.headers()['content-security-policy']).toContain(`connect-src ${origin}/_watch/ ${origin}/demo/imgboard.php;`);
   expect(await page.evaluate(id => fetch(`/_watch/demo/thread/${id}.json`, { credentials: 'omit', redirect: 'error' }).then(response => response.json()).then(value => String(value.posts[0].no)), id)).toBe(id);
   expect(await page.evaluate(() => fetch('/watcher-denied').then(() => 'allowed', () => 'blocked'))).toBe('blocked');
   expect(forbiddenRequests).toBe(1);

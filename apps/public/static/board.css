@@ -312,6 +312,19 @@ dialog.filterHelp { width: 400px; }
 .board .native-thread-hidden .replyContainer, .board .native-thread-hidden .omitted { display: none; }
 
 .nativeKeybindsHelp li { padding: 3px 5px; }
+/* Source Quick Reply geometry; explicit password/focus controls remain visible. */
+#quickReply { position: fixed; margin: 0; padding: 2px; width: 302px; max-width: calc(100vw - 12px); max-height: calc(100vh - 20px); overflow: auto; font-size: 10pt; z-index: 100; color: inherit; }
+#qrHeader { font-size: 10pt; text-align: center; height: 18px; line-height: 18px; margin-bottom: 1px; cursor: move; touch-action: none; background: var(--label, #ea8); }
+#qrClose { float: right; border: 0; padding: 0 3px; background: transparent; color: inherit; line-height: 18px; }
+#qrForm > div { clear: both; }
+#quickReply input[type=text], #quickReply input[type=password], #quickReply textarea { box-sizing: content-box; border: 1px solid var(--field-edge, #aaa); font: 10pt Arial, Helvetica, sans-serif; width: 296px; max-width: calc(100% - 6px); padding: 2px; margin: 0 0 1px; }
+#quickReply textarea { display: block; resize: vertical; }
+#quickReply input[type=submit] { width: 75px; margin: 0; float: right; }
+#qrForm > div:last-child { display: flow-root; }
+#qrError { box-sizing: border-box; width: 302px; max-width: 100%; font: 12px monospace; background: #e62020; color: white; padding: 3px 5px; clear: both; overflow-wrap: anywhere; }
+#qrError[hidden], .open-qr-wrap[hidden] { display: none; }
+.open-qr-wrap { margin-bottom: 5px; }
+@media (max-width: 480px) { #quickReply { position: absolute; } #quickReply input[type=text], #quickReply input[type=password], #quickReply textarea { font-size: 16px; } }
 .nativeUpdater[hidden] { display: none !important; }
 .nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
 .nativeUpdaterStatus.tu-error { color: #d00; }

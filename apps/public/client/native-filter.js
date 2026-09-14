@@ -10,6 +10,7 @@ export { mountNativeFilters } from './native-page-filters.js';
 export { mountNativeReplyHiding } from './native-reply-hiding.js';
 export { mountNativeThreadHiding } from './native-thread-hiding.js';
 export { mountNativeKeybinds } from './native-keybinds.js';
+export { mountNativeQuickReply } from './native-quick-reply.js';
 export { markNativeTrackedQuotes } from './native-tracked-quotes.js';
 export { NativeWatchLock } from './native-watch-lock.js';
 

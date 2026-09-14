@@ -19,6 +19,19 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
   const controls = [], statuses = [], mobileLinks = [], autoInputs = [], soundControls = [];
   let busy = false, dead = false, stopped = false, generation = 0;
   let currentCycle = null;
+  let lastQuickReply = null, postedTimer = null, postedPending = false;
+  function requestPostedUpdate() {
+    clearTimeout(postedTimer);
+    postedTimer = setTimeout(() => { if (!busy) { postedPending = false; void update(); } }, 500);
+  }
+  function posted(post, ready) {
+    if (!postId(post)) return;
+    lastQuickReply = post;
+    Promise.resolve(ready).catch(() => {}).then(() => {
+      if (stopped || disabled()) return;
+      postedPending = true; requestPostedUpdate();
+    });
+  }
   let tailSize = Number(section.dataset.tailSize || 0), lastUpdated = Date.now();
   let wasDisabled = true, hadAuto = false, unread = 0, marker = null;
   const icon = document.querySelector('link[rel="shortcut icon"]');
@@ -171,6 +184,8 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
       const last = existing.at(-1)?.id.slice(2);
       if (!postId(last)) throw new Error('invalid-current-thread');
       const additions = snapshot.posts.filter(post => BigInt(post.no) > BigInt(last));
+      const fromQuickReply = additions.length === 1 && additions[0].no === lastQuickReply;
+      if (fromQuickReply) lastQuickReply = null;
       const previous = existing.at(-1);
       const scroll = settings().autoScroll === true && document.hidden
         && document.documentElement.scrollHeight === Math.ceil(innerHeight + scrollY);
@@ -192,13 +207,14 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
       section.append(fragment);
       added = additions.length;
       threadState(snapshot);
+      document.dispatchEvent(new Event('boardThreadStateChanged'));
       if (additions.length) {
         const offset = previous.offsetTop;
         await applied?.(snapshot, cycle.signal);
         if (current !== generation || disabled() || stopped) return;
         const moved = previous.offsetTop - offset;
         if (moved) window.scrollBy(0, moved);
-        if (!forced && document.documentElement.scrollHeight > innerHeight) {
+        if (!forced && !fromQuickReply && document.documentElement.scrollHeight > innerHeight) {
           const posts = additions.map(post => document.getElementById(`p${post.no}`));
           const you = posts.some(post => post.querySelector('.ql-tracked'));
           setIcon(notificationKind(currentIcon, { you,
@@ -220,13 +236,13 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
     } catch { transport.invalidate(); status('Thread update could not be applied. Open the thread page to continue.', true); }
     finally {
       cycle.abort(); if (currentCycle === cycle) currentCycle = null;
-      if (current === generation) { busy = false; schedule.finish(added, forced); sync(); }
+      if (current === generation) { busy = false; schedule.finish(added, forced); sync(); if (postedPending) requestPostedUpdate(); }
     }
   }
   document.addEventListener('visibilitychange', () => schedule.visibility());
   document.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('pagehide', () => { stopped = true; audio?.pause(); sync(); });
+  window.addEventListener('pagehide', () => { stopped = true; clearTimeout(postedTimer); postedPending = false; audio?.pause(); sync(); });
   window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; sync(); } });
   sync();
-  return { update, sync, toggleAuto };
+  return { update, sync, toggleAuto, posted };
 }

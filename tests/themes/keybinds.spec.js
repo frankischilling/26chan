@@ -13,7 +13,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
       await expect(page.locator('#setting-keyBinds')).toBeChecked();
       await page.getByRole('link', { name: 'Show', exact: true }).click();
       const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
-      await expect(help.locator('kbd')).toHaveText(['W', 'B', 'N', 'I', 'C', 'F', 'R', 'A']);
+      await expect(help.locator('kbd')).toHaveText(['W', 'B', 'N', 'I', 'C', 'F', 'R', 'A', 'Q']);
       await expect(page.getByRole('button', { name: 'Close keyboard shortcuts', exact: true })).toBeFocused();
       const box = await help.boundingBox();
       expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);

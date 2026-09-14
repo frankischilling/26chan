@@ -60,7 +60,8 @@ Later compatibility checkpoints:
 
 | ID | Scope and evidence | Status | Tests / exception |
 |---|---|---|---|
-| V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event, optional shortcuts and manual/automatic in-place updating; pinned public catalog v1025 and extension v1191; **source**: [original rules](#native-extension) | Merged in [#89](https://github.com/frankischilling/26chan/pull/89) after all seven exact-head checks passed; broader reference qualification remains open | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), [keyboard integration](native-keyboard-shortcuts.md), and [thread updater](native-thread-updater.md). Update/R and Auto/A use bounded snapshots; [full/tail selection and conditional revalidation](native-updater-tail.md) are implemented in #90, with validated DOM construction, native events and existing menu/filter/watch integration. Auto adds per-tab state, backoff, unread title/marker, fixed favicon/sound notifications and the pinned hidden-tab scroll rule. Posting receipts decorate tracked quotes; notification priority waits for page filters. Quick Reply coordination, live non-worksafe board observation and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
+| V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event, optional shortcuts and manual/automatic in-place updating; pinned public catalog v1025 and extension v1191; **source**: [original rules](#native-extension) | Merged in [#89](https://github.com/frankischilling/26chan/pull/89) after all seven exact-head checks passed; broader reference qualification remains open | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), [keyboard integration](native-keyboard-shortcuts.md), and [thread updater](native-thread-updater.md). Update/R and Auto/A use bounded snapshots; [full/tail selection and conditional revalidation](native-updater-tail.md) are implemented in #90, with validated DOM construction, native events and existing menu/filter/watch integration. Auto adds per-tab state, backoff, unread title/marker, fixed favicon/sound notifications and the pinned hidden-tab scroll rule. Posting receipts decorate tracked quotes; notification priority waits for page filters. Quick Reply coordination is tracked in V-012; live non-worksafe board observation and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
+| V-012 | Quick Reply text posting, quoting, persistence, cancellation and updater coordination; supplied old extension source | Implemented in #100; local transport/theme/fixture checks passed, persisted-browser checks await CI | [Quick Reply](native-quick-reply.md) records bounded transport, source guards and editing, exact IDs, current-board CSP, tests and remaining cooldown/identity/captcha/drawing/inline-file and rendered-source work. E-010/E-011 remain explicit security replacements |
 
 ## Security-driven and project-defined exceptions
 
@@ -275,7 +276,9 @@ HTTP 200 error envelope for posting-rule failures. The rewrite preserves
 [posting JSON](posting-json.md) records the contract and tests. Original
 single-request upload/post sequencing and the HTML response flow are known.
 The rewrite's 303 and upload/status/approval/post sequence remain E-010,
-not unspecified old behavior. Quick Reply UI and its lifecycle remain open.
+not unspecified old behavior. [Quick Reply](native-quick-reply.md) implements
+text submission, persistent/cancelled drafts, source quote editing, own-post
+tracking and updater coordination in #100; its complete lifecycle remains open.
 
 ### Formatting and quotes
 
@@ -576,8 +579,9 @@ matching remain incomplete.
 
 Keybinds (`8237`) confirm A/F/Q/R/W/B/C/N/I with runtime guards and
 editable-target/modifier exclusions. Original B/N submit pagination forms;
-bounded GET-link navigation is a rewrite difference. Knowing Q's Quick Reply
-target does not implement Quick Reply or its shortcut group.
+bounded GET-link navigation is a rewrite difference. Q now opens the
+[Quick Reply dialog](native-quick-reply.md); its remaining shortcut group and
+complete source lifecycle are unfinished.
 
 ### Reports and staff
 

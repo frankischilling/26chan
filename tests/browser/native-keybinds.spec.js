@@ -100,13 +100,13 @@ test('B/N follow actual persisted pagination and I/C navigate without submitting
   expect(posts).toEqual([]);
 });
 
-test('shortcut help is keyboard-dismissable and names unavailable features without fake actions', async ({ page, owned }) => {
+test('shortcut help is keyboard-dismissable and advertises connected actions', async ({ page, owned }) => {
   await enable(page, owned.url);
   await openNavigation(page);
   await page.getByRole('link', { name: 'Show', exact: true }).click();
   const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
   await expect(help).toBeVisible(); await expect(help).toContainText('Watch/Unwatch thread');
-  await expect(help).toContainText('Quick Reply (Q) is not available yet');
+  await expect(help).toContainText('Open Quick Reply');
   await expect(help).toContainText('Toggle auto-updater');
   await page.keyboard.press('Escape'); await expect(help).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Show', exact: true })).toBeFocused();
