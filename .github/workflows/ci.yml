@@ -221,6 +221,9 @@ jobs:
       - name: Build visual fixture before the server startup deadline
         shell: pwsh
         run: cargo build -p board-public --example visual-fixtures --locked
+      - name: Verify source linkification spans and finite browser DOM
+        shell: pwsh
+        run: npm run test:linkification-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |
