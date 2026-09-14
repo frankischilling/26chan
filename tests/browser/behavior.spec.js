@@ -9,6 +9,47 @@ const releaseImages = [uiAssets, watcherAssets, updaterAssets].flatMap(manifest 
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
+test('native posting fields accept 100 input bytes and reject over-limit names and subjects without JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage(), origin = 'http://127.0.0.1:3000';
+  const name = '😀'.repeat(25), subject = '<&'.repeat(50), password = 'owned-field-browser-password';
+  let id;
+  async function fill(who, title) {
+    await page.goto(`${origin}/test/`);
+    await expect(page.locator('#name')).not.toHaveAttribute('maxlength');
+    await expect(page.locator('#sub')).not.toHaveAttribute('maxlength');
+    await page.locator('#name').fill(who);
+    await page.locator('#sub').fill(title);
+    await page.locator('#com').fill('Owned synthetic public field test');
+    await page.locator('#password').fill(password);
+  }
+  try {
+    await fill(name, subject);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    id = /#p(\d+)$/.exec(page.url())[1];
+    await expect(page.locator(`#pi${id} .name`)).toHaveText(name);
+    await expect(page.locator(`#pi${id} .subject`)).toHaveText(subject);
+    await expect(page.locator(`#pi${id} .subject > *`)).toHaveCount(0);
+    const data = await (await context.request.get(`${origin}/test/thread/${id}.json`)).json();
+    expect(data.posts[0].name).toBe(name);
+    expect(data.posts[0].sub).toBe(subject);
+    for (const [who, title] of [[`${name}x`, subject], [name, `${subject}x`]]) {
+      await fill(who, title);
+      const rejected = page.waitForResponse(response => response.url().endsWith('/test/post') && response.request().method() === 'POST');
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      expect((await rejected).status()).toBe(422);
+      await expect(page.locator('body')).toContainText('Name or subject is too long.');
+    }
+  } finally {
+    if (id) {
+      const deleted = await context.request.post(`${origin}/test/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
+      expect(deleted.status()).toBe(303);
+    }
+    await context.close();
+  }
+});
+
 test('catalog controls sort persisted sage replies with and without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

@@ -26,7 +26,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | I-010 | CORS, redirects, status/header details; API README plus project decisions; **source**: [original rules](#http-and-deployment) | Optional JSON-only listener with board-origin CORS, GET/HEAD/OPTIONS and conditional headers; public routes retain 303 posting, 308 board slash and same-origin writes | `api_cors`, startup and real cross-origin Chromium tests; no credentialed CORS. Header exposure/error details and deployment-domain mapping are project-defined; see [API contract](api.md) |
 | B-001 | Persistent thread creation/replies; project; **source**: [original rules](#posting-and-text) | Implemented | Real PostgreSQL and browser tests; no copied posting internals |
 | B-002 | `sage`; documented FAQ meaning; source-known original bump/count rules; local lifetime limits remain project-defined; **source**: [original rules](#counts-bumping-and-admission) | Implemented, serialized per board | Posting-options and concurrent reply tests; lifetime counts do not decrease after deletion |
-| B-003 | Board settings and thread limits; project; **source**: [original rules](#counts-bumping-and-admission) | Unicode scalar comment limits, independent UTF-8 byte ceiling, active-thread cap, reply/bump limits | Domain/store/HTTP/browser tests; full boards displace oldest nonsticky threads; optional archives retain read-only threads, otherwise soft deletion |
+| B-003 | Board settings and thread limits; project; **source**: [original rules](#counts-bumping-and-admission) | Unicode scalar comment limits, independent UTF-8 byte ceiling, [100-byte public name/subject limits](public-field-limits.md), active-thread cap, reply/bump limits | Domain/store/HTTP/browser tests; full boards displace oldest nonsticky threads; optional archives retain read-only threads, otherwise soft deletion; migration 0021 preserves historical fields and deletion |
 | B-004 | Deletion; project; **source**: [original rules](#deletion) | Argon2 password; OP deletion hides whole thread | Wrong credential/origin, absent store, persisted deletion tests; no staff identity involved |
 | B-008 | Post-submit destination and `nonoko`/`nonokosage`; documented FAQ; **source**: [original rules](#posting-and-text) | Implemented for new threads and replies through both posting aliases | Actual database redirect/bump tests and JavaScript-disabled browser controls; existing 303 status and exact unlisted-value rejection remain project behavior |
 | B-005 | Greentext, same-board/cross-board quotes and spoilers; documented FAQ syntax with project grammar; HTTP(S) links; **source**: [original rules](#formatting-and-quotes) | Nonrecursive typed nodes; cross-board slice merged in #55 after reviewed-head Linux/Windows and monitoring checks | [Cross-board quoting](cross-board-quotes.md); bounded properties, escaped public/JSON/staff rendering and actual no-JavaScript navigation/deletion test. Original server parser rules are source-known; matching those rules and the complete inline extension remains unverified |
@@ -205,6 +205,11 @@ supplies name/email/subject/comment fields plus conditional file, spoiler,
 text-only, drawing and captcha controls. The desktop post table is
 toggle-hidden; the server's noscript style reveals it. OP/reply structure
 is available in the supplied source, not an unknown inferred from API docs.
+
+New public names and subjects follow the source's 100 input-byte limit.
+The shared form omits the source-absent `maxlength` attributes. See
+[field limits](public-field-limits.md) for migration 0021, retained historical
+subjects, database authority and the tested scope within B-003/V-004.
 
 The dispatcher accepts `regist`/`post` on POST and calls `new_post`
 (`imgboard.php:10295-10300`). The handler uses the UserPwd session token

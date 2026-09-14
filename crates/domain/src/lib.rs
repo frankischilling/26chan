@@ -5,6 +5,7 @@ pub use formatting::{Line, Token, parse_comment};
 
 pub const MAX_COMMENT_CHARS: usize = 16_000;
 pub const MAX_COMMENT_BYTES: usize = 64_000;
+pub const MAX_PUBLIC_FIELD_BYTES: usize = 100;
 
 /// The posting reference converts CRLF and lone CR to LF before length checks.
 /// Bound input before allocating; normalization never increases its byte size.
@@ -104,7 +105,7 @@ pub fn validate_post_with_attachment(
     max_chars: usize,
     has_attachment: bool,
 ) -> Result<(), ValidationError> {
-    if name.len() > 80 || subject.len() > 120 {
+    if name.len() > MAX_PUBLIC_FIELD_BYTES || subject.len() > MAX_PUBLIC_FIELD_BYTES {
         return Err(ValidationError("Name or subject is too long."));
     }
     let comment = normalize_comment(comment)?;

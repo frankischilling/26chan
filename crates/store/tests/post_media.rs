@@ -23,7 +23,7 @@ struct Fixture {
 
 fn post() -> NewPost {
     NewPost {
-        name: "Anonymous".into(),
+        name: "😀".repeat(25),
         subject: "Attachment fixture".into(),
         comment: "A synthetic\r\nattachment\rcomment".into(),
         deletion_hash: "fixture-not-a-password".into(),
@@ -271,6 +271,13 @@ async fn exercise(f: &Fixture) {
         _ => panic!("Expected exactly one capability consumer"),
     };
     let saved = attachment(&f.public, id).await.unwrap().unwrap();
+    assert_eq!(
+        board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap()
+            .name,
+        "😀".repeat(25)
+    );
     assert_eq!(
         board_store::find_post(&f.public, &f.board, id)
             .await
