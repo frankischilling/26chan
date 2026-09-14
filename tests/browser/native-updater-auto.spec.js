@@ -158,15 +158,18 @@ test('the pinned hidden-at-bottom scroll rule follows appended posts without mov
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  const first = await owned.reply('Hidden-tab append\n'.repeat(15));
+  // Keep the tall post while respecting source repeated-line admission.
+  const first = await owned.reply(Array.from({ length: 15 }, (_, index) => `Hidden-tab append ${index}`).join('\n'));
   await advance(page, 10); await expect(page.locator(`#p${first}`)).toBeAttached(); await expect(status(page)).toHaveText('60');
+  await expect(page.locator(`#m${first} br`)).toHaveCount(14);
   expect(await page.evaluate(() => document.documentElement.scrollHeight === Math.ceil(innerHeight + scrollY))).toBe(true);
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     window.scrollTo(0, 0); document.dispatchEvent(new Event('visibilitychange'));
   });
-  const next = await owned.reply('Visible-tab append\n'.repeat(15));
+  const next = await owned.reply(Array.from({ length: 15 }, (_, index) => `Visible-tab append ${index}`).join('\n'));
   await advance(page, 10); await expect(page.locator(`#p${next}`)).toBeAttached(); await expect(status(page)).toHaveText('10');
+  await expect(page.locator(`#m${next} br`)).toHaveCount(14);
   expect(await page.evaluate(() => scrollY)).toBe(0);
 });
 

@@ -151,3 +151,21 @@ fn total_lines_count_separators_after_cleanup_even_for_code_and_sjis() {
         "A\nB"
     );
 }
+
+#[test]
+fn tall_updater_fixtures_keep_fifteen_distinct_admitted_lines() {
+    for label in ["Hidden-tab append", "Visible-tab append"] {
+        let repeated = format!("{label}\n").repeat(15);
+        assert_eq!(
+            prepare(&repeated, 70, false, false, false).unwrap_err().0,
+            "Error: Our system thinks your post is spam."
+        );
+        let distinct = (0..15)
+            .map(|index| format!("{label} {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let stored = prepare(&distinct, 70, false, false, false).unwrap();
+        assert_eq!(stored, distinct);
+        assert_eq!(stored.lines().count(), 15);
+    }
+}
