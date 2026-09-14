@@ -54,6 +54,10 @@ two observed row-lock waits, public policy-write denial and historical subjects.
 The approved-media matrix rejects a cleaned-empty subject before accepting the
 same receipt with a valid subject, then retains the one-use check. The actual
 no-JavaScript browser form covers denial, escaped OP success and subjectless reply.
+That case lives in `tests/browser/required-subject.spec.js`, which the behavior
+command runs in its own server lifecycle. It does not add writes to the existing
+shared-peer browser group or change its 60-write fixture budget. The production
+default and independent request-limit tests are unchanged.
 
 `sudo bash scripts/test-required-subject-migration.sh` upgrades an owned database
 through 0029 then 0030, checks all 82 source board defaults, unchanged historical
