@@ -268,6 +268,14 @@ async fn main() {
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
+        .route("/demo/upload/fixture", get(|| async {
+            Html(views::UploadPage {
+                board: board(),
+                form: views::UploadForm { upload_id: "1".repeat(32), upload_capability: "2".repeat(64), resto: 1000001 },
+                ready: true,
+                message: "Synthetic approved reply fixture; not a real attachment capability.",
+            }.render().unwrap())
+        }))
         .route(
             "/limits/catalog",
             get(|| async { Html(catalog_limits::page(false)) }),

@@ -46,6 +46,9 @@ class PublicUpload:
                 f'APP_ENV=development\nMEDIA_ENABLED=true\nPUBLIC_MEDIA_PROFILE=isolated-development\n'
                 f'DATABASE_URL="{credential}"\nBIND_ADDR=127.0.0.1:{self.port}\nPUBLIC_ORIGIN={self.origin}\n'
                 f'STAFF_ORIGIN=http://localhost:3001\nMEDIA_ORIGIN=http://127.0.0.1:{f.http_port}\n'
+                # Five workflows share one loopback peer; retain enforcement
+                # with the same bounded test rate as the persisted browser suite.
+                f'PUBLIC_WRITES_PER_MINUTE=60\n'
                 f'PUBLIC_INTAKE_ADDR=127.0.0.1:{f.intake_port}\nPUBLIC_INTAKE_TOKEN={f.service_token}\n')
         text = (REPO / 'deploy/public.service').read_text()
         for before, after in {
@@ -87,8 +90,9 @@ class PublicUpload:
         cases.append(('tracking.png', red_png(), True))
         for suffix, data, javascript in cases:
             self.upload_one(suffix, data, javascript)
+        self.upload_one('quick-reply.png', red_png(), True, quick_reply=True)
 
-    def upload_one(self, suffix, data, javascript=False):
+    def upload_one(self, suffix, data, javascript=False, quick_reply=False):
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
@@ -106,7 +110,10 @@ class PublicUpload:
         flags = [] if suffix in ('baseline.jpg', 'tracking.png') else ['--attachment-only']
         if javascript:
             flags.append('--javascript')
-        process = f.launch([node, REPO / 'tests/browser/public-upload.mjs', self.origin, self.board, source, *flags],
+        script = 'public-upload.mjs'
+        if quick_reply:
+            script, flags = 'quick-reply-upload.mjs', []
+        process = f.launch([node, REPO / 'tests/browser' / script, self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
         query = f"SELECT j.id FROM media.jobs j WHERE j.filename='{filename}' AND j.state='queued';"
@@ -143,7 +150,7 @@ class PublicUpload:
             self.f.stop(self.unit)
         if self.created:
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|tracking\.png)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|tracking\.png|quick-reply\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

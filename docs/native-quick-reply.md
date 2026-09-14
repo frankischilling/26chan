@@ -31,6 +31,10 @@ not a claim of pixel-identical complete original Quick Reply rendering.
 
 Persistent success clears the comment and consumes copied approved-image
 capabilities and spoiler controls. Nonpersistent success closes the dialog.
+An attached success also removes the ordinary editor's copy of the one-use
+capability and spoiler field, makes its comment required and changes its
+submit label to Post. Reopening Quick Reply then creates a text-only editor;
+the ordinary form's existing comment draft remains intact.
 Both paths record the committed reply, consume posting receipts, and emit
 4chanQRPostSuccess with exact string threadId/postId values. The updater
 requests a snapshot after 500 ms, or after its in-flight request finishes.
@@ -64,9 +68,14 @@ roles are unchanged. No database migration or new dependency is required.
 The visible deletion password remains the E-011 Argon2 security replacement
 for UserPwd identity. Raw files still require isolated upload approval under
 E-010; the normal media-board dialog links to that workflow. An approved
-reply form can supply its existing capability to Quick Reply. That variant
-still requires dedicated real-pipeline browser qualification; the normal
-approved-image native form retains its separate integration coverage.
+reply form can supply its existing capability to Quick Reply. The dedicated
+quick-reply-upload.mjs harness runs through synthetic validated output in
+the Rust upload browser test and through actual isolated processing in the
+native public upload qualification. It checks an image-only spoiler reply,
+own-post tracking, a reopened text-only reply, rejected capability replay,
+actual normalized-image rendering, file-only deletion and persisted metadata.
+The supervising tests retain the one-use tombstone and physical file cleanup
+assertions. Existing native/no-JavaScript upload cases still run unchanged.
 
 ## Verification and remaining work
 
@@ -83,7 +92,7 @@ approved-image native form retains its separate integration coverage.
   watcher, tracking, keyboard, filter and updater regression coverage.
 
 Local transport and fixture checks have passed. The new persisted-browser
-cases await CI because this Windows environment has no available PostgreSQL
+and approved-image pipeline cases await CI because this Windows environment has no available PostgreSQL
 service. CI outcomes must be recorded on the tested PR head before merge.
 
 Cooldown/automatic posting, the source comment-byte advisory, identity-cookie
