@@ -32,7 +32,20 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .execute(&owner)
         .await
         .unwrap();
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    // The expanded sanitation matrix exceeds the default single-peer write budget.
+    // Keep this fixture bounded; http_limits.rs exercises actual throttling.
+    let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        _ => None,
+    })
+    .unwrap();
+    let (app, _) = board_public::routers_with_limits(
+        public.clone(),
+        "http://127.0.0.1:3000".into(),
+        false,
+        None,
+        limits,
+    );
     let raw = " \t A\t  B\r\n \r\n　\r\n\t\r\nC <script> Ｚⓦ✘😀│𠮷 \r\n";
     for (index, (code, sjis, expected)) in [
         (false, false, "A B\nC <script> awx𠮷"),
