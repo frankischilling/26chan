@@ -17,9 +17,9 @@ for (const [name, viewport] of [
       await expect(page).toHaveScreenshot(`empty-${catalog ? 'catalog' : 'board'}-${name}.png`, { fullPage: true });
       if (catalog) {
         const start = page.getByRole('link', { name: 'Start the first thread', exact: true });
-        await expect(start).toHaveAttribute('href', '/empty/#postForm');
+        await expect(start).toHaveAttribute('href', '/empty/#reply');
         await start.click();
-        await expect(page).toHaveURL('http://127.0.0.1:3000/empty/#postForm');
+        await expect(page).toHaveURL('http://127.0.0.1:3000/empty/#reply');
       }
       await expect(page.getByRole('heading', { name: 'Start a new thread' })).toBeVisible();
       await page.getByLabel('Comment', { exact: true }).fill('Synthetic first thread draft');
