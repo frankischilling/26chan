@@ -253,10 +253,14 @@ async fn exercise(
             {
                 break job;
             }
-            assert!(
-                browser.try_wait().unwrap().is_none(),
-                "browser exited before uploading"
-            );
+            if let Some(status) = browser.try_wait().unwrap() {
+                let result = browser.wait_with_output().await.unwrap();
+                panic!(
+                    "browser exited before uploading ({status}): {} {}",
+                    String::from_utf8_lossy(&result.stdout),
+                    String::from_utf8_lossy(&result.stderr)
+                );
+            }
             tokio::time::sleep(Duration::from_millis(30)).await;
         }
     })
