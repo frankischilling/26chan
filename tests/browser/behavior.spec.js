@@ -572,6 +572,50 @@ test('documented board-return options work with JavaScript disabled', async ({ b
   }
 });
 
+test('source spoiler cleanup and line admission work with JavaScript disabled', async ({ browser }) => {
+  const origin = 'http://127.0.0.1:3000', password = 'owned-line-browser-password';
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage(); let op;
+  try {
+    await page.goto(`${origin}/test/`);
+    await page.locator('#com').fill('a[spoiler]b[/spoiler]c');
+    await page.locator('#password').fill(password);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    op = /#p(\d+)$/.exec(page.url())[1];
+    await expect(page.locator(`#m${op}`)).toHaveText('abc');
+    await expect(page.locator(`#m${op} .spoiler`)).toHaveCount(0);
+    const threadUrl = `${origin}/test/thread/${op}`, jsonUrl = `${threadUrl}.json`;
+    const accepted = Array.from({ length: 101 }, (_, index) => `line${index}`).join('\n');
+    await page.locator('#com').fill(accepted); await page.locator('#password').fill(password);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    const reply = /#p(\d+)$/.exec(page.url())[1]; expect(reply).not.toBe(op);
+    await expect(page.locator(`#m${reply} br`)).toHaveCount(100);
+    const before = await context.request.get(jsonUrl), snapshot = await before.json();
+    expect(snapshot.posts.at(-1).com).toBe(accepted.replaceAll('\n', '<br>'));
+    for (const [raw, message] of [
+      [`${accepted}\nline101`, 'Error: Too many lines.'],
+      ['x\n'.repeat(7) + 'end', 'Error: Our system thinks your post is spam.'],
+    ]) {
+      await page.goto(threadUrl);
+      await page.locator('#com').fill(raw); await page.locator('#password').fill(password);
+      const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      expect((await denied).status()).toBe(422);
+      await expect(page.locator('body')).toContainText(message);
+      const after = await context.request.get(jsonUrl);
+      expect(await after.json()).toEqual(snapshot); expect(after.headers().etag).toBe(before.headers().etag);
+    }
+  } finally {
+    try {
+      if (op) expect((await context.request.post(`${origin}/test/delete`, {
+        headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+      })).status()).toBe(303);
+    } finally { await context.close(); }
+  }
+});
+
 test('advertised Unicode posting limit works with JavaScript disabled', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

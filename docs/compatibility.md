@@ -255,8 +255,11 @@ ordinary/code/SJIS whitespace rules under locked operator policy. Historical
 comments stay unchanged. [Source Unicode cleanup](source-comment-unicode.md)
 applies the finite lookalike mapping and emoticon/private-codepoint exclusions in
 source order, pending current-head qualification. [Same-board quote cleanup](source-local-quotes.md)
-then rewrites explicit local prefixes in new stored comments. Name/subject
-cleanup, intra-word spoilers, markup, repeated-line and total-line admission remain unfinished;
+then rewrites explicit local prefixes in new stored comments. [Line admission](source-line-admission.md)
+removes enabled intra-word spoilers before that rewrite, rejects source repeated-line
+spam before blank collapse, and enforces the final LF limit under locked operator
+policy. Current-head qualification remains required. Name/subject cleanup, markup
+and word filters remain unfinished;
 the old handler's deployed encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the

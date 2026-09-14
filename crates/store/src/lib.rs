@@ -42,6 +42,8 @@ pub struct Board {
     pub max_comment_chars: i32,
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
+    pub comment_max_lines: i32,
+    pub comment_spoiler_cleanup: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,
     pub permasage_hours: i32,
@@ -62,6 +64,10 @@ impl Board {
             &self.slug,
             self.comment_code_spacing,
             self.comment_sjis_spacing,
+        )
+        .with_line_rules(
+            self.comment_max_lines as usize,
+            self.comment_spoiler_cleanup,
         )
     }
 }

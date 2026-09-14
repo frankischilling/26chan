@@ -237,6 +237,8 @@ mod tests {
             max_comment_chars: 16_000,
             comment_code_spacing: true,
             comment_sjis_spacing: false,
+            comment_max_lines: 100,
+            comment_spoiler_cleanup: true,
             reply_limit: 1000,
             bump_limit: 300,
             permasage_hours: 0,

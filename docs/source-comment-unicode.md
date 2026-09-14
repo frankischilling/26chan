@@ -63,8 +63,8 @@ source-derived fixtures containing all active cases and all 58 original base
 exclusion ranges, including duplicates. Focused cases cover source oddities,
 exceptions, filter ordering, the private ceiling, raw budgets and empty output.
 Two 128-case property suites cover text-anchored spacing and arbitrary Unicode
-input. Only the restricted spacing property uses idempotence; focused regression
-cases require the source's non-idempotent full-pipeline results.
+input. The spacing property checks admitted content and source line errors;
+focused regression cases require the source's non-idempotent full-pipeline results.
 
 The database/HTTP suite checks all four operator spacing modes through both
 aliases and form encodings, exact stored text and escaped JSON/HTML, historical
@@ -82,6 +82,7 @@ containment, recovery and independent review remain launch prerequisites.
 
 [Same-board quote rewriting](source-local-quotes.md) follows the early Unicode
 filters for new comments, pending current-head qualification. Name/subject
-sanitation, intra-word spoiler removal, spoiler/code/SJIS markup, word filters,
-repeated-line rejection and `MAX_LINES` remain unfinished. These stages do not
+sanitation, spoiler/code/SJIS markup and word filters remain unfinished.
+[Line admission](source-line-admission.md) covers intra-word spoiler cleanup,
+repeated-line rejection and `MAX_LINES`. These stages do not
 establish complete posting parity.
