@@ -28,13 +28,16 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     await page.goto(client);
     async function submit(route, form) {
       return page.evaluate(async ({ route, form }) => {
+        const body = new FormData();
+        for (const [name, value] of Object.entries(form)) body.append(name, value);
+        body.append('upfile', new File([], '', { type: 'application/octet-stream' }));
         const response = await fetch(`/test/${route}`, {
           method: 'POST', credentials: 'same-origin', redirect: 'error',
-          headers: { Accept: 'application/json' }, body: new URLSearchParams(form),
+          headers: { Accept: 'application/json' }, body,
         });
         return { status: response.status, type: response.headers.get('content-type'),
           cache: response.headers.get('cache-control'), value: await response.json() };
-      }, { route, form: { ...form, password, track: '1', awt: '1' } });
+      }, { route, form: { ...form, pwd: password, mode: 'regist', track: '1', awt: '1' } });
     }
     const op = await submit('post', { com: 'Owned JSON thread\r\nSecond line', sub: 'JSON browser thread', email: 'nonoko' });
     expect(op.status).toBe(200); expect(op.type).toBe('application/json'); expect(op.cache).toBe('no-store');
@@ -104,7 +107,7 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
     expect(data.posts[0].sub).toBe(subject);
     for (const [who, title] of [[`${name}x`, subject], [name, `${subject}x`]]) {
       await fill(who, title);
-      const rejected = page.waitForResponse(response => response.url().endsWith('/test/post') && response.request().method() === 'POST');
+      const rejected = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
       await page.getByRole('button', { name: 'Post', exact: true }).click();
       expect((await rejected).status()).toBe(422);
       await expect(page.locator('body')).toContainText('Name or subject is too long.');
@@ -489,7 +492,7 @@ test('documented board-return options work with JavaScript disabled', async ({ b
       await page.locator('#password').fill(password);
       const [response] = await Promise.all([
         page.waitForResponse(response => response.request().method() === 'POST'
-          && new URL(response.url()).pathname === '/test/post'),
+          && new URL(response.url()).pathname === '/test/imgboard.php'),
         page.getByRole('button', { name: 'Post', exact: true }).click(),
       ]);
       expect(response.status()).toBe(303);
@@ -542,7 +545,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(beforeJson.posts[0].replies).toBe(0);
   await page.locator('#com').fill(`${comment}a`);
   await page.locator('#password').fill('no-javascript-password');
-  const denied = page.waitForResponse(response => response.url().endsWith('/test/post') && response.request().method() === 'POST');
+  const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
   expect((await denied).status()).toBe(422);
   const after = await page.request.get(jsonUrl);
@@ -552,9 +555,16 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const multiline = `${'😀'.repeat(limit - 2)}\nX`;
   await page.locator('#com').fill(multiline);
   await page.locator('#password').fill('no-javascript-password');
-  const submitted = page.waitForRequest(request => request.url().endsWith('/test/post') && request.method() === 'POST');
+  const submitted = page.waitForRequest(request => request.url().endsWith('/test/imgboard.php') && request.method() === 'POST');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
-  expect(new URLSearchParams((await submitted).postData()).get('com')).toBe(multiline.replace('\n', '\r\n'));
+  const submission = await submitted;
+  expect(submission.headers()['content-type']).toMatch(/^multipart\/form-data; boundary=/);
+  const fields = await new Response(submission.postDataBuffer(), {
+    headers: { 'Content-Type': submission.headers()['content-type'] },
+  }).formData();
+  expect(fields.get('mode')).toBe('regist');
+  expect(fields.get('pwd')).toBe('no-javascript-password');
+  expect(fields.get('com')).toBe(multiline.replace('\n', '\r\n'));
   await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
   const reply = /#p(\d+)$/.exec(page.url())[1];
   expect(reply).not.toBe(op);

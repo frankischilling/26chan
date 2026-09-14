@@ -1,7 +1,6 @@
 use crate::handlers::AppError;
 use axum::{
     Json,
-    extract::rejection::FormRejection,
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{ACCEPT, VARY},
@@ -69,14 +68,14 @@ impl Format {
         }
     }
 
-    pub(crate) fn invalid_form(self, error: FormRejection) -> Response {
+    pub(crate) fn invalid_form(self, error: crate::posting_form::Rejection) -> Response {
         match self {
             Self::Html => error.into_response(),
             // Parser and request-size failures retain their rejection status.
             Self::Json => (
                 error.status(),
                 Json(Failed {
-                    error: "Invalid posting form.",
+                    error: error.message(),
                 }),
             )
                 .into_response(),

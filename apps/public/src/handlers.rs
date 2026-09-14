@@ -313,6 +313,7 @@ pub struct PostForm {
     sub: String,
     #[serde(default)]
     com: String,
+    #[serde(alias = "pwd")]
     password: String,
     #[serde(default)]
     resto: i64,
@@ -322,25 +323,36 @@ pub struct PostForm {
     upload_id: String,
     #[serde(default)]
     upload_capability: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::posting_form::checkbox")]
     spoiler: bool,
     #[serde(default)]
     awt: Option<u8>,
     #[serde(default)]
     track: Option<u8>,
+    #[serde(default, rename = "mode")]
+    _mode: Option<crate::posting_form::Mode>,
+    // Source form hints carry no server authority or capacity override.
+    #[serde(default, rename = "MAX_FILE_SIZE")]
+    _max_file_size: String,
+    #[serde(default, rename = "hasjs")]
+    _hasjs: String,
+    #[serde(default, deserialize_with = "crate::posting_form::checkbox")]
+    textonly: bool,
 }
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
     headers: HeaderMap,
-    form: Result<Form<PostForm>, axum::extract::rejection::FormRejection>,
+    form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
     let response = match form {
-        Ok(Form(form)) => match submit_post(state, board, headers, form, format).await {
-            Ok(response) => response,
-            Err(error) => format.error(error),
-        },
+        Ok(crate::posting_form::PostingForm(form)) => {
+            match submit_post(state, board, headers, form, format).await {
+                Ok(response) => response,
+                Err(error) => format.error(error),
+            }
+        }
         Err(error) => format.invalid_form(error),
     };
     format.finish(response)
@@ -368,13 +380,15 @@ async fn submit_post(
     let settings = board_store::board(&state.pool, &board).await?;
     let attachment = match (form.upload_id.is_empty(), form.upload_capability.is_empty()) {
         (true, true) if !form.spoiler => None,
-        (false, false) if state.media.is_some() => Some(board_store::post_media::NewAttachment {
-            upload: board_store::media_intake::IntakeReservation {
-                id: form.upload_id,
-                capability: form.upload_capability,
-            },
-            spoiler: form.spoiler,
-        }),
+        (false, false) if state.media.is_some() && !form.textonly => {
+            Some(board_store::post_media::NewAttachment {
+                upload: board_store::media_intake::IntakeReservation {
+                    id: form.upload_id,
+                    capability: form.upload_capability,
+                },
+                spoiler: form.spoiler,
+            })
+        }
         _ => {
             return Err(AppError(
                 StatusCode::UNPROCESSABLE_ENTITY,

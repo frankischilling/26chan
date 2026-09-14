@@ -7,12 +7,25 @@ use http_body_util::BodyExt;
 use rand_core::{OsRng, RngCore};
 use tower::ServiceExt;
 
-fn request(path: &str, fields: &str, accept: &str) -> Request<Body> {
+fn posting_request(path: &str, fields: &str, accept: &str, multipart: bool) -> Request<Body> {
+    let (content_type, body) = if multipart {
+        let mut body =
+            "--owned-boundary\r\nContent-Disposition: form-data; name=\"mode\"\r\n\r\nregist\r\n"
+                .to_owned();
+        for (name, value) in url::form_urlencoded::parse(fields.as_bytes()) {
+            let name = if name == "password" { "pwd" } else { &name };
+            body.push_str(&format!("--owned-boundary\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"));
+        }
+        body.push_str("--owned-boundary\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"\"\r\nContent-Type: application/octet-stream\r\n\r\n\r\n--owned-boundary--\r\n");
+        ("multipart/form-data; boundary=owned-boundary", body)
+    } else {
+        ("application/x-www-form-urlencoded", fields.to_owned())
+    };
     Request::post(path)
         .header("origin", "http://127.0.0.1:3000")
         .header("accept", accept)
-        .header("content-type", "application/x-www-form-urlencoded")
-        .body(Body::from(fields.to_owned()))
+        .header("content-type", content_type)
+        .body(Body::from(body))
         .unwrap()
 }
 async fn json(
@@ -35,6 +48,17 @@ async fn json(
 
 #[tokio::test]
 async fn negotiated_posting_persists_posts_and_preserves_failures_and_origin_checks() {
+    exercise(false).await;
+}
+
+#[tokio::test]
+async fn multipart_posting_persists_posts_and_preserves_failures_and_origin_checks() {
+    exercise(true).await;
+}
+
+async fn exercise(multipart: bool) {
+    let request =
+        |path: &str, fields: &str, accept: &str| posting_request(path, fields, accept, multipart);
     let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
