@@ -924,9 +924,11 @@ async fn image_admission_http(
                 .unwrap();
             assert_eq!(attachment.asset_id, asset.id);
         } else {
-            assert!(
-                value["error"].as_str().unwrap().contains("another image"),
-                "{value}"
+            assert_eq!(
+                value,
+                serde_json::json!({
+                    "error": "Attachment is unavailable, already used, or the image limit was reached."
+                })
             );
             assert_eq!(
                 (after.reply_count, after.modified_at, after.http_modified_at),
