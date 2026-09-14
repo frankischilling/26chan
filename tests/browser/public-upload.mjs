@@ -190,7 +190,7 @@ try {
     await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill('Owned reply to an approved upload');
     await page.locator('#password').fill('synthetic-browser-password');
-    await page.locator('#email').selectOption('nonoko');
+    await page.locator('#email').fill('nonoko');
     const replied = page.waitForResponse(response => response.request().method() === 'POST'
       && new URL(response.url()).pathname === `/${board}/imgboard.php`);
     await page.getByRole('button', { name: 'Post', exact: true }).click();

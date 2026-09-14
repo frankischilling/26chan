@@ -1,4 +1,55 @@
-# Documented posting options
+# Posting options
+
+## Supplied-source matching
+
+[Issue #112](https://github.com/frankischilling/26chan/issues/112) covers the
+raw Options field and public parsing established by the supplied source:
+
+- `imgboard.php:5299,5304` bounds ordinary public options at 100 bytes.
+- `imgboard.php:5413-5424` removes every case-insensitive ASCII `sage`
+  substring, setting the sage flag if any occurred. The remainder must equal
+  `nonoko` case-insensitively for a board return. It does not trim whitespace.
+- `imgboard.php:5605-5640` handles the case-sensitive `capcode_` prefix and
+  clears the options before storage. Unauthenticated public attempts cannot
+  receive capcodes (`parse_capcode`, lines 4750-4809); the name becomes
+  Anonymous. The rewrite grants no staff authority through public options.
+- `views/imgboard.php:84-119` uses a text input, with the reply submit control
+  beside Options and the new-thread submit control beside Subject.
+
+Both posting aliases apply these parsing rules. `sageNONOKOSaGe` suppresses
+bumping and returns to the board. `nonoko sage` suppresses bumping but returns
+to the thread because the space remains. `message` also contains `sage`.
+Other bounded text is accepted without storing or displaying raw options.
+Inputs over 100 UTF-8 bytes receive 422. Only fixed same-origin success
+destinations are available; HTML 303 and JSON response handling are unchanged.
+
+The parser has example tests and 128 bounded property cases. The database
+test covers eleven values through both aliases for OPs and replies, actual
+bump timestamps and redirects, 100/101-byte boundaries, closed-thread
+rejection, and unprivileged capcode attempts with an uppercase control.
+Browser coverage includes free-text fields, reply submit placement, and
+persisted no-JavaScript board returns with mixed-case options.
+
+Local checks passed all 16 domain tests, 35 public library tests, all-target
+Clippy, 39 media/interaction tests, ten state tests and three base visuals.
+Six form-layout cases passed, including the added input and submit assertions.
+Eighteen reviewed screenshot baselines cover the affected expanded forms:
+four attachment board/thread, two empty-board and twelve six-theme captures.
+The initial full theme run passed 116 cases and failed only those two
+six-theme screenshot groups. After their scoped update, the complete rerun
+passed all 118 cases in 3.0 minutes without updating snapshots.
+Local PostgreSQL is unavailable, so the expanded persisted tests require
+current-head CI.
+Fixture screenshots are project regressions, not original rendered-page
+parity evidence. Lifetime bump counts, identity/capcode cookies, authenticated
+capcodes, special board options, Pass/captcha and complete forms remain
+unfinished. This change adds no schema, grants, dependencies or upload authority.
+
+## Earlier FAQ-only qualification
+
+The following records the narrower implementation and checks performed for
+issue #28. Its exact allowlist and selector are superseded by the source
+rules above; these historical test results do not qualify the expanded parser.
 
 The [official FAQ](https://www.4chan.org/faq#nonoko) documents returning to the
 board with `nonoko`, and combining that with sage using `nonokosage`. The
@@ -7,8 +58,8 @@ other two values. [Issue #28](https://github.com/frankischilling/26chan/issues/2
 tracks the correction; [issue #6](https://github.com/frankischilling/26chan/issues/6)
 tracks the broader reference work.
 
-The handler now accepts these exact values through both `/{board}/post` and
-`/{board}/imgboard.php`, and the Options control exposes each choice:
+That implementation accepted these exact values through both `/{board}/post`
+and `/{board}/imgboard.php`, with a selector exposing each choice:
 
 | Value | Sage flag | Local success destination |
 | --- | --- | --- |
@@ -37,7 +88,7 @@ fragment identifiers were checked against that response.
 This source supplies documented option meanings, not observed HTTP statuses,
 case folding, whitespace rules, arbitrary-email behavior or rendered form
 layout. No test posted to the external site or collected production post/media
-fixtures. The exact allowlist and unsupported-value response remain local
+fixtures. That exact allowlist and unsupported-value response were local
 validation policy. Full visual and behavioral parity is still unverified.
 
 ## Tests and failures

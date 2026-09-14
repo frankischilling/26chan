@@ -13,6 +13,12 @@ async fn submit(
     option: &str,
     comment: &str,
 ) -> axum::response::Response {
+    let fields = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("resto", &parent.to_string())
+        .append_pair("email", option)
+        .append_pair("com", comment)
+        .append_pair("password", "synthetic-password-123")
+        .finish();
     app.clone()
         .oneshot(
             Request::builder()
@@ -20,9 +26,7 @@ async fn submit(
                 .uri(path)
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "application/x-www-form-urlencoded")
-                .body(Body::from(format!(
-                    "resto={parent}&email={option}&com={comment}&password=synthetic-password-123"
-                )))
+                .body(Body::from(fields))
                 .unwrap(),
         )
         .await
@@ -30,7 +34,21 @@ async fn submit(
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    // This expanded fixture submits 54 writes from one synthetic peer.
+    // Keep a bounded test budget; http_limits.rs tests production defaults
+    // and actual peer throttling independently.
+    let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        _ => None,
+    })
+    .unwrap();
+    let (app, _) = board_public::routers_with_limits(
+        public.clone(),
+        "http://127.0.0.1:3000".into(),
+        false,
+        None,
+        limits,
+    );
     let mut failures = Vec::new();
     let mut first_thread = None;
     for (alias_index, alias) in ["post", "imgboard.php"].into_iter().enumerate() {
@@ -40,6 +58,13 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             ("sage", true, false),
             ("nonoko", false, true),
             ("nonokosage", true, true),
+            ("NONOKO", false, true),
+            ("sageNONOKOSaGe", true, true),
+            ("nonoko sage", true, false),
+            ("nonokononokosage", true, false),
+            ("message", true, false),
+            ("<script>fold</script>", false, false),
+            ("ordinary options", false, false),
         ] {
             let comment = format!("owned-{alias_index}-{option}-op");
             let response = submit(&app, &path, 0, option, &comment).await;
@@ -102,14 +127,15 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             assert_eq!(posts.len(), 2);
             assert_eq!(posts[1].id, reply_id);
         }
-        for invalid in ["NONOKO", "nonoko%20sage", "nonokononokosage"] {
+        for invalid in ["a".repeat(101), format!("{}a", "😀".repeat(25))] {
             let before: i64 =
                 sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
                     .bind(&slug)
                     .fetch_one(&public)
                     .await
                     .unwrap();
-            let response = submit(&app, &path, 0, invalid, "invalid-option-must-not-persist").await;
+            let response =
+                submit(&app, &path, 0, &invalid, "invalid-option-must-not-persist").await;
             assert_eq!(response.status(), 422);
             assert!(!response.headers().contains_key("location"));
             let after: i64 =
@@ -170,6 +196,81 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     assert!(has_editor(format!("/{slug}/thread/{id}")).await);
+    let accepted = submit(
+        &app,
+        &format!("/{slug}/imgboard.php"),
+        id,
+        &"😀".repeat(25),
+        "100-byte-options-reply",
+    )
+    .await;
+    assert_eq!(accepted.status(), 303);
+    assert_eq!(
+        board_store::posts(&public, &slug, id).await.unwrap().len(),
+        3
+    );
+    for (option, expected_name) in [
+        ("capcode_admin", "Anonymous"),
+        ("SaGecapcode_mod", "Anonymous"),
+        ("CAPCODE_admin", "Named control"),
+    ] {
+        let fields = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("resto", &id.to_string())
+            .append_pair("email", option)
+            .append_pair("name", "Named control")
+            .append_pair("com", "Owned unprivileged option")
+            .append_pair("password", "synthetic-password-123")
+            .finish();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/{slug}/imgboard.php"))
+                    .header("origin", "http://127.0.0.1:3000")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(fields))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 303);
+        let post_id: i64 = response.headers()["location"]
+            .to_str()
+            .unwrap()
+            .rsplit_once("#p")
+            .unwrap()
+            .1
+            .parse()
+            .unwrap();
+        assert_eq!(
+            board_store::find_post(&public, &slug, post_id)
+                .await
+                .unwrap()
+                .name,
+            expected_name
+        );
+    }
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/{slug}/thread/{id}.json"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let value: serde_json::Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert!(
+        value["posts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|post| post.get("capcode").is_none())
+    );
 }
 
 #[tokio::test]
@@ -183,7 +284,7 @@ async fn documented_options_preserve_posts_redirects_and_bump_rules() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting options','Owned posting fixture',1000,100,50,20,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting options','Owned posting fixture',1000,100,50,100,10)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

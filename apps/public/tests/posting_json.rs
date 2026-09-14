@@ -76,7 +76,7 @@ async fn exercise(multipart: bool) {
     );
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
     let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
-    let fields = "name=Anonymous&sub=JSON+thread&com=Line+one%0D%0ALine+two&password=owned-json-password&track=1&awt=1&email=nonoko";
+    let fields = "name=Anonymous&sub=JSON+thread&com=Line+one%0D%0ALine+two&password=owned-json-password&track=1&awt=1&email=sageNONOKOSaGe";
     let (headers, posted) = json(
         app.clone()
             .oneshot(request(
@@ -160,6 +160,26 @@ async fn exercise(multipart: bool) {
 
     for route in ["post", "imgboard.php"] {
         let path = format!("/{board}/{route}");
+        let (headers, rejected) = json(
+            app.clone()
+                .oneshot(request(
+                    &path,
+                    &format!(
+                        "com=Valid+comment&password=owned-json-password&email={}",
+                        "a".repeat(101)
+                    ),
+                    "application/json",
+                ))
+                .await
+                .unwrap(),
+            StatusCode::OK,
+        )
+        .await;
+        assert_eq!(
+            rejected,
+            serde_json::json!({"error": "Options must contain at most 100 bytes."})
+        );
+        assert!(!headers.contains_key("set-cookie"));
         let (headers, rejected) = json(
             app.clone()
                 .oneshot(request(
