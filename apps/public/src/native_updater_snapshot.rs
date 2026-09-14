@@ -122,6 +122,7 @@ fn encode(
     }
     let omitted = replies - (posts.len() - 1);
     let view = ThreadView {
+        catalog_last_reply: None,
         tail_size,
         latest_reply_id: posts
             .last()

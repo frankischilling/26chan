@@ -26,3 +26,4 @@
     --watcher-cross: url('/static/watcher/burichan/cross@2x.png');
   }
 }
+:root { --catalog-preview-subject: #dedede; }

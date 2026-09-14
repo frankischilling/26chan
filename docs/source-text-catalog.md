@@ -69,7 +69,8 @@ theme suite. These are rewrite regression images backed by source declarations,
 not screenshots of an executed legacy site.
 
 This implements issue #159's table slice and advances #82, V-005 and V-009.
-Source date-hover previews, complete surrounding catalog-page layout, native
+Source date-hover previews are covered by the [hover slice](source-catalog-previews.md),
+pending its own qualification. Complete surrounding catalog-page layout, native
 theme/highlight options and remaining link/filename/encoding differences remain
 unfinished. This is not full text-catalog or full-site parity. No database
 migration, dependency, runtime grant or media/staff boundary changes are needed.

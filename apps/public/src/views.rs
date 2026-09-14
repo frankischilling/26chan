@@ -68,6 +68,7 @@ pub struct ArchivePage {
 }
 
 pub struct ThreadView {
+    pub catalog_last_reply: Option<board_store::CatalogReply>,
     pub tail_size: usize,
     pub latest_reply_id: Option<i64>,
     pub thread: Thread,

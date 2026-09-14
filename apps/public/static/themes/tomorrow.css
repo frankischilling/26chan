@@ -37,3 +37,4 @@
     --watcher-cross: url('/static/watcher/tomorrow/cross@2x.png');
   }
 }
+:root { --catalog-preview-paper: #000; --catalog-preview-subject: #b294bb; }

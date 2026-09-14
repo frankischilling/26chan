@@ -158,6 +158,14 @@ table.postForm button { padding: 1px 6px; }
 
 /* Source text-only catalog table; image-card sizing does not apply to rows. */
 .catalogControl[hidden] { display: none; }
+#post-preview { box-sizing: content-box; position: absolute; background: var(--catalog-preview-paper, #181f24); border-radius: 3px; padding: 5px 8px 4px; z-index: 100000; overflow-wrap: break-word; white-space: pre-line; max-width: 500px; color: #dedede; font: 10pt Arial, Helvetica, sans-serif; }
+#post-preview .post-author { color: var(--catalog-preview-author, #00a550); font-weight: bold; }
+#post-preview .post-subject { color: var(--catalog-preview-subject, #cc1105); font-weight: bold; }
+#post-preview .post-teaser { margin: 3px 0 0; padding: 0; }
+#post-preview .post-page { font-size: 90%; color: #7d807e; display: inline-block; white-space: nowrap; overflow-wrap: normal; max-width: 100px; overflow: hidden; text-overflow: ellipsis; vertical-align: text-top; margin-left: 3px; }
+#post-preview .post-page::before { content: '('; }
+#post-preview .post-page::after { content: ')'; }
+#post-preview .post-last { color: #bbbfbd; font-size: 90%; margin-top: 3px; }
 .catalog.textCatalog table { width: 80%; margin-left: auto; margin-right: auto; border-collapse: separate; border-spacing: 2px; }
 .catalog.textCatalog .thread { display: table-row; position: static; width: auto; max-height: none; margin: 0; padding: 0; overflow: visible; overflow-wrap: normal; vertical-align: middle; }
 .catalog.textCatalog th { box-sizing: content-box; font-weight: bold; padding: 4px 2px; text-align: center; }

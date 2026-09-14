@@ -55,6 +55,18 @@ fn latest_reply(html: &str, id: i64) -> Option<i64> {
     }
 }
 
+fn preview(html: &str, id: i64) -> &str {
+    html.split(&format!("id=\"thread-{id}\""))
+        .nth(1)
+        .unwrap()
+        .split("<template class=\"catalogPreview\">")
+        .nth(1)
+        .unwrap()
+        .split("</template>")
+        .next()
+        .unwrap()
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
     let mut threads = Vec::new();
@@ -77,6 +89,23 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .bind(&slug).bind(thread).bind(replies.len() == 6).fetch_one(&owner).await.unwrap();
         replies.push(id);
     }
+    sqlx::query("UPDATE content.posts SET name='<script>reply & author</script>',created_at='2026-09-08T12:05:00Z' WHERE id=$1")
+        .bind(replies[5]).execute(&owner).await.unwrap();
+    sqlx::query("UPDATE content.posts SET name='Deleted private name' WHERE id=$1")
+        .bind(replies[6])
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.posts SET name='Visible reply name' WHERE id=$1")
+        .bind(replies[3])
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.posts SET name='<b>OP & author</b>' WHERE id=$1")
+        .bind(b)
+        .execute(&owner)
+        .await
+        .unwrap();
     for (query, expected) in [
         ("", vec![*s, *a, *b, *c]),
         ("?order=date", vec![*s, *c, *b, *a]),
@@ -87,6 +116,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert_eq!(status, 200);
         assert_eq!(ids(&page), expected, "{query}");
         assert!(!page.contains("<script>fold</script>"));
+        assert!(preview(&page, *b).contains("&#60;b&#62;OP &#38; author&#60;/b&#62;"));
+        assert!(preview(&page, *b).contains("&#60;script&#62;reply &#38; author&#60;/script&#62;"));
+        assert!(preview(&page, *b).contains("data-created-at=\"1788869100\""));
+        assert!(!preview(&page, *s).contains("post-last"));
+        assert!(!page.contains("Deleted private name"));
         for (id, latest) in [
             (*s, None),
             (*a, Some(replies[3])),
@@ -98,9 +132,33 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 latest,
                 "snapshot reply metadata {query} {id}"
             );
+            if let Some(latest) = latest {
+                assert!(preview(&page, id).contains(&format!("data-reply-id=\"{latest}\"")));
+            }
         }
         for (id, limited) in [(*a, false), (*b, true), (*c, true), (*s, false)] {
             assert_eq!(bump_limited(&page, id), limited, "{query} {id}");
+        }
+    }
+    for limit in [Some(0), Some(5), None] {
+        let snapshot =
+            board_store::board_snapshot(&public, &slug, board_store::BoardSelection::All, limit)
+                .await
+                .unwrap();
+        for thread in snapshot.threads {
+            assert_eq!(
+                thread.catalog_last_reply.is_some(),
+                limit == Some(0) && thread.latest_reply_id.is_some()
+            );
+            if let Some(last) = thread.catalog_last_reply {
+                assert_eq!(Some(last.id), thread.latest_reply_id);
+                assert_eq!(last.thread_id, thread.thread.id);
+                assert_eq!(
+                    thread.posts.len(),
+                    1,
+                    "hover fetch does not load reply bodies"
+                );
+            }
         }
     }
     sqlx::query("UPDATE content.boards SET text_only=true WHERE slug=$1")
@@ -196,11 +254,26 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .count(),
         threads.len()
     );
-    assert_eq!(large.matches("</div></template>").count(), threads.len());
+    assert_eq!(
+        large.matches("<template class=\"catalogPreview\">").count(),
+        threads.len()
+    );
+    assert_eq!(
+        large.matches("</div></template>").count(),
+        threads.len() * 2
+    );
     assert!(!large.contains("<script>fold</script>"));
     assert!(large.contains("value=\"r\" selected"));
     assert!(large.contains("value=\"large\" selected"));
     assert!(large.contains("value=\"off\" selected"));
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+        .bind(replies[5])
+        .execute(&owner)
+        .await
+        .unwrap();
+    let (_, previous) = read(&app, &format!("/{slug}/catalog")).await;
+    assert!(preview(&previous, *b).contains(&format!("data-reply-id=\"{}\"", replies[4])));
+    assert!(!previous.contains("reply &#38; author"));
     sqlx::query("UPDATE content.posts SET deleted=true WHERE id=ANY($1)")
         .bind(&replies[4..6])
         .execute(&owner)
@@ -213,6 +286,26 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         None,
         "deleted replies do not become client sort metadata"
     );
+    assert!(!preview(&page, *b).contains("post-last"));
+    assert!(!page.contains("reply &#38; author"));
+    sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let (_, anonymous) = read(&app, &format!("/{slug}/catalog")).await;
+    assert!(!anonymous.contains("OP &#38; author"));
+    assert!(!anonymous.contains("Visible reply name"));
+    assert!(preview(&anonymous, *b).contains("<span class=\"post-author\">Anonymous</span>"));
+    assert!(
+        preview(&anonymous, *a)
+            .contains("Last reply by <span class=\"post-author\">Anonymous</span>")
+    );
+    sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
     let (_, page) = read(&app, &format!("/{slug}/catalog?order=r")).await;
     assert_eq!(ids(&page), vec![*s, *c, *a, *b]);
     assert!(
