@@ -1,6 +1,26 @@
 import { test, expect, readVisualState } from '../helpers/visual-diagnostics.js';
 test.use({ javaScriptEnabled: true });
 
+test('script transport failures retain only a bounded path and network error code', async ({ page, visualDiagnostics }) => {
+  await page.goto('/demo/');
+  await expect(page.locator('.postMenuBtn').first()).toBeVisible();
+  await page.route('**/static/thread-watcher.v1.js?*', route => route.abort('connectionfailed'));
+  await page.evaluate(() => new Promise(resolve => {
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = '/static/thread-watcher.v1.js?private=QUERY_SENTINEL#FRAGMENT_SENTINEL';
+    script.onerror = () => resolve();
+    document.head.append(script);
+  }));
+  expect(visualDiagnostics.failedScripts).toEqual([
+    { path: '/static/thread-watcher.v1.js', error: 'net::ERR_CONNECTION_FAILED' },
+  ]);
+  const serialized = JSON.stringify(visualDiagnostics.failedScripts);
+  expect(serialized).not.toContain('QUERY_SENTINEL');
+  expect(serialized).not.toContain('FRAGMENT_SENTINEL');
+  await expect(page.locator('.postMenuBtn').first()).toBeVisible();
+});
+
 test('synthetic visual state excludes form, cookie and storage contents', async ({ page, context }) => {
   await context.addCookies([{ name: 'owned-private', value: 'COOKIE_SENTINEL', url: 'http://127.0.0.1:3000' }]);
   await page.goto('/demo/');

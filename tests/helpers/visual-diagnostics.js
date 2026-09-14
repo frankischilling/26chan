@@ -42,7 +42,7 @@ export async function readVisualState(page) {
 
 export const test = base.extend({
   visualDiagnostics: [async ({ context }, use, info) => {
-    const errors = [], scripts = [];
+    const errors = [], scripts = [], failedScripts = [];
     const observed = new Set();
     const observe = page => {
       if (observed.has(page)) return;
@@ -53,6 +53,14 @@ export const test = base.extend({
       page.on('response', response => {
         if (scripts.length >= 16 || response.request().resourceType() !== 'script') return;
         scripts.push({ path: new URL(response.url()).pathname.slice(0, 128), status: response.status() });
+      });
+      page.on('requestfailed', request => {
+        if (failedScripts.length >= 16 || request.resourceType() !== 'script') return;
+        const error = request.failure()?.errorText;
+        failedScripts.push({
+          path: new URL(request.url()).pathname.slice(0, 128),
+          error: /^net::[A-Z0-9_]{1,80}$/.test(error ?? '') ? error : 'unavailable',
+        });
       });
     };
     context.on('page', observe);
@@ -71,11 +79,11 @@ export const test = base.extend({
         if (window.ownedVisualEvents.length > 8) window.ownedVisualEvents.shift();
       }, { passive: true });
     });
-    await use();
+    await use({ failedScripts });
     if (info.status !== info.expectedStatus) {
       const pages = await Promise.all(context.pages().slice(0, 4)
         .map(page => readVisualState(page).catch(() => ({ unavailable: true }))));
-      console.log('Synthetic visual failure state:', JSON.stringify({ errors, scripts, pages }));
+      console.log('Synthetic visual failure state:', JSON.stringify({ errors, scripts, failedScripts, pages }));
     }
   }, { auto: true }],
 });
