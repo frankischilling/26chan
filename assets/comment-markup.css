@@ -1,0 +1,27 @@
+/* Supplied yotsubanew.css:107,1132,1347. No remote font or script loads. */
+.sjis, #quickReply .sjis {
+  font-size: 16px;
+  line-height: 17px;
+  white-space: pre;
+  font-family: 'IPAMonaPGothic', 'Mona', 'MS PGothic', monospace;
+  overflow: auto;
+  display: block;
+  clear: left;
+}
+s, s a:not(:hover) {
+  color: #000 !important;
+  background: #000 !important;
+  text-decoration: none;
+}
+s:hover, s:focus, s:hover a { color: #fff !important; }
+s:hover a { text-decoration: underline; }
+.prettyprint {
+  border: none !important;
+  background-color: #fff;
+  padding: 5px !important;
+  display: inline-block;
+  max-height: 400px;
+  overflow-x: auto;
+  max-width: 600px;
+  margin: 0;
+}

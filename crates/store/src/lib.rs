@@ -100,6 +100,7 @@ pub struct Post {
     pub name: String,
     pub subject: String,
     pub comment: String,
+    pub comment_format: i16,
     pub created_at: DateTime<Utc>,
     pub deleted: bool,
     #[sqlx(skip)]

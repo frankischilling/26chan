@@ -9,6 +9,12 @@
 {%- when Token::CrossQuote with (target, id) -%}<a class="quotelink" href="/{{ target }}/post/{{ id }}">&gt;&gt;&gt;/{{ target }}/{{ id }}</a>
 {%- when Token::Spoiler with (text) -%}<span class="spoiler" tabindex="0" aria-label="Spoiler; focus to reveal">{{ text }}</span>
 {%- when Token::Link with (url) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{{ url }}</a>
+{%- when Token::OpenMarkup with (tag) -%}
+{%- match tag -%}{%- when Tag::Spoiler -%}<s>{%- when Tag::Code -%}<pre class="prettyprint">{%- when Tag::Sjis -%}<span class="sjis">{%- endmatch -%}
+{%- when Token::CloseMarkup with (tag) -%}
+{%- match tag -%}{%- when Tag::Spoiler -%}</s>{%- when Tag::Code -%}</pre>{%- when Tag::Sjis -%}</span>{%- endmatch -%}
+{%- when Token::OpenQuote -%}<span class="quote">
+{%- when Token::CloseQuote -%}</span>
 {%- endmatch -%}
 {%- endfor -%}
 {%- if line.green -%}</span>{%- endif -%}

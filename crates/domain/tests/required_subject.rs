@@ -1,4 +1,11 @@
-use board_domain::{CommentSpacing, prepare_post_content};
+use board_domain::{CommentSpacing, PostKind, prepare_post_content};
+
+const REQUIRED: PostKind = PostKind::Thread {
+    subject_required: true,
+};
+const OPTIONAL: PostKind = PostKind::Thread {
+    subject_required: false,
+};
 
 const MISSING: &str = "Error: New threads require a subject.";
 
@@ -18,7 +25,7 @@ fn required_subject_checks_cleaned_bytes_without_a_second_trim() {
         ] {
             for attached in [false, true] {
                 assert_eq!(
-                    prepare_post_content("", raw, "content", 1000, attached, spacing, true)
+                    prepare_post_content("", raw, "content", 1000, attached, spacing, REQUIRED)
                         .err()
                         .unwrap()
                         .0,
@@ -27,7 +34,9 @@ fn required_subject_checks_cleaned_bytes_without_a_second_trim() {
                 );
             }
             // Caller disables the rule for replies and optional-subject boards.
-            assert!(prepare_post_content("", raw, "content", 1000, false, spacing, false).is_ok());
+            assert!(
+                prepare_post_content("", raw, "content", 1000, false, spacing, OPTIONAL).is_ok()
+            );
         }
         for (raw, expected) in [
             ("Ｚ##ⓦ", "aw"),
@@ -36,12 +45,12 @@ fn required_subject_checks_cleaned_bytes_without_a_second_trim() {
             ("\t|\t", "|"),
         ] {
             let prepared =
-                prepare_post_content("", raw, "content", 1000, false, spacing, true).unwrap();
+                prepare_post_content("", raw, "content", 1000, false, spacing, REQUIRED).unwrap();
             assert_eq!(prepared.subject, expected);
             assert_eq!(prepared.comment, "content");
         }
         assert_eq!(
-            prepare_post_content("", "│", "content", 1000, false, spacing, true).is_ok(),
+            prepare_post_content("", "│", "content", 1000, false, spacing, REQUIRED).is_ok(),
             sjis
         );
     }
@@ -97,13 +106,13 @@ fn raw_limits_precede_required_subject_which_precedes_comment_admission() {
         ),
     ] {
         assert_eq!(
-            prepare_post_content(&name, &subject, &comment, limit, false, spacing, true)
+            prepare_post_content(&name, &subject, &comment, limit, false, spacing, REQUIRED)
                 .err()
                 .unwrap()
                 .0,
             error
         );
     }
-    assert!(prepare_post_content("", "valid", "", 1000, false, spacing, true).is_err());
-    assert!(prepare_post_content("", "valid", "", 1000, true, spacing, true).is_ok());
+    assert!(prepare_post_content("", "valid", "", 1000, false, spacing, REQUIRED).is_ok());
+    assert!(prepare_post_content("", "valid", "", 1000, true, spacing, REQUIRED).is_ok());
 }

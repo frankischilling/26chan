@@ -1,0 +1,4 @@
+/* Supplied yotsubamobile.css, loaded after the selected desktop stylesheet. */
+@media only screen and (max-width: 480px) {
+  .prettyprint { background-color: #fff; max-width: 300px; word-wrap: break-word; }
+}

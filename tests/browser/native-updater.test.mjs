@@ -52,6 +52,27 @@ test('approved formatting and normalized media are allowed without accepting unr
   assert.equal(parse(snapshot(`<a href="${longUrl}" rel="nofollow noreferrer noopener">${longUrl}</a>`)).status, 'ok');
 });
 
+test('source multiline markup crosses only the finite inert snapshot grammar', () => {
+  for (const content of [
+    '<s>first<br><s>&lt;script&gt;second</s></s>',
+    '<pre class="prettyprint">first<br>second</pre>',
+    '<span class="sjis">a  b<br>c</span>',
+    '<s>first<pre class="prettyprint">crossed</s>tail</pre>',
+    '<s><a class="quotelink" href="/demo/post/42">&gt;&gt;42</a></s>',
+  ]) {
+    const result = parse(snapshot(content));
+    assert.equal(result.status, 'ok', content);
+    assert.ok(JSON.stringify(result.snapshot.posts[0].tree).length > 0);
+  }
+  for (const content of [
+    '<s onclick="bad()">bad</s>', '<s style="display:none">bad</s>',
+    '<pre>bad</pre>', '<pre class="quote">bad</pre>',
+    '<pre class="prettyprint" src="https://tracker.example/">bad</pre>',
+    '<span class="sjis" onmouseover="bad()">bad</span>',
+    '<pre class="prettyprint"><script>bad()</script></pre>',
+  ]) assert.equal(parse(snapshot(content)).status, 'invalid-snapshot', content);
+});
+
 test('partial, oversized, duplicate, unordered and mismatched snapshots fail as a whole', () => {
   for (const edit of [s => s.posts.pop(), s => s.posts.reverse(), s => s.posts[1].no = s.posts[0].no,
     s => s.board = 'other', s => s.closed = 1, s => s.version = 99, s => s.images = 2,

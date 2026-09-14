@@ -56,7 +56,7 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     expect(receipts.every(cookie => cookie.path === '/test/' && cookie.sameSite === 'Strict')).toBe(true);
     const denied = await submit('post', { resto: thread, com: '' });
     expect(denied.status).toBe(200); expect(Object.keys(denied.value)).toEqual(['error']);
-    expect(denied.value.error).toContain('comment');
+    expect(denied.value.error).toBe('Error: No text entered.');
     expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual(receipts);
     const data = await (await context.request.get(`${origin}/test/thread/${thread}.json`)).json();
     expect(data.posts.map(post => String(post.no))).toEqual([thread, ownReply]);
@@ -277,18 +277,18 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     threads.push(['test', source]);
     const sourceUrl = `${origin}/test/thread/${source}`;
     const local = await post(`/test/thread/${source}`, `Local >>>/test/${source} and >>>/demo/${reply}.\n[spoiler]>>>/test/${source}[/spoiler]`);
-    const localLink = page.locator(`#m${local} a.quotelink[href="/test/post/${source}"]`);
+    const localLink = page.locator(`#m${local} a.quotelink[href="/test/post/${source}"]`).first();
     await expect(localLink).toHaveText(`>>${source}`);
-    await expect(page.locator(`#m${local} .spoiler`)).toHaveText(`>>${source}`);
-    await expect(page.locator(`#m${local} .spoiler a`)).toHaveCount(0);
+    await expect(page.locator(`#m${local} s`)).toHaveText(`>>${source}`);
+    await expect(page.locator(`#m${local} s a`)).toHaveAttribute('href', `/test/post/${source}`);
     await localLink.click();
     await expect(page).toHaveURL(`${sourceUrl}#p${source}`);
-    const link = page.locator(`#m${source} a.quotelink`);
-    await expect(link).toHaveCount(1);
+    await expect(page.locator(`#m${source} a.quotelink`)).toHaveCount(2);
+    const link = page.locator(`#m${source} a.quotelink`).first();
     await expect(link).toHaveAttribute('href', `/demo/post/${reply}`);
     await expect(link).toHaveText(`>>>/demo/${reply}`);
     await expect(page.locator(`#m${source} script`)).toHaveCount(0);
-    await expect(page.locator(`#m${source} .spoiler a`)).toHaveCount(0);
+    await expect(page.locator(`#m${source} s a`)).toHaveAttribute('href', `/demo/post/${reply}`);
     await page.reload();
     const json = await (await context.request.get(`${origin}/test/thread/${source}.json`)).json();
     expect(json.posts[0].com).toContain(`<a class="quotelink" href="/demo/post/${reply}">&gt;&gt;&gt;/demo/${reply}</a>`);
@@ -724,3 +724,42 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
   await context.close();
 });
+
+for (const javaScriptEnabled of [false, true]) {
+  test(`subject-only threads submit through the native form (JavaScript ${javaScriptEnabled})`, async ({ browser }) => {
+    const origin = 'http://127.0.0.1:3000', password = 'owned-subject-only-password';
+    const context = await browser.newContext({ javaScriptEnabled });
+    const page = await context.newPage(); let op;
+    try {
+      await page.goto(`${origin}/test/`);
+      if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
+      await expect(page.locator('#com')).not.toHaveAttribute('required');
+      await page.locator('#sub').fill('Owned subject-only thread');
+      await page.locator('#password').fill(password);
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+      op = /#p(\d+)$/.exec(page.url())[1];
+      await expect(page.locator(`#m${op}`)).toBeEmpty();
+      await expect(page.locator(`#p${op} .subject`).first()).toHaveText('Owned subject-only thread');
+      const jsonUrl = `${origin}/test/thread/${op}.json`;
+      const before = await context.request.get(jsonUrl), snapshot = await before.json();
+      expect(snapshot.posts[0].sub).toBe('Owned subject-only thread');
+      expect(snapshot.posts[0]).not.toHaveProperty('com');
+      if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
+      await page.locator('#com').fill('[spoiler] \n[/spoiler]');
+      await page.locator('#password').fill(password);
+      const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      expect((await denied).status()).toBe(422);
+      await expect(page.locator('body')).toContainText('Error: No text entered.');
+      const after = await context.request.get(jsonUrl);
+      expect(await after.json()).toEqual(snapshot); expect(after.headers().etag).toBe(before.headers().etag);
+    } finally {
+      try {
+        if (op) expect((await context.request.post(`${origin}/test/delete`, {
+          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        })).status()).toBe(303);
+      } finally { await context.close(); }
+    }
+  });
+}

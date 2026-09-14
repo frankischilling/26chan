@@ -42,7 +42,9 @@ test('manual update preserves the document, draft and focus, inserts escaped rep
   await expect(page.locator(`#m${reply}`)).toContainText('<script>window.bad=true</script>');
   await expect(page.locator(`#m${reply} script`)).toHaveCount(0);
   await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `/demo/post/${owned.id}`);
-  await expect(page.locator(`#m${reply} .spoiler`)).toHaveText('fold');
+  // /demo/ has no source spoiler policy; the brackets remain visible.
+  await expect(page.locator(`#m${reply}`)).toContainText('[spoiler]fold[/spoiler]');
+  await expect(page.locator(`#m${reply} s, #m${reply} .spoiler`)).toHaveCount(0);
   await expect(page.getByRole('button', { name: `Post menu for post ${reply}`, exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.updateEvents)).toEqual([{ detail: { count: 1 }, constructor: 'Event', bubbles: false, cancelable: false, menus: 2 }]);
   await expect(page.locator('.threadNav.desktop a[data-cmd="update"]').first()).toBeFocused();

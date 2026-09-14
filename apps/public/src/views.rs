@@ -1,5 +1,6 @@
 use askama::Template;
-use board_domain::{Line, Token, parse_comment};
+use board_domain::comment_markup::Tag;
+use board_domain::{Line, Token, parse_post_comment};
 use board_store::{Board, Post, Thread};
 
 #[derive(Template)]
@@ -131,7 +132,7 @@ impl PostView {
         )
     }
     pub fn new(post: Post) -> Self {
-        let lines = parse_comment(&post.comment);
+        let lines = parse_post_comment(&post.comment, post.comment_format);
         let now = post
             .created_at
             .with_timezone(&chrono_tz::America::New_York)
@@ -179,7 +180,94 @@ pub struct Comment<'a> {
 #[cfg(test)]
 mod comment_tests {
     use super::*;
-    use board_domain::{CommentSpacing, prepare_post_comment};
+    use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
+
+    fn render(input: &str, format: i16) -> String {
+        Comment {
+            lines: &parse_post_comment(input, format),
+            board: "test",
+        }
+        .render()
+        .unwrap()
+    }
+
+    #[test]
+    fn stamped_policy_controls_only_literal_approved_markup() {
+        for mask in 0..8 {
+            let format = 8 + mask;
+            for (flag, raw, expected) in [
+                (1, "[spoiler]a\nb[/spoiler]", "<s>a<br>b</s>"),
+                (
+                    2,
+                    "[code]\nlong <script>\ntext[/code]",
+                    "<pre class=\"prettyprint\">long &#60;script&#62;<br>text</pre>",
+                ),
+                (
+                    4,
+                    "[sjis]a  b\nc[/sjis]",
+                    "<span class=\"sjis\">a  b<br>c</span>",
+                ),
+            ] {
+                let html = render(raw, format);
+                if mask & flag != 0 {
+                    assert_eq!(html, expected);
+                } else {
+                    assert_eq!(
+                        html,
+                        raw.replace('<', "&#60;")
+                            .replace('>', "&#62;")
+                            .replace('\n', "<br>")
+                    );
+                }
+                assert!(!html.contains("<script>"));
+            }
+        }
+        assert_eq!(render("[spoiler] \n[spoiler]\t[/spoiler][/spoiler]", 9), "");
+        assert_eq!(render("[code]123456[/code]", 10), "123456");
+        assert_eq!(
+            render("[code]1234567[/code]", 10),
+            "<pre class=\"prettyprint\">1234567</pre>"
+        );
+        assert_eq!(
+            render("[spoiler]x[code]1234567[/spoiler]z[/code]", 11),
+            "<s>x<pre class=\"prettyprint\">1234567</s>z</pre>"
+        );
+        assert_eq!(
+            render("[spoiler]https://example.org/ >>42[/spoiler]", 9),
+            "<s><a href=\"https://example.org/\" rel=\"nofollow noreferrer noopener\">https://example.org/</a> <a class=\"quotelink\" href=\"/test/post/42\">&gt;&gt;42</a></s>"
+        );
+        assert_eq!(
+            render("<s>x</s><pre onclick='x'>y</pre>", 15),
+            "&#60;s&#62;x&#60;/s&#62;&#60;pre onclick=&#39;x&#39;&#62;y&#60;/pre&#62;"
+        );
+    }
+
+    #[test]
+    fn legacy_unknown_and_quote_boundaries_do_not_gain_markup_authority() {
+        let raw = "[spoiler]>>42[/spoiler]";
+        assert_eq!(
+            render(raw, 0),
+            "<span class=\"spoiler\" tabindex=\"0\" aria-label=\"Spoiler; focus to reveal\">&#62;&#62;42</span>"
+        );
+        for format in [-1, 1, 7, 16, i16::MAX] {
+            assert_eq!(
+                render("[spoiler]<b>\n>>42 https://example.org/[/spoiler]", format),
+                "[spoiler]&#60;b&#62;<br>&#62;&#62;42 https://example.org/[/spoiler]"
+            );
+        }
+        assert_eq!(
+            render(">before[spoiler]>inside\n>next[/spoiler]>after", 9),
+            "<span class=\"quote\">&#62;before</span><s>&#62;inside<br><span class=\"quote\">&#62;next</span></s>&#62;after"
+        );
+        assert_eq!(
+            render(" >first\n >next\n  >two", 8),
+            " &#62;first<br> <span class=\"quote\">&#62;next</span><br>  &#62;two"
+        );
+        assert_eq!(
+            render(">before https://example.org/ after", 8),
+            "<span class=\"quote\">&#62;before </span><a href=\"https://example.org/\" rel=\"nofollow noreferrer noopener\">https://example.org/</a> after"
+        );
+    }
 
     #[test]
     fn stored_local_quote_rewrite_uses_normal_links_and_escaped_spoiler_text() {

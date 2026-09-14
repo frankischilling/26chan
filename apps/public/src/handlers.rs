@@ -63,7 +63,11 @@ pub async fn css() -> impl IntoResponse {
             ("content-type", "text/css; charset=utf-8"),
             ("cache-control", "public, max-age=0, must-revalidate"),
         ],
-        include_str!("../static/board.css"),
+        concat!(
+            include_str!("../static/board.css"),
+            "\n",
+            include_str!("../../../assets/comment-markup.css")
+        ),
     )
 }
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
@@ -424,7 +428,13 @@ async fn submit_post(
         settings.max_comment_chars as usize,
         attachment.is_some(),
         settings.comment_spacing(),
-        settings.require_subject && form.resto == 0,
+        if form.resto == 0 {
+            board_domain::PostKind::Thread {
+                subject_required: settings.require_subject,
+            }
+        } else {
+            board_domain::PostKind::Reply
+        },
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     let options = board_domain::posting_options::parse(&form.email)

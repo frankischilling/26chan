@@ -1,3 +1,4 @@
+use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag, parse_markup};
 use url::Url;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -7,6 +8,10 @@ pub enum Token {
     CrossQuote(String, u64),
     Spoiler(String),
     Link(String),
+    OpenMarkup(Tag),
+    CloseMarkup(Tag),
+    OpenQuote,
+    CloseQuote,
 }
 
 #[derive(Clone, Debug)]
@@ -29,19 +34,86 @@ pub fn parse_comment(input: &str) -> Vec<Line> {
             let line = line.strip_suffix('\r').unwrap_or(line);
             Line {
                 green: line.starts_with('>') && !line.starts_with(">>"),
-                tokens: tokenize(line),
+                tokens: tokenize(line, true),
             }
         })
         .collect()
 }
 
-fn tokenize(line: &str) -> Vec<Token> {
+/// Historical rows retain their original formatter. New rows use only the
+/// policy stamped at insertion, never a board's mutable current settings.
+/// Unknown versions fail closed to escaped, bounded text and line breaks.
+pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
+    if format == 0 {
+        return parse_comment(input);
+    }
+    let policy = MarkupPolicy::from_post_format(format);
+    let markup = parse_markup(input, policy.unwrap_or_default());
+    let mut lines = vec![Line {
+        green: false,
+        tokens: Vec::new(),
+    }];
+    let mut line_start = true;
+    for token in markup {
+        if token == MarkupToken::Break {
+            lines.push(Line {
+                green: false,
+                tokens: Vec::new(),
+            });
+            line_start = true;
+            continue;
+        }
+        let after_break = lines.len() > 1;
+        let output = &mut lines.last_mut().expect("initial line").tokens;
+        match token {
+            MarkupToken::Text(text) => {
+                if policy.is_none() {
+                    output.push(Token::Text(text));
+                } else {
+                    let start = if after_break {
+                        text.strip_prefix(' ').unwrap_or(&text)
+                    } else {
+                        &text
+                    };
+                    let mut green =
+                        line_start && start.starts_with('>') && !start.starts_with(">>");
+                    if green {
+                        // Source allows one space between a break and a quote.
+                        if text.starts_with(' ') {
+                            output.push(Token::Text(" ".into()));
+                        }
+                        output.push(Token::OpenQuote);
+                    }
+                    let input = if green { start } else { &text };
+                    for token in tokenize(input, false) {
+                        // A generated link ends the source's [^<]* quote span.
+                        if green && matches!(token, Token::Link(_)) {
+                            output.push(Token::CloseQuote);
+                            green = false;
+                        }
+                        output.push(token);
+                    }
+                    if green {
+                        output.push(Token::CloseQuote);
+                    }
+                }
+            }
+            MarkupToken::Open(tag) => output.push(Token::OpenMarkup(tag)),
+            MarkupToken::Close(tag) => output.push(Token::CloseMarkup(tag)),
+            MarkupToken::Break => unreachable!("handled above"),
+        }
+        line_start = false;
+    }
+    lines
+}
+
+fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut text = String::new();
     let mut tail = line;
     while !tail.is_empty() {
         let mut found = None;
-        if let Some(rest) = tail.strip_prefix("[spoiler]") {
+        if legacy_spoilers && let Some(rest) = tail.strip_prefix("[spoiler]") {
             if let Some(end) = rest.find("[/spoiler]") {
                 found = Some((Token::Spoiler(rest[..end].to_owned()), 9 + end + 10));
             }

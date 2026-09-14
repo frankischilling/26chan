@@ -88,7 +88,13 @@ pub async fn create_post_with_context(
             board.max_comment_chars as usize,
             attachment.is_some(),
             board.comment_spacing(),
-            board.require_subject && parent == 0,
+            if parent == 0 {
+                board_domain::PostKind::Thread {
+                    subject_required: board.require_subject,
+                }
+            } else {
+                board_domain::PostKind::Reply
+            },
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
