@@ -25,7 +25,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Attachment fixture".into(),
-        comment: "A synthetic attachment".into(),
+        comment: "A synthetic\r\nattachment\rcomment".into(),
         deletion_hash: "fixture-not-a-password".into(),
         sage: false,
     }
@@ -271,6 +271,17 @@ async fn exercise(f: &Fixture) {
         _ => panic!("Expected exactly one capability consumer"),
     };
     let saved = attachment(&f.public, id).await.unwrap().unwrap();
+    assert_eq!(
+        board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap()
+            .comment,
+        if f.attachment_only {
+            ""
+        } else {
+            "A synthetic\nattachment\ncomment"
+        }
+    );
     assert_eq!(saved.asset_id, asset);
     assert_eq!(saved.filename, "<synthetic & file>.png");
     assert_eq!((saved.bytes, saved.width, saved.height), (123, 10, 20));

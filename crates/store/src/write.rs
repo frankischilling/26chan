@@ -25,6 +25,8 @@ pub async fn create_post_with_attachment(
     post: &NewPost,
     attachment: Option<&post_media::NewAttachment>,
 ) -> Result<i64, StoreError> {
+    let comment = board_domain::normalize_comment(&post.comment)
+        .map_err(|error| StoreError::Invalid(error.0))?;
     let mut tx = pool.begin().await?;
     let board: Board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
@@ -34,7 +36,7 @@ pub async fn create_post_with_attachment(
     board_domain::validate_post_with_attachment(
         &post.name,
         &post.subject,
-        &post.comment,
+        &comment,
         board.max_comment_chars as usize,
         attachment.is_some(),
     )
@@ -81,7 +83,7 @@ pub async fn create_post_with_attachment(
             .bind(thread_id)
             .bind(name)
             .bind(&post.subject)
-            .bind(&post.comment)
+            .bind(comment.as_ref())
             .bind(&attachment.upload.id)
             .bind(&attachment.upload.capability)
             .bind(attachment.spoiler)
@@ -89,7 +91,7 @@ pub async fn create_post_with_attachment(
             .await
             .map_err(post_media::scoped_error)?;
     } else {
-        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,$4,$5,$6)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(&post.comment).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,$4,$5,$6)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(comment.as_ref()).execute(&mut *tx).await?;
     }
     sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
         .bind(id)

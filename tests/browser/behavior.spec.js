@@ -440,6 +440,18 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(await after.json()).toEqual(beforeJson);
   expect(after.headers().etag).toBe(before.headers().etag);
   await page.goto(threadUrl);
+  const multiline = `${'😀'.repeat(limit - 2)}\nX`;
+  await page.locator('#com').fill(multiline);
+  await page.locator('#password').fill('no-javascript-password');
+  const submitted = page.waitForRequest(request => request.url().endsWith('/test/post') && request.method() === 'POST');
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  expect(new URLSearchParams((await submitted).postData()).get('com')).toBe(multiline.replace('\n', '\r\n'));
+  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  const reply = /#p(\d+)$/.exec(page.url())[1];
+  expect(reply).not.toBe(op);
+  await expect(page.locator(`#m${reply} br`)).toHaveCount(1);
+  const multilineJson = await (await page.request.get(jsonUrl)).json();
+  expect(multilineJson.posts.find(post => String(post.no) === reply).com).toBe(multiline.replace('\n', '<br>'));
   await page.locator(`#p${op} summary`).click();
   await page.locator(`#delete${op}`).fill('no-javascript-password');
   await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
