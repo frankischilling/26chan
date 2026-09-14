@@ -58,8 +58,10 @@ Domain cases cover final admission and error precedence. Actual database tests
 cover both form encodings/routes and response modes, both JSON listeners,
 historical posts, policy-lock witnesses, denied public updates, approved OP
 attachments, blocked replies, direct scoped-SQL rejection and approval reuse.
-The intake test uses a body stream that records any attempt to read file bytes;
-the same healthy intake service subsequently handles an allowed upload.
+The intake test supplies the parent field while file bytes remain pending and
+requires rejection within two seconds without creating a job. Multipart may
+poll the pending stream while parsing the parent; that is not a file-byte read.
+The same healthy intake service subsequently handles an allowed upload.
 
 `scripts/test-text-only-migration.sh` upgrades a populated 0032 database with
 all 82 active source board names, checks defaults and historical rows, and
@@ -72,6 +74,8 @@ Local domain tests and strict domain/store/public Clippy with all targets and
 features passed. Shell syntax, JavaScript syntax and actionlint passed.
 Desktop (1280px) and mobile (390px) fixture tests passed, and both captured
 pages were visually inspected. Existing screenshot baselines were unchanged.
-Actual database, migration, streaming, persisted browser and restore execution require
-current-head hosted checks because local database connections time out. These
+The old local database environment timed out. After loading the current owned
+native PostgreSQL environment, migrations and the focused markup-admission,
+required-subject, text-only and actual intake tests passed. Populated upgrade,
+restore and complete hosted qualification remain required before merge. These
 checks do not establish complete source parity or deployed media containment.
