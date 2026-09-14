@@ -16,10 +16,11 @@ for (const theme of Object.keys(reference.themes)) {
           await expect(meta).toHaveText(`R: ${replies}${images ? ` / I: ${images}` : ''}`);
           const italic = [];
           if (bump) italic.push(`R: ${replies}`);
-          if (imageLimit && !disabled) italic.push(`I: ${images}`);
+          const imageReached = images > 0 && (imageLimit || disabled);
+          if (imageReached) italic.push(`I: ${images}`);
           expect(await meta.locator('i').allTextContents()).toEqual(italic);
           await expect(meta.locator('b').first()).toHaveCSS('font-style', bump ? 'italic' : 'normal');
-          if (images) await expect(meta.locator('b').nth(1)).toHaveCSS('font-style', imageLimit && !disabled ? 'italic' : 'normal');
+          if (images) await expect(meta.locator('b').nth(1)).toHaveCSS('font-style', imageReached ? 'italic' : 'normal');
           await expect(meta).toHaveAttribute('title', '(R)eplies / (I)mage Replies');
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -31,6 +32,14 @@ for (const theme of Object.keys(reference.themes)) {
           await page.evaluate(() => scrollTo(0,0));
           await expect.soft(page).toHaveScreenshot(`catalog-limits-${name}.png`, { fullPage: true });
         }
+      }
+      for (const [flag, limited] of [['sticky', false], ['permaage', false], ['undead', true]]) {
+        await page.goto(`/limits/${flag}/catalog`);
+        const meta = page.locator('#meta-1000401');
+        await expect(meta).toHaveText('R: 2 / I: 2');
+        expect(await meta.locator('i').allTextContents()).toEqual(limited ? ['R: 2', 'I: 2'] : []);
+        await expect(meta.locator('b').nth(1)).toHaveCSS('font-style', limited ? 'italic' : 'normal');
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       }
     }
   });

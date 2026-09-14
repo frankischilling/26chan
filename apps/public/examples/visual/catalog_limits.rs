@@ -3,6 +3,14 @@ use askama::Template;
 use board_store::{Post, Thread};
 
 pub fn page(disabled_images: bool) -> String {
+    render(disabled_images, None)
+}
+
+pub fn flagged_page(sticky: bool, permaage: bool, undead: bool) -> String {
+    render(false, Some((sticky, permaage, undead)))
+}
+
+fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>) -> String {
     let mut board = board();
     board.slug = "limits".into();
     board.title = "Catalog limits".into();
@@ -31,9 +39,10 @@ pub fn page(disabled_images: bool) -> String {
                 bumped_at: time("2026-09-08T12:00:00Z"),
                 modified_at: time("2026-09-08T12:00:00Z"),
                 reply_count: lifetime,
-                sticky: index == 5,
+                sticky: flags.map_or(index == 5, |f| f.0),
                 permasage: false,
-                permaage: false,
+                permaage: flags.is_some_and(|f| f.1),
+                undead: flags.is_some_and(|f| f.2),
                 closed: false,
                 deleted: false,
                 archived_at: None,

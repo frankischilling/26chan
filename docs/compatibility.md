@@ -46,7 +46,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | V-005 | Default extended-small catalog cards; observed public v705 CSS and v1025 client structure; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Compact cards, bounded thumbnails opening threads, escaped subject/teaser and visible reply/image-reply counts; merged in #63 after complete exact-head checks | [Catalog verification](public-catalog-cards.md); six desktop/mobile style/navigation cases, real deletion and coherent snapshot counts, five reviewed captures. Controls are V-006 and fallback graphics are V-007; later menus/search fields are V-009. Original teaser processing is source-known; matching its board-dependent pipeline remains incomplete |
 | V-006 | Catalog sort, size, teaser and quick-filter options; observed public controls/client and CSS; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Four sorts use visible snapshot state; small/large and teaser on/off modes plus search/reset work without JavaScript. Initial controls merged in #65; subsequent search behavior is V-009 | [Control verification](catalog-controls.md); actual-role deletion/sorting tests, concurrent-commit queries, persisted sage browser workflow, all-mode six-theme properties and six additional captures. GET submission/URL persistence and toolbar wrapping are explicit local behavior |
 | V-007 | Catalog no-file, deleted-file, generic spoiler and sticky/closed icons; observed public v1025 client and v705 CSS with pinned public images; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Seven fixed image routes and measured state geometry implemented; merged in #67 after all exact-head checks passed | [Asset verification](catalog-state-assets.md); GET/HEAD hashes, MIME/cache/CSP and denied writes, six-theme desktop/mobile geometry at scale 1/2, real browser positive/negative CSP controls, hidden-media non-fetching and nine reviewed captures. Board-specific spoilers, reveal preferences and full-page parity remain incomplete |
-| V-008 | Catalog bump/image-limit indicators; observed public v1025 card markup and documented API flags; **source**: [original rules](#counts-bumping-and-admission) | Italic R/I counts use the coherent board snapshot; original indicator slice merged in #69 | [Limit verification](catalog-limits.md), [source bump rules](source-bump-rules.md) and [flag controls](thread-bump-flags.md): surviving replies and sticky/permaage exclusion decide bump markers. Actual-role boundary/deletion/policy and concurrent snapshot tests plus six-theme checks; new persisted rules await current-head CI. Branch-specific image exclusions and complete catalog matching remain unfinished |
+| V-008 | Catalog bump/image-limit indicators; observed public v1025 card markup and documented API flags; **source**: [original rules](#counts-bumping-and-admission) | Italic R/I counts use coherent snapshots and source flag exclusions | [Bump rules](source-bump-rules.md), [flag controls](thread-bump-flags.md) and [image predicates](source-image-limits.md). Public JSON, including catalog.json, excludes undead from image-limit flags; HTML catalog does not. Zero capacity is reached. Actual-role deletion/policy/concurrency and six-theme checks cover these branches; new persisted image checks await CI. Complete catalog matching remains unfinished |
 
 Later compatibility checkpoints:
 
@@ -328,9 +328,10 @@ every similarly named constant is enforced in every path.
 
 Reply-image admission counts existing non-file-deleted reply files and excludes
 the OP (`imgboard.php:5045-5052`). Deleting a file can free capacity.
-The API/cache limit flags use current reply/image counts with permaage,
-sticky and undead exclusions (`imgboard.php:1036-1073`);
-the HTML catalog uses its own permaage/sticky branch
+The API/cache limit flags use current reply/image counts and exclude permaage
+and sticky; image flags also exclude undead (`imgboard.php:1036-1073`).
+This includes catalog.json, which uses the cache and shared JSON generator
+(`json.php:598-653`). The HTML catalog uses its own permaage/sticky branch
 (`catalog.php:149-152`). These slightly different branches must stay
 distinct in a 1:1 implementation.
 
@@ -674,7 +675,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | V-005 | Board-dependent original teaser preparation is known; shared rewrite fields still need matching. |
 | V-006 | Native controls/defaults/storage/search are known; bounded GET fallback/layout differ. |
 | V-007 | Image-state precedence and custom-spoiler selection are known; board-specific bytes/matching remain. |
-| V-008 | Bump flags use surviving replies and exclude sticky/permaage threads; permasage does not itself change the marker. Flag qualification awaits current-head CI; branch-specific image-limit exclusions remain unfinished. |
+| V-008 | Bump flags use surviving replies and exclude sticky/permaage threads. [Image flags](source-image-limits.md) exclude sticky/permaage everywhere and undead in all JSON, including catalog.json; HTML catalog keeps its separate rule. Zero capacity is a reached limit. Permasage does not itself change these markers. New persisted qualification awaits current-head CI. |
 | V-009 | Subject/teaser/file serialization, search/storage/pin/hide are known; #82 is matching work. |
 | V-010 | Original spoiler preference/suffix behavior is known; board assets and fallback extensions remain. |
 | V-011 | Watcher/menu/hiding/events/keys/updater/notifications/QR rules are known; unfinished features and live qualification remain. |

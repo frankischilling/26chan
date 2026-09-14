@@ -45,6 +45,7 @@ fn page(catalog: bool) -> String {
         sticky: false,
         permasage: false,
         permaage: false,
+        undead: false,
         closed: false,
         deleted: false,
         archived_at: None,
@@ -167,6 +168,7 @@ fn archived_thread() -> String {
         sticky: false,
         permasage: false,
         permaage: false,
+        undead: false,
         closed: false,
         deleted: false,
         archived_at: Some(time("2026-09-08T13:00:00Z")),
@@ -289,6 +291,9 @@ async fn main() {
             get(|| async { Html(catalog_limits::page(true)) }),
         )
         .route("/arc/archive", get(|| async { Html(archive_page(false)) }))
+        .route("/limits/sticky/catalog", get(|| async { Html(catalog_limits::flagged_page(true, false, false)) }))
+        .route("/limits/permaage/catalog", get(|| async { Html(catalog_limits::flagged_page(false, true, false)) }))
+        .route("/limits/undead/catalog", get(|| async { Html(catalog_limits::flagged_page(false, false, true)) }))
         .route(
             "/emptyarc/archive",
             get(|| async { Html(archive_page(true)) }),

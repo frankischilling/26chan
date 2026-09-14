@@ -155,7 +155,13 @@ fn post_json(
         ) {
             value["bumplimit"] = json!(1);
         }
-        if board.image_limit > 0 && images >= board.image_limit as usize {
+        if board_domain::image_limit::json_limited(
+            thread.sticky,
+            thread.permaage,
+            thread.undead,
+            images as u64,
+            board.image_limit as u32,
+        ) {
             value["imagelimit"] = json!(1);
         }
     }
@@ -249,7 +255,7 @@ pub async fn thread_selection(
         let original = &posts[0];
         let mut op = json!({"no": thread.id, "replies": replies, "images": images,
             "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
-            "imagelimit": i32::from(board.image_limit > 0 && images >= board.image_limit as usize),
+            "imagelimit": i32::from(board_domain::image_limit::json_limited(thread.sticky, thread.permaage, thread.undead, images as u64, board.image_limit as u32)),
             "tail_size": tail_size, "tail_id": tail_id});
         for key in ["sticky", "closed", "archived"] {
             if let Some(value) = original.get(key) {

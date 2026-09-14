@@ -10,15 +10,19 @@ public API documentation defines the two flags; it does not establish every
 original counting or deletion rule.
 
 The Rust catalog now renders those markers from its existing board snapshot.
-It uses the same rules as the JSON interface:
+Its [source-defined image rules](source-image-limits.md) differ from the JSON
+interface for undead threads:
 
 - The bump limit uses surviving replies, excluding deleted replies and the OP.
-  Deletion can clear the marker. Sticky threads do not receive it.
+  Deletion can clear the marker. Sticky and permaage threads do not receive it.
 - The image count excludes the OP image, deleted replies and deleted reply
-  files. Deleting a reply file can clear the image-limit marker.
+  files. Deleting a reply file can clear the image-limit marker. Sticky and
+  permaage suppress it everywhere; undead suppresses it in all public JSON,
+  including catalog.json, but not in HTML catalog cards.
 - Counts equal to or above the configured limit receive the marker. A zero
-  bump limit prevents bumping immediately. Zero image capacity disables the
-  image-limit marker, including for retained attachments from an earlier policy.
+  bump limit prevents ordinary bumping immediately. Zero image capacity is
+  already reached, including for retained attachments from an earlier policy.
+  HTML still omits the image segment when the image-reply count is zero.
 
 Board settings, surviving replies and visible attachment counts come from the
 same repeatable-read transaction. Rendering performs no additional query or
@@ -32,8 +36,9 @@ of complete original-page parity. The permitted client receives prepared
 teaser data; its source does not establish original server-side preprocessing.
 
 The supplied-source [bump rules](source-bump-rules.md) also apply the cutoff
-after inserting the incoming reply. Remaining permaage/permasage, age/self-bump
-and image-limit exclusions are recorded there; full source parity is unfinished.
+after inserting the incoming reply. [Permaage/permasage controls](thread-bump-flags.md)
+and [image-limit exclusions](source-image-limits.md) have separate verification.
+Age/self-bump rules and full source parity remain unfinished.
 
 ## Earlier indicator qualification
 

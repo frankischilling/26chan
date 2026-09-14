@@ -123,6 +123,7 @@ impl Fixture {
             sticky: false,
             permasage: false,
             permaage: false,
+            undead: false,
             closed,
             deleted: false,
             archived_at: archived.then(|| time("2026-09-08T13:00:00Z")),

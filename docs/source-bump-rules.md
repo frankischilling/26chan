@@ -25,8 +25,9 @@ Lifetime metadata remains available for the current reply-admission ceiling.
 It no longer decides bumping or bump-limit indicators. That admission policy
 still needs source matching. [Persisted permaage/permasage controls](thread-bump-flags.md)
 now extend these rules, with their own authority and migration coverage. Age-based suppression,
-OP self-bumps, board-specific spam rules and image-limit exclusions remain
-unfinished. These ordinary/sticky rules do not establish full bump-policy parity.
+OP self-bumps and board-specific spam rules remain unfinished.
+[Image-limit exclusions](source-image-limits.md) have separate verification.
+These ordinary/sticky rules do not establish full bump-policy parity.
 
 The database regression exercises real public-role writes, below/at/above
 cutoffs, sage, deletion, sticky and board-policy transitions, ETag changes,
