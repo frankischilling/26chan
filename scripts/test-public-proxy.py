@@ -142,7 +142,8 @@ def main():
             result['other'] = submit('127.0.0.3', result['op'])
             result['password'] = submit('127.0.0.4', result['op'], 'owned-op-password')
             status, body = request('GET', f'/{board}/thread/{result["op"]}')
-            assert status == 200 and b'class="mu-b"' in body
+            assert status == 200, status
+            assert b'<span class="mu-s">Owned proxy fixture</span>' in body
             api = http.client.HTTPConnection('127.0.0.1', api_port, timeout=5)
             try:
                 api.request('POST', f'/{board}/imgboard.php', 'com=unavailable',
