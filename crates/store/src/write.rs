@@ -80,16 +80,16 @@ pub async fn create_post_with_context(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
-    let comment = board_domain::prepare_post_comment(
-        &post.name,
-        &post.subject,
-        &comment,
-        board.max_comment_chars as usize,
-        attachment.is_some(),
-        board.comment_spacing(),
-    )
-    .map_err(|error| StoreError::Invalid(error.0))?;
-    let subject = board_domain::prepare_post_subject(&post.subject, board.comment_spacing())
+    let board_domain::PreparedPostContent { comment, subject } =
+        board_domain::prepare_post_content(
+            &post.name,
+            &post.subject,
+            &comment,
+            board.max_comment_chars as usize,
+            attachment.is_some(),
+            board.comment_spacing(),
+            board.require_subject && parent == 0,
+        )
         .map_err(|error| StoreError::Invalid(error.0))?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)

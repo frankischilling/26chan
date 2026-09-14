@@ -417,17 +417,16 @@ async fn submit_post(
             ));
         }
     };
-    board_domain::prepare_post_comment(
+    board_domain::prepare_post_content(
         &form.name,
         &form.sub,
         &form.com,
         settings.max_comment_chars as usize,
         attachment.is_some(),
         settings.comment_spacing(),
+        settings.require_subject && form.resto == 0,
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
-    board_domain::prepare_post_subject(&form.sub, settings.comment_spacing())
-        .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     let options = board_domain::posting_options::parse(&form.email)
         .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.0))?;
     if !(8..=128).contains(&form.password.len()) {

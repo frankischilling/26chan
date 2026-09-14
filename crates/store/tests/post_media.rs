@@ -564,7 +564,7 @@ async fn comment_spacing(f: &Fixture) {
             .fetch_one(&f.admin)
             .await
             .unwrap();
-    sqlx::query("UPDATE content.boards SET image_limit=100,comment_max_lines=70,comment_spoiler_cleanup=true WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET image_limit=100,comment_max_lines=70,comment_spoiler_cleanup=true,require_subject=true WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
@@ -641,6 +641,11 @@ async fn comment_spacing(f: &Fixture) {
         assert!(matches!(
             create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
             Err(StoreError::Invalid("Name or subject is too long."))
+        ));
+        draft.subject = "##😀".into();
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid("Error: New threads require a subject."))
         ));
         draft.subject = " Ｚ##ⓦ\t  <b>│\r\nEND ".into();
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
