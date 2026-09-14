@@ -8,6 +8,16 @@ Both runs had zero downloadable artifacts. The same Quick Reply case passed
 20 local Windows repetitions. That result does not establish a cause or fix.
 The separate spoiler-reveal investigation remains open in #139.
 
+Job 104026594938 later failed because the media image-search test could not find
+its post-menu trigger. The screenshot retained the initial server-rendered form
+and lacked native menu controls. That shows the JavaScript UI did not initialize,
+but does not explain why. The media-menu fixtures now use the same bounded
+diagnostics. Script requests that fail before a response are recorded separately,
+with at most 16 path/error-code pairs. Queries, fragments, credentials and free-form
+transport messages are excluded. A browser test aborts a synthetic module request
+after a healthy page initialization and checks the retained diagnostic fields.
+These observers do not retry requests or alter production startup behavior.
+
 The Quick Reply visual suite and in-place catalog comparison now retain bounded
 failure state for up to four synthetic pages: script response paths/statuses,
 eight script errors, eight recent click/change events, form/dialog presence,

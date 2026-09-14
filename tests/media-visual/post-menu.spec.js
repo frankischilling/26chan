@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
 const id = '1000201';
