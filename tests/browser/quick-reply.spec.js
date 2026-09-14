@@ -63,13 +63,20 @@ for (const additional of [false, true]) {
     try {
       await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true })));
       await page.setViewportSize({ width: 1280, height: 400 }); await page.goto(`/test/thread/${id}`);
+      const threadUrl = page.url();
       const title = await page.title();
       const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
       await page.locator('.threadNav.desktop input[data-cmd="auto"]').first().check(); await page.clock.runFor(9800);
       await page.locator('.open-qr-link').click();
       await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await page.locator('#qr-pwd').fill(password);
-      const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
-      await page.locator('#quickReply input[type=submit]').click(); const reply = String((await (await posted).json()).pid);
+      // Read the body as soon as its response arrives, while the click is still
+      // settling. Keep the real browser request and reject unexpected navigation.
+      const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`)
+        .then(async response => ({ status: response.status(), value: await response.json() }));
+      const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+      expect(response.status).toBe(200); expect(response.value.error).toBeUndefined();
+      expect(String(response.value.tid)).toBe(id); const reply = String(response.value.pid);
+      await expect(page).toHaveURL(threadUrl);
       await expect(page.locator('#qrCom')).toHaveValue('');
       await expect.poll(() => page.evaluate(({ id, reply }) => JSON.parse(localStorage.getItem(`4chan-track-test-${id}`) || '{}')[`>>${reply}`], { id, reply })).toBe(1);
       if (additional) { const other = await write({ resto: id, com: 'Other participant reply' }); expect(other.status()).toBe(303); }
