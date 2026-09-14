@@ -50,7 +50,7 @@ const postIds = (page, owned) => page.locator(`#t${owned.id} > .postContainer`).
 
 test('initial tail selection and conditional 304 retain drafts, and a real new tail reply is inserted once', async ({ page, owned }) => {
   await initialize(page, owned); const responses = traffic(page, owned);
-  await page.locator('#com').fill('Retained tail draft'); await update(page);
+  await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Retained tail draft'); await update(page);
   await expect(status(page)).toHaveText('No new posts'); expect(responses[0].status()).toBe(200);
   expect(new URL(responses[0].url()).pathname).toBe(owned.tail);
   await page.clock.runFor(1100); await update(page); await expect.poll(() => responses.length).toBe(2);

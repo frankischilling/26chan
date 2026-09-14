@@ -8,7 +8,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
   try {
     await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true, keyBinds: true, threadWatcher: true })));
     await page.goto(`/test/thread/${id}`); const url = page.url();
-    await page.locator('#com').fill('Unsubmitted native draft');
+    await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Unsubmitted native draft');
     await page.locator('h1').click(); await page.keyboard.press('q');
     await expect(page.locator('#quickReply')).toBeVisible();
     await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('');
@@ -66,7 +66,7 @@ for (const additional of [false, true]) {
       const title = await page.title();
       const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
       await page.locator('.threadNav.desktop input[data-cmd="auto"]').first().check(); await page.clock.runFor(9800);
-      await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+      await page.locator('.open-qr-link').click();
       await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await page.locator('#qr-pwd').fill(password);
       const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
       await page.locator('#quickReply input[type=submit]').click(); const reply = String((await (await posted).json()).pid);
@@ -91,7 +91,7 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
     let held, calls = 0;
     await page.route(`**${path}`, route => { calls++; if (calls === 1) held = route; else return route.continue(); });
     await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click(); await expect.poll(() => calls).toBe(1);
-    await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+    await page.locator('.open-qr-link').click();
     await page.locator('#qrCom').fill('Committed while updater was busy'); await page.locator('#qr-pwd').fill(password);
     await page.locator('#quickReply input[type=submit]').click(); await expect(page.locator('#quickReply')).toHaveCount(0);
     await page.clock.runFor(600); expect(calls).toBe(1);
@@ -109,7 +109,7 @@ test('the source byte advisory does not block a Unicode reply within the server 
     await page.goto(`/test/thread/${id}`);
     const limit = Number(await page.locator('form.postEditor').getAttribute('data-comment-limit')); expect(limit).toBeGreaterThanOrEqual(4);
     const value = '😀'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
-    await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+    await page.locator('.open-qr-link').click();
     await expect(page.locator('#qrResto')).toHaveValue(id);
     await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill(value); await page.locator('#qrCom').press('ArrowLeft');
     await expect(page.locator('#qrError')).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);

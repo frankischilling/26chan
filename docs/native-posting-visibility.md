@@ -28,5 +28,6 @@ tests do not establish full original-page visual parity.
 
 The source has a `/qa/` capcode-specific exception. The rewrite does not yet
 implement that board's capcode policy, so that exception remains unsupported;
-closed threads stay read-only. Desktop/mobile form toggles, identity cookies,
-Pass/captcha and complete posting-form source parity are separate work.
+closed threads stay read-only. [Desktop/mobile form controls](native-post-form-controls.md)
+preserve ordinary drafts. Identity cookies, Pass/captcha and complete
+posting-form source parity are separate work.

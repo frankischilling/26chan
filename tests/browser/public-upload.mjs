@@ -187,6 +187,7 @@ try {
   if (javascript) {
     await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
     await expect(page.locator('form.postEditor input[name=awt]')).toHaveCount(0);
+    await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill('Owned reply to an approved upload');
     await page.locator('#password').fill('synthetic-browser-password');
     await page.locator('#email').selectOption('nonoko');

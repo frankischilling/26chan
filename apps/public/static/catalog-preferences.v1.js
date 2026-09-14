@@ -408,7 +408,7 @@
         const message = document.createElement('p');
         message.className = 'empty';
         const link = document.createElement('a');
-        link.href = query ? action.href : new URL('./#postForm', action).href;
+        link.href = query ? action.href : new URL('./#reply', action).href;
         const allHidden = stateReady && !query && entries.length > 0;
         link.textContent = query ? 'Show all threads' : allHidden ? 'Show hidden threads' : 'Start the first thread';
         message.append(query ? 'No matching threads. ' : allHidden ? 'All threads are hidden. ' : 'No threads yet. ', link, '.');

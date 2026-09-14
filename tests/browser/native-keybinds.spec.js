@@ -58,6 +58,7 @@ test('Settings opt-in persists and W uses the real shared watcher state only on 
 
 test('editing fields, modifiers and disabled features do not accidentally watch a thread', async ({ page, context, owned }) => {
   await enable(page, owned.url);
+  await page.locator('#togglePostFormLink a').click();
   for (const selector of ['input[name="name"]', 'textarea[name="com"]']) {
     const input = page.locator(`form[action="/demo/imgboard.php"] ${selector}`).first();
     await input.fill(''); await input.press('w'); await expect(input).toHaveValue('w');

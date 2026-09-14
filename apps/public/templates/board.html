@@ -29,6 +29,8 @@
 </form>
 {% endif %}
 <form name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}">
+<div id="mpostform" class="mobile" hidden><a href="#postForm" class="mobilePostFormToggle mobile hidden button" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>
+<div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
 {% call posting::fields(parent, false) %}{% endcall %}
@@ -47,8 +49,9 @@
 {% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
 </section>
 {% endif %}
-{% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#postForm">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
+{% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#reply">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
 </div>
+{% if posting_allowed() %}<div class="mobile postFormBottom" hidden><a class="mobilePostFormToggle button" href="#mpostform" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>{% endif %}
 {% if parent > 0 %}
 <div id="bottom">
 {% call thread_navigation::desktop(board.slug, true) %}{% endcall %}
