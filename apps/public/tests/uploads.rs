@@ -864,32 +864,51 @@ async fn image_admission_http(
         } else {
             "imgboard.php"
         };
-        let mut request = if index % 2 == 0 {
-            post_request(
-                &format!("/{board}/{route}"),
-                format!(
-                    "resto={thread}&upload_id={}&upload_capability={}&pwd=owned-image-password&sticky=1&undead=1",
-                    upload.id, upload.capability
-                ),
-            )
-        } else {
-            multipart_post_request(
-                &format!("/{board}/{route}"),
-                &[
+        let make_request = |forged| {
+            let mut request = if index % 2 == 0 {
+                post_request(
+                    &format!("/{board}/{route}"),
+                    format!(
+                        "resto={thread}&upload_id={}&upload_capability={}&pwd=owned-image-password{}",
+                        upload.id,
+                        upload.capability,
+                        if forged { "&sticky=1&undead=1" } else { "" }
+                    ),
+                )
+            } else {
+                let mut fields = vec![
                     ("resto", thread.to_string()),
                     ("upload_id", upload.id.clone()),
                     ("upload_capability", upload.capability.clone()),
                     ("pwd", "owned-image-password".into()),
-                    ("sticky", "1".into()),
-                    ("undead", "1".into()),
-                ],
-            )
+                ];
+                if forged {
+                    fields.extend([("sticky", "1".into()), ("undead", "1".into())]);
+                }
+                multipart_post_request(&format!("/{board}/{route}"), &fields)
+            };
+            request
+                .headers_mut()
+                .insert("accept", "application/json".parse().unwrap());
+            request
         };
-        request
-            .headers_mut()
-            .insert("accept", "application/json".parse().unwrap());
         let before = board_store::thread(&public, board, thread).await.unwrap();
-        let response = app.clone().oneshot(request).await.unwrap();
+        let rejected = app.clone().oneshot(make_request(true)).await.unwrap();
+        assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let unchanged = board_store::thread(&public, board, thread).await.unwrap();
+        assert_eq!(
+            (
+                unchanged.reply_count,
+                unchanged.modified_at,
+                unchanged.http_modified_at
+            ),
+            (
+                before.reply_count,
+                before.modified_at,
+                before.http_modified_at
+            )
+        );
+        let response = app.clone().oneshot(make_request(false)).await.unwrap();
         // Negotiated source rule failures remain JSON errors with HTTP 200.
         assert_eq!(response.status(), StatusCode::OK);
         let value: serde_json::Value =
