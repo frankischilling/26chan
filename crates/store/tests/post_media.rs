@@ -508,6 +508,7 @@ async fn exercise(f: &Fixture) {
     final_content_admission(f).await;
     text_only_policy(f).await;
     source_op_markup_attachment(f).await;
+    forced_anonymous_attachment(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
@@ -548,6 +549,65 @@ async fn source_op_markup_attachment(f: &Fixture) {
             .unwrap()
             .comment_format,
         saved.comment_format
+    );
+}
+
+async fn forced_anonymous_attachment(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET forced_anon=false,text_only=false,require_subject=false,image_limit=100 WHERE slug=$1")
+        .bind(&f.board).execute(&f.admin).await.unwrap();
+    let upload = f.reserve().await;
+    f.approve(&upload).await;
+    let direct_upload = f.reserve().await;
+    f.approve(&direct_upload).await;
+    // The common approval helper tries a subject-only OP in its empty-comment
+    // mode. Finish those checks before enabling the subject-clearing policy.
+    sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let draft = NewPost {
+        name: "Owned identifying name".into(),
+        subject: "Owned identifying subject".into(),
+        ..post()
+    };
+    let op = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, op)
+        .await
+        .unwrap();
+    assert_eq!(
+        (saved.name.as_str(), saved.subject.as_str()),
+        ("Anonymous", "")
+    );
+    assert!(attachment(&f.public, op).await.unwrap().is_some());
+    let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&f.public)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Direct SQL name','Direct SQL subject','Owned SQL reply',$4,$5,false,date_trunc('second',clock_timestamp()))")
+        .bind(id).bind(&f.board).bind(op).bind(&direct_upload.upload.id).bind(&direct_upload.upload.capability)
+        .execute(&f.public).await.unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(
+        (saved.name.as_str(), saved.subject.as_str()),
+        ("Anonymous", "")
+    );
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, op)
+        .await
+        .unwrap();
+    assert_eq!(
+        (saved.name.as_str(), saved.subject.as_str()),
+        ("Anonymous", "")
     );
 }
 

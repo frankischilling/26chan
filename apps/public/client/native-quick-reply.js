@@ -85,7 +85,11 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       input.setAttribute('aria-label', label); input.placeholder = label;
       row.append(input); fields.append(row); return input;
     }
-    const name = field('name', 'Name'); name.value = source.elements.name?.value ?? ''; name.autocomplete = 'off';
+    if (source.elements.name?.type === 'hidden') {
+      const name = node('input'); name.type = 'hidden'; name.name = 'name'; form.append(name);
+    } else {
+      const name = field('name', 'Name'); name.value = source.elements.name?.value ?? ''; name.autocomplete = 'off';
+    }
     const options = field('email', 'Options'); options.id = 'qrEmail'; options.value = source.elements.email?.value ?? '';
     comment = field('com', 'Comment', 'textarea'); comment.rows = 4;
     const password = field('pwd', 'Deletion password', 'password'); password.minLength = 8; password.maxLength = 128;

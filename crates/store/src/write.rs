@@ -111,10 +111,25 @@ pub async fn create_post_with_context(
         false
     };
     let op_markup = board.op_markup && (parent == 0 || own_reply || password_matches);
-    let board_domain::PreparedPostContent { comment, subject } =
-        board_domain::prepare_post_content(
+    // Source clears identity before required-subject and final content checks.
+    // Retain the raw input bounds even when these fields will be discarded.
+    let (post_name, post_subject) = if board.forced_anon {
+        board_domain::validate_post_with_attachment(
             &post.name,
             &post.subject,
+            &comment,
+            board.max_comment_chars as usize,
+            true,
+        )
+        .map_err(|error| StoreError::Invalid(error.0))?;
+        ("Anonymous", "")
+    } else {
+        (post.name.as_str(), post.subject.as_str())
+    };
+    let board_domain::PreparedPostContent { comment, subject } =
+        board_domain::prepare_post_content(
+            post_name,
+            post_subject,
             &comment,
             board.max_comment_chars as usize,
             attachment.is_some(),
@@ -191,10 +206,10 @@ pub async fn create_post_with_context(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let name = if post.name.trim().is_empty() {
+    let name = if post_name.trim().is_empty() {
         "Anonymous"
     } else {
-        post.name.trim()
+        post_name.trim()
     };
     // Cosmetic source eligibility is supplied by this server-owned context.
     // SET LOCAL cannot leak to a later request on the pooled connection. The

@@ -29,6 +29,7 @@ fn board() -> Board {
         comment_spoiler_cleanup: false,
         require_subject: false,
         op_markup: false,
+        forced_anon: false,
         text_only: false,
         reply_limit: 100,
         bump_limit: 75,
@@ -45,12 +46,13 @@ fn board() -> Board {
     }
 }
 fn page(catalog: bool) -> String {
-    render_page(catalog, false, false)
+    render_page(catalog, false, false, false)
 }
 
-fn render_page(catalog: bool, markup: bool, text_only: bool) -> String {
+fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) -> String {
     let mut board = board();
     board.text_only = text_only;
+    board.forced_anon = forced_anon;
     if text_only {
         board.image_limit = 3;
     }
@@ -328,8 +330,9 @@ async fn main() {
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
-        .route("/markup/", get(|| async { Html(render_page(false, true, false)) }))
-        .route("/text-only/", get(|| async { Html(render_page(false, false, true)) }))
+        .route("/markup/", get(|| async { Html(render_page(false, true, false, false)) }))
+        .route("/forced-anonymous/", get(|| async { Html(render_page(false, false, false, true)) }))
+        .route("/text-only/", get(|| async { Html(render_page(false, false, true, false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
