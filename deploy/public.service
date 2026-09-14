@@ -7,7 +7,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=board-public
-Group=board-public
+Group=board-edge
+RuntimeDirectory=paperboard-public
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=no
 WorkingDirectory=/opt/paperboard
 ExecStart=/opt/paperboard/board-public
 Environment=APP_ENV=production
@@ -30,7 +33,7 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RestrictRealtime=true
 RestrictNamespaces=true
-RestrictAddressFamilies=AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0077

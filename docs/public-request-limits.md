@@ -33,13 +33,13 @@ retained data frames; holding returned bytes can continue to occupy a slot after
 the handler finishes. Lowering the budget deliberately increases the chance of
 rejection. Higher values are not a claim that the host has sufficient resources.
 
-The write limiter uses the actual socket peer, not `Forwarded` or
-`X-Forwarded-For`. Reaching a peer's write allowance returns HTTP 429 with the
-existing `Retry-After: 60`; exhausting the peer map returns HTTP 503. Behind a
-proxy, clients share the proxy's identity. Deployments requiring individual
-client policies need a separately reviewed trusted-proxy design; merely sending
-a forwarded header never grants one here. These are coarse abuse controls, not
-user authentication or a distributed denial-of-service defense.
+The write limiter uses the canonical direct socket address in development or
+the address supplied by the [kernel-authenticated Linux proxy](public-proxy.md).
+`Forwarded` and `X-Forwarded-For` have no authority. Reaching a peer's write
+allowance returns HTTP 429 with the existing `Retry-After: 60`; exhausting the
+peer map returns HTTP 503. IPv4 and IPv4-mapped IPv6 share one bucket. These are
+coarse abuse controls, not user authentication or a distributed denial-of-service
+defense. Additional proxy hops require separate identity qualification.
 
 The handler deadline returns HTTP 408 and drops the asynchronous handler future.
 It does not bound the lifetime of response streaming, configure socket/edge

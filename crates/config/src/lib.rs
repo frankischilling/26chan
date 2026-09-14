@@ -16,6 +16,8 @@ mod public_media;
 pub use public_media::PublicMediaSettings;
 mod public_limits;
 pub use public_limits::PublicRequestLimits;
+mod public_proxy;
+pub use public_proxy::PublicProxy;
 
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
@@ -118,6 +120,7 @@ pub struct Settings {
     pub api: Option<ApiListener>,
     pub media: Option<PublicMediaSettings>,
     pub request_limits: PublicRequestLimits,
+    pub public_proxy: Option<PublicProxy>,
 }
 
 #[derive(Clone)]
@@ -237,6 +240,7 @@ impl Settings {
         let origins = validate_origins(&public, &staff, &media, production)?;
         let media = PublicMediaSettings::from_env(media_enabled == "true", &origins)?;
         let request_limits = PublicRequestLimits::from_env()?;
+        let public_proxy = PublicProxy::from_env(production)?;
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
         let parsed = Url::parse(&database_url).map_err(|_| ConfigError("Invalid database URL."))?;
@@ -279,6 +283,7 @@ impl Settings {
             api,
             media,
             request_limits,
+            public_proxy,
         })
     }
 }

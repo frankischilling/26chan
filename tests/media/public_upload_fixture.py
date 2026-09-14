@@ -1,6 +1,8 @@
 """Development public web unit connected to real intake, dispatch and reader."""
 import http.client
+import grp
 import os
+import pathlib
 import pwd
 import re
 import secrets
@@ -33,6 +35,15 @@ class PublicUpload:
     def setup(self):
         f = self.f
         public = account('board-public')
+        # The candidate unit now runs with the dedicated proxy socket group.
+        # Provision that prerequisite on this owned disposable test host too.
+        try:
+            edge = grp.getgrnam('board-edge')
+        except KeyError:
+            subprocess.run(['groupadd', '--system', 'board-edge'], check=True,
+                           capture_output=True, env=SAFE)
+            edge = grp.getgrnam('board-edge')
+        assert edge.gr_gid != 0
         assert public.pw_uid not in (0, f.intake_user.pw_uid, f.coordinator.pw_uid, f.http_user.pw_uid)
         shutil.copyfile(f.binaries / 'board-public', f.bin / 'board-public')
         (f.bin / 'board-public').chmod(0o755)
@@ -69,6 +80,10 @@ class PublicUpload:
         self.created = True
         systemctl('start', self.unit.name)
         wait_until(self.ready)
+        status = pathlib.Path(f'/proc/{self.unit.pid}/status').read_text()
+        ids = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
+        assert set(map(int, ids['Uid'].split())) == {public.pw_uid}
+        assert set(map(int, ids['Gid'].split())) == {edge.gr_gid}
 
     def ready(self):
         assert self.unit.poll() is None, 'public development startup rejected'

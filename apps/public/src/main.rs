@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use board_config::Settings;
-use std::net::SocketAddr;
+use board_public::transport::{PublicListener, serve_tcp};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics_config = board_observe::Config::from_env()?;
     // Acquire every configured listener before connecting or serving. A failed
     // API bind must not leave a partially started public application.
-    let listener = tokio::net::TcpListener::bind(settings.bind).await?;
+    let listener = PublicListener::bind(settings.bind, settings.public_proxy.as_ref()).await?;
     let api_listener = match &settings.api {
         Some(api) => Some(tokio::net::TcpListener::bind(api.bind).await?),
         None => None,
@@ -23,15 +23,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(media) = &settings.media {
         board_public::media_ready(media).await?;
     }
-    let (metrics, app, api_app) = board_public::observed_routers_with_limits(
+    let (metrics, app, api_app) = board_public::observed_routers_with_proxy(
         pool.clone(),
         settings.public_origin.as_string(),
         settings.production,
         settings.api.is_some(),
         settings.media.clone(),
         settings.request_limits,
+        settings.public_proxy.as_ref().map(|proxy| proxy.uid()),
     );
-    tracing::info!(bind = %settings.bind, media_enabled = settings.media.is_some(), "public server started");
+    if let Some(proxy) = &settings.public_proxy {
+        tracing::info!(socket = %proxy.socket().display(), proxy_uid = proxy.uid(), "verified public proxy listener started");
+    } else {
+        tracing::info!(bind = %settings.bind, media_enabled = settings.media.is_some(), "public server started");
+    }
     tracing::info!(request_limits = ?settings.request_limits, "public request budgets configured");
     if let Some(api) = &settings.api {
         tracing::info!(bind = %api.bind, origin = %api.origin.as_string(), "JSON API listener started");
@@ -54,33 +59,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn serve(
-    listener: tokio::net::TcpListener,
-    app: axum::Router,
-    mut stopped: tokio::sync::watch::Receiver<bool>,
-) -> std::io::Result<()> {
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .with_graceful_shutdown(async move {
-        if !*stopped.borrow_and_update() {
-            let _ = stopped.changed().await;
-        }
-    })
-    .await
-}
-
 async fn serve_pair(
-    listener: tokio::net::TcpListener,
+    listener: PublicListener,
     app: axum::Router,
     api_listener: Option<tokio::net::TcpListener>,
     api_app: axum::Router,
     stopped: tokio::sync::watch::Receiver<bool>,
 ) -> std::io::Result<()> {
-    let public = serve(listener, app, stopped.clone());
+    let public = listener.serve(app, stopped.clone());
     if let Some(api_listener) = api_listener {
-        tokio::try_join!(public, serve(api_listener, api_app, stopped))?;
+        tokio::try_join!(public, serve_tcp(api_listener, api_app, stopped))?;
     } else {
         public.await?;
     }
@@ -106,6 +94,7 @@ mod tests {
     use axum::{Router, extract::State, routing::get};
     use std::{
         io::{Read, Write},
+        net::SocketAddr,
         sync::Arc,
         time::Duration,
     };
@@ -138,7 +127,7 @@ mod tests {
             });
         let (stop, stopped) = tokio::sync::watch::channel(false);
         let server = tokio::spawn(serve_pair(
-            public_listener,
+            PublicListener::Tcp(public_listener),
             app.clone(),
             Some(api_listener),
             app,
