@@ -11,9 +11,10 @@ evidence that every native posting-validation detail has been reproduced.
 
 An empty or omitted `com` is accepted only when an attachment is requested and
 the existing database authorization succeeds. Ordinary text-only posts still
-require a non-whitespace comment. Nonempty whitespace-only comments remain
-rejected even with an image; native whitespace normalization has not been
-established. Name, subject, comment size, NUL, deletion-password, board, thread,
+require a non-whitespace comment. New comments receive the source's
+[spacing cleanup](source-comment-spacing.md); whitespace-only image comments
+can become empty, but still require atomic attachment authorization. Name,
+subject, comment size, NUL, deletion-password, board, thread,
 and image-limit checks remain in place.
 
 The approved-upload HTML form makes its comment optional. Ordinary text forms

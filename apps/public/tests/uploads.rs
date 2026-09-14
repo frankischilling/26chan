@@ -869,9 +869,10 @@ async fn image_admission_http(
                 post_request(
                     &format!("/{board}/{route}"),
                     format!(
-                        "resto={thread}&upload_id={}&upload_capability={}&pwd=owned-image-password{}",
+                        "resto={thread}&upload_id={}&upload_capability={}&pwd=owned-image-password{}{}",
                         upload.id,
                         upload.capability,
+                        if index == 0 { "&com=+%09%0D%0A+" } else { "" },
                         if forged { "&sticky=1&undead=1" } else { "" }
                     ),
                 )
@@ -917,6 +918,13 @@ async fn image_admission_http(
         if accepted {
             let id = value["pid"].as_i64().unwrap();
             assert_eq!(value["tid"], thread);
+            assert!(
+                board_store::find_post(&public, board, id)
+                    .await
+                    .unwrap()
+                    .comment
+                    .is_empty()
+            );
             assert_eq!(after.reply_count, before.reply_count + 1);
             let attachment = board_store::post_media::attachment(&public, id)
                 .await

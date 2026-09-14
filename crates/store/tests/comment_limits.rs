@@ -55,7 +55,7 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
                 .await
                 .unwrap()
                 .comment,
-            "é\n😀\n"
+            "é\n😀"
         );
     }
     let before = board_store::visible_post_count(&public, &slug, thread)

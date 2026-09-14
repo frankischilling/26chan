@@ -40,6 +40,8 @@ pub struct Board {
     pub title: String,
     pub description: String,
     pub max_comment_chars: i32,
+    pub comment_code_spacing: bool,
+    pub comment_sjis_spacing: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,
     pub permasage_hours: i32,
@@ -52,6 +54,16 @@ pub struct Board {
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
     pub image_limit: i32,
+}
+
+impl Board {
+    pub fn comment_spacing(&self) -> board_domain::CommentSpacing {
+        board_domain::CommentSpacing::for_board(
+            &self.slug,
+            self.comment_code_spacing,
+            self.comment_sjis_spacing,
+        )
+    }
 }
 
 #[derive(Clone, sqlx::FromRow)]

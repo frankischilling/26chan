@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 pub mod bump;
+pub mod comment_spacing;
+pub use comment_spacing::{CommentSpacing, prepare_post_comment};
 pub mod formatting;
 pub mod image_limit;
 pub mod op_bump;
@@ -113,7 +115,7 @@ pub fn validate_post_with_attachment(
         return Err(ValidationError("Name or subject is too long."));
     }
     let comment = normalize_comment(comment)?;
-    if (comment.trim().is_empty() && !(has_attachment && comment.is_empty()))
+    if (comment.trim().is_empty() && !has_attachment)
         || comment.chars().count() > max_chars.min(MAX_COMMENT_CHARS)
     {
         return Err(ValidationError(
