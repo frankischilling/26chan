@@ -275,8 +275,10 @@ remain exempt and historical subjects stay unchanged.
 color passes on enabled boards for the OP and replies matching its address or
 deletion password. Migration 0034 enables existing `/qst/` and `/test/` boards
 and stamps new posts so later policy changes preserve their rendering.
-Current-head qualification remains required. Name/trip cleanup, forced-anonymous
-policy, remaining markup and word filters remain unfinished;
+[Forced-anonymous policy](source-forced-anonymous.md) clears new public names
+and subjects under the board lock, preserves history, and supplies the source
+form and JSON behavior. Current-head qualification remains required.
+Name/trip cleanup, remaining markup and word filters remain unfinished;
 the old handler's deployed encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the

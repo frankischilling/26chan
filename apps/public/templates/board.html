@@ -34,7 +34,7 @@
 <div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-{% call posting::fields(parent, false, board.text_only) %}{% endcall %}
+{% call posting::fields(parent, false, board.text_only, board.forced_anon) %}{% endcall %}
 <p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. Save your deletion password. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
 </form>
 {% endif %}

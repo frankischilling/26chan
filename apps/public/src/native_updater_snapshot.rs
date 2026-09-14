@@ -241,6 +241,7 @@ mod tests {
             comment_spoiler_cleanup: true,
             require_subject: false,
             op_markup: false,
+            forced_anon: false,
             text_only: false,
             reply_limit: 1000,
             bump_limit: 300,

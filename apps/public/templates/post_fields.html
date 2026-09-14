@@ -1,9 +1,12 @@
-{% macro fields(parent, image, text_only) %}
+{% macro fields(parent, image, text_only, forced_anon) %}
 <input type="hidden" name="mode" value="regist">
+{% if forced_anon %}<input type="hidden" name="name">{% endif %}
 <table id="postForm" class="postForm" role="presentation"><tbody>
+{% if !forced_anon %}
 <tr><td><label for="name">Name</label></td><td><input id="name" name="name" type="text" autocomplete="off" placeholder="Anonymous"></td></tr>
-<tr><td><label for="email">Options</label></td><td><input id="email" name="email" type="text">{% if parent != 0 %}<button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button>{% endif %}</td></tr>
-{% if parent == 0 %}<tr><td><label for="sub">Subject</label></td><td><input id="sub" name="sub" type="text"{% if text_only %} required{% endif %}><button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button></td></tr>{% endif %}
+{% endif %}
+<tr><td><label for="email">Options</label></td><td><input id="email" name="email" type="text">{% if parent != 0 || forced_anon %}<button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button>{% endif %}</td></tr>
+{% if parent == 0 && !forced_anon %}<tr><td><label for="sub">Subject</label></td><td><input id="sub" name="sub" type="text"{% if text_only %} required{% endif %}><button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button></td></tr>{% endif %}
 <tr><td><label for="com">Comment</label></td><td><textarea id="com" name="com" cols="48" rows="4"{% if !image && parent != 0 %} required{% endif %} aria-describedby="postHelp"></textarea></td></tr>
 {% if image %}<tr><td><label for="spoiler">Spoiler image</label></td><td><input id="spoiler" name="spoiler" type="checkbox" value="on"></td></tr>{% endif %}
 <tr><td><label for="password">Deletion password</label></td><td><input id="password" type="password" name="pwd" minlength="8" maxlength="128" autocomplete="new-password" required></td></tr>

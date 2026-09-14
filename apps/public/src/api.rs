@@ -103,6 +103,9 @@ pub async fn boards(
         if board.require_subject || board.text_only {
             value["require_subject"] = json!(1);
         }
+        if board.forced_anon {
+            value["forced_anon"] = json!(1);
+        }
         if state.media.is_some() && board.image_limit > 0 {
             if !board.text_only {
                 value.as_object_mut().expect("board object").remove("text_only");
