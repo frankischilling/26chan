@@ -110,6 +110,9 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
         .env("MEDIA_ORIGIN", &media_origin)
         .env("PUBLIC_INTAKE_ADDR", intake_address.to_string())
         .env("PUBLIC_INTAKE_TOKEN", "a".repeat(64))
+        // Five browser workflows share one socket peer. Default and configured
+        // rate enforcement remain exercised separately in http_limits.rs.
+        .env("PUBLIC_WRITES_PER_MINUTE", "60")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -135,9 +138,10 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
         // same board. Browser assertions must identify the post they changed.
         for javascript in [false, true] {
             for attachment_only in [false, true] {
-                exercise(&test_admin, &test_root, &test_board, &public_origin, &store, attachment_only, javascript).await;
+                exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::Native { attachment_only, javascript }).await;
             }
         }
+        exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::QuickReply).await;
     }).await;
     public.kill().await.unwrap();
     public.wait().await.unwrap();
@@ -179,14 +183,21 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
     outcome.unwrap();
 }
 
+enum UploadBrowser {
+    Native {
+        attachment_only: bool,
+        javascript: bool,
+    },
+    QuickReply,
+}
+
 async fn exercise(
     admin: &sqlx::PgPool,
     root: &Path,
     board: &str,
     origin: &str,
     store: &PublicationStore,
-    attachment_only: bool,
-    javascript: bool,
+    mode: UploadBrowser,
 ) {
     // Public/intake treat the file as opaque. This separate trusted fixture
     // supplies bounded synthetic pixels to the normal publication code.
@@ -201,13 +212,29 @@ async fn exercise(
     if let Some(path) = std::env::var_os("PUBLIC_UPLOAD_SCREENSHOTS") {
         node.env("PUBLIC_UPLOAD_SCREENSHOTS", path);
     }
+    let (script, flags) = match mode {
+        UploadBrowser::Native {
+            attachment_only,
+            javascript,
+        } => (
+            "public-upload.mjs",
+            [
+                attachment_only.then_some("--attachment-only"),
+                javascript.then_some("--javascript"),
+            ],
+        ),
+        UploadBrowser::QuickReply => ("quick-reply-upload.mjs", [None, None]),
+    };
     let mut browser = node
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/browser/public-upload.mjs"))
+        .arg(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/browser")
+                .join(script),
+        )
         .arg(origin)
         .arg(board)
         .arg(&source)
-        .args(attachment_only.then_some("--attachment-only"))
-        .args(javascript.then_some("--javascript"))
+        .args(flags.into_iter().flatten())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

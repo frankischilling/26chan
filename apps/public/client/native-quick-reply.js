@@ -4,12 +4,13 @@ import { quoteInsertion, sendQuickReply } from './native-quick-reply-transport.j
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
   if (!source || !/^[a-z0-9]{1,10}$/.test(board)) return null;
+  const approvedThread = source.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;
   let dialog, form, comment, error, submit, current, controller, opener, position, epoch = 0;
   let busy = false;
   const disabled = () => settings().disableAll === true || settings().quickReply === false;
   const section = id => document.getElementById(`t${id}`);
   const closed = id => section(id) ? ['closed', 'archived'].some(key => section(id).dataset[key] === 'true')
-    : !(source.elements.namedItem('upload_id') && source.elements.resto?.value === id);
+    : approvedThread !== id;
   const node = (tag, text, className) => {
     const element = document.createElement(tag);
     if (text !== undefined) element.textContent = text;
@@ -132,6 +133,15 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       const result = await sendQuickReply({ board, thread: id, fields, signal: controller.signal });
       if (active !== epoch || disabled()) return;
       if (result.error) { message(result.error); return; }
+      if (form.elements.namedItem('upload_id')) {
+        // Both editors refer to the same one-use approval. Once committed,
+        // neither reopening QR nor submitting the ordinary form can reuse it.
+        for (const key of ['upload_id', 'upload_capability']) source.elements.namedItem(key)?.remove();
+        source.elements.namedItem('spoiler')?.closest('tr')?.remove();
+        const nativeComment = source.elements.namedItem('com'); if (nativeComment) nativeComment.required = true;
+        for (const button of source.querySelectorAll('button[type=submit], button:not([type])')) button.textContent = 'Post';
+        const help = source.querySelector('#postHelp'); if (help) help.textContent = 'The approved image was posted. Further replies require a comment. Save your deletion password.';
+      }
       const saved = Promise.resolve().then(() => committed?.(id, result.post)).catch(() => {});
       if (settings().persistentQR === true) {
         comment.value = ''; form.querySelector('.qr-approved-image')?.remove();

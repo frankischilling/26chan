@@ -82,3 +82,22 @@ test('Quick Reply guards closed threads and keeps the source spoiler caret behav
   await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
   await page.locator('.postInfo > .postNum').first().click(); await expect(page.locator('#quickReply')).toHaveCount(0);
 });
+
+test('an approved Quick Reply consumes both editors capability fields and reopening permits text only', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true })));
+  await page.goto('/demo/upload/fixture');
+  const native = page.locator('form.postEditor').first();
+  await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+  const qr = page.locator('#quickReply'); await expect(qr.locator('[name=upload_id]')).toHaveValue('1'.repeat(32));
+  await page.locator('#qr-pwd').fill('owned-password'); await qr.locator('[name=spoiler]').check();
+  await page.route('**/demo/imgboard.php', route => route.fulfill({ contentType: 'application/json', body: '{"tid":1000001,"pid":1000002}' }));
+  await qr.locator('input[type=submit]').click();
+  await expect(qr.locator('[name=upload_id], [name=upload_capability], [name=spoiler]')).toHaveCount(0);
+  await expect(native.locator('[name=upload_id], [name=upload_capability], [name=spoiler]')).toHaveCount(0);
+  await expect(native.locator('[name=com]')).toHaveAttribute('required', '');
+  await expect(native.getByRole('button', { name: 'Post', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
+  await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+  await expect(qr).toBeVisible(); await expect(qr.locator('[name=upload_id], [name=upload_capability], [name=spoiler]')).toHaveCount(0);
+  await expect(qr.locator('input[type=submit]')).toBeEnabled();
+});
