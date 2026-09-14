@@ -239,6 +239,7 @@ mod tests {
             comment_sjis_spacing: false,
             comment_max_lines: 100,
             comment_spoiler_cleanup: true,
+            require_subject: false,
             reply_limit: 1000,
             bump_limit: 300,
             permasage_hours: 0,

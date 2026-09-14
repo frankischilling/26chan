@@ -17,8 +17,9 @@ policy and PHP-style ASCII trim. Subject CR/LF removal follows that stage, then
 removal of codepoints above U+3134F. Neither trim nor fake-capcode cleanup repeats:
 removal can expose edge spaces or adjacent hashes that remain stored. Subjects
 do not use comment quote rewriting, intra-word spoiler cleanup or line admission.
-Name cleanup, tripcodes, forced-anonymous policy, required-subject/text-only board
-switches, word filters and ordinary OP subject-or-comment admission remain
+The [required-subject rule](source-required-subject.md) is a separate locked
+board-policy check. Name cleanup, tripcodes, forced-anonymous policy, text-only
+board switches, word filters and ordinary OP subject-or-comment admission remain
 separate unfinished work. This change does not establish complete posting parity.
 
 ## Representation and authority
