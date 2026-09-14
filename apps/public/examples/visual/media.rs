@@ -131,6 +131,7 @@ impl Fixture {
             archive_expires_at: archived.then(|| time("2026-09-08T14:00:00Z")),
         };
         let posts: Vec<_> = self.files.iter().enumerate().map(|(index, file)| views::PostView::new(Post {
+            comment_format: 0,
             id: file.post_id,
             board: board.slug.clone(),
             thread_id: if catalog { file.post_id } else { thread.id },

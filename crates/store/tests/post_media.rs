@@ -651,6 +651,9 @@ async fn comment_spacing(f: &Fixture) {
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();
+        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 8 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
+            .bind(id).fetch_one(&f.public).await.unwrap();
+        assert!(stamped);
         assert_eq!(
             board_store::find_post(&f.public, &f.board, id)
                 .await

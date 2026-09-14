@@ -62,6 +62,7 @@ fn page(catalog: bool) -> String {
         archive_expires_at: None,
     };
     let mut posts = vec![PostView::new(Post {
+        comment_format: 0,
         id: 1000001,
         board: "demo".into(),
         thread_id: 1000001,
@@ -75,6 +76,7 @@ fn page(catalog: bool) -> String {
     posts[0] = PostView::new(Post { comment: "Share your latest paper project.\n>start with a single sheet\n[spoiler]Mine is another crane.[/spoiler]".into(), ..posts[0].post.clone() });
     if !catalog {
         posts.push(PostView::new(Post {
+            comment_format: 0,
             id: 1000002,
             board: "demo".into(),
             thread_id: 1000001,
@@ -187,6 +189,7 @@ fn archived_thread() -> String {
     };
     let posts = vec![
         PostView::new(Post {
+            comment_format: 0,
             id: 1000101,
             board: board.slug.clone(),
             thread_id: thread.id,
@@ -198,6 +201,7 @@ fn archived_thread() -> String {
             attachment: None,
         }),
         PostView::new(Post {
+            comment_format: 0,
             id: 1000104,
             board: board.slug.clone(),
             thread_id: thread.id,

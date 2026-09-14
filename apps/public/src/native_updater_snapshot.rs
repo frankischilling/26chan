@@ -273,6 +273,7 @@ mod tests {
         let posts = [id, id + 1]
             .into_iter()
             .map(|no| Post {
+                comment_format: 0,
                 id: no,
                 board: board.slug.clone(),
                 thread_id: id,

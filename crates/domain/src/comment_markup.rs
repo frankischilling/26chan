@@ -8,6 +8,18 @@ pub struct MarkupPolicy {
     pub sjis: bool,
 }
 
+impl MarkupPolicy {
+    /// Version zero belongs to the historical formatter. Unknown versions do
+    /// not grant markup authority. Storage constrains the currently known set.
+    pub fn from_post_format(value: i16) -> Option<Self> {
+        (8..=15).contains(&value).then_some(Self {
+            spoilers: value & 1 != 0,
+            code: value & 2 != 0,
+            sjis: value & 4 != 0,
+        })
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tag {
     Spoiler,
