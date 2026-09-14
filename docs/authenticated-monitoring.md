@@ -163,6 +163,14 @@ actual denied sends on both links, restored firing delivery and matching recover
 The final command requires Linux and delivers OS SIGTERM after a real healthy
 scrape. It checks owned child processes, the receiver listener, private PKI and
 temporary storage disappear. The normal run stops/reaps owned children as well.
+The HTTP and HTTPS qualification handlers record SIGTERM without raising inside
+the interrupted frame. Their polling loops check the recorded signal before and
+after observations and exit with status 143 through registered cleanup. A signal
+delivered inside a Python finalizer cannot be discarded as an ignored exception,
+and repeated SIGTERM does not interrupt cleanup callbacks. Focused tests cover
+direct delivery, finalizer delivery during successful/retryable observations and
+temporary-credential removal. These tests supplement the real Linux interruption
+checks; they do not replace them or establish production shutdown behavior.
 For transport timing only, scrape/evaluation/group intervals become 1s, the HTTP
 rate window 30s and the HTTP pending interval 4s. Production expressions, thresholds
 and grouping remain unchanged; native tools also validate the unmodified output.

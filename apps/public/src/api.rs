@@ -266,7 +266,11 @@ pub async fn thread_selection(
     } else if tail_size > 0 {
         posts[0]["tail_size"] = json!(tail_size);
     }
-    response(json!({"posts": posts}), Some(thread.modified_at), headers)
+    response(
+        json!({"posts": posts}),
+        Some(thread.http_modified_at),
+        headers,
+    )
 }
 
 pub async fn archive(

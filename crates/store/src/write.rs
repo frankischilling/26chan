@@ -1,4 +1,5 @@
 use crate::*;
+use chrono::Timelike;
 
 #[derive(Clone)]
 pub struct NewPost {
@@ -69,6 +70,10 @@ pub async fn create_post_with_context(
 ) -> Result<i64, StoreError> {
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
+    let posted_at = context
+        .request_start
+        .with_nanosecond(0)
+        .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
     let mut tx = pool.begin().await?;
     let board: Board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
@@ -90,11 +95,14 @@ pub async fn create_post_with_context(
     let peer = context.peer.map(|peer| peer.to_canonical().to_string());
     let thread_id = if parent == 0 {
         crate::archives::make_room(&mut tx, &board).await?;
-        sqlx::query("INSERT INTO content.threads(id,board) VALUES ($1,$2)")
-            .bind(id)
-            .bind(slug)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(
+            "INSERT INTO content.threads(id,board,created_at,modified_at) VALUES ($1,$2,$3,$3)",
+        )
+        .bind(id)
+        .bind(slug)
+        .bind(posted_at)
+        .execute(&mut *tx)
+        .await?;
         id
     } else {
         let thread: Thread = sqlx::query_as(
@@ -145,7 +153,7 @@ pub async fn create_post_with_context(
                 board.permasage_hours as u32,
             ),
         );
-        sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=clock_timestamp(), bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).execute(&mut *tx).await?;
+        sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
     let name = if post.name.trim().is_empty() {
@@ -154,7 +162,7 @@ pub async fn create_post_with_context(
         post.name.trim()
     };
     if let Some(attachment) = attachment {
-        sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+        sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)
             .bind(slug)
             .bind(thread_id)
@@ -164,11 +172,12 @@ pub async fn create_post_with_context(
             .bind(&attachment.upload.id)
             .bind(&attachment.upload.capability)
             .bind(attachment.spoiler)
+            .bind(posted_at)
             .execute(&mut *tx)
             .await
             .map_err(post_media::scoped_error)?;
     } else {
-        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,$4,$5,$6)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(comment.as_ref()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&post.subject).bind(comment.as_ref()).bind(posted_at).execute(&mut *tx).await?;
     }
     sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
         .bind(id)

@@ -73,6 +73,15 @@ async fn legacy_manifest_upgrade_invalidates_public_and_api_dates_without_renumb
         }
         let before = &old[0].2["posts"][0];
         assert!(before.get("md5").is_none()); assert!(before.get("tn_w").is_none());
+        // Source metadata can be old while the independent HTTP clock is new.
+        // Cross its actual second before requiring a different date header.
+        let next_second = httpdate::parse_http_date(old[0].1.as_ref().unwrap()).unwrap()
+            + std::time::Duration::from_secs(1);
+        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            while std::time::SystemTime::now() < next_second {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+        }).await.expect("owned backfill crosses the prior HTTP date second");
         let admin = LegacyMediaStore::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap()).await.unwrap();
         let snapshot = admin.get(&test_id).await.unwrap();
         board_media_admin::backfill::complete_backfill(&admin,&guard,&ApprovedFiles::open(&root).unwrap(),&snapshot,&output).await.unwrap();

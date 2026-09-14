@@ -1,5 +1,11 @@
 # Read-only API listener
 
+[Posting clocks](source-posting-times.md) persist whole-second server request
+time in post metadata and public thread `last_modified`. A separate database
+change clock supplies thread/tail `Last-Modified` headers; the JSON body does
+not expose that clock. Body-derived ETags distinguish same-second posts and
+requests that commit out of arrival order.
+
 The public process can bind a second listener for JSON clients. It serves `/boards.json`, `/{board}/thread/{id}.json`, `/{board}/threads.json`, `/{board}/catalog.json`, `/{board}/archive.json` on enabled boards and positive `/{board}/{page}.json` pages, plus `/healthz` and `/readyz`. Attachments remain unavailable. The original JSON URLs on the HTML listener still work. [Archive notes](thread-archives.md) describe lifecycle, policy and migration 0009.
 
 Migration 0020 adds optional `/{board}/thread/{id}-tail.json` responses. The full

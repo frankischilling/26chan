@@ -24,7 +24,7 @@ Sticky or permasage still prevents every bump. Permaage overrides age, sage
 and the count cutoff, but not sticky/permasage. Age suppression does not reject
 the reply, close the thread, set permasage, change the count-based `bumplimit`
 indicator, or bypass existing reply/image/archive admission. Counts and
-modified timestamps still advance on accepted replies. Later insertion
+modified timestamps still update on accepted replies. Later insertion
 failures roll back all of those changes.
 
 ## Operator policy and upgrade
@@ -55,8 +55,8 @@ An older binary can read this additive schema but ignores the new age policy.
 Rolling back the binary therefore changes bump behavior on enabled boards.
 Record that choice before rollback; do not drop policy or historical data.
 The request clock relies on synchronized host time, as other timestamp-based
-application rules do. Posting timestamps themselves still use database clocks;
-matching every source timestamp assignment is separate work.
+application rules do. [Posting timestamps](source-posting-times.md) use the
+same whole-second request clock; bump ordering retains its database clock.
 
 ## Verification
 
@@ -83,8 +83,10 @@ denials and healthy read/lock controls. CI runs this alongside existing
 integration, containment and recovery checks.
 
 Local domain and public library tests, all-target/all-feature Clippy and Bash
-syntax checks passed. PostgreSQL is unavailable locally; the new persisted
-and upgrade tests require complete current-head Linux CI before merge. No
+syntax checks passed. PR #121 passed both Linux runs (34813070420 and
+34813066828), both Windows jobs and both monitoring runs before merge,
+including its persisted and upgrade tests. Changes to persisted posting
+times have separate current-head qualification. No
 visual baselines or production media authority change. [OP self-bump rules](source-op-bumps.md)
 have separate private-data and migration coverage. Conditional spam policies, source reply admission, full board configuration
 and production deployment/recovery qualification remain unfinished.

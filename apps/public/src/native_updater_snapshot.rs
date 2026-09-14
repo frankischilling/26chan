@@ -212,7 +212,7 @@ async fn selected(
         .filter(|id| *id > 0 && id.to_string() == key)
         .ok_or(AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
     let snapshot = board_store::thread_snapshot_selection(&state.pool, &board, id, tail).await?;
-    let modified = snapshot.thread.modified_at;
+    let modified = snapshot.thread.http_modified_at;
     let media_origin = state
         .media
         .as_ref()
@@ -254,6 +254,7 @@ mod tests {
             created_at: now,
             bumped_at: now,
             modified_at: now,
+            http_modified_at: now,
             reply_count: 1,
             sticky: false,
             permasage: false,

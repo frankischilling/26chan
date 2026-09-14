@@ -38,6 +38,7 @@ fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>) -> String {
                 created_at: time("2026-09-08T12:00:00Z"),
                 bumped_at: time("2026-09-08T12:00:00Z"),
                 modified_at: time("2026-09-08T12:00:00Z"),
+                http_modified_at: time("2026-09-08T12:00:00Z"),
                 reply_count: lifetime,
                 sticky: flags.map_or(index == 5, |f| f.0),
                 permasage: false,

@@ -241,7 +241,7 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
         );
         assert_eq!(
             response.headers()["last-modified"],
-            "Fri, 02 Jan 2026 00:00:00 GMT"
+            httpdate::fmt_http_date(snapshot.thread.http_modified_at.into())
         );
         let etag = response.headers()["etag"].to_str().unwrap().to_owned();
         let body: serde_json::Value =

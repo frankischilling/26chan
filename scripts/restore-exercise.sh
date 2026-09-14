@@ -81,11 +81,11 @@ for table in content.boards content.threads content.reports content.moderation_a
   after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")
   [[ $before = "$after" ]] || { echo "Restored row count differs: $table" >&2; exit 1; }
 done
-for table in post_secrets.op_peers post_secrets.op_replies; do
+for table in content.threads post_secrets.op_peers post_secrets.op_replies; do
   fingerprint="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY row_to_json(p)::text)) FROM $table p"
   before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint")
   after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint")
-  [[ -n $before && $before = "$after" ]] || { echo 'Restored private posting state differs.' >&2; exit 1; }
+  [[ -n $before && $before = "$after" ]] || { echo 'Restored thread or private posting state differs.' >&2; exit 1; }
 done
 handle_fingerprint="SELECT md5(string_agg(row_to_json(h)::text, '' ORDER BY job_id)) FROM media_intake.handles h"
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")

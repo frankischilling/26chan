@@ -313,12 +313,26 @@ impl Fixture {
         let now = Utc::now().timestamp();
         let id = self.create(0, now, "192.0.2.30", false).await;
         self.clock(id, now - 1000).await;
+        // Record actual bump transitions. Posting timestamps precede insertion
+        // and cannot serve as a witness for which transaction changed the root.
+        // Only this generated hexadecimal suffix and a typed integer enter DDL.
+        assert_eq!(self.slug.len(), 10);
+        assert!(self.slug.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TABLE post_secrets.op_audit_{}(bumped_at timestamptz NOT NULL); CREATE FUNCTION post_secrets.op_audit_{}() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$ BEGIN INSERT INTO post_secrets.op_audit_{} VALUES(NEW.bumped_at); RETURN NEW; END $$; REVOKE ALL ON FUNCTION post_secrets.op_audit_{}() FROM PUBLIC; CREATE TRIGGER op_audit_{} AFTER UPDATE OF bumped_at ON content.threads FOR EACH ROW WHEN (NEW.id={} AND NEW.bumped_at IS DISTINCT FROM OLD.bumped_at) EXECUTE FUNCTION post_secrets.op_audit_{}();", self.slug,self.slug,self.slug,self.slug,self.slug,id,self.slug))).execute(&self.owner).await.unwrap();
         sqlx::query("UPDATE content.threads SET bumped_at='2001-01-01T00:00:00Z' WHERE id=$1")
             .bind(id)
             .execute(&self.owner)
             .await
             .unwrap();
         let mut held = self.owner.begin().await.unwrap();
+        // Exclude the test's initial clock reset from production transitions.
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DELETE FROM post_secrets.op_audit_{}",
+            self.slug
+        )))
+        .execute(&mut *held)
+        .await
+        .unwrap();
         let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
             .fetch_one(&mut *held)
             .await
@@ -353,22 +367,23 @@ impl Fixture {
             }
         }).await.expect("healthy public writers reach the held board lock");
         held.commit().await.unwrap();
-        let mut first = i64::MAX;
         while let Some(result) = jobs.join_next().await {
-            first = first.min(result.unwrap());
+            result.unwrap();
         }
         let thread = board_store::thread(&self.public, &self.slug, id)
             .await
             .unwrap();
-        let first_time: DateTime<Utc> =
-            sqlx::query_scalar("SELECT created_at FROM content.posts WHERE id=$1")
-                .bind(first)
-                .fetch_one(&self.owner)
-                .await
-                .unwrap();
+        let changes: Vec<DateTime<Utc>> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT bumped_at FROM post_secrets.op_audit_{}",
+            self.slug
+        )))
+        .fetch_all(&self.owner)
+        .await
+        .unwrap();
         assert!(thread.bumped_at.timestamp() >= now);
-        assert!(
-            thread.bumped_at <= first_time,
+        assert_eq!(
+            changes,
+            vec![thread.bumped_at],
             "only the first serialized reply can bump"
         );
         assert_eq!(thread.reply_count, 8);
@@ -397,6 +412,9 @@ async fn source_op_peer_intervals_are_private_atomic_and_deletion_aware() {
     };
     let result = tokio::spawn(async move { f.exercise().await }).await;
     public.close().await;
+    assert_eq!(slug.len(), 10);
+    assert!(slug.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP TRIGGER IF EXISTS op_audit_{slug} ON content.threads; DROP FUNCTION IF EXISTS post_secrets.op_audit_{slug}(); DROP TABLE IF EXISTS post_secrets.op_audit_{slug};"))).execute(&owner).await.unwrap();
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();
     for query in [
         "DELETE FROM content.posts WHERE board=$1",
