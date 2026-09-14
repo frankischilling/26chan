@@ -15,6 +15,14 @@ JPEG alpha is always 255. The pinned decoder uses strict mode and scalar safe
 paths. Input must end with an EOI marker; this marker check is not an exhaustive
 container validator. Decoder-ignored bytes never enter the output protocol.
 
+Unexpected JPEG decoder unwinds become an error at the guest's decode boundary.
+The decoder and partial pixels are local to that boundary and are discarded;
+the output disk is opened only after a successful complete decode. Panic
+diagnostics remain enabled. This handles unwinding panics, not process aborts,
+allocation failure or execution overruns; external guest limits remain required.
+See Rust's [`catch_unwind` contract](https://doc.rust-lang.org/std/panic/fn.catch_unwind.html).
+The upstream decoder algorithm is not repaired by this rejection policy.
+
 The decoder still runs as guest UID/GID 1000 with the existing external CPU,
 memory, process, file-size and wall-clock ceilings. The VM receives only its job
 input and bounded output disks, without networking, application credentials,
@@ -39,6 +47,21 @@ otherwise viewable files. Production uploads remain disabled under issue #5;
 the pinned public-reference and exact visual gaps remain under issue #6.
 
 ## Tests and current evidence
+
+### Decoder rejection regression (#161)
+
+The bounded property test found a decoder panic in CI run
+[34887278457](https://github.com/frankischilling/26chan/actions/runs/34887278457).
+The minimized synthetic input reproduced the failure locally before the fix.
+It is now an exact-byte fixture and deterministic regression, with the original
+property test and saved seed retained. Healthy decoding is checked before and
+after the rejected input. Windows guest tests (3 PNG and 9 JPEG) and strict
+Clippy checks pass locally. Native intake qualification additionally requires
+the mutation to fail with no approval, output identifier, published file or
+surviving VM, followed by a successful JPEG job. Current-head native execution
+is pending; the older qualification below does not establish this change.
+
+### Original JPEG implementation
 
 Synthetic JPEG fixtures contain constant test pixels, not photographs or user
 metadata. Their [provenance and hashes](../tests/media/fixtures/jpeg/README.md)

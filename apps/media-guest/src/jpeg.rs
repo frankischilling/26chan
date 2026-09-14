@@ -5,6 +5,15 @@ use zune_jpeg::{
 };
 
 pub(super) fn decode(input: &[u8]) -> io::Result<Vec<u8>> {
+    // A decoder panic rejects this one disposable job. All parser state and
+    // partial pixels are owned inside the unwind boundary and are discarded.
+    // Panic diagnostics remain enabled; process aborts and resource exhaustion
+    // still rely on the guest's external limits, not this Result conversion.
+    std::panic::catch_unwind(|| decode_inner(input))
+        .unwrap_or_else(|_| Err(io::Error::other("JPEG decoder panicked")))
+}
+
+fn decode_inner(input: &[u8]) -> io::Result<Vec<u8>> {
     let rejected = || io::Error::other("JPEG decoding rejected");
     // Require a terminal EOI marker in addition to strict decoder validation.
     // This is not an exhaustive container validator: only decoded pixels leave
