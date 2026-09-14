@@ -1,13 +1,13 @@
 use crate::AppState;
 use axum::{
-    extract::{ConnectInfo, Request, State},
+    extract::{Request, State},
     http::{HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
 use std::{
     collections::HashMap,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr},
     sync::Mutex,
     time::{Duration, Instant},
 };
@@ -44,10 +44,17 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
     request
         .extensions_mut()
         .insert(RequestStart(chrono::Utc::now()));
-    let peer = request
-        .extensions()
-        .get::<ConnectInfo<SocketAddr>>()
-        .map(|info| info.0.ip().to_canonical());
+    let peer = match crate::proxy_peer::resolve(&request, state.proxy_uid) {
+        Ok(peer) => peer,
+        Err(status) => {
+            return headers(
+                (status, "Verified transport identity is required.").into_response(),
+                &state,
+                None,
+                None,
+            );
+        }
+    };
     request.extensions_mut().insert(RequestPeer(peer));
     let Ok(permit) = state.limits.active.clone().try_acquire_owned() else {
         return headers(
@@ -118,8 +125,8 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
         }
         let peer = request
             .extensions()
-            .get::<ConnectInfo<SocketAddr>>()
-            .map(|c| c.0.ip())
+            .get::<RequestPeer>()
+            .and_then(|peer| peer.0)
             .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
         let Ok(mut peers) = state.limits.peers.lock() else {
             return StatusCode::SERVICE_UNAVAILABLE.into_response();
@@ -281,6 +288,57 @@ mod tests {
     use tower::ServiceExt;
 
     #[tokio::test]
+    async fn verified_addresses_share_canonical_limits_and_replace_forged_context() {
+        use axum::extract::ConnectInfo;
+        let settings = board_config::PublicRequestLimits::from_lookup(|key| match key {
+            "PUBLIC_WRITES_PER_MINUTE" => Some("1".into()),
+            _ => None,
+        })
+        .unwrap();
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "https://boards.example.com".into(),
+            production: true,
+            limits: Arc::new(Limits::new(settings)),
+            media: None,
+            proxy_uid: Some(33),
+        };
+        let app = Router::new()
+            .route(
+                "/identity",
+                axum::routing::post(
+                    |axum::Extension(peer): axum::Extension<RequestPeer>| async move {
+                        peer.0.unwrap().to_string()
+                    },
+                ),
+            )
+            .layer(middleware::from_fn_with_state(state, protect));
+        for (address, status) in [
+            ("192.0.2.1", 200),
+            ("::ffff:192.0.2.1", 429),
+            ("192.0.2.2", 200),
+        ] {
+            let request = Request::post("/identity")
+                .header("origin", "https://boards.example.com")
+                .header("x-board-client-ip", address)
+                .header("x-forwarded-for", "192.0.2.200")
+                .extension(ConnectInfo(crate::proxy_peer::UnixPeer(Some(33))))
+                .extension(RequestPeer(Some("192.0.2.200".parse().unwrap())))
+                .body(Body::empty())
+                .unwrap();
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert_eq!(response.status(), status);
+            if status == 200 {
+                use http_body_util::BodyExt;
+                let body = response.into_body().collect().await.unwrap().to_bytes();
+                assert_eq!(&body[..], address.as_bytes());
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn production_posting_without_transport_peer_rejects_forged_hints_before_database_access()
     {
         use http_body_util::BodyExt;
@@ -317,6 +375,7 @@ mod tests {
             production: false,
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
+            proxy_uid: None,
         };
         let app =
             Router::new()
@@ -404,6 +463,7 @@ mod tests {
             production: false,
             limits: limits.clone(),
             media: None,
+            proxy_uid: None,
         };
         let dropped = Arc::new(AtomicBool::new(false));
         let witness = dropped.clone();

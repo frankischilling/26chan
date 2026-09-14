@@ -66,11 +66,11 @@ metadata remain identity-unknown; real listeners provide their socket peer.
 Production posting fails with 503 when transport identity is absent, even if a
 request supplies forwarding headers or a forged internal peer extension.
 
-Reverse proxies must preserve the actual client transport identity through a
-separately qualified configuration. Passing untrusted X-Forwarded-For is not
-supported. A proxy that appears as every client's socket peer groups all of
-them together and is not source-equivalent deployment evidence. Existing
-production proxy/TLS qualification remains unfinished.
+Linux public production requires the [verified Unix proxy](public-proxy.md).
+Only a kernel-authenticated proxy UID may provide the canonical client address.
+Direct development TCP still ignores forwarding headers. The owned HTTPS test
+checks address-only own-reply records independently of password ownership;
+qualification of the actual production edge remains required.
 
 Older binaries ignore the new intervals and do not populate new private rows.
 Do not discard the additive schema during binary rollback; record the loss of

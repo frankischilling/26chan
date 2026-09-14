@@ -11,6 +11,7 @@ mod posting_form;
 mod posting_response;
 mod security;
 pub mod themes;
+pub mod transport;
 mod ui_assets;
 mod uploads;
 mod views;
@@ -30,6 +31,7 @@ pub struct AppState {
     production: bool,
     limits: Arc<security::Limits>,
     media: Option<intake::IntakeClient>,
+    proxy_uid: Option<u32>,
 }
 
 pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
@@ -71,6 +73,18 @@ pub fn observed_routers_with_limits(
     media: Option<board_config::PublicMediaSettings>,
     limits: board_config::PublicRequestLimits,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_proxy(pool, origin, production, api_enabled, media, limits, None)
+}
+
+pub fn observed_routers_with_proxy(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    api_enabled: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+    proxy_uid: Option<u32>,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -81,7 +95,7 @@ pub fn observed_routers_with_limits(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_limits(pool, origin, production, media, limits);
+    let (public, api) = routers_with_proxy(pool, origin, production, media, limits, proxy_uid);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -117,6 +131,17 @@ pub fn routers_with_limits(
     media: Option<board_config::PublicMediaSettings>,
     limits: board_config::PublicRequestLimits,
 ) -> (Router, Router) {
+    routers_with_proxy(pool, origin, production, media, limits, None)
+}
+
+fn routers_with_proxy(
+    pool: PgPool,
+    origin: String,
+    production: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+    proxy_uid: Option<u32>,
+) -> (Router, Router) {
     assert!(
         !production || media.is_none(),
         "Production media is not qualified"
@@ -127,6 +152,7 @@ pub fn routers_with_limits(
         production,
         limits: Arc::new(security::Limits::new(limits)),
         media: media.map(|settings| intake::IntakeClient { settings }),
+        proxy_uid,
     };
     let mut public = Router::new()
         .merge(themes::routes(state.origin.clone(), state.production))
@@ -175,7 +201,10 @@ pub fn routers_with_limits(
         ))
         .layer(middleware::from_fn(board_http::retain_response_body))
         .with_state(state.clone());
-    let api = api_http::router(state);
+    let mut api_state = state;
+    // The separate JSON listener cannot post and retains its own TCP transport.
+    api_state.proxy_uid = None;
+    let api = api_http::router(api_state);
     (public, api)
 }
 
@@ -188,4 +217,5 @@ pub async fn media_ready(settings: &board_config::PublicMediaSettings) -> Result
     .map_err(|_| "Media intake is unavailable.")
 }
 
+mod proxy_peer;
 mod watcher_catalog;

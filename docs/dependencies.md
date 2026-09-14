@@ -149,3 +149,9 @@ The action pins were resolved from the official [checkout 7.0.1 release](https:/
 Windows visual failures use [upload-artifact 7.0.1](https://github.com/actions/upload-artifact/releases/tag/v7.0.1), pinned to `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`. Its official tag and `node24` action manifest were checked on September 14, 2026. Only synthetic test PNGs are uploaded, with three-day retention; traces, HTML, storage, request logs and environment files are excluded. Workflow permissions remain `contents: read`. See [visual failure evidence](verification-visual-failures.md) for scope and outstanding hosted verification.
 
 For updates, open a focused change that records affected components and advisories, update exact tool/lock versions, run formatting/clippy/unit/database/browser checks, and inspect any screenshot differences. Re-run restore tests after database or migration changes. For future media updates, rebuild disposable guests and repeat connectivity/resource/promotion tests before enabling them. Do not blanket-refresh baselines or silently waive findings. Production updates require the operator's deployment approval.
+
+Linux public socket ownership checks use rustix 1.1.4 with its process feature.
+This adds a direct dependency on the already locked crate; no registry version
+changes. Nginx is an operator-patched system dependency and is installed from the
+configured Ubuntu repositories for the owned HTTPS qualification. See
+[public proxy identity](public-proxy.md).

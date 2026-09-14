@@ -30,7 +30,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light
       - name: Start disposable database and migrate
         run: |
           sudo bash scripts/test-role-bootstrap.sh
@@ -44,6 +44,10 @@ jobs:
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
           bash scripts/seed.sh
+      - name: Qualify verified client identity through the actual HTTPS proxy
+        run: |
+          source .local/database.env
+          cargo test -p board-public --lib --test proxy_https --all-features --locked
       - name: Rust, database permissions, concurrency, and browser behavior
         run: |
           source .local/database.env
