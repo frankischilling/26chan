@@ -564,7 +564,7 @@ async fn comment_spacing(f: &Fixture) {
             .fetch_one(&f.admin)
             .await
             .unwrap();
-    sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET image_limit=100,comment_max_lines=70,comment_spoiler_cleanup=true WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
@@ -588,6 +588,7 @@ async fn comment_spacing(f: &Fixture) {
         (false, true, " Ｚⓦ✘😀│𠮷 ", "Ｚ│𠮷"),
         (true, false, "\u{31350} A \u{31350}", " A "),
         (false, false, "😀\u{31350}", ""),
+        (false, false, "a[spoiler]b[/spoiler]c", "abc"),
         (
             false,
             false,
@@ -616,6 +617,25 @@ async fn comment_spacing(f: &Fixture) {
             create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
             Err(StoreError::Invalid(_))
         ));
+        for (raw, error) in [
+            (
+                (0..=71)
+                    .map(|line| line.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                "Error: Too many lines.",
+            ),
+            (
+                "x\n".repeat(7) + "end",
+                "Error: Our system thinks your post is spam.",
+            ),
+        ] {
+            draft.comment = raw;
+            assert!(
+                matches!(create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+                Err(StoreError::Invalid(message)) if message == error)
+            );
+        }
         draft.comment = raw.replace("{board}", &f.board);
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await

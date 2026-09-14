@@ -205,6 +205,31 @@ mod comment_tests {
     }
 
     #[test]
+    fn line_cleanup_keeps_real_template_escaping_and_disabled_spoilers() {
+        for spoilers in [false, true] {
+            let text = prepare_post_comment(
+                "",
+                "",
+                "a[spoiler]b[/spoiler]c <script>\r\nline1\r\nline2\r\nline3",
+                1000,
+                false,
+                CommentSpacing::for_board("test", true, false).with_line_rules(3, spoilers),
+            )
+            .unwrap();
+            let lines = parse_comment(&text);
+            let html = Comment {
+                lines: &lines,
+                board: "test",
+            }
+            .render()
+            .unwrap();
+            assert!(html.contains("&#60;script&#62;<br>line1<br>line2<br>line3"));
+            assert_eq!(html.contains("class=\"spoiler\""), !spoilers);
+            assert!(!html.contains("<script>"));
+        }
+    }
+
+    #[test]
     fn prepared_comment_remains_escaped_text_in_the_real_template() {
         for (code, sjis) in [(false, false), (true, false), (false, true), (true, true)] {
             for raw in [" \tC <script> \r\n", " \tC ＜script＞ \r\n"] {

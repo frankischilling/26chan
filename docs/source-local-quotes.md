@@ -46,6 +46,7 @@ board prefix removed from already stored text. Backup/restore preserves stored
 values without reprocessing.
 
 Complete current-head hosted database/browser qualification remains required.
-This does not complete intra-word spoiler removal, source markup, name/subject
-sanitation, word filters, repeated-line or `MAX_LINES` admission. Deployed
+This does not complete source markup, name/subject sanitation or word filters.
+[Line admission](source-line-admission.md) implements intra-word spoiler removal
+before local quotes, and repetition/line limits after spacing cleanup. Deployed
 containment, recovery and independent review remain launch prerequisites.

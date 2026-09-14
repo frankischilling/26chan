@@ -25,6 +25,8 @@ fn board() -> Board {
         max_comment_chars: 4000,
         comment_code_spacing: false,
         comment_sjis_spacing: false,
+        comment_max_lines: 70,
+        comment_spoiler_cleanup: false,
         reply_limit: 100,
         bump_limit: 75,
         permasage_hours: 0,

@@ -94,7 +94,21 @@ fn zero_width_stage_uses_its_own_board_exceptions_and_fixed_ranges() {
 
 #[test]
 fn four_newlines_collapse_but_three_and_code_sjis_runs_remain() {
-    for count in 1..=12 {
+    let repeated_tabs = format!("x{}\r\nx", "\t\r\n".repeat(6));
+    assert_eq!(
+        prepare_post_comment(
+            "",
+            "",
+            &repeated_tabs,
+            MAX_COMMENT_CHARS,
+            true,
+            CommentSpacing::for_board("demo", false, false)
+        )
+        .unwrap_err()
+        .0,
+        "Error: Our system thinks your post is spam."
+    );
+    for count in 1..=6 {
         let input = format!("A{}B", "\n \u{3000}".repeat(count - 1) + "\n");
         let ordinary = prepare(&input, "b", false, false);
         if count >= 4 {
@@ -104,6 +118,24 @@ fn four_newlines_collapse_but_three_and_code_sjis_runs_remain() {
         }
         assert_eq!(prepare(&input, "b", true, false), input);
         assert_eq!(prepare(&input, "vip", false, true), input);
+    }
+    for count in 7..=12 {
+        let input = format!("A{}B", "\n \u{3000}".repeat(count - 1) + "\n");
+        for (code, sjis) in [(false, false), (true, false), (false, true), (true, true)] {
+            assert_eq!(
+                prepare_post_comment(
+                    "",
+                    "",
+                    &input,
+                    MAX_COMMENT_CHARS,
+                    true,
+                    CommentSpacing::for_board("b", code, sjis)
+                )
+                .unwrap_err()
+                .0,
+                "Error: Our system thinks your post is spam."
+            );
+        }
     }
     assert_eq!(
         prepare("A\n\n\n\nB\n\n\n\nC", "demo", false, false),
@@ -147,18 +179,23 @@ fn raw_board_limits_and_independent_output_ceiling_still_apply() {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(128))]
     #[test]
-    fn bounded_spacing_with_text_anchors_is_idempotent_and_preserves_content(
+    fn bounded_spacing_preserves_admitted_content_or_returns_a_source_line_error(
         pieces in prop::collection::vec(prop_oneof![Just("\r\n"), Just("\n"), Just("\t"), Just(" "), Just("\u{3000}"), Just("\u{200b}"), Just("x"), Just("😀")], 0..256),
         code in any::<bool>(), sjis in any::<bool>()
     ) {
-        // Text anchors exclude the source's early blank-only check, which can
-        // legitimately change the result on a second complete cleanup pass.
+        // Anchors exclude empty comments. Admission runs before blank collapse;
+        // a second complete pass can therefore legitimately reject its output.
         let raw = format!("x{}x", pieces.concat());
-        let cleaned = prepare(&raw, "demo", code, sjis);
-        prop_assert_eq!(prepare(&cleaned, "demo", code, sjis), cleaned.clone());
-        prop_assert_eq!(cleaned.matches('x').count(), raw.matches('x').count());
-        prop_assert!(!cleaned.contains('😀'));
-        prop_assert!(cleaned.len() <= raw.len() * 4);
-        prop_assert!(!cleaned.contains('\r'));
+        match prepare_post_comment("", "", &raw, MAX_COMMENT_CHARS, true,
+            CommentSpacing::for_board("demo", code, sjis)) {
+            Ok(cleaned) => {
+                prop_assert_eq!(cleaned.matches('x').count(), raw.matches('x').count());
+                prop_assert!(!cleaned.contains('😀'));
+                prop_assert!(cleaned.len() <= raw.len() * 4);
+                prop_assert!(!cleaned.contains('\r'));
+            }
+            Err(error) => prop_assert!(matches!(error.0,
+                "Error: Our system thinks your post is spam." | "Error: Too many lines.")),
+        }
     }
 }

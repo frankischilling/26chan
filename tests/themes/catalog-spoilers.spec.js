@@ -2,8 +2,32 @@ import { test, expect } from '@playwright/test';
 
 test.use({ javaScriptEnabled: true });
 
+// Keep bounded diagnostics in CI logs even when no trace artifact is available.
+const testWithDiagnostics = test.extend({
+  catalogDiagnostics: [async ({ page }, use, info) => {
+    const errors = [], scripts = [];
+    page.on('pageerror', error => { if (errors.length < 8) errors.push(error.message.slice(0, 1024)); });
+    page.on('response', response => {
+      if (response.url().endsWith('/static/catalog-preferences.v1.js') && scripts.length < 8) scripts.push(response.status());
+    });
+    await use();
+    if (info.status !== info.expectedStatus) {
+      const state = await page.evaluate(() => ({
+        ready: document.readyState,
+        spoilers: document.querySelector('#theme-nospoiler')?.value,
+        query: new URL(location.href).searchParams.get('spoilers'),
+        reveal: document.body.classList.contains('reveal-img-spoilers'),
+        menus: document.querySelectorAll('#threads .postMenuBtn').length,
+        images: Array.from(document.querySelectorAll('#threads img[data-spoiler-src]')).slice(0, 4)
+          .map(node => ({ id: node.id, src: node.getAttribute('src'), width: node.width, height: node.height })),
+      })).catch(() => ({ unavailable: true }));
+      console.log('Catalog spoiler failure diagnostics:', JSON.stringify({ errors, scripts, state }));
+    }
+  }, { auto: true }],
+});
+
 for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
-  test(`spoiler reveal keeps links, dimensions and deletion states in ${theme}`, async ({ page, context }) => {
+  testWithDiagnostics(`spoiler reveal keeps links, dimensions and deletion states in ${theme}`, async ({ page, context }) => {
     await context.addCookies([{ name: 'board-theme-ws', value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
     for (const [width, height] of [[1280, 900], [390, 844]]) {
       await page.setViewportSize({ width, height });

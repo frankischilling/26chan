@@ -32,7 +32,20 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .execute(&owner)
         .await
         .unwrap();
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    // The expanded sanitation matrix exceeds the default single-peer write budget.
+    // Keep this fixture bounded; http_limits.rs exercises actual throttling.
+    let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        _ => None,
+    })
+    .unwrap();
+    let (app, _) = board_public::routers_with_limits(
+        public.clone(),
+        "http://127.0.0.1:3000".into(),
+        false,
+        None,
+        limits,
+    );
     let raw = " \t A\t  B\r\n \r\n　\r\n\t\r\nC <script> Ｚⓦ✘😀│𠮷 \r\n";
     for (index, (code, sjis, expected)) in [
         (false, false, "A B\nC <script> awx𠮷"),
@@ -157,6 +170,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     assert!(html.contains("C &#60;script&#62;"));
     assert!(!html.contains("C <script>"));
     local_quotes(&app, &owner, &public, &slug, thread).await;
+    line_rules(&app, &owner, &public, &slug, thread).await;
 
     let denied = sqlx::query("UPDATE content.boards SET comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1")
         .bind(&slug).execute(&public).await.unwrap_err();
@@ -454,6 +468,246 @@ async fn local_quotes(
         .execute(owner)
         .await
         .unwrap();
+}
+
+async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &str, thread: i64) {
+    let historical = board_store::find_post(public, slug, thread)
+        .await
+        .unwrap()
+        .comment;
+    for (index, (code, sjis)) in [(false, false), (true, false), (false, true), (true, true)]
+        .into_iter()
+        .enumerate()
+    {
+        for spoilers in [false, true] {
+            sqlx::query("UPDATE content.boards SET comment_max_lines=3,comment_spoiler_cleanup=$2,comment_code_spacing=$3,comment_sjis_spacing=$4 WHERE slug=$1")
+                .bind(slug).bind(spoilers).bind(code).bind(sjis).execute(owner).await.unwrap();
+            let raw = "a[spoiler]b[/spoiler]c <script>\r\nline1\r\nline2\r\nline3";
+            let expected = if spoilers {
+                "abc <script>\nline1\nline2\nline3"
+            } else {
+                "a[spoiler]b[/spoiler]c <script>\nline1\nline2\nline3"
+            };
+            let response = line_request(app, slug, thread, raw, index).await;
+            let id = if index % 2 == 0 {
+                assert_eq!(response.status(), 200);
+                let value: serde_json::Value =
+                    serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap())
+                        .unwrap();
+                value["pid"].as_i64().expect("accepted line-boundary post")
+            } else {
+                assert_eq!(response.status(), 303);
+                response.headers()["location"]
+                    .to_str()
+                    .unwrap()
+                    .rsplit("#p")
+                    .next()
+                    .unwrap()
+                    .parse()
+                    .unwrap()
+            };
+            assert_eq!(
+                board_store::find_post(public, slug, id)
+                    .await
+                    .unwrap()
+                    .comment,
+                expected
+            );
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(format!("/{slug}/thread/{thread}.json"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let json: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap())
+                    .unwrap();
+            let saved = json["posts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|post| post["no"] == id)
+                .unwrap()["com"]
+                .as_str()
+                .unwrap();
+            assert!(saved.contains("&#60;script&#62;<br>line1<br>line2<br>line3"));
+            assert_eq!(saved.contains("class=\"spoiler\""), !spoilers);
+            let before = board_store::thread(public, slug, thread).await.unwrap();
+            for (raw, error) in [
+                (
+                    "line0\nline1\nline2\nline3\nline4".to_owned(),
+                    "Error: Too many lines.",
+                ),
+                (
+                    "x\n".repeat(7) + "end",
+                    "Error: Our system thinks your post is spam.",
+                ),
+            ] {
+                let response = line_request(app, slug, thread, &raw, index).await;
+                if index % 2 == 0 {
+                    assert_eq!(response.status(), 200);
+                    let value: serde_json::Value = serde_json::from_slice(
+                        &to_bytes(response.into_body(), 4096).await.unwrap(),
+                    )
+                    .unwrap();
+                    assert_eq!(value, serde_json::json!({"error":error}));
+                } else {
+                    assert_eq!(response.status(), 422);
+                    let html = String::from_utf8(
+                        to_bytes(response.into_body(), 65536)
+                            .await
+                            .unwrap()
+                            .to_vec(),
+                    )
+                    .unwrap();
+                    assert!(html.contains(error));
+                }
+                assert!(
+                    matches!(board_store::create_post(public, slug, thread, &post(&raw)).await, Err(StoreError::Invalid(message)) if message == error)
+                );
+            }
+            let after = board_store::thread(public, slug, thread).await.unwrap();
+            assert_eq!(
+                (after.reply_count, after.modified_at, after.http_modified_at),
+                (
+                    before.reply_count,
+                    before.modified_at,
+                    before.http_modified_at
+                )
+            );
+        }
+    }
+    let denied = sqlx::query(
+        "UPDATE content.boards SET comment_max_lines=0,comment_spoiler_cleanup=true WHERE slug=$1",
+    )
+    .bind(slug)
+    .execute(public)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        denied.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    // A stale policy read must not decide admission or stored spoiler cleanup.
+    for (limit, spoilers) in [(1, true), (0, true), (1, false)] {
+        let before = board_store::thread(public, slug, thread).await.unwrap();
+        let mut locked = owner.begin().await.unwrap();
+        let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *locked)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.boards SET comment_max_lines=$2,comment_spoiler_cleanup=$3 WHERE slug=$1")
+            .bind(slug).bind(limit).bind(spoilers).execute(&mut *locked).await.unwrap();
+        let pending = {
+            let public = public.clone();
+            let slug = slug.to_owned();
+            tokio::spawn(async move {
+                board_store::create_post(
+                    &public,
+                    &slug,
+                    thread,
+                    &post("a[spoiler]b[/spoiler]c\nend"),
+                )
+                .await
+            })
+        };
+        let observed = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
+                    .bind(pid).fetch_one(owner).await.unwrap();
+                if waiting { break; }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await;
+        locked.commit().await.unwrap();
+        let result = pending.await.unwrap();
+        observed.expect("posting waited on the owned line-policy lock");
+        if limit == 0 {
+            assert!(matches!(
+                result,
+                Err(StoreError::Invalid("Error: Too many lines."))
+            ));
+            let after = board_store::thread(public, slug, thread).await.unwrap();
+            assert_eq!(
+                (after.reply_count, after.modified_at, after.http_modified_at),
+                (
+                    before.reply_count,
+                    before.modified_at,
+                    before.http_modified_at
+                )
+            );
+        } else {
+            assert_eq!(
+                board_store::find_post(public, slug, result.unwrap())
+                    .await
+                    .unwrap()
+                    .comment,
+                if spoilers {
+                    "abc\nend"
+                } else {
+                    "a[spoiler]b[/spoiler]c\nend"
+                }
+            );
+        }
+    }
+    assert_eq!(
+        board_store::find_post(public, slug, thread)
+            .await
+            .unwrap()
+            .comment,
+        historical
+    );
+    sqlx::query("UPDATE content.boards SET comment_max_lines=70,comment_spoiler_cleanup=false WHERE slug=$1")
+        .bind(slug).execute(owner).await.unwrap();
+}
+
+async fn line_request(
+    app: &axum::Router,
+    slug: &str,
+    thread: i64,
+    raw: &str,
+    index: usize,
+) -> axum::response::Response {
+    let fields = [
+        ("mode", "regist".to_owned()),
+        ("resto", thread.to_string()),
+        ("com", raw.to_owned()),
+        ("pwd", "owned-password".to_owned()),
+    ];
+    let (kind, body) = if index < 2 {
+        (
+            "application/x-www-form-urlencoded",
+            url::form_urlencoded::Serializer::new(String::new())
+                .extend_pairs(fields.iter().map(|(key, value)| (*key, value)))
+                .finish(),
+        )
+    } else {
+        let mut body = String::new();
+        for (name, value) in fields {
+            body.push_str(&format!("--owned-lines\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"));
+        }
+        body.push_str("--owned-lines--\r\n");
+        ("multipart/form-data; boundary=owned-lines", body)
+    };
+    let (route, accept) = if index.is_multiple_of(2) {
+        ("post", "application/json")
+    } else {
+        ("imgboard.php", "text/html")
+    };
+    app.clone()
+        .oneshot(
+            Request::post(format!("/{slug}/{route}"))
+                .header("origin", "http://127.0.0.1:3000")
+                .header("accept", accept)
+                .header("content-type", kind)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
 }
 
 #[tokio::test]

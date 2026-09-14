@@ -7,6 +7,8 @@ use crate::{
 #[derive(Clone, Copy)]
 pub struct CommentSpacing<'a> {
     board: &'a str,
+    max_lines: usize,
+    spoiler_cleanup: bool,
     pub code: bool,
     pub sjis: bool,
     pub preserve_wide_spaces: bool,
@@ -17,11 +19,19 @@ impl<'a> CommentSpacing<'a> {
     pub fn for_board(board: &'a str, code: bool, sjis: bool) -> Self {
         Self {
             board,
+            max_lines: 70,
+            spoiler_cleanup: false,
             code,
             sjis,
             preserve_wide_spaces: sjis || matches!(board, "a" | "b" | "jp"),
             strip_zero_width: !sjis && !matches!(board, "a" | "jp"),
         }
+    }
+
+    pub fn with_line_rules(mut self, max_lines: usize, spoiler_cleanup: bool) -> Self {
+        self.max_lines = max_lines;
+        self.spoiler_cleanup = spoiler_cleanup;
+        self
     }
 }
 
@@ -38,6 +48,11 @@ pub fn prepare_post_comment(
     validate_post_with_attachment(name, subject, comment, max_chars, has_attachment)?;
     let normalized = normalize_comment(comment)?;
     let normalized = crate::comment_unicode::before_spacing(&normalized, spacing);
+    let normalized = if spacing.spoiler_cleanup {
+        crate::comment_lines::remove_intra_spoilers(&normalized)
+    } else {
+        normalized
+    };
     let normalized = crate::comment_quotes::same_board_quotes(&normalized, spacing.board);
     let preserve = spacing.code || spacing.sjis;
     let mut text = String::with_capacity(normalized.len());
@@ -69,11 +84,19 @@ pub fn prepare_post_comment(
     // Source strip_private_unicode runs after trim, so removal can expose
     // spaces at the edges. Do not trim those a second time.
     text.retain(|ch| ch as u32 <= 0x3134f);
+    if crate::comment_lines::repeated_lines(&text) {
+        return Err(ValidationError(
+            "Error: Our system thinks your post is spam.",
+        ));
+    }
     let text = if preserve {
         text
     } else {
         collapse_blank_lines(&text)
     };
+    if text.bytes().filter(|&byte| byte == b'\n').count() > spacing.max_lines {
+        return Err(ValidationError("Error: Too many lines."));
+    }
     // Tab expansion can exceed the independent database storage ceiling even
     // though the pre-cleanup board budget passed. Reject before any mutation.
     if (!has_attachment && text.trim().is_empty())

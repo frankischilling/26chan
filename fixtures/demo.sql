@@ -1,7 +1,7 @@
 -- Synthetic fixtures. No production content or credentials.
-INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
-VALUES ('test','Test board','A place to test text posts and replies.',4000,100,75,100,10),
-       ('limit','Small limits','Synthetic concurrency tests: three replies per thread.',1000,3,2,100,10)
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup)
+VALUES ('test','Test board','A place to test text posts and replies.',4000,100,75,100,10,true,100,true),
+       ('limit','Small limits','Synthetic concurrency tests: three replies per thread.',1000,3,2,100,10,false,70,false)
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
