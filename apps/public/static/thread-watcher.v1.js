@@ -4,7 +4,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, markNativeTrackedQuotes,
+import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
@@ -20,11 +20,30 @@ function start(context) {
   const blacklistKey = '4chan-watch-bl';
   const filterKey = '4chan-filters';
   const lockName = 'paperboard-thread-watcher';
-  let persistent = !!navigator.locks?.request;
+  const hasLocks = typeof navigator.locks?.request === 'function';
+  let persistent = hasLocks;
+  const mutationLock = new NativeWatchLock({
+    acquire: hasLocks ? async (action, signal) => {
+      let entered = false;
+      try { return await navigator.locks.request(lockName, { signal }, () => { entered = true; return action(); }); }
+      catch (error) {
+        if (entered || signal.aborted || error?.name !== 'SecurityError') throw error;
+        // Browser policy can expose Web Locks while denying their use. Every
+        // participant must become volatile before any unlocked callback runs.
+        configuration(); filterCache = read(filterKey);
+        persistent = false; volatileSettings = true; volatileFilters = true;
+        tracking.persistent = false;
+        mutationLock.acquire = null;
+        return action();
+      }
+    } : null,
+    warn: text => { notice.textContent = text; },
+  });
   let settingsCache = {};
   let volatileSettings = false;
   let volatileFilters = false;
   let filterCache = null;
+  let timestampCache = null;
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
@@ -36,8 +55,13 @@ function start(context) {
 
   function read(key) {
     if (key === filterKey && volatileFilters) return filterCache;
-    try { return localStorage.getItem(key); }
-    catch { persistent = false; return null; }
+    if (key === timestampKey && !persistent) return timestampCache;
+    try {
+      const value = localStorage.getItem(key);
+      if (key === timestampKey) timestampCache = value;
+      return value;
+    }
+    catch { persistent = false; return key === timestampKey ? timestampCache : null; }
   }
   function configuration() {
     if (volatileSettings) return { ...settingsCache };
@@ -78,10 +102,7 @@ function start(context) {
     return result;
   }
   async function locked(action, signal) {
-    if (signal?.aborted) return false;
-    if (!persistent) return action();
-    try { return await navigator.locks.request(lockName, { signal }, action); }
-    catch { if (!signal?.aborted) notice.textContent = 'Watch change could not be saved. Try again.'; return false; }
+    return mutationLock.run(action, signal);
   }
   async function change(action, signal, remember = null) {
     return locked(() => {
@@ -279,7 +300,7 @@ function start(context) {
       if (!persistent) { volatileFilters = true; filterCache = raw; }
       refresh.cancel();
       return { status: 'ok', persisted: persistent };
-    });
+    }, signal);
   }
   async function saveSettings(changes) {
     const applied = await locked(() => {
@@ -292,8 +313,8 @@ function start(context) {
       render();
       return true;
     });
-    if (applied === false) return false;
-    if (enabled) { await acknowledgeCurrent(); navigateReadPosition(); }
+    if (applied === false || !mutationLock.active) return false;
+    if (enabled) { await acknowledgeCurrent(); if (!mutationLock.active) return false; navigateReadPosition(); }
     void nativeFilters?.refresh();
     return { persisted: !volatileSettings };
   }
@@ -673,7 +694,9 @@ function start(context) {
       const settings = configuration();
       if (!enabled || settings.threadWatcher !== true || settings.disableAll === true) return false;
       const raw = read(timestampKey);
-      if (raw !== null && !autoRefreshEligible(raw, false)) return false;
+      if (raw !== null && !autoRefreshEligible(raw, false)) {
+        notice.textContent = 'Wait a minute before refreshing again.'; return false;
+      }
       if (!catalog && !automatic && settings.filter === true) {
         const filterRaw = read(filterKey);
         const parsed = readNativeFilters(filterRaw);
@@ -684,10 +707,13 @@ function start(context) {
             watches: writeWatches(entries), blacklist: writeBlacklist(blocked) }
           : { invalid: true };
       }
-      try { localStorage.setItem(timestampKey, String(Date.now())); } catch { persistent = false; }
+      timestampCache = String(Date.now());
+      if (persistent) {
+        try { localStorage.setItem(timestampKey, timestampCache); } catch { persistent = false; }
+      }
       return true;
     });
-    if (!claimed || !enabled) { notice.textContent = 'Wait a minute before refreshing again.'; return; }
+    if (!claimed || !enabled || !mutationLock.active) return;
     busy = true;
     render();
     const controller = new AbortController();
@@ -725,7 +751,7 @@ function start(context) {
             limited = next.limited;
             render();
             return true;
-          });
+          }, controller.signal);
           if (!applied) autoFailed++;
         } else autoFailed++;
         // Retain launch spacing across the catalog/thread phase boundary.
@@ -797,12 +823,16 @@ function start(context) {
     }
   });
   window.addEventListener('resize', () => closePostMenu());
-  window.addEventListener('pagehide', () => { closePostMenu(); refresh.cancel(); });
+  window.addEventListener('pagehide', () => { mutationLock.suspend(); closePostMenu(); refresh.cancel(); });
+  window.addEventListener('pageshow', event => { if (event.persisted) mutationLock.resume(); });
   mobile.addEventListener('change', () => { closePostMenu(); collapsed = mobile.matches; render(); });
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();
-  tracking.consume(threadId).then(() => acknowledgeCurrent()).then(() => {
+  tracking.consume(threadId).then(async () => {
+    if (!mutationLock.active) return;
+    await acknowledgeCurrent();
+    if (!mutationLock.active) return;
     render();
     void nativeFilters?.refresh();
     navigateReadPosition(); return refreshAll(true);

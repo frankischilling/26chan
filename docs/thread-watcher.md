@@ -1,5 +1,8 @@
 # Thread watcher
 
+[Storage deadlines](native-watch-lock.md) specify bounded lock acquisition,
+page-exit cancellation and retry behavior for watcher mutations.
+
 The watcher remains under implementation in issue #88 and draft PR #89. It is
 not yet a complete reproduction of either public client.
 The extension connects native filters to manual automatic-watch refreshes,

@@ -11,6 +11,7 @@ export { mountNativeReplyHiding } from './native-reply-hiding.js';
 export { mountNativeThreadHiding } from './native-thread-hiding.js';
 export { mountNativeKeybinds } from './native-keybinds.js';
 export { markNativeTrackedQuotes } from './native-tracked-quotes.js';
+export { NativeWatchLock } from './native-watch-lock.js';
 
 // Raw HTML and user patterns are evaluated only in a fresh worker, never in the client path.
 
