@@ -142,9 +142,11 @@ test('the source byte advisory does not block a Unicode reply within the server 
     await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill(value); await page.locator('#qrCom').press('ArrowLeft');
     await expect(page.locator('#qrError')).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
     await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
-    const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
-    await page.locator('#quickReply input[type=submit]').click(); const response = await posted;
-    expect(response.status()).toBe(200); const result = await response.json(); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
+    await observePostingBody(page);
+    const posted = page.evaluate(() => window.ownedPostingResponse);
+    const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+    expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
+    const result = JSON.parse(response.text); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
     await expect(page.locator('#quickReply')).toHaveCount(0);
     await expect(page.locator(`#m${result.pid}`)).toHaveText(value);
     const scalars = Array.from(value).length;
@@ -164,8 +166,11 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await page.locator(`#m${id}`).evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
     await page.keyboard.press('q'); await expect(page.locator('#qrCom')).toHaveValue(`>${selected}\n`);
     await page.locator('#qr-pwd').fill(password);
-    const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
-    await page.locator('#quickReply input[type=submit]').click(); const result = await (await posted).json(); expect(String(result.tid)).toBe(id);
+    await observePostingBody(page);
+    const posted = page.evaluate(() => window.ownedPostingResponse);
+    const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+    expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
+    const result = JSON.parse(response.text); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
     await expect(page.locator(`#m${result.pid} .quote`)).toHaveText(`>${selected}`);
     await expect(page.locator(`#m${result.pid} .quotelink`)).toHaveCount(0);
     await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: false }))); await page.reload();
