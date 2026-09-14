@@ -111,10 +111,13 @@ impl Options {
                         .iter()
                         .find(|post| post.id == preview.thread.id)
                         .is_some_and(|post| {
-                            query.matches(&search_fields::from_raw(&post.subject, &post.comment))
-                                || post.attachment.as_ref().is_some_and(|file| {
-                                    !file.file_deleted && query.matches(&file.filename)
-                                })
+                            query.matches(&search_fields::from_post(
+                                &post.subject,
+                                &post.comment,
+                                post.comment_format,
+                            )) || post.attachment.as_ref().is_some_and(|file| {
+                                !file.file_deleted && query.matches(&file.filename)
+                            })
                         })
                 });
             snapshot.threads = visible;

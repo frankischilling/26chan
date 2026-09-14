@@ -43,8 +43,12 @@ fn board() -> Board {
     }
 }
 fn page(catalog: bool) -> String {
+    render_page(catalog, false)
+}
+
+fn render_page(catalog: bool, markup: bool) -> String {
     let board = board();
-    let thread = Thread {
+    let mut thread = Thread {
         id: 1000001,
         board: "demo".into(),
         created_at: time("2026-09-08T12:00:00Z"),
@@ -87,6 +91,26 @@ fn page(catalog: bool) -> String {
             deleted: false,
             attachment: None,
         }));
+    }
+    if markup {
+        // Prepared synthetic comments, each with its own posting-time policy.
+        posts[0] = PostView::new(Post {
+            comment_format: 9,
+            comment: "before [spoiler]hidden\nsecond[/spoiler] after\n[spoiler]<img src=x onerror=bad()>[/spoiler]".into(),
+            ..posts[0].post.clone()
+        });
+        posts[1] = PostView::new(Post {
+            comment_format: 10,
+            comment: "[code]first  line\nsecond <script>line</script>[/code]".into(),
+            ..posts[1].post.clone()
+        });
+        posts.push(PostView::new(Post {
+            id: 1_000_003,
+            comment_format: 12,
+            comment: "[sjis]a  b\n c[/sjis]".into(),
+            ..posts[1].post.clone()
+        }));
+        thread.reply_count = 2;
     }
     BoardPage {
         catalog_hidden: Vec::new(),
@@ -288,6 +312,7 @@ async fn main() {
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
+        .route("/markup/", get(|| async { Html(render_page(false, true)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
@@ -316,15 +341,6 @@ async fn main() {
         .route(
             "/arc/thread/1000101",
             get(|| async { Html(archived_thread()) }),
-        )
-        .route(
-            "/static/board.css",
-            get(|| async {
-                (
-                    [("content-type", "text/css")],
-                    include_str!("../static/board.css"),
-                )
-            }),
         )
         .route("/readyz", get(|| async { "synthetic fixture renderer" }))
         .fallback_service(board_public::router(

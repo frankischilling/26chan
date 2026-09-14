@@ -32,9 +32,13 @@ The official upload-artifact v7.0.1 tag resolves to
 [pinned manifest](https://github.com/actions/upload-artifact/blob/043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/action.yml)
 defines the path, retention and hidden-file controls used here. The workflow
 retains read-only repository permissions and does not run `pull_request_target`.
-Local syntax/workflow checks and fixture execution do not verify a hosted
-artifact upload. Inspect the next actual failure artifact before attributing
-these failures to initialization, layout, screenshot encoding or other causes.
+Hosted capture was subsequently verified on run 34835595156, job 103948559055.
+Initial navigation in the yotsuba-b thread-hiding case failed with
+`net::ERR_NO_BUFFER_SPACE` before any DOM assertion. Artifact 10344411534
+contained 189 PNG files and no other file types; the failed-page image was
+blank. The same-head PR Windows job passed, as did 20 unchanged local repetitions.
+This confirms upload and retains evidence, but does not identify a root cause
+for this navigation failure or the earlier Quick Reply/catalog failures.
 
 Local checks passed all 119 theme cases, including the diagnostic privacy test.
 A separate ignored failure probe exercised the actual failure hook and reporter.
@@ -42,4 +46,5 @@ It first exposed that body-only attachments did not leave PNG files for upload.
 The helper now writes the original compared buffer to an output path before
 attaching it. The repeated probe exited 1 as intended and retained the original
 PNG, its reporter attachment copy and the automatic failure screenshot. This
-checks local capture, not hosted upload or a fix for the original failures.
+checks local capture. Neither it nor the later hosted upload establishes a fix
+for the original failures.

@@ -1,9 +1,31 @@
 #![cfg(feature = "database-tests")]
 
+use axum::{
+    Router,
+    body::{Body, to_bytes},
+    http::Request,
+};
 use board_store::NewPost;
 use rand_core::{OsRng, RngCore};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
+use tower::ServiceExt;
+
+async fn get(app: &Router, path: &str) -> String {
+    let response = app
+        .clone()
+        .oneshot(Request::get(path).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200, "{path}");
+    String::from_utf8(
+        to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap()
+}
 
 fn post() -> NewPost {
     NewPost {
@@ -49,6 +71,102 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     .await
     .unwrap();
     assert_eq!(before, after);
+
+    // Reads use the saved stamp after all current board flags have been reset.
+    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    for (mask, id) in ids.iter().enumerate() {
+        let expected = if mask & 1 != 0 {
+            "<s>Owned text</s>"
+        } else {
+            "[spoiler]Owned text[/spoiler]"
+        };
+        let html = get(&app, &format!("/{slug}/thread/{id}")).await;
+        assert!(html.contains(&format!("id=\"m{id}\">{expected}</blockquote>")));
+        for router in [&app, &api] {
+            let body = get(router, &format!("/{slug}/thread/{id}.json")).await;
+            let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert_eq!(json["posts"][0]["com"], expected);
+            assert!(json["posts"][0].get("comment_format").is_none());
+        }
+        let body = get(&app, &format!("/_watch/{slug}/thread/{id}/posts")).await;
+        let snapshot: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            snapshot["posts"][0]["html"]
+                .as_str()
+                .unwrap()
+                .contains(&format!("id=\"m{id}\">{expected}</blockquote>"))
+        );
+    }
+    let catalog: serde_json::Value =
+        serde_json::from_str(&get(&api, &format!("/{slug}/catalog.json")).await).unwrap();
+    let entries = catalog
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|page| page["threads"].as_array().unwrap());
+    for entry in entries {
+        let index = ids.iter().position(|id| entry["no"] == *id).unwrap();
+        assert_eq!(
+            entry["com"],
+            if index & 1 != 0 {
+                "<s>Owned text</s>"
+            } else {
+                "[spoiler]Owned text[/spoiler]"
+            }
+        );
+    }
+    let search = get(&app, &format!("/{slug}/catalog?q=spoiler")).await;
+    let visible = search
+        .split("<template id=\"catalogFiltered\">")
+        .next()
+        .unwrap();
+    for (mask, id) in ids.iter().enumerate() {
+        // Excluded cards have a separate hidden fragment; only the visible
+        // thread IDs identify the server-filter result.
+        assert_eq!(
+            visible.contains(&format!("id=\"thread-{id}\"")),
+            mask & 1 == 0
+        );
+    }
+
+    for (mask, raw, expected) in [
+        (1, "[spoiler] \n[/spoiler]", ""),
+        (
+            2,
+            "[code]long <b>code</b>\nsecond[/code]",
+            "<pre class=\"prettyprint\">long &#60;b&#62;code&#60;/b&#62;<br>second</pre>",
+        ),
+        (
+            4,
+            "[sjis]a  b\n c[/sjis]",
+            "<span class=\"sjis\">a  b<br> c</span>",
+        ),
+    ] {
+        set_policy(&owner, &slug, mask).await;
+        let id = board_store::create_post(
+            &public,
+            &slug,
+            0,
+            &NewPost {
+                comment: raw.into(),
+                ..post()
+            },
+        )
+        .await
+        .unwrap();
+        set_policy(&owner, &slug, 0).await;
+        let saved = board_store::find_post(&public, &slug, id).await.unwrap();
+        assert_eq!(saved.comment_format, 8 + mask);
+        let body = get(&api, &format!("/{slug}/thread/{id}.json")).await;
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        if expected.is_empty() {
+            assert!(json["posts"][0].get("com").is_none());
+        } else {
+            assert_eq!(json["posts"][0]["com"], expected);
+        }
+        let html = get(&app, &format!("/{slug}/thread/{id}")).await;
+        assert!(html.contains(&format!("id=\"m{id}\">{expected}</blockquote>")));
+    }
 
     for statement in [
         "UPDATE content.posts SET comment_format=15 WHERE board=$1",

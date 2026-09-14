@@ -5,11 +5,11 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes
   depth: 32, requestMs: 10000, parseMs: 2000, intervalMs: 1000 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
   'op', 'reply', 'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted',
-  'postMessage', 'quote', 'quotelink', 'spoiler', 'postActions']);
+  'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'prettyprint', 'postActions']);
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden'], span: ['class', 'tabindex', 'aria-label'],
   time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
-  br: [], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
+  br: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
   label: ['for'], button: [], img: ['src', 'alt', 'width', 'height', 'loading'],
 };
@@ -109,6 +109,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }) {
         || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));
     }
     if (node.tag === 'button') require(form !== null);
+    if (node.tag === 'pre') require(node.attrs.class === 'prettyprint');
     if (node.tag === 'img') require(typeof node.attrs.src === 'string' && typeof node.attrs.alt === 'string');
     if (node.tag === 'a') {
       require(typeof node.attrs.href === 'string');

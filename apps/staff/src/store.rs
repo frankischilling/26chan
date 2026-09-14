@@ -11,6 +11,7 @@ pub struct Report {
     pub name: String,
     pub subject: String,
     pub comment: String,
+    pub comment_format: i16,
     pub state: String,
     pub closed: bool,
     pub sticky: bool,
@@ -38,7 +39,7 @@ pub async fn reports(pool: &PgPool) -> Result<Vec<Report>, AppError> {
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(&mut *tx).await?;
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,p.comment_format,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
     let attachments: Vec<Attachment> =
         sqlx::query_as("SELECT * FROM content.staff_post_media WHERE post_id=ANY($1)")

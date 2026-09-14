@@ -15,7 +15,7 @@ mod post_content;
 pub use post_content::{PreparedPostContent, prepare_post_content};
 pub mod posting_options;
 mod subject;
-pub use formatting::{Line, Token, parse_comment};
+pub use formatting::{Line, Token, parse_comment, parse_post_comment};
 pub use subject::{MAX_SUBJECT_BYTES, prepare_post_subject, source_html_entities};
 
 pub const MAX_COMMENT_CHARS: usize = 16_000;

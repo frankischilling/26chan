@@ -340,6 +340,30 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_uses_each_post_stamp_not_current_board_policy() {
+        for format in [0, 8, 9, 15] {
+            let mut snapshot = fixture();
+            snapshot.board.comment_spoiler_cleanup = format == 8;
+            snapshot.posts[1].comment_format = format;
+            snapshot.posts[1].comment = "[spoiler]<b>first</b>\nsecond[/spoiler]".into();
+            let expected = crate::views::Comment {
+                lines: &board_domain::parse_post_comment(&snapshot.posts[1].comment, format),
+                board: "test",
+            }
+            .render()
+            .unwrap();
+            let bytes = encode(snapshot, "", MAX_BYTES).unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            let html = value["posts"][1]["html"].as_str().unwrap();
+            assert!(html.contains(&format!(
+                "id=\"m9223372036854775807\">{expected}</blockquote>"
+            )));
+            assert!(!html.contains("<b>first"));
+            assert_eq!(html.contains("<s>"), format & 1 != 0);
+        }
+    }
+
+    #[test]
     fn media_projection_handles_normal_spoiler_deleted_and_disabled_media() {
         for (origin, spoiler, deleted) in [
             ("https://media.example", false, false),

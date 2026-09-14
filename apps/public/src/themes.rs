@@ -273,9 +273,10 @@ async fn stylesheet(
         (
             [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
             format!(
-                "{}\n{}",
+                "{}\n{}\n{}",
                 include_str!("../static/themes/common.css"),
-                theme.css()
+                theme.css(),
+                include_str!("../../../assets/comment-markup-mobile.css")
             ),
         )
             .into_response(),

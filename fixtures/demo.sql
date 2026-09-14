@@ -21,3 +21,6 @@ VALUES (1000001,'demo',1000001,'Anonymous','What are you making?',E'Share your l
        (1000002,'demo',1000001,'Anonymous','',E'>>1000001\nA small paper lighthouse. Still working on the roof.','2026-09-08 12:05:00+00')
 ON CONFLICT (id) DO NOTHING;
 SELECT setval('content.post_number', GREATEST((SELECT last_value FROM content.post_number), (SELECT max(id) FROM content.posts)));
+-- These two immutable historical rows match the format-zero visual fixtures.
+-- Newly submitted /demo/ posts still receive the trigger's disabled-policy stamp.
+UPDATE content.posts SET comment_format=0 WHERE board='demo' AND id IN (1000001,1000002);

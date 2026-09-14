@@ -90,6 +90,20 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
         .await?;
     Ok("ready")
 }
+
+pub async fn comment_css() -> impl IntoResponse {
+    (
+        [
+            ("content-type", "text/css; charset=utf-8"),
+            ("cache-control", "public, max-age=0, must-revalidate"),
+        ],
+        concat!(
+            include_str!("../../../assets/comment-markup.css"),
+            "\n",
+            include_str!("../../../assets/comment-markup-mobile.css")
+        ),
+    )
+}
 fn set_cookie(
     response: &mut Response,
     state: &AppState,

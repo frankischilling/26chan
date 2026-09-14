@@ -63,7 +63,11 @@ pub async fn css() -> impl IntoResponse {
             ("content-type", "text/css; charset=utf-8"),
             ("cache-control", "public, max-age=0, must-revalidate"),
         ],
-        include_str!("../static/board.css"),
+        concat!(
+            include_str!("../static/board.css"),
+            "\n",
+            include_str!("../../../assets/comment-markup.css")
+        ),
     )
 }
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {

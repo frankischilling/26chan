@@ -1,4 +1,4 @@
-use board_domain::{Line, Token, parse_comment};
+use board_domain::{Line, Token, parse_post_comment};
 
 // Preserve source tab expansion while bounding independent synthetic inputs.
 const SUBJECT_SCALARS: usize = board_domain::MAX_SUBJECT_BYTES;
@@ -37,6 +37,10 @@ fn teaser(lines: &[Line]) -> String {
                     plain.push('/');
                     plain.push_str(&id.to_string());
                 }
+                Token::OpenMarkup(_)
+                | Token::CloseMarkup(_)
+                | Token::OpenQuote
+                | Token::CloseQuote => {}
             }
         }
     }
@@ -76,16 +80,47 @@ pub(crate) fn from_parts(subject: &str, lines: &[Line]) -> String {
     output
 }
 
-pub(crate) fn from_raw(subject: &str, comment: &str) -> String {
-    from_parts(subject, &parse_comment(comment))
+pub(crate) fn from_post(subject: &str, comment: &str, format: i16) -> String {
+    from_parts(subject, &parse_post_comment(comment, format))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::catalog::filter::Filter;
+    use board_domain::parse_comment;
     use proptest::prelude::*;
     use serde::Deserialize;
+
+    fn from_raw(subject: &str, comment: &str) -> String {
+        from_post(subject, comment, 0)
+    }
+
+    #[test]
+    fn stamped_markup_has_one_server_and_browser_search_representation() {
+        for format in 8..=15 {
+            let comment = "[spoiler]first\n<b>second</b>[/spoiler]";
+            let text = from_post("subject", comment, format);
+            assert_eq!(
+                text,
+                from_parts("subject", &parse_post_comment(comment, format))
+            );
+            assert_eq!(
+                text,
+                if format & 1 != 0 {
+                    "<b>subject</b>: first &lt;b&gt;second&lt;/b&gt;"
+                } else {
+                    "<b>subject</b>: [spoiler]first &lt;b&gt;second&lt;/b&gt;[/spoiler]"
+                }
+            );
+        }
+        assert_eq!(from_post("", "[spoiler] \n[/spoiler]", 9), "");
+        assert_eq!(
+            from_post("", "[code]first\nsecond[/code]", 10),
+            "first second"
+        );
+        assert_eq!(from_post("", "[sjis]a  b\nc[/sjis]", 12), "a b c");
+    }
 
     #[derive(Deserialize)]
     struct Contract {

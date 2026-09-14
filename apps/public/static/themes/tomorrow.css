@@ -1,3 +1,4 @@
+.prettyprint { background-color: rgba(255, 255, 255, .1); border: 1px solid rgba(0, 0, 0, .5); }
 :root {
   --settings-edge: #111111; --settings-frame: #111111;
   --paper: #1d1f21; --ink: #c5c8c6; --panel: #282a2e; --edge: #282a2e;
