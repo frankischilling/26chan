@@ -71,6 +71,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 json!({"thread":thread,"post":post,"report":report,"tim":tim,"mediaRoot":media_root})
             );
         }
+        "bump-limit" => {
+            sqlx::query("UPDATE content.boards SET bump_limit=1 WHERE slug=$1")
+                .bind(board)
+                .execute(&pool)
+                .await?;
+        }
         "inspect" => {
             let states: Vec<(bool, bool, bool)> =
                 sqlx::query_as("SELECT closed,sticky,deleted FROM content.threads WHERE board=$1")
@@ -84,10 +90,16 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             .fetch_all(&pool)
             .await?;
             let credentials:i64=sqlx::query_scalar("SELECT count(*) FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE a.username=$1").bind(board).fetch_one(&pool).await?;
+            let bump_flags: Vec<(bool, bool)> = sqlx::query_as(
+                "SELECT permasage,permaage FROM content.threads WHERE board=$1 ORDER BY id",
+            )
+            .bind(board)
+            .fetch_all(&pool)
+            .await?;
             let sessions:i64=sqlx::query_scalar("SELECT count(*) FROM staff_identity.sessions s JOIN staff_identity.accounts a ON a.id=s.account_id WHERE a.username=$1").bind(board).fetch_one(&pool).await?;
             println!(
                 "{}",
-                json!({"states":states,"audit":audit,"credentials":credentials,"sessions":sessions})
+                json!({"states":states,"bumpFlags":bump_flags,"audit":audit,"credentials":credentials,"sessions":sessions})
             );
         }
         "spoiler" => {

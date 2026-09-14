@@ -77,6 +77,7 @@ impl ThreadView {
     pub fn bump_limited(&self, board: &Board) -> bool {
         board_domain::bump::limited(
             self.thread.sticky,
+            self.thread.permaage,
             self.visible_replies() as u64,
             board.bump_limit as u32,
         )

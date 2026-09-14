@@ -134,6 +134,42 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('button', { name: 'Reopen thread', exact: true }).click();
     await report.getByRole('button', { name: 'Sticky thread', exact: true }).click();
     await report.getByRole('button', { name: 'Unsticky thread', exact: true }).click();
+    fixture('bump-limit', board);
+    expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
+    await expect(report.getByRole('button', { name: 'Enable permaage', exact: true })).toHaveCount(0);
+    const forgedFlags = await page.evaluate(async ({ csrf, board, target }) => {
+      const results = [];
+      for (const action of ['permaage', 'unpermaage']) results.push((await fetch('/moderate', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ csrf, board, target, action }),
+      })).status);
+      return results;
+    }, { csrf, board, target: String(data.thread) });
+    expect(forgedFlags).toEqual([403, 403]);
+    const beforeFlags = await page.request.get(publicUrl);
+    await report.getByRole('button', { name: 'Enable permasage', exact: true }).click();
+    await expect(report).toContainText('permasage: true, permaage: false');
+    expect(fixture('inspect', board).bumpFlags).toEqual([[true, false]]);
+    const changedFlag = await page.request.get(publicUrl, { headers: { 'If-None-Match': beforeFlags.headers().etag } });
+    expect(changedFlag.status()).toBe(304); // Permasage does not change this representation.
+    expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
+    run('staff-operator', ['role', board, 'admin']);
+    expect((await page.request.get('/reports')).status()).toBe(401);
+    await login();
+    // Both controls are ordinary CSRF-protected forms, including without JS.
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await report.getByRole('button', { name: 'Enable permaage', exact: true }).click();
+    await expect(report).toContainText('permasage: true, permaage: true');
+    expect(fixture('inspect', board).bumpFlags).toEqual([[true, true]]);
+    const permaageResponse = await page.request.get(publicUrl, { headers: { 'If-None-Match': beforeFlags.headers().etag } });
+    expect(permaageResponse.status()).toBe(200);
+    expect((await permaageResponse.json()).posts[0].bumplimit).toBeUndefined();
+    await report.getByRole('button', { name: 'Disable permasage', exact: true }).click();
+    await report.getByRole('button', { name: 'Disable permaage', exact: true }).click();
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+    await expect(report).toContainText('permasage: false, permaage: false');
+    expect(fixture('inspect', board).bumpFlags).toEqual([[false, false]]);
+    expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
     expect(fixture('age-activity', board).changed).toBe(1);
     const beforeActivity = fixture('session-times', board)[0];
     // Unprotected pages and health checks must not keep a session alive.
@@ -145,9 +181,10 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(afterActivity[2]).not.toBe(beforeActivity[2]);
     fixture('stale', board);
     await page.reload(); await expect(report).toBeVisible();
-    const stale = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'close' }) })).status, { csrf, board, target: String(data.thread) });
+    const refreshedCsrf = await page.locator('input[name=csrf]').first().inputValue();
+    const stale = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'close' }) })).status, { csrf: refreshedCsrf, board, target: String(data.thread) });
     expect(stale).toBe(403);
-    const staleFile = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'remove-file' }) })).status, { csrf, board, target: String(data.post) });
+    const staleFile = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'remove-file' }) })).status, { csrf: refreshedCsrf, board, target: String(data.post) });
     expect(staleFile).toBe(403);
     await login();
     const idleCsrf = await page.locator('input[name=csrf]').first().inputValue();
@@ -195,13 +232,13 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect((await page.request.get(publicUrl, { headers: { 'If-None-Match': oldEtag } })).status()).toBe(404);
     const persisted = fixture('inspect', board);
     expect(persisted.states).toEqual([[false, false, true]]);
-    expect(persisted.audit).toEqual(['close', 'reopen', 'sticky', 'unsticky', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
+    expect(persisted.audit).toEqual(['close', 'reopen', 'sticky', 'unsticky', 'permasage', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);
     await login(); fixture('expire', board); expect((await page.request.get('/reports')).status()).toBe(401);
     await login();
-    run('staff-operator', ['role', board, 'admin']);
+    run('staff-operator', ['role', board, 'moderator']);
     expect((await page.request.get('/reports')).status()).toBe(401);
     await login();
     run('staff-operator', ['recover', board, path.join(recoveryDir, 'invitation.txt')]);

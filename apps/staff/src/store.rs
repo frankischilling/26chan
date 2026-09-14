@@ -14,6 +14,8 @@ pub struct Report {
     pub state: String,
     pub closed: bool,
     pub sticky: bool,
+    pub permasage: bool,
+    pub permaage: bool,
     pub deleted: bool,
     #[sqlx(skip)]
     pub attachment: Option<Attachment>,
@@ -36,7 +38,7 @@ pub async fn reports(pool: &PgPool) -> Result<Vec<Report>, AppError> {
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(&mut *tx).await?;
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.subject,p.comment,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
     let attachments: Vec<Attachment> =
         sqlx::query_as("SELECT * FROM content.staff_post_media WHERE post_id=ANY($1)")
@@ -65,12 +67,19 @@ pub async fn moderate(
     if !session.recent {
         return Err(AppError::Recent);
     }
+    if matches!(action, "permaage" | "unpermaage") && session.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
     if !matches!(
         action,
         "close"
             | "reopen"
             | "sticky"
             | "unsticky"
+            | "permasage"
+            | "unpermasage"
+            | "permaage"
+            | "unpermaage"
             | "remove-post"
             | "remove-file"
             | "remove-thread"
@@ -132,7 +141,12 @@ pub async fn moderate(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(AppError::NotFound)?;
-        if archived && matches!(action, "reopen" | "sticky") {
+        if archived
+            && matches!(
+                action,
+                "reopen" | "sticky" | "permasage" | "unpermasage" | "permaage" | "unpermaage"
+            )
+        {
             return Err(AppError::Invalid);
         }
         match action {
@@ -142,11 +156,18 @@ pub async fn moderate(
             "sticky" | "unsticky" => {
                 sqlx::query("UPDATE content.threads SET sticky=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="sticky").execute(&mut *tx).await?;
             }
-            _ => {
+            "permasage" | "unpermasage" => {
+                sqlx::query("UPDATE content.threads SET permasage=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="permasage").execute(&mut *tx).await?;
+            }
+            "permaage" | "unpermaage" => {
+                sqlx::query("UPDATE content.threads SET permaage=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="permaage").execute(&mut *tx).await?;
+            }
+            "remove-post" | "remove-thread" => {
                 let whole = action == "remove-thread" || target == thread;
                 sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND (($3 AND thread_id=$2) OR (NOT $3 AND id=$4))").bind(board).bind(thread).bind(whole).bind(target).execute(&mut *tx).await?;
                 sqlx::query("UPDATE content.threads SET deleted=deleted OR $3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(whole).execute(&mut *tx).await?;
             }
+            _ => return Err(AppError::Invalid),
         }
     }
     sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES ($1,$2,$3,$4)").bind(session.account_id).bind(board).bind(target).bind(action).execute(&mut *tx).await?;

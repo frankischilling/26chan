@@ -121,6 +121,8 @@ impl Fixture {
             modified_at: time("2026-09-08T12:05:00Z"),
             reply_count: 5,
             sticky: false,
+            permasage: false,
+            permaage: false,
             closed,
             deleted: false,
             archived_at: archived.then(|| time("2026-09-08T13:00:00Z")),

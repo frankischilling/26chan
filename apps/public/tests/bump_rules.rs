@@ -83,6 +83,14 @@ async fn flags(app: &axum::Router, slug: &str, id: i64, replies: i64, limited: b
         };
         assert_eq!(op["replies"], replies, "{suffix}");
         assert_eq!(op["no"], id, "{suffix}");
+        assert!(
+            op.get("permasage").is_none(),
+            "internal flag is not an API field"
+        );
+        assert!(
+            op.get("permaage").is_none(),
+            "internal flag is not an API field"
+        );
         if kind == 1 || limited {
             assert_eq!(
                 op["bumplimit"].as_i64(),
@@ -170,6 +178,40 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     flags(&app, &slug, id, 4, true).await;
+    // Permaage overrides both sage and a zero count limit, but neither
+    // permasage nor sticky. Permasage alone does not alter the limit marker.
+    for (index, (sticky, permasage, permaage, sage, bump, limited)) in [
+        (false, false, true, true, true, false),
+        (false, true, true, false, false, false),
+        (false, true, false, false, false, true),
+        (true, false, true, false, false, false),
+        (false, false, true, false, true, false),
+        (false, false, false, false, false, true),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        sqlx::query("UPDATE content.threads SET sticky=$2,permasage=$3,permaage=$4 WHERE id=$1")
+            .bind(id)
+            .bind(sticky)
+            .bind(permasage)
+            .bind(permaage)
+            .execute(&owner)
+            .await
+            .unwrap();
+        append(&owner, &public, &slug, id, sage, bump).await;
+        flags(&app, &slug, id, 5 + index as i64, limited).await;
+    }
+    // These flags do not bypass closed-thread admission.
+    sqlx::query("UPDATE content.threads SET closed=true,permaage=true WHERE id=$1")
+        .bind(id)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        board_store::create_post(&public, &slug, id, &post(false)).await,
+        Err(board_store::StoreError::Conflict(_))
+    ));
     board_store::delete_post(&public, &slug, id).await.unwrap();
 
     // With a one-reply cutoff even the first concurrent reply must not bump.
