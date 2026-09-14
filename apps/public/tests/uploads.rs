@@ -872,7 +872,11 @@ async fn image_admission_http(
                         "resto={thread}&upload_id={}&upload_capability={}&pwd=owned-image-password{}{}",
                         upload.id,
                         upload.capability,
-                        if index == 0 { "&com=+%09%0D%0A+" } else { "" },
+                        match index {
+                            0 => "&com=+%09%0D%0A+",
+                            1 => "&com=%F0%9F%98%80",
+                            _ => "",
+                        },
                         if forged { "&sticky=1&undead=1" } else { "" }
                     ),
                 )

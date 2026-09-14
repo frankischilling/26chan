@@ -558,6 +558,12 @@ async fn tail_counts(f: &Fixture) {
 }
 
 async fn comment_spacing(f: &Fixture) {
+    let max_chars: i32 =
+        sqlx::query_scalar("SELECT max_comment_chars FROM content.boards WHERE slug=$1")
+            .bind(&f.board)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
     sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
@@ -578,12 +584,21 @@ async fn comment_spacing(f: &Fixture) {
             "A      B\n\n\n\nC",
         ),
         (false, false, " \t\r\n \r", ""),
+        (false, false, " Ｚⓦ✘😀│𠮷 ", "awx𠮷"),
+        (false, true, " Ｚⓦ✘😀│𠮷 ", "Ｚ│𠮷"),
+        (true, false, "\u{31350} A \u{31350}", " A "),
+        (false, false, "😀\u{31350}", ""),
     ] {
         sqlx::query("UPDATE content.boards SET comment_code_spacing=$2,comment_sjis_spacing=$3 WHERE slug=$1")
             .bind(&f.board).bind(code).bind(sjis).execute(&f.admin).await.unwrap();
         let upload = f.reserve().await;
         let asset = f.approve(&upload).await;
         let mut draft = post();
+        draft.comment = "😀".repeat(max_chars as usize + 1);
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid(_))
+        ));
         draft.comment = "A\0B".into();
         assert!(matches!(
             create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,

@@ -21,10 +21,14 @@ ETags on rejected replies. The JavaScript-disabled browser test submits an
 actual maximum-size multiline form and checks its CRLF wire encoding and
 rendered reply. Hosted database/browser qualification remains required.
 
-No migration rewrites existing posts. This does not implement the source's
-later board-specific Unicode cleanup, establish its ambient mbstring encoding,
-or change media/staff authority. The earlier checkpoint below records its own
-scope and historical results.
+No migration rewrites existing posts. The later [Unicode cleanup](source-comment-unicode.md)
+removes source-listed emoticons and codepoints after checking the input count.
+Current persisted boundary fixtures use U+20BB7 (`𠮷`), a retained four-byte
+character. Separate tests require emoji-only text rejection without an approved
+attachment and enforce the raw count even when cleanup would shorten it.
+The earlier checkpoint below records its own scope and historical results; its
+emoji-acceptance statement is not the current posting contract. The handler's
+ambient mbstring encoding and deployed media/staff boundaries remain unresolved.
 
 ## Earlier character-limit checkpoint
 

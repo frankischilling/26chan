@@ -40,13 +40,13 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
     let thread = board_store::create_post(&public, &slug, 0, &post("é".repeat(4)))
         .await
         .unwrap();
-    board_store::create_post(&public, &slug, thread, &post("😀".repeat(4)))
+    board_store::create_post(&public, &slug, thread, &post("𠮷".repeat(4)))
         .await
         .unwrap();
     board_store::create_post(&public, &slug, thread, &post("e\u{301}".repeat(2)))
         .await
         .unwrap();
-    for raw in ["é\r\n😀\r", "é\r😀\n", "é\n😀\n"] {
+    for raw in ["é\r\n𠮷\r", "é\r𠮷\n", "é\n𠮷\n"] {
         let id = board_store::create_post(&public, &slug, thread, &post(raw.into()))
             .await
             .unwrap();
@@ -55,7 +55,7 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
                 .await
                 .unwrap()
                 .comment,
-            "é\n😀"
+            "é\n𠮷"
         );
     }
     let before = board_store::visible_post_count(&public, &slug, thread)
@@ -66,7 +66,7 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
         Err(StoreError::Invalid(_))
     ));
     assert!(matches!(
-        board_store::create_post(&public, &slug, thread, &post("é\r\n😀\rb".into())).await,
+        board_store::create_post(&public, &slug, thread, &post("é\r\n𠮷\rb".into())).await,
         Err(StoreError::Invalid(_))
     ));
     assert_eq!(
@@ -81,7 +81,7 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
         .execute(&migration)
         .await
         .unwrap();
-    let full_comment = "😀".repeat(16_000);
+    let full_comment = "𠮷".repeat(16_000);
     let full_id = board_store::create_post(&public, &slug, thread, &post(full_comment.clone()))
         .await
         .unwrap();

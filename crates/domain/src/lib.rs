@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
 pub mod bump;
+mod comment_ascii;
 pub mod comment_spacing;
+mod comment_unicode;
 pub use comment_spacing::{CommentSpacing, prepare_post_comment};
 pub mod formatting;
 pub mod image_limit;

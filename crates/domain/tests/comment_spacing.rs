@@ -47,8 +47,16 @@ fn zero_width_stage_uses_its_own_board_exceptions_and_fixed_ranges() {
     ] {
         let text = format!("A{}B", char::from_u32(point).unwrap());
         assert_eq!(prepare(&text, "g", true, false), "AB", "{point:x}");
-        // Code spacing alone does not bypass the earlier filter; SJIS does.
-        assert_eq!(prepare(&text, "vip", false, true), text, "{point:x}");
+        // SJIS bypasses zero-width cleanup, but not emoticon/private cleanup.
+        let removed_later = matches!(
+            point,
+            0x1d176 | 0x180e | 0x200f | 0x2060 | 0x206f | 0xfe00 | 0xfe0f
+        ) || point > 0x3134f;
+        assert_eq!(
+            prepare(&text, "vip", false, true),
+            if removed_later { "AB" } else { &text },
+            "{point:x}"
+        );
     }
     for point in [
         0x0701,
@@ -66,7 +74,18 @@ fn zero_width_stage_uses_its_own_board_exceptions_and_fixed_ranges() {
         0xe0080,
     ] {
         let text = format!("A{}B", char::from_u32(point).unwrap());
-        assert_eq!(prepare(&text, "g", true, false), text, "{point:x}");
+        let removed_later = matches!(point, 0x1d175 | 0x1d177) || point > 0x3134f;
+        assert_eq!(
+            prepare(&text, "g", true, false),
+            if removed_later {
+                "AB"
+            } else if point == 0x2070 {
+                "A0B"
+            } else {
+                &text
+            },
+            "{point:x}"
+        );
     }
     for board in ["a", "b", "jp", "g", "vip"] {
         assert_eq!(prepare("A\u{a0}\u{ad}B", board, false, true), "AB");
@@ -136,7 +155,7 @@ proptest! {
         let cleaned = prepare(&raw, "demo", code, sjis);
         prop_assert_eq!(prepare(&cleaned, "demo", code, sjis), cleaned.clone());
         prop_assert_eq!(cleaned.matches('x').count(), raw.matches('x').count());
-        prop_assert_eq!(cleaned.matches('😀').count(), raw.matches('😀').count());
+        prop_assert!(!cleaned.contains('😀'));
         prop_assert!(cleaned.len() <= raw.len() * 4);
         prop_assert!(!cleaned.contains('\r'));
     }

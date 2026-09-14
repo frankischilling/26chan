@@ -184,25 +184,42 @@ mod comment_tests {
     #[test]
     fn prepared_comment_remains_escaped_text_in_the_real_template() {
         for (code, sjis) in [(false, false), (true, false), (false, true), (true, true)] {
-            let text = prepare_post_comment(
-                "Anonymous",
-                "",
-                " \tC <script> \r\n",
-                1000,
-                false,
-                CommentSpacing::for_board("test", code, sjis),
-            )
-            .unwrap();
-            assert_eq!(text, "C <script>");
-            let lines = parse_comment(&text);
-            let html = Comment {
-                lines: &lines,
-                board: "test",
+            for raw in [" \tC <script> \r\n", " \tC ＜script＞ \r\n"] {
+                let text = prepare_post_comment(
+                    "Anonymous",
+                    "",
+                    raw,
+                    1000,
+                    false,
+                    CommentSpacing::for_board("test", code, sjis),
+                )
+                .unwrap();
+                let retains_wide = sjis && raw.contains('＜');
+                assert_eq!(
+                    text,
+                    if retains_wide {
+                        "C ＜script＞"
+                    } else {
+                        "C <script>"
+                    }
+                );
+                let lines = parse_comment(&text);
+                let html = Comment {
+                    lines: &lines,
+                    board: "test",
+                }
+                .render()
+                .unwrap();
+                assert_eq!(
+                    html.trim(),
+                    if retains_wide {
+                        "C ＜script＞"
+                    } else {
+                        "C &#60;script&#62;"
+                    }
+                );
+                assert!(!html.contains("<script>"));
             }
-            .render()
-            .unwrap();
-            assert_eq!(html.trim(), "C &#60;script&#62;");
-            assert!(!html.contains("<script>"));
         }
     }
 }

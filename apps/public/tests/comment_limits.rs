@@ -78,7 +78,7 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
     let board_html = body_text(get(&app, &format!("/{board}/")).await).await;
     assert!(board_html.contains("16000 characters"));
 
-    let comment = "😀".repeat(16_000);
+    let comment = "𠮷".repeat(16_000);
     let request = form_request(&format!("/{board}/post"), &comment, 0);
     assert!(!request.headers().contains_key("content-length"));
     let response = app.clone().oneshot(request).await.unwrap();
@@ -164,7 +164,7 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
             .clone()
             .oneshot(form_request(
                 &format!("/{board}/{route}"),
-                "é\r\n😀\rb",
+                "é\r\n𠮷\rb",
                 parent,
             ))
             .await
@@ -178,7 +178,7 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
                 .await
                 .unwrap()
                 .comment,
-            "é\n😀\nb"
+            "é\n𠮷\nb"
         );
         let endpoint = format!("/{board}/thread/{thread_id}.json");
         let current = get(&app, &endpoint).await;
@@ -190,17 +190,17 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
             .iter()
             .find(|post| post["no"] == id)
             .unwrap();
-        assert_eq!(inserted["com"], "é<br>😀<br>b");
+        assert_eq!(inserted["com"], "é<br>𠮷<br>b");
         assert!(
             body_text(get(&app, &format!("/{board}/thread/{thread_id}")).await)
                 .await
-                .contains("é<br>😀<br>b")
+                .contains("é<br>𠮷<br>b")
         );
         let rejected = app
             .clone()
             .oneshot(form_request(
                 &format!("/{board}/{route}"),
-                "é\r\n😀\rbx",
+                "é\r\n𠮷\rbx",
                 thread_id,
             ))
             .await
