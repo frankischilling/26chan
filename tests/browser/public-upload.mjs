@@ -76,6 +76,10 @@ try {
     await expect(page.locator('form.postEditor input[name=awt]')).toHaveValue('1');
   } else await expect(page.locator('input[name=track], input[name=awt]')).toHaveCount(0);
   await expect(page.locator('table#postForm')).toHaveAttribute('role', 'presentation');
+  await expect(page.locator('form.postEditor')).toHaveAttribute('action', `/${board}/imgboard.php`);
+  await expect(page.locator('form.postEditor')).toHaveAttribute('enctype', 'multipart/form-data');
+  await expect(page.locator('form.postEditor input[name=mode]')).toHaveValue('regist');
+  await expect(page.locator('#password')).toHaveAttribute('name', 'pwd');
   await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('aria-describedby', 'postHelp');
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
@@ -91,7 +95,7 @@ try {
   await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
   if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
   const posted = page.waitForResponse(response => response.request().method() === 'POST'
-    && new URL(response.url()).pathname === `/${board}/post`);
+    && new URL(response.url()).pathname === `/${board}/imgboard.php`);
   await page.getByRole('button', { name: 'Post with image', exact: true }).click();
   const postedResponse = await posted;
   assert.equal(postedResponse.status(), 303);
@@ -187,7 +191,7 @@ try {
     await page.locator('#password').fill('synthetic-browser-password');
     await page.locator('#email').selectOption('nonoko');
     const replied = page.waitForResponse(response => response.request().method() === 'POST'
-      && new URL(response.url()).pathname === `/${board}/post`);
+      && new URL(response.url()).pathname === `/${board}/imgboard.php`);
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     const replyResponse = await replied;
     assert.equal(replyResponse.status(), 303);
