@@ -35,7 +35,7 @@ public-only snapshot route and fixed native bundle without expanding CSP authori
 
 ## Explicitly unfinished native behavior
 
-The supplied `js/extension.js:8251-8254,8290-8315,9999-10003` also defines the
+The supplied `js/extension.js:8251-8254,8303-8335,9999-10003` also defines the
 Q selection behavior, help groups and Ctrl-click quote action. Help lists the
 Global keys in source order, then Quick Reply's always-enabled Ctrl+Click,
 Ctrl+S and Esc shortcuts. Ctrl-click quotes selected text without linking the
