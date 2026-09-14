@@ -16,8 +16,11 @@ fn attachment_request_only_relaxes_the_genuinely_empty_comment() {
             validate_post_with_attachment("", "", &"x".repeat(16001), 16000, attached).is_err()
         );
     }
-    assert!(validate_post_with_attachment(&"n".repeat(81), "", "", 2000, true).is_err());
-    assert!(validate_post_with_attachment("", &"s".repeat(121), "", 2000, true).is_err());
+    assert!(
+        validate_post_with_attachment(&"n".repeat(100), &"s".repeat(100), "", 2000, true).is_ok()
+    );
+    assert!(validate_post_with_attachment(&"n".repeat(101), "", "", 2000, true).is_err());
+    assert!(validate_post_with_attachment("", &"s".repeat(101), "", 2000, true).is_err());
     assert!(validate_post_with_attachment("\0", "", "", 2000, true).is_err());
     assert!(validate_post_with_attachment("", "\0", "", 2000, true).is_err());
 }
