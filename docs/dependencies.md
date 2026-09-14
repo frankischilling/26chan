@@ -106,7 +106,7 @@ Exact Rust dependencies are pinned by `Cargo.lock`; core direct choices are Rust
 |---|---|---|
 | Tokio | 1.53.1 in lockfile | Async runtime; native OS integration and unsafe internals are in the trust base |
 | Bytes / HTTP body | 1.12.1 / 1.1.0 | Direct declarations reuse existing locked versions. The local `board-http` crate retains admission through response data ownership; Bytes reference counting and its internal unsafe implementation remain in the trust base |
-| Rustls / ring | 0.23.44 / 0.17.14 | Database and media-dispatch TLS; ring includes native/assembly code. Dispatch explicitly selects TLS 1.3, trusted roots and required client certificates |
+| Rustls / ring | 0.23.45 / 0.17.14 | Database and media-dispatch TLS; ring includes native/assembly code. Dispatch explicitly selects TLS 1.3, trusted roots and required client certificates |
 | Tokio-Rustls | 0.26.5 | Media-dispatch async TLS, exact direct pin with default features disabled and ring enabled; no public roots, early data or session resumption |
 | Rcgen | 0.14.10 | Test-only synthetic certificates, exact pin with default features disabled and crypto/ring/PEM enabled; fresh harmless keys per test, valid 2020 through 2040, expired control ends 2021 |
 | SQLx PostgreSQL driver | 0.9.0 | Bound SQL and PostgreSQL protocol. MySQL/SQLite packages can appear in the lock graph through macro metadata; no SQLite/MySQL driver is enabled in the public normal dependency tree |
@@ -132,6 +132,17 @@ Durable media publication uses Rust 1.94's standard-library file locks, existing
 The local media setup additionally depends on Python 3.12, systemd 255, GNU coreutils `timeout` 9.4, mount/umount, KVM, tmpfs, and effective memory/CPU/pids cgroup controllers. These belong to the host trust base. The launch monitor and service client must retain the inherited coordinator lock; [recovery tests](media-recovery.md) verify that behavior and the independent monitor deadline after parent SIGKILL. The per-job VM receives no Python, shell, package manager or network device. Patch the pinned kernel/runtime and rebuild both init and worker before re-running the [local qualification checks](firecracker.md); successful CI on one host is not approval of another processing tier.
 
 The scheduled advisory workflow runs cargo-audit 0.22.2 and npm audit weekly. The operator must subscribe to failures and triage them; no alert delivery has been configured. A clean advisory result only covers known entries at the fetched revision.
+
+On September 14, 2026, PR #150's audit found RUSTSEC-2026-0285 in Rustls
+0.23.44. The upstream [0.23.45 release](https://github.com/rustls/rustls/releases/tag/v%2F0.23.45)
+fixes TLS 1.3 handshake messages accepted at the wrong encryption level.
+The authenticated transcript remains intact; upstream does not describe this
+as an attacker completing or altering a handshake. The exact dispatch pin and
+shared lock now select 0.23.45, with no other registry version changes. Local
+cargo-audit scanned 345 dependencies against 1,246 advisories without a finding.
+All 14 existing mutual-TLS, framing, deadline and certificate-rejection tests
+passed locally, along with strict workspace Clippy for all targets/features.
+Full hosted qualification remains required for this updated head.
 
 The action pins were resolved from the official [checkout 7.0.1 release](https://github.com/actions/checkout/releases/tag/v7.0.1) and [setup-node 7.0.0 release](https://github.com/actions/setup-node/releases/tag/v7.0.0) on September 8, 2026. Both actions require a runner supporting Node 24 (minimum 2.327.1); the configured hosted runners supply it. The workflow still installs Node 24.14.0 for browser tooling. Automatic package-manager caching is explicitly disabled because newer setup-node releases enable it for detected npm projects. [Verification notes](verification-ci-actions.md) record local checks and distinguish hosted checks awaiting execution for issue #10.
 

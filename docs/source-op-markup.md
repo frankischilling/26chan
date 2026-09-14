@@ -62,8 +62,9 @@ Removing the migration would require a separate data migration and would lose
 the saved rendering policy.
 
 The store reuses the workspace's already-locked SHA-256 implementation to bind
-proof to the verified hash; no dependency version or media-parser boundary
-changes. Runtime password hashes and fingerprints remain private application
+proof to the verified hash. The later Rustls 0.23.45 security update is recorded
+in [dependency notes](dependencies.md); media-parser boundaries are unchanged.
+Runtime password hashes and fingerprints remain private application
 state. Media workers receive no new credentials, connectivity or authority.
 
 ## Verification

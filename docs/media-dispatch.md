@@ -109,7 +109,7 @@ Replace the authorization file atomically as root, retaining ownership and permi
 
 ## Transport bounds and tests
 
-Both ends use Rustls 0.23.44 and ring with TLS 1.3 only, explicit trust roots, mandatory client authentication, no early data and no resumption. The client sends TLS close-notify after the request while keeping its read side open; the gateway does the same after the response. A TCP EOF without close-notify, extra bytes or truncated framing rejects the transfer. Transport success returns the fixed disk bytes, never approval.
+Both ends use Rustls 0.23.45 and ring with TLS 1.3 only, explicit trust roots, mandatory client authentication, no early data and no resumption. The client sends TLS close-notify after the request while keeping its read side open; the gateway does the same after the response. A TCP EOF without close-notify, extra bytes or truncated framing rejects the transfer. Transport success returns the fixed disk bytes, never approval.
 
 The gateway allows four concurrent handshakes and one authorized request, with immediate excess-connection rejection and no application request queue. It acquires the work permit before allocating input. Handshake and full request intake each have an absolute three-second deadline. The broker exchange and response transmission together have an absolute 25-second deadline. The client bounds connect plus handshake to three seconds, request streaming to three seconds and response intake to 25 seconds. Progress does not reset these deadlines. The client checks the source has exactly the declared length and returns no partial output. Framing uses 16 KiB scratch buffers, a bounded request allocation and one fixed-size output allocation.
 
