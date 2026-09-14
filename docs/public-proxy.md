@@ -50,6 +50,9 @@ The block overwrites the client identity header with `$remote_addr` and removes
 the common forwarded-address headers. It forwards unchanged public paths to
 the Unix socket, bounds body/header/inactivity timeouts, and disables upstream
 retries. Its 256 KiB body limit matches text posting; production media stays off.
+Its 64 KiB upstream header buffer accommodates the explicit CSP image allowlist,
+which exceeds Nginx's default buffer. Response buffering is disabled; downstream
+connection and write budgets still need host qualification.
 Access logs are disabled; the restricted error log still needs operator review.
 
 Do not enable Nginx real-IP rewriting or PROXY protocol on this edge. A CDN,

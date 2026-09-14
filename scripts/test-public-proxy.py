@@ -58,6 +58,8 @@ def main():
                          ('/var/log/nginx/board-public-error.log', str(root / 'edge-error.log'))]:
             assert old in site
             site = site.replace(old, new)
+        # Keep error diagnostics only for this owned synthetic fixture.
+        site = site.replace(' crit;', ' error;')
         (root / 'site.conf').write_text(site)
         for directory in ['body', 'proxy']:
             (root / directory).mkdir()

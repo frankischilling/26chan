@@ -288,6 +288,47 @@ mod tests {
     use tower::ServiceExt;
 
     #[tokio::test]
+    async fn public_security_headers_fit_the_candidate_proxy_buffer() {
+        for origin in [
+            "https://boards.example.com".to_owned(),
+            format!(
+                "https://{}.{}.{}.{}",
+                "a".repeat(63),
+                "b".repeat(63),
+                "c".repeat(63),
+                "d".repeat(61)
+            ),
+        ] {
+            let state = AppState {
+                pool: sqlx::postgres::PgPoolOptions::new()
+                    .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                    .unwrap(),
+                origin,
+                production: true,
+                limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+                media: None,
+                proxy_uid: None,
+            };
+            for page in [None, Some(false), Some(true)] {
+                let response = headers(
+                    axum::response::Html("owned").into_response(),
+                    &state,
+                    page,
+                    Some(&format!("{}/test/imgboard.php", state.origin)),
+                );
+                let bytes = response
+                    .headers()
+                    .iter()
+                    .map(|(name, value)| name.as_str().len() + value.as_bytes().len() + 4)
+                    .sum::<usize>()
+                    + 128;
+                println!("Public response headers: {bytes} bytes");
+                assert!(bytes < 65_536, "Candidate proxy response buffer exceeded");
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn verified_addresses_share_canonical_limits_and_replace_forged_context() {
         use axum::extract::ConnectInfo;
         let settings = board_config::PublicRequestLimits::from_lookup(|key| match key {
