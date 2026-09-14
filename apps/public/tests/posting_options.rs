@@ -34,7 +34,21 @@ async fn submit(
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    // This expanded fixture submits 54 writes from one synthetic peer.
+    // Keep a bounded test budget; http_limits.rs tests production defaults
+    // and actual peer throttling independently.
+    let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        _ => None,
+    })
+    .unwrap();
+    let (app, _) = board_public::routers_with_limits(
+        public.clone(),
+        "http://127.0.0.1:3000".into(),
+        false,
+        None,
+        limits,
+    );
     let mut failures = Vec::new();
     let mut first_thread = None;
     for (alias_index, alias) in ["post", "imgboard.php"].into_iter().enumerate() {
