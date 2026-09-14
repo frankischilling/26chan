@@ -54,7 +54,7 @@ Later compatibility checkpoints:
 |---|---|---|---|
 | V-009 | Browser-local catalog display, search/session and pin/hide behavior; observed pinned public v1025 client; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Display persistence, in-place controls, bounded search operators/case handling, live/session search, thread menus and pin/hide state, and shared serialized search fields merged through #83 after exact-head checks | [Preferences](catalog-preferences.md), [in-place controls](catalog-inplace.md), [operators](catalog-search.md), [live search](catalog-live-search.md), [pin/hide #81](https://github.com/frankischilling/26chan/pull/81), and [search fields](catalog-search-fields.md). Matching the source-known formatting, Unicode whitespace, filename and truncation pipeline remains open in #82; watchlist work is tracked in V-011; complete native options remain unfinished |
 | V-010 | Catalog spoiler-reveal preference; observed pinned public v1025 client; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Merged in #87 on September 13, 2026 | [Spoiler behavior and tests](catalog-spoilers.md); finite optional persistence, explicit no-JavaScript GET, visible-card-only client source changes and deletion precedence. Toolbar/URL extension and full-image fallback are documented differences; custom board spoiler selection is source-known; matching board-specific assets remains unfinished |
-| M-008 | Attachment-only OP/reply and conditional comment representation; documented API field plus local posting policy; **source**: [original rules](#posting-and-text) | Merged in #85 after all six exact-head checks; ordinary text-only posts still require a comment | [Attachment-only contract](attachment-only-posts.md); atomic authorization, deferred empty-row guard, direct public-role rejection, 0018 upgrade, real HTTP/no-JavaScript and native PNG/JPEG flows. Original image-only replies are permitted, but an ordinary OP still needs subject or comment. Empty-OP and whitespace-only rejection policies remain local differences; no production enablement |
+| M-008 | Attachment-only OP/reply and conditional comment representation; documented API field plus local posting policy; **source**: [original rules](#posting-and-text) | Merged in #85 after all six exact-head checks; ordinary text-only posts still require a comment | [Attachment-only contract](attachment-only-posts.md); atomic authorization, deferred empty-row guard, direct public-role rejection, 0018 upgrade, real HTTP/no-JavaScript and native PNG/JPEG flows. [New comment spacing](source-comment-spacing.md) permits whitespace-only image comments after cleanup and authorization, pending current-head qualification. Original image-only replies are permitted, but an ordinary OP still needs subject or comment; empty-OP admission remains a local difference. No production enablement |
 
 ### Native extension checkpoint under draft PR #89
 
@@ -249,8 +249,12 @@ grapheme clusters or UTF-16 units. The production default encoding is absent.
 restores the previous mbstring encoding; it does not establish the later
 handler's ambient encoding. That specific environmental uncertainty remains.
 The rewrite normalizes CRLF and bare CR before its bounded scalar/byte checks
-for new posts. Its UTF-8 scalar policy and the remaining source cleanup rules
-still need to be distinguished from the old handler's deployed environment.
+for new posts. [Source spacing cleanup](source-comment-spacing.md) then removes
+NBSP/soft hyphen, applies the conditional zero-width filter, and follows the
+ordinary/code/SJIS whitespace rules under locked operator policy. Historical
+comments stay unchanged. ASCII-lookalike conversion, emoticon/private-Unicode
+filters and other source stages remain unfinished; the old handler's deployed
+encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the
 email/options field and removes all matching substrings. The remaining value,

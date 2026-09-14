@@ -503,6 +503,7 @@ async fn exercise(f: &Fixture) {
     tail_counts(f).await;
     posting_times(f).await;
     image_admission_flags(f).await;
+    comment_spacing(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
@@ -554,6 +555,66 @@ async fn tail_counts(f: &Fixture) {
         .unwrap();
     assert_eq!(tail.images, 0);
     assert!(tail.posts[1].attachment.as_ref().unwrap().file_deleted);
+}
+
+async fn comment_spacing(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    for (code, sjis, raw, expected) in [
+        (false, false, " \t A\t  B\r\n\r\n\r\n\r\nC \r", "A B\nC"),
+        (
+            true,
+            false,
+            " \t A\t  B\r\n\r\n\r\n\r\nC \r",
+            "A      B\n\n\n\nC",
+        ),
+        (
+            false,
+            true,
+            " \t A\t  B\r\n\r\n\r\n\r\nC \r",
+            "A      B\n\n\n\nC",
+        ),
+        (false, false, " \t\r\n \r", ""),
+    ] {
+        sqlx::query("UPDATE content.boards SET comment_code_spacing=$2,comment_sjis_spacing=$3 WHERE slug=$1")
+            .bind(&f.board).bind(code).bind(sjis).execute(&f.admin).await.unwrap();
+        let upload = f.reserve().await;
+        let asset = f.approve(&upload).await;
+        let mut draft = post();
+        draft.comment = "A\0B".into();
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid(_))
+        ));
+        draft.comment = raw.into();
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        assert_eq!(
+            board_store::find_post(&f.public, &f.board, id)
+                .await
+                .unwrap()
+                .comment,
+            expected
+        );
+        assert_eq!(
+            attachment(&f.public, id).await.unwrap().unwrap().asset_id,
+            asset
+        );
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Conflict(_))
+        ));
+        if expected.is_empty() {
+            assert!(matches!(
+                create_post(&f.public, &f.board, id, &draft).await,
+                Err(StoreError::Invalid(_))
+            ));
+        }
+    }
 }
 
 async fn image_admission_flags(f: &Fixture) {

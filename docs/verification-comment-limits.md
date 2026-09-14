@@ -8,7 +8,9 @@ posting routes and the store's text/attachment insertion paths. This fixes
 native browser forms whose CRLF submission exceeded the advertised scalar
 limit despite the textarea holding a valid number of characters. The input
 byte bound applies before allocation; normalization never increases byte size.
-LF-only input stays borrowed. Other Unicode text, spaces and tabs are preserved.
+LF-only input stays borrowed at this stage. The later
+[source spacing cleanup](source-comment-spacing.md) processes new comments after
+this pre-cleanup length check; existing stored text remains unchanged.
 
 [Issue #92](https://github.com/frankischilling/26chan/issues/92) covers this
 change. `comment_newlines` tests mixed line endings, controls, byte limits and

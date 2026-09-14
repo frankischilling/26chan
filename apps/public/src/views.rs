@@ -176,6 +176,37 @@ pub struct Comment<'a> {
     pub board: &'a str,
 }
 
+#[cfg(test)]
+mod comment_tests {
+    use super::*;
+    use board_domain::{CommentSpacing, prepare_post_comment};
+
+    #[test]
+    fn prepared_comment_remains_escaped_text_in_the_real_template() {
+        for (code, sjis) in [(false, false), (true, false), (false, true), (true, true)] {
+            let text = prepare_post_comment(
+                "Anonymous",
+                "",
+                " \tC <script> \r\n",
+                1000,
+                false,
+                CommentSpacing::for_board("test", code, sjis),
+            )
+            .unwrap();
+            assert_eq!(text, "C <script>");
+            let lines = parse_comment(&text);
+            let html = Comment {
+                lines: &lines,
+                board: "test",
+            }
+            .render()
+            .unwrap();
+            assert_eq!(html.trim(), "C &#60;script&#62;");
+            assert!(!html.contains("<script>"));
+        }
+    }
+}
+
 #[derive(Template)]
 #[template(path = "error.html")]
 pub struct Message<'a> {

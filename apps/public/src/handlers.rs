@@ -417,12 +417,13 @@ async fn submit_post(
             ));
         }
     };
-    board_domain::validate_post_with_attachment(
+    board_domain::prepare_post_comment(
         &form.name,
         &form.sub,
         &form.com,
         settings.max_comment_chars as usize,
         attachment.is_some(),
+        settings.comment_spacing(),
     )
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     let options = board_domain::posting_options::parse(&form.email)

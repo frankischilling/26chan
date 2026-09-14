@@ -23,6 +23,8 @@ fn board() -> Board {
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
         max_comment_chars: 4000,
+        comment_code_spacing: false,
+        comment_sjis_spacing: false,
         reply_limit: 100,
         bump_limit: 75,
         permasage_hours: 0,
