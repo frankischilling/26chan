@@ -51,13 +51,13 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (locked) message('This thread is closed.');
     else if (error.textContent === 'This thread is closed.') message('');
   }
-  function open(id = thread, quote = null, selected = '') {
+  function open(id = thread, quote = null, selected = '', quoting = false) {
     if (disabled() || !postId(id) || closed(id) || busy) return false;
     if (dialog) {
       if (current !== id) { current = id; form.elements.resto.value = id; document.getElementById('qrTid').textContent = id; comment.value = '';
         const upload = form.querySelector('.qr-upload-link'); if (upload) upload.href = `/${board}/thread/${id}#upfile`;
       }
-      if (quote || selected) insert(quote, selected);
+      if (quoting || quote || selected) insert(quote, selected);
       else comment.focus();
       if (mobile()) place(null, true);
       return true;
@@ -127,7 +127,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     header.addEventListener('pointerup', () => { if (drag && position) void savePosition?.({ ...position }); drag = null; });
     header.addEventListener('pointercancel', () => { drag = null; });
     place(position ?? settings()['QR-position']); sync();
-    if (quote || selected) insert(quote, selected); else comment.focus();
+    if (quoting || quote || selected) insert(quote, selected); else comment.focus();
     return true;
   }
   function insert(id, selected) {
@@ -135,6 +135,11 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     comment.value = result.value; comment.setSelectionRange(result.caret, result.caret);
     if (result.caret === comment.value.length) comment.scrollTop = comment.scrollHeight;
     comment.focus();
+  }
+  function quote(id, post, selected) {
+    if (disabled() || !postId(id)) return false;
+    if (closed(id)) { alert('This thread is closed'); return false; }
+    return open(id, post, selected, true);
   }
   async function send() {
     if (busy) { controller?.abort(); return; }
@@ -172,13 +177,15 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     link.addEventListener('click', event => { if (!disabled()) { event.preventDefault(); open(thread); } }); entry.append('[', link, ']'); if (nav) nav.prepend(entry); else source.before(entry);
   }
   document.addEventListener('click', event => {
-    if (disabled() || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (disabled() || event.button !== 0) return;
     const link = event.target.closest?.('.postInfo > .postNum'); if (!link) return;
     const target = link.closest('.thread'), id = postId(target?.id.slice(1)), post = postId(link.closest('.postInfo')?.id.slice(2));
-    if (id && post && open(id, post, getSelection()?.toString() ?? '')) event.preventDefault();
+    if (id && post) {
+      event.preventDefault(); quote(id, event.ctrlKey ? null : post, getSelection()?.toString() ?? '');
+    }
   });
   window.addEventListener('pagehide', close); window.addEventListener('resize', () => { place(position); sync(); });
   document.addEventListener('4chanThreadUpdated', sync);
   document.addEventListener('boardThreadStateChanged', sync);
-  sync(); return { open: () => open(thread || postId([...document.querySelectorAll('.thread')].find(item => item.getBoundingClientRect().bottom > 0)?.id.slice(1))), sync, close };
+  sync(); return { open: () => !!thread && quote(thread, null, getSelection()?.toString() ?? ''), sync, close };
 }

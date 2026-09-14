@@ -80,7 +80,11 @@ test('Quick Reply guards closed threads and keeps the source spoiler caret behav
   await page.evaluate(() => { document.querySelector('.thread').dataset.closed = 'true'; document.dispatchEvent(new Event('boardThreadStateChanged')); });
   await expect(page.locator('#quickReply input[type=submit]')).toBeDisabled(); await expect(page.locator('#qrError')).toHaveText('This thread is closed.');
   await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
-  await page.locator('.postInfo > .postNum').first().click(); await expect(page.locator('#quickReply')).toHaveCount(0);
+  const before = page.url(), warning = page.waitForEvent('dialog').then(async dialog => {
+    expect(dialog.type()).toBe('alert'); expect(dialog.message()).toBe('This thread is closed'); await dialog.accept();
+  });
+  await page.locator('.postInfo > .postNum').first().click(); await warning;
+  await expect(page.locator('#quickReply')).toHaveCount(0); expect(page.url()).toBe(before);
 });
 
 test('an approved Quick Reply consumes both editors capability fields and reopening permits text only', async ({ page }) => {
@@ -142,4 +146,35 @@ test('source mobile reopening uses 25px while initial placement uses 28px and pr
   await comment.evaluate(node => node.setSelectionRange(node.value.length, node.value.length)); await link.click();
   expect(await comment.evaluate(node => node.selectionStart === node.value.length)).toBe(true);
   expect(await comment.evaluate(node => Math.abs(node.scrollTop + node.clientHeight - node.scrollHeight) <= 1)).toBe(true);
+});
+
+test('source Q is thread-only and quotes selection without inventing a post link', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true })));
+  await page.goto('/demo/'); await page.locator('h1').click(); await page.keyboard.press('q');
+  await expect(page.locator('#quickReply')).toHaveCount(0);
+  await page.goto('/img/thread/1000201'); await page.locator('h1').click();
+  const selected = await page.locator('h1').textContent();
+  await page.locator('h1').evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
+  await page.keyboard.press('q'); await expect(page.locator('#qrCom')).toHaveValue(`>${selected}\n`);
+  await expect(page.locator('#qrResto')).toHaveValue('1000201');
+});
+
+test('Ctrl-click quotes without linking even with optional keyboard shortcuts disabled', async ({ page, context }) => {
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: false })));
+  await page.goto('/demo/'); const link = page.locator('.postInfo > .postNum').first();
+  await link.click({ modifiers: ['Control'] }); await expect(page.locator('#qrCom')).toHaveValue('');
+  expect(context.pages()).toHaveLength(1);
+  await page.locator('#qrCom').fill('Existing draft');
+  const selected = await page.locator('h1').textContent();
+  await page.locator('h1').evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
+  // Dispatch the source click with an existing DOM selection, without a
+  // preceding synthetic mousedown that would collapse it in this harness.
+  const selection = await page.locator('#qrCom').evaluate(node => ({ start: node.selectionStart, end: node.selectionEnd }));
+  const expected = 'Existing draft'.slice(0, selection.start) + `>${selected}\n` + 'Existing draft'.slice(selection.end);
+  await link.dispatchEvent('click', { ctrlKey: true, button: 0 });
+  await expect(page.locator('#qrCom')).toHaveValue(expected);
+  await page.locator('#qrCom').selectText(); await page.locator('#qrCom').press('Control+s');
+  await expect(page.locator('#qrCom')).toHaveValue(`[spoiler]${expected}[/spoiler]`);
+  await page.locator('#qrCom').press('Escape'); await expect(page.locator('#quickReply')).toHaveCount(0);
+  expect(context.pages()).toHaveLength(1);
 });

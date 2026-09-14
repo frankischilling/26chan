@@ -18,7 +18,7 @@ watcher, filtering and navigation shortcuts use actual existing actions:
 - `B` and `N`: follow the server-rendered previous and next page links when present.
 - `R`: fetch and insert new replies through the bounded [thread updater](native-thread-updater.md) on active thread pages.
 - `A`: toggle the same updater's automatic countdown, subject to thread/updater/busy-state guards.
-- `Q`: open [Quick Reply](native-quick-reply.md) on an eligible thread when that feature is enabled.
+- `Q`: open [Quick Reply](native-quick-reply.md) on an eligible thread page when that feature is enabled, quoting selected text without a post ID. It does not choose a thread from the board index.
 
 The resolver preserves the pinned numeric key map, ignores INPUT/TEXTAREA targets
 and Alt/Shift/Ctrl/Meta combinations, and prevents default/propagation for a
@@ -35,9 +35,14 @@ public-only snapshot route and fixed native bundle without expanding CSP authori
 
 ## Explicitly unfinished native behavior
 
-Quick Reply supports Q, Ctrl+S spoiler insertion and Escape closing. Its
-remaining shortcut group and complete source lifecycle are unfinished;
-the [Quick Reply scope](native-quick-reply.md) records those limits.
+The supplied `js/extension.js:8251-8254,8303-8335,9999-10003` also defines the
+Q selection behavior, help groups and Ctrl-click quote action. Help lists the
+Global keys in source order, then Quick Reply's always-enabled Ctrl+Click,
+Ctrl+S and Esc shortcuts. Ctrl-click quotes selected text without linking the
+post ID; Ctrl+S inserts spoiler tags and Esc closes the editor. Those three
+actions do not require keyBinds, but Quick Reply itself must be enabled.
+The complete Quick Reply lifecycle remains unfinished; the
+[Quick Reply scope](native-quick-reply.md) records those limits.
 
 This is a completed watcher/filter/navigation integration step, not a claim that
 all native shortcuts or the full extension are complete. The help uses the

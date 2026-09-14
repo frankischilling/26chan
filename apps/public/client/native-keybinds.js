@@ -52,12 +52,20 @@ export function mountNativeKeybinds({ board, settings, watch, filter, update, au
     dismiss.id = 'keybinds-close'; dismiss.textContent = '\u00d7'; dismiss.setAttribute('aria-label', 'Close keyboard shortcuts');
     dismiss.addEventListener('click', close); header.append(title, dismiss); panel.append(header);
     const list = document.createElement('ul');
-    for (const [key, label] of [['W', 'Watch/Unwatch thread'], ['B', 'Previous page'], ['N', 'Next page'],
-      ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text'], ['R', 'Update thread'], ['A', 'Toggle auto-updater'], ['Q', 'Open Quick Reply']]) {
+    const globalTitle = document.createElement('li'), globalStrong = document.createElement('strong');
+    globalStrong.textContent = 'Global'; globalTitle.append(globalStrong); list.append(globalTitle);
+    for (const [key, label] of [['A', 'Toggle auto-updater'], ['Q', 'Open Quick Reply'], ['R', 'Update thread'],
+      ['W', 'Watch/Unwatch thread'], ['B', 'Previous page'], ['N', 'Next page'], ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text']]) {
       const row = document.createElement('li'), keycap = document.createElement('kbd');
       keycap.textContent = key; row.append(keycap, ` - ${label}`); list.append(row);
     }
-    panel.append(list); dialog.append(panel);
+    const quick = document.createElement('ul'), quickTitle = document.createElement('li'), strong = document.createElement('strong');
+    strong.textContent = 'Quick Reply (always enabled)'; quickTitle.append(strong); quick.append(quickTitle);
+    for (const [key, label] of [['Ctrl + Click', 'the post number - Quote without linking'], ['Ctrl + S', 'Spoiler tags'], ['Esc', 'Close the Quick Reply']]) {
+      const row = document.createElement('li'), keycap = document.createElement('kbd');
+      keycap.textContent = key; row.append(keycap, `${key === 'Ctrl + Click' ? ' ' : ' - '}${label}`); quick.append(row);
+    }
+    panel.append(list, quick); dialog.append(panel);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     document.body.append(dialog); help = dialog; dialog.showModal(); dismiss.focus();
   }
