@@ -11,7 +11,6 @@ import queue
 import re
 import secrets
 import shutil
-import signal
 import socket
 import subprocess
 import sys
@@ -25,24 +24,30 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts/monitoring"))
 from auth_profile import render
+from signal_cleanup import check_signal_cleanup, install_signal_cleanup
 from support import Receiver, context, make_pki, request, write_policy
 
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def wait_for(description, predicate, children, seconds=40):
+    check_signal_cleanup()
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
+        check_signal_cleanup()
         for name, process in children:
             if process.poll() is not None:
                 raise AssertionError(f"{name} exited with {process.returncode}")
         try:
             result = predicate()
+            check_signal_cleanup()
             if result:
                 return result
         except (OSError, urllib.error.URLError, http.client.HTTPException):
             pass
+        check_signal_cleanup()
         time.sleep(0.1)
+    check_signal_cleanup()
     raise AssertionError(f"Timed out waiting for {description}")
 
 
@@ -60,12 +65,6 @@ def stop(process):
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
-
-
-def install_signal_cleanup():
-    def terminate(signum, _frame):
-        raise SystemExit(128 + signum)
-    signal.signal(signal.SIGTERM, terminate)
 
 
 def atomic_json(path, value):
@@ -130,6 +129,7 @@ def qualify(binary_directory, fixture, openssl, lifecycle_state=None):
         def native_check(command):
             result = subprocess.run(command, capture_output=True, timeout=20, env=environment,
                                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+            check_signal_cleanup()
             if result.returncode:
                 raise AssertionError("Native monitoring configuration validation failed")
 
@@ -157,6 +157,7 @@ def qualify(binary_directory, fixture, openssl, lifecycle_state=None):
                                        env=child_environment if child_environment is not None else environment,
                                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
             cleanup.callback(stop, process)
+            check_signal_cleanup()
             children.append((name, process))
 
         launch("exporter", [fixture], dict(environment, METRICS_BIND_ADDR=f"127.0.0.1:{metrics_port}",
@@ -349,6 +350,7 @@ def qualify(binary_directory, fixture, openssl, lifecycle_state=None):
         print(json.dumps({"alert": "BoardHttp5xx", "fingerprint": firing["fingerprint"],
                           "firing_started_at": firing["startsAt"], "resolved_at": resolved["endsAt"],
                           "receiver": "owned HTTPS loopback only"}), flush=True)
+    check_signal_cleanup()
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ import tempfile
 import threading
 import urllib.parse
 
-from qualify import ROOT, install_signal_cleanup, port, request, stop, wait_for
+from qualify import ROOT, check_signal_cleanup, install_signal_cleanup, port, request, stop, wait_for
 
 
 QUEUE_FAMILIES = {
@@ -301,6 +301,7 @@ def qualify(lifecycle_state=None):
         if monitor_process.returncode != 0:
             raise AssertionError('Monitor did not shut down cleanly')
     print('PASS owned monitoring children, queue rows, grants, capacity and temporary credentials cleaned', flush=True)
+    check_signal_cleanup()
 
 
 if __name__ == '__main__':

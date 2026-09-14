@@ -8,9 +8,9 @@ import os
 from pathlib import Path
 import queue
 import secrets
-import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -19,15 +19,11 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts/monitoring"))
+from signal_cleanup import check_signal_cleanup, install_signal_cleanup
+
 # Bypass environment proxy settings: every HTTP request in this test is loopback.
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-
-
-def install_signal_cleanup():
-    def terminate(signum, _frame):
-        raise SystemExit(128 + signum)
-
-    signal.signal(signal.SIGTERM, terminate)
 
 
 def request(url, token=None):
@@ -46,18 +42,23 @@ def port():
 
 
 def wait_for(description, predicate, children, seconds=30):
+    check_signal_cleanup()
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
+        check_signal_cleanup()
         for name, process in children:
             if process.poll() is not None:
                 raise AssertionError(f"{name} exited with {process.returncode}")
         try:
             result = predicate()
+            check_signal_cleanup()
             if result:
                 return result
         except (OSError, urllib.error.URLError):
             pass
+        check_signal_cleanup()
         time.sleep(0.1)
+    check_signal_cleanup()
     raise AssertionError(f"Timed out waiting for {description}")
 
 
@@ -132,6 +133,7 @@ def qualify(binary_directory, fixture, lifecycle_state=None):
             [tools["amtool"], "check-config", work / "alertmanager.yml"],
         ):
             subprocess.run(command, check=True, timeout=15, env=system_environment)
+            check_signal_cleanup()
 
         children = []
         logs = []
@@ -143,6 +145,7 @@ def qualify(binary_directory, fixture, lifecycle_state=None):
                                        env=environment if environment is not None else system_environment,
                                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
             cleanup.callback(stop, process)
+            check_signal_cleanup()
             children.append((name, process))
             logs.append(log_path)
 
@@ -222,6 +225,7 @@ def qualify(binary_directory, fixture, lifecycle_state=None):
                     log.seek(max(0, log_path.stat().st_size - 8192))
                     print(f"{log_path.name}:\n" + log.read().decode(errors="replace").replace(token, "[REDACTED]"))
             raise
+    check_signal_cleanup()
 
 
 if __name__ == "__main__":
