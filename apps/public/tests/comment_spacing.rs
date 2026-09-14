@@ -128,7 +128,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .to_vec(),
     )
     .unwrap();
-    assert!(html.contains("&lt;script&gt;"));
+    assert!(html.contains("C &#60;script&#62;"));
     assert!(!html.contains("C <script>"));
 
     let denied = sqlx::query("UPDATE content.boards SET comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1")
