@@ -1,7 +1,7 @@
 # Posting JSON responses
 
 Both `/{board}/post` and `/{board}/imgboard.php` accept the existing
-URL-encoded posting form. Exactly one `Accept: application/json` header
+URL-encoded or [multipart posting form](posting-multipart.md). Exactly one `Accept: application/json` header
 selects a JSON response. Lists, parameters, different casing and duplicate
 headers select the HTML path. This follows the supplied
 `imgboard.php:3776,6816` exact-value branches; it is not general Accept
@@ -54,8 +54,8 @@ password handler. That test does not change production CSP or implement a
 Quick Reply interface. CI must pass the persisted/browser tests; a local
 unit or compile pass alone does not qualify them.
 
-The original multipart mode/field names, password-cookie flow, captcha,
-full success page and Quick Reply interface remain separate work under
+The original password-cookie flow, captcha, full success page and Quick
+Reply interface remain separate work under
 I-009 and E-010/E-011. Production CSP still permits no posting fetch from
 ordinary pages. No schema, dependency, database grant or media-boundary
 change is required by this response layer.

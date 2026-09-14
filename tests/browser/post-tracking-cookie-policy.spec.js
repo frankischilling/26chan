@@ -46,7 +46,7 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
           await page.locator('#email').selectOption(option);
           if (parent === '0') await page.locator('#sub').fill('Owned network cookie policy');
           const pending = page.waitForResponse(response => response.request().method() === 'POST'
-            && response.url() === `${origin}/test/post`);
+            && response.url() === `${origin}/test/imgboard.php`);
           await page.getByRole('button', { name: 'Post', exact: true }).click();
           const response = await pending;
           expect(response.status()).toBe(303);

@@ -16,7 +16,7 @@ async function post(page, comment, { subject = '', option = '' } = {}) {
   await page.locator('#password').fill(password);
   if (subject) await page.locator('#sub').fill(subject);
   await page.locator('#email').selectOption(option);
-  const response = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/test/post'));
+  const response = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/test/imgboard.php'));
   await page.getByRole('button', { name: 'Post', exact: true }).click();
   expect((await response).status()).toBe(303);
 }

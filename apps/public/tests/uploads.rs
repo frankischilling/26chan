@@ -21,6 +21,23 @@ fn post_request(path: &str, body: String) -> Request<Body> {
         .body(Body::from(body))
         .unwrap()
 }
+fn multipart_post_request(path: &str, fields: &[(&str, String)]) -> Request<Body> {
+    let mut body = String::new();
+    for (name, value) in fields {
+        body.push_str(&format!(
+            "--post-boundary\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+        ));
+    }
+    body.push_str("--post-boundary--\r\n");
+    Request::post(path)
+        .header("origin", "http://127.0.0.1:3000")
+        .header(
+            "content-type",
+            "multipart/form-data; boundary=post-boundary",
+        )
+        .body(Body::from(body))
+        .unwrap()
+}
 fn multipart(board: &str, data: Vec<u8>, extra: bool) -> Request<Body> {
     let head = format!(
         "--boundary\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n0\r\n--boundary\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"<b>{board}</b>.png\"\r\nContent-Type: image/png\r\n\r\n"
@@ -707,9 +724,21 @@ async fn image_reply_contract(
         } else if index == 1 {
             // Omitted com is equivalent to an empty form field, but only an
             // approved attachment can make this actual HTTP reply succeed.
-            let response = app.clone().oneshot(post_request(&format!("/{board}/post"),
-                format!("upload_id={}&upload_capability={}&resto={thread}&spoiler=true&password=synthetic-password-123",
-                    upload.id, upload.capability))).await.unwrap();
+            let response = app
+                .clone()
+                .oneshot(multipart_post_request(
+                    &format!("/{board}/imgboard.php"),
+                    &[
+                        ("mode", "regist".into()),
+                        ("pwd", "synthetic-password-123".into()),
+                        ("upload_id", upload.id.clone()),
+                        ("upload_capability", upload.capability.clone()),
+                        ("resto", thread.to_string()),
+                        ("spoiler", "on".into()),
+                    ],
+                ))
+                .await
+                .unwrap();
             assert_eq!(response.status(), StatusCode::SEE_OTHER);
             response.headers()["location"]
                 .to_str()
