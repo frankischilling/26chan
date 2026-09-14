@@ -50,6 +50,7 @@ fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>) -> String {
                 archive_expires_at: None,
             },
             posts: vec![views::PostView::new(Post {
+                comment_format: 0,
                 id,
                 board: board.slug.clone(),
                 thread_id: id,

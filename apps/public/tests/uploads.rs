@@ -216,7 +216,7 @@ async fn exercise(
     );
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));
-    assert!(page.contains("rows=\"4\" required aria-describedby=\"postHelp\""));
+    assert!(page.contains("rows=\"4\" aria-describedby=\"postHelp\""));
     for comment in ["&com=", "", "&com=+%09%0A"] {
         assert_eq!(
             app.clone()

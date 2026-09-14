@@ -407,7 +407,7 @@ async fn local_quotes(
             "href=\"/other/post/{target}\">&gt;&gt;&gt;/other/{target}</a>"
         )));
         assert!(markup.contains(&format!(
-            "aria-label=\"Spoiler; focus to reveal\">&#62;&#62;{target}</span>"
+            "[spoiler]<a class=\"quotelink\" href=\"/{slug}/post/{target}\">&gt;&gt;{target}</a>[/spoiler]"
         )));
         let response = app
             .clone()
@@ -538,7 +538,8 @@ async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &
                 .as_str()
                 .unwrap();
             assert!(saved.contains("&#60;script&#62;<br>line1<br>line2<br>line3"));
-            assert_eq!(saved.contains("class=\"spoiler\""), !spoilers);
+            assert!(!saved.contains("class=\"spoiler\""));
+            assert_eq!(saved.contains("[spoiler]b[/spoiler]"), !spoilers);
             let before = board_store::thread(public, slug, thread).await.unwrap();
             for (raw, error) in [
                 (

@@ -32,8 +32,12 @@ BEGIN;
 SELECT nextval('content.post_number') AS fixture_op, nextval('content.post_number') AS fixture_reply \gset
 INSERT INTO content.threads(id,board,reply_count) VALUES(:fixture_op,'test',1);
 INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
-VALUES(:fixture_op,'test',:fixture_op,'Anonymous','','Owned restore OP'),
+VALUES(:fixture_op,'test',:fixture_op,'Anonymous','Owned subject-only restore OP',''),
       (:fixture_reply,'test',:fixture_op,'Anonymous','','Owned restore reply');
+-- Operator-owned history represents different past formatter/policy versions.
+-- Restoring it must retain those stamps, not apply today's board settings.
+UPDATE content.posts SET comment_format=0 WHERE id=:fixture_op;
+UPDATE content.posts SET comment_format=15 WHERE id=:fixture_reply;
 INSERT INTO post_secrets.op_peers(thread_id,peer) VALUES(:fixture_op,'192.0.2.50');
 INSERT INTO post_secrets.op_replies(post_id,thread_id) VALUES(:fixture_reply,:fixture_op);
 COMMIT;
