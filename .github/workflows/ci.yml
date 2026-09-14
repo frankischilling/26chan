@@ -13,7 +13,9 @@ permissions:
 jobs:
   rust-and-postgres:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Complete qualification exceeded 30 minutes in both #141 Linux jobs.
+    # Per-test, process and containment deadlines remain independently bounded.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
