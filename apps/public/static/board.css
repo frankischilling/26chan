@@ -156,6 +156,27 @@ table.postForm button { padding: 1px 6px; }
 @media (hover: none) { .catalog .postMenuBtn { opacity: .5; pointer-events: auto; } }
 @media (prefers-reduced-motion: reduce) { .catalog .postMenuBtn { transition: none; } }
 
+/* Source text-only catalog table; image-card sizing does not apply to rows. */
+.catalogControl[hidden] { display: none; }
+.catalog.textCatalog table { width: 80%; margin-left: auto; margin-right: auto; border-collapse: separate; border-spacing: 2px; }
+.catalog.textCatalog .thread { display: table-row; position: static; width: auto; max-height: none; margin: 0; padding: 0; overflow: visible; overflow-wrap: normal; vertical-align: middle; }
+.catalog.textCatalog th { box-sizing: content-box; font-weight: bold; padding: 4px 2px; text-align: center; }
+.catalog.textCatalog td { box-sizing: content-box; padding: 4px 2px; font-size: var(--text-catalog-cell-font, 10pt); }
+.catalog.textCatalog .txt-sub { text-align: left; }
+.catalog.textCatalog .txt-no a { text-decoration: none; }
+.catalog.textCatalog .pinned td:first-child { box-shadow: -1px 0 #000; }
+.textCatalog .txt-no { width: 20px; }
+.textCatalog .txt-rep { width: 100px; }
+.textCatalog .txt-date { width: 200px; }
+.textCatalog .txt-ctrl { width: 25px; position: relative; }
+.catalog.textCatalog .postMenuBtn { position: static; opacity: .5; pointer-events: auto; margin: 0 0 0 5px; }
+.catalog.textCatalog .postMenuBtn:hover, .catalog.textCatalog .postMenuBtn:focus-visible { opacity: 1; }
+.catalog.textCatalog .dd-menu { left: auto; right: 0; transform: none; max-width: none; }
+@media (max-width: 480px) {
+  .textCatalog .txt-ctrl, .textCatalog .txt-date { display: none; }
+  .catalog.textCatalog table { width: 100%; }
+}
+
 /* Extension post menus use the pinned v1191 controls and v716 menu rules. */
 .postMenuBtn[data-post-menu] { display: inline-block; width: 1em; height: 1em; margin: 0 0 0 5px; padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; line-height: 1em; text-align: center; opacity: .8; cursor: pointer; transition: transform .1s; }
 .postMenuBtn[data-post-menu][data-family="futaba"] { color: #000080; }

@@ -1,4 +1,5 @@
 .prettyprint { font-size: 14px; }
+:root { --text-catalog-cell-font: 12pt; }
 :root {
   --settings-edge: rgba(0, 0, 0, 0.2);
   --paper: #eef2ff; --ink: #000000; --panel: #d6daf0; --edge: #b7c5d9;

@@ -3,6 +3,7 @@
 {% import "attachments.html" as attachments %}
 {% import "post_fields.html" as posting %}
 {% import "catalog_card.html" as catalog_cards %}
+{% import "catalog_text_row.html" as catalog_text_rows %}
 {% import "thread_navigation.html" as thread_navigation %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block body_attributes %}{% if board.text_only %} class="text_only"{% endif %}{% endblock %}
@@ -40,7 +41,13 @@
 {% endif %}
 <hr>
 {% if catalog %}{% include "catalog_controls.html" %}{% endif %}
-<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {{ catalog_options.class() }}{% else %}board{% endif %}"{% if catalog %} data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
+<div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {% if board.text_only %}textCatalog{% else %}{{ catalog_options.class() }}{% endif %}{% else %}board{% endif %}"{% if catalog %} data-text-only="{{ board.text_only }}" data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
+{% if catalog && board.text_only %}
+<table><thead><tr><th class="txt-no"></th><th class="txt-sub" scope="col">Subject</th><th class="txt-rep" scope="col">Replies</th><th class="txt-date" scope="col">Date</th><th class="txt-ctrl"></th></tr></thead><tbody>
+{% for view in threads %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}
+</tbody></table>
+{% if threads.is_empty() %}<p class="empty">{% if !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. <a href="/{{ board.slug }}/#reply">Start the first thread</a>.{% endif %}</p>{% endif %}
+{% else %}
 {% for view in threads %}
 {% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" data-tail-size="{{ view.tail_size }}" aria-label="Thread {{ view.thread.id }}">
@@ -51,6 +58,7 @@
 </section>
 {% endif %}
 {% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#reply">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
+{% endif %}
 </div>
 {% if posting_allowed() %}<div class="mobile postFormBottom" hidden><a class="mobilePostFormToggle button" href="#mpostform" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>{% endif %}
 {% if parent > 0 %}
@@ -61,7 +69,7 @@
 {% else %}
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
 {% endif %}
-{% if catalog %}<template id="catalogFiltered">{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}</template>{% endif %}
+{% if catalog %}<template id="catalogFiltered">{% if board.text_only %}<table><tbody>{% for view in catalog_hidden %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}</tbody></table>{% else %}{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}{% endif %}</template>{% endif %}
 <div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}

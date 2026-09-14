@@ -3,16 +3,24 @@ use askama::Template;
 use board_store::{Post, Thread};
 
 pub fn page(disabled_images: bool) -> String {
-    render(disabled_images, None)
+    render(disabled_images, None, false)
+}
+
+pub fn text_page() -> String {
+    render(true, None, true)
 }
 
 pub fn flagged_page(sticky: bool, permaage: bool, undead: bool) -> String {
-    render(false, Some((sticky, permaage, undead)))
+    render(false, Some((sticky, permaage, undead)), false)
 }
 
-fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>) -> String {
+fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>, text_only: bool) -> String {
     let mut board = board();
     board.slug = "limits".into();
+    board.text_only = text_only;
+    if text_only {
+        board.slug = "text-catalog".into();
+    }
     board.title = "Catalog limits".into();
     board.description = "Synthetic reply and image-count states.".into();
     board.bump_limit = 2;
@@ -55,7 +63,11 @@ fn render(disabled_images: bool, flags: Option<(bool, bool, bool)>) -> String {
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "Anonymous".into(),
-                subject: subject.into(),
+                subject: if text_only && index == 4 {
+                    "<script>literal & subject</script>".into()
+                } else {
+                    subject.into()
+                },
                 comment: "Synthetic counter fixture.".into(),
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,

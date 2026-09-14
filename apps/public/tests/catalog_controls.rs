@@ -103,6 +103,47 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             assert_eq!(bump_limited(&page, id), limited, "{query} {id}");
         }
     }
+    sqlx::query("UPDATE content.boards SET text_only=true WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for (query, expected) in [
+        ("", vec![*a, *b, *c, *s]),
+        ("?order=date", vec![*s, *c, *b, *a]),
+        ("?order=absdate", vec![*b, *a, *c, *s]),
+        ("?order=r", vec![*c, *b, *a, *s]),
+        ("?q=Crane", vec![*c]),
+        ("?q=absent", vec![]),
+        ("?size=large&teaser=off", vec![*a, *b, *c, *s]),
+    ] {
+        let (status, page) = read(&app, &format!("/{slug}/catalog{query}")).await;
+        assert_eq!(status, 200);
+        assert_eq!(ids(&page), expected, "text catalog {query}");
+        assert!(page.contains("class=\"catalog textCatalog\""));
+        assert!(page.contains("data-text-only=\"true\""));
+        assert!(page.contains("<th class=\"txt-sub\" scope=\"col\">Subject</th>"));
+        assert!(!page.contains("<section class=\"thread\""));
+        assert!(!page.contains("<img class=\"thumb"));
+        assert_eq!(
+            page.matches("<template class=\"catalogTeaser\">").count(),
+            4
+        );
+        assert!(!page.contains("<script>fold</script>"));
+        for id in &expected {
+            let (_, json) = read(&app, &format!("/{slug}/thread/{id}.json")).await;
+            let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+            let date = json["posts"][0]["now"].as_str().unwrap();
+            assert!(page.contains(&format!("class=\"txt-date\" data-id=\"{id}\">{date}</td>")));
+        }
+    }
+    let (_, page) = read(&app, &format!("/{slug}/catalog")).await;
+    assert_eq!(page.matches("<td class=\"txt-rep\"><i>").count(), 2);
+    sqlx::query("UPDATE content.boards SET text_only=false WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
     for (query, expected) in [
         ("q=aLpHa", vec![*a]),
         ("q=%5B.*%5D", vec![*a]),

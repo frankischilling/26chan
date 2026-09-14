@@ -126,9 +126,8 @@ impl Options {
             hidden = excluded;
         }
         snapshot.threads.sort_by(|a, b| {
-            b.thread
-                .sticky
-                .cmp(&a.thread.sticky)
+            (b.thread.sticky && !snapshot.board.text_only)
+                .cmp(&(a.thread.sticky && !snapshot.board.text_only))
                 .then_with(|| match self.order {
                     Order::Bump => b
                         .thread

@@ -24,6 +24,8 @@
   const validQuery = value => typeof value === 'string' && value.length <= 256
     && Array.from(value).length <= 128 && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
   const container = document.getElementById('threads');
+  const textOnly = container?.dataset.textOnly === 'true';
+  const entriesRoot = textOnly ? container.querySelector(':scope > table > tbody') : container;
   const hidden = document.getElementById('catalogFiltered');
   const action = new URL(form.action);
   const board = action.pathname.split('/')[1];
@@ -51,10 +53,11 @@
   let entries = null;
   let hiddenCount = 0;
   try {
-    if (!(container instanceof HTMLElement)) throw new Error('Missing catalog');
-    const nodes = Array.from(container.querySelectorAll(':scope > .thread'));
+    if (!(container instanceof HTMLElement) || !(entriesRoot instanceof HTMLElement)) throw new Error('Missing catalog');
+    const nodes = Array.from(entriesRoot.querySelectorAll(':scope > .thread'));
     if (hidden instanceof HTMLTemplateElement) {
-      const excluded = Array.from(hidden.content.children).filter(node => node.matches('.thread'));
+      const excluded = textOnly ? Array.from(hidden.content.querySelectorAll('table > tbody > .thread'))
+        : Array.from(hidden.content.children).filter(node => node.matches('.thread'));
       hiddenCount = excluded.length;
       nodes.push(...excluded);
     }
@@ -62,13 +65,15 @@
       const data = node.dataset;
       if (!['true', 'false'].includes(data.sticky)) throw new Error('Invalid sticky flag');
       const teaserNode = node.querySelector(':scope > .teaser')
-        ?? node.querySelector(':scope > template.catalogTeaser')?.content.querySelector('.teaser');
+        ?? node.querySelector('template.catalogTeaser')?.content.querySelector('.teaser');
       if (!(teaserNode instanceof HTMLElement)) throw new Error('Missing teaser');
       const thumb = node.querySelector('.catalogThumb img[id^="thumb-"]');
       const fields = node.querySelector('.catalogThumb')?.dataset;
       const searchable = fields && ['true', 'false'].includes(fields.hasFile)
         && ['searchText', 'searchFile'].every(name => typeof fields[name] === 'string');
       return { node, teaser: teaserNode, thumb, spoiler: spoilerSource(thumb),
+        reply: node.querySelector(textOnly ? '.txt-rep [data-replies-count]' : '.meta > b, .meta > i > b'),
+        controls: node.querySelector(textOnly ? '.txt-ctrl' : '.meta'),
         fields: searchable ? [fields.searchText, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
         small: thumb ? dimensions(thumb, 'small', 150) : null,
         large: thumb ? dimensions(thumb, 'large', 250) : null,
@@ -91,7 +96,7 @@
   let composing = false;
 
   const stateReady = searchReady && entries.every(entry => entry.replies <= BigInt(Number.MAX_SAFE_INTEGER)
-    && entry.node.querySelector('.meta > b, .meta > i > b') && entry.node.querySelector('a.catalogThumb[href]'));
+    && entry.reply && entry.controls && entry.node.querySelector('a.catalogThumb[href]'));
   const pinKey = `4chan-pin-${board}`;
   const hideKey = `4chan-hide-t-${board}`;
   const byId = new Map((entries ?? []).map(entry => [entry.id.toString(), entry]));
@@ -183,7 +188,7 @@
     entry.node.remove();
     shownHiddenCount += unhide ? -1 : 1;
     if (hiddenOnly && shownHiddenCount === 0) { hiddenOnly = false; apply(current()); }
-    else if (!hiddenOnly && !renderedQuery && !container.querySelector(':scope > .thread')) apply(current());
+    else if (!hiddenOnly && !renderedQuery && !entriesRoot.querySelector(':scope > .thread')) apply(current());
     else updateStateControls();
   };
   const openMenu = (entry, button) => {
@@ -218,7 +223,7 @@
       if (hiddenLabels[0] && !hiddenLabels[0].label.hidden) hiddenLabels[0].toggle.focus();
     });
     menu.append(list);
-    entry.node.querySelector('.meta').append(menu);
+    entry.controls.append(menu);
     entry.node.classList.add('catalogMenuActive');
     button.classList.add('menuOpen');
     button.setAttribute('aria-expanded', 'true');
@@ -238,8 +243,8 @@
   };
   const installThreadControls = () => {
     for (const entry of entries) {
-      const meta = entry.node.querySelector('.meta');
-      const reply = meta.querySelector('b');
+      const meta = entry.controls;
+      const reply = entry.reply;
       entry.pinDelta = document.createElement('span');
       entry.pinDelta.className = 'catalogPinDelta';
       entry.pinDelta.hidden = true;
@@ -250,7 +255,7 @@
       const number = document.createElement('b');
       number.textContent = String(pages.get(entry.id.toString()) ?? '');
       entry.pinPage.append(' / P: ', number);
-      meta.append(entry.pinPage);
+      if (!textOnly) meta.append(entry.pinPage);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'postMenuBtn';
@@ -352,7 +357,7 @@
       shownHiddenCount = hiddenOnly || !query ? total : 0;
     }
     if (value.orderby !== renderedOrder) {
-      entries.sort((a, b) => Number(b.sticky) - Number(a.sticky)
+      entries.sort((a, b) => (textOnly ? 0 : Number(b.sticky) - Number(a.sticky))
         || (stateReady ? Number(pins.has(b.id.toString())) - Number(pins.has(a.id.toString())) : 0) || (
         value.orderby === 'date' ? compare(b.id, a.id)
           : value.orderby === 'absdate' ? compareOptional(b.latest, a.latest) || compare(a.id, b.id)
@@ -367,7 +372,7 @@
     order.value = value.orderby;
     size.value = value.large ? 'large' : 'small';
     teaser.value = value.extended ? 'on' : 'off';
-    container.className = `catalog ${value.extended ? 'extended-' : ''}${value.large ? 'large' : 'small'}`;
+    container.className = textOnly ? 'catalog textCatalog' : `catalog ${value.extended ? 'extended-' : ''}${value.large ? 'large' : 'small'}`;
     const fragment = document.createDocumentFragment();
     let count = 0;
     for (const entry of entries) {
@@ -376,6 +381,7 @@
       if (!hiddenOnly && searchReady && pattern && !entry.fields.some(field => pattern.test(field))) continue;
       if (stateReady) {
         const pinned = pins.has(id);
+        if (textOnly) entry.node.classList.toggle('pinned', pinned);
         entry.node.querySelector('.catalogThumb .thumb')?.classList.toggle('pinned', pinned);
         entry.pinDelta.hidden = !pinned;
         entry.pinPage.hidden = !pinned || !pages.has(id);
@@ -397,8 +403,10 @@
         entry.thumb.width = width;
         entry.thumb.height = height;
       }
-      if (value.extended) entry.node.append(entry.teaser);
-      else entry.teaser.remove();
+      if (!textOnly) {
+        if (value.extended) entry.node.append(entry.teaser);
+        else entry.teaser.remove();
+      }
       fragment.append(entry.node, document.createTextNode('\n'));
       count += 1;
     }
@@ -415,7 +423,13 @@
         fragment.append(message);
       }
     }
-    container.replaceChildren(fragment);
+    if (textOnly) {
+      container.querySelector(':scope > .empty')?.remove();
+      // Keep messages outside the table instead of relying on HTML foster parenting.
+      const message = fragment.querySelector('.empty');
+      if (message) container.append(message);
+    }
+    entriesRoot.replaceChildren(fragment);
     if (searchReady) renderedQuery = query;
     if (stateReady) { persistState(pinKey, pins); updateStateControls(); }
     return true;
