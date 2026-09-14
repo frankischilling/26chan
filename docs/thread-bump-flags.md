@@ -88,7 +88,8 @@ All six checks passed before PR #117 merged with the tested tree unchanged.
 
 [Image-limit exclusions](source-image-limits.md) have separate implementation
 and qualification. [Age suppression](source-bump-age.md) has separate request-clock
-and upgrade coverage. OP self-bumps, board-specific spam
+and upgrade coverage. [OP self-bumps](source-op-bumps.md) supply sage through private
+peer matching. Board-specific spam
 rules and source reply admission remain unfinished. These flags do not bypass
 closed/archive/reply/image admission or expand processing authority. Production
 launch/recovery and full source parity remain separate unfinished work.

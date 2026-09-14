@@ -26,7 +26,8 @@ It no longer decides bumping or bump-limit indicators. That admission policy
 still needs source matching. [Persisted permaage/permasage controls](thread-bump-flags.md)
 now extend these rules, with their own authority and migration coverage.
 [Age-based suppression](source-bump-age.md) uses the request-start and OP clocks.
-OP self-bumps and board-specific spam rules remain unfinished.
+[OP self-bumps](source-op-bumps.md) use private peer matching and strict intervals.
+Board-specific spam rules remain unfinished.
 [Image-limit exclusions](source-image-limits.md) have separate verification.
 These ordinary/sticky rules do not establish full bump-policy parity.
 

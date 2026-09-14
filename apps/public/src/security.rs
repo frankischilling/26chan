@@ -36,11 +36,19 @@ impl Limits {
 #[derive(Clone, Copy)]
 pub(crate) struct RequestStart(pub chrono::DateTime<chrono::Utc>);
 
+#[derive(Clone, Copy)]
+pub(crate) struct RequestPeer(pub Option<IpAddr>);
+
 pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
     // Replace even a pre-existing extension; headers/form fields have no clock authority.
     request
         .extensions_mut()
         .insert(RequestStart(chrono::Utc::now()));
+    let peer = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|info| info.0.ip().to_canonical());
+    request.extensions_mut().insert(RequestPeer(peer));
     let Ok(permit) = state.limits.active.clone().try_acquire_owned() else {
         return headers(
             (
@@ -271,6 +279,32 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn production_posting_without_transport_peer_rejects_forged_hints_before_database_access()
+    {
+        use http_body_util::BodyExt;
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+            .unwrap();
+        let app = crate::router(pool, "https://boards.example.com".into(), true);
+        let request = Request::post("/test/imgboard.php")
+            .extension(RequestPeer(Some("192.0.2.1".parse().unwrap())))
+            .header("origin", "https://boards.example.com")
+            .header("accept", "application/json")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header("x-forwarded-for", "192.0.2.1")
+            .header("forwarded", "for=192.0.2.1")
+            .body(Body::from("com=Owned+fixture&pwd=owned-secret"))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), 503);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap()["error"],
+            "Posting transport identity is unavailable."
+        );
+    }
 
     #[tokio::test]
     async fn request_clock_precedes_body_collection_and_replaces_untrusted_hints() {

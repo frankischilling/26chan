@@ -343,13 +343,26 @@ pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
     axum::Extension(start): axum::Extension<crate::security::RequestStart>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
     let response = match form {
         Ok(crate::posting_form::PostingForm(form)) => {
-            match submit_post(state, board, headers, form, format, start.0).await {
+            match submit_post(
+                state,
+                board,
+                headers,
+                form,
+                format,
+                board_store::PostingContext {
+                    request_start: start.0,
+                    peer: peer.0,
+                },
+            )
+            .await
+            {
                 Ok(response) => response,
                 Err(error) => format.error(error),
             }
@@ -365,8 +378,14 @@ async fn submit_post(
     headers: HeaderMap,
     form: PostForm,
     format: crate::posting_response::Format,
-    request_start: chrono::DateTime<chrono::Utc>,
+    context: board_store::PostingContext,
 ) -> Result<Response, AppError> {
+    if state.production && context.peer.is_none() {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Posting transport identity is unavailable.",
+        ));
+    }
     if [form.awt, form.track]
         .into_iter()
         .flatten()
@@ -459,13 +478,13 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_attachment_at(
+    let id = board_store::create_post_with_context(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
-        request_start,
+        context,
     )
     .await?;
     let thread = if form.resto == 0 { id } else { form.resto };

@@ -67,9 +67,18 @@ Admission remains occupied after a handler returns while its response body or em
 
 ## Backup and recovery
 
+[OP self-bump records](source-op-bumps.md) contain sensitive active-thread
+addresses and same-address reply membership. Live deletion/archival removes
+them transactionally; existing backups may retain earlier copies. Keep their
+encryption and retention under the independent backup operator, and do not
+publish dumps or fingerprints with recoverable private data. The disposable
+restore exercise seeds a synthetic OP, verifies both private table fingerprints
+and checks restored staff/auth/media/reader/monitor read denials. These additions
+require their current-head Linux CI; they do not establish production recovery.
+
 The [populated attachment restore exercise](attachment-restore.md) supplements the database-only check below. It restores normalized full images and thumbnails alongside attachments, tombstones and counters, verifies real API/reader handlers, then resumes cleanup in the restored copy. It passed locally on the owned Windows PostgreSQL 16.15 cluster; its Linux CI addition awaits execution. It does not establish production backup durability or point-in-time recovery.
 
-`scripts/restore-exercise.sh` uses PostgreSQL's custom dump/restore format in an owned disposable cluster. It creates a distinct restore database, compares post and asset fingerprints plus fifteen table counts, and exercises approved-reader, aggregate-observer and public/media/authentication/moderation grants and denials. It drops that generated restore database on success and leaves the backup under ignored `.local/backups/`; a failed run may need operator removal of its restore database. Run it with writes stopped; changes during comparisons cause a failure. It restores database metadata, not media object files, and does not establish point-in-time recovery or production backup durability. Current outcomes are in [the approval verification record](verification-media-approval.md).
+`scripts/restore-exercise.sh` uses PostgreSQL's custom dump/restore format in an owned disposable cluster. It creates a distinct restore database, compares post, private OP, asset and intake-handle fingerprints plus eighteen table counts, and exercises approved-reader, aggregate-observer and public/media/authentication/moderation grants and denials. It drops that generated restore database on success and leaves the backup under ignored `.local/backups/`; a failed run may need operator removal of its restore database. Run it with writes stopped; changes during comparisons cause a failure. It restores database metadata, not media object files, and does not establish point-in-time recovery or production backup durability. Current outcomes are in [the approval verification record](verification-media-approval.md).
 
 Production requires an independent backup identity and storage account. Application and staff credentials must be unable to delete backups, change retention or access encryption recovery keys. Set and document retention from the operator's privacy/recovery requirements; no production retention period has been chosen. Keep encrypted, immutable copies outside the serving account. Schedule periodic restoration on a separate network, verify data and grants, then record recovery time and recovery point. Those measurements have not been taken here.
 

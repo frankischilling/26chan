@@ -59,6 +59,7 @@ Six-theme desktop/mobile browser assertions add sticky/permaage/undead cards
 and zero-capacity retained images. All 118 theme, 39 media/interaction, ten
 public-state and three fixture-backed base visual cases passed without baseline
 updates. Rust formatting, browser-script syntax and whitespace checks passed. Local
-PostgreSQL is not listening, so persisted, concurrency and complete native
-qualification require this head's Linux CI. These indicator rules do not
+PostgreSQL is not listening locally. Both complete Linux runs 34811781867 and
+34811775495 passed persisted, concurrency and native checks before PR #119
+merged with the tested tree unchanged. These indicator rules do not
 establish full media-format, source-page or production deployment parity.
