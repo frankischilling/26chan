@@ -194,6 +194,44 @@ async fn exercise(public: PgPool, slug: String) {
     // an actual delayed body. Neither body fields nor headers choose the time.
     for route in ["post", "imgboard.php"] {
         for multipart in [false, true] {
+            // Unknown timestamp fields are rejected rather than ignored.
+            let before = board_store::thread(&public, &slug, id).await.unwrap();
+            let forged = if multipart {
+                "--clock\r\nContent-Disposition: form-data; name=\"time\"\r\n\r\n1\r\n--clock--\r\n"
+                    .to_owned()
+            } else {
+                format!("resto={id}&com=Owned&pwd=owned-secret&time=1")
+            };
+            let rejected = app
+                .clone()
+                .oneshot(
+                    Request::post(format!("/{slug}/{route}"))
+                        .header("origin", "http://127.0.0.1:3000")
+                        .header("accept", "application/json")
+                        .header(
+                            "content-type",
+                            if multipart {
+                                "multipart/form-data; boundary=clock"
+                            } else {
+                                "application/x-www-form-urlencoded"
+                            },
+                        )
+                        .body(Body::from(forged))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(rejected.status(), 422);
+            let after = board_store::thread(&public, &slug, id).await.unwrap();
+            assert_eq!(
+                (after.reply_count, after.modified_at, after.http_modified_at),
+                (
+                    before.reply_count,
+                    before.modified_at,
+                    before.http_modified_at
+                )
+            );
+
             let polled = Arc::new(AtomicI64::new(0));
             let seen = polled.clone();
             let body = Body::from_stream(futures_util::stream::once(async move {
@@ -204,10 +242,10 @@ async fn exercise(public: PgPool, slug: String) {
                 }
                 let value = if multipart {
                     format!(
-                        "--clock\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{id}\r\n--clock\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\nOwned delayed clock\r\n--clock\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--clock\r\nContent-Disposition: form-data; name=\"time\"\r\n\r\n1\r\n--clock--\r\n"
+                        "--clock\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{id}\r\n--clock\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\nOwned delayed clock\r\n--clock\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--clock--\r\n"
                     )
                 } else {
-                    format!("resto={id}&com=Owned+delayed+clock&pwd=owned-secret&time=1")
+                    format!("resto={id}&com=Owned+delayed+clock&pwd=owned-secret")
                 };
                 Ok::<_, std::io::Error>(bytes::Bytes::from(value))
             }));
