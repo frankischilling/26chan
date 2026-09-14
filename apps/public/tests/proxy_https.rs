@@ -33,11 +33,11 @@ async fn real_https_proxy_preserves_owner_identity_and_separate_client_limits() 
         );
         let posts: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
         for (field, expected) in [
-            ("op", 24),
-            ("same", 24),
-            ("same_again", 24),
-            ("other", 8),
-            ("password", 24),
+            ("op", 56),
+            ("same", 56),
+            ("same_again", 56),
+            ("other", 40),
+            ("password", 56),
         ] {
             let format: i16 = sqlx::query_scalar(
                 "SELECT comment_format FROM content.posts WHERE board=$1 AND id=$2",

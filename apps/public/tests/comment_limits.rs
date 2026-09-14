@@ -79,6 +79,12 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
     assert!(board_html.contains("16000 characters"));
 
     let comment = "𠮷".repeat(16_000);
+    let rendered = format!(
+        "{}{}",
+        format!("{}<wbr>", "𠮷".repeat(35)).repeat(457),
+        "𠮷".repeat(5)
+    );
+    assert_eq!(rendered.replace("<wbr>", ""), comment);
     let request = form_request(&format!("/{board}/post"), &comment, 0);
     assert!(!request.headers().contains_key("content-length"));
     let response = app.clone().oneshot(request).await.unwrap();
@@ -91,12 +97,12 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
     let original_etag = original.headers()["etag"].clone();
     let original_json: serde_json::Value =
         serde_json::from_str(&body_text(original).await).unwrap();
-    assert_eq!(original_json["posts"][0]["com"], comment);
+    assert_eq!(original_json["posts"][0]["com"], rendered);
     assert_eq!(original_json["posts"][0]["replies"], 0);
     assert!(
         body_text(get(&app, &html_path).await)
             .await
-            .contains(&comment)
+            .contains(&rendered)
     );
 
     // The legacy write alias must enforce the same limit without changing
@@ -141,9 +147,9 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
     let changed_json: serde_json::Value = serde_json::from_str(&body_text(changed).await).unwrap();
     assert_eq!(changed_json["posts"].as_array().unwrap().len(), 2);
     assert_eq!(changed_json["posts"][0]["replies"], 1);
-    assert_eq!(changed_json["posts"][1]["com"], comment);
+    assert_eq!(changed_json["posts"][1]["com"], rendered);
     let html = body_text(get(&app, &html_path).await).await;
-    assert_eq!(html.matches(&comment).count(), 2);
+    assert_eq!(html.matches(&rendered).count(), 2);
     let stored: Vec<String> =
         sqlx::query_scalar("SELECT comment FROM content.posts WHERE board=$1 ORDER BY id")
             .bind(&board)

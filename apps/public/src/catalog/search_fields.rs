@@ -27,6 +27,13 @@ fn teaser(lines: &[Line]) -> String {
                 Token::Text(text) | Token::Spoiler(text) | Token::Link(text) => {
                     plain.push_str(text);
                 }
+                Token::WrappedLink(_, parts) => {
+                    for part in parts {
+                        if let board_domain::word_break::WordPart::Text(text) = part {
+                            plain.push_str(text);
+                        }
+                    }
+                }
                 Token::Quote(id) => {
                     plain.push_str(">>");
                     plain.push_str(&id.to_string());
@@ -37,7 +44,8 @@ fn teaser(lines: &[Line]) -> String {
                     plain.push('/');
                     plain.push_str(&id.to_string());
                 }
-                Token::OpenMarkup(_)
+                Token::WordBreak
+                | Token::OpenMarkup(_)
                 | Token::CloseMarkup(_)
                 | Token::OpenQuote
                 | Token::CloseQuote => {}

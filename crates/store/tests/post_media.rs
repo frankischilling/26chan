@@ -527,7 +527,7 @@ async fn source_op_markup_attachment(f: &Fixture) {
     let upload = f.reserve().await;
     f.approve(&upload).await;
     let draft = NewPost {
-        comment: "[b]Owned attached OP[/b]".into(),
+        comment: format!("[b]{}[/b]", "owned".repeat(14)),
         ..post()
     };
     let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
@@ -537,6 +537,15 @@ async fn source_op_markup_attachment(f: &Fixture) {
         .await
         .unwrap();
     assert_eq!(saved.comment_format & 16, 16);
+    assert_eq!(saved.comment_format & 32, 32);
+    assert_eq!(
+        board_domain::parse_post_comment(&saved.comment, saved.comment_format)
+            .iter()
+            .flat_map(|line| &line.tokens)
+            .filter(|token| matches!(token, board_domain::Token::WordBreak))
+            .count(),
+        2
+    );
     assert!(attachment(&f.public, id).await.unwrap().is_some());
     sqlx::query("UPDATE content.boards SET op_markup=false WHERE slug=$1")
         .bind(&f.board)
@@ -646,7 +655,7 @@ async fn final_content_admission(f: &Fixture) {
         let saved = board_store::find_post(&f.public, &f.board, id)
             .await
             .unwrap();
-        assert_eq!(saved.comment_format, 15);
+        assert_eq!(saved.comment_format, 47);
         assert_eq!(
             attachment(&f.public, id).await.unwrap().unwrap().asset_id,
             asset
@@ -892,7 +901,7 @@ async fn comment_spacing(f: &Fixture) {
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();
-        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 8 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
+        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 40 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
             .bind(id).fetch_one(&f.public).await.unwrap();
         assert!(stamped);
         assert_eq!(

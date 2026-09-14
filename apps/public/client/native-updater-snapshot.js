@@ -9,7 +9,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden'], span: ['class', 'tabindex', 'aria-label'],
   time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
-  br: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
+  br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
   label: ['for'], button: [], img: ['src', 'alt', 'width', 'height', 'loading'],
 };
