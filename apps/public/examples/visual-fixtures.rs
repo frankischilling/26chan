@@ -28,6 +28,7 @@ fn board() -> Board {
         comment_max_lines: 70,
         comment_spoiler_cleanup: false,
         require_subject: false,
+        text_only: false,
         reply_limit: 100,
         bump_limit: 75,
         permasage_hours: 0,
@@ -43,11 +44,15 @@ fn board() -> Board {
     }
 }
 fn page(catalog: bool) -> String {
-    render_page(catalog, false)
+    render_page(catalog, false, false)
 }
 
-fn render_page(catalog: bool, markup: bool) -> String {
-    let board = board();
+fn render_page(catalog: bool, markup: bool, text_only: bool) -> String {
+    let mut board = board();
+    board.text_only = text_only;
+    if text_only {
+        board.image_limit = 3;
+    }
     let mut thread = Thread {
         id: 1000001,
         board: "demo".into(),
@@ -128,7 +133,11 @@ fn render_page(catalog: bool, markup: bool) -> String {
         next: String::new(),
         catalog,
         catalog_options: catalog::Options::default(),
-        media_origin: String::new(),
+        media_origin: if text_only {
+            "http://localhost:3004".into()
+        } else {
+            String::new()
+        },
     }
     .render()
     .expect("production templates")
@@ -312,7 +321,8 @@ async fn main() {
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
-        .route("/markup/", get(|| async { Html(render_page(false, true)) }))
+        .route("/markup/", get(|| async { Html(render_page(false, true, false)) }))
+        .route("/text-only/", get(|| async { Html(render_page(false, false, true)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {

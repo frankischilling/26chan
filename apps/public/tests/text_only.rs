@@ -32,12 +32,13 @@ async fn submit(
     index: usize,
     parent: i64,
     subject: &str,
+    comment: &str,
 ) -> axum::response::Response {
     let fields = [
         ("mode", "regist".to_owned()),
         ("resto", parent.to_string()),
         ("sub", subject.to_owned()),
-        ("com", "Owned required-subject HTTP post".to_owned()),
+        ("com", comment.to_owned()),
         ("pwd", "owned-password".to_owned()),
     ];
     let (kind, body) = if index & 1 == 0 {
@@ -99,32 +100,44 @@ async fn accepted_id(response: axum::response::Response, index: usize) -> i64 {
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
-    for router in [&app, &api] {
-        let mut previous_etag = String::new();
-        for enabled in [false, true, false] {
-            sqlx::query("UPDATE content.boards SET require_subject=$2 WHERE slug=$1")
-                .bind(&slug)
-                .bind(enabled)
-                .execute(&owner)
-                .await
-                .unwrap();
-            let mut request = Request::get("/boards.json");
-            if !previous_etag.is_empty() {
-                request = request.header("if-none-match", &previous_etag);
-            }
+    sqlx::query(
+        "UPDATE content.boards SET image_limit=3,comment_spoiler_cleanup=true WHERE slug=$1",
+    )
+    .bind(&slug)
+    .execute(&owner)
+    .await
+    .unwrap();
+    let historical = board_store::create_post(&public, &slug, 0, &post(""))
+        .await
+        .unwrap();
+    // These routes only read media settings; intake transport is exercised by
+    // the real streaming test, not this metadata-only configured listener.
+    let media = board_config::PublicMediaSettings::development(
+        "127.0.0.1:1",
+        &"a".repeat(64),
+        "http://localhost:3002",
+    )
+    .unwrap();
+    let (app, api) = board_public::routers_with_media(
+        public.clone(),
+        "http://127.0.0.1:3000".into(),
+        false,
+        Some(media),
+    );
+    for enabled in [false, true] {
+        sqlx::query("UPDATE content.boards SET text_only=$2 WHERE slug=$1")
+            .bind(&slug)
+            .bind(enabled)
+            .execute(&owner)
+            .await
+            .unwrap();
+        for router in [&app, &api] {
             let response = router
                 .clone()
-                .oneshot(request.body(Body::empty()).unwrap())
+                .oneshot(Request::get("/boards.json").body(Body::empty()).unwrap())
                 .await
                 .unwrap();
-            assert_eq!(
-                response.status(),
-                200,
-                "Changed policy must invalidate the board validator"
-            );
-            let etag = response.headers()["etag"].to_str().unwrap().to_owned();
-            assert_ne!(etag, previous_etag);
+            assert_eq!(response.status(), 200);
             let json: serde_json::Value =
                 serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap())
                     .unwrap();
@@ -132,48 +145,40 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .as_array()
                 .unwrap()
                 .iter()
-                .find(|board| board["board"] == slug)
+                .find(|entry| entry["board"] == slug)
                 .unwrap();
-            if enabled {
-                assert_eq!(board["require_subject"].as_i64(), Some(1));
-            } else {
-                assert!(board.get("require_subject").is_none());
+            for field in ["text_only", "require_subject"] {
+                if enabled {
+                    assert_eq!(board[field].as_i64(), Some(1));
+                } else {
+                    assert!(board.get(field).is_none());
+                }
             }
-            let unchanged = router
+        }
+        for path in [format!("/{slug}/"), format!("/{slug}/thread/{historical}")] {
+            let response = app
                 .clone()
-                .oneshot(
-                    Request::get("/boards.json")
-                        .header("if-none-match", &etag)
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .oneshot(Request::get(&path).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
-            assert_eq!(unchanged.status(), 304);
-            assert!(
-                to_bytes(unchanged.into_body(), 1024)
+            let html = String::from_utf8(
+                to_bytes(response.into_body(), 1024 * 1024)
                     .await
                     .unwrap()
-                    .is_empty()
-            );
-            previous_etag = etag;
+                    .to_vec(),
+            )
+            .unwrap();
+            assert_eq!(html.contains("<body class=\"text_only\">"), enabled);
+            assert_eq!(html.contains("Upload file</button>"), !enabled);
+            if path.ends_with('/') {
+                assert_eq!(
+                    html.contains("id=\"sub\" name=\"sub\" type=\"text\" required"),
+                    enabled
+                );
+            }
         }
     }
-    let historical = board_store::create_post(&public, &slug, 0, &post(""))
-        .await
-        .unwrap();
-    assert!(
-        !board_store::board(&public, &slug)
-            .await
-            .unwrap()
-            .require_subject
-    );
-    sqlx::query("UPDATE content.boards SET require_subject=true WHERE slug=$1")
-        .bind(&slug)
-        .execute(&owner)
-        .await
-        .unwrap();
-    let denied = sqlx::query("UPDATE content.boards SET require_subject=false WHERE slug=$1")
+    let denied = sqlx::query("UPDATE content.boards SET text_only=false WHERE slug=$1")
         .bind(&slug)
         .execute(&public)
         .await
@@ -184,13 +189,12 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     );
     for index in 0..8 {
         let before = snapshot(&owner, &slug).await;
-        let response = submit(&app, &slug, index, 0, "＃##😀").await;
+        let response = submit(&app, &slug, index, 0, "##😀", "Owned comment").await;
         assert_eq!(response.status(), if index & 4 == 0 { 200 } else { 422 });
         let bytes = to_bytes(response.into_body(), 16384).await.unwrap();
         if index & 4 == 0 {
             let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             assert_eq!(json["error"], "Error: New threads require a subject.");
-            assert!(json.get("pid").is_none());
         } else {
             assert!(
                 std::str::from_utf8(&bytes)
@@ -199,25 +203,25 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             );
         }
         assert_eq!(snapshot(&owner, &slug).await, before);
-        let op = accepted_id(submit(&app, &slug, index, 0, "Ｚ##ⓦ <b>").await, index).await;
+        let op = accepted_id(
+            submit(&app, &slug, index, 0, "Owned subject", "").await,
+            index,
+        )
+        .await;
+        let reply = accepted_id(
+            submit(&app, &slug, index, op, "", "Owned reply").await,
+            index,
+        )
+        .await;
         assert_eq!(
-            board_store::find_post(&public, &slug, op)
-                .await
-                .unwrap()
-                .subject,
-            "aw <b>"
-        );
-        let reply = accepted_id(submit(&app, &slug, index, op, "##😀").await, index).await;
-        assert!(
             board_store::find_post(&public, &slug, reply)
                 .await
                 .unwrap()
-                .subject
-                .is_empty()
+                .comment,
+            "Owned reply"
         );
     }
-    // Observe the actual row-lock wait in both policy directions. The committed
-    // setting, not an earlier read or a slug-specific branch, decides admission.
+    // Lock witnesses distinguish committed policy from stale handler state.
     for enabled in [false, true] {
         let before = snapshot(&owner, &slug).await;
         let mut locked = owner.begin().await.unwrap();
@@ -225,7 +229,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .fetch_one(&mut *locked)
             .await
             .unwrap();
-        sqlx::query("UPDATE content.boards SET require_subject=$2 WHERE slug=$1")
+        sqlx::query("UPDATE content.boards SET text_only=$2 WHERE slug=$1")
             .bind(&slug)
             .bind(enabled)
             .execute(&mut *locked)
@@ -235,16 +239,17 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(
-                async move { board_store::create_post(&public, &slug, 0, &post("##")).await },
+                async move { board_store::create_post(&public, &slug, 0, &post("")).await },
             )
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async { loop {
-            let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))").bind(pid).fetch_one(&owner).await.unwrap();
+            let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
+                .bind(pid).fetch_one(&owner).await.unwrap();
             if waiting { break; } tokio::time::sleep(Duration::from_millis(10)).await;
-        } }).await;
+        }}).await;
         locked.commit().await.unwrap();
         let result = pending.await.unwrap();
-        observed.expect("posting waited for required-subject policy");
+        observed.expect("posting waited on text-only board policy");
         if enabled {
             assert!(matches!(
                 result,
@@ -255,32 +260,6 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             assert!(result.is_ok());
         }
     }
-    let before = snapshot(&owner, &slug).await;
-    for (subject, comment, error) in [
-        ("#".repeat(101), "ok".into(), "Name or subject is too long."),
-        (
-            "".into(),
-            "x".repeat(1001),
-            "Enter a comment within this board's character limit.",
-        ),
-        (
-            "".into(),
-            format!("{}end", "x\n".repeat(7)),
-            "Error: New threads require a subject.",
-        ),
-        (
-            "".into(),
-            "".into(),
-            "Error: New threads require a subject.",
-        ),
-    ] {
-        let mut draft = post(&subject);
-        draft.comment = comment;
-        assert!(
-            matches!(board_store::create_post(&public, &slug, 0, &draft).await, Err(StoreError::Invalid(message)) if message == error)
-        );
-    }
-    assert_eq!(snapshot(&owner, &slug).await, before);
     assert!(
         board_store::find_post(&public, &slug, historical)
             .await
@@ -289,9 +268,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .is_empty()
     );
 }
-
 #[tokio::test]
-async fn required_subject_is_locked_operator_policy_for_new_threads_only() {
+async fn text_only_policy_controls_http_json_forms_and_locked_admission() {
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -301,7 +279,7 @@ async fn required_subject_is_locked_operator_policy_for_new_threads_only() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Required subject','Owned fixture',1000,100,100,100,10)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

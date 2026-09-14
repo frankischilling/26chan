@@ -42,6 +42,7 @@ async fn settings(
     if resto < 0 {
         return Err(invalid());
     }
+    settings.check_attachment_allowed(resto, true)?;
     if resto > 0 {
         let thread = board_store::thread(&state.pool, board, resto).await?;
         if thread.archived_at.is_some()

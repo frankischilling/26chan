@@ -24,12 +24,19 @@ removal can leave a stored space that satisfies the source check. The existing
 100-byte raw limit cannot be bypassed by submitting characters cleanup removes.
 Subjects remain escaped text. The source form only adds HTML `required` for
 `TEXT_ONLY`, not `REQUIRE_SUBJECT` (`views/imgboard.php:91-104`); this slice does
-not add client-side required validation or invent a JSON board capability flag.
+not add client-side required validation. The source JSON builder at
+`imgboard.php:7923-7925` emits integer `require_subject: 1` when this policy is
+enabled, and omits the field otherwise. Both public read-only JSON routers use
+the saved board setting and invalidate `/boards.json` ETags when it changes.
+Development media availability does not imply this policy. The separate source
+[`TEXT_ONLY` policy](source-text-only.md) also emits the flag and applies its
+own later subject check and reply attachment restriction.
 
 HTML denial is 422; JSON posting retains the implemented HTTP 200 error object.
-Image-required, upload-board, text-only, forced-anonymous, ordinary OP
-subject-or-comment admission and other posting errors remain separate unfinished
-policies. In particular, media-disabled development still permits text-only
+Image-required, upload-board, forced-anonymous
+and other posting errors remain separate unfinished policies. Ordinary OP
+subject-or-comment admission is implemented in the [markup pipeline](source-comment-markup.md).
+In particular, media-disabled development still permits text-only
 threads. This change does not establish complete source error ordering or
 posting parity.
 

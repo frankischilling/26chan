@@ -217,6 +217,7 @@ async fn exercise(
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));
     assert!(page.contains("rows=\"4\" aria-describedby=\"postHelp\""));
+    reject_text_only_reply_before_file_body(&app, board, admin).await;
     for comment in ["&com=", "", "&com=+%09%0A"] {
         assert_eq!(
             app.clone()
@@ -793,6 +794,79 @@ async fn image_flag_transitions(app: &Router, board: &str, thread: i64, admin: &
         .execute(admin)
         .await
         .unwrap();
+}
+
+async fn reject_text_only_reply_before_file_body(app: &Router, board: &str, admin: &PgPool) {
+    use futures_util::StreamExt;
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let thread = board_store::create_post(
+        &public,
+        board,
+        0,
+        &board_store::NewPost {
+            name: "Anonymous".into(),
+            subject: "Owned text-only upload".into(),
+            comment: "Owned reply destination".into(),
+            deletion_hash: "owned-test-hash".into(),
+            sage: false,
+        },
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE content.boards SET text_only=true WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM media.jobs")
+        .fetch_one(admin)
+        .await
+        .unwrap();
+    let head = format!(
+        "--boundary\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{thread}\r\n--boundary\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"owned.png\"\r\nContent-Type: image/png\r\n\r\n"
+    );
+    let stream =
+        futures_util::stream::once(async move { Ok::<_, std::io::Error>(Bytes::from(head)) })
+            .chain(futures_util::stream::once(async move {
+                // Multipart may poll ahead while parsing the preceding field.
+                // No file bytes are available: policy must still reject promptly.
+                std::future::pending::<Result<Bytes, std::io::Error>>().await
+            }));
+    let request = Request::post(format!("/{board}/upload"))
+        .header("origin", "http://127.0.0.1:3000")
+        .header("content-type", "multipart/form-data; boundary=boundary")
+        .body(Body::from_stream(stream))
+        .unwrap();
+    let response = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        app.clone().oneshot(request),
+    )
+    .await
+    .expect("reply policy must not wait for file bytes")
+    .unwrap();
+    assert!(
+        html(response, StatusCode::UNPROCESSABLE_ENTITY)
+            .await
+            .contains("You cannot upload files on this board")
+    );
+    let after: i64 = sqlx::query_scalar("SELECT count(*) FROM media.jobs")
+        .fetch_one(admin)
+        .await
+        .unwrap();
+    assert_eq!(before, after);
+    sqlx::query("UPDATE content.boards SET text_only=false WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    board_store::delete_post(&public, board, thread)
+        .await
+        .unwrap();
+    public.close().await;
+    // The enclosing test next uploads through this same healthy intake service
+    // and checks persisted opaque bytes, approval, publication and deletion.
 }
 
 async fn image_admission_http(

@@ -421,6 +421,7 @@ async fn submit_post(
             ));
         }
     };
+    settings.check_attachment_allowed(form.resto, attachment.is_some())?;
     board_domain::prepare_post_content(
         &form.name,
         &form.sub,
@@ -431,6 +432,7 @@ async fn submit_post(
         if form.resto == 0 {
             board_domain::PostKind::Thread {
                 subject_required: settings.require_subject,
+                text_only: settings.text_only,
             }
         } else {
             board_domain::PostKind::Reply

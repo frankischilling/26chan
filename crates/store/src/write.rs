@@ -80,6 +80,7 @@ pub async fn create_post_with_context(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
+    board.check_attachment_allowed(parent, attachment.is_some())?;
     let board_domain::PreparedPostContent { comment, subject } =
         board_domain::prepare_post_content(
             &post.name,
@@ -91,6 +92,7 @@ pub async fn create_post_with_context(
             if parent == 0 {
                 board_domain::PostKind::Thread {
                     subject_required: board.require_subject,
+                    text_only: board.text_only,
                 }
             } else {
                 board_domain::PostKind::Reply

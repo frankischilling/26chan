@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block body_attributes %}{% if board.text_only %} class="text_only"{% endif %}{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block title %}/{{ board.slug }}/ - Archive{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}

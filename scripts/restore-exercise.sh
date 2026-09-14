@@ -80,6 +80,10 @@ fingerprint_sql="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY id)) FR
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
 [[ -n $before && $before = "$after" ]] || { echo 'Restored post data differs.' >&2; exit 1; }
+policy_fingerprint="SELECT md5(string_agg(row_to_json(b)::text, '' ORDER BY slug)) FROM content.boards b"
+before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$policy_fingerprint")
+after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$policy_fingerprint")
+[[ -n $before && $before = "$after" ]] || { echo 'Restored board policy differs.' >&2; exit 1; }
 for table in content.boards content.threads content.reports content.moderation_audit post_secrets.deletion post_secrets.op_peers post_secrets.op_replies staff_identity.accounts staff_identity.credentials staff_identity.invitations staff_identity.ceremonies staff_identity.sessions deployment.settings public._sqlx_migrations media.jobs media.queue_policy media.assets media_intake.handles; do
   before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")
   after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM $table")

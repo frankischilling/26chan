@@ -2,6 +2,7 @@ use board_domain::{CommentSpacing, PostKind, prepare_post_content};
 
 const OP: PostKind = PostKind::Thread {
     subject_required: false,
+    text_only: false,
 };
 const MISSING_OP: &str = "Error: New threads require a subject or comment.";
 const MISSING_REPLY: &str = "Error: No text entered.";
@@ -132,7 +133,8 @@ fn raw_required_subject_spam_and_line_failures_keep_their_source_precedence() {
             true,
             spacing,
             PostKind::Thread {
-                subject_required: true
+                subject_required: true,
+                text_only: false
             }
         )
         .err()
