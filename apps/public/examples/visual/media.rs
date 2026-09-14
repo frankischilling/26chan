@@ -119,6 +119,7 @@ impl Fixture {
             created_at: time("2026-09-08T12:00:00Z"),
             bumped_at: time("2026-09-08T12:05:00Z"),
             modified_at: time("2026-09-08T12:05:00Z"),
+            http_modified_at: time("2026-09-08T12:05:00Z"),
             reply_count: 5,
             sticky: false,
             permasage: false,

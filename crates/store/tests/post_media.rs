@@ -197,13 +197,16 @@ async fn exercise(f: &Fixture) {
         "UPDATE content.media_clock SET last_number=last_number WHERE false",
         "SELECT content.next_media_number()",
         "SET ROLE board_attachment_owner",
+        "UPDATE content.posts SET created_at=created_at WHERE false",
+        "UPDATE content.threads SET created_at=created_at WHERE false",
+        "UPDATE content.threads SET http_modified_at=http_modified_at WHERE false",
     ] {
         f.denied(sql).await;
     }
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=6 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
+    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=7 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(functions_safe);
 
@@ -498,6 +501,7 @@ async fn exercise(f: &Fixture) {
     );
     exercise_waits_and_moderation(f).await;
     tail_counts(f).await;
+    posting_times(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
@@ -549,6 +553,146 @@ async fn tail_counts(f: &Fixture) {
         .unwrap();
     assert_eq!(tail.images, 0);
     assert!(tail.posts[1].attachment.as_ref().unwrap().file_deleted);
+}
+
+async fn posting_times(f: &Fixture) {
+    use chrono::{DateTime, Timelike, Utc};
+    let mut post = post();
+    if f.attachment_only {
+        post.comment.clear();
+    }
+    let requested = DateTime::from_timestamp(1_700_000_000, 987_654_321).unwrap();
+    let op = f.reserve().await;
+    f.approve(&op).await;
+    let id = board_store::create_post_with_attachment_at(
+        &f.public,
+        &f.board,
+        0,
+        &post,
+        Some(&op),
+        requested,
+    )
+    .await
+    .unwrap();
+    let snapshot = board_store::thread_snapshot(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(
+        snapshot.posts[0].created_at,
+        requested.with_nanosecond(0).unwrap()
+    );
+    assert_eq!(snapshot.thread.created_at, snapshot.posts[0].created_at);
+    assert_eq!(snapshot.thread.modified_at, snapshot.posts[0].created_at);
+    assert!(snapshot.thread.bumped_at > requested);
+    let reply = f.reserve().await;
+    f.approve(&reply).await;
+    let earlier = requested - chrono::Duration::seconds(100);
+    let rid = board_store::create_post_with_attachment_at(
+        &f.public,
+        &f.board,
+        id,
+        &post,
+        Some(&reply),
+        earlier,
+    )
+    .await
+    .unwrap();
+    let snapshot = board_store::thread_snapshot(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(
+        snapshot
+            .posts
+            .iter()
+            .find(|p| p.id == rid)
+            .unwrap()
+            .created_at,
+        earlier.with_nanosecond(0).unwrap()
+    );
+    assert_eq!(
+        snapshot.thread.modified_at,
+        earlier.with_nanosecond(0).unwrap()
+    );
+    assert!(snapshot.thread.http_modified_at > requested);
+
+    let legacy = f.reserve().await;
+    f.approve(&legacy).await;
+    for invalid in [None, Some("infinity"), Some("-infinity")] {
+        let mut tx = f.public.begin().await.unwrap();
+        let new_id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        let error = sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::text::timestamptz)")
+        .bind(new_id)
+        .bind(&f.board)
+        .bind(id)
+        .bind(&post.name)
+        .bind(&post.subject)
+        .bind(&post.comment)
+        .bind(&legacy.upload.id)
+        .bind(&legacy.upload.capability)
+        .bind(false)
+        .bind(invalid)
+        .execute(&mut *tx)
+        .await
+        .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("22023")
+        );
+        tx.rollback().await.unwrap();
+    }
+    let before = Utc::now().timestamp();
+    let mut tx = f.public.begin().await.unwrap();
+    let new_id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+        .bind(new_id)
+        .bind(&f.board)
+        .bind(id)
+        .bind(&post.name)
+        .bind(&post.subject)
+        .bind(&post.comment)
+        .bind(&legacy.upload.id)
+        .bind(&legacy.upload.capability)
+        .bind(false)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let saved: DateTime<Utc> =
+        sqlx::query_scalar("SELECT created_at FROM content.posts WHERE id=$1")
+            .bind(new_id)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert_eq!(saved.nanosecond(), 0);
+    assert!((before..=Utc::now().timestamp()).contains(&saved.timestamp()));
+    tx.rollback().await.unwrap();
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
+    )
+    .bind(&legacy.upload.id)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(
+        matches!(
+            board_store::create_post_with_attachment_at(
+                &f.public,
+                &f.board,
+                id,
+                &post,
+                Some(&legacy),
+                Utc::now() - chrono::Duration::hours(4)
+            )
+            .await,
+            Err(StoreError::NotFound)
+        ),
+        "an old request clock cannot extend capability lifetime"
+    );
 }
 
 async fn reject_unattached_empty_posts(f: &Fixture, thread: i64) {

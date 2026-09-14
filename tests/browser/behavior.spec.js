@@ -407,7 +407,7 @@ test('board-origin browser client reads real JSON and revalidates exposed cache 
   expect(result.status).toBe(200);
   expect(result.no).toBe(1000001);
   expect(result.etag).toMatch(/^"[a-f0-9]{64}"$/);
-  expect(result.modified).toBe('Tue, 08 Sep 2026 12:05:00 GMT');
+  expect(result.modified).toBe('Tue, 08 Sep 2026 12:06:00 GMT');
   expect(result.conditional).toBe(304);
   expect(result.conditionalBody).toBe('');
   expect(result.conditionalEtag).toBe(result.etag);

@@ -7,8 +7,9 @@ ON CONFLICT (slug) DO NOTHING;
 INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
 VALUES ('demo','Paper craft','Discuss paper models, folding, and works in progress.',4000,100,75,100,10)
 ON CONFLICT (slug) DO NOTHING;
-INSERT INTO content.threads(id,board,created_at,bumped_at,modified_at,reply_count)
-VALUES (1000001,'demo','2026-09-08 12:00:00+00','2026-09-08 12:05:00+00','2026-09-08 12:05:00+00',1)
+-- Deliberately separate HTTP and source clocks in this immutable demo row.
+INSERT INTO content.threads(id,board,created_at,bumped_at,modified_at,http_modified_at,reply_count)
+VALUES (1000001,'demo','2026-09-08 12:00:00+00','2026-09-08 12:05:00+00','2026-09-08 12:05:00+00','2026-09-08 12:06:00+00',1)
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at)
 VALUES (1000001,'demo',1000001,'Anonymous','What are you making?',E'Share your latest paper project.\n>start with a single sheet\n[spoiler]Mine is another crane.[/spoiler]','2026-09-08 12:00:00+00'),

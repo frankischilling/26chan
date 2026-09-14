@@ -98,6 +98,7 @@ inventing identity, exercises defaults/bounds, real public private-row writes,
 staff/media read denials and cleanup/rollback. Local domain/public tests and
 all-target Clippy pass. PostgreSQL is unavailable locally; persisted, upgrade
 and populated restore execution require complete current-head Linux CI.
-Full source timestamps, staff flood privileges, other cooldown/admission
+[Posting timestamp assignments](source-posting-times.md) have separate
+persisted and upgrade coverage. Staff flood privileges, other cooldown/admission
 policies, unique-visitor accounting and deployed production qualification
 remain unfinished.

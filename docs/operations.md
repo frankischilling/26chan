@@ -67,6 +67,12 @@ Admission remains occupied after a handler returns while its response body or em
 
 ## Backup and recovery
 
+[Migration 0025](source-posting-times.md) preserves historical posting clocks
+and adds an independent HTTP change clock. Apply it before the binary; retain
+it on binary rollback. Synchronize application/database hosts. The restore
+exercise compares full thread fingerprints, including both clocks, as well
+as existing post/private/media data; its new clock coverage requires CI.
+
 [OP self-bump records](source-op-bumps.md) contain sensitive active-thread
 addresses and same-address reply membership. Live deletion/archival removes
 them transactionally; existing backups may retain earlier copies. Keep their

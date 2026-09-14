@@ -350,7 +350,18 @@ impl Fixture {
         }
         assert!(!writer.is_finished());
         lock.commit().await.unwrap();
-        writer.await.unwrap().unwrap();
+        let reply = writer.await.unwrap().unwrap();
+        let saved: DateTime<Utc> =
+            sqlx::query_scalar("SELECT created_at FROM content.posts WHERE id=$1")
+                .bind(reply)
+                .fetch_one(&self.public)
+                .await
+                .unwrap();
+        assert_eq!(
+            saved,
+            DateTime::from_timestamp(start, 0).unwrap(),
+            "the persisted post clock must also survive the mutation lock wait"
+        );
         let after = board_store::thread(&self.public, &self.slug, self.id)
             .await
             .unwrap();

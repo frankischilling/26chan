@@ -61,6 +61,7 @@ pub struct Thread {
     pub created_at: DateTime<Utc>,
     pub bumped_at: DateTime<Utc>,
     pub modified_at: DateTime<Utc>,
+    pub http_modified_at: DateTime<Utc>,
     pub reply_count: i32,
     pub sticky: bool,
     pub permasage: bool,

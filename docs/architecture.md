@@ -1,5 +1,11 @@
 # Architecture and threat model
 
+[Posting timestamps](source-posting-times.md) use whole-second server request
+time, while bump ordering and the separate HTTP change clock use database
+time. Public posting can insert new creation times but cannot rewrite
+historical creation times or directly set the HTTP clock. Attachment expiry
+continues to use actual database time after lock acquisition.
+
 [OP self-bump matching](source-op-bumps.md) keeps one active OP address and
 same-address reply membership in `post_secrets`. Public posting credentials
 can read/insert these sensitive records; staff, authentication, media and
