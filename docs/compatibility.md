@@ -579,9 +579,11 @@ matching remain incomplete.
 
 Keybinds (`8237`) confirm A/F/Q/R/W/B/C/N/I with runtime guards and
 editable-target/modifier exclusions. Original B/N submit pagination forms;
-bounded GET-link navigation is a rewrite difference. Q now opens the
-[Quick Reply dialog](native-quick-reply.md); its remaining shortcut group and
-complete source lifecycle are unfinished.
+bounded GET-link navigation is a rewrite difference. Q opens the
+[Quick Reply dialog](native-quick-reply.md) only on thread pages and quotes
+selected text without a post ID. Ctrl-click quotes without linking independently
+of optional keybindings. Help lists both source shortcut groups; exact help
+geometry and the complete Quick Reply lifecycle are unfinished.
 
 ### Reports and staff
 

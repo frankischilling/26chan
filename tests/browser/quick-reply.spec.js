@@ -122,3 +122,27 @@ test('the source byte advisory does not block a Unicode reply within the server 
     const data = await (await request.get(`/test/thread/${id}.json`)).json(); expect(data.posts.at(-1).com).toBe(value);
   } finally { expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
 });
+
+test('Q posts selected text and Ctrl-click works without optional keyboard shortcuts on persisted threads', async ({ page, context, request }) => {
+  const selected = 'Owned selected post text';
+  const created = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: selected, password } });
+  expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
+  try {
+    await page.goto(`/test/thread/${id}`);
+    await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true }))); await page.reload();
+    await page.locator(`#m${id}`).evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
+    await page.keyboard.press('q'); await expect(page.locator('#qrCom')).toHaveValue(`>${selected}\n`);
+    await page.locator('#qr-pwd').fill(password);
+    const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`);
+    await page.locator('#quickReply input[type=submit]').click(); const result = await (await posted).json(); expect(String(result.tid)).toBe(id);
+    await expect(page.locator(`#m${result.pid} .quote`)).toHaveText(`>${selected}`);
+    await expect(page.locator(`#m${result.pid} .quotelink`)).toHaveCount(0);
+    await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: false }))); await page.reload();
+    await page.locator(`#pi${id} > .postNum`).click({ modifiers: ['Control'] });
+    await expect(page.locator('#qrCom')).toHaveValue(''); expect(context.pages()).toHaveLength(1);
+    await page.locator('#qrCom').fill('Posted after Ctrl-click'); await page.locator('#qr-pwd').fill(password);
+    await page.locator('#quickReply input[type=submit]').click();
+    await expect(page.locator('.postMessage').filter({ hasText: 'Posted after Ctrl-click' })).toBeVisible();
+    expect((await (await request.get(`/test/thread/${id}.json`)).json()).posts).toHaveLength(3);
+  } finally { expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
+});

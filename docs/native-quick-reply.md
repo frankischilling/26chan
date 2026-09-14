@@ -18,7 +18,13 @@ check (6567) establish the implemented lifecycle. The defaults are at
 
 The dialog edits name, options and comment without replacing the ordinary
 form draft. Quote insertion replaces the textarea selection with the exact
-post ID and selected greentext. Ctrl+S wraps the selection in spoiler tags;
+post ID and selected greentext. Ctrl-click omits the post ID, even when optional
+keyboard shortcuts are disabled. Q works only on thread pages and inserts the
+current selection as greentext without a post ID. Post a Reply opens and focuses
+the editor without inserting the page selection. The quote entry points follow
+`js/extension.js:4000-4046,8251-8254,9999-10003`; a closed-thread quote displays
+`This thread is closed` without following the post-number link.
+Ctrl+S wraps the selection in spoiler tags;
 Escape or Close removes the dialog and its draft. Switching target threads
 clears the comment but retains identity fields. Closed/archived thread state
 prevents opening or submitting; updater state changes refresh this guard.
@@ -103,16 +109,21 @@ assertions. Existing native/no-JavaScript upload cases still run unchanged.
 - `npm run test:media-visual`: six-theme desktop/mobile dialog captures,
   dragging, spoiler caret behavior, closed-thread guards, safe error text,
   aborts, ignored late responses, debounced byte advice, typed-error preservation
-  and source editing positions, alongside existing attachment coverage.
+  and source editing positions, alongside existing attachment coverage. Q's
+  thread-only selected-text behavior, Ctrl-click without optional keybindings
+  and closed-thread alerts have dedicated interaction cases.
 - `npm run test:themes` and `npm run test:watcher-core`: existing theme,
   watcher, tracking, keyboard, filter and updater regression coverage.
 
-Local transport and fixture checks have passed. The new persisted-browser
-and approved-image pipeline cases await CI because this Windows environment has no available PostgreSQL
-service. CI outcomes must be recorded on the tested PR head before merge.
+Local transport and fixture checks have passed. The base persisted-browser
+and approved-image pipeline cases passed CI in #101 and #103. The added
+advisory and quote-shortcut persisted cases require their own current-head CI;
+this Windows environment has no available PostgreSQL service. CI outcomes
+must be recorded on the tested PR head before merge.
 
 Cooldown/automatic posting, identity-cookie
-remembering, Pass/captcha, drawing, inline file selection, remaining shortcut
-groups and full rendered-source comparison remain unfinished. These are
+remembering, Pass/captcha, drawing, inline file selection and full rendered-source
+comparison remain unfinished. The help lists the source's Global and built-in
+Quick Reply shortcut groups; exact help geometry remains unqualified. These are
 known source features, not evidence of unknown original behavior. Deployment
 boundary qualification and independent launch review remain separate work.
