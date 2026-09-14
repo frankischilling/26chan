@@ -1,5 +1,6 @@
 use askama::Template;
 use board_domain::comment_markup::Tag;
+use board_domain::word_break::WordPart;
 use board_domain::{Line, Token, parse_post_comment};
 use board_store::{Board, Post, Thread};
 
@@ -189,6 +190,43 @@ mod comment_tests {
         }
         .render()
         .unwrap()
+    }
+
+    #[test]
+    fn word_break_profiles_preserve_history_markup_boundaries_and_link_destinations() {
+        let long = "x".repeat(70);
+        for old in (8..=15).chain(24..=31) {
+            assert_eq!(render(&long, old), long);
+            assert_eq!(
+                render(&long, old + 32),
+                format!("{}<wbr>{}<wbr>", "x".repeat(35), "x".repeat(35))
+            );
+        }
+        let input = format!(
+            "{}[b]{}[/b]{}",
+            "a".repeat(34),
+            "b".repeat(35),
+            "c".repeat(34)
+        );
+        assert_eq!(
+            render(&input, 56),
+            format!(
+                "{}<span class=\"mu-s\">{}<wbr></span>{}",
+                "a".repeat(34),
+                "b".repeat(35),
+                "c".repeat(34)
+            )
+        );
+        let url = format!("https://example.org/{}", "x".repeat(70));
+        let html = render(&url, 40);
+        assert!(html.contains(&format!("href=\"{url}\"")));
+        assert_eq!(html.matches("<wbr>").count(), 2);
+        assert_eq!(render("left{{w_br}}right", 40), "left<wbr>right");
+        assert_eq!(render("left{{w_br}}right", 8), "left{{w_br}}right");
+        let hostile = format!("{}<script>alert(1)</script>", "x".repeat(35));
+        let html = render(&hostile, 40);
+        assert!(html.contains("<wbr>&#60;script&#62;"));
+        assert!(!html.contains("<script>"));
     }
 
     #[test]

@@ -114,7 +114,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        24
+        56
     );
     let mut expected = vec![(op, true)];
     for mode in 0..8 {
@@ -130,7 +130,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let saved = board_store::find_post(&public, &slug, id).await.unwrap();
             assert_eq!(
                 saved.comment_format,
-                if allowed { 24 } else { 8 },
+                if allowed { 56 } else { 40 },
                 "mode={mode}, allowed={allowed}"
             );
             assert!(saved.comment.contains("[b]"));
@@ -199,7 +199,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        8
+        40
     );
     let plain_op = submit(&app, &slug, 0, Some("192.0.2.12:6001"), PASSWORD, 0).await;
     assert_eq!(
@@ -207,7 +207,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        8
+        40
     );
     // An operator changes policy while the real submitter is blocked on its board lock.
     let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
@@ -260,7 +260,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        24
+        56
     );
     // A proof from the earlier read cannot outlive an operator's hash change.
     let mut tx = owner.begin().await.unwrap();
@@ -316,7 +316,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        8
+        40
     );
     // Missing legacy password state denies password proof, while the saved peer still works.
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id=$1")
@@ -331,7 +331,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .await
                 .unwrap()
                 .comment_format,
-            if allowed { 24 } else { 8 }
+            if allowed { 56 } else { 40 }
         );
     }
     for field in ["op_markup", "comment_format", "op_password_proof"] {

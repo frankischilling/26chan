@@ -41,6 +41,10 @@ test('active content, foreign namespaces, unapproved fetches and credential-bear
 });
 
 test('approved formatting and normalized media are allowed without accepting unrelated URLs', () => {
+  assert.equal(parse(snapshot('<span class="quote">&gt;long<wbr>word</span><a href="https://example.org/long" rel="nofollow noreferrer noopener">long<wbr>link</a>')).status, 'ok');
+  for (const invalid of ['<wbr onclick="bad()">', '<wbr class="quote">', '<wbr style="color:red">']) {
+    assert.equal(parse(snapshot(invalid)).status, 'invalid-snapshot');
+  }
   for (const color of ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b']) {
     assert.equal(parse(snapshot(`<span class="${color}">&lt;script&gt;literal&lt;/script&gt;</span>`)).status, 'ok');
     assert.equal(parse(snapshot(`<div class="${color}">wrong element</div>`)).status, 'invalid-snapshot');

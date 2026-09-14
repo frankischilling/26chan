@@ -661,6 +661,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const limit = listing.boards.find(board => board.board === 'test').max_comment_chars;
   expect(limit).toBe(4000);
   const comment = '𠮷'.repeat(limit);
+  const wrapped = count => `${'𠮷'.repeat(35)}<wbr>`.repeat(Math.floor(count / 35)) + '𠮷'.repeat(count % 35);
   await expect(page.locator('#postHelp')).toContainText(`${limit} characters`);
   await expect(page.locator('#com')).not.toHaveAttribute('maxlength');
   await page.locator('#com').fill(comment);
@@ -674,7 +675,8 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await expect(page.locator(`#m${op}`)).toHaveText(comment);
   const before = await page.request.get(jsonUrl);
   const beforeJson = await before.json();
-  expect(beforeJson.posts[0].com).toBe(comment);
+  expect(beforeJson.posts[0].com).toBe(wrapped(limit));
+  await expect(page.locator(`#m${op} wbr`)).toHaveCount(Math.floor(limit / 35));
   expect(beforeJson.posts[0].replies).toBe(0);
   await page.locator('#com').fill(`${comment}a`);
   await page.locator('#password').fill('no-javascript-password');
@@ -716,7 +718,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(reply).not.toBe(op);
   await expect(page.locator(`#m${reply} br`)).toHaveCount(1);
   const multilineJson = await (await page.request.get(jsonUrl)).json();
-  expect(multilineJson.posts.find(post => String(post.no) === reply).com).toBe(multiline.replace('\n', '<br>'));
+  expect(multilineJson.posts.find(post => String(post.no) === reply).com).toBe(`${wrapped(limit - 2)}<br>X`);
   await page.locator(`#p${op} summary`).click();
   await page.locator(`#delete${op}`).fill('no-javascript-password');
   await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();

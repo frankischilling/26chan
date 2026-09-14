@@ -2,6 +2,7 @@ use crate::store::Report;
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::formatting::{Line, Token, parse_post_comment};
+use board_domain::word_break::WordPart;
 #[derive(Template)]
 #[template(path = "login.html")]
 pub struct Login;
@@ -74,7 +75,7 @@ mod tests {
 
     #[test]
     fn stamped_preview_keeps_markup_and_escapes_hostile_text() {
-        for format in [0, 8, 9, 15, 24, 31] {
+        for format in [0, 8, 9, 15, 24, 31, 40, 47, 56, 63] {
             let preview = Preview::from(Report {
                 id: 1,
                 board: "test".into(),
@@ -115,37 +116,50 @@ mod tests {
 
     #[test]
     fn preview_preserves_a_maximum_unicode_comment() {
-        let comment = "😀".repeat(board_domain::MAX_COMMENT_CHARS);
-        let report = Report {
-            id: 1,
-            board: "test".into(),
-            post_id: 1,
-            thread_id: 1,
-            reason: "Synthetic full preview".into(),
-            name: "Anonymous".into(),
-            subject: String::new(),
-            comment: comment.clone(),
-            comment_format: 0,
-            state: "open".into(),
-            closed: false,
-            sticky: false,
-            permasage: true,
-            permaage: true,
-            deleted: false,
-            attachment: None,
-        };
-        let html = Queue {
-            media_origin: "http://127.0.0.1:3002".into(),
-            reports: vec![report.into()],
-            csrf: "example".into(),
-            recent: true,
-            admin: true,
+        for format in [0, 40] {
+            let comment = "😀".repeat(board_domain::MAX_COMMENT_CHARS);
+            let report = Report {
+                id: 1,
+                board: "test".into(),
+                post_id: 1,
+                thread_id: 1,
+                reason: "Synthetic full preview".into(),
+                name: "Anonymous".into(),
+                subject: String::new(),
+                comment: comment.clone(),
+                comment_format: format,
+                state: "open".into(),
+                closed: false,
+                sticky: false,
+                permasage: true,
+                permaage: true,
+                deleted: false,
+                attachment: None,
+            };
+            let html = Queue {
+                media_origin: "http://127.0.0.1:3002".into(),
+                reports: vec![report.into()],
+                csrf: "example".into(),
+                recent: true,
+                admin: true,
+            }
+            .render()
+            .unwrap();
+            assert_eq!(html.matches('😀').count(), board_domain::MAX_COMMENT_CHARS);
+            assert_eq!(
+                html.matches("<wbr>").count(),
+                if format == 40 {
+                    board_domain::MAX_COMMENT_CHARS / 35
+                } else {
+                    0
+                }
+            );
+            if format == 0 {
+                assert!(html.contains(&comment));
+            }
+            assert!(html.contains("permasage: true, permaage: true"));
+            assert!(html.contains("Disable permasage"));
+            assert!(html.contains("Disable permaage"));
         }
-        .render()
-        .unwrap();
-        assert!(html.contains(&comment));
-        assert!(html.contains("permasage: true, permaage: true"));
-        assert!(html.contains("Disable permasage"));
-        assert!(html.contains("Disable permaage"));
     }
 }

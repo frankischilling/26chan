@@ -51,7 +51,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap();
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-        assert_eq!(saved.comment_format, 8 + mask);
+        assert_eq!(saved.comment_format, 40 + mask);
         assert_eq!(saved.comment, post().comment);
         ids.push(id);
     }
@@ -156,7 +156,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .unwrap();
         set_policy(&owner, &slug, 0).await;
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-        assert_eq!(saved.comment_format, 8 + mask);
+        assert_eq!(saved.comment_format, 40 + mask);
         let body = get(&api, &format!("/{slug}/thread/{id}.json")).await;
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
         if expected.is_empty() {
@@ -208,7 +208,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .fetch_one(&public)
             .await
             .unwrap(),
-        15
+        47
     );
 
     // The trigger runs with the narrowly privileged attachment owner too.
@@ -236,7 +236,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .fetch_one(&mut *attachment)
             .await
             .unwrap(),
-        15
+        47
     );
     attachment.rollback().await.unwrap();
     assert!(
@@ -288,7 +288,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .await
                 .unwrap()
                 .comment_format,
-            8 + after
+            40 + after
         );
     }
 }

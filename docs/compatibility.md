@@ -278,6 +278,12 @@ and stamps new posts so later policy changes preserve their rendering.
 [Forced-anonymous policy](source-forced-anonymous.md) clears new public names
 and subjects under the board lock, preserves history, and supplies the source
 form and JSON behavior. Current-head qualification remains required.
+[Source word breaks](source-word-breaks.md) adds the source's 35-scalar soft-break
+positions to new comments through migration 0036, preserves historical profiles,
+and covers public/staff rendering, JSON, catalog text and the native updater.
+The populated upgrade and JavaScript-on/off browser cases retain source ordering
+and escaped HTML. Full current-head qualification remains required.
+
 Name/trip cleanup, remaining markup and word filters remain unfinished;
 the old handler's deployed encoding is still unknown.
 

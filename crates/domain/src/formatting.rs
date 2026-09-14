@@ -8,6 +8,8 @@ pub enum Token {
     CrossQuote(String, u64),
     Spoiler(String),
     Link(String),
+    WrappedLink(String, Vec<crate::word_break::WordPart>),
+    WordBreak,
     OpenMarkup(Tag),
     CloseMarkup(Tag),
     OpenQuote,
@@ -85,9 +87,14 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
                         output.push(Token::OpenQuote);
                     }
                     let input = if green { start } else { &text };
-                    for token in tokenize(input, false) {
+                    let tokens = if crate::word_break::enabled(format) {
+                        crate::word_break::tokenize(input)
+                    } else {
+                        tokenize(input, false)
+                    };
+                    for token in tokens {
                         // A generated link ends the source's [^<]* quote span.
-                        if green && matches!(token, Token::Link(_)) {
+                        if green && matches!(token, Token::Link(_) | Token::WrappedLink(_, _)) {
                             output.push(Token::CloseQuote);
                             green = false;
                         }
@@ -108,6 +115,15 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
 }
 
 fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
+    tokenize_with(line, legacy_spoilers, true, true)
+}
+
+pub(crate) fn tokenize_with(
+    line: &str,
+    legacy_spoilers: bool,
+    quotes: bool,
+    links: bool,
+) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut text = String::new();
     let mut tail = line;
@@ -117,7 +133,7 @@ fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
             if let Some(end) = rest.find("[/spoiler]") {
                 found = Some((Token::Spoiler(rest[..end].to_owned()), 9 + end + 10));
             }
-        } else if let Some(rest) = tail.strip_prefix(">>>/") {
+        } else if quotes && let Some(rest) = tail.strip_prefix(">>>/") {
             if let Some(end) = rest.bytes().take(11).position(|byte| byte == b'/')
                 && let Ok(board) = crate::BoardSlug::parse(&rest[..end])
                 && let Some((id, digits)) = post_number(&rest[end + 1..])
@@ -125,11 +141,11 @@ fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
                 let consumed = 4 + board.as_str().len() + 1 + digits;
                 found = Some((Token::CrossQuote(board.as_str().into(), id), consumed));
             }
-        } else if let Some(rest) = tail.strip_prefix(">>") {
+        } else if quotes && let Some(rest) = tail.strip_prefix(">>") {
             if let Some((id, len)) = post_number(rest) {
                 found = Some((Token::Quote(id), len + 2));
             }
-        } else if tail.starts_with("https://") || tail.starts_with("http://") {
+        } else if links && (tail.starts_with("https://") || tail.starts_with("http://")) {
             let end = tail.find(char::is_whitespace).unwrap_or(tail.len());
             let candidate = &tail[..end];
             if let Ok(url) = Url::parse(candidate)

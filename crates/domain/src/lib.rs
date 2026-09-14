@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod word_break;
 
 pub mod bump;
 mod comment_ascii;

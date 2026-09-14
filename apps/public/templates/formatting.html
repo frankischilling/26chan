@@ -9,6 +9,8 @@
 {%- when Token::CrossQuote with (target, id) -%}<a class="quotelink" href="/{{ target }}/post/{{ id }}">&gt;&gt;&gt;/{{ target }}/{{ id }}</a>
 {%- when Token::Spoiler with (text) -%}<span class="spoiler" tabindex="0" aria-label="Spoiler; focus to reveal">{{ text }}</span>
 {%- when Token::Link with (url) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{{ url }}</a>
+{%- when Token::WrappedLink with (url, parts) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{%- for part in parts -%}{%- match part -%}{%- when WordPart::Text with (text) -%}{{ text }}{%- when WordPart::Break -%}<wbr>{%- endmatch -%}{%- endfor -%}</a>
+{%- when Token::WordBreak -%}<wbr>
 {%- when Token::OpenMarkup with (tag) -%}
 {%- match tag -%}{%- when Tag::Spoiler -%}<s>{%- when Tag::Code -%}<pre class="prettyprint">{%- when Tag::Sjis -%}<span class="sjis">{%- when Tag::Bold -%}<span class="mu-s">{%- when Tag::Italic -%}<span class="mu-i">{%- when Tag::Red -%}<span class="mu-r">{%- when Tag::Green -%}<span class="mu-g">{%- when Tag::Blue -%}<span class="mu-b">{%- endmatch -%}
 {%- when Token::CloseMarkup with (tag) -%}
