@@ -15,6 +15,7 @@ pub fn page(disabled_images: bool) -> String {
         (3, 1, 1, "Replies deleted after bump limit"),
         (3, 3, 3, "Policy lowered below counts"),
         (0, 0, 0, "No replies"),
+        (3, 3, 0, "Sticky above bump limit"),
     ]
     .into_iter()
     .enumerate()
@@ -30,7 +31,7 @@ pub fn page(disabled_images: bool) -> String {
                 bumped_at: time("2026-09-08T12:00:00Z"),
                 modified_at: time("2026-09-08T12:00:00Z"),
                 reply_count: lifetime,
-                sticky: false,
+                sticky: index == 5,
                 closed: false,
                 deleted: false,
                 archived_at: None,

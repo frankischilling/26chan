@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod bump;
 pub mod formatting;
 pub mod posting_options;
 pub use formatting::{Line, Token, parse_comment};

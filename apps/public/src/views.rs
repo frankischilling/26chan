@@ -75,7 +75,11 @@ pub struct ThreadView {
 }
 impl ThreadView {
     pub fn bump_limited(&self, board: &Board) -> bool {
-        self.thread.reply_count >= board.bump_limit
+        board_domain::bump::limited(
+            self.thread.sticky,
+            self.visible_replies() as u64,
+            board.bump_limit as u32,
+        )
     }
 
     pub fn image_limited(&self, board: &Board) -> bool {

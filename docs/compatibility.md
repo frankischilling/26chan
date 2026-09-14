@@ -25,7 +25,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | I-009 | Legacy-looking posting endpoint; project; **source**: [original rules](#posting-and-text) | Rust `/{board}/imgboard.php` and `/post` support multipart/URL-encoded text posting and exact Accept JSON responses | [Multipart fields and native submission](posting-multipart.md) implement `regist`/`post`, `pwd` and empty file parts through real transactions; [JSON response contract](posting-json.md) covers committed OP/reply IDs and error envelopes. Original single-request file handling, identity/captcha and complete Quick Reply flow remain E-010/E-011 work |
 | I-010 | CORS, redirects, status/header details; API README plus project decisions; **source**: [original rules](#http-and-deployment) | Optional JSON-only listener with board-origin CORS, GET/HEAD/OPTIONS and conditional headers; public routes retain 303 posting, 308 board slash and same-origin writes | `api_cors`, startup and real cross-origin Chromium tests; no credentialed CORS. Header exposure/error details and deployment-domain mapping are project-defined; see [API contract](api.md) |
 | B-001 | Persistent thread creation/replies; project; **source**: [original rules](#posting-and-text) | Implemented | Real PostgreSQL and browser tests; no copied posting internals |
-| B-002 | `sage`; documented FAQ meaning; source-known original bump/count rules; local lifetime limits remain project-defined; **source**: [original rules](#counts-bumping-and-admission) | Implemented, serialized per board | Posting-options and concurrent reply tests; lifetime counts do not decrease after deletion |
+| B-002 | `sage`, current-count bumping and source cutoff; **source**: [original rules](#counts-bumping-and-admission) | Ordinary/sticky bump rules implemented, serialized per board | [Source bump rules](source-bump-rules.md), posting-options and concurrent reply tests. Surviving replies include the incoming post; sticky threads skip bumps/limit markers. Persisted additions await current-head CI. Lifetime reply admission and additional source policy branches remain unfinished |
 | B-003 | Board settings and thread limits; project; **source**: [original rules](#counts-bumping-and-admission) | Unicode scalar comment limits, independent UTF-8 byte ceiling, [100-byte public name/subject limits](public-field-limits.md), active-thread cap, reply/bump limits | Domain/store/HTTP/browser tests; full boards displace oldest nonsticky threads; optional archives retain read-only threads, otherwise soft deletion; migration 0021 preserves historical fields and deletion |
 | B-004 | Deletion; project; **source**: [original rules](#deletion) | Argon2 password; OP deletion hides whole thread | Wrong credential/origin, absent store, persisted deletion tests; no staff identity involved |
 | B-008 | Post-submit destination and `nonoko`/`nonokosage`; documented FAQ; **source**: [original rules](#posting-and-text) | Source raw-text parsing implemented for new threads and replies through both posting aliases | [Options rules and qualification](verification-posting-options.md): case-insensitive sage removal, exact remaining nonoko, 100-byte bounds, free-text controls and public capcode denial. Expanded persisted coverage awaits current-head CI; existing HTML 303 remains project behavior |
@@ -46,7 +46,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | V-005 | Default extended-small catalog cards; observed public v705 CSS and v1025 client structure; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Compact cards, bounded thumbnails opening threads, escaped subject/teaser and visible reply/image-reply counts; merged in #63 after complete exact-head checks | [Catalog verification](public-catalog-cards.md); six desktop/mobile style/navigation cases, real deletion and coherent snapshot counts, five reviewed captures. Controls are V-006 and fallback graphics are V-007; later menus/search fields are V-009. Original teaser processing is source-known; matching its board-dependent pipeline remains incomplete |
 | V-006 | Catalog sort, size, teaser and quick-filter options; observed public controls/client and CSS; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Four sorts use visible snapshot state; small/large and teaser on/off modes plus search/reset work without JavaScript. Initial controls merged in #65; subsequent search behavior is V-009 | [Control verification](catalog-controls.md); actual-role deletion/sorting tests, concurrent-commit queries, persisted sage browser workflow, all-mode six-theme properties and six additional captures. GET submission/URL persistence and toolbar wrapping are explicit local behavior |
 | V-007 | Catalog no-file, deleted-file, generic spoiler and sticky/closed icons; observed public v1025 client and v705 CSS with pinned public images; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Seven fixed image routes and measured state geometry implemented; merged in #67 after all exact-head checks passed | [Asset verification](catalog-state-assets.md); GET/HEAD hashes, MIME/cache/CSP and denied writes, six-theme desktop/mobile geometry at scale 1/2, real browser positive/negative CSP controls, hidden-media non-fetching and nine reviewed captures. Board-specific spoilers, reveal preferences and full-page parity remain incomplete |
-| V-008 | Catalog bump/image-limit indicators; observed public v1025 card markup and documented API flags; **source**: [original rules](#counts-bumping-and-admission) | Italic R/I counts use the coherent board snapshot and existing JSON rules; merged in #69 after all exact-head checks passed | [Limit verification](catalog-limits.md); actual-role boundary/deletion/policy transitions, concurrent snapshots, six-theme desktop/mobile computed styles and two inspected captures. Original visible-count/deletion rules are source-known; lifetime bump counting differs, and complete catalog matching remains unverified |
+| V-008 | Catalog bump/image-limit indicators; observed public v1025 card markup and documented API flags; **source**: [original rules](#counts-bumping-and-admission) | Italic R/I counts use the coherent board snapshot; original indicator slice merged in #69 | [Limit verification](catalog-limits.md) and [source bump rules](source-bump-rules.md): surviving replies and sticky exclusion now decide bump markers. Actual-role boundary/deletion/policy and concurrent snapshot tests plus six-theme checks; new persisted rules await current-head CI. Permaage and branch-specific image exclusions, and complete catalog matching, remain unfinished |
 
 Later compatibility checkpoints:
 
@@ -317,8 +317,10 @@ must not be reproduced to claim parity.
 ### Counts, bumping and admission
 
 Original bumping uses current SQL reply counts, not the rewrite's retained
-lifetime reply total (`imgboard.php:6627-6653`). Sage, sticky,
-permasage and permaage affect bumping through separate branches. OP self-bumps
+lifetime reply total (`imgboard.php:6627-6653`). The rewrite now follows
+[surviving counts and the post-insert cutoff](source-bump-rules.md) for
+ordinary/sticky threads. Sage, sticky, permasage and permaage affect bumping
+through separate branches; the latter two remain unfinished. OP self-bumps
 are also controlled by the 900-second initial and 300-second later
 declarations (`config/global_config.ini:232-237`,
 `imgboard.php:5975`). The configured sage interval is not proof that
@@ -650,7 +652,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | I-009 | Multipart text fields/modes and exact Accept JSON responses are implemented; original identity, single-request file posting and complete client flow remain unfinished. |
 | I-010 | Source-specific methods/301/meta-refresh are known; proxy/CORS/status/header deployment remains missing. |
 | B-001 | Original posting/identity/transformation flow is known; PostgreSQL persistence is a replacement. |
-| B-002 | Sage substring processing is implemented; current-count bump decisions still differ from lifetime rules. |
+| B-002 | Sage substring processing, current-count cutoff and sticky suppression are implemented; permaage/permasage, age/self-bump and admission rules remain unfinished. |
 | B-003 | Board/category limits, image admission and protected-thread counting are known; local bounds differ. |
 | B-004 | Token/host/staff/automatic deletion branches are known; Argon2/soft deletion differ. |
 | B-005 | Active escaping/markup/link/quote pipeline is known; bounded grammar does not imply matching. |
@@ -672,7 +674,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | V-005 | Board-dependent original teaser preparation is known; shared rewrite fields still need matching. |
 | V-006 | Native controls/defaults/storage/search are known; bounded GET fallback/layout differ. |
 | V-007 | Image-state precedence and custom-spoiler selection are known; board-specific bytes/matching remain. |
-| V-008 | SQL visible counts and branch-specific exclusions are known; lifetime bump count differs. |
+| V-008 | Bump flags use surviving replies and exclude sticky threads; permaage and branch-specific image-limit exclusions remain unfinished. |
 | V-009 | Subject/teaser/file serialization, search/storage/pin/hide are known; #82 is matching work. |
 | V-010 | Original spoiler preference/suffix behavior is known; board assets and fallback extensions remain. |
 | V-011 | Watcher/menu/hiding/events/keys/updater/notifications/QR rules are known; unfinished features and live qualification remain. |
