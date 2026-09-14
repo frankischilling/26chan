@@ -41,6 +41,7 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
         await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
         await expect(page.locator('form.postEditor input[name=awt]')).toHaveValue('1');
         const post = async (parent, option = '') => {
+          await page.locator('#togglePostFormLink a').click();
           await page.locator('#com').fill(`Owned cookie policy ${cookies}, parent ${parent}`);
           await page.locator('#password').fill(password);
           await page.locator('#email').selectOption(option);

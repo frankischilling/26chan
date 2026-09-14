@@ -29,7 +29,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
 
 test('Quick Reply drag uses bounded coordinates and thread navigation exposes the source entry', async ({ page }) => {
   await page.goto('/img/thread/1000201');
-  await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+  await page.locator('.open-qr-link').click();
   const header = page.locator('#qrHeader'), before = await header.boundingBox();
   await page.mouse.move(before.x + 30, before.y + 8); await page.mouse.down();
   await page.mouse.move(60, 65); await page.mouse.up();
@@ -37,7 +37,7 @@ test('Quick Reply drag uses bounded coordinates and thread navigation exposes th
   expect(after.x).toBeGreaterThanOrEqual(0); expect(after.y).toBeGreaterThanOrEqual(0);
   expect(after.x).toBeLessThan(before.x);
   await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
-  await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
+  await page.locator('.open-qr-link').click();
   const restored = await page.locator('#quickReply').boundingBox(); expect(restored.x).toBe(after.x); expect(restored.y).toBe(after.y);
 });
 
@@ -135,6 +135,8 @@ test('source length advice is debounced, typed, cancelable and does not hide ser
 
 test('source mobile reopening uses 25px while initial placement uses 28px and prefix quotes retain editing position', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/demo/');
+  // Keep the quote target below the overlay while exercising repeated real clicks.
+  await page.locator('#mpostform a').click();
   const link = page.locator('.postInfo > .postNum').first(); await link.click();
   expect(await page.locator('#quickReply').evaluate(node => parseFloat(node.style.top) - scrollY)).toBe(28);
   await link.click(); expect(await page.locator('#quickReply').evaluate(node => parseFloat(node.style.top) - scrollY)).toBe(25);

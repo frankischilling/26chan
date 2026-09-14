@@ -30,7 +30,7 @@ async function initialize(page, owned, settings = {}) {
 test('manual update preserves the document, draft and focus, inserts escaped replies, and wires real menus and forms', async ({ page, owned }) => {
   await initialize(page, owned, { keyBinds: true, threadWatcher: true });
   await page.getByRole('button', { name: `Watch thread ${owned.id}`, exact: true }).first().click();
-  await page.locator('#com').fill('Unsubmitted draft');
+  await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Unsubmitted draft');
   const reply = await owned.reply(`>>${owned.id}\n>green\n[spoiler]fold[/spoiler]\n<script>window.bad=true</script>`);
   const navigation = []; page.on('request', request => { if (request.isNavigationRequest()) navigation.push(request.url()); });
   await page.evaluate(() => { window.keptDocument = true; });
@@ -59,7 +59,7 @@ test('manual update preserves the document, draft and focus, inserts escaped rep
 test('R inserts only new replies once and obeys the editable-field and settings guards', async ({ page, owned }) => {
   await initialize(page, owned, { keyBinds: true });
   const reply = await owned.reply('Reply fetched by R');
-  await page.locator('#com').focus(); await page.keyboard.press('r');
+  await page.locator('#togglePostFormLink a').click(); await page.locator('#com').focus(); await page.keyboard.press('r');
   await expect(page.locator(`#p${reply}`)).toHaveCount(0);
   await page.locator('h1').click(); await page.keyboard.press('r');
   await expect(status(page)).toHaveText('1 new post');
@@ -133,7 +133,7 @@ test('new replies participate in filters and ordinary reply hiding', async ({ pa
 
 test('closed, reopened and archived snapshots update state and retain the posting draft', async ({ page, request, owned }) => {
   await initialize(page, owned);
-  await page.locator('#com').fill('Retained across thread states');
+  await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Retained across thread states');
   const snapshot = await (await request.get(owned.path)).json();
   await page.route(`**${owned.path}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }));
   snapshot.closed = true; snapshot.sticky = true;

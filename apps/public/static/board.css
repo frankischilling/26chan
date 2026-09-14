@@ -86,6 +86,20 @@ footer { text-align: center; font-size: 11px; margin-top: 30px; }
 /* Expanded posting fields use measured public desktop table geometry. */
 .postEditor { width: min(100%, 468px); margin: 18px auto; }
 .postEditor h2 { text-align: center; }
+#togglePostFormLink { font-size: 22px; font-weight: bold; text-align: center; }
+#togglePostFormLink[hidden], #mpostform[hidden], .postFormBottom[hidden] { display: none; }
+.nativePostForm > h2, .nativePostForm #postForm, .nativePostForm > #postHelp { display: none; }
+.nativePostForm.postFormOpen #postForm { display: table; }
+.nativePostForm.postFormOpen > #postHelp { display: block; }
+#mpostform, .postFormBottom { display: none; text-align: center; margin-top: 10px; }
+.mobilePostFormToggle { font-weight: bold; }
+@media (max-width: 480px) {
+  #togglePostFormLink { display: none; }
+  #mpostform:not([hidden]), .postFormBottom:not([hidden]) { display: block; }
+  .nativePostForm #postForm:not(.hideMobile) { display: table; margin-top: 20px; }
+  .nativePostForm #postForm:not(.hideMobile) ~ #postHelp { display: block; }
+  .nativePostForm #postForm.hideMobile, .nativePostForm #postForm.hideMobile ~ #postHelp { display: none; }
+}
 table.postForm { width: 100%; margin: 0 auto; border-spacing: 1px; }
 table.postForm td { padding: 0; }
 table.postForm td:first-child { background: var(--label); color: var(--label-ink); font-weight: bold; padding: var(--post-label-padding); border: var(--post-label-border) solid var(--label-edge); vertical-align: middle; }
@@ -210,9 +224,12 @@ table.postForm button { padding: 1px 6px; }
   .threadNav.desktop { display: none !important; }
   .threadNav.mobile { display: block !important; margin-top: 9px; margin-bottom: 0; text-align: center; }
   .threadNav .mobileib { display: inline-block; }
-  .threadNav .button, .nativeThreadRestore { border-radius: 3px; padding: 6px 10px 5px; font-weight: bold; background: #d6daf0 url('/static/watcher/buttonfade-blue.png') repeat-x; border: 1px solid #b7c5d9; user-select: none; text-decoration: none; color: #34345c; }
+  .threadNav .button, .nativeThreadRestore, .mobilePostFormToggle { border-radius: 3px; padding: 6px 10px 5px; font-weight: bold; background: #d6daf0 url('/static/watcher/buttonfade-blue.png') repeat-x; border: 1px solid #b7c5d9; user-select: none; text-decoration: none; color: #34345c; }
+  .mobilePostFormToggle { display: inline-block; }
+  .mobilePostFormToggle:hover, .mobilePostFormToggle:visited { color: #34345c; }
+  .mobilePostFormToggle[data-worksafe="false"]:hover, .mobilePostFormToggle[data-worksafe="false"]:visited { color: #800; }
   .threadNav .button a, .threadNav .button a:hover, .threadNav .button a:visited { text-decoration: none; color: #34345c; }
-  .threadNav[data-worksafe="false"] .button, .nativeThreadRestore[data-worksafe="false"] { color: #800; background-color: #f0e0d6; background-image: url('/static/watcher/buttonfade.png'); border-color: #c0a69d; }
+  .threadNav[data-worksafe="false"] .button, .nativeThreadRestore[data-worksafe="false"], .mobilePostFormToggle[data-worksafe="false"] { color: #800; background-color: #f0e0d6; background-image: url('/static/watcher/buttonfade.png'); border-color: #c0a69d; }
   .threadNav[data-worksafe="false"] .button a, .threadNav[data-worksafe="false"] .button a:hover, .threadNav[data-worksafe="false"] .button a:visited { color: #800; }
 }
 #navtopright { float: right; }

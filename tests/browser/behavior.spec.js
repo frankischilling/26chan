@@ -440,6 +440,8 @@ test('API listener rejects posting and browser preflights cannot grant write acc
 
 test('posting, replying, reporting, and password deletion persist through reload', async ({ page }) => {
   await page.goto('/test/');
+  await expect(page.locator('#postForm')).toBeHidden();
+  await page.locator('#togglePostFormLink a').click();
   await page.locator('#sub').fill('A synthetic browser thread');
   await page.locator('#com').fill('>hello\n<script>window.hostile = true</script>\n[spoiler]a hidden fold[/spoiler]');
   await page.locator('#password').fill('browser-password-123');
@@ -451,6 +453,7 @@ test('posting, replying, reporting, and password deletion persist through reload
   await expect(page.locator(`#m${op}`)).toContainText('<script>window.hostile = true</script>');
   expect(await page.evaluate(() => window.hostile)).toBeUndefined();
   await expect(page.locator(`#m${op} script`)).toHaveCount(0);
+  await page.locator('#togglePostFormLink a').click();
   await page.locator('#com').fill(`>>${op}\nA persisted reply.`);
   await page.locator('#password').fill('browser-reply-password');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
@@ -468,6 +471,27 @@ test('posting, replying, reporting, and password deletion persist through reload
   await expect(page).toHaveURL(/\/test\/$/);
   const deleted = await page.request.get(`/test/thread/${op}.json`);
   expect(deleted.status()).toBe(404);
+});
+
+test('mobile native form controls retain a draft and submit a persisted reply', async ({ page, request }) => {
+  const origin = 'http://127.0.0.1:3000', password = 'owned-mobile-form-password';
+  const response = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned mobile form thread', password } });
+  expect(response.status()).toBe(303); const id = /#p(\d+)$/.exec(response.headers().location)[1];
+  try {
+    await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false })));
+    await page.setViewportSize({ width: 390, height: 900 }); await page.goto(`/test/thread/${id}`);
+    await expect(page.locator('#postForm')).toBeHidden(); await page.locator('#mpostform a').click();
+    await page.locator('#com').fill('Persisted mobile form reply'); await page.locator('#password').fill(password);
+    await page.locator('#mpostform a').click(); await expect(page.locator('#postForm')).toBeHidden();
+    await page.locator('.postFormBottom a').click(); await expect(page.locator('#com')).toHaveValue('Persisted mobile form reply');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('.replyContainer .postMessage')).toHaveText('Persisted mobile form reply');
+    const posts = (await (await request.get(`/test/thread/${id}.json`)).json()).posts;
+    expect(posts).toHaveLength(2); expect(posts[1].com).toBe('Persisted mobile form reply');
+  } finally {
+    expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+  }
 });
 
 test('documented board-return options work with JavaScript disabled', async ({ browser }) => {

@@ -175,7 +175,7 @@ test('live search stays usable without storage and enforces scalar-value bounds'
 test('empty catalogs distinguish no threads from no matches across every clear control', async ({ page }) => {
   const response = await page.goto(`${catalog}?q=`);
   const csp = response.headers()['content-security-policy'];
-  const html = initial => `<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search" value="${initial}"><button>Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small"><p class="empty">${initial ? 'No matching threads. <a href="/test/catalog">Show all threads</a>.' : 'No threads yet. <a href="/test/#postForm">Start the first thread</a>.'}</p></div><template id="catalogFiltered"></template><script src="/static/catalog-preferences.v1.js" defer></script>`;
+  const html = initial => `<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search" value="${initial}"><button>Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small"><p class="empty">${initial ? 'No matching threads. <a href="/test/catalog">Show all threads</a>.' : 'No threads yet. <a href="/test/#reply">Start the first thread</a>.'}</p></div><template id="catalogFiltered"></template><script src="/static/catalog-preferences.v1.js" defer></script>`;
   await page.route('**/test/catalog?empty-state=*', route => {
     const initial = new URL(route.request().url()).searchParams.get('q');
     return route.fulfill({ contentType: 'text/html', headers: { 'content-security-policy': csp }, body: html(initial) });
@@ -204,7 +204,7 @@ test('empty catalogs distinguish no threads from no matches across every clear c
       }
       await expect(input).toHaveValue('');
       await expect(empty).toHaveText('No threads yet. Start the first thread.');
-      await expect(empty.getByRole('link', { name: 'Start the first thread', exact: true })).toHaveAttribute('href', /\/test\/#postForm$/);
+      await expect(empty.getByRole('link', { name: 'Start the first thread', exact: true })).toHaveAttribute('href', /\/test\/#reply$/);
       await expect(empty.getByRole('link', { name: 'Show all threads', exact: true })).toHaveCount(0);
       expect(query(page)).toBe('');
       expect(navigations).toBe(0);

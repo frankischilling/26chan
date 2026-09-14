@@ -11,7 +11,8 @@ test.afterEach(async ({ request }) => {
     expect((await request.get(`/test/thread/${id}.json`)).status()).toBe(404);
   }
 });
-async function post(page, comment, { subject = '', option = '' } = {}) {
+async function post(page, comment, { subject = '', option = '', nativeControls = true } = {}) {
+  if (nativeControls) await page.locator('#togglePostFormLink a').click();
   await page.locator('#com').fill(comment);
   await page.locator('#password').fill(password);
   if (subject) await page.locator('#sub').fill(subject);
@@ -114,7 +115,7 @@ test('disabled extension and no-JavaScript posting keep ordinary forms and redir
     const plain = await context.newPage();
     await plain.goto(origin + '/test/');
     await expect(plain.locator('input[name=track], input[name=awt]')).toHaveCount(0);
-    await post(plain, 'Owned no-JavaScript tracking control');
+    await post(plain, 'Owned no-JavaScript tracking control', { nativeControls: false });
     await expect(plain).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
     owned.push(plain.url().match(/thread\/(\d+)/)[1]);
     expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual([]);

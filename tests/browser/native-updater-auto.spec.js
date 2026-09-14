@@ -32,7 +32,7 @@ test('A and mirrored controls append persisted replies on schedule, preserve dra
   await page.setViewportSize({ width: 1280, height: 400 });
   await initialize(page, owned, { keyBinds: true }); await freeze(page);
   const title = await page.title();
-  await page.locator('#com').fill('Retained draft'); await page.keyboard.press('a');
+  await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Retained draft'); await page.keyboard.press('a');
   await expect(auto(page)).not.toBeChecked();
   await page.locator('h1').click(); await page.keyboard.press('a');
   for (const input of await page.locator('input[data-cmd="auto"]').all()) await expect(input).toBeChecked();

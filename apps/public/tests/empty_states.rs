@@ -52,6 +52,6 @@ async fn empty_catalog_links_to_the_actual_board_posting_form() {
     assert!(!catalog.contains("id=\"postForm\""));
     assert!(!catalog.contains("Start the first thread above."));
     assert!(catalog.contains(&format!(
-        "href=\"/{slug}/#postForm\">Start the first thread</a>"
+        "href=\"/{slug}/#reply\">Start the first thread</a>"
     )));
 }

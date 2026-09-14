@@ -1,5 +1,6 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { commentLengthWarning, quoteInsertion, sendQuickReply } from './native-quick-reply-transport.js';
+import { mountNativePostForm } from './native-post-form.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
@@ -187,5 +188,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   window.addEventListener('pagehide', close); window.addEventListener('resize', () => { place(position); sync(); });
   document.addEventListener('4chanThreadUpdated', sync);
   document.addEventListener('boardThreadStateChanged', sync);
+  mountNativePostForm({ source, thread, openQuickReply: () => {
+    if (!thread || disabled()) return false;
+    open(thread); return true;
+  } });
   sync(); return { open: () => !!thread && quote(thread, null, getSelection()?.toString() ?? ''), sync, close };
 }
