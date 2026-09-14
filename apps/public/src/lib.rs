@@ -139,6 +139,10 @@ pub fn routers_with_limits(
             "/_watch/{board}/thread/{key}/posts",
             get(native_updater_snapshot::get),
         )
+        .route(
+            "/_watch/{board}/thread/{key}/posts-tail",
+            get(native_updater_snapshot::get_tail),
+        )
         .route("/_watch/{board}/catalog.json", get(watcher_catalog::get))
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))

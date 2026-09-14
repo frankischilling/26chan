@@ -1,5 +1,6 @@
 import { NativeUpdaterTransport } from './native-updater-transport.js';
 import { NativeUpdaterSchedule } from './native-updater-schedule.js';
+import { useUpdaterTail } from './native-updater-tail.js';
 import { notificationKind, notificationIcon } from './native-tracked-quotes.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
@@ -18,6 +19,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
   const controls = [], statuses = [], mobileLinks = [], autoInputs = [], soundControls = [];
   let busy = false, dead = false, stopped = false, generation = 0;
   let currentCycle = null;
+  let tailSize = Number(section.dataset.tailSize || 0), lastUpdated = Date.now();
   let wasDisabled = true, hadAuto = false, unread = 0, marker = null;
   const icon = document.querySelector('link[rel="shortcut icon"]');
   let currentIcon = null;
@@ -148,9 +150,14 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
     const cycle = new AbortController(); currentCycle = cycle;
     let added = 0;
     schedule.begin(); busy = true; status('Updating...'); sync();
-    const result = await transport.refresh({ signal: cycle.signal });
+    const currentPosts = [...section.querySelectorAll(':scope > .postContainer')];
+    const known = new Set(currentPosts.map(post => post.id.slice(2)));
+    const tail = useUpdaterTail(tailSize, currentPosts.slice(1).map(post => Date.parse(post.querySelector('.postInfo time')?.dateTime)), lastUpdated, Date.now());
+    const result = await transport.refresh({ signal: cycle.signal, tail, known });
     if (current !== generation || disabled() || stopped || !section.isConnected) return;
+    if (!['cancelled', 'busy', 'cooldown', 'invalid-context', 'unavailable'].includes(result.status)) lastUpdated = Date.now();
     try {
+      if (result.status === 'not-modified') { status('No new posts'); return; }
       if (result.status !== 'ok') {
         if (result.status === 'http-error' && result.httpStatus === 404) {
           dead = true; setIcon('dead'); schedule.stop(); remember(false); status('This thread has been pruned or deleted', true);
@@ -159,6 +166,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
         return;
       }
       const { snapshot } = result;
+      if (snapshot.tail_id === null) { tailSize = snapshot.tail_size; section.dataset.tailSize = String(tailSize); }
       const existing = [...section.querySelectorAll(':scope > .postContainer')];
       const last = existing.at(-1)?.id.slice(2);
       if (!postId(last)) throw new Error('invalid-current-thread');
@@ -209,7 +217,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
       }
       status(additions.length ? `${additions.length} new post${additions.length === 1 ? '' : 's'}` : 'No new posts');
       if (snapshot.archived) { dead = true; setIcon('dead'); schedule.stop(); remember(false); status('This thread is archived', true); }
-    } catch { status('Thread update could not be applied. Open the thread page to continue.', true); }
+    } catch { transport.invalidate(); status('Thread update could not be applied. Open the thread page to continue.', true); }
     finally {
       cycle.abort(); if (currentCycle === cycle) currentCycle = null;
       if (current === generation) { busy = false; schedule.finish(added, forced); sync(); }

@@ -46,13 +46,13 @@ async fn thread(
     Path((board, key)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let Some(id) = positive_json_number(&key) else {
+    let Some((id, tail)) = thread_number(&key) else {
         return api_error(handlers::AppError(
             StatusCode::NOT_FOUND,
             "Thread not found.",
         ));
     };
-    api_response(api::thread(&state, &board, id, &headers).await)
+    api_response(api::thread_selection(&state, &board, id, &headers, tail).await)
 }
 
 async fn board_resource(
@@ -85,6 +85,17 @@ fn positive_json_number(value: &str) -> Option<i64> {
         .parse::<i64>()
         .ok()
         .filter(|number| *number > 0)
+}
+
+fn thread_number(value: &str) -> Option<(i64, bool)> {
+    if let Some(raw) = value.strip_suffix("-tail.json") {
+        raw.parse::<i64>()
+            .ok()
+            .filter(|id| *id > 0 && id.to_string() == raw)
+            .map(|id| (id, true))
+    } else {
+        positive_json_number(value).map(|id| (id, false))
+    }
 }
 
 fn api_response(result: Result<Response, handlers::AppError>) -> Response {
@@ -212,7 +223,7 @@ fn supported_api_path(path: &str) -> bool {
     }
     let segments: Vec<_> = path.trim_start_matches('/').split('/').collect();
     match segments.as_slice() {
-        [_, "thread", key] => positive_json_number(key).is_some(),
+        [_, "thread", key] => thread_number(key).is_some(),
         [_, key] => {
             matches!(*key, "threads.json" | "catalog.json" | "archive.json")
                 || positive_json_number(key).is_some()

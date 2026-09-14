@@ -30,6 +30,57 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
         .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
         .unwrap();
     let (web, api) = board_public::routers(pool, ORIGIN.into(), false);
+    for app in [&web, &api] {
+        for key in [
+            "0-tail.json",
+            "01-tail.json",
+            "+1-tail.json",
+            "-1-tail.json",
+            "9223372036854775808-tail.json",
+        ] {
+            assert_eq!(
+                request(app, "GET", &format!("/test/thread/{key}"), String::new())
+                    .await
+                    .status(),
+                404
+            );
+        }
+    }
+    for method in ["POST", "PUT", "PATCH", "DELETE"] {
+        assert_eq!(
+            request(
+                &web,
+                method,
+                "/_watch/test/thread/1/posts-tail",
+                String::new()
+            )
+            .await
+            .status(),
+            405
+        );
+    }
+    assert_eq!(
+        request(
+            &web,
+            "GET",
+            "/_watch/test/thread/01/posts-tail",
+            String::new()
+        )
+        .await
+        .status(),
+        404
+    );
+    assert_eq!(
+        request(
+            &web,
+            "GET",
+            "/_watch/test/thread/1/posts-tail?after=0",
+            String::new()
+        )
+        .await
+        .status(),
+        400
+    );
     for method in ["POST", "PUT", "PATCH", "DELETE"] {
         let response = request(&web, method, "/_watch/test/thread/1/posts", String::new()).await;
         assert_eq!(response.status(), 405, "{method}");
@@ -108,7 +159,12 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
         let response = request(&app, method, &path, String::new()).await;
         assert_eq!(response.status(), 200);
         assert_eq!(response.headers()["content-type"], "application/json");
-        assert_eq!(response.headers()["cache-control"], "no-store");
+        assert_eq!(
+            response.headers()["cache-control"],
+            "public, max-age=0, must-revalidate"
+        );
+        assert!(response.headers().contains_key("etag"));
+        assert!(response.headers().contains_key("last-modified"));
         assert_eq!(response.headers()["x-content-type-options"], "nosniff");
         assert!(response.headers().get("set-cookie").is_none());
         assert!(

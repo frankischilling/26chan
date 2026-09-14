@@ -6,6 +6,33 @@ pub use formatting::{Line, Token, parse_comment};
 pub const MAX_COMMENT_CHARS: usize = 16_000;
 pub const MAX_COMMENT_BYTES: usize = 64_000;
 
+/// Original tail eligibility uses visible replies; sticky alone does not double it.
+pub fn thread_tail_size(configured: u16, sticky: bool, undead: bool, replies: usize) -> usize {
+    let size = usize::from(configured) * if sticky && undead { 2 } else { 1 };
+    if size > 0 && replies >= size * 2 {
+        size
+    } else {
+        0
+    }
+}
+
+#[test]
+fn native_tail_threshold_and_sticky_undead_rules() {
+    for (size, sticky, undead, replies, expected) in [
+        (0, false, false, 1000, 0),
+        (5, false, false, 9, 0),
+        (5, false, false, 10, 5),
+        (50, true, false, 100, 50),
+        (50, false, true, 100, 50),
+        (50, true, true, 199, 0),
+        (50, true, true, 200, 100),
+        (500, false, false, 999, 0),
+        (500, false, false, 1000, 500),
+    ] {
+        assert_eq!(thread_tail_size(size, sticky, undead, replies), expected);
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct ValidationError(pub &'static str);

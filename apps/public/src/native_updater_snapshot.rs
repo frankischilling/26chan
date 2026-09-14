@@ -7,8 +7,8 @@ use crate::{
 use askama::Template;
 use axum::{
     extract::{Path, State},
-    http::{StatusCode, Uri},
-    response::{IntoResponse, Response},
+    http::{HeaderMap, StatusCode, Uri},
+    response::Response,
 };
 use serde::Serialize;
 
@@ -26,6 +26,8 @@ struct Snapshot {
     replies: usize,
     images: usize,
     posts: Vec<RenderedPost>,
+    tail_size: usize,
+    tail_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -87,6 +89,10 @@ fn encode(
         board,
         thread,
         posts,
+        replies,
+        images,
+        tail_size,
+        tail_id,
     } = snapshot;
     if posts.is_empty()
         || posts.len() > MAX_POSTS
@@ -98,26 +104,32 @@ fn encode(
             .iter()
             .any(|post| post.deleted || post.board != board.slug || post.thread_id != thread.id)
         || posts.windows(2).any(|pair| pair[0].id >= pair[1].id)
+        || replies > 1000
+        || images > replies
+        || tail_size > 1000
+        || (tail_size > 0 && replies < tail_size * 2)
+        || posts.len()
+            != 1 + if tail_id.is_some() {
+                tail_size
+            } else {
+                replies
+            }
+        || tail_id.is_some_and(|boundary| {
+            tail_size == 0 || boundary <= thread.id || posts.get(1).is_none_or(|p| p.id <= boundary)
+        })
     {
         return Err(unavailable());
     }
-    let images = posts
-        .iter()
-        .skip(1)
-        .filter(|post| {
-            post.attachment
-                .as_ref()
-                .is_some_and(|file| !file.file_deleted)
-        })
-        .count();
+    let omitted = replies - (posts.len() - 1);
     let view = ThreadView {
+        tail_size,
         latest_reply_id: posts
             .last()
             .filter(|post| post.id != thread.id)
             .map(|post| post.id),
         thread,
         posts: posts.into_iter().map(PostView::new).collect(),
-        omitted: 0,
+        omitted,
         image_replies: images as i64,
     };
     let mut rendered = Vec::with_capacity(view.posts.len());
@@ -145,15 +157,17 @@ fn encode(
         });
     }
     let result = Snapshot {
-        version: 1,
+        version: 2,
         board: board.slug,
         thread: view.thread.id.to_string(),
         closed: view.thread.closed,
         archived: view.thread.archived_at.is_some(),
         sticky: view.thread.sticky,
-        replies: rendered.len() - 1,
+        replies,
         images,
         posts: rendered,
+        tail_size,
+        tail_id: tail_id.map(|id| id.to_string()),
     };
     let mut output = LimitedOutput::new(limit);
     serde_json::to_writer(&mut output, &result).map_err(|_| unavailable())?;
@@ -164,6 +178,27 @@ pub(crate) async fn get(
     State(state): State<AppState>,
     Path((board, key)): Path<(String, String)>,
     uri: Uri,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    selected(state, board, key, uri, headers, false).await
+}
+
+pub(crate) async fn get_tail(
+    State(state): State<AppState>,
+    Path((board, key)): Path<(String, String)>,
+    uri: Uri,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    selected(state, board, key, uri, headers, true).await
+}
+
+async fn selected(
+    state: AppState,
+    board: String,
+    key: String,
+    uri: Uri,
+    headers: HeaderMap,
+    tail: bool,
 ) -> Result<Response, AppError> {
     if uri.query().is_some() {
         return Err(AppError(
@@ -176,21 +211,15 @@ pub(crate) async fn get(
         .ok()
         .filter(|id| *id > 0 && id.to_string() == key)
         .ok_or(AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-    let snapshot = board_store::thread_snapshot(&state.pool, &board, id).await?;
+    let snapshot = board_store::thread_snapshot_selection(&state.pool, &board, id, tail).await?;
+    let modified = snapshot.thread.modified_at;
     let media_origin = state
         .media
         .as_ref()
         .map(|media| media.settings.origin.as_string())
         .unwrap_or_default();
     let bytes = encode(snapshot, &media_origin, MAX_BYTES)?;
-    Ok((
-        [
-            ("content-type", "application/json"),
-            ("cache-control", "no-store"),
-        ],
-        bytes,
-    )
-        .into_response())
+    crate::api::bytes_response(bytes, Some(modified), &headers)
 }
 
 #[cfg(test)]
@@ -246,6 +275,10 @@ mod tests {
             board,
             thread,
             posts,
+            replies: 1,
+            images: 0,
+            tail_size: 0,
+            tail_id: None,
         }
     }
 
@@ -270,7 +303,7 @@ mod tests {
     fn exact_identifiers_and_shared_escaped_markup() {
         let bytes = encode(fixture(), "", MAX_BYTES).unwrap();
         let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(value["version"], 1);
+        assert_eq!(value["version"], 2);
         assert_eq!(value["thread"], "9223372036854775806");
         assert_eq!(value["posts"][1]["no"], "9223372036854775807");
         assert_eq!(value["replies"], 1);
@@ -298,6 +331,7 @@ mod tests {
             file.spoiler = spoiler;
             file.file_deleted = deleted;
             snapshot.posts[1].attachment = Some(file);
+            snapshot.images = usize::from(!deleted);
             snapshot.thread.closed = true;
             snapshot.thread.sticky = true;
             snapshot.thread.archived_at = Some(snapshot.thread.created_at);
@@ -325,6 +359,33 @@ mod tests {
             assert!(!html.contains("private-asset-id"));
             assert!(!html.contains("not-a-public-hash-field"));
         }
+    }
+
+    #[test]
+    fn tail_projection_preserves_full_counts_and_exact_large_boundary_ids() {
+        let mut snapshot = fixture();
+        let base = i64::MAX - 10;
+        snapshot.thread.id = base;
+        snapshot.thread.reply_count = 6;
+        let template = snapshot.posts[0].clone();
+        snapshot.posts = [0, 5, 6]
+            .into_iter()
+            .map(|offset| {
+                let mut post = template.clone();
+                post.id = base + offset;
+                post.thread_id = base;
+                post
+            })
+            .collect();
+        snapshot.replies = 6;
+        snapshot.tail_size = 2;
+        snapshot.tail_id = Some(base + 4);
+        let bytes = encode(snapshot, "", MAX_BYTES).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["tail_id"], (base + 4).to_string());
+        assert_eq!(value["replies"], 6);
+        assert_eq!(value["posts"].as_array().unwrap().len(), 3);
+        assert_eq!(value["posts"][1]["no"], (base + 5).to_string());
     }
 
     #[test]

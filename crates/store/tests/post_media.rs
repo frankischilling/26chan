@@ -468,11 +468,58 @@ async fn exercise(f: &Fixture) {
         "Failed OP attachment rolled back the new thread"
     );
     exercise_waits_and_moderation(f).await;
+    tail_counts(f).await;
     f.public.close().await;
     assert!(matches!(
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn tail_counts(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET image_limit=2,json_tail_size=1 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let first = f.reserve().await;
+    f.approve(&first).await;
+    let image = f.insert(thread, &first).await.unwrap();
+    let text = create_post(&f.public, &f.board, thread, &post())
+        .await
+        .unwrap();
+    let tail = board_store::thread_snapshot_selection(&f.public, &f.board, thread, true)
+        .await
+        .unwrap();
+    assert_eq!(tail.replies, 2);
+    assert_eq!(tail.images, 1);
+    assert_eq!(tail.tail_id, Some(image));
+    assert_eq!(tail.posts[1].id, text);
+    assert!(tail.posts.iter().all(|post| post.attachment.is_none()));
+    delete_attachment(&f.public, &f.board, image).await.unwrap();
+    let tail = board_store::thread_snapshot_selection(&f.public, &f.board, thread, true)
+        .await
+        .unwrap();
+    assert_eq!(tail.images, 0);
+    let last = f.reserve().await;
+    let asset = f.approve(&last).await;
+    f.insert(thread, &last).await.unwrap();
+    let tail = board_store::thread_snapshot_selection(&f.public, &f.board, thread, true)
+        .await
+        .unwrap();
+    assert_eq!(tail.images, 1);
+    assert!(tail.posts[1].attachment.is_some());
+    sqlx::query("UPDATE media.assets SET state='deleting',approved_at=NULL WHERE id=$1")
+        .bind(&asset)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let tail = board_store::thread_snapshot_selection(&f.public, &f.board, thread, true)
+        .await
+        .unwrap();
+    assert_eq!(tail.images, 0);
+    assert!(tail.posts[1].attachment.as_ref().unwrap().file_deleted);
 }
 
 async fn reject_unattached_empty_posts(f: &Fixture, thread: i64) {

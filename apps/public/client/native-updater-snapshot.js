@@ -29,9 +29,28 @@ export function updaterContext({ origin, board, thread, mediaOrigin = '' }) {
   }
   return { origin: url.origin, board, thread, mediaOrigin };
 }
-export function updaterUrl(context) {
+export function updaterUrl(context, tail = false) {
   const { origin, board, thread } = updaterContext(context);
-  return `${origin}/_watch/${board}/thread/${thread}/posts`;
+  require(typeof tail === 'boolean');
+  return `${origin}/_watch/${board}/thread/${thread}/posts${tail ? '-tail' : ''}`;
+}
+
+export function validateSnapshotMetadata(snapshot, context) {
+  exactKeys(snapshot, ['version', 'board', 'thread', 'closed', 'archived', 'sticky', 'replies', 'images', 'posts', 'tail_size', 'tail_id']);
+  require(snapshot.version === 2 && snapshot.board === context.board && snapshot.thread === context.thread);
+  for (const key of ['closed', 'archived', 'sticky']) require(typeof snapshot[key] === 'boolean');
+  require(Array.isArray(snapshot.posts) && snapshot.posts.length > 0 && snapshot.posts.length <= UPDATER_LIMITS.posts);
+  require(Number.isInteger(snapshot.replies) && snapshot.replies >= 0 && snapshot.replies < UPDATER_LIMITS.posts
+    && Number.isInteger(snapshot.images) && snapshot.images >= 0 && snapshot.images <= snapshot.replies);
+  require(Number.isInteger(snapshot.tail_size) && snapshot.tail_size >= 0 && snapshot.tail_size < UPDATER_LIMITS.posts
+    && (snapshot.tail_size === 0 || snapshot.replies >= snapshot.tail_size * 2));
+  if (snapshot.tail_id === null) require(snapshot.replies === snapshot.posts.length - 1);
+  else {
+    require(postId(snapshot.tail_id) === snapshot.tail_id && BigInt(snapshot.tail_id) > BigInt(context.thread)
+      && snapshot.tail_size > 0 && snapshot.posts.length === snapshot.tail_size + 1
+      && postId(snapshot.posts[1]?.no) === snapshot.posts[1]?.no
+      && BigInt(snapshot.posts[1].no) > BigInt(snapshot.tail_id));
+  }
 }
 function mediaUrl(raw, context) {
   if (!context.mediaOrigin) return false;
@@ -111,11 +130,7 @@ export function parseUpdaterSnapshot(raw, inputContext) {
     const context = updaterContext(inputContext);
     require(typeof raw === 'string' && raw.length <= UPDATER_LIMITS.bytes && new TextEncoder().encode(raw).length <= UPDATER_LIMITS.bytes);
     const snapshot = JSON.parse(raw);
-    exactKeys(snapshot, ['version', 'board', 'thread', 'closed', 'archived', 'sticky', 'replies', 'images', 'posts']);
-    require(snapshot.version === 1 && snapshot.board === context.board && snapshot.thread === context.thread);
-    for (const key of ['closed', 'archived', 'sticky']) require(typeof snapshot[key] === 'boolean');
-    require(Array.isArray(snapshot.posts) && snapshot.posts.length > 0 && snapshot.posts.length <= UPDATER_LIMITS.posts);
-    require(snapshot.replies === snapshot.posts.length - 1 && Number.isInteger(snapshot.images) && snapshot.images >= 0 && snapshot.images <= snapshot.replies);
+    validateSnapshotMetadata(snapshot, context);
     let previous = 0n, created = 0;
     const budget = { nodes: 0 };
     const treeAdapter = { ...defaultTreeAdapter, createElement(...args) {
