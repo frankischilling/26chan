@@ -276,6 +276,13 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     const source = await post('/test/', `See >>>/demo/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n[spoiler]>>>/demo/${reply}[/spoiler]`);
     threads.push(['test', source]);
     const sourceUrl = `${origin}/test/thread/${source}`;
+    const local = await post(`/test/thread/${source}`, `Local >>>/test/${source} and >>>/demo/${reply}.\n[spoiler]>>>/test/${source}[/spoiler]`);
+    const localLink = page.locator(`#m${local} a.quotelink[href="/test/post/${source}"]`);
+    await expect(localLink).toHaveText(`>>${source}`);
+    await expect(page.locator(`#m${local} .spoiler`)).toHaveText(`>>${source}`);
+    await expect(page.locator(`#m${local} .spoiler a`)).toHaveCount(0);
+    await localLink.click();
+    await expect(page).toHaveURL(`${sourceUrl}#p${source}`);
     const link = page.locator(`#m${source} a.quotelink`);
     await expect(link).toHaveCount(1);
     await expect(link).toHaveAttribute('href', `/demo/post/${reply}`);
@@ -286,6 +293,7 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     const json = await (await context.request.get(`${origin}/test/thread/${source}.json`)).json();
     expect(json.posts[0].com).toContain(`<a class="quotelink" href="/demo/post/${reply}">&gt;&gt;&gt;/demo/${reply}</a>`);
     expect(json.posts[0].com).not.toContain('<script>');
+    expect(json.posts.find(post => String(post.no) === local).com).toContain(`<a class="quotelink" href="/test/post/${source}">&gt;&gt;${source}</a>`);
     const redirect = await context.request.get(`${origin}/demo/post/${reply}`, { maxRedirects: 0 });
     expect(redirect.status()).toBe(303);
     expect(redirect.headers().location).toBe(`/demo/thread/${target}#p${reply}`);

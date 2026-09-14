@@ -1,7 +1,7 @@
 use crate::{CommentSpacing, comment_ascii::similar_to_ascii, comment_spacing::zero_width};
 
 // Source imgboard.php:5309-5341. Call only after raw-input validation.
-pub(super) fn before_spacing(text: &str, spacing: CommentSpacing) -> String {
+pub(super) fn before_spacing(text: &str, spacing: CommentSpacing<'_>) -> String {
     let mut result = String::with_capacity(text.len());
     for mut ch in text.chars() {
         if spacing.strip_zero_width {

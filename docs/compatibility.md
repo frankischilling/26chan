@@ -254,8 +254,9 @@ NBSP/soft hyphen, applies the conditional zero-width filter, and follows the
 ordinary/code/SJIS whitespace rules under locked operator policy. Historical
 comments stay unchanged. [Source Unicode cleanup](source-comment-unicode.md)
 applies the finite lookalike mapping and emoticon/private-codepoint exclusions in
-source order, pending current-head qualification. Name/subject cleanup, markup,
-same-board quotes, repeated-line and total-line admission remain unfinished;
+source order, pending current-head qualification. [Same-board quote cleanup](source-local-quotes.md)
+then rewrites explicit local prefixes in new stored comments. Name/subject
+cleanup, intra-word spoilers, markup, repeated-line and total-line admission remain unfinished;
 the old handler's deployed encoding is still unknown.
 
 `imgboard.php:5412-5424` detects `sage` anywhere case-insensitively in the

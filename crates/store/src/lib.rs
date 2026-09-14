@@ -57,7 +57,7 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn comment_spacing(&self) -> board_domain::CommentSpacing {
+    pub fn comment_spacing(&self) -> board_domain::CommentSpacing<'_> {
         board_domain::CommentSpacing::for_board(
             &self.slug,
             self.comment_code_spacing,
