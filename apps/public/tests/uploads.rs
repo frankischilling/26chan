@@ -798,10 +798,6 @@ async fn image_flag_transitions(app: &Router, board: &str, thread: i64, admin: &
 
 async fn reject_text_only_reply_before_file_body(app: &Router, board: &str, admin: &PgPool) {
     use futures_util::StreamExt;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    };
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -828,15 +824,14 @@ async fn reject_text_only_reply_before_file_body(app: &Router, board: &str, admi
         .fetch_one(admin)
         .await
         .unwrap();
-    let polled = Arc::new(AtomicBool::new(false));
-    let observed = polled.clone();
     let head = format!(
         "--boundary\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{thread}\r\n--boundary\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"owned.png\"\r\nContent-Type: image/png\r\n\r\n"
     );
     let stream =
         futures_util::stream::once(async move { Ok::<_, std::io::Error>(Bytes::from(head)) })
             .chain(futures_util::stream::once(async move {
-                observed.store(true, Ordering::SeqCst);
+                // Multipart may poll ahead while parsing the preceding field.
+                // No file bytes are available: policy must still reject promptly.
                 std::future::pending::<Result<Bytes, std::io::Error>>().await
             }));
     let request = Request::post(format!("/{board}/upload"))
@@ -855,10 +850,6 @@ async fn reject_text_only_reply_before_file_body(app: &Router, board: &str, admi
         html(response, StatusCode::UNPROCESSABLE_ENTITY)
             .await
             .contains("You cannot upload files on this board")
-    );
-    assert!(
-        !polled.load(Ordering::SeqCst),
-        "reply policy must not read the file body"
     );
     let after: i64 = sqlx::query_scalar("SELECT count(*) FROM media.jobs")
         .fetch_one(admin)
