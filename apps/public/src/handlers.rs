@@ -333,7 +333,25 @@ pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
     headers: HeaderMap,
-    Form(form): Form<PostForm>,
+    form: Result<Form<PostForm>, axum::extract::rejection::FormRejection>,
+) -> Response {
+    let format = crate::posting_response::Format::from_headers(&headers);
+    let response = match form {
+        Ok(Form(form)) => match submit_post(state, board, headers, form, format).await {
+            Ok(response) => response,
+            Err(error) => format.error(error),
+        },
+        Err(error) => format.invalid_form(error),
+    };
+    format.finish(response)
+}
+
+async fn submit_post(
+    state: AppState,
+    board: String,
+    headers: HeaderMap,
+    form: PostForm,
+    format: crate::posting_response::Format,
 ) -> Result<Response, AppError> {
     if [form.awt, form.track]
         .into_iter()
@@ -445,7 +463,7 @@ pub async fn post(
     } else {
         format!("/{board}/thread/{thread}#p{id}")
     };
-    let mut response = Redirect::to(&location).into_response();
+    let mut response = format.success(form.resto, id, &location);
     crate::post_receipts::Receipt {
         board: &board,
         thread,
