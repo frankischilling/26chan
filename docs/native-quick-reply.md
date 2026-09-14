@@ -28,6 +28,9 @@ Ctrl+S wraps the selection in spoiler tags;
 Escape or Close removes the dialog and its draft. Switching target threads
 clears the comment but retains identity fields. Closed/archived thread state
 prevents opening or submitting; updater state changes refresh this guard.
+Initially closed thread pages [omit ordinary posting forms](native-posting-visibility.md)
+while retaining the quote alert. Quick Reply cannot create a posting editor
+without a server-rendered source form.
 
 Ordinary and approved forms expose the board's max_comment_chars as an escaped
 data-comment-limit. As in `imgboard.php:3407/3434` and

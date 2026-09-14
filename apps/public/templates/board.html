@@ -18,7 +18,7 @@
 <nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a>{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
 {% endif %}
 {% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
-{% if !catalog && !archived() %}
+{% if posting_allowed() %}
 {% if !media_origin.is_empty() && board.image_limit > 0 %}
 <form action="/{{ board.slug }}/upload" method="post" enctype="multipart/form-data" class="postForm">
 <h2>Post with an image</h2>

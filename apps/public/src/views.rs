@@ -40,6 +40,15 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn posting_allowed(&self) -> bool {
+        !self.catalog
+            && (self.parent == 0
+                || self
+                    .threads
+                    .first()
+                    .is_some_and(|view| !view.thread.closed && view.thread.archived_at.is_none()))
+    }
+
     pub fn archived(&self) -> bool {
         self.parent != 0
             && self

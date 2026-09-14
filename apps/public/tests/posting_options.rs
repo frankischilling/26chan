@@ -1,6 +1,7 @@
 #![cfg(feature = "database-tests")]
 
 use axum::{body::Body, http::Request};
+use http_body_util::BodyExt;
 use rand_core::{OsRng, RngCore};
 use sqlx::PgPool;
 use tower::ServiceExt;
@@ -125,11 +126,28 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         "documented options rejected: {failures:?}"
     );
     let id = first_thread.unwrap();
+    let has_editor = |path: String| {
+        let app = app.clone();
+        async move {
+            let response = app
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), 200);
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            std::str::from_utf8(&bytes)
+                .unwrap()
+                .contains("class=\"postEditor\"")
+        }
+    };
+    assert!(has_editor(format!("/{slug}/thread/{id}")).await);
     sqlx::query("UPDATE content.threads SET closed=true WHERE id=$1")
         .bind(id)
         .execute(&owner)
         .await
         .unwrap();
+    assert!(!has_editor(format!("/{slug}/thread/{id}")).await);
+    assert!(has_editor(format!("/{slug}/")).await);
     for alias in ["post", "imgboard.php"] {
         let response = submit(
             &app,
@@ -146,6 +164,12 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         board_store::posts(&public, &slug, id).await.unwrap().len(),
         2
     );
+    sqlx::query("UPDATE content.threads SET closed=false WHERE id=$1")
+        .bind(id)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert!(has_editor(format!("/{slug}/thread/{id}")).await);
 }
 
 #[tokio::test]
