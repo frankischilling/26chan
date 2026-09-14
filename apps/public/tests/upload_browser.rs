@@ -254,11 +254,28 @@ async fn exercise(
                 break job;
             }
             if let Some(status) = browser.try_wait().unwrap() {
-                let result = browser.wait_with_output().await.unwrap();
+                let mut stdout = Vec::new();
+                let mut stderr = Vec::new();
+                browser
+                    .stdout
+                    .take()
+                    .unwrap()
+                    .take(16384)
+                    .read_to_end(&mut stdout)
+                    .await
+                    .unwrap();
+                browser
+                    .stderr
+                    .take()
+                    .unwrap()
+                    .take(16384)
+                    .read_to_end(&mut stderr)
+                    .await
+                    .unwrap();
                 panic!(
                     "browser exited before uploading ({status}): {} {}",
-                    String::from_utf8_lossy(&result.stdout),
-                    String::from_utf8_lossy(&result.stderr)
+                    String::from_utf8_lossy(&stdout),
+                    String::from_utf8_lossy(&stderr)
                 );
             }
             tokio::time::sleep(Duration::from_millis(30)).await;
