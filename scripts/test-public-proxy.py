@@ -98,8 +98,9 @@ def main():
             log = cleanup.enter_context((root / 'public.log').open('wb'))
             public = subprocess.Popen([binary], env=environment, stdout=log, stderr=log)
             cleanup.callback(stop, public)
-            subprocess.run(['nginx', '-t', '-c', str(config)], check=True,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            checked = subprocess.run(['nginx', '-t', '-c', str(config)],
+                                     capture_output=True, text=True, timeout=5)
+            assert checked.returncode == 0, checked.stderr
             edge = subprocess.Popen(['nginx', '-c', str(config), '-g', 'daemon off;'],
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             cleanup.callback(stop, edge)
