@@ -1,4 +1,4 @@
-use board_domain::{Line, Token, parse_post_comment};
+use board_domain::parse_post_comment;
 
 // Preserve source tab expansion while bounding independent synthetic inputs.
 const SUBJECT_SCALARS: usize = board_domain::MAX_SUBJECT_BYTES;
@@ -16,66 +16,9 @@ fn escape_into(output: &mut String, text: &str) {
     }
 }
 
-fn teaser(lines: &[Line]) -> String {
-    let mut plain = String::new();
-    for (index, line) in lines.iter().enumerate() {
-        if index > 0 {
-            plain.push(' ');
-        }
-        for token in &line.tokens {
-            match token {
-                Token::Text(text) | Token::Spoiler(text) | Token::Link(text) => {
-                    plain.push_str(text);
-                }
-                Token::WrappedLink(_, parts) => {
-                    for part in parts {
-                        if let board_domain::word_break::WordPart::Text(text) = part {
-                            plain.push_str(text);
-                        }
-                    }
-                }
-                Token::Quote(id) => {
-                    plain.push_str(">>");
-                    plain.push_str(&id.to_string());
-                }
-                Token::CrossQuote(board, id) => {
-                    plain.push_str(">>>/");
-                    plain.push_str(board);
-                    plain.push('/');
-                    plain.push_str(&id.to_string());
-                }
-                Token::WordBreak
-                | Token::OpenMarkup(_)
-                | Token::CloseMarkup(_)
-                | Token::OpenQuote
-                | Token::CloseQuote => {}
-            }
-        }
-    }
-    // Collapse the ASCII whitespace represented by line breaks and normal
-    // formatting. Do not infer normalization of unobserved Unicode spaces.
-    let mut folded = String::new();
-    let mut space = false;
-    for ch in plain.chars() {
-        if matches!(ch, ' ' | '\t' | '\n' | '\r' | '\u{b}' | '\u{c}') {
-            space = !folded.is_empty();
-        } else {
-            if space {
-                folded.push(' ');
-                space = false;
-            }
-            folded.push(ch);
-        }
-    }
-    let mut escaped = String::new();
-    escape_into(&mut escaped, &folded);
-    escaped
-}
-
-pub(crate) fn from_parts(subject: &str, lines: &[Line]) -> String {
-    let teaser = teaser(lines);
+pub(crate) fn compose(subject: &str, teaser: &str) -> String {
     if subject.is_empty() {
-        return teaser;
+        return teaser.to_owned();
     }
     let subject: String = subject.chars().take(SUBJECT_SCALARS).collect();
     let mut output = String::from("<b>");
@@ -83,13 +26,26 @@ pub(crate) fn from_parts(subject: &str, lines: &[Line]) -> String {
     output.push_str("</b>");
     if !teaser.is_empty() {
         output.push_str(": ");
-        output.push_str(&teaser);
+        output.push_str(teaser);
     }
     output
 }
 
-pub(crate) fn from_post(subject: &str, comment: &str, format: i16) -> String {
-    from_parts(subject, &parse_post_comment(comment, format))
+pub(crate) fn from_post(
+    subject: &str,
+    comment: &str,
+    format: i16,
+    board: &board_store::Board,
+) -> String {
+    compose(
+        subject,
+        &super::teaser::prepare(
+            &parse_post_comment(comment, format),
+            &board.slug,
+            board.into(),
+        )
+        .serialized,
+    )
 }
 
 #[cfg(test)]
@@ -99,6 +55,17 @@ mod tests {
     use board_domain::parse_comment;
     use proptest::prelude::*;
     use serde::Deserialize;
+
+    fn from_parts(subject: &str, lines: &[board_domain::Line]) -> String {
+        compose(
+            subject,
+            &super::super::teaser::prepare(lines, "demo", Default::default()).serialized,
+        )
+    }
+
+    fn from_post(subject: &str, comment: &str, format: i16) -> String {
+        from_parts(subject, &parse_post_comment(comment, format))
+    }
 
     fn from_raw(subject: &str, comment: &str) -> String {
         from_post(subject, comment, 0)
@@ -116,7 +83,7 @@ mod tests {
             assert_eq!(
                 text,
                 if format & 1 != 0 {
-                    "<b>subject</b>: first &lt;b&gt;second&lt;/b&gt;"
+                    "<b>subject</b>: <s>first &lt;b&gt;second&lt;/b&gt;</s>"
                 } else {
                     "<b>subject</b>: [spoiler]first &lt;b&gt;second&lt;/b&gt;[/spoiler]"
                 }
@@ -127,7 +94,7 @@ mod tests {
             from_post("", "[code]first\nsecond[/code]", 10),
             "first second"
         );
-        assert_eq!(from_post("", "[sjis]a  b\nc[/sjis]", 12), "a b c");
+        assert_eq!(from_post("", "[sjis]a  b\nc[/sjis]", 12), "a  b c");
     }
 
     #[derive(Deserialize)]

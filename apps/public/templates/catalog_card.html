@@ -2,7 +2,8 @@
 {% macro card(view, board, media_origin, options) %}
 <section class="thread" id="thread-{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}" data-thread-id="{{ view.thread.id }}" data-bumped="{{ view.thread.bumped_at.timestamp_micros() }}" data-latest-reply="{% if let Some(id) = view.latest_reply_id %}{{ id }}{% endif %}" data-replies="{{ view.visible_replies() }}" data-sticky="{{ view.thread.sticky }}">
 {% for item in view.posts %}{% if item.post.id == view.thread.id %}
-<a class="catalogThumb" href="/{{ board.slug }}/thread/{{ view.thread.id }}" aria-label="View thread {{ view.thread.id }}" data-search-text="{{ item.catalog_search_text() }}" data-search-file="{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %}{{ file.filename }}{% endif %}{% endif %}" data-has-file="{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %}true{% else %}false{% endif %}{% else %}false{% endif %}">
+{% let teaser = item.catalog_teaser(board) %}
+<a class="catalogThumb" href="/{{ board.slug }}/thread/{{ view.thread.id }}" aria-label="View thread {{ view.thread.id }}" data-search-text="{{ item.catalog_search_text(teaser) }}" data-search-file="{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %}{{ file.filename }}{% endif %}{% endif %}" data-has-file="{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %}true{% else %}false{% endif %}{% else %}false{% endif %}">
 {% if let Some(file) = item.post.attachment %}
 {% if file.file_deleted %}<img class="thumb imgdel fileDeleted" src="/static/catalog/filedeleted-res.gif" alt="File deleted." width="127" height="13" loading="lazy">
 {% else if !media_origin.is_empty() %}
@@ -13,7 +14,7 @@
 </a>
 {% if view.thread.sticky || view.thread.closed %}<div class="threadIcons">{% if view.thread.sticky %}<span class="threadIcon stickyIcon" role="img" aria-label="Sticky" title="Sticky"></span>{% endif %}{% if view.thread.closed %}<span class="threadIcon closedIcon" role="img" aria-label="Closed" title="Closed"></span>{% endif %}</div>{% endif %}
 <div class="meta" id="meta-{{ view.thread.id }}" title="(R)eplies / (I)mage Replies">{% if view.bump_limited(board) %}<i>{% endif %}R: <b>{{ view.visible_replies() }}</b>{% if view.bump_limited(board) %}</i>{% endif %}{% if view.image_replies > 0 %} / {% if view.image_limited(board) %}<i>{% endif %}I: <b>{{ view.image_replies }}</b>{% if view.image_limited(board) %}</i>{% endif %}{% endif %}</div>
-{% if !options.show_teaser() %}<template class="catalogTeaser">{% endif %}<div class="teaser">{% if !item.post.subject.is_empty() %}<b>{{ item.post.subject }}</b>: {% endif %}{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</div>{% if !options.show_teaser() %}</template>{% endif %}
+{% if !options.show_teaser() %}<template class="catalogTeaser">{% endif %}<div class="teaser">{% if !item.post.subject.is_empty() %}<b>{{ item.post.subject }}</b>{% if !teaser.serialized.is_empty() %}: {% endif %}{% endif %}{% call formatting::comment(teaser.lines.as_slice(), board.slug) %}{% endcall %}</div>{% if !options.show_teaser() %}</template>{% endif %}
 {% endif %}{% endfor %}
 </section>
 {% endmacro %}

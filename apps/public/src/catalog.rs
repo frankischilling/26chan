@@ -4,10 +4,11 @@ use serde::Deserialize;
 
 mod filter;
 mod search_fields;
+pub mod teaser;
 
 /// Shared by the public view and the independently compiled visual fixtures.
-pub fn search_text(subject: &str, lines: &[board_domain::Line]) -> String {
-    search_fields::from_parts(subject, lines)
+pub fn search_text(subject: &str, prepared: &teaser::Prepared) -> String {
+    search_fields::compose(subject, &prepared.serialized)
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -115,6 +116,7 @@ impl Options {
                                 &post.subject,
                                 &post.comment,
                                 post.comment_format,
+                                &snapshot.board,
                             )) || post.attachment.as_ref().is_some_and(|file| {
                                 !file.file_deleted && query.matches(&file.filename)
                             })

@@ -23,22 +23,24 @@ Two public thread/catalog comparisons recorded in issue #82 matched after HTML
 line breaks became spaces, formatting tags were removed, and repeated whitespace
 collapsed. The official API examples also use escaped comment text and the
 decimal apostrophe entity. No public user posts are committed as fixtures.
+Those samples did not establish a universal whitespace rule; the supplied
+source distinguishes generated breaks from literal spaces.
 
-The implementation uses the existing bounded, nonrecursive comment token stream
-instead of stripping tags from raw user input. Literal HTML therefore remains
-searchable as escaped text, not active markup or silently discarded content.
-ASCII whitespace folds across lines and token boundaries. Existing link and quote
-normalization is preserved. Subjects are bounded to 120 scalars independently of
-the stricter 120-byte public posting boundary; raw comments use the existing
-16,000-scalar parser limit. No new teaser truncation rule is inferred.
+The implementation projects the bounded comment token stream through the
+[source catalog rules](source-catalog-teasers.md). Literal HTML remains
+searchable as escaped text. Runs of generated breaks become a space, or LF for
+text-only boards; other whitespace is retained. Spoilers, SJIS replacement and
+the `/b/` truncation helper follow their separate source branches. Subjects are
+bounded to 400 scalars independently of the 100-byte raw posting limit and its
+tab expansion. Comments retain the 16,000-scalar parser limit.
 
 ## Deliberate limits still under investigation
 
-Unicode whitespace is preserved rather than guessed from the ASCII samples.
-Exact upstream entity spelling beyond observed examples, all formatting edge
-cases, original-link presentation, and any upstream teaser truncation policy are
-not proved by this change. Unsupported formatting retains the existing parser's
-literal behavior. Whole-post and whole-catalog formatting parity remain open.
+Source entity spelling and the teaser transformation are implemented for the
+current formatter. Ambient mbstring encoding, original-link presentation and
+quote resolution remain unresolved or unfinished. Link attributes can affect
+short `/b/` search text and the pre-strip truncation cutoff. Whole-post and
+whole-catalog parity remain open.
 
 Missing filenames are not coerced to the string `undefined`, and deleted filenames
 remain excluded from both metadata and search. Filename serialization beyond the
