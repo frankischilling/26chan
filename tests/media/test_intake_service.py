@@ -226,7 +226,9 @@ class IntakeExercise(MediaHttpExercise):
 
         jpeg_root = REPO / 'tests/media/fixtures/jpeg'
         for data in [(jpeg_root / 'too-wide.jpg').read_bytes(),
-                     (jpeg_root / 'progressive.jpg').read_bytes()[:-2]]:
+                     (jpeg_root / 'progressive.jpg').read_bytes()[:-2],
+                     (jpeg_root / 'minimized-progressive.jpg').read_bytes()]:
+            approved_files = set(self.objects.iterdir())
             job, cap = self.reserve_http()
             assert self.upload_http(job, cap, data)[0] == 202
             self.finish(self.dispatch(), False)
@@ -235,7 +237,17 @@ class IntakeExercise(MediaHttpExercise):
             status, result = self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': cap})
             assert status == 200 and result['state'] == 'failed' and 'output_id' not in result
             assert sql(f"SELECT failure FROM media.jobs WHERE id='{job}'") == 'invalid_output'
-        print('PASS excessive and truncated JPEG input grants no approval through actual intake/guest dispatch', flush=True)
+            assert set(self.objects.iterdir()) == approved_files, 'failed JPEG published a file'
+        job, cap = self.reserve_http()
+        assert self.upload_http(job, cap, (jpeg_root / 'progressive.jpg').read_bytes())[0] == 202
+        asset = self.finish(self.dispatch()).decode().strip()
+        assert HEX.fullmatch(asset)
+        self.clean_vm()
+        status, result = self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': cap})
+        assert status == 200 and result['state'] == 'published' and result['output_id'] == asset
+        status, _, body = self.http(f'/media/{asset}.png')
+        assert status == 200 and body == (self.objects / f'{asset}.png').read_bytes()
+        print('PASS excessive, truncated and minimized JPEG mutation grant no approval or files; healthy JPEG dispatch succeeds afterward', flush=True)
 
         job, cap = self.reserve_http()
         assert self.upload_http(job, cap, iter([b'x' * 8192] * 1025), chunked=True)[0] == 413

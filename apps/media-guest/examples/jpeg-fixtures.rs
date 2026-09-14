@@ -31,5 +31,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         file.write_all(&bytes)?;
         println!("{name}.jpg: {} bytes", bytes.len());
     }
+    let mut bytes = vec![];
+    let mut encoder = Encoder::new(&mut bytes, 100);
+    encoder.set_progressive(true);
+    encoder.encode(&[230, 40, 25].repeat(64), 8, 8, ColorType::Rgb)?;
+    let position = 785 % bytes.len();
+    bytes[position] = 34;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(directory.join("minimized-progressive.jpg"))?;
+    file.write_all(&bytes)?;
+    println!("minimized-progressive.jpg: {} bytes", bytes.len());
     Ok(())
 }
