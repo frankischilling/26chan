@@ -30,6 +30,9 @@ fn mapping_keeps_source_oddities_omissions_and_board_exceptions() {
 
 #[test]
 fn emoticons_box_drawing_and_private_ceiling_follow_source_order() {
+    let once = prepare("\u{3000}\r\n", "vip", false, true);
+    assert_eq!(once, "\u{3000}");
+    assert_eq!(prepare(&once, "vip", false, true), "");
     let raw = "A😀☀🫠\u{2312}─━│\u{3134f}\u{31350}\u{10ffff}B";
     assert_eq!(prepare(raw, "g", true, false), "A\u{2312}─━\u{3134f}B");
     assert_eq!(prepare(raw, "a", false, false), "A\u{2312}─━\u{3134f}B");

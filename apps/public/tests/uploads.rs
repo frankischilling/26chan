@@ -886,7 +886,7 @@ async fn image_admission_http(
                         upload.capability,
                         match index {
                             0 => "&com=+%09%0D%0A+",
-                            1 => "&com=%F0%9F%98%80",
+                            2 => "&com=%F0%9F%98%80",
                             _ => "",
                         },
                         if forged { "&sticky=1&undead=1" } else { "" }
@@ -899,6 +899,9 @@ async fn image_admission_http(
                     ("upload_capability", upload.capability.clone()),
                     ("pwd", "owned-image-password".into()),
                 ];
+                if index == 3 {
+                    fields.push(("com", "😀".into()));
+                }
                 if forged {
                     fields.extend([("sticky", "1".into()), ("undead", "1".into())]);
                 }

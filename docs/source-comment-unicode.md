@@ -30,7 +30,10 @@ source's ASCII trim, `strip_private_unicode` at lines 95-102 removes every
 codepoint above U+3134F. This is broader than private-use blocks. U+3134F survives;
 U+31350 does not. Removal can expose edge spaces, which must not be trimmed a
 second time. Ordinary long-blank-run collapse follows this removal. The complete
-cleanup is therefore not assumed to be idempotent.
+cleanup is therefore not assumed to be idempotent. The early blank-only check
+creates another such case: SJIS input U+3000 followed by LF retains U+3000 after
+trim, but a second pass clears that now-blank-only value. New posts are prepared
+once for storage; historical reads do not repeat the preparation.
 
 ## Bounds and authority
 
@@ -59,8 +62,9 @@ An exhaustive scalar test compares the mapping and both emoticon modes against
 source-derived fixtures containing all active cases and all 58 original base
 exclusion ranges, including duplicates. Focused cases cover source oddities,
 exceptions, filter ordering, the private ceiling, raw budgets and empty output.
-Two 128-case property suites cover bounded spacing and arbitrary Unicode input.
-The latter does not assume idempotence of the whole pipeline.
+Two 128-case property suites cover text-anchored spacing and arbitrary Unicode
+input. Only the restricted spacing property uses idempotence; focused regression
+cases require the source's non-idempotent full-pipeline results.
 
 The database/HTTP suite checks all four operator spacing modes through both
 aliases and form encodings, exact stored text and escaped JSON/HTML, historical
