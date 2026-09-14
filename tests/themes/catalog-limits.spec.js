@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 const reference = JSON.parse(await readFile(new URL('../../docs/public-catalog-reference.json', import.meta.url), 'utf8'));
-const cases = [[1,1,false,false], [2,2,true,true], [1,1,true,false], [3,3,true,true], [0,0,false,false]];
+const cases = [[1,1,false,false], [2,2,true,true], [1,1,false,false], [3,3,true,true], [0,0,false,false], [3,0,false,false]];
 
 for (const theme of Object.keys(reference.themes)) {
   test(`catalog limit indicators in ${theme}`, async ({ page, context }) => {

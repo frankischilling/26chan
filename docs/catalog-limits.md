@@ -12,15 +12,15 @@ original counting or deletion rule.
 The Rust catalog now renders those markers from its existing board snapshot.
 It uses the same rules as the JSON interface:
 
-- The visible reply count excludes deleted replies. Reaching the bump limit
-  uses the lifetime reply count, so deleting a reply does not restore bumping.
+- The bump limit uses surviving replies, excluding deleted replies and the OP.
+  Deletion can clear the marker. Sticky threads do not receive it.
 - The image count excludes the OP image, deleted replies and deleted reply
   files. Deleting a reply file can clear the image-limit marker.
 - Counts equal to or above the configured limit receive the marker. A zero
   bump limit prevents bumping immediately. Zero image capacity disables the
   image-limit marker, including for retained attachments from an earlier policy.
 
-Board settings, lifetime replies and visible attachment counts come from the
+Board settings, surviving replies and visible attachment counts come from the
 same repeatable-read transaction. Rendering performs no additional query or
 state change. The markup retains the visible counts, their bold numerals,
 the existing count tooltip and the existing thread navigation. All content
@@ -31,7 +31,15 @@ enablement changes are included. This is one catalog behavior, not evidence
 of complete original-page parity. The permitted client receives prepared
 teaser data; its source does not establish original server-side preprocessing.
 
-## Verification
+The supplied-source [bump rules](source-bump-rules.md) also apply the cutoff
+after inserting the incoming reply. Remaining permaage/permasage, age/self-bump
+and image-limit exclusions are recorded there; full source parity is unfinished.
+
+## Earlier indicator qualification
+
+The following records issue #68's implementation and tests before the source
+count correction. Its lifetime-bump assertions are superseded by issue #114;
+these historical results do not qualify the new write/count rules.
 
 The following checks passed on Windows with the current owned PostgreSQL 16.15
 cluster, after loading its private database environment:

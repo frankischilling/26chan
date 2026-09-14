@@ -41,7 +41,7 @@ passed all 118 cases in 3.0 minutes without updating snapshots.
 Local PostgreSQL is unavailable, so the expanded persisted tests require
 current-head CI.
 Fixture screenshots are project regressions, not original rendered-page
-parity evidence. Lifetime bump counts, identity/capcode cookies, authenticated
+parity evidence. Further [bump policies](source-bump-rules.md), identity/capcode cookies, authenticated
 capcodes, special board options, Pass/captcha and complete forms remain
 unfinished. This change adds no schema, grants, dependencies or upload authority.
 

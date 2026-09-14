@@ -67,7 +67,16 @@ pub async fn create_post_with_attachment(
                 "This thread is closed or has reached its reply limit.",
             ));
         }
-        let bump = !post.sage && thread.reply_count < board.bump_limit;
+        // Count under the same board lock as posting/deletion. The incoming
+        // row is not inserted yet; the source's decision includes that reply.
+        let replies: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted")
+            .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
+        let bump = board_domain::bump::should_bump(
+            thread.sticky,
+            post.sage,
+            replies as u64 + 1,
+            board.bump_limit as u32,
+        );
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=clock_timestamp(), bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).execute(&mut *tx).await?;
         parent
     };
