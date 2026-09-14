@@ -1,6 +1,26 @@
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-quick-reply-password';
+
+async function observePostingBody(page) {
+  await page.evaluate(origin => {
+    const original = window.fetch;
+    let resolve;
+    window.ownedPostingResponse = new Promise(done => { resolve = done; });
+    window.fetch = async (...args) => {
+      const response = await original(...args);
+      if (String(args[0]) === `${origin}/test/imgboard.php` && args[1]?.method === 'POST') {
+        window.fetch = original;
+        // Read the same real response in its browser context. A clone leaves
+        // the original body intact for the actual Quick Reply parser.
+        const text = await response.clone().text();
+        resolve({ status: response.status, text });
+      }
+      return response;
+    };
+  }, origin);
+}
+
 test('Quick Reply persists replies, retains failed drafts, tracks own posts and updates without navigation', async ({ page, context, request }) => {
   const created = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
     form: { com: 'Owned Quick Reply thread', sub: 'Owned Quick Reply', password } });
@@ -69,13 +89,12 @@ for (const additional of [false, true]) {
       await page.locator('.threadNav.desktop input[data-cmd="auto"]').first().check(); await page.clock.runFor(9800);
       await page.locator('.open-qr-link').click();
       await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await page.locator('#qr-pwd').fill(password);
-      // Read the body as soon as its response arrives, while the click is still
-      // settling. Keep the real browser request and reject unexpected navigation.
-      const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/test/imgboard.php`)
-        .then(async response => ({ status: response.status(), value: await response.json() }));
+      await observePostingBody(page);
+      const posted = page.evaluate(() => window.ownedPostingResponse);
       const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
-      expect(response.status).toBe(200); expect(response.value.error).toBeUndefined();
-      expect(String(response.value.tid)).toBe(id); const reply = String(response.value.pid);
+      expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
+      const value = JSON.parse(response.text); expect(value.error).toBeUndefined();
+      expect(String(value.tid)).toBe(id); const reply = String(value.pid);
       await expect(page).toHaveURL(threadUrl);
       await expect(page.locator('#qrCom')).toHaveValue('');
       await expect.poll(() => page.evaluate(({ id, reply }) => JSON.parse(localStorage.getItem(`4chan-track-test-${id}`) || '{}')[`>>${reply}`], { id, reply })).toBe(1);
