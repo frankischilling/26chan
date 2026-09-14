@@ -25,6 +25,7 @@ fn board() -> Board {
         max_comment_chars: 4000,
         reply_limit: 100,
         bump_limit: 75,
+        permasage_hours: 0,
         thread_limit: 100,
         threads_per_page: 10,
         worksafe: true,

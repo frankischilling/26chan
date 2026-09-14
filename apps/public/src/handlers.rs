@@ -342,13 +342,14 @@ pub struct PostForm {
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(start): axum::Extension<crate::security::RequestStart>,
     headers: HeaderMap,
     form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
     let response = match form {
         Ok(crate::posting_form::PostingForm(form)) => {
-            match submit_post(state, board, headers, form, format).await {
+            match submit_post(state, board, headers, form, format, start.0).await {
                 Ok(response) => response,
                 Err(error) => format.error(error),
             }
@@ -364,6 +365,7 @@ async fn submit_post(
     headers: HeaderMap,
     form: PostForm,
     format: crate::posting_response::Format,
+    request_start: chrono::DateTime<chrono::Utc>,
 ) -> Result<Response, AppError> {
     if [form.awt, form.track]
         .into_iter()
@@ -457,12 +459,13 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_attachment(
+    let id = board_store::create_post_with_attachment_at(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
+        request_start,
     )
     .await?;
     let thread = if form.resto == 0 { id } else { form.resto };

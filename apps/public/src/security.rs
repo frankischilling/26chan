@@ -33,7 +33,14 @@ impl Limits {
     }
 }
 
-pub async fn protect(State(state): State<AppState>, request: Request, next: Next) -> Response {
+#[derive(Clone, Copy)]
+pub(crate) struct RequestStart(pub chrono::DateTime<chrono::Utc>);
+
+pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
+    // Replace even a pre-existing extension; headers/form fields have no clock authority.
+    request
+        .extensions_mut()
+        .insert(RequestStart(chrono::Utc::now()));
     let Ok(permit) = state.limits.active.clone().try_acquire_owned() else {
         return headers(
             (
@@ -264,6 +271,57 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn request_clock_precedes_body_collection_and_replaces_untrusted_hints() {
+        use http_body_util::BodyExt;
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+        };
+        let app =
+            Router::new()
+                .route(
+                    "/clock",
+                    axum::routing::post(
+                        |axum::Extension(start): axum::Extension<RequestStart>,
+                         body: bytes::Bytes| async move {
+                            let collected: i64 =
+                                std::str::from_utf8(&body).unwrap().parse().unwrap();
+                            assert!(start.0.timestamp_millis() < collected);
+                            start.0.timestamp_millis().to_string()
+                        },
+                    ),
+                )
+                .layer(middleware::from_fn_with_state(state, protect));
+        let before = chrono::Utc::now().timestamp_millis();
+        let body = Body::from_stream(futures_util::stream::once(async {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            Ok::<_, std::io::Error>(bytes::Bytes::from(
+                chrono::Utc::now().timestamp_millis().to_string(),
+            ))
+        }));
+        let mut request = Request::post("/clock")
+            .header("origin", "http://127.0.0.1:3000")
+            .header("x-request-start", "0")
+            .header("date", "Thu, 01 Jan 1970 00:00:00 GMT")
+            .body(body)
+            .unwrap();
+        request
+            .extensions_mut()
+            .insert(RequestStart(chrono::DateTime::UNIX_EPOCH));
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), 200);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let start: i64 = std::str::from_utf8(&bytes).unwrap().parse().unwrap();
+        assert!(start >= before);
+        assert!(start <= chrono::Utc::now().timestamp_millis());
+    }
 
     #[test]
     fn configured_hash_and_upload_semaphores_enforce_and_release_their_budgets() {
