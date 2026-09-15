@@ -26,6 +26,11 @@ for (const [theme, expected] of Object.entries(themes)) {
       const trigger = page.getByRole('button', { name: 'Post menu for post 1000001', exact: true });
       await expect(trigger).toHaveText(width === 390 ? '...' : '\u25b6');
       expect(await trigger.evaluate((node, mobile) => mobile
+        ? node.parentElement.firstElementChild === node : node.nextElementSibling?.id === 'bl_1000001', width === 390)).toBe(true);
+      // This fixture's later reply creates the OP backlink after its menu.
+      // The reply has no backlinks and retains the ordinary end placement.
+      const replyTrigger = page.getByRole('button', { name: 'Post menu for post 1000002', exact: true });
+      expect(await replyTrigger.evaluate((node, mobile) => mobile
         ? node.parentElement.firstElementChild === node : node.parentElement.lastElementChild === node, width === 390)).toBe(true);
       await trigger.press('ArrowDown');
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
