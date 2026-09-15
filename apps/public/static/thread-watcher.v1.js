@@ -232,10 +232,10 @@ function start(context) {
     }),
   });
 
-  let nativeReplies = null, nativeThreads = null, nativeQuotePreview = null;
-  const nativeBacklinks = catalog ? null : mountNativeBacklinks({ root: document.querySelector('.board'),
+  let nativeReplies = null, nativeThreads = null, nativeQuotePreview = null, nativeBacklinks = null;
+  nativeBacklinks = catalog ? null : mountNativeBacklinks({ root: document.querySelector('.board'),
     board, thread: threadId, settings: configuration, mobile, readNeverMobile, quoteTarget,
-    changed: () => nativeQuotePreview?.refresh(),
+    changed: () => { nativeQuotePreview?.refresh(); if (nativeBacklinks) syncPostMenus(); },
   });
   const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration,
     read: () => read(filterKey), save: saveFilterRules,
@@ -671,7 +671,12 @@ function start(context) {
         trigger.textContent = mobile.matches ? '...' : '\u25b6';
         if (mobile.matches) {
           if (info.firstElementChild !== trigger) info.prepend(trigger);
-        } else if (info.lastElementChild !== trigger) info.append(trigger);
+        } else {
+          const boundary = nativeBacklinks?.menuBoundary(post, info);
+          if (boundary) {
+            if (trigger.nextElementSibling !== boundary) info.insertBefore(trigger, boundary);
+          } else if (info.lastElementChild !== trigger) info.append(trigger);
+        }
       }
     }
     syncOpenPostMenu();

@@ -86,6 +86,18 @@ async function expectRows(page, target, sources, thread, board = 'demo') {
   }
 }
 
+async function expectDesktopMenuOrder(page, targets, menuFirst = true) {
+  await expect.poll(() => page.evaluate(ids => ids.map(id => ({
+    post: id,
+    controls: [...document.getElementById(`pi${id}`)?.children ?? []]
+      .filter(node => node.matches('.postMenuBtn,.backlink'))
+      .map(node => node.classList.contains('postMenuBtn') ? 'menu' : node.id),
+  })), targets), { message: 'Desktop menu and backlink order follows the first source parsed for each target' })
+    .toEqual(targets.map(id => ({ post: id,
+      controls: menuFirst ? ['menu', `bl_${id}`] : [`bl_${id}`, 'menu'],
+    })));
+}
+
 async function update(page, count = 1) {
   await page.locator('.threadNav.desktop a[data-cmd="update"], .threadNav.mobile a[data-cmd="update"]').filter({ visible: true }).first().click();
   await expect(page.locator('.nativeUpdaterStatus').filter({ visible: true }).first())
@@ -141,6 +153,7 @@ test.describe('unmodified persisted backlink graph', () => {
     await expectRows(page, owned.id, [first, second, third], owned.id);
     await expectRows(page, first, [first, second], owned.id);
     await expect(page.locator(`#pi${owned.id} > #bl_${owned.id}.backlink`)).toHaveCount(1);
+    await expectDesktopMenuOrder(page, [owned.id, first]);
     await expect(forward(page, first, owned.id)).toHaveText([`>>${owned.id} (OP)`, `>>${owned.id} (OP)`]);
     await expect(forward(page, first, first)).toHaveText([`>>${first}`, `>>${first}`]);
     expect(requests).toEqual([]);
@@ -164,16 +177,42 @@ test.describe('unmodified persisted backlink graph', () => {
     await expect(backlink(page, owned.id, source, owned.id)).toHaveAttribute('href', `${owned.url}#p${source}`);
   });
 
-  test('board index backlinks retain source thread routes and include a source OP', async ({ page, owned }) => {
+  test('board index backlinks retain source thread routes and include a source OP', async ({ page, context, owned }) => {
     const source = await owned.createThread('demo', `>>${owned.id}\nA different thread OP replying to the target`);
     const reply = await source.reply(`>>${owned.id}\n>>${source.id}\nCross-thread index reply`);
     const requests = observeFetches(page);
     await initialize(page, '/demo/');
     await expect(page.locator(`#p${owned.id}, #p${source.id}`)).toHaveCount(2);
+    // Both targets already exist. The newer thread is parsed first on the
+    // board index, so numeric post order alone cannot decide menu placement.
+    const parsed = [source.id, reply, owned.id].map(id => `p${id}`);
+    await expect.poll(() => page.locator('.board > .thread > .postContainer > .post')
+      .evaluateAll((posts, ids) => posts.map(post => post.id).filter(id => ids.includes(id)), parsed)).toEqual(parsed);
     await expectRows(page, owned.id, [source.id, reply], source.id);
     await expectRows(page, source.id, [reply], source.id);
+    await expectDesktopMenuOrder(page, [owned.id], false);
+    await expectDesktopMenuOrder(page, [source.id]);
     await expect(forward(page, source.id, owned.id)).toHaveText(`>>${owned.id}`);
     await expect(forward(page, reply, source.id)).toHaveText(`>>${source.id} (OP)`);
+    await page.setViewportSize({ width: 480, height: 844 });
+    for (const target of [owned.id, source.id]) {
+      await expect(page.locator(`#p${target} > #bl_${target}.backlink.mobile`)).toHaveCount(1);
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expectDesktopMenuOrder(page, [owned.id], false);
+    await expectDesktopMenuOrder(page, [source.id]);
+    const other = await context.newPage();
+    try {
+      await other.goto(source.url);
+      await saveSettings(other, { backlinks: false });
+      await expectRows(page, owned.id, [], source.id);
+      await expectRows(page, source.id, [], source.id);
+      await saveSettings(other, { backlinks: true });
+      await expectRows(page, owned.id, [source.id, reply], source.id);
+      await expectRows(page, source.id, [reply], source.id);
+      await expectDesktopMenuOrder(page, [owned.id], false);
+      await expectDesktopMenuOrder(page, [source.id]);
+    } finally { await other.close(); }
     expect(requests).toEqual([]);
     await backlink(page, owned.id, reply, source.id).click();
     await expect(page).toHaveURL(`${origin}${source.url}#p${reply}`);
@@ -237,6 +276,7 @@ test.describe('unmodified persisted backlink graph', () => {
       sources: [original, added].map(id => `/demo/thread/${owned.id}#p${id}`), text: `>>${owned.id} (OP)`,
     });
     await expectRows(page, original, [added], owned.id);
+    await expectDesktopMenuOrder(page, [owned.id, original]);
     expect(await forward(page, original, owned.id).evaluate(node => node === window.ownedOriginalQuote)).toBe(true);
     await expect(forward(page, original, owned.id)).toHaveAttribute('href', `/demo/post/${owned.id}`);
     await page.setViewportSize({ width: 1270, height: 900 });
@@ -326,6 +366,7 @@ test.describe('unmodified persisted backlink graph', () => {
     const source = await owned.reply(`>>${owned.id}\n>>${absent}\nSetting changes`);
     await initialize(page, owned.url);
     await expectRows(page, owned.id, [source], owned.id);
+    await expectDesktopMenuOrder(page, [owned.id]);
     await page.evaluate(() => { window.ownedBacklinkDocument = document; });
     await forward(page, source, owned.id).evaluate(node => { window.ownedBacklinkAnchor = node; });
     const other = await context.newPage(), requests = observeFetches(page);
@@ -338,6 +379,7 @@ test.describe('unmodified persisted backlink graph', () => {
         await expect(forward(page, source, absent)).toHaveText(`>>${absent}`);
         await saveSettings(other, { [key]: key !== 'disableAll' });
         await expectRows(page, owned.id, [source], owned.id);
+        await expectDesktopMenuOrder(page, [owned.id]);
         await expect(forward(page, source, owned.id)).toHaveText(`>>${owned.id} (OP)`);
         await expect(forward(page, source, absent)).toHaveText(`>>${absent} →`);
       }
@@ -402,6 +444,7 @@ test.describe('persisted layout and preview integration', () => {
     const source = await owned.reply(`>>${owned.id}\nResponsive source`);
     await initialize(page, owned.url, { quotePreview: false });
     await expectRows(page, owned.id, [source], owned.id);
+    await expectDesktopMenuOrder(page, [owned.id]);
     await forward(page, source, owned.id).evaluate(node => { window.ownedResponsiveQuote = node; });
     const other = await context.newPage();
     try {
@@ -413,12 +456,14 @@ test.describe('persisted layout and preview integration', () => {
       await other.evaluate(() => localStorage.setItem('4chan_never_show_mobile', 'true'));
       await expect(page.locator(`#pi${owned.id} > #bl_${owned.id}`)).toHaveCount(1);
       await expect(backlinkRow(page, owned.id)).toBeVisible();
+      await expectDesktopMenuOrder(page, [owned.id]);
       await expect(backlinkRow(page, owned.id).locator('a.quoteLink')).toHaveCount(0);
       await other.evaluate(() => localStorage.setItem('4chan_never_show_mobile', 'false'));
       await expect(page.locator(`#p${owned.id} > #bl_${owned.id}.mobile`)).toHaveCount(1);
       await page.setViewportSize({ width: 481, height: 844 });
       await expect(page.locator(`#pi${owned.id} > #bl_${owned.id}`)).toHaveCount(1);
       await expectRows(page, owned.id, [source], owned.id);
+      await expectDesktopMenuOrder(page, [owned.id]);
       expect(await forward(page, source, owned.id).evaluate(node => node === window.ownedResponsiveQuote)).toBe(true);
     } finally { await other.close(); }
   });
@@ -890,6 +935,7 @@ test.describe('actual browser back-forward cache', () => {
     });
     await initialize(page, owned.url);
     await expectRows(page, owned.id, [source], owned.id);
+    await expectDesktopMenuOrder(page, [owned.id]);
     await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
     await forward(page, source, owned.id).evaluate(node => { window.cachedOriginalQuote = node; window.cachedOriginalDocument = document; });
     await page.goto('/demo/');
@@ -901,6 +947,7 @@ test.describe('actual browser back-forward cache', () => {
     expect(await page.evaluate(() => window.cachedOriginalDocument === document)).toBe(true);
     expect(await forward(page, source, owned.id).evaluate(node => node === window.cachedOriginalQuote)).toBe(true);
     await expectRows(page, owned.id, [source], owned.id);
+    await expectDesktopMenuOrder(page, [owned.id]);
     await expect(forward(page, source, owned.id)).toHaveText(`>>${owned.id} (OP)`);
     await page.goto('/demo/');
     await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ backlinks: false })));
@@ -913,6 +960,7 @@ test.describe('actual browser back-forward cache', () => {
       await other.goto(owned.url);
       await saveSettings(other, { backlinks: true });
       await expectRows(page, owned.id, [source], owned.id);
+      await expectDesktopMenuOrder(page, [owned.id]);
       await expect(forward(page, source, owned.id)).toHaveText(`>>${owned.id} (OP)`);
     } finally { await other.close(); await cdp.detach(); }
   });

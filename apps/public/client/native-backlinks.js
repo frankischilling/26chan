@@ -30,6 +30,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
   const history = new WeakMap(), records = new Map(), labels = new WeakMap();
   const suffixNodes = new WeakMap(), containers = new Map(), rowLinks = new WeakMap();
   const previews = new Map();
+  let nextOrder = 0;
   let linksUsed = 0, edgesUsed = 0, disposed = false, suspended = false, scheduled = false, refreshing = false;
 
   function enabled() {
@@ -149,7 +150,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
     return current;
   }
   function register(meta, current) {
-    const record = { ...meta, links: [], edges: 0, examined: 0 };
+    const record = { ...meta, order: nextOrder++, links: [], edges: 0, examined: 0 };
     try {
       const { anchors } = project(meta.message);
       if (linksUsed + anchors.length > BACKLINK_LIMITS.links) return record;
@@ -222,6 +223,11 @@ export function mountNativeBacklinks({ root, board, thread = null,
       && row.owner.node.isConnected && link.nextSibling === node && node.parentNode === row.node
       && node.getAttribute('href') === row.href && link.getAttribute('href') === row.href ? node : null;
   }
+  function menuBoundary(post, info) {
+    const container = containers.get(post);
+    return enabled() && container?.menuBefore && container.meta.info === info
+      && container.node.parentNode === info ? container.node : null;
+  }
   function rows(current, active, layout) {
     let modified = false;
     const family = themeFamily();
@@ -243,8 +249,13 @@ export function mountNativeBacklinks({ root, board, thread = null,
       let container = containers.get(post);
       if (!container) {
         if (document.getElementById(`bl_${meta.no}`)) continue;
+        const owner = history.get(meta.article);
+        // Preserve the first row's placement when contributors disappear or
+        // settings and page restoration recreate its container.
+        owner.menuBefore ??= sources.every(source => source.order >= owner.order);
         const node = document.createElement('div'); node.id = `bl_${meta.no}`;
-        container = { node, rows: new Map(), meta }; containers.set(post, container); modified = true;
+        container = { node, rows: new Map(), meta, menuBefore: owner.menuBefore };
+        containers.set(post, container); modified = true;
       }
       const className = layout ? 'backlink mobile' : 'backlink';
       if (container.node.className !== className) { container.node.className = className; modified = true; }
@@ -369,5 +380,5 @@ export function mountNativeBacklinks({ root, board, thread = null,
   window.addEventListener('storage', storage); window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
   document.addEventListener('4chanSettingsSaved', refresh); mobile?.addEventListener?.('change', refresh);
   observe(); refresh();
-  return { refresh, disconnect, readLabel, writeLabel, commentHTML, companion, decoratePreview };
+  return { refresh, disconnect, readLabel, writeLabel, commentHTML, companion, menuBoundary, decoratePreview };
 }

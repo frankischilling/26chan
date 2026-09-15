@@ -29,6 +29,7 @@
     "graph": "One reverse link per source/target pair in parser order, including OP targets and self-quotes; only targets already present when the original source was parsed.",
     "annotations": "Containing-thread OP quotes gain ' (OP)'; missing targets gain ' →' only on thread pages and not for explicit cross-board-style labels. Tracked ' (You)' labels precede these suffixes; page filtering precedes backlink annotations.",
     "mobile_layout": "Viewport at most 480px unless the stored never-mobile value is exactly 'true'; rows below the post with independent ' #' navigation companions.",
+    "desktop_menu_order": "Parser.parsePost appends a post's menu before processing its outgoing backlinks. Later-to-earlier and self references place menu before row; an earlier source referencing a later DOM target creates row before menu. Verified zero-based offsets: parseThread 13583, parsePost 17233, menu append 17687, backlink call 17845, parseBacklinks 19168, target append 19928.",
     "hidden_posts": "Hidden or filtered sources still contribute rows; hidden targets hide their backlink rows.",
     "preview": "Local clones can show backlinks; mobile backlink rows are hidden in the popup. A backlink-triggered preview may mark the first exact matching reverse quote among at least two direct quote-link children."
   },

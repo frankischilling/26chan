@@ -35,6 +35,14 @@ wide unless `4chan_never_show_mobile` is the exact string `true`; this is separa
 from the device user-agent test used by quote previews. Ownership keeps the two
 features from duplicating or deleting each other's navigation companions.
 
+Desktop menu placement follows the original parser order. A post's menu is
+created before that post's outgoing quotes are processed. A later reply quoting
+an OP, or a self-quote, therefore puts the menu before the backlink row. An
+earlier source quoting a later post already in the document creates the row
+before that target's menu. Registration history preserves that first placement
+through contributor removal, settings changes and page restoration; a generic
+"always append the menu" rule would lose the distinction.
+
 A hidden or filtered source still contributes a backlink. Hiding the target
 hides its row through the existing post/thread visibility rules. Local quote
 previews can include a bounded copy of known backlink rows; mobile rows remain
@@ -118,6 +126,12 @@ the original document and quote-anchor objects, and settings changes made while
 the page was cached. It is separate from the core suite's synthetic lifecycle
 events. All six themes passed at both layouts. Two earlier red-hover controls
 failed against the navy hover rule before the stylesheet correction.
+
+Two persisted ordering controls reached the menu assertion and failed before the
+placement correction; their real graph and index parser-order prerequisites
+passed. The forward-target order already passed. After correction, all six
+affected persisted cases passed, including updater insertion, cross-tab settings,
+mobile/desktop transitions and actual back/forward-cache restoration.
 
 `cargo test -p board-public --lib --test ui_assets --locked` passed 63 library
 tests and five asset tests. The seven persisted updater-notification cases also
