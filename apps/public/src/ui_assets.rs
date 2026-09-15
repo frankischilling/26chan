@@ -12,6 +12,11 @@ pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
+        "/static/derefer.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/derefer.css"),
+    ),
+    (
         "/static/catalog/filedeleted-res.gif",
         "image/gif",
         include_bytes!("../static/catalog/filedeleted-res.gif"),
@@ -464,6 +469,7 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
 pub(crate) fn image_sources(origin: &str) -> String {
     ASSETS
         .iter()
+        .filter(|(_, mime, _)| mime.starts_with("image/"))
         .map(|(path, _, _)| format!("{origin}{path}"))
         .collect::<Vec<_>>()
         .join(" ")

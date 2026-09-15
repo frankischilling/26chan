@@ -3,11 +3,13 @@
 [Storage deadlines](native-watch-lock.md) specify bounded lock acquisition,
 page-exit cancellation and retry behavior for watcher mutations.
 
-The watcher remains under implementation in issue #88 and draft PR #89. It is
-not yet a complete reproduction of either public client.
-The extension connects native filters to manual automatic-watch refreshes,
+The watcher was integrated through PR #89, with subsequent updater and lifecycle
+work recorded below. It connects native filters to automatic-watch refreshes,
 persists unwatch suppression, and provides a filter editor with page hiding and
-highlighting. The compatibility and qualification work below remains required.
+highlighting. The September 15 inventory found the main #88 implementation
+requirements present; older pending/draft descriptions below record their
+original checkpoints. Complete native-client reproduction and full rendered
+reference qualification remain separate work under #6.
 
 ## Native filter editor and page effects
 

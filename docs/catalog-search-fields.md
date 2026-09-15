@@ -49,3 +49,11 @@ existing public representation is not newly claimed as reference-aligned.
 Issue #82 therefore remains open for these broader requirements. This change
 establishes shared serialization and corrects the observed field-composition
 differences; it does not redefine the full compatibility or production goal.
+
+The September 15 inventory confirms that shared teaser projection, text-only
+catalog tables and hover previews are integrated through #157, #160 and #164.
+Their existence is no longer pending work for #82. Source-only claims remain
+subject to the [active reference boundary](compatibility.md#active-reference-boundary).
+The public API examples include server-generated external anchors; optional
+browser linkification does not establish a universal server formatting policy
+and does not alter the catalog's saved search representation.

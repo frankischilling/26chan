@@ -3,6 +3,7 @@
 mod api;
 mod api_http;
 pub mod catalog;
+mod derefer;
 mod handlers;
 mod intake;
 mod native_updater_snapshot;
@@ -158,6 +159,7 @@ fn routers_with_proxy(
         .merge(themes::routes(state.origin.clone(), state.production))
         .merge(ui_assets::routes())
         .route("/", get(handlers::home))
+        .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(handlers::ready))
         .route("/static/board.css", get(handlers::css))

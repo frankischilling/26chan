@@ -37,6 +37,7 @@ test('source option precedence uses mobile layout and exact storage string', () 
   assert.equal(linkificationEnabled({ linkify: false }, true, null), true);
   assert.equal(linkificationEnabled({ linkify: false }, true, 'true'), false);
   assert.equal(linkificationEnabled({ linkify: false }, true, 'false'), true);
+  assert.equal(linkificationEnabled({ linkify: false }, true, 'TRUE'), true);
   assert.equal(linkificationEnabled({ linkify: true, disableAll: true }, true, null), false);
 });
 
