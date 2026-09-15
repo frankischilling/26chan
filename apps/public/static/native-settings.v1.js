@@ -1,5 +1,5 @@
 // Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, optionChecked }) {
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, optionChecked, hasMobileLayout = () => false }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
   let opener = null;
@@ -33,6 +33,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     if (active) { close(); return; }
     opener = source;
     const initial = read();
+    const mobileLayout = hasMobileLayout() === true;
     const dialog = node('dialog', undefined, `nativeSettings ${catalog ? 'catalogSettings panel' : 'extensionSettings UIPanel'}`);
     dialog.id = catalog ? 'theme' : 'settingsMenu';
     dialog.setAttribute('aria-labelledby', 'native-settings-title');
@@ -48,7 +49,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     content.append(header);
     const form = node('form');
     const fields = new Map();
-    function option(parent, key, label, tip, className) {
+    function option(parent, key, label, tip, className, desktopOnly = false) {
+      if (desktopOnly && mobileLayout) return null;
       const row = node('li', undefined, className);
       const caption = node('label');
       const input = node('input', undefined, 'menuOption');
@@ -99,7 +101,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(category, 'alwaysAutoUpdate', 'Auto-update by default', 'Always auto-update threads', 'settings-sub');
       option(category, 'threadWatcher', 'Thread Watcher', "Keep track of threads you're watching and see when they receive new posts");
       option(category, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
-      option(category, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', 'settingsDesktop');
+      option(category, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', undefined, true);
       option(category, 'autoScroll', 'Auto-scroll with auto-updated posts', 'Automatically scroll the page as new posts are added');
       option(category, 'updaterSound', 'Sound notification', 'Play a sound when somebody replies to your post(s)');
       const filterHeading = node('h3', undefined, 'settings-cat-lbl');
@@ -136,6 +138,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(navigationCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
       option(navigationCategory, 'quotePreview', 'Quote preview', 'Show post when mousing over post links');
       option(navigationCategory, 'backlinks', 'Backlinks', 'Show who has replied to a post');
+      option(navigationCategory, 'inlineQuotes', 'Inline quote links', 'Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining', undefined, true);
       const keys = option(navigationCategory, 'keyBinds', 'Use keyboard shortcuts', 'Enable handy keyboard shortcuts for common actions');
       keys.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
       const global = node('ul');

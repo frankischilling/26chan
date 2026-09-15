@@ -32,7 +32,7 @@ test('isolated DOM quote preview contracts', async t => {
   const browser = await chromium.launch({ headless: true });
   try {
     async function setup({ mobile = false, width = 1000, height = 700, remote = false, handler,
-      currentSource = false, touch = false, storageSettings = false } = {}) {
+      currentSource = false, touch = false, storageSettings = false, inlineFirst = false } = {}) {
       const context = await browser.newContext({ viewport: { width, height },
         ...(touch ? { isMobile: true, hasTouch: true,
           userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
@@ -76,14 +76,18 @@ test('isolated DOM quote preview contracts', async t => {
         else await route.abort();
       });
       await page.goto(`${origin}/demo/thread/100`);
-      await page.evaluate(async ({ origin, mediaOrigin, mobile, remote, currentSource, storageSettings }) => {
+      await page.evaluate(async ({ origin, mediaOrigin, mobile, remote, currentSource, storageSettings, inlineFirst }) => {
         const released = await import('/static/native-filter.v1.js');
         const preview = currentSource ? await import('/apps/public/client/native-quote-preview.js') : released;
         const transport = currentSource ? await import('/apps/public/client/native-quote-preview-transport.js') : null;
         const api = { ...released, mountNativeQuotePreview: preview.mountNativeQuotePreview };
-        window.api = api; window.settings = {}; window.pending = []; window.cancelled = 0;
+        window.api = api; window.settings = {}; window.pending = []; window.cancelled = 0; window.previewOrder = [];
         window.over = () => document.getElementById('quote').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         window.out = () => document.getElementById('quote').dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+        for (const type of ['mouseover', 'click']) document.addEventListener(type, event => {
+          if (event.target === document.getElementById('quote')) window.previewOrder.push({ type, trusted: event.isTrusted,
+            touch: event.sourceCapabilities?.firesTouchEvents ?? null });
+        }, true);
         window.mount = () => api.mountNativeQuotePreview({ root: document.querySelector('.board'), board: 'demo', thread: '100', origin, mediaOrigin,
           userAgent: mobile ? 'Test Mobile browser' : 'Windows NT desktop',
           settings: () => storageSettings ? JSON.parse(localStorage.getItem('4chan-settings') || '{}') : window.settings,
@@ -93,9 +97,16 @@ test('isolated DOM quote preview contracts', async t => {
             return new Promise(resolve => window.pending.push({ ref, signal, resolve }));
           }, cancel() { window.cancelled++; } } }),
           decorate: () => window.linkification?.refresh(),
+          ...(inlineFirst ? {
+            inlineHoverEligible: link => { window.previewOrder.push({ type: 'inline-hover-eligible', id: link.id }); return true; },
+            arbitrateClick: event => {
+              window.previewOrder.push({ type: 'inline-click-arbiter', id: event.target.id });
+              event.preventDefault(); return 'inlinehandled';
+            },
+          } : {}),
         });
         window.mounted = window.mount();
-      }, { origin, mediaOrigin, mobile, remote, currentSource, storageSettings });
+      }, { origin, mediaOrigin, mobile, remote, currentSource, storageSettings, inlineFirst });
       return { page, context, requests };
     }
 
@@ -133,6 +144,50 @@ test('isolated DOM quote preview contracts', async t => {
       }, selector);
       assert.deepEqual(event, { trusted: false, touch: false, x: 0, y: 0, related: 'HTML' });
     }
+
+    await t.test('trusted mobile compatibility mouseover defers to inline ownership before preview transport starts', async () => {
+      const { page, context } = await setup({ mobile: true, touch: true, currentSource: true, inlineFirst: true });
+      try {
+        await touchQuote(page, '/demo/post/120');
+        await page.locator('#quote').tap();
+        const result = await page.evaluate(() => ({ pending: pending.length, cancelled,
+          order: previewOrder.filter(entry => ['mouseover', 'click', 'inline-hover-eligible', 'inline-click-arbiter'].includes(entry.type)) }));
+        assert.equal(result.pending, 0, 'inline-owned mobile hover must not start the preview transport');
+        assert.equal(result.cancelled, 0);
+        assert.deepEqual(result.order.map(entry => entry.type),
+          ['mouseover', 'inline-hover-eligible', 'click', 'inline-click-arbiter']);
+        assert.equal(result.order[0].trusted, true); assert.equal(result.order[0].touch, true);
+        assert.equal(result.order[2].trusted, true); assert.equal(result.order[2].touch, true);
+
+        const mouseHover = await page.evaluate(() => {
+          previewOrder.length = 0; pending.length = 0; cancelled = 0;
+          const event = new MouseEvent('mouseover', { bubbles: true,
+            sourceCapabilities: new InputDeviceCapabilities({ firesTouchEvents: false }) });
+          document.getElementById('quote').dispatchEvent(event);
+          return { pending: pending.length, cancelled,
+            event: { trusted: event.isTrusted, touch: event.sourceCapabilities.firesTouchEvents },
+            order: previewOrder.map(entry => entry.type) };
+        });
+        assert.deepEqual(mouseHover.event, { trusted: false, touch: false });
+        assert.equal(mouseHover.pending, 1, 'synthetic non-touch hover remains preview-eligible');
+        assert.equal(mouseHover.cancelled, 0);
+        assert.deepEqual(mouseHover.order, ['mouseover']);
+
+        const childHover = await page.evaluate(() => {
+          mounted.clear(); previewOrder.length = 0; pending.length = 0;
+          const link = document.getElementById('quote'); link.innerHTML = '<span id="quote-child">&gt;&gt;120</span>';
+          const event = new MouseEvent('mouseover', { bubbles: true,
+            sourceCapabilities: new InputDeviceCapabilities({ firesTouchEvents: true }) });
+          document.getElementById('quote-child').dispatchEvent(event);
+          return { pending: pending.length,
+            event: { trusted: event.isTrusted, touch: event.sourceCapabilities.firesTouchEvents },
+            order: previewOrder.map(entry => entry.type) };
+        });
+        assert.deepEqual(childHover.event, { trusted: false, touch: true });
+        assert.equal(childHover.pending, 1, 'synthetic child-target hover keeps preview behavior');
+        assert.deepEqual(childHover.order, []);
+      } finally { await context.close(); }
+    });
 
     await t.test('hover alone applies source highlight variants and restores only owned effects', async () => {
       const { page, context } = await setup({ width: 375 });

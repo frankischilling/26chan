@@ -16,7 +16,7 @@ const escapeAttribute = text => escapeText(text).replace(/"/g, '&quot;');
 // Target identity is captured when a source first enters the parser batch.
 export function mountNativeBacklinks({ root, board, thread = null,
   origin = globalThis.location?.origin, settings, mobile, readNeverMobile = () => null,
-  quoteTarget, changed } = {}) {
+  quoteTarget, changed, projection } = {}) {
   if (!root || typeof settings !== 'function' || typeof quoteTarget !== 'function'
     || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board) || /[^a-z0-9]/.test(board)
     || (thread !== null && !id(thread))) return null;
@@ -29,7 +29,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
   const page = { origin, board, thread };
   const history = new WeakMap(), records = new Map(), labels = new WeakMap();
   const suffixNodes = new WeakMap(), containers = new Map(), rowLinks = new WeakMap();
-  const previews = new Map();
+  const previews = new Map(), inlineCopies = new Map();
   let nextOrder = 0;
   let linksUsed = 0, edgesUsed = 0, disposed = false, suspended = false, scheduled = false, refreshing = false;
 
@@ -70,14 +70,14 @@ export function mountNativeBacklinks({ root, board, thread = null,
       emit(escapeText(value));
     };
     function visit(node, depth) {
-      if (ownedSuffix(node)) return;
+      if (ownedSuffix(node) || projection?.has(node)) return;
       if (++nodes > BACKLINK_LIMITS.nodes || depth > BACKLINK_LIMITS.depth) throw new RangeError('backlink-nodes');
       if (node.nodeType === 3) { text(node.data); return; }
       if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml'
         || !tags.has(node.tagName) || node.attributes.length > 64) throw new TypeError('backlink-node');
       const tag = node.localName, leaf = tag === 'br' || tag === 'wbr';
       emit(`<${tag}`);
-      for (const { name, value } of node.attributes) {
+      for (const { name, value } of projection?.attributes(node) ?? node.attributes) {
         if (value.length > BACKLINK_LIMITS.html || name.length > 128) throw new RangeError('backlink-attribute');
         emit(` ${name}="${escapeAttribute(value)}"`);
       }
@@ -87,7 +87,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
         if (anchors.length >= BACKLINK_LIMITS.linksPerPost) throw new RangeError('backlink-links');
         anchors.push(node);
       }
-      if (node.childNodes.length + nodes > BACKLINK_LIMITS.nodes) throw new RangeError('backlink-nodes');
+      if (Array.from(node.childNodes).filter(child => !projection?.has(child)).length + nodes > BACKLINK_LIMITS.nodes) throw new RangeError('backlink-nodes');
       for (const child of node.childNodes) visit(child, depth + 1);
       const suffix = additions?.get(node);
       if (suffix) {
@@ -96,7 +96,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
       }
       if (!leaf) emit(`</${tag}>`);
     }
-    if (message.childNodes.length > BACKLINK_LIMITS.nodes) throw new RangeError('backlink-nodes');
+    if (Array.from(message.childNodes).filter(child => !projection?.has(child)).length > BACKLINK_LIMITS.nodes) throw new RangeError('backlink-nodes');
     for (const child of message.childNodes) visit(child, 1);
     return { html: parts.join(''), text: textSize, nodes, anchors };
   }
@@ -118,8 +118,6 @@ export function mountNativeBacklinks({ root, board, thread = null,
     schedule();
   }
   function commentHTML(message) {
-    const record = history.get(message.parentElement?.parentElement);
-    if (!record?.links.some(link => link.label?.node && ownedSuffix(link.label.node))) return message.innerHTML;
     return project(message).html;
   }
 
@@ -136,7 +134,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
       if (section.children.length + visited > BACKLINK_LIMITS.posts * 2) throw new RangeError('backlink-posts');
       for (const article of section.children) {
         if (++visited > BACKLINK_LIMITS.posts * 2) throw new RangeError('backlink-posts');
-        if (!article.matches('.postContainer') || !article.id.startsWith('pc') || article.children.length > 8) continue;
+        if (projection?.within(article) || !article.matches('.postContainer') || !article.id.startsWith('pc') || article.children.length > 8) continue;
         const no = article.id.slice(2);
         if (!id(no) || BigInt(no) < BigInt(parent)) continue;
         const post = article.querySelector(':scope > .post');
@@ -181,7 +179,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
     return record;
   }
   function live(link, record) {
-    return record.message.contains(link.anchor) && link.anchor.classList.contains('quotelink')
+    return !projection?.within(link.anchor) && record.message.contains(link.anchor) && link.anchor.classList.contains('quotelink')
       && link.anchor.getAttribute('href') === link.href;
   }
   function annotations(record, active) {
@@ -217,11 +215,24 @@ export function mountNativeBacklinks({ root, board, thread = null,
     if (!layout && row.companion) { row.companion.remove(); row.companion = null; return true; }
     return false;
   }
+  function ownedRow(link) {
+    const row = rowLinks.get(link);
+    if (!enabled() || !row || link.parentNode !== row.node || row.node.className
+      || link.getAttribute('href') !== row.href) return null;
+    const block = row.owner?.node ?? row.copy?.block;
+    if (!block?.isConnected || row.node.parentNode !== block) return null;
+    return (row.owner && row.owner === containers.get(row.target))
+      || (row.copy && inlineCopies.get(row.copy.popup) === row.copy) ? row : null;
+  }
   function companion(link) {
-    const row = rowLinks.get(link), node = row?.companion;
-    return enabled() && node && row.owner && row.owner === containers.get(row.target)
-      && row.owner.node.isConnected && link.nextSibling === node && node.parentNode === row.node
+    const row = ownedRow(link), node = row?.companion;
+    return node && link.nextSibling === node && node.parentNode === row.node
       && node.getAttribute('href') === row.href && link.getAttribute('href') === row.href ? node : null;
+  }
+  function backlinkOwner(link) {
+    const row = ownedRow(link), block = row?.owner?.node ?? row?.copy?.block;
+    if (block?.className !== 'backlink') return null;
+    return row.owner?.meta.message ?? row.copy.popup.querySelector(':scope > .postMessage');
   }
   function menuBoundary(post, info) {
     const container = containers.get(post);
@@ -285,6 +296,47 @@ export function mountNativeBacklinks({ root, board, thread = null,
     if (!entry) return;
     entry.block?.remove(); entry.dotted?.classList.remove('dotted'); previews.delete(popup);
   }
+  function removeInlineCopy(popup) {
+    const entry = inlineCopies.get(popup);
+    if (!entry) return;
+    entry.block?.remove(); entry.dotted?.classList.remove('dotted'); inlineCopies.delete(popup);
+  }
+  // Copy only bounded metadata from the existing graph. These links never
+  // register as sources and each inline gets its own removable ownership entry.
+  function prepareInlineCopy(localPost, sourceLink) {
+    if (!enabled() || inlineCopies.size >= 16) return null;
+    const owner = containers.get(localPost), source = ownedRow(sourceLink);
+    const layout = mobileLayout(), rows = owner ? [...owner.rows.values()] : [];
+    if (rows.length > BACKLINK_LIMITS.previewRows) return null;
+    const sourceNo = source?.owner?.meta.no ?? source?.copy?.no;
+    let nodes = rows.length ? 1 : 0, characters = rows.length ? 96 : 0;
+    for (const row of rows) {
+      nodes += layout ? 6 : 4;
+      characters += 80 + row.href.length * (layout ? 2 : 1) + row.source.no.length;
+    }
+    if (sourceNo) characters += 7;
+    if (nodes > BACKLINK_LIMITS.previewNodes || characters > BACKLINK_LIMITS.previewChars) return null;
+    const family = themeFamily(), no = localPost.id.slice(1);
+    return { nodes, characters, mount(popup) {
+      const entry = { popup, block: null, dotted: null, no };
+      if (rows.length) {
+        const block = document.createElement('div'); entry.block = block;
+        block.className = layout ? 'backlink mobile' : 'backlink'; block.dataset.backlinkFamily = family;
+        for (const row of rows) {
+          const copy = makeRow(row.source, null, layout); copy.copy = entry; block.append(copy.node);
+        }
+        const parent = layout ? popup : popup.querySelector(':scope > .postInfo');
+        parent?.append(block);
+      }
+      if (sourceNo) {
+        const quotes = [...(popup.querySelector(':scope > .postMessage')?.children ?? [])].filter(node => node.matches('a.quotelink'));
+        const match = quotes.length > 1 && quotes.find(link => link.textContent === `>>${sourceNo}`);
+        if (match) { match.classList.add('dotted'); entry.dotted = match; }
+      }
+      inlineCopies.set(popup, entry);
+      return () => removeInlineCopy(popup);
+    } };
+  }
   function decoratePreview(popup, localPost, sourceLink, remaining = {}) {
     removePreview(popup);
     if (!enabled()) return;
@@ -329,6 +381,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
     for (const container of containers.values()) { container.node.remove(); modified = true; }
     containers.clear();
     for (const popup of previews.keys()) removePreview(popup);
+    for (const popup of inlineCopies.keys()) removeInlineCopy(popup);
     if (modified) changed?.();
   }
   function refresh() {
@@ -336,6 +389,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
     refreshing = true;
     try {
       const current = collect(), active = enabled();
+      if (!active) for (const popup of inlineCopies.keys()) removeInlineCopy(popup);
       for (const [article, record] of records) if (current.get(record.no)?.post !== record.post) {
         annotations(record, false); records.delete(article); linksUsed -= record.examined; edgesUsed -= record.edges;
       }
@@ -380,5 +434,6 @@ export function mountNativeBacklinks({ root, board, thread = null,
   window.addEventListener('storage', storage); window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
   document.addEventListener('4chanSettingsSaved', refresh); mobile?.addEventListener?.('change', refresh);
   observe(); refresh();
-  return { refresh, disconnect, readLabel, writeLabel, commentHTML, companion, menuBoundary, decoratePreview };
+  return { refresh, disconnect, readLabel, writeLabel, commentHTML, companion, menuBoundary, decoratePreview,
+    backlinkOwner, prepareInlineCopy };
 }

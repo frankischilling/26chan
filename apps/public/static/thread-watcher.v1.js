@@ -5,8 +5,9 @@ import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
-  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget } from './native-filter.v1.js';
-import { mountNativeBacklinks } from './native-backlinks.v1.js';
+  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
+  localQuoteTree, prepareQuotePost, mobileQuoteDevice, NativeQuotePreviewTransport, checkedQuotePreview } from './native-filter.v1.js';
+import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -15,6 +16,7 @@ function start(context) {
   const board = context.dataset.board;
   const threadId = postId(context.dataset.thread);
   const catalog = context.dataset.catalog === 'true';
+  const projection = createCommentProjection();
   const storeKey = '4chan-watch';
   const settingsKey = '4chan-settings';
   const timestampKey = '4chan-tw-timestamp';
@@ -232,31 +234,43 @@ function start(context) {
     }),
   });
 
-  let nativeReplies = null, nativeThreads = null, nativeQuotePreview = null, nativeBacklinks = null;
+  let nativeReplies = null, nativeThreads = null, nativeQuotePreview = null, nativeBacklinks = null, nativeInlineQuotes = null;
   nativeBacklinks = catalog ? null : mountNativeBacklinks({ root: document.querySelector('.board'),
-    board, thread: threadId, settings: configuration, mobile, readNeverMobile, quoteTarget,
+    board, thread: threadId, settings: configuration, mobile, readNeverMobile, quoteTarget, projection,
     changed: () => { nativeQuotePreview?.refresh(); if (nativeBacklinks) syncPostMenus(); },
   });
-  const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration,
+  const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration, projection,
     read: () => read(filterKey), save: saveFilterRules,
     match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
     changed: () => refresh.cancel(),
-    commentHTML: message => nativeBacklinks?.commentHTML(message) ?? message.innerHTML,
+    commentHTML: message => nativeBacklinks?.commentHTML(message) ?? projection.html(message),
     applied: hidden => { nativeReplies?.setFiltered(hidden); nativeThreads?.setFiltered(hidden); },
   });
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
   const nativeLinkification = catalog ? null : mountNativeLinkification({
-    root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile,
+    root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile, projection,
+  });
+  nativeInlineQuotes = catalog ? null : mountNativeInlineQuotes({
+    root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
+    settings: configuration, archive: !!document.querySelector('.archiveNotice'), mobileDevice: mobileQuoteDevice(navigator.userAgent),
+    projection, quoteTarget, localQuoteTree, prepareQuotePost, checkedQuotePreview,
+    transport: new NativeQuotePreviewTransport({ mediaOrigin: context.dataset.mediaOrigin }),
+    companion: link => nativeQuotePreview?.companion(link) ?? nativeBacklinks?.companion(link),
+    backlinkOwner: link => nativeBacklinks?.backlinkOwner(link),
+    prepareBacklinks: (...args) => nativeBacklinks?.prepareInlineCopy(...args),
   });
   nativeQuotePreview = catalog ? null : mountNativeQuotePreview({
     root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
-    settings: configuration, decorate: () => nativeLinkification?.refresh(),
-    companion: link => nativeBacklinks?.companion(link),
+    settings: configuration, decorate: () => nativeLinkification?.refresh(), projection,
+    arbitrateClick: event => nativeInlineQuotes?.click(event) ?? 'passpreview',
+    inlineHoverEligible: link => nativeInlineQuotes?.hoverEligible(link) === true,
+    quoteContext: link => nativeInlineQuotes?.quoteContext(link),
+    companion: link => nativeBacklinks?.companion(link) ?? nativeInlineQuotes?.companion(link),
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
-    worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
+    worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
     applied: async (_snapshot, signal) => {
       render();
       // Let insertion/quote-decoration observers enqueue their refresh first.
@@ -296,6 +310,7 @@ function start(context) {
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    hasMobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
@@ -356,14 +371,7 @@ function start(context) {
   }
 
   function textWithBreaks(element) {
-    if (!element) return '';
-    let text = '';
-    for (const child of element.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) text += child.textContent;
-      else if (child.nodeName === 'BR') text += ' ';
-      else text += textWithBreaks(child);
-    }
-    return text;
+    try { return projection.text(element, ' '); } catch { return ''; }
   }
   function sections() {
     // The source text catalog has no watch buttons on its rows.
@@ -373,7 +381,7 @@ function start(context) {
   }
   function sectionId(section) { return postId(section.dataset.threadId || section.id.replace(/^t/, '')); }
   function posts(section) {
-    return [...section.querySelectorAll('.post[id]')].map(post => postId(post.id.slice(1))).filter(Boolean);
+    return projection.queryAll(section, '.post[id]').map(post => postId(post.id.slice(1))).filter(Boolean);
   }
   function latest(section) {
     return catalog ? postId(section.dataset.latestReply) || sectionId(section)
@@ -381,8 +389,8 @@ function start(context) {
   }
   function label(section) {
     const teaser = section.querySelector('.teaser') || section.querySelector('template.catalogTeaser')?.content.querySelector('.teaser');
-    const subject = catalog ? teaser?.querySelector('b')?.textContent : section.querySelector('.op .subject')?.textContent;
-    return watchLabel(subject, textWithBreaks(catalog ? teaser : section.querySelector('.op .postMessage')), sectionId(section));
+    const subject = catalog ? teaser?.querySelector('b')?.textContent : projection.query(section, '.op .subject')?.textContent;
+    return watchLabel(subject, textWithBreaks(catalog ? teaser : projection.query(section, '.op .postMessage')), sectionId(section));
   }
   async function toggleThread(section) {
     const id = sectionId(section);
@@ -436,7 +444,7 @@ function start(context) {
         update(control);
       }
       if (threadId && enabled && watched) {
-        for (const post of section.querySelectorAll('.post[id]')) {
+        for (const post of projection.queryAll(section, '.post[id]')) {
           if (post.querySelector('.watcherLastRead')) continue;
           const position = postId(post.id.slice(1));
           if (!position) continue;
@@ -493,7 +501,7 @@ function start(context) {
     return link;
   }
   function postFileMenu(menu) {
-    const source = menu.post.querySelector('.file > p > a[href]');
+    const source = projection.query(menu.post, '.file > p > a[href]');
     if (!source) return;
     let file;
     try { file = new URL(source.href); } catch { return; }
@@ -642,7 +650,7 @@ function start(context) {
   function syncPostMenus() {
     const disabled = configuration().disableAll === true;
     for (const section of sections()) {
-      for (const post of section.querySelectorAll('.post[id]')) {
+      for (const post of projection.queryAll(section, '.post[id]')) {
         const id = postId(post.id.slice(1));
         const info = post.querySelector('.postInfo');
         if (!id || !info) continue;
@@ -683,8 +691,9 @@ function start(context) {
   }
   function render() {
     if (!catalog && threadId) markNativeTrackedQuotes(document.getElementById(`t${threadId}`),
-      tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true, nativeBacklinks ?? {});
+      tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true, { ...nativeBacklinks, projection });
     nativeBacklinks?.refresh();
+    nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();

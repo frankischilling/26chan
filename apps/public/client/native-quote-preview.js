@@ -39,11 +39,11 @@ const localTags = {
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
   'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint']);
-const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.inlined,.sideArrows,.backlink';
+const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink';
 
 // Read a bounded inert recipe from the original DOM. Never clone an element with
 // an unchecked src/srcset, and never read a form control's attributes or value.
-export function localQuoteTree(article, context, no) {
+export function localQuoteTree(article, context, no, projection) {
   let nodes = 0, bytes = 0;
   const encoder = new TextEncoder();
   const charge = value => {
@@ -53,6 +53,7 @@ export function localQuoteTree(article, context, no) {
   };
   const ids = new Set(['pc', 'p', 'pi', 'm', 'f'].map(prefix => prefix + no));
   function read(node, depth) {
+    if (projection?.has(node)) return [];
     if (++nodes > PREVIEW_LIMITS.nodes || depth > PREVIEW_LIMITS.depth) throw new RangeError('preview-nodes');
     if (node.nodeType === 3) { charge(node.data); return [node.data]; }
     if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml') return [];
@@ -72,9 +73,13 @@ export function localQuoteTree(article, context, no) {
       attrs.alt ??= ''; attrs.loading = 'lazy';
       for (const key of ['width', 'height']) if (!/^[1-9][0-9]{0,3}$/.test(attrs[key] ?? '')) delete attrs[key];
     }
-    if (node.childNodes.length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('preview-nodes');
+    if (Array.from(node.childNodes).filter(child => !projection?.has(child)).length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('preview-nodes');
     const children = Array.from(node.childNodes).flatMap(child => read(child, depth + 1));
     if (tag === 'a') {
+      if (attrs.href?.startsWith('#p')) {
+        const ref = quoteTarget(attrs.href, context);
+        if (ref?.thread) attrs.href = `/${ref.board}/thread/${ref.thread}#p${ref.post}`;
+      }
       let safe = false;
       try { safe = typeof attrs.href === 'string' && postLinkUrl(attrs.href, context); } catch { /* Keep its label only. */ }
       if (!safe || node.hasAttribute('data-native-linkified')) return children;
@@ -88,30 +93,50 @@ export function localQuoteTree(article, context, no) {
   return validatePostTree(tree, context, no, { nodes: 0 }, PREVIEW_LIMITS);
 }
 
-function previewElement(document, tree, no) {
+// The prepared plan contains only ID-free, inert post content. Inline admission
+// can charge its complete node/UTF-16 text-and-attribute budget before build().
+export function prepareQuotePost(tree, context, no) {
+  validatePostTree(tree, context, no, { nodes: 0 }, PREVIEW_LIMITS);
   const post = tree.children.find(node => typeof node !== 'string' && node.tag === 'div'
     && node.attrs.id === `p${no}` && node.attrs.class?.split(' ').includes('post'));
   if (!post) throw new TypeError('invalid-preview');
-  function build(node) {
-    if (typeof node === 'string') return document.createTextNode(node);
-    if (!Object.hasOwn(localTags, node.tag)) return document.createDocumentFragment();
-    const element = document.createElement(node.tag);
-    for (const [key, value] of Object.entries(node.attrs)) if (key !== 'id') element.setAttribute(key, value);
-    for (const child of node.children) element.append(build(child));
-    return element;
+  let nodes = 0, characters = 0;
+  const quotes = [];
+  function clean(node) {
+    if (typeof node === 'string') { nodes++; characters += node.length; return node; }
+    if (!Object.hasOwn(localTags, node.tag)
+      || node.attrs.class?.split(' ').some(value => ['postActions', 'sideArrows'].includes(value))) return null;
+    nodes++;
+    const attrs = Object.fromEntries(Object.entries(node.attrs).filter(([key]) => key !== 'id'));
+    for (const [key, value] of Object.entries(attrs)) characters += key.length + value.length;
+    if (node.tag === 'a' && attrs.class?.split(' ').includes('quotelink')) quotes.push(attrs.href);
+    return { tag: node.tag, attrs, children: node.children.map(clean).filter(child => child !== null) };
   }
-  return build(post);
+  const safe = clean(post);
+  if (nodes > PREVIEW_LIMITS.nodes || characters > PREVIEW_LIMITS.bytes) throw new RangeError('preview-size');
+  return { nodes, characters, quotes, build(document) {
+    function build(node) {
+      if (typeof node === 'string') return document.createTextNode(node);
+      const element = document.createElement(node.tag);
+      for (const [key, value] of Object.entries(node.attrs)) element.setAttribute(key, value);
+      for (const child of node.children) element.append(build(child));
+      return element;
+    }
+    return build(safe);
+  } };
 }
 
 const messageTags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const escapedSize = text => text.replace(/[&<>"\u00a0]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\u00a0': '&nbsp;' })[ch]).length;
 // Conservatively measure serialized HTML and decoded filter text without making
 // a clone or parsing HTML on the UI thread. BR contributes the source newline.
-function messageBudget(message) {
+function messageBudget(message, projection) {
   let nodes = 0, html = 0, text = 0;
   function visit(parent, depth) {
-    if (depth > PREVIEW_LIMITS.depth || parent.childNodes.length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('quote-nodes');
+    if (depth > PREVIEW_LIMITS.depth
+      || Array.from(parent.childNodes).filter(child => !projection?.has(child)).length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('quote-nodes');
     for (const child of parent.childNodes) {
+      if (projection?.has(child)) continue;
       if (++nodes > PREVIEW_LIMITS.nodes) throw new RangeError('quote-nodes');
       if (child.nodeType === 3) {
         if (child.data.length > FILTER_LIMITS.html) throw new RangeError('quote-text');
@@ -119,7 +144,7 @@ function messageBudget(message) {
       } else if (child.nodeType === 1 && messageTags.has(child.tagName)) {
         const leaf = child.tagName === 'BR' || child.tagName === 'WBR';
         html += leaf ? child.localName.length + 2 : child.localName.length * 2 + 5;
-        for (const { name, value } of child.attributes) {
+        for (const { name, value } of projection?.attributes(child) ?? child.attributes) {
           if (value.length > FILTER_LIMITS.html) throw new RangeError('quote-attribute');
           html += name.length + escapedSize(value) + 4;
         }
@@ -135,7 +160,8 @@ function messageBudget(message) {
 
 export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigin = '', settings,
   origin = globalThis.location?.origin, userAgent = globalThis.navigator?.userAgent,
-  transport = new NativeQuotePreviewTransport({ origin, mediaOrigin }), decorate, companion, decoratePreview } = {}) {
+  transport = new NativeQuotePreviewTransport({ origin, mediaOrigin }), decorate, companion, decoratePreview,
+  projection, arbitrateClick, inlineHoverEligible, quoteContext } = {}) {
   if (!root || typeof settings !== 'function') return null;
   previewContext({ origin, mediaOrigin, board, post: thread ?? '1', thread });
   const document = root.ownerDocument, window = document.defaultView;
@@ -155,7 +181,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     return value.quotePreview !== false && value.disableAll !== true;
   }
   const hidden = post => !!post.closest('.post-hidden,.native-thread-hidden,[hidden]');
-  const target = anchor => quoteTarget(anchor.getAttribute('href'), page);
+  const target = anchor => quoteTarget(anchor.getAttribute('href'), quoteContext?.(anchor) ?? page);
   function candidate(node) {
     const anchor = node?.closest?.('a.quotelink');
     return anchor && root.contains(anchor) && !anchor.classList.contains('linkfade')
@@ -198,7 +224,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     const budget = { nodes: 0 };
     validatePostTree(tree, context, value.ref.post, budget, PREVIEW_LIMITS);
     if (document.getElementById('quote-preview')) throw new TypeError('preview-exists');
-    const popup = previewElement(document, tree, value.ref.post);
+    const popup = prepareQuotePost(tree, context, value.ref.post).build(document);
     popup.id = 'quote-preview'; popup.classList.add('preview');
     if (!value.link.closest('.backlink')) popup.classList.add('reveal-spoilers');
     if (context.board === board && window.location.hash === `#p${value.ref.post}`) popup.classList.add('highlight');
@@ -263,7 +289,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
       }
       try {
         const context = updaterContext({ origin, board, thread: parent, mediaOrigin });
-        show(value, localQuoteTree(article, context, ref.post), context);
+        show(value, localQuoteTree(article, context, ref.post, projection), context);
       } catch { clear(); }
       return;
     }
@@ -274,10 +300,12 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     for (const [link, companion] of companions) if (predicate(link, companion)) { companion.remove(); companions.delete(link); }
   }
   function decorateMessage(message) {
+    if (projection?.within(message)) return;
     let budget, links;
     try {
-      budget = messageBudget(message);
-      links = [...message.querySelectorAll('a.quotelink')].filter(link => target(link) && !companions.has(link) && !ownedCompanion(link));
+      budget = messageBudget(message, projection);
+      links = [...message.querySelectorAll('a.quotelink')].filter(link => !projection?.within(link)
+        && target(link) && !companions.has(link) && !ownedCompanion(link));
       if (links.length + companions.size > PREVIEW_LIMITS.companions) return;
       for (const link of links) {
         // Exact owned markup: <a class="quoteLink" href="..."> #</a>.
@@ -309,13 +337,23 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
   });
   const observe = () => observer.observe(root, { childList: true, subtree: true, characterData: true,
     attributes: true, attributeFilter: ['href', 'class', 'hidden'] });
-  const over = event => { const link = candidate(event.target); if (link && !link.contains(event.relatedTarget)) begin(link); };
+  const over = event => {
+    const link = candidate(event.target);
+    if (!link || link.contains(event.relatedTarget)) return;
+    if (mobile && event.target === link && event.sourceCapabilities?.firesTouchEvents === true
+      && typeof inlineHoverEligible === 'function') {
+      try { if (inlineHoverEligible(link) === true) return; } catch { /* Preview remains the fallback. */ }
+    }
+    begin(link);
+  };
   const out = event => {
     if (active && !active.clickOwned && active.link.contains(event.target) && !active.link.contains(event.relatedTarget)) clear();
   };
   function click(event) {
+    const disposition = arbitrateClick?.(event) ?? 'passpreview';
+    if (disposition !== 'passpreview') { clear(); return; }
     const link = candidate(event.target);
-    if (mobile && enabled() && link && hasCompanion(link) && event.button === 0
+    if (mobile && enabled() && link === event.target && hasCompanion(link) && event.button === 0
       && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); begin(link, true); }
     else if (active && !active.popup?.contains(event.target) && !active.link.contains(event.target)) clear();
   }
@@ -342,5 +380,5 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
   window.addEventListener('scroll', position, { passive: true, capture: true });
   window.addEventListener('pagehide', hide); window.addEventListener('pageshow', restore);
   observe(); refresh();
-  return { refresh, clear, disconnect };
+  return { refresh, clear, disconnect, companion: link => companions.get(link) ?? ownedCompanion(link) };
 }
