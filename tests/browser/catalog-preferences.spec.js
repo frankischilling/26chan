@@ -104,14 +104,17 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   const script = page.waitForResponse(response => response.url().endsWith('/static/catalog-preferences.v1.js'));
   const response = await page.goto(catalog);
   expect((await script).status()).toBe(200);
-  expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
-    'http://127.0.0.1:3000/static/catalog-preferences.v1.js',
+  const pageScripts = [
     'http://127.0.0.1:3000/static/thread-watcher.v1.js',
     'http://127.0.0.1:3000/static/thread-watcher-core.v1.js',
     'http://127.0.0.1:3000/static/post-tracking.v1.js',
     'http://127.0.0.1:3000/static/native-settings.v1.js',
     'http://127.0.0.1:3000/static/watcher-position.v1.js',
     'http://127.0.0.1:3000/static/native-filter.v1.js',
+    'http://127.0.0.1:3000/static/native-backlinks.v1.js',
+  ];
+  expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
+    'http://127.0.0.1:3000/static/catalog-preferences.v1.js', ...pageScripts,
   ]);
   await page.evaluate(() => {
     window.violations = [];
@@ -128,7 +131,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   await page.locator('#size-ctrl').selectOption('large');
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   const index = await page.goto('/test/');
-  expect(index.headers()['content-security-policy']).toContain('script-src http://127.0.0.1:3000/static/thread-watcher.v1.js http://127.0.0.1:3000/static/thread-watcher-core.v1.js http://127.0.0.1:3000/static/post-tracking.v1.js http://127.0.0.1:3000/static/native-settings.v1.js http://127.0.0.1:3000/static/watcher-position.v1.js http://127.0.0.1:3000/static/native-filter.v1.js;');
+  expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual(pageScripts);
   await expect(page.locator('script')).toHaveCount(1);
   await expect(page.locator('#settingsWindowLink')).toBeVisible();
   await expect(page.locator('#thread-watcher-enable')).toHaveCount(0);

@@ -39,7 +39,7 @@ const localTags = {
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
   'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint']);
-const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.inlined,.sideArrows';
+const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.inlined,.sideArrows,.backlink';
 
 // Read a bounded inert recipe from the original DOM. Never clone an element with
 // an unchecked src/srcset, and never read a form control's attributes or value.
@@ -135,12 +135,18 @@ function messageBudget(message) {
 
 export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigin = '', settings,
   origin = globalThis.location?.origin, userAgent = globalThis.navigator?.userAgent,
-  transport = new NativeQuotePreviewTransport({ origin, mediaOrigin }), decorate } = {}) {
+  transport = new NativeQuotePreviewTransport({ origin, mediaOrigin }), decorate, companion, decoratePreview } = {}) {
   if (!root || typeof settings !== 'function') return null;
   previewContext({ origin, mediaOrigin, board, post: thread ?? '1', thread });
   const document = root.ownerDocument, window = document.defaultView;
   const page = { origin, board, thread }, mobile = mobileQuoteDevice(userAgent);
   const companions = new Map();
+  const ownedCompanion = link => {
+    const node = companion?.(link);
+    return node?.parentNode === link.parentNode && link.nextSibling === node
+      && node?.matches?.('a.quoteLink') && node.getAttribute('href') === link.getAttribute('href') ? node : null;
+  };
+  const hasCompanion = link => companions.has(link) || ownedCompanion(link);
   let active = null, disposed = false, suspended = false, scheduled = false;
   function enabled() {
     if (disposed || suspended) return false;
@@ -189,13 +195,16 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
   function show(value, tree, context) {
     if (!current(value)) return;
     // This check precedes every createElement and every resource assignment.
-    validatePostTree(tree, context, value.ref.post, { nodes: 0 }, PREVIEW_LIMITS);
+    const budget = { nodes: 0 };
+    validatePostTree(tree, context, value.ref.post, budget, PREVIEW_LIMITS);
     if (document.getElementById('quote-preview')) throw new TypeError('preview-exists');
     const popup = previewElement(document, tree, value.ref.post);
     popup.id = 'quote-preview'; popup.classList.add('preview');
     if (!value.link.closest('.backlink')) popup.classList.add('reveal-spoilers');
     if (context.board === board && window.location.hash === `#p${value.ref.post}`) popup.classList.add('highlight');
     popup.style.pointerEvents = mobile ? 'auto' : 'none';
+    if (value.target) decoratePreview?.(popup, value.target, value.link,
+      { nodes: PREVIEW_LIMITS.nodes - budget.nodes, characters: PREVIEW_LIMITS.bytes - budget.chars });
     value.popup = popup; document.body.append(popup);
     decorate?.(); position();
     popup.addEventListener('load', position, true);
@@ -220,7 +229,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     }
   }
   function begin(link, clickOwned = false) {
-    if (!enabled() || hidden(link) || (mobile && !companions.has(link))) return;
+    if (!enabled() || hidden(link) || (mobile && !hasCompanion(link))) return;
     if (active?.link === link && active.href === link.getAttribute('href')) {
       // A tap follows compatibility mouseover, so promote its existing preview.
       if (clickOwned) active.clickOwned = true;
@@ -268,7 +277,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     let budget, links;
     try {
       budget = messageBudget(message);
-      links = [...message.querySelectorAll('a.quotelink')].filter(link => target(link) && !companions.has(link));
+      links = [...message.querySelectorAll('a.quotelink')].filter(link => target(link) && !companions.has(link) && !ownedCompanion(link));
       if (links.length + companions.size > PREVIEW_LIMITS.companions) return;
       for (const link of links) {
         // Exact owned markup: <a class="quoteLink" href="..."> #</a>.
@@ -306,7 +315,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
   };
   function click(event) {
     const link = candidate(event.target);
-    if (mobile && enabled() && link && companions.has(link) && event.button === 0
+    if (mobile && enabled() && link && hasCompanion(link) && event.button === 0
       && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); begin(link, true); }
     else if (active && !active.popup?.contains(event.target) && !active.link.contains(event.target)) clear();
   }

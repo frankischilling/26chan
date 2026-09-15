@@ -23,6 +23,11 @@ mobile navigation companions and positioning. Remote previews use a bounded
 same-origin one-post projection and the existing finite worker tree. This slice
 is tracked in #167; it does not establish full inline-quote or original-page parity.
 
+The [native backlink slice](native-backlinks.md) separately follows the same
+public client's reverse links, forward quote labels and mobile navigation. Its
+owned annotations preserve the input used by filters, and a fixed page-only
+module keeps graph work outside the parser worker. This slice is tracked in #168.
+
 ## Reference inventory
 
 The pinned input is the public [4chan read-only API documentation](https://github.com/4chan/4chan-API/tree/2bd670d507ba2daa37a3961a661e088cf6f89d57), revision `2bd670d507ba2daa37a3961a661e088cf6f89d57`, collected September 8, 2026. [reference-manifest.json](reference-manifest.json) records exact source URLs and SHA-256 hashes. Files were fetched as public documentation; no live user posts, media or private source were imported. The input does not specify posting, authentication or private moderation behavior.
@@ -104,6 +109,7 @@ fields remain open.
 | V-012 | Quick Reply text posting, quoting, persistence, cancellation and updater coordination; supplied old extension source | Implemented in #100; local transport/theme/fixture checks passed, persisted-browser checks await CI | [Quick Reply](native-quick-reply.md) records bounded transport, source guards and editing, exact IDs, current-board CSP, tests and remaining cooldown/identity/captcha/drawing/inline-file and rendered-source work. E-010/E-011 remain explicit security replacements |
 | V-013 | Optional URL linkification; observed public extension v1191 | Board/thread settings and dynamic-post integration; server profiles unchanged | [Reference, safety exceptions and tests](source-linkification.md); desktop/mobile defaults, existing-anchor identity, live updates and bounded same-origin derefer. Full server link normalization remains #165; current-head qualification is recorded in PR #166 |
 | V-014 | Quote previews and visible-target highlighting; observed public extension v1191 | Default-on board/thread hover, mobile navigation companions and one-post remote projection implemented in #167 | [Reference, limits and verification](native-quote-previews.md); 32 browser cases distinguish real persisted responses from augmented DOM, held responses and hostile substitutions. Core and database tests cover finite DOM, exact IDs, source hiding, settings, cancellation, concurrent commits and visibility. Same-origin projection, no cache and stripped controls are explicit replacements; full inline-quote and original-page parity remain #6 |
+| V-015 | Backlinks, quote annotations and local reverse-quote preview cues; observed public extension v1191 | Default-on board/thread graph and layout-mobile navigation implemented in #168 | [Reference, ownership and limits](native-backlinks.md); filter input excludes only owned after-filter suffixes, preserves literal poster text and existing tracked labels, and retains exact quote navigation. Strict board/thread binding, bounded graph work and a fixed page-only module are explicit replacements. Current-commit tests and review are recorded in the implementing PR |
 
 ## Security-driven and project-defined exceptions
 

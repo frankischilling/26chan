@@ -192,7 +192,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{} {}{}",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -200,7 +200,9 @@ fn headers(
             state.origin,
             crate::ui_assets::WATCHER_POSITION_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_FILTER_PATH
+            crate::ui_assets::NATIVE_FILTER_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_BACKLINKS_PATH
         )
     } else {
         script
@@ -286,6 +288,67 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn backlink_page_code_has_no_worker_or_additional_network_authority() {
+        for origin in ["http://127.0.0.1:3000", "https://board.example"] {
+            let state = AppState {
+                pool: sqlx::postgres::PgPoolOptions::new()
+                    .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                    .unwrap(),
+                origin: origin.into(),
+                production: origin.starts_with("https:"),
+                limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+                media: None,
+                proxy_uid: None,
+            };
+            for page in [None, Some(false), Some(true)] {
+                let response = headers(
+                    axum::response::Html("owned").into_response(),
+                    &state,
+                    page,
+                    None,
+                );
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                let directive = |name: &str| {
+                    csp.split(';')
+                        .map(str::trim)
+                        .find(|part| part.starts_with(&format!("{name} ")))
+                        .unwrap()
+                };
+                let backlink = format!("{origin}/static/native-backlinks.v1.js");
+                assert_eq!(
+                    directive("script-src")
+                        .split_whitespace()
+                        .any(|value| value == backlink),
+                    page.is_some()
+                );
+                assert!(
+                    !directive("script-src")
+                        .split_whitespace()
+                        .any(|value| value == "'self'")
+                );
+                if page.is_some() {
+                    assert_eq!(
+                        directive("worker-src"),
+                        format!("worker-src {origin}/static/native-filter.v1.js")
+                    );
+                    assert_eq!(
+                        directive("connect-src"),
+                        format!("connect-src {origin}/_watch/")
+                    );
+                } else {
+                    assert_eq!(directive("script-src"), "script-src 'none'");
+                    assert_eq!(directive("worker-src"), "worker-src 'none'");
+                    assert_eq!(directive("connect-src"), "connect-src 'none'");
+                }
+                assert!(!directive("img-src").contains("native-backlinks"));
+                assert!(!directive("media-src").contains("native-backlinks"));
+            }
+        }
+    }
 
     #[tokio::test]
     async fn public_security_headers_fit_the_candidate_proxy_buffer() {

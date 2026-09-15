@@ -329,6 +329,9 @@ jobs:
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core
+      - name: Verify bounded backlink graph and quote annotations
+        shell: pwsh
+        run: npm run test:backlinks-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

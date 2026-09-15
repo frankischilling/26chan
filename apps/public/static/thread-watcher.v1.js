@@ -5,7 +5,8 @@ import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
-  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview } from './native-filter.v1.js';
+  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget } from './native-filter.v1.js';
+import { mountNativeBacklinks } from './native-backlinks.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -231,11 +232,16 @@ function start(context) {
     }),
   });
 
-  let nativeReplies = null, nativeThreads = null;
+  let nativeReplies = null, nativeThreads = null, nativeQuotePreview = null, nativeBacklinks = null;
+  nativeBacklinks = catalog ? null : mountNativeBacklinks({ root: document.querySelector('.board'),
+    board, thread: threadId, settings: configuration, mobile, readNeverMobile, quoteTarget,
+    changed: () => { nativeQuotePreview?.refresh(); if (nativeBacklinks) syncPostMenus(); },
+  });
   const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration,
     read: () => read(filterKey), save: saveFilterRules,
     match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
     changed: () => refresh.cancel(),
+    commentHTML: message => nativeBacklinks?.commentHTML(message) ?? message.innerHTML,
     applied: hidden => { nativeReplies?.setFiltered(hidden); nativeThreads?.setFiltered(hidden); },
   });
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
@@ -243,9 +249,11 @@ function start(context) {
   const nativeLinkification = catalog ? null : mountNativeLinkification({
     root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile,
   });
-  const nativeQuotePreview = catalog ? null : mountNativeQuotePreview({
+  nativeQuotePreview = catalog ? null : mountNativeQuotePreview({
     root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
     settings: configuration, decorate: () => nativeLinkification?.refresh(),
+    companion: link => nativeBacklinks?.companion(link),
+    decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
@@ -663,14 +671,20 @@ function start(context) {
         trigger.textContent = mobile.matches ? '...' : '\u25b6';
         if (mobile.matches) {
           if (info.firstElementChild !== trigger) info.prepend(trigger);
-        } else if (info.lastElementChild !== trigger) info.append(trigger);
+        } else {
+          const boundary = nativeBacklinks?.menuBoundary(post, info);
+          if (boundary) {
+            if (trigger.nextElementSibling !== boundary) info.insertBefore(trigger, boundary);
+          } else if (info.lastElementChild !== trigger) info.append(trigger);
+        }
       }
     }
     syncOpenPostMenu();
   }
   function render() {
     if (!catalog && threadId) markNativeTrackedQuotes(document.getElementById(`t${threadId}`),
-      tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true);
+      tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true, nativeBacklinks ?? {});
+    nativeBacklinks?.refresh();
     nativeQuotePreview?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();

@@ -1,0 +1,43 @@
+{
+  "scope": "Backlink defaults, graph and annotation rules, mobile navigation, parser order and local preview behavior from a permitted public release inspected as text.",
+  "extension": {
+    "url": "https://s.4cdn.org/js/extension.min.1191.js",
+    "collected_utc": "2026-09-13T12:55:46.721Z",
+    "bytes": 182061,
+    "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+    "pin_reused_from": "public-quote-preview-reference.json",
+    "inspected_symbols": [
+      "Config.backlinks",
+      "ConfigMobile",
+      "Parser.parseBacklinks",
+      "Parser.parseThread",
+      "Parser.parsePost",
+      "QuotePreview.show",
+      "SettingsMenu.options",
+      "Main.addCSS"
+    ]
+  },
+  "stylesheets": {
+    "manifest": "public-theme-reference.json",
+    "revision": 716,
+    "quote_colors": "The pinned Yotsuba/Futaba, Yotsuba B/Burichan, Tomorrow and Photon rules establish ordinary quote colors; extension v1191 overrides only blue-family backlinks to #34345C with #DD0000 hover."
+  },
+  "contract": {
+    "default": true,
+    "setting_label": "Backlinks",
+    "setting_tip": "Show who has replied to a post",
+    "graph": "One reverse link per source/target pair in parser order, including OP targets and self-quotes; only targets already present when the original source was parsed.",
+    "annotations": "Containing-thread OP quotes gain ' (OP)'; missing targets gain ' →' only on thread pages and not for explicit cross-board-style labels. Tracked ' (You)' labels precede these suffixes; page filtering precedes backlink annotations.",
+    "mobile_layout": "Viewport at most 480px unless the stored never-mobile value is exactly 'true'; rows below the post with independent ' #' navigation companions.",
+    "desktop_menu_order": "Parser.parsePost appends a post's menu before processing its outgoing backlinks. Later-to-earlier and self references place menu before row; an earlier source referencing a later DOM target creates row before menu. Verified zero-based offsets: parseThread 13583, parsePost 17233, menu append 17687, backlink call 17845, parseBacklinks 19168, target append 19928.",
+    "hidden_posts": "Hidden or filtered sources still contribute rows; hidden targets hide their backlink rows.",
+    "preview": "Local clones can show backlinks; mobile backlink rows are hidden in the popup. A backlink-triggered preview may mark the first exact matching reverse quote among at least two direct quote-link children."
+  },
+  "rewrite_boundaries": [
+    "Validate same-origin rewrite routes, current board and explicit thread membership rather than trusting a prefix-blind numeric fragment lookup.",
+    "Use bounded graph and finite DOM work, atomic annotation preflight and exact controller ownership.",
+    "Construct known preview rows after finite post-tree validation, within both added-row and remaining-preview budgets.",
+    "Serve one fixed page-only module with no runtime imports, network capability or worker permission; preserve the original parser-worker ceiling.",
+    "No remote graph discovery, leaked source or production user/media fixture imported."
+  ]
+}

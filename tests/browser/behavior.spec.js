@@ -62,7 +62,8 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     expect(data.posts.map(post => String(post.no))).toEqual([thread, ownReply]);
     expect(data.posts[0].com).toBe('Owned JSON thread<br>Second line');
     await page.goto(`${origin}/test/thread/${thread}`);
-    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveText(`>>${thread} (You)`);
+    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveText(`>>${thread} (You) (OP)`);
+    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveAttribute('href', `/test/post/${thread}`);
     await expect(page.locator(`#watch-${thread}-test`)).toContainText('JSON browser thread');
     for (const id of [thread, ownReply]) {
       await expect.poll(() => page.evaluate(({ thread, id }) =>

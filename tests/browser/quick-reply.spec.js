@@ -44,7 +44,10 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     const reply = String(result.pid); expect(String(result.tid)).toBe(id);
     await expect(page.locator('#qrCom')).toHaveValue(''); await expect(page.locator('#quickReply')).toBeVisible();
     await expect(page.locator(`#m${reply}`)).toContainText('Owned Quick Reply result');
-    await expect(page.locator(`#m${reply} .quotelink`)).toHaveText(`>>${id}`);
+    await expect(page.locator(`#m${reply} .quotelink`)).toHaveText(`>>${id} (OP)`);
+    await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `/test/post/${id}`);
+    await expect(page.locator(`#bl_${id} a.quotelink`)).toHaveText(`>>${reply}`);
+    await expect(page.locator(`#bl_${id} a.quotelink`)).toHaveAttribute('href', `/test/thread/${id}#p${reply}`);
     await expect.poll(() => page.evaluate(({ id, reply }) => JSON.parse(localStorage.getItem(`4chan-track-test-${id}`) || '{}')[`>>${reply}`], { id, reply })).toBe(1);
     expect(page.url()).toBe(url); await expect(page.locator('#com')).toHaveValue('Unsubmitted native draft');
     const data = await (await request.get(`/test/thread/${id}.json`)).json(); expect(data.posts).toHaveLength(2);

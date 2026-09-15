@@ -16,7 +16,7 @@ function selectedFilter() {
   } catch { return { pattern: null, type: 2 }; }
 }
 
-export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied }) {
+export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML }) {
   const root = document.querySelector('.board');
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
   root?.before(notice);
@@ -51,7 +51,9 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
       const info = post.querySelector('.postInfo');
       const message = post.querySelector('.postMessage');
       if (!info || !message || !section) throw new Error('invalid-post');
-      const value = { no: id, com: message.innerHTML };
+      const com = commentHTML ? commentHTML(message) : message.innerHTML;
+      if (typeof com !== 'string' || com.length > FILTER_LIMITS.html) throw new Error('field-limit');
+      const value = { no: id, com };
       for (const [key, selector] of [['name', '.name'], ['trip', '.postertrip'], ['id', '.posteruid > :first-child'], ['sub', '.subject']]) {
         const element = info.querySelector(selector); if (element) value[key] = element.textContent;
       }
