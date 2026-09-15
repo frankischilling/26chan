@@ -9,7 +9,7 @@
     "test:quote-preview-core": "node --test tests/browser/native-quote-preview.test.mjs tests/browser/native-quote-preview-dom.test.mjs tests/browser/native-filter-settlement.test.mjs",
     "test:backlinks": "npm run test:backlinks-core && playwright test tests/browser/native-backlinks.spec.js",
     "test:backlinks-core": "npm run check:native-backlinks && node --test tests/browser/native-backlinks.test.mjs tests/browser/native-backlinks-dom.test.mjs",
-    "test:inline-quotes": "npm run test:inline-quotes-core && playwright test tests/browser/native-inline-quotes.spec.js",
+    "test:inline-quotes": "npm run test:inline-quotes-core && playwright test --config playwright.inline-quotes.config.js tests/browser/native-inline-quotes.spec.js",
     "test:inline-quotes-core": "npm run check:native-backlinks && node --test tests/browser/native-inline-quotes.test.mjs tests/browser/native-inline-quotes-dom.test.mjs",
     "test:quick-reply": "node --test tests/browser/native-quick-reply.test.mjs && playwright test tests/browser/quick-reply.spec.js",
     "test": "playwright test",
