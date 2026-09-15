@@ -149,6 +149,15 @@ with zero allowed pixel differences. No other snapshots were updated.
 tests and five asset tests. These checks establish local behavior; the complete
 CI checks must pass on the reviewed PR commit before merge.
 
+The first Linux CI run passed its Rust/database qualification, then exposed an
+older Quick Reply assertion that expected a bare quote of the OP. The visible
+label now correctly includes `(OP)`. That assertion and the corresponding
+tracked JSON-posting assertion now require the exact composed labels and
+unchanged destinations; Quick Reply also checks the new reverse link. The
+complete seven-case Quick Reply suite and the real JSON-posting case passed
+together locally after the correction. The fixture audit retained bare labels
+in explicit no-JavaScript and disabled-feature controls.
+
 The implementing PR records the actual local commands, failures resolved,
 independent review and checks on the final commit. Synthetic visual tests guard
 the rewrite's layouts; they do not establish complete original-page parity.
