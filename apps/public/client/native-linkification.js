@@ -44,19 +44,20 @@ const generated = 'data-native-linkified';
 
 // Runs cannot cross an element boundary except a soft break. Build a complete
 // plan before mutation so the live message can remain unchanged on any bound.
-function planMessage(message) {
+function planMessage(message, projection) {
   if (!message || message.nodeType !== 1) return null;
   let nodes = 0, characters = 0;
   const runs = [];
   function attributes(node) {
-    for (const attribute of node.attributes) characters += attribute.name.length + attribute.value.length;
+    for (const attribute of projection?.attributes(node) ?? node.attributes) characters += attribute.name.length + attribute.value.length;
     if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
   }
   function visit(parent, depth) {
     if (depth > LINKIFY_LIMITS.depth) throw new RangeError('link-depth');
-    if (parent.childNodes.length + nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
+    if (Array.from(parent.childNodes).filter(node => !projection?.has(node)).length + nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
     let run = null;
     for (const [index, node] of Array.from(parent.childNodes).entries()) {
+      if (projection?.has(node)) { run = null; continue; }
       if (++nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
       if (node.nodeType === 1) attributes(node);
       if (node.nodeType === 3 || (node.nodeType === 1 && node.tagName === 'WBR')) {
@@ -96,6 +97,7 @@ function planMessage(message) {
   function charge(parent, depth) {
     if (depth > LINKIFY_LIMITS.depth) throw new RangeError('link-depth');
     for (const node of parent.childNodes) {
+      if (projection?.has(node)) continue;
       if (++nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
       if (node.nodeType === 3) characters += node.data.length * 5;
       else if (node.nodeType === 1 && tags.has(node.tagName)) { attributes(node); charge(node, depth + 1); }
@@ -103,16 +105,18 @@ function planMessage(message) {
       if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
     }
   }
-  try { visit(message, 0); } catch { return null; }
-  // Read-only serialization retains the source's global, case-sensitive probe.
-  if (!hasSourceLink(message.innerHTML)) return null;
+  try {
+    visit(message, 0);
+    // Read-only serialization retains the source's global, case-sensitive probe.
+    if (!hasSourceLink(projection ? projection.html(message) : message.innerHTML)) return null;
+  } catch { return null; }
   return runs.flatMap(run => sourceLinkSpans(run.text, true).flatMap(span => {
     const start = run.points[span.start], end = run.points[span.end];
     return start && end ? [{ start, end, parameter: span.parameter }] : [];
   }));
 }
 
-function decorateMessage(message, planned) {
+function decorateMessage(message, planned, projection) {
   const document = message.ownerDocument;
   for (const { start, end, parameter } of planned.reverse()) {
     const range = document.createRange();
@@ -127,7 +131,8 @@ function decorateMessage(message, planned) {
   // The source's final global ZWS replacement also affects literal text and
   // existing anchor labels. Attributes remain untouched for browser safety.
   const walker = document.createTreeWalker(message, 4), replacements = [];
-  while (walker.nextNode()) if (walker.currentNode.data.includes('\u200b')) replacements.push(walker.currentNode);
+  while (walker.nextNode()) if (!projection?.within(walker.currentNode)
+    && walker.currentNode.data.includes('\u200b')) replacements.push(walker.currentNode);
   for (const node of replacements) {
     const fragment = document.createDocumentFragment();
     node.data.split('\u200b').forEach((part, index) => {
@@ -138,26 +143,28 @@ function decorateMessage(message, planned) {
   }
 }
 
-export function linkifyMessage(message) {
-  const planned = planMessage(message);
+export function linkifyMessage(message, projection) {
+  const planned = planMessage(message, projection);
   if (planned === null) return 0;
 
   // Page filters consume the live postMessage.innerHTML under FILTER_LIMITS.html.
   // Decorate an exact detached clone first, including generated anchor markup and
   // the source's global ZWS-to-WBR pass. Crossing that existing ceiling leaves
   // the entire live message untouched, including server-created anchor identity.
-  const preview = message.cloneNode(true);
+  let preview;
+  try { preview = projection ? projection.clone(message) : message.cloneNode(true); } catch { return 0; }
   const previewPlan = planMessage(preview);
   if (previewPlan === null) return 0;
   decorateMessage(preview, previewPlan);
   if (preview.innerHTML.length > FILTER_LIMITS.html) return 0;
 
-  decorateMessage(message, planned);
+  decorateMessage(message, planned, projection);
   return planned.length;
 }
 
-function unlinkMessage(message) {
+function unlinkMessage(message, projection) {
   for (const anchor of message.querySelectorAll(`a.linkified[${generated}="true"]`)) {
+    if (projection?.within(anchor)) continue;
     anchor.replaceWith(...Array.from(anchor.childNodes));
   }
 }
@@ -165,7 +172,7 @@ function unlinkMessage(message) {
 // Mount once on a board page. The observer only schedules post messages from
 // the board or a quote preview; each message still passes the finite DOM checks
 // in linkifyMessage before any mutation occurs.
-export function mountNativeLinkification({ root, settings, mobile,
+export function mountNativeLinkification({ root, settings, mobile, projection,
   readNeverMobile = () => {
     try { return localStorage.getItem('4chan_never_show_mobile'); }
     catch { return null; }
@@ -174,6 +181,7 @@ export function mountNativeLinkification({ root, settings, mobile,
   let stopped = false, scheduled = false;
   const pending = new Set();
   const eligible = message => message?.nodeType === 1 && message.classList.contains('postMessage')
+    && !projection?.within(message)
     && (root.contains(message) || message.closest('#quote-preview')?.isConnected);
   function enabled() {
     let value = {}, neverMobile = null;
@@ -183,8 +191,8 @@ export function mountNativeLinkification({ root, settings, mobile,
   }
   function apply(message, active) {
     if (!eligible(message)) return;
-    if (active) linkifyMessage(message);
-    else unlinkMessage(message);
+    if (active) linkifyMessage(message, projection);
+    else unlinkMessage(message, projection);
   }
   function refresh() {
     if (stopped) return;

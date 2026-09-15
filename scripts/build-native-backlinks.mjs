@@ -22,30 +22,33 @@ for (const [name, license] of [['parse5', 'LICENSE'], ['entities', 'LICENSE'], [
   notices.push(`${name} ${installed.version}\n${text}`);
 }
 const result = await build({
-  absWorkingDir: fileURLToPath(root), entryPoints: ['apps/public/client/native-backlinks.js'],
+  absWorkingDir: fileURLToPath(root), entryPoints: ['apps/public/client/native-quote-features.js'],
   outfile: 'apps/public/static/native-backlinks.v1.js', bundle: true, platform: 'browser',
   format: 'esm', target: ['es2022'], minify: true, charset: 'ascii', legalComments: 'inline',
   write: false, metafile: true, logLevel: 'silent',
   banner: { js: `/*! Build with npm run build:native-backlinks.\n\n${notices.join('\n\n')}\n*/` },
 });
-assert.equal(result.outputFiles.length, 1, 'Backlinks must be one fixed release resource');
+assert.equal(result.outputFiles.length, 1, 'Quote features must be one fixed release resource');
 const outputs = Object.values(result.metafile.outputs);
 assert.equal(outputs.length, 1);
 assert.deepEqual(outputs[0].imports, [], 'No imports or external resources may remain in the page module');
-assert.deepEqual([...outputs[0].exports].sort(), ['BACKLINK_LIMITS', 'mountNativeBacklinks']);
+assert.deepEqual([...outputs[0].exports].sort(), ['BACKLINK_LIMITS', 'INLINE_LIMITS', 'createCommentProjection', 'mountNativeBacklinks', 'mountNativeInlineQuotes']);
 const allowed = new Set([
+  'apps/public/client/native-quote-features.js',
   'apps/public/client/native-backlinks.js',
+  'apps/public/client/native-inline-quotes.js',
+  'apps/public/client/native-comment-projection.js',
   'apps/public/client/native-filter-limits.js',
   'apps/public/static/thread-watcher-core.v1.js',
 ]);
-for (const path of Object.keys(result.metafile.inputs)) assert.ok(allowed.has(path), `Unexpected backlink source: ${path}`);
+for (const path of Object.keys(result.metafile.inputs)) assert.ok(allowed.has(path), `Unexpected quote-feature source: ${path}`);
 const bytes = result.outputFiles[0].contents;
-assert.ok(bytes.length <= 32768, 'Backlink page module exceeds its 32 KiB release budget');
+assert.ok(bytes.length <= 32768, 'Quote-feature page module exceeds its 32 KiB release budget');
 const target = new URL('apps/public/static/native-backlinks.v1.js', root);
 if (args[0] === '--check') {
-  assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Backlink module is stale; run npm run build:native-backlinks');
-  console.log(`Native backlink module matches its pinned sources (${bytes.length} bytes).`);
+  assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Quote-feature module is stale; run npm run build:native-backlinks');
+  console.log(`Native quote-feature module matches its pinned sources (${bytes.length} bytes).`);
 } else {
   await writeFile(target, bytes);
-  console.log(`Built native backlink module (${bytes.length} bytes).`);
+  console.log(`Built native quote-feature module (${bytes.length} bytes).`);
 }

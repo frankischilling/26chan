@@ -12,7 +12,7 @@ function build(node) {
   return element;
 }
 
-export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin, settings, applied }) {
+export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin, settings, applied, projection }) {
   const section = document.getElementById(`t${thread}`);
   if (!postId(thread) || !section || section.dataset.archived === 'true') return null;
   const transport = new NativeUpdaterTransport({ board, thread, mediaOrigin });
@@ -216,7 +216,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
         if (moved) window.scrollBy(0, moved);
         if (!forced && !fromQuickReply && document.documentElement.scrollHeight > innerHeight) {
           const posts = additions.map(post => document.getElementById(`p${post.no}`));
-          const you = posts.some(post => post.querySelector('.ql-tracked'));
+          const you = posts.some(post => projection ? projection.query(post, '.ql-tracked') : post.querySelector('.ql-tracked'));
           setIcon(notificationKind(currentIcon, { you,
             highlighted: posts.some(post => post.classList.contains('filter-hl')), unread }));
           if (you && audioEnabled && document.hidden && audio) {

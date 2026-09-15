@@ -332,6 +332,9 @@ jobs:
       - name: Verify bounded backlink graph and quote annotations
         shell: pwsh
         run: npm run test:backlinks-core
+      - name: Verify bounded inline quotes and original comment ownership
+        shell: pwsh
+        run: npm run test:inline-quotes-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

@@ -21,12 +21,20 @@ The [native quote-preview slice](native-quote-previews.md) independently uses
 the same permitted public release for default-on hover, local highlighting,
 mobile navigation companions and positioning. Remote previews use a bounded
 same-origin one-post projection and the existing finite worker tree. This slice
-is tracked in #167; it does not establish full inline-quote or original-page parity.
+was merged in #169 for #167; it does not establish full original-page parity.
 
 The [native backlink slice](native-backlinks.md) separately follows the same
 public client's reverse links, forward quote labels and mobile navigation. Its
 owned annotations preserve the input used by filters, and a fixed page-only
 module keeps graph work outside the parser worker. This slice is tracked in #168.
+
+The [native inline-quote slice](native-inline-quotes.md) uses public v1191 for
+optional expansion, exact click arbitration, local/backlink placement and mobile
+settings. One shared projection registry keeps copied content out of original
+filter, watcher, updater and backlink inputs. Finite admission, a same-origin
+one-post transport and trusted mobile request arbitration are explicit bounded
+replacements. Other extension features and complete original-page matching
+remain unfinished.
 
 ## Reference inventory
 
@@ -110,6 +118,7 @@ fields remain open.
 | V-013 | Optional URL linkification; observed public extension v1191 | Board/thread settings and dynamic-post integration; server profiles unchanged | [Reference, safety exceptions and tests](source-linkification.md); desktop/mobile defaults, existing-anchor identity, live updates and bounded same-origin derefer. Full server link normalization remains #165; current-head qualification is recorded in PR #166 |
 | V-014 | Quote previews and visible-target highlighting; observed public extension v1191 | Default-on board/thread hover, mobile navigation companions and one-post remote projection implemented in #167 | [Reference, limits and verification](native-quote-previews.md); 32 browser cases distinguish real persisted responses from augmented DOM, held responses and hostile substitutions. Core and database tests cover finite DOM, exact IDs, source hiding, settings, cancellation, concurrent commits and visibility. Same-origin projection, no cache and stripped controls are explicit replacements; full inline-quote and original-page parity remain #6 |
 | V-015 | Backlinks, quote annotations and local reverse-quote preview cues; observed public extension v1191 | Default-on board/thread graph and layout-mobile navigation implemented in #168 | [Reference, ownership and limits](native-backlinks.md); filter input excludes only owned after-filter suffixes, preserves literal poster text and existing tracked labels, and retains exact quote navigation. Strict board/thread binding, bounded graph work and a fixed page-only module are explicit replacements. Current-commit tests and review are recorded in the implementing PR |
+| V-016 | Optional inline quotes, nested placement and collapse, backlink target hiding and mobile activation; observed public extension v1191 | Implemented with existing release URLs and bounded one-post transport; final qualification recorded in the implementing PR | [Reference, ownership, budgets and verification](native-inline-quotes.md); one shared registry preserves original filter/notification/watch inputs, exact IDs and navigation. Core tests distinguish trusted input from synthetic lifecycle controls; persisted tests cover real settings, held responses, updater/filter settlement and finite admission. Inert copies, finite budgets and touch-request arbitration are explicit replacements. Full extension and page parity remain #6 |
 
 ## Security-driven and project-defined exceptions
 

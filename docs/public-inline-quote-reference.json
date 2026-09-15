@@ -1,0 +1,45 @@
+{
+  "scope": "Inline-quote configuration, activation, placement, nesting, loading and removal from the permitted public extension; inspected as text only.",
+  "extension": {
+    "url": "https://s.4cdn.org/js/extension.min.1191.js",
+    "collected_utc": "2026-09-13T12:55:46.721Z",
+    "bytes": 182061,
+    "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+    "pin_reused_from": "public-quote-preview-reference.json",
+    "offset_units": "Zero-based string offsets in the pinned ASCII release",
+    "symbols": {
+      "QuoteInline.isSelfQuote": 38452,
+      "QuoteInline.toggle": 38619,
+      "QuoteInline.inlineRemote": 39357,
+      "QuoteInline.inline": 40468,
+      "Config.inlineQuotes": 135238,
+      "SettingsMenu.options.inlineQuotes": 137433,
+      "SettingsMenu.mobileOptionFilter": 142557,
+      "Main.onclick": 155951,
+      "Main.onclick.inlineQuotesBranch": 158336
+    }
+  },
+  "contract": {
+    "default": false,
+    "setting_label": "Inline quote links",
+    "activation": "Primary clicks on an exact quote-link target select inline behavior before mobile preview handling, independently of quotePreview. The public branch excludes archive pages and disabled native features.",
+    "modifiers": "Shift follows the existing destination in the same window; the public inline branch does not exempt Control, Meta or Alt. Non-primary clicks and navigation companions bypass it.",
+    "mobile_setting": "The checkbox is omitted from the public mobile settings layout; an already stored inlineQuotes value still takes effect.",
+    "identity": "A direct self-quote retains navigation. Ancestor cycles are suppressed. Different source links may expand the same target independently.",
+    "placement": "Ordinary copies follow the source anchor or its immediate quote wrapper, lifted through consecutive spoiler ancestors. A desktop backlink prepends a local copy into its owner's message and reference-counts hiding of the original target. Mobile backlinks use ordinary adjacent placement.",
+    "copies": "Local copies retain the existing display content but remove nested inline copies and highlight effects. Remote copies are built from a public thread response and use normal post presentation.",
+    "loading": "A pending remote request shows a loading element. Repeated activation during the request does not start another. Missing or failed responses remain visible; later activation can remove the error and retry.",
+    "collapse": "Activating the source again removes its copy and restores its owned faded-link and original-target effects. Nested copies require consistent cleanup."
+  },
+  "required_rewrite_boundaries": [
+    "Use strict same-origin routes and exact board, thread and positive i64 post identities; do not inherit board-blind DOM lookup.",
+    "Reuse the existing bounded one-post projection, validated parser tree and approved media grammar; never parse response HTML in the live document or import forms and credentials.",
+    "Keep a separate bounded inline request owner, fresh responses and total pending/open/nesting/DOM budgets; cancel stale work when source, setting or page lifecycle changes.",
+    "Exclude only controller-owned projections from canonical post readers and original comment/filter/notification inputs; arbitrary matching classes cannot grant exclusion.",
+    "Recursively release descendant requests and owned original-hide effects; preserve independent manual and filter hiding.",
+    "Keep the original navigation companion usable and adjacent to its source, and arbitrate inline, preview and ordinary navigation before either feature activates.",
+    "The public mouseover handler is device-agnostic. For an exact touch-generated mobile mouseover whose remote inline activation can be admitted, a read-only ownership predicate defers the preview request; other hover paths remain available. This bounded request-arbitration replacement is verified with trusted taps, not attributed to the public handler.",
+    "A one-post unavailable response cannot distinguish the public client's missing-thread and missing-post errors; use an accurate common unavailable state.",
+    "Preserve the existing worker ceiling and network/CSP authority. No leaked source, original runtime, production posts or production media fixtures are imported."
+  ]
+}

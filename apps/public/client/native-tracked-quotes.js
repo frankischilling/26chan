@@ -2,9 +2,10 @@ import { postId } from '../static/thread-watcher-core.v1.js';
 
 // Native Parser initializes tracked replies only on a thread page. Local
 // receipt hints decorate text; they never change the link's destination.
-export function markNativeTrackedQuotes(section, tracked, enabled, { readLabel, writeLabel } = {}) {
+export function markNativeTrackedQuotes(section, tracked, enabled, { readLabel, writeLabel, projection } = {}) {
   if (!section) return;
   for (const link of section.querySelectorAll('.postMessage .quotelink')) {
+    if (projection?.within(link)) continue;
     const previous = link.dataset.nativeTracked;
     const label = readLabel ? readLabel(link) : link.textContent;
     const write = value => { if (writeLabel) writeLabel(link, value); else link.textContent = value; };

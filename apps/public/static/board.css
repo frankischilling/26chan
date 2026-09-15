@@ -409,6 +409,11 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .post.highlight-anti[data-quote-anti="photon"] { background: #bbb !important; }
 .quoteLink { color: var(--quote-link, #000080); white-space: pre; }
 .quotelink.deadlink { text-decoration: line-through; }
+.quotelink.linkfade { opacity: .5; }
+#quote-preview .quotelink.linkfade { opacity: 1; }
+.op.inlined { display: block; }
+.preview.inlined { max-width: 100%; overflow-wrap: anywhere; }
+.preview.spinner.inlined { margin-top: 2px; padding: 3px; display: table; }
 @media (max-width: 600px) { #quote-preview .postMessage { margin: 10px 5px; } }
 @media (max-width: 480px) {
   .threadNav.mobile > .nativeUpdater { display: block; margin-top: 5px; }

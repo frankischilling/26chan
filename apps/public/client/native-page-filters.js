@@ -16,8 +16,9 @@ function selectedFilter() {
   } catch { return { pattern: null, type: 2 }; }
 }
 
-export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML }) {
+export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML, projection }) {
   const root = document.querySelector('.board');
+  const query = (parent, selector) => projection ? projection.query(parent, selector) : parent.querySelector(selector);
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
   root?.before(notice);
   const storageNotice = document.createElement('p');
@@ -37,7 +38,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     effects.clear();
   }
   function collect() {
-    const nodes = [...root.querySelectorAll('.post[id]')];
+    const nodes = [...root.querySelectorAll('.post[id]')].filter(post => !projection?.within(post));
     if (nodes.length > 20001) throw new Error('page-limit');
     const rows = [], ids = new Set();
     let size = 0;
@@ -48,16 +49,17 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
       ids.add(id);
       // Native parsePost filters replies; the separate board-index path handles OPs.
       if ((threadId && id === parent) || getTracked(`${parent}-${board}`).has(id)) continue;
-      const info = post.querySelector('.postInfo');
-      const message = post.querySelector('.postMessage');
+      const info = query(post, '.postInfo');
+      const message = query(post, '.postMessage');
       if (!info || !message || !section) throw new Error('invalid-post');
-      const com = commentHTML ? commentHTML(message) : message.innerHTML;
+      const com = commentHTML ? commentHTML(message) : projection ? projection.html(message) : message.innerHTML;
       if (typeof com !== 'string' || com.length > FILTER_LIMITS.html) throw new Error('field-limit');
       const value = { no: id, com };
       for (const [key, selector] of [['name', '.name'], ['trip', '.postertrip'], ['id', '.posteruid > :first-child'], ['sub', '.subject']]) {
-        const element = info.querySelector(selector); if (element) value[key] = element.textContent;
+        const element = query(info, selector); if (element) value[key] = projection ? projection.text(element) : element.textContent;
       }
-      value.filename = post.querySelector('.file > p > a')?.textContent ?? '';
+      const filename = query(post, '.file > p > a');
+      value.filename = projection ? projection.text(filename) : filename?.textContent ?? '';
       for (const [key, text] of Object.entries(value)) {
         if (text.length > (key === 'com' ? FILTER_LIMITS.html : FILTER_LIMITS.field)) throw new Error('field-limit');
       }
@@ -179,10 +181,11 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     queueMicrotask(() => { scheduled = false; void refresh(); });
   }
   if (root) new MutationObserver(changes => {
-    if (changes.some(change => change.target.parentElement?.closest('.postMessage,.name,.subject,.postertrip,.posteruid,.file')
+    if (changes.some(change => (!projection || projection.originalMutation(change))
+      && (change.target.parentElement?.closest('.postMessage,.name,.subject,.postertrip,.posteruid,.file')
       || change.target.closest?.('.postMessage,.name,.subject,.postertrip,.posteruid,.file')
       || [...change.addedNodes, ...change.removedNodes].some(node => node.nodeType === 1
-        && (node.matches('.post,.postContainer,.thread') || node.querySelector('.post'))))) schedule();
+        && (node.matches('.post,.postContainer,.thread') || node.querySelector('.post')))))) schedule();
   }).observe(root, { childList: true, subtree: true, characterData: true });
   window.addEventListener('pagehide', () => { generation++; controller?.abort(); });
   const open = filterEditor({ board, read, save, match, changed: result => {
