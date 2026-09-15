@@ -57,7 +57,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
       const checked = optionChecked?.(key, initial);
       input.checked = (typeof checked === 'boolean' ? checked
-        : (['threadHiding', 'threadUpdater', 'quickReply'].includes(key) ? initial[key] !== false : initial[key] === true))
+        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
@@ -134,6 +134,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(navigationCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
       option(navigationCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
       option(navigationCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
+      option(navigationCategory, 'quotePreview', 'Quote preview', 'Show post when mousing over post links');
       const keys = option(navigationCategory, 'keyBinds', 'Use keyboard shortcuts', 'Enable handy keyboard shortcuts for common actions');
       keys.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
       const global = node('ul');

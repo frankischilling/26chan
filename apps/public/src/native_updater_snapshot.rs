@@ -14,6 +14,7 @@ use serde::Serialize;
 
 const MAX_POSTS: usize = 1001;
 const MAX_BYTES: usize = 4_194_304;
+const MAX_PREVIEW_BYTES: usize = 262_144;
 
 #[derive(Serialize)]
 struct Snapshot {
@@ -35,6 +36,14 @@ struct RenderedPost {
     no: String,
     file_deleted: bool,
     html: String,
+}
+
+#[derive(Serialize)]
+struct Preview {
+    version: u8,
+    board: String,
+    thread: String,
+    post: RenderedPost,
 }
 
 // Both rendering and JSON escaping consume a hard byte budget. No partially
@@ -173,6 +182,94 @@ fn encode(
     let mut output = LimitedOutput::new(limit);
     serde_json::to_writer(&mut output, &result).map_err(|_| unavailable())?;
     Ok(output.bytes)
+}
+
+fn encode_preview(
+    snapshot: board_store::PostSnapshot,
+    media_origin: &str,
+    limit: usize,
+) -> Result<Vec<u8>, AppError> {
+    let board_store::PostSnapshot {
+        board,
+        thread,
+        post,
+    } = snapshot;
+    if thread.id <= 0
+        || post.id < thread.id
+        || thread.deleted
+        || post.deleted
+        || thread.board != board.slug
+        || post.board != board.slug
+        || post.thread_id != thread.id
+    {
+        return Err(unavailable());
+    }
+    let item = PostView::new(post);
+    let view = ThreadView {
+        catalog_last_reply: None,
+        tail_size: 0,
+        latest_reply_id: None,
+        thread,
+        posts: Vec::new(),
+        omitted: 0,
+        image_replies: 0,
+    };
+    let mut output = LimitedOutput::new(limit);
+    PostFragment {
+        item: &item,
+        view: &view,
+        board: &board,
+        media_origin,
+        catalog: false,
+    }
+    .render_into(&mut output)
+    .map_err(|_| unavailable())?;
+    let preview = Preview {
+        version: 1,
+        board: board.slug,
+        thread: view.thread.id.to_string(),
+        post: RenderedPost {
+            no: item.post.id.to_string(),
+            file_deleted: item
+                .post
+                .attachment
+                .as_ref()
+                .is_some_and(|file| file.file_deleted),
+            html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
+        },
+    };
+    let mut output = LimitedOutput::new(limit);
+    serde_json::to_writer(&mut output, &preview).map_err(|_| unavailable())?;
+    Ok(output.bytes)
+}
+
+pub(crate) async fn get_preview(
+    State(state): State<AppState>,
+    Path((board, key)): Path<(String, String)>,
+    uri: Uri,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    if uri.query().is_some() {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "Invalid post preview options.",
+        ));
+    }
+    let id = key
+        .parse::<i64>()
+        .ok()
+        .filter(|id| *id > 0 && id.to_string() == key)
+        .ok_or(AppError(StatusCode::NOT_FOUND, "Post not found."))?;
+    let snapshot = board_store::post_snapshot(&state.pool, &board, id).await?;
+    let media_origin = state
+        .media
+        .as_ref()
+        .map(|media| media.settings.origin.as_string())
+        .unwrap_or_default();
+    let bytes = encode_preview(snapshot, &media_origin, MAX_PREVIEW_BYTES)?;
+    // The ETag includes every rendered field. A board-only policy change can
+    // change this projection without advancing the thread's timestamp.
+    crate::api::bytes_response(bytes, None, &headers)
 }
 
 pub(crate) async fn get(
@@ -314,6 +411,108 @@ mod tests {
             md5: Some("not-a-public-hash-field".into()),
             thumbnail_width: Some(32),
             thumbnail_height: Some(24),
+        }
+    }
+
+    fn preview_fixture(op: bool) -> board_store::PostSnapshot {
+        let mut snapshot = fixture();
+        let post = snapshot.posts.remove(usize::from(!op));
+        board_store::PostSnapshot {
+            board: snapshot.board,
+            thread: snapshot.thread,
+            post,
+        }
+    }
+
+    #[test]
+    fn preview_is_one_post_with_exact_ids_and_the_shared_renderer() {
+        let thread: serde_json::Value =
+            serde_json::from_slice(&encode(fixture(), "", MAX_BYTES).unwrap()).unwrap();
+        for op in [true, false] {
+            let bytes = encode_preview(preview_fixture(op), "", MAX_PREVIEW_BYTES).unwrap();
+            let preview: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(preview.as_object().unwrap().len(), 4);
+            assert_eq!(preview["version"], 1);
+            assert_eq!(preview["board"], "test");
+            assert_eq!(preview["thread"], "9223372036854775806");
+            assert_eq!(preview["post"], thread["posts"][usize::from(!op)]);
+            assert!(preview.get("posts").is_none());
+            assert!(
+                !preview["post"]["html"]
+                    .as_str()
+                    .unwrap()
+                    .contains("<script>")
+            );
+            assert!(encode_preview(preview_fixture(op), "", bytes.len()).is_ok());
+            assert!(encode_preview(preview_fixture(op), "", bytes.len() - 1).is_err());
+        }
+    }
+
+    #[test]
+    fn preview_retains_posting_time_format_and_approved_attachment_visibility() {
+        for format in [0, 8, 9, 15] {
+            for (origin, spoiler, deleted) in [
+                ("https://media.example", false, false),
+                ("https://media.example", true, false),
+                ("https://media.example", false, true),
+                ("", false, false),
+            ] {
+                let mut snapshot = preview_fixture(false);
+                snapshot.post.comment_format = format;
+                snapshot.post.comment = "[spoiler]<b>first</b>\nsecond[/spoiler]".into();
+                let expected = crate::views::Comment {
+                    lines: &board_domain::parse_post_comment(&snapshot.post.comment, format),
+                    board: "test",
+                }
+                .render()
+                .unwrap();
+                let mut file = attachment();
+                file.spoiler = spoiler;
+                file.file_deleted = deleted;
+                snapshot.post.attachment = Some(file);
+                let bytes = encode_preview(snapshot, origin, MAX_PREVIEW_BYTES).unwrap();
+                let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                let html = value["post"]["html"].as_str().unwrap();
+                assert!(html.contains(&expected));
+                assert_eq!(value["post"]["file_deleted"], deleted);
+                assert_eq!(html.contains("File deleted."), deleted);
+                assert_eq!(
+                    html.contains("<img "),
+                    !spoiler && !deleted && !origin.is_empty()
+                );
+                assert_eq!(
+                    html.contains("Spoiler image"),
+                    spoiler && !deleted && !origin.is_empty()
+                );
+                assert!(!html.contains("private-asset-id"));
+                assert!(!html.contains("not-a-public-hash-field"));
+            }
+        }
+    }
+
+    #[test]
+    fn preview_rejects_inconsistent_hidden_or_oversized_posts() {
+        for variant in 0..8 {
+            let mut snapshot = preview_fixture(false);
+            match variant {
+                0 => snapshot.post.deleted = true,
+                1 => snapshot.thread.deleted = true,
+                2 => snapshot.thread.id = 0,
+                3 => snapshot.post.id = snapshot.thread.id - 1,
+                4 => snapshot.post.thread_id = 1,
+                5 => snapshot.post.board = "other".into(),
+                6 => snapshot.thread.board = "other".into(),
+                // Comment parsing already bounds its own input. Exercise the
+                // renderer's independent budget with an oversized text field.
+                _ => snapshot.post.name = "&".repeat(MAX_PREVIEW_BYTES),
+            }
+            assert!(
+                matches!(
+                    encode_preview(snapshot, "", MAX_PREVIEW_BYTES),
+                    Err(AppError(StatusCode::SERVICE_UNAVAILABLE, _))
+                ),
+                "invalid preview variant {variant} must fail without a response body"
+            );
         }
     }
 

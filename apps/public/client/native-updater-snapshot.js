@@ -3,6 +3,8 @@ import { postId } from '../static/thread-watcher-core.v1.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
   depth: 32, requestMs: 10000, parseMs: 2000, intervalMs: 1000 });
+export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
+  requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
   'op', 'reply', 'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
@@ -52,24 +54,24 @@ export function validateSnapshotMetadata(snapshot, context) {
       && BigInt(snapshot.posts[1].no) > BigInt(snapshot.tail_id));
   }
 }
-function mediaUrl(raw, context) {
+export function postMediaUrl(raw, context) {
   if (!context.mediaOrigin) return false;
   const prefix = `${context.mediaOrigin}/${context.board}/`;
   return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|s\.jpg)$/.test(raw.slice(prefix.length));
 }
-function linkUrl(raw, context) {
+export function postLinkUrl(raw, context) {
   if (raw.startsWith('/')) return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18})?)$/.test(raw);
   const url = new URL(raw);
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !/[\u0000-\u0020\u007f]/.test(raw);
 }
 // Validate again before DOM construction. Only these inert tags/attributes can
 // cross from the worker's data tree into the browser, even with a bad response.
-export function validatePostTree(tree, context, no, budget = { nodes: 0 }) {
+export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limits = UPDATER_LIMITS) {
   budget.chars ??= 0;
-  const charge = text => { budget.chars += text.length; require(budget.chars <= UPDATER_LIMITS.bytes); };
+  const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'm', 'f', 'delete', 'report'].map(prefix => prefix + no));
   function visit(node, depth, form = null) {
-    require(++budget.nodes <= UPDATER_LIMITS.nodes && depth <= UPDATER_LIMITS.depth);
+    require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
     exactKeys(node, ['tag', 'attrs', 'children']);
     require(Object.hasOwn(attributes, node.tag) && Array.isArray(node.children));
@@ -81,8 +83,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }) {
       charge(value);
       if (key === 'class') require(value.split(' ').every(token => classes.has(token)));
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
-      if (key === 'href') require(linkUrl(value, context));
-      if (key === 'src') require(mediaUrl(value, context));
+      if (key === 'href') require(postLinkUrl(value, context));
+      if (key === 'src') require(postMediaUrl(value, context));
       if (key === 'action') require([`/${context.board}/delete`, `/${context.board}/report`].includes(value));
       if (key === 'method') require(value === 'post');
       if (key === 'target') require(value === '_blank');
@@ -127,6 +129,63 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }) {
   return tree;
 }
 
+function parsePostRecipe(html, context, no, budget, limits) {
+  budget.created ??= 0;
+  const treeAdapter = { ...defaultTreeAdapter, createElement(...args) {
+    require(++budget.created <= limits.nodes); return defaultTreeAdapter.createElement(...args);
+  } };
+  const fragment = parseFragment(html, { treeAdapter, scriptingEnabled: true });
+  function recipe(node, depth) {
+    require(depth <= limits.depth);
+    if (node.nodeName === '#text') return node.value;
+    require(node.namespaceURI === 'http://www.w3.org/1999/xhtml' && Object.hasOwn(attributes, node.tagName));
+    return { tag: node.tagName, attrs: Object.fromEntries(node.attrs.map(a => {
+      require(!a.namespace && !a.prefix); return [a.name, a.value];
+    })), children: node.childNodes.map(child => recipe(child, depth + 1)) };
+  }
+  const roots = fragment.childNodes.filter(node => node.nodeName !== '#text' || node.value.trim() !== '');
+  require(roots.length === 1);
+  return validatePostTree(recipe(roots[0], 0), context, no, budget, limits);
+}
+
+const previewId = value => typeof value === 'string' && !/\D/.test(value) && postId(value) === value;
+export function previewContext({ origin, board, post, mediaOrigin = '', thread = null }) {
+  require(typeof board === 'string' && !/[^a-z0-9]/.test(board));
+  require(previewId(post));
+  require(thread === null || (previewId(thread) && BigInt(thread) <= BigInt(post)));
+  const context = updaterContext({ origin, board, thread: thread ?? post, mediaOrigin });
+  return { ...context, post, thread };
+}
+
+export function previewUrl(input) {
+  const { origin, board, post } = previewContext(input);
+  return `${origin}/_watch/${board}/post/${post}`;
+}
+
+export function validatePreviewMetadata(snapshot, input, parsed = false) {
+  const context = previewContext(input);
+  exactKeys(snapshot, ['version', 'board', 'thread', 'post']);
+  require(snapshot.version === 1 && snapshot.board === context.board
+    && previewId(snapshot.thread)
+    && BigInt(snapshot.thread) <= BigInt(context.post)
+    && (context.thread === null || context.thread === snapshot.thread));
+  exactKeys(snapshot.post, ['no', 'file_deleted', parsed ? 'tree' : 'html']);
+  require(snapshot.post.no === context.post && typeof snapshot.post.file_deleted === 'boolean');
+  if (!parsed) require(typeof snapshot.post.html === 'string');
+  return updaterContext({ ...context, thread: snapshot.thread });
+}
+
+export function parseQuotePreviewSnapshot(raw, input) {
+  try {
+    require(typeof raw === 'string' && raw.length <= PREVIEW_LIMITS.bytes
+      && new TextEncoder().encode(raw).length <= PREVIEW_LIMITS.bytes);
+    const snapshot = JSON.parse(raw), context = validatePreviewMetadata(snapshot, input);
+    const { no, file_deleted, html } = snapshot.post;
+    const tree = parsePostRecipe(html, context, no, { nodes: 0 }, PREVIEW_LIMITS);
+    return { status: 'ok', snapshot: { ...snapshot, post: { no, file_deleted, tree } } };
+  } catch { return { status: 'invalid-preview' }; }
+}
+
 // Runs only in a disposable worker. parse5 creates data, never live DOM, so a
 // rejected img, SVG, style or script cannot initiate a request while parsing.
 export function parseUpdaterSnapshot(raw, inputContext) {
@@ -135,27 +194,14 @@ export function parseUpdaterSnapshot(raw, inputContext) {
     require(typeof raw === 'string' && raw.length <= UPDATER_LIMITS.bytes && new TextEncoder().encode(raw).length <= UPDATER_LIMITS.bytes);
     const snapshot = JSON.parse(raw);
     validateSnapshotMetadata(snapshot, context);
-    let previous = 0n, created = 0;
+    let previous = 0n;
     const budget = { nodes: 0 };
-    const treeAdapter = { ...defaultTreeAdapter, createElement(...args) {
-      require(++created <= UPDATER_LIMITS.nodes); return defaultTreeAdapter.createElement(...args);
-    } };
     const posts = snapshot.posts.map((post, index) => {
       exactKeys(post, ['no', 'file_deleted', 'html']);
       require(postId(post.no) === post.no && BigInt(post.no) > previous && (index !== 0 || post.no === context.thread));
       previous = BigInt(post.no);
       require(typeof post.file_deleted === 'boolean' && typeof post.html === 'string');
-      const fragment = parseFragment(post.html, { treeAdapter, scriptingEnabled: true });
-      function recipe(node, depth) {
-        require(depth <= UPDATER_LIMITS.depth);
-        if (node.nodeName === '#text') return node.value;
-        require(node.namespaceURI === 'http://www.w3.org/1999/xhtml' && Object.hasOwn(attributes, node.tagName));
-        return { tag: node.tagName, attrs: Object.fromEntries(node.attrs.map(a => { require(!a.namespace && !a.prefix); return [a.name, a.value]; })),
-          children: node.childNodes.map(child => recipe(child, depth + 1)) };
-      }
-      const roots = fragment.childNodes.filter(node => node.nodeName !== '#text' || node.value.trim() !== '');
-      require(roots.length === 1);
-      const tree = validatePostTree(recipe(roots[0], 0), context, post.no, budget);
+      const tree = parsePostRecipe(post.html, context, post.no, budget, UPDATER_LIMITS);
       return { no: post.no, file_deleted: post.file_deleted, tree };
     });
     return { status: 'ok', snapshot: { ...snapshot, posts } };

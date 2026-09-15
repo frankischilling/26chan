@@ -1,6 +1,6 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { nativeCommentText, nativeWatchLabel } from './native-filter-html.js';
-import { parseUpdaterSnapshot } from './native-updater-snapshot.js';
+import { parseUpdaterSnapshot, parseQuotePreviewSnapshot } from './native-updater-snapshot.js';
 export { mountNativeThreadUpdater } from './native-thread-updater.js';
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
@@ -12,6 +12,7 @@ export { mountNativeThreadHiding } from './native-thread-hiding.js';
 export { mountNativeKeybinds } from './native-keybinds.js';
 export { mountNativeQuickReply } from './native-quick-reply.js';
 export { mountNativeLinkification } from './native-linkification.js';
+export { mountNativeQuotePreview } from './native-quote-preview.js';
 export { markNativeTrackedQuotes } from './native-tracked-quotes.js';
 export { NativeWatchLock } from './native-watch-lock.js';
 
@@ -258,6 +259,9 @@ export class NativeFilterMatcher {
 }
 
 if (typeof WorkerGlobalScope !== 'undefined' && globalThis instanceof WorkerGlobalScope) {
-  globalThis.addEventListener('message', event => globalThis.postMessage(event.data?.kind === 'updater-snapshot'
-    ? parseUpdaterSnapshot(event.data.raw, event.data.context) : runNativeFilterJob(event.data)));
+  globalThis.addEventListener('message', event => {
+    const job = event.data;
+    globalThis.postMessage(job?.kind === 'updater-snapshot' ? parseUpdaterSnapshot(job.raw, job.context)
+      : job?.kind === 'quote-preview' ? parseQuotePreviewSnapshot(job.raw, job.context) : runNativeFilterJob(job));
+  });
 }

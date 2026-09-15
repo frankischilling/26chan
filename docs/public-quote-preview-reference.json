@@ -1,0 +1,39 @@
+{
+  "scope": "Quote-preview configuration, hover behavior, mobile navigation companions and positioning from a permitted released public client; source inspected as text, not executed.",
+  "extension": {
+    "url": "https://s.4cdn.org/js/extension.min.1191.js",
+    "collected_utc": "2026-09-13T12:55:46.721Z",
+    "bytes": 182061,
+    "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+    "pin_reused_from": "public-watcher-navigation-reference.json",
+    "inspected_symbols": [
+      "Config.quotePreview",
+      "ConfigMobile",
+      "Main.isMobileDevice",
+      "Parser.parseMobileQuotelinks",
+      "Parser.parseThread",
+      "QuotePreview"
+    ]
+  },
+  "contract": {
+    "default": true,
+    "setting_label": "Quote preview",
+    "setting_tip": "Show post when mousing over post links",
+    "events": ["mouseover", "mouseout"],
+    "focus_preview": false,
+    "visible_local_target": "Temporary highlight instead of a popup or network request; top > 0, bottom < viewport height, not post-hidden.",
+    "other_target": "Clone an offscreen or hidden local target, or fetch the public thread containing a remote target.",
+    "mobile_user_agent_pattern": "Mobile|Android|Dolfin|Opera Mobi|PlayStation Vita|Nintendo DS",
+    "mobile_navigation": "Adjacent a.quoteLink containing ' #' retains the same href while original quote activation opens the preview.",
+    "desktop_position": "Five pixels right unless near the rightmost 30% of the viewport, then left; vertically centered and clamped.",
+    "mobile_position": "Below the quote with the same horizontal side selection."
+  },
+  "rewrite_boundaries": [
+    "Use the typed rewrite quote path and a versioned single-post same-origin projection instead of external full-thread CORS fetching.",
+    "Use strict response, request, parser and DOM budgets; no credentials, redirect following or new CSP authority.",
+    "Construct from validated finite trees; remove duplicate IDs and interactive controls.",
+    "Retain ordinary navigation when bounded mobile companion decoration cannot fit.",
+    "Let a mobile primary click retain its active preview across compatibility mouseout while preserving ordinary hover cleanup on every device; source and lifecycle changes still cancel it.",
+    "No upstream runtime, real user posts or leaked source imported."
+  ]
+}

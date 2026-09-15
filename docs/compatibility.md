@@ -17,6 +17,12 @@ so the client reference alone cannot justify removing server-generated links or
 changing stored profiles. Remaining server normalization and static-link rules
 stay open in #165 and #6.
 
+The [native quote-preview slice](native-quote-previews.md) independently uses
+the same permitted public release for default-on hover, local highlighting,
+mobile navigation companions and positioning. Remote previews use a bounded
+same-origin one-post projection and the existing finite worker tree. This slice
+is tracked in #167; it does not establish full inline-quote or original-page parity.
+
 ## Reference inventory
 
 The pinned input is the public [4chan read-only API documentation](https://github.com/4chan/4chan-API/tree/2bd670d507ba2daa37a3961a661e088cf6f89d57), revision `2bd670d507ba2daa37a3961a661e088cf6f89d57`, collected September 8, 2026. [reference-manifest.json](reference-manifest.json) records exact source URLs and SHA-256 hashes. Files were fetched as public documentation; no live user posts, media or private source were imported. The input does not specify posting, authentication or private moderation behavior.
@@ -97,6 +103,7 @@ fields remain open.
 | V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event, optional shortcuts and manual/automatic in-place updating; pinned public catalog v1025 and extension v1191; **source**: [original rules](#native-extension) | Merged in [#89](https://github.com/frankischilling/26chan/pull/89) after all seven exact-head checks passed; broader reference qualification remains open | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), [keyboard integration](native-keyboard-shortcuts.md), and [thread updater](native-thread-updater.md). Update/R and Auto/A use bounded snapshots; [full/tail selection and conditional revalidation](native-updater-tail.md) are implemented in #90, with validated DOM construction, native events and existing menu/filter/watch integration. Auto adds per-tab state, backoff, unread title/marker, fixed favicon/sound notifications and the pinned hidden-tab scroll rule. Posting receipts decorate tracked quotes; notification priority waits for page filters. Quick Reply coordination is tracked in V-012; live non-worksafe board observation and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
 | V-012 | Quick Reply text posting, quoting, persistence, cancellation and updater coordination; supplied old extension source | Implemented in #100; local transport/theme/fixture checks passed, persisted-browser checks await CI | [Quick Reply](native-quick-reply.md) records bounded transport, source guards and editing, exact IDs, current-board CSP, tests and remaining cooldown/identity/captcha/drawing/inline-file and rendered-source work. E-010/E-011 remain explicit security replacements |
 | V-013 | Optional URL linkification; observed public extension v1191 | Board/thread settings and dynamic-post integration; server profiles unchanged | [Reference, safety exceptions and tests](source-linkification.md); desktop/mobile defaults, existing-anchor identity, live updates and bounded same-origin derefer. Full server link normalization remains #165; current-head qualification is recorded in PR #166 |
+| V-014 | Quote previews and visible-target highlighting; observed public extension v1191 | Default-on board/thread hover, mobile navigation companions and one-post remote projection implemented in #167 | [Reference, limits and verification](native-quote-previews.md); 32 browser cases distinguish real persisted responses from augmented DOM, held responses and hostile substitutions. Core and database tests cover finite DOM, exact IDs, source hiding, settings, cancellation, concurrent commits and visibility. Same-origin projection, no cache and stripped controls are explicit replacements; full inline-quote and original-page parity remain #6 |
 
 ## Security-driven and project-defined exceptions
 
