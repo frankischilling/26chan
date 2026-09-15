@@ -375,6 +375,24 @@ dialog.filterHelp { width: 400px; }
 .nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
 .nativeUpdaterStatus.tu-error { color: #d00; }
 .newPostsMarker:not(#quote-preview) { box-shadow: 0 3px red; }
+/* Public v1191 quote geometry; content is a validated copy without post controls. */
+#quote-preview { display: block; position: absolute; top: 0; padding: 3px 6px 6px 3px; margin: 0; min-width: 0; width: max-content; overflow: auto; z-index: 101; background: var(--panel, #f0e0d6); color: var(--ink, #800000); border: 1px solid var(--edge, #d9bfb7); }
+#quote-preview .postInfo { line-height: normal; }
+#quote-preview time { white-space: nowrap; }
+#quote-preview .postMessage { margin: 1em 40px; line-height: normal; }
+#quote-preview .fileThumb { float: left; margin: 3px 20px 5px; }
+#quote-preview .file p { margin: 0; font-size: inherit; }
+#quote-preview .postActions, #quote-preview form, #quote-preview input, #quote-preview button, #quote-preview .postMenuBtn { display: none; }
+#quote-preview.reveal-spoilers s, #quote-preview.reveal-spoilers .spoiler { background: #aaa; color: inherit; text-decoration: none; }
+#quote-preview.reveal-spoilers s a { background: transparent; text-decoration: underline; }
+.post.highlight { background: var(--target, #f0c0b0); border-color: var(--target-edge, #d99f91); }
+.post.highlight-anti { background: #e8a690 !important; }
+.post.highlight-anti[data-quote-anti="burichan"] { background: #bfa6ba !important; border-width: 1px !important; }
+.post.highlight-anti[data-quote-anti="tomorrow"] { background: #111 !important; border-color: #111; }
+.post.highlight-anti[data-quote-anti="photon"] { background: #bbb !important; }
+.quoteLink { color: var(--quote-link, #000080); white-space: pre; }
+.quotelink.deadlink { text-decoration: line-through; }
+@media (max-width: 600px) { #quote-preview .postMessage { margin: 10px 5px; } }
 @media (max-width: 480px) {
   .threadNav.mobile > .nativeUpdater { display: block; margin-top: 5px; }
   .nativeUpdater .mobile-tu-status { display: block; height: 20px; line-height: 20px; }

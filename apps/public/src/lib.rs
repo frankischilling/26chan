@@ -166,6 +166,10 @@ fn routers_with_proxy(
         .route("/boards.json", get(api::boards))
         .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
         .route(
+            "/_watch/{board}/post/{key}",
+            get(native_updater_snapshot::get_preview),
+        )
+        .route(
             "/_watch/{board}/thread/{key}/posts",
             get(native_updater_snapshot::get),
         )

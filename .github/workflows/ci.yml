@@ -224,6 +224,9 @@ jobs:
       - name: Verify source linkification spans and finite browser DOM
         shell: pwsh
         run: npm run test:linkification-core
+      - name: Verify quote-preview parsing and bounded DOM construction
+        shell: pwsh
+        run: npm run test:quote-preview-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

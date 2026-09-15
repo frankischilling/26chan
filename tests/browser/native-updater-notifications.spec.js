@@ -65,6 +65,41 @@ test('actual filter results and tracked replies drive favicon priority until sto
   await expect(page).not.toHaveTitle(/^\(/);
 });
 
+for (const linkify of [false, true]) {
+  test(`updater completion waits for the final filter generation with linkification ${linkify ? 'enabled' : 'disabled'}`, async ({ page, request, owned }) => {
+    await owned.reply('Existing reply');
+    await initialize(page, owned, { filter: true, linkify });
+    await page.evaluate(() => localStorage.setItem('4chan-filters', JSON.stringify([
+      { active: true, pattern: 'Final filter generation', boards: 'demo', type: 2, color: '#ff0000' },
+    ])));
+    const reply = await owned.reply('Final filter generation https://lower.test/path then HTTPS://UPPER.TEST/Path?Q=One');
+    const snapshot = await (await request.get(owned.path)).json();
+    const html = snapshot.posts.find(post => post.no === reply).html;
+    expect(html).toContain('href="https://lower.test/path"');
+    expect(html).toContain('HTTPS://UPPER.TEST/Path?Q=One');
+    expect(html).not.toContain('data-native-linkified');
+    await page.evaluate(id => {
+      window.completedFilterGeneration = null;
+      document.addEventListener('4chanThreadUpdated', () => {
+        const post = document.getElementById(`p${id}`);
+        window.completedFilterGeneration = {
+          highlighted: post.classList.contains('filter-hl'),
+          generated: post.querySelectorAll('a[data-native-linkified]').length,
+          notice: document.querySelector('.nativeFilterNotice').textContent,
+        };
+      }, { once: true });
+    }, reply);
+    // A default-disabled watcher returns from acknowledgement immediately. No
+    // watcher-lock wait may accidentally hide the filter cancellation race.
+    await update(page);
+    await expect(status(page)).toHaveText('1 new post');
+    expect(await page.evaluate(() => window.completedFilterGeneration)).toEqual({
+      highlighted: true, generated: linkify ? 1 : 0, notice: '',
+    });
+    await expect(page.locator(`#p${reply}`)).toHaveClass(/filter-hl/);
+  });
+}
+
 test('manual updates retain the default icon and terminal archival and deletion select fixed dead icons', async ({ page, request, owned }) => {
   await initialize(page, owned); await owned.reply(`>>${owned.id}`); await update(page);
   await expect(status(page)).toHaveText('1 new post');

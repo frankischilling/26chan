@@ -145,6 +145,52 @@ pub async fn posts(pool: &PgPool, slug: &str, id: i64) -> Result<Vec<Post>, Stor
 pub async fn find_post(pool: &PgPool, slug: &str, id: i64) -> Result<Post, StoreError> {
     sqlx::query_as("SELECT p.* FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted").bind(slug).bind(id).fetch_optional(pool).await?.ok_or(StoreError::NotFound)
 }
+
+pub struct PostSnapshot {
+    pub board: Board,
+    pub thread: Thread,
+    pub post: Post,
+}
+
+/// Resolve one visible post and its approved attachment from the same snapshot
+/// as the board policy and thread state, without loading other comment bodies.
+pub async fn post_snapshot(pool: &PgPool, slug: &str, id: i64) -> Result<PostSnapshot, StoreError> {
+    board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
+    if id <= 0 {
+        return Err(StoreError::NotFound);
+    }
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        .execute(&mut *tx)
+        .await?;
+    let board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
+        .bind(slug)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    let mut post: Post = sqlx::query_as("SELECT p.* FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted")
+        .bind(slug)
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    let thread = sqlx::query_as(
+        "SELECT * FROM content.visible_threads WHERE board=$1 AND id=$2 AND NOT deleted",
+    )
+    .bind(slug)
+    .bind(post.thread_id)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(StoreError::NotFound)?;
+    crate::post_media::load(&mut tx, std::slice::from_mut(&mut post)).await?;
+    tx.commit().await?;
+    Ok(PostSnapshot {
+        board,
+        thread,
+        post,
+    })
+}
+
 pub async fn deletion_hash(pool: &PgPool, slug: &str, id: i64) -> Result<String, StoreError> {
     let post = find_post(pool, slug, id).await?;
     sqlx::query_scalar("SELECT password_hash FROM post_secrets.deletion WHERE post_id=$1")

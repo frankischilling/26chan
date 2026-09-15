@@ -24,7 +24,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
   storageNotice.className = 'nativeFilterStorageNotice'; storageNotice.hidden = true;
   storageNotice.setAttribute('role', 'status');
   root?.before(storageNotice);
-  let controller, generation = 0, signature, scheduled = false;
+  let controller, pending, generation = 0, signature, scheduled = false;
   const effects = new Map(), revealed = new Set();
   function clear() {
     for (const [element, prior] of effects) {
@@ -65,7 +65,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     }
     return rows;
   }
-  async function refresh() {
+  async function applyFilters() {
     controller?.abort(); controller = new AbortController();
     const signal = controller.signal, current = ++generation;
     if (!root) return;
@@ -97,8 +97,13 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
         matches.push(...result.matches);
       }
       const latest = settings();
-      if (signal.aborted || current !== generation || read() !== raw || latest.filter !== true
-        || latest.disableAll === true || (latest.hideStubs === true) !== (config.hideStubs === true)) return;
+      if (signal.aborted || current !== generation) return;
+      if (read() !== raw || latest.filter !== true || latest.disableAll === true
+        || (latest.hideStubs === true) !== (config.hideStubs === true)) {
+        // Storage can become readable before its event reaches this document.
+        // An unapplied pass must trigger a replacement, not report settlement.
+        schedule(); return;
+      }
       clear();
       const byId = new Map(rows.map(row => [row.id, row]));
       for (const result of matches) {
@@ -133,7 +138,39 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
       notice.textContent = '';
     } catch {
       if (current === generation) { clear(); applied?.(new Set()); notice.textContent = 'Filters could not be applied. Posts are shown.'; }
-    } finally { clearTimeout(timeout); }
+    } finally {
+      clearTimeout(timeout);
+      if (current === generation && signal.aborted) {
+        clear(); applied?.(new Set()); notice.textContent = 'Filters could not be applied. Posts are shown.';
+      }
+    }
+  }
+  function refresh() {
+    pending = applyFilters();
+    return pending;
+  }
+  // An observer can replace the caller's filter pass while a worker is pending.
+  // Await the replacement as well: a cancelled pass has not established the
+  // final DOM state used by updater notifications and read acknowledgement.
+  async function refreshSettled(signal) {
+    if (signal?.aborted) return false;
+    let stop;
+    const stopped = new Promise(resolve => { stop = () => resolve(false); });
+    const deadline = setTimeout(stop, 60000);
+    signal?.addEventListener('abort', stop, { once: true });
+    try {
+      refresh();
+      // Bound repeated replacements independently of each worker/batch budget.
+      for (let replacements = 0; replacements < 64; replacements++) {
+        const latest = pending;
+        if (!await Promise.race([latest.then(() => true), stopped]) || signal?.aborted) return false;
+        await Promise.resolve();
+        if (latest === pending && !scheduled) return !controller?.signal.aborted;
+      }
+      return false;
+    } finally {
+      clearTimeout(deadline); signal?.removeEventListener('abort', stop); stop();
+    }
   }
   function schedule() {
     if (scheduled) return; scheduled = true;
@@ -153,6 +190,6 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     }
     changed(); void refresh();
   } });
-  return { refresh, open, selection: selectedFilter,
+  return { refresh, refreshSettled, open, selection: selectedFilter,
     addSelection: (opener, selected) => open(opener, selected) };
 }

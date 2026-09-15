@@ -5,7 +5,7 @@ import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
-  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification } from './native-filter.v1.js';
+  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -243,15 +243,22 @@ function start(context) {
   const nativeLinkification = catalog ? null : mountNativeLinkification({
     root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile,
   });
+  const nativeQuotePreview = catalog ? null : mountNativeQuotePreview({
+    root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
+    settings: configuration, decorate: () => nativeLinkification?.refresh(),
+  });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
     applied: async (_snapshot, signal) => {
       render();
       // Let insertion/quote-decoration observers enqueue their refresh first.
-      // This explicit pass then owns the final filter result used by notifications.
+      // Follow replacement filter passes before deciding notification priority.
       await new Promise(resolve => queueMicrotask(resolve));
       if (signal.aborted) return;
-      await nativeFilters?.refresh();
+      if (nativeFilters && !await nativeFilters.refreshSettled(signal)) {
+        if (!signal.aborted) throw new Error('Filters did not settle after the update.');
+        return;
+      }
       if (signal.aborted) return;
       const acknowledgement = new AbortController();
       const cancel = () => acknowledgement.abort();
@@ -664,6 +671,7 @@ function start(context) {
   function render() {
     if (!catalog && threadId) markNativeTrackedQuotes(document.getElementById(`t${threadId}`),
       tracking.tracked(watchKey(board, threadId)), configuration().disableAll !== true);
+    nativeQuotePreview?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();
     nativeReplies?.refresh();
