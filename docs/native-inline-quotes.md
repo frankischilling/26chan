@@ -138,6 +138,21 @@ synchronously in a bounded session-storage witness that survives document
 replacement, rather than depending on a browser-protocol failure event for a
 retired page.
 
-The final combined browser run, Rust asset/security checks and complete CI must
-pass before merge. These tests do not establish full original-page parity or
-production readiness.
+The final combined Windows run passed all 154 cases across inline quotes,
+backlinks, quote previews, updater notifications, page filters, linkification and
+watcher settings. It includes all 36 inline cases and the shared backlink suite's
+actual full-Chromium back/forward-cache traversal. Inline-specific restoration
+also has an explicitly synthetic persisted-event control; that control is not
+presented as another real cache traversal.
+After integrating the backlink CI assertion correction, the complete seven-case
+Quick Reply suite and actual JSON-posting case passed together against the
+inline implementation as well.
+
+`cargo test -p board-public --lib --test ui_assets --locked` passed 63 library
+tests and five fixed-asset/security tests. Formatting, reproducible release
+module checks and `git diff --check` passed. Independent review covered the
+shared readers, exact identities, aggregate admission, hiding ownership,
+cancellation, mobile arbitration, build policies and fixture distinctions.
+
+Complete CI must pass on the reviewed PR head before merge. These tests do not
+establish full original-page parity or production readiness.
