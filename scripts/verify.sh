@@ -7,12 +7,15 @@ set -euo pipefail
 : "${MONITOR_DATABASE_URL:?Set the disposable aggregate observer database URL}"
 : "${AUTH_DATABASE_URL:?Set the disposable authentication test database URL}"
 : "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
+npm ci --ignore-scripts
+if [[ ${CI:-} == true ]]; then
+  npx playwright install --with-deps chromium
+fi
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
-npm ci --ignore-scripts
 npm run test:linkification
 npm run test:quick-reply
 npm run test:behavior

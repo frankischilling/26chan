@@ -1,7 +1,13 @@
 name: Monitoring qualification
 on:
   push:
+    branches: [main]
+    tags: ['**']
   pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -17,6 +23,12 @@ jobs:
           rustup toolchain install 1.94.0 --profile minimal
           python3 -m unittest discover -s tests/monitoring -p 'test_*.py'
           python3 scripts/monitoring/download.py
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}
+          cache-bin: false
+          cache-on-failure: true
       - name: Check example configs and all alert state transitions
         run: |
           .local/monitoring/bin/promtool check config --syntax-only deploy/monitoring/prometheus.yml
