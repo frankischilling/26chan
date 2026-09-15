@@ -158,6 +158,13 @@ complete seven-case Quick Reply suite and the real JSON-posting case passed
 together locally after the correction. The fixture audit retained bare labels
 in explicit no-JavaScript and disabled-feature controls.
 
+Catalog and board policy assertions now require the complete explicit page-script
+list, including the fixed backlink module. They still reject healthy alternate
+and inline scripts, verify usable catalog controls after rejection, and require
+`script-src 'none'` on the error response. The board assertion compares the whole
+directive rather than a prefix. Independent review found no other stale script
+allowlists or script-element counts; imported modules do not add DOM script tags.
+
 The implementing PR records the actual local commands, failures resolved,
 independent review and checks on the final commit. Synthetic visual tests guard
 the rewrite's layouts; they do not establish complete original-page parity.
