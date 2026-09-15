@@ -133,11 +133,21 @@ passed. The forward-target order already passed. After correction, all six
 affected persisted cases passed, including updater insertion, cross-tab settings,
 mobile/desktop transitions and actual back/forward-cache restoration.
 
+The combined browser run passed all 89 cases across backlinks, quote previews and
+updater notifications, including the seven notification cases with tracked and
+backlink labels composed together. The six menu-theme cases passed after their
+fixture assertion was updated to distinguish an OP menu followed by a backlink
+row from a reply menu with no row.
+
+The two board screenshot differences were reviewed before updating those specific
+baselines: desktop adds the OP's `>>1000002` backlink and the reply's `(OP)` label;
+mobile adds the `(OP)` label. Layout, existing text and the catalog baseline are
+unchanged. The subsequent screenshot run passed all three board/catalog cases
+with zero allowed pixel differences. No other snapshots were updated.
+
 `cargo test -p board-public --lib --test ui_assets --locked` passed 63 library
-tests and five asset tests. The seven persisted updater-notification cases also
-passed with tracked and backlink labels composed together. These checks establish
-local behavior; the complete CI checks must pass on the reviewed PR commit before
-merge.
+tests and five asset tests. These checks establish local behavior; the complete
+CI checks must pass on the reviewed PR commit before merge.
 
 The implementing PR records the actual local commands, failures resolved,
 independent review and checks on the final commit. Synthetic visual tests guard
