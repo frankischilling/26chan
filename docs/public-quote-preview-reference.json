@@ -33,6 +33,7 @@
     "Use strict response, request, parser and DOM budgets; no credentials, redirect following or new CSP authority.",
     "Construct from validated finite trees; remove duplicate IDs and interactive controls.",
     "Retain ordinary navigation when bounded mobile companion decoration cannot fit.",
+    "Let a mobile primary click retain its active preview across compatibility mouseout while preserving ordinary hover cleanup on every device; source and lifecycle changes still cancel it.",
     "No upstream runtime, real user posts or leaked source imported."
   ]
 }

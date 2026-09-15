@@ -3,8 +3,8 @@
 Board and thread pages offer the **Quote preview** setting, enabled by default.
 A mouseover highlights a quoted post that is already fully visible. An offscreen
 or hidden local post is shown in a popup; a missing local target is fetched from
-the public listener. Mouseout removes the highlight or popup and cancels pending
-work. Ordinary desktop clicks and keyboard navigation keep their existing quote
+the public listener. Mouseout removes a hover-opened highlight or popup and cancels
+pending work. Ordinary desktop clicks and keyboard navigation keep their existing quote
 destinations. No JavaScript is required to follow a quote.
 
 ## Permitted reference
@@ -30,6 +30,15 @@ quotes receive an adjacent ` #` navigation link; tapping the original quote show
 the preview, while the companion preserves navigation. The companion is removed
 when previews are disabled. Its addition is preflighted against the existing
 filter text and HTML budgets; a quote that cannot fit retains ordinary navigation.
+
+In the rewrite, a mobile primary click takes ownership of its preview, including
+one already started by a compatibility mouseover. A subsequent mouseout does not
+cancel that click-owned preview. An outside click, another quote, settings changes,
+source invalidation or page exit still performs normal cleanup. Hover without a
+click retains normal mouseout behavior, including on mobile devices used with a
+mouse. This differs from the public client's unconditional mouseout cleanup and
+prevents the tap-opened preview from disappearing in the observed Linux event
+sequence; it does not disable mouse interaction based on a mobile user agent.
 
 Desktop popups are placed five pixels beside the quote, selecting the left side
 near the viewport's right edge, and vertically centered. Mobile popups start
@@ -118,6 +127,16 @@ events, cancellation and deadlines, then verify a healthy retry. Both stale-inpu
 cases failed against the earlier release bundle before the replacement guard was
 added. These controlled DOM cases are separate from the persisted server test.
 
+Linux run `34992540722` at `b976b5b` recorded a touch click, successful popup
+creation, then a non-touch mouseout to the document element at `(0, 0)` and immediate
+popup removal. The mobile regression cases use actual browser taps and an
+explicitly synthetic replay of that mouseout, before and after a remote result
+and with a local popup. They also cover hover-to-click ownership, ordinary mobile
+mouse hover, navigation, settings and cancellation of late responses. This proves
+the handler's sensitivity to the recorded sequence; it does not establish the
+origin of the browser's extra mouseout. The unmodified persisted mobile test still
+requires a visible popup and real server navigation through the adjacent link.
+
 The preview core and persisted browser suites cover the transport and DOM
 boundary separately. Persisted positive cases use the unmodified public server;
 hostile response substitutions and constructed DOM inputs are identified as
@@ -130,7 +149,8 @@ The Windows preview suite has 32 cases: 18 use unmodified server responses, four
 augment the DOM, four hold genuine responses to test cancellation, and six
 substitute hostile responses. The integrated browser run also includes the
 existing linker, page-filter, updater, notification and settings suites. The
-final preview/settlement core run passed 23 tests. Each implementing PR records
+preview/settlement core run passed 39 tests, including the mobile ownership cases
+above. Each implementing PR records
 the completed commands and CI results on its tested commit; local checks do not
 substitute for Linux integration and CI on the final commit.
 

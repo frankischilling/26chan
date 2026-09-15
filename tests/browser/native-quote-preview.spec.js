@@ -347,6 +347,7 @@ test.describe('unmodified persisted quote previews', () => {
           document.addEventListener(type, event => record({
             type, target: identify(event.target), related: identify(event.relatedTarget),
             x: event.clientX, y: event.clientY, touch: event.sourceCapabilities?.firesTouchEvents,
+            trusted: event.isTrusted, pointerType: event.pointerType,
             preview: !!document.getElementById('quote-preview'),
           }), true);
         }

@@ -228,13 +228,18 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
       try { show(value, checked.snapshot.post.tree, checked.context); } catch { clear(); }
     }
   }
-  function begin(link) {
+  function begin(link, clickOwned = false) {
     if (!enabled() || hidden(link) || (mobile && !hasCompanion(link))) return;
-    if (active?.link === link && active.href === link.getAttribute('href')) return;
+    if (active?.link === link && active.href === link.getAttribute('href')) {
+      // A tap follows compatibility mouseover, so promote its existing preview.
+      if (clickOwned) active.clickOwned = true;
+      return;
+    }
     clear();
     const ref = target(link);
     if (!ref) return;
-    const value = { link, href: link.getAttribute('href'), ref, cursor: link.style.cursor, controller: new AbortController() };
+    const value = { link, href: link.getAttribute('href'), ref, clickOwned,
+      cursor: link.style.cursor, controller: new AbortController() };
     active = value;
     const post = ref.board === board ? document.getElementById(`p${ref.post}`) : null;
     const article = post?.closest('.postContainer'), section = post?.closest('.thread');
@@ -305,11 +310,13 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
   const observe = () => observer.observe(root, { childList: true, subtree: true, characterData: true,
     attributes: true, attributeFilter: ['href', 'class', 'hidden'] });
   const over = event => { const link = candidate(event.target); if (link && !link.contains(event.relatedTarget)) begin(link); };
-  const out = event => { if (active?.link.contains(event.target) && !active.link.contains(event.relatedTarget)) clear(); };
+  const out = event => {
+    if (active && !active.clickOwned && active.link.contains(event.target) && !active.link.contains(event.relatedTarget)) clear();
+  };
   function click(event) {
     const link = candidate(event.target);
     if (mobile && enabled() && link && hasCompanion(link) && event.button === 0
-      && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); begin(link); }
+      && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); begin(link, true); }
     else if (active && !active.popup?.contains(event.target) && !active.link.contains(event.target)) clear();
   }
   const storage = event => { if (event.key === null || event.key === '4chan-settings') refresh(); };

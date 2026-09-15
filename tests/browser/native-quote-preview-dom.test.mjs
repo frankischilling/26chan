@@ -20,13 +20,29 @@ test('isolated DOM quote preview contracts', async t => {
   const bundle = await readFile(new URL('../../apps/public/static/native-filter.v1.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8')
     + await readFile(new URL('../../apps/public/static/themes/common.css', import.meta.url), 'utf8');
+  // Keep the release-worker checks below, while letting event regressions run
+  // against the current module before its checked-in bundle is regenerated.
+  const sourceModules = new Map();
+  const sourceImports = JSON.stringify({ imports: {
+    parse5: '/node_modules/parse5/dist/index.js',
+    entities: '/node_modules/entities/dist/index.js',
+    'entities/decode': '/node_modules/entities/dist/decode.js',
+    'entities/escape': '/node_modules/entities/dist/escape.js',
+  } });
   const browser = await chromium.launch({ headless: true });
   try {
-    async function setup({ mobile = false, width = 1000, remote = false, handler } = {}) {
-      const context = await browser.newContext({ viewport: { width, height: 700 } });
+    async function setup({ mobile = false, width = 1000, height = 700, remote = false, handler,
+      currentSource = false, touch = false, storageSettings = false } = {}) {
+      const context = await browser.newContext({ viewport: { width, height },
+        ...(touch ? { isMobile: true, hasTouch: true,
+          userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+        } : {}),
+      });
       const page = await context.newPage();
       const requests = [];
-      const fixture = '<!doctype html><html><head><style>' + css + '\n'
+      const fixture = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'
+        + (currentSource ? `<script type="importmap">${sourceImports}</script>` : '')
+        + '<style>' + css + '\n'
         + '#p100{position:absolute;left:25px;top:25px;width:500px;max-width:90vw}'
         + '#p101{position:absolute;left:25px;top:130px;width:500px;max-width:90vw}'
         + '#p110{position:absolute;left:35px;top:350px;width:500px;max-width:90vw}'
@@ -39,6 +55,13 @@ test('isolated DOM quote preview contracts', async t => {
         const url = new URL(route.request().url());
         if (url.origin === origin && url.pathname === '/static/native-filter.v1.js') {
           await route.fulfill({ contentType: 'text/javascript', body: bundle }); return;
+        }
+        if (currentSource && url.origin === origin
+          && /^\/(?:apps\/public\/(?:client|static)\/|node_modules\/(?:parse5|entities)\/dist\/)[a-zA-Z0-9_./-]+\.js$/.test(url.pathname)) {
+          if (!sourceModules.has(url.pathname)) {
+            sourceModules.set(url.pathname, await readFile(new URL(`../..${url.pathname}`, import.meta.url), 'utf8'));
+          }
+          await route.fulfill({ contentType: 'text/javascript', body: sourceModules.get(url.pathname) }); return;
         }
         if (url.origin === origin && url.pathname.startsWith('/_watch/')) {
           requests.push({ url: url.href, headers: await route.request().allHeaders(), method: route.request().method() });
@@ -53,21 +76,62 @@ test('isolated DOM quote preview contracts', async t => {
         else await route.abort();
       });
       await page.goto(`${origin}/demo/thread/100`);
-      await page.evaluate(async ({ origin, mediaOrigin, mobile, remote }) => {
-        const api = await import('/static/native-filter.v1.js');
+      await page.evaluate(async ({ origin, mediaOrigin, mobile, remote, currentSource, storageSettings }) => {
+        const released = await import('/static/native-filter.v1.js');
+        const preview = currentSource ? await import('/apps/public/client/native-quote-preview.js') : released;
+        const transport = currentSource ? await import('/apps/public/client/native-quote-preview-transport.js') : null;
+        const api = { ...released, mountNativeQuotePreview: preview.mountNativeQuotePreview };
         window.api = api; window.settings = {}; window.pending = []; window.cancelled = 0;
         window.over = () => document.getElementById('quote').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         window.out = () => document.getElementById('quote').dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
         window.mount = () => api.mountNativeQuotePreview({ root: document.querySelector('.board'), board: 'demo', thread: '100', origin, mediaOrigin,
-          userAgent: mobile ? 'Test Mobile browser' : 'Windows NT desktop', settings: () => window.settings,
-          ...(remote ? {} : { transport: { load(ref, { signal }) {
+          userAgent: mobile ? 'Test Mobile browser' : 'Windows NT desktop',
+          settings: () => storageSettings ? JSON.parse(localStorage.getItem('4chan-settings') || '{}') : window.settings,
+          ...(remote ? (currentSource ? { transport: new transport.NativeQuotePreviewTransport({ origin, mediaOrigin,
+            createWorker: () => new Worker('/static/native-filter.v1.js', { type: 'module' }),
+          }) } : {}) : { transport: { load(ref, { signal }) {
             return new Promise(resolve => window.pending.push({ ref, signal, resolve }));
           }, cancel() { window.cancelled++; } } }),
           decorate: () => window.linkification?.refresh(),
         });
         window.mounted = window.mount();
-      }, { origin, mediaOrigin, mobile, remote });
+      }, { origin, mediaOrigin, mobile, remote, currentSource, storageSettings });
       return { page, context, requests };
+    }
+
+    async function touchQuote(page, href = '/demo/post/101') {
+      await page.evaluate(href => {
+        const link = document.getElementById('quote');
+        link.setAttribute('href', href);
+        // Match the failed Linux tap's center, approximately (84.64, 202.5).
+        link.style.cssText = 'display:inline-block;width:59.28px;height:21px;line-height:21px';
+        link.parentElement.style.cssText = 'position:fixed;left:55px;top:192px;margin:0;line-height:21px';
+        document.getElementById('p101').style.top = '1300px';
+        const outside = document.createElement('button'); outside.id = 'outside'; outside.textContent = 'Outside';
+        outside.style.cssText = 'position:fixed;left:280px;top:610px'; document.body.append(outside);
+        window.quoteClicks = [];
+        document.addEventListener('click', event => {
+          if (event.target === link && window.quoteClicks.length < 8) {
+            window.quoteClicks.push({ trusted: event.isTrusted, touch: event.sourceCapabilities?.firesTouchEvents });
+          }
+        }, true);
+      }, href);
+      await page.waitForFunction(() => {
+        const link = document.getElementById('quote');
+        return link.nextElementSibling?.className === 'quoteLink'
+          && link.nextElementSibling.getAttribute('href') === link.getAttribute('href');
+      });
+    }
+
+    async function replayMouseout(page, selector = '#quote') {
+      const event = await page.evaluate(selector => {
+        const out = new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.documentElement,
+          clientX: 0, clientY: 0, sourceCapabilities: new InputDeviceCapabilities({ firesTouchEvents: false }) });
+        document.querySelector(selector).dispatchEvent(out);
+        return { trusted: out.isTrusted, touch: out.sourceCapabilities.firesTouchEvents,
+          x: out.clientX, y: out.clientY, related: out.relatedTarget.tagName };
+      }, selector);
+      assert.deepEqual(event, { trusted: false, touch: false, x: 0, y: 0, related: 'HTML' });
     }
 
     await t.test('hover alone applies source highlight variants and restores only owned effects', async () => {
@@ -209,6 +273,247 @@ test('isolated DOM quote preview contracts', async t => {
         for (const key of ['identity', 'restored', 'identityAfterDisable']) assert.equal(result[key], true, key);
         for (const key of ['disabled', 'suspended', 'disposed']) assert.equal(result[key], 0, key);
         assert.equal(result.reenabled, 1); assert.equal(result.resumed, 1);
+      } finally { await context.close(); }
+    });
+
+    const touchOptions = { mobile: true, touch: true, width: 390, height: 844, currentSource: true };
+
+    await t.test('current-source desktop hover still dismisses and focus keeps ordinary Enter navigation', async () => {
+      const { page, context } = await setup({ currentSource: true, width: 390 });
+      try {
+        await page.route(`${origin}/demo/post/101`, route => route.fulfill({ contentType: 'text/html',
+          body: '<!doctype html><title>Owned navigation target</title>' }));
+        await page.evaluate(() => document.getElementById('p101').style.top = '1300px');
+        assert.equal(await page.locator('.quoteLink').count(), 0);
+        await page.locator('#quote').hover();
+        await page.waitForSelector('#quote-preview');
+        await page.mouse.move(0, 0);
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+        await page.locator('#quote').focus();
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+        await Promise.all([page.waitForURL(`${origin}/demo/post/101`), page.keyboard.press('Enter')]);
+      } finally { await context.close(); }
+    });
+
+    for (const timing of ['local', 'held remote', 'completed remote worker']) {
+      await t.test(`a real mobile tap retains its ${timing} preview across the recorded mouseout`, async () => {
+        const remote = timing !== 'local';
+        const { page, context, requests } = await setup({ ...touchOptions, remote: timing === 'completed remote worker' });
+        try {
+          await touchQuote(page, remote ? '/demo/post/120' : '/demo/post/101');
+          await page.locator('#quote').tap();
+          assert.deepEqual(await page.evaluate(() => window.quoteClicks), [{ trusted: true, touch: true }]);
+          if (timing === 'held remote') {
+            await page.waitForFunction(() => window.pending.length === 1);
+            await replayMouseout(page);
+            assert.equal(await page.evaluate(() => window.pending[0].signal.aborted), false,
+              'The recorded mouseout must not cancel a tapped request before its response');
+            await page.evaluate(result => window.pending[0].resolve(result), parsed('120'));
+            await page.waitForSelector('#quote-preview');
+          } else {
+            await page.waitForSelector('#quote-preview');
+            await page.evaluate(() => window.tappedPreview = document.getElementById('quote-preview'));
+            await replayMouseout(page);
+            assert.equal(await page.evaluate(() => window.tappedPreview === document.getElementById('quote-preview')), true,
+              'The recorded mouseout must retain the same tapped popup');
+          }
+          assert.match(await page.locator('#quote-preview').textContent(), remote ? /Remote safe/ : /Local safe/);
+          await page.locator('#quote-preview .postMessage').tap();
+          assert.equal(await page.locator('#quote-preview').count(), 1, 'Tapping popup content must keep it open');
+          await page.locator('#outside').tap();
+          assert.equal(await page.locator('#quote-preview').count(), 0, 'An outside tap must still dismiss it');
+          assert.equal(page.url(), `${origin}/demo/thread/100`);
+          assert.equal(requests.filter(row => row.url.startsWith(`${origin}/_watch/`)).length,
+            timing === 'completed remote worker' ? 1 : 0);
+        } finally { await context.close(); }
+      });
+    }
+
+    await t.test('mobile-device mouse hover still dismisses until a click promotes that same popup', async () => {
+      const { page, context } = await setup(touchOptions);
+      try {
+        await touchQuote(page);
+        await page.locator('#quote').hover();
+        await page.waitForSelector('#quote-preview');
+        await page.mouse.move(0, 0);
+        assert.equal(await page.locator('#quote-preview').count(), 0, 'An unclicked mobile mouse hover must dismiss');
+        await page.locator('#quote').hover();
+        await page.waitForSelector('#quote-preview');
+        await page.evaluate(() => window.hoveredPreview = document.getElementById('quote-preview'));
+        await page.locator('#quote').click();
+        await replayMouseout(page);
+        assert.equal(await page.evaluate(() => window.hoveredPreview === document.getElementById('quote-preview')), true,
+          'A click must promote the already active same-link preview without rebuilding it');
+        assert.deepEqual(await page.evaluate(() => window.quoteClicks), [{ trusted: true, touch: false }]);
+        await page.locator('#outside').click();
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+      } finally { await context.close(); }
+    });
+
+    await t.test('a mobile click without preceding hover also owns its new preview', async () => {
+      const { page, context } = await setup(touchOptions);
+      try {
+        await touchQuote(page);
+        await page.locator('#quote').focus();
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+        await page.keyboard.press('Enter');
+        await page.waitForSelector('#quote-preview');
+        await replayMouseout(page);
+        assert.equal(await page.locator('#quote-preview').count(), 1);
+        assert.equal(page.url(), `${origin}/demo/thread/100`);
+        await page.locator('#outside').tap();
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+      } finally { await context.close(); }
+    });
+
+    await t.test('click ownership stays with its source when another quote is hovered or tapped', async () => {
+      const { page, context } = await setup(touchOptions);
+      try {
+        await touchQuote(page);
+        await page.evaluate(() => {
+          const other = document.createElement('a'); other.id = 'other-quote'; other.className = 'quotelink';
+          other.href = '/demo/post/101'; other.textContent = '>>101';
+          other.style.cssText = 'position:fixed;left:180px;top:450px';
+          document.getElementById('m110').append(other);
+        });
+        await page.waitForFunction(() => document.getElementById('other-quote').nextElementSibling?.className === 'quoteLink');
+        await page.locator('#quote').tap();
+        await page.waitForSelector('#quote-preview');
+        await page.evaluate(() => window.firstPreview = document.getElementById('quote-preview'));
+        await page.locator('#other-quote').hover();
+        await page.waitForFunction(() => document.getElementById('quote-preview')
+          && document.getElementById('quote-preview') !== window.firstPreview);
+        await page.mouse.move(0, 0);
+        assert.equal(await page.locator('#quote-preview').count(), 0, 'A different hover must not inherit click ownership');
+        await page.locator('#quote').tap();
+        await page.waitForSelector('#quote-preview');
+        await page.evaluate(() => window.firstPreview = document.getElementById('quote-preview'));
+        await page.locator('#other-quote').tap();
+        await replayMouseout(page, '#other-quote');
+        assert.equal(await page.locator('#quote-preview').count(), 1);
+        assert.equal(await page.evaluate(() => document.getElementById('quote-preview') === window.firstPreview), false);
+        await page.locator('#outside').tap();
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+      } finally { await context.close(); }
+    });
+
+    await t.test('leaving a new mouse hover cannot resurrect the previous tapped request', async () => {
+      const { page, context } = await setup(touchOptions);
+      try {
+        await touchQuote(page, '/demo/post/120');
+        await page.evaluate(() => {
+          const other = document.createElement('a'); other.id = 'other-quote'; other.className = 'quotelink';
+          other.href = '/demo/post/101'; other.textContent = '>>101';
+          other.style.cssText = 'position:fixed;left:180px;top:450px';
+          document.getElementById('m110').append(other);
+        });
+        await page.waitForFunction(() => document.getElementById('other-quote').nextElementSibling?.className === 'quoteLink');
+        await page.locator('#quote').tap();
+        await page.waitForFunction(() => window.pending.length === 1);
+        await replayMouseout(page);
+        assert.equal(await page.evaluate(() => window.pending[0].signal.aborted), false);
+        await page.locator('#other-quote').hover();
+        await page.waitForSelector('#quote-preview');
+        assert.match(await page.locator('#quote-preview').textContent(), /Local safe/);
+        assert.equal(await page.evaluate(() => window.pending[0].signal.aborted), true,
+          'A new hovered source must cancel the earlier tapped request');
+        await page.mouse.move(0, 0);
+        assert.equal(await page.locator('#quote-preview').count(), 0,
+          'The new hover must dismiss without inheriting the previous click ownership');
+        const late = await page.evaluate(async result => {
+          window.pending[0].resolve(result);
+          await new Promise(resolve => requestAnimationFrame(() => resolve()));
+          return { popup: !!document.getElementById('quote-preview'), cancelled: window.cancelled,
+            cursor: document.getElementById('quote').style.cursor };
+        }, parsed('120'));
+        assert.deepEqual(late, { popup: false, cancelled: 2, cursor: '' });
+      } finally { await context.close(); }
+    });
+
+    await t.test('the ordinary mobile # companion navigates after a retained tapped preview', async () => {
+      const { page, context } = await setup({ ...touchOptions, remote: true });
+      try {
+        // The isolated fixture verifies the original href. The persisted suite
+        // separately qualifies the real resolver's redirect to a thread anchor.
+        await page.route(`${origin}/demo/post/120`, route => route.fulfill({ contentType: 'text/html',
+          body: '<!doctype html><title>Owned navigation target</title>' }));
+        await touchQuote(page, '/demo/post/120');
+        await page.locator('#quote').tap();
+        await page.waitForSelector('#quote-preview');
+        await replayMouseout(page);
+        assert.equal(await page.locator('#quote-preview').count(), 1);
+        const navigation = page.locator('#m110 .quoteLink');
+        assert.equal(await navigation.textContent(), ' #');
+        assert.equal(await navigation.getAttribute('href'), '/demo/post/120');
+        await Promise.all([page.waitForURL(`${origin}/demo/post/120`), navigation.tap()]);
+        assert.equal(page.url(), `${origin}/demo/post/120`);
+      } finally { await context.close(); }
+    });
+
+    for (const reason of ['outside tap', 'saved settings', 'storage event', 'synthetic persisted pagehide', 'synthetic final pagehide', 'hidden source']) {
+      await t.test(`a tapped pending preview cancels on ${reason} and rejects its late result`, async () => {
+        const { page, context } = await setup({ ...touchOptions, storageSettings: true });
+        try {
+          await touchQuote(page, '/demo/post/120');
+          await page.locator('#quote').tap();
+          await page.waitForFunction(() => window.pending.length === 1);
+          await replayMouseout(page);
+          assert.equal(await page.evaluate(() => window.pending[0].signal.aborted), false);
+          if (reason === 'outside tap') await page.locator('#outside').tap();
+          else if (reason === 'saved settings') await page.evaluate(() => {
+            localStorage.setItem('4chan-settings', JSON.stringify({ quotePreview: false }));
+            document.dispatchEvent(new Event('4chanSettingsSaved'));
+          });
+          else if (reason === 'storage event') {
+            const other = await context.newPage();
+            await other.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Storage fixture</title>' }));
+            await other.goto(`${origin}/storage-fixture`);
+            await other.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ quotePreview: false })));
+          } else if (reason.endsWith('pagehide')) await page.evaluate(persisted => {
+            window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted }));
+          }, reason === 'synthetic persisted pagehide');
+          else await page.evaluate(() => document.getElementById('pc110').hidden = true);
+          await page.waitForFunction(() => window.pending[0].signal.aborted);
+          const late = await page.evaluate(async result => {
+            window.pending[0].resolve(result);
+            await new Promise(resolve => requestAnimationFrame(() => resolve()));
+            return { popup: !!document.getElementById('quote-preview'), cancelled: window.cancelled,
+              cursor: document.getElementById('quote').style.cursor };
+          }, parsed('120'));
+          assert.deepEqual(late, { popup: false, cancelled: 1, cursor: '' });
+        } finally { await context.close(); }
+      });
+    }
+
+    await t.test('tapped previews follow real storage changes and synthetic page lifecycle restoration', async () => {
+      const { page, context } = await setup({ ...touchOptions, storageSettings: true });
+      try {
+        await touchQuote(page);
+        await page.locator('#quote').tap();
+        await page.waitForSelector('#quote-preview');
+        const other = await context.newPage();
+        await other.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Storage fixture</title>' }));
+        await other.goto(`${origin}/storage-fixture`);
+        for (const settings of [{ quotePreview: false }, { quotePreview: true, disableAll: true }]) {
+          await other.evaluate(value => localStorage.setItem('4chan-settings', JSON.stringify(value)), settings);
+          await page.waitForFunction(() => !document.getElementById('quote-preview') && !document.querySelector('.quoteLink'));
+        }
+        await other.evaluate(() => localStorage.removeItem('4chan-settings'));
+        await page.waitForSelector('.quoteLink');
+        await page.locator('#quote').tap();
+        await page.waitForSelector('#quote-preview');
+        // Exercise lifecycle handlers directly; this does not claim a real BFCache traversal.
+        await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+        assert.equal(await page.locator('#quote-preview,.quoteLink').count(), 0);
+        await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+        assert.equal(await page.locator('.quoteLink').count(), 1);
+        await page.locator('#quote').tap();
+        await page.waitForSelector('#quote-preview');
+        await page.evaluate(() => {
+          window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
+          window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+        });
+        assert.equal(await page.locator('#quote-preview,.quoteLink').count(), 0);
       } finally { await context.close(); }
     });
 
