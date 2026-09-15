@@ -5,7 +5,7 @@ import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
-  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-filter.v1.js';
+  readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification } from './native-filter.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -52,6 +52,11 @@ function start(context) {
   let activePostMenu = null;
   const mobile = matchMedia('(max-width: 480px)');
   let collapsed = mobile.matches;
+
+  function readNeverMobile() {
+    try { return localStorage.getItem('4chan_never_show_mobile'); }
+    catch { return null; }
+  }
 
   function read(key) {
     if (key === filterKey && volatileFilters) return filterCache;
@@ -235,6 +240,9 @@ function start(context) {
   });
   nativeReplies = catalog ? null : mountNativeReplyHiding({ board, settings: configuration, changed: syncOpenPostMenu });
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
+  const nativeLinkification = catalog ? null : mountNativeLinkification({
+    root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile,
+  });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration,
     applied: async (_snapshot, signal) => {
@@ -276,6 +284,10 @@ function start(context) {
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
+    optionChecked: (key, initial) => key === 'linkify'
+      ? (initial.disableAll === true ? initial.linkify === true
+        : (mobile.matches && readNeverMobile() !== 'true') || initial.linkify === true)
+      : undefined,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,

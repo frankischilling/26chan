@@ -1,5 +1,24 @@
 # Compatibility target
 
+## Active reference boundary
+
+The September 15, 2026 continuation uses the original brief's permitted-public-
+reference requirement. The supplied old checkout's remote identifies it as
+leaked source. The historical audit below is retained as a record of earlier
+work, but **source-only entries are not accepted compatibility evidence** for
+this continuation. Existing behavior remains project-defined unless a permitted
+public document or released asset independently establishes it. Historical tests
+still describe the local implementation; they do not certify original behavior.
+
+The [browser URL linker](source-linkification.md) has been independently checked
+against public extension v1191. Its optional settings and DOM lifecycle preserve
+the current server formatter. Official API examples contain external anchors,
+so the client reference alone cannot justify removing server-generated links or
+changing stored profiles. Remaining server normalization and static-link rules
+stay open in #165 and #6.
+
+## Reference inventory
+
 The pinned input is the public [4chan read-only API documentation](https://github.com/4chan/4chan-API/tree/2bd670d507ba2daa37a3961a661e088cf6f89d57), revision `2bd670d507ba2daa37a3961a661e088cf6f89d57`, collected September 8, 2026. [reference-manifest.json](reference-manifest.json) records exact source URLs and SHA-256 hashes. Files were fetched as public documentation; no live user posts, media or private source were imported. The input does not specify posting, authentication or private moderation behavior.
 
 The official public [posting-options FAQ](https://www.4chan.org/faq#nonoko) is also pinned by collection time and response hash in the manifest. It supplies documented option meanings; no live external posting experiment was performed. See [posting-options verification](verification-posting-options.md).
@@ -71,12 +90,13 @@ reply with current anonymous policy. Their complete current-head CI remains
 required. Surrounding catalog-page matching and identity-dependent preview
 fields remain open.
 
-### Native extension checkpoint under draft PR #89
+### Integrated native extension
 
 | ID | Scope and evidence | Status | Tests / exception |
 |---|---|---|---|
 | V-011 | Native watcher, post menus, ordinary reply/thread hiding, menu-ready event, optional shortcuts and manual/automatic in-place updating; pinned public catalog v1025 and extension v1191; **source**: [original rules](#native-extension) | Merged in [#89](https://github.com/frankischilling/26chan/pull/89) after all seven exact-head checks passed; broader reference qualification remains open | [Watcher](thread-watcher.md), [thread hiding](native-thread-hiding-state.md), [menu event / recursive-helper reachability](native-post-menu-events.md), [keyboard integration](native-keyboard-shortcuts.md), and [thread updater](native-thread-updater.md). Update/R and Auto/A use bounded snapshots; [full/tail selection and conditional revalidation](native-updater-tail.md) are implemented in #90, with validated DOM construction, native events and existing menu/filter/watch integration. Auto adds per-tab state, backoff, unread title/marker, fixed favicon/sound notifications and the pinned hidden-tab scroll rule. Posting receipts decorate tracked quotes; notification priority waits for page filters. Quick Reply coordination is tracked in V-012; live non-worksafe board observation and complete public-page parity remain unfinished. Recursive helper definitions are not treated as evidence of an exposed built-in recursive menu |
 | V-012 | Quick Reply text posting, quoting, persistence, cancellation and updater coordination; supplied old extension source | Implemented in #100; local transport/theme/fixture checks passed, persisted-browser checks await CI | [Quick Reply](native-quick-reply.md) records bounded transport, source guards and editing, exact IDs, current-board CSP, tests and remaining cooldown/identity/captcha/drawing/inline-file and rendered-source work. E-010/E-011 remain explicit security replacements |
+| V-013 | Optional URL linkification; observed public extension v1191 | Board/thread settings and dynamic-post integration; server profiles unchanged | [Reference, safety exceptions and tests](source-linkification.md); desktop/mobile defaults, existing-anchor identity, live updates and bounded same-origin derefer. Full server link normalization remains #165; current-head qualification is recorded in PR #166 |
 
 ## Security-driven and project-defined exceptions
 
