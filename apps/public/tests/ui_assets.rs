@@ -246,6 +246,83 @@ async fn native_filter_worker_is_fixed_code_without_network_or_import_authority(
 }
 
 #[tokio::test]
+async fn backlink_page_module_is_bounded_fixed_code_and_absent_from_the_api_listener() {
+    let path = "/static/native-backlinks.v1.js";
+    let expected = include_bytes!("../static/native-backlinks.v1.js");
+    assert!(expected.len() <= 32_768);
+    assert!(std::str::from_utf8(expected).is_ok());
+    for origin in ["http://127.0.0.1:3000", "https://board.example"] {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .unwrap();
+        let (app, api) = board_public::routers(pool, origin.into(), origin.starts_with("https:"));
+        for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            if matches!(method, "GET" | "HEAD") {
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(
+                    response.headers()["content-type"],
+                    "text/javascript; charset=utf-8"
+                );
+                assert_eq!(
+                    response.headers()["cache-control"],
+                    "public, max-age=0, must-revalidate"
+                );
+                assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+                assert!(response.headers().get("set-cookie").is_none());
+                assert!(
+                    response
+                        .headers()
+                        .get("access-control-allow-origin")
+                        .is_none()
+                );
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                for directive in [
+                    "default-src 'none';",
+                    "script-src 'none';",
+                    "connect-src 'none';",
+                    "worker-src 'none';",
+                ] {
+                    assert!(csp.contains(directive));
+                }
+                let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                if method == "GET" {
+                    assert_eq!(bytes.as_ref(), expected);
+                } else {
+                    assert!(bytes.is_empty());
+                }
+            } else {
+                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+            }
+        }
+        for (router, target) in [
+            (api, path),
+            (app.clone(), "/static/native-backlinks.js"),
+            (app, "/static/native-backlinks.v2.js"),
+        ] {
+            let response = router
+                .oneshot(Request::get(target).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
+    }
+}
+
+#[tokio::test]
 async fn updater_sound_is_fixed_public_audio_without_image_or_api_authority() {
     let manifest: serde_json::Value =
         serde_json::from_str(include_str!("../../../docs/public-updater-assets.json")).unwrap();

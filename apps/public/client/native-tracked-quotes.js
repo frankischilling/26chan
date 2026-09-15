@@ -2,17 +2,19 @@ import { postId } from '../static/thread-watcher-core.v1.js';
 
 // Native Parser initializes tracked replies only on a thread page. Local
 // receipt hints decorate text; they never change the link's destination.
-export function markNativeTrackedQuotes(section, tracked, enabled) {
+export function markNativeTrackedQuotes(section, tracked, enabled, { readLabel, writeLabel } = {}) {
   if (!section) return;
   for (const link of section.querySelectorAll('.postMessage .quotelink')) {
     const previous = link.dataset.nativeTracked;
-    const text = previous && link.textContent === `>>${previous} (You)` ? `>>${previous}` : link.textContent;
+    const label = readLabel ? readLabel(link) : link.textContent;
+    const write = value => { if (writeLabel) writeLabel(link, value); else link.textContent = value; };
+    const text = previous && label === `>>${previous} (You)` ? `>>${previous}` : label;
     const id = text.startsWith('>>') ? postId(text.slice(2)) : null;
     if (enabled && id && tracked.has(id)) {
-      if (link.textContent !== `${text} (You)`) link.textContent = `${text} (You)`;
+      if (label !== `${text} (You)`) write(`${text} (You)`);
       link.classList.add('ql-tracked'); link.dataset.nativeTracked = id;
     } else if (previous) {
-      if (link.textContent === `>>${previous} (You)`) link.textContent = `>>${previous}`;
+      if (label === `>>${previous} (You)`) write(`>>${previous}`);
       link.classList.remove('ql-tracked'); delete link.dataset.nativeTracked;
     }
   }

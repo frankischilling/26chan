@@ -201,6 +201,20 @@ jobs:
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin MAINTENANCE_QUALIFICATION_INTERRUPT=1 \
             MAINTENANCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
             bash scripts/test-maintenance-monitoring.sh "$PWD/target/debug/board-maintenance-monitor" "$PWD/.local/monitoring/bin"
+      - name: Retain synthetic Linux browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-browser-failure-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**/trace.zip
+            test-results/**/error-context.md
+            test-results/**/attachments/mobile-quote-events-*.json
+            test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
   visual-windows:
     runs-on: windows-2025
     timeout-minutes: 30
@@ -227,6 +241,9 @@ jobs:
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core
+      - name: Verify bounded backlink graph and quote annotations
+        shell: pwsh
+        run: npm run test:backlinks-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

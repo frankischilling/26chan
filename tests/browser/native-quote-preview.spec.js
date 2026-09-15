@@ -322,15 +322,15 @@ test.describe('unmodified persisted quote previews', () => {
     } finally { await other.close(); }
   });
 
-  test('a mobile-device tap previews the original quote and the adjacent # link keeps navigation', async ({ browser, owned }) => {
+  test('a mobile-device tap previews the original quote and the adjacent # link keeps navigation', async ({ browser, owned }, testInfo) => {
     const remote = await owned.createThread('test', 'Mobile remote preview target');
     const reply = await owned.reply(`>>>/test/${remote.id}\n${trailingLines}`);
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
       userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
     });
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await initialize(page, `${origin}${owned.url}`);
       const link = quote(page, reply, remote), navigation = page.locator(`#m${reply} a.quoteLink`);
       await expect(navigation).toHaveCount(1);
@@ -338,6 +338,25 @@ test.describe('unmodified persisted quote previews', () => {
       await expect(navigation).toHaveAttribute('href', `/test/post/${remote.id}`);
       await link.evaluate(node => node.scrollIntoView({ block: 'start' }));
       await page.evaluate(() => scrollBy(0, -40));
+      await page.evaluate(() => {
+        const identify = node => node?.nodeType === 1
+          ? { tag: node.tagName, id: node.id, class: node.className } : null;
+        const events = window.mobileQuoteEvents = [];
+        const record = data => { if (events.length < 96) events.push({ at: performance.now(), ...data }); };
+        for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mouseover', 'mouseout', 'click']) {
+          document.addEventListener(type, event => record({
+            type, target: identify(event.target), related: identify(event.relatedTarget),
+            x: event.clientX, y: event.clientY, touch: event.sourceCapabilities?.firesTouchEvents,
+            preview: !!document.getElementById('quote-preview'),
+          }), true);
+        }
+        new MutationObserver(records => {
+          for (const item of records) {
+            for (const node of item.addedNodes) if (node.id === 'quote-preview') record({ type: 'preview-added' });
+            for (const node of item.removedNodes) if (node.id === 'quote-preview') record({ type: 'preview-removed' });
+          }
+        }).observe(document.body, { childList: true });
+      });
       const requests = network(page);
       await link.tap();
       const preview = await expectPreview(page, remote, 'Mobile remote preview target');
@@ -350,6 +369,11 @@ test.describe('unmodified persisted quote previews', () => {
       await navigation.tap();
       await expect(page).toHaveURL(`${origin}${remote.url}#p${remote.id}`);
       await expect(page.locator(`#m${remote.id}`)).toHaveText('Mobile remote preview target');
+    } catch (error) {
+      const events = await page.evaluate(() => window.mobileQuoteEvents ?? []).catch(() => []);
+      await testInfo.attach('mobile-quote-events', { body: JSON.stringify(events, null, 2), contentType: 'application/json' });
+      console.error('Mobile quote event sequence:', JSON.stringify(events));
+      throw error;
     } finally { await context.close(); }
   });
 

@@ -375,6 +375,23 @@ dialog.filterHelp { width: 400px; }
 .nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
 .nativeUpdaterStatus.tu-error { color: #d00; }
 .newPostsMarker:not(#quote-preview) { box-shadow: 0 3px red; }
+/* Public v1191 backlinks are appended in parser order, outside post messages. */
+div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; }
+.backlink.mobile { display: block; clear: both !important; padding: 3px 5px; line-height: 2; }
+.op .backlink.mobile, #quote-preview .backlink.mobile { display: none !important; }
+.backlink.mobile .quoteLink { padding-right: 2px; }
+.backlink span { padding: 0; }
+.backlink a { text-decoration: underline; }
+.backlink[data-backlink-family="futaba"] a { color: #000080 !important; }
+.backlink[data-backlink-family="futaba"] a:hover { color: #ff0000 !important; }
+.backlink[data-backlink-family="burichan"] a { color: #34345c !important; }
+.backlink[data-backlink-family="burichan"] a:hover { color: #dd0000 !important; }
+.backlink[data-backlink-family="tomorrow"] a { color: #5f89ac !important; }
+.backlink[data-backlink-family="tomorrow"] a:hover { color: #81a2be !important; }
+.backlink[data-backlink-family="photon"] a { color: #ff6600 !important; }
+.backlink[data-backlink-family="photon"] a:hover { color: #ff3300 !important; }
+.board .post-hidden .backlink, .board .native-thread-hidden .backlink { display: none; }
+.dotted { text-decoration: none; border-bottom: 1px dashed; }
 /* Public v1191 quote geometry; content is a validated copy without post controls. */
 #quote-preview { display: block; position: absolute; top: 0; padding: 3px 6px 6px 3px; margin: 0; min-width: 0; width: max-content; overflow: auto; z-index: 101; background: var(--panel, #f0e0d6); color: var(--ink, #800000); border: 1px solid var(--edge, #d9bfb7); }
 #quote-preview .postInfo { line-height: normal; }

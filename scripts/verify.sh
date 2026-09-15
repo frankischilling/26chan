@@ -15,6 +15,7 @@ cargo test --workspace --all-features --locked
 npm ci --ignore-scripts
 npm run test:linkification
 npm run test:quote-preview
+npm run test:backlinks
 npm run test:quick-reply
 npm run test:behavior
 npx playwright test tests/browser/catalog-teasers.spec.js
