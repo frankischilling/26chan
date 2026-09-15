@@ -1,6 +1,8 @@
 name: Build and test
 on:
   push:
+    branches: [main]
+    tags: ['**']
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -8,13 +10,16 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
-  rust-and-postgres:
+  rust-and-browser:
     runs-on: ubuntu-24.04
-    # Complete qualification exceeded 35 minutes in both #156 Linux jobs.
-    # Per-test, process and containment deadlines remain independently bounded.
+    # Privileged qualification runs independently below, with its own database.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -24,6 +29,8 @@ jobs:
         with:
           node-version: '24.14.0'
           package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Install pinned Rust and PostgreSQL
         run: |
           rustup toolchain install 1.94.0 --profile minimal --component rustfmt --component clippy
@@ -31,6 +38,12 @@ jobs:
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
           sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}
+          cache-bin: false
+          cache-on-failure: true
       - name: Start disposable database and migrate
         run: |
           sudo bash scripts/test-role-bootstrap.sh
@@ -56,9 +69,53 @@ jobs:
           source .local/intake.env
           source .local/monitor.env
           source .local/staff.env
+          bash scripts/verify.sh
+  media-and-operations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned Rust and PostgreSQL
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal --component rustfmt --component clippy
+          test -f /etc/apt/sources.list.d/ubuntu.sources
+          sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}
+          cache-bin: false
+          cache-on-failure: true
+      - name: Start disposable database and migrate
+        run: |
+          sudo bash scripts/test-role-bootstrap.sh
+          sudo bash scripts/dev-db.sh
+          sudo bash scripts/dev-media-db.sh
+          sudo bash scripts/dev-media-reader-db.sh
+          sudo bash scripts/dev-intake-db.sh
+          sudo bash scripts/dev-monitor-db.sh
+          sudo bash scripts/dev-staff-db.sh
+          sudo chown -R "$(id -u):$(id -g)" .local
+          source .local/database.env
+          cargo run -p board-store --bin board-migrate --locked
+          bash scripts/seed.sh
+      - name: Build qualification binaries and install the intake browser
+        run: |
+          cargo build --workspace --examples --bins --locked
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
-          bash scripts/verify.sh
       - name: Upgrade existing staff sessions from migration 0005
         run: sudo bash scripts/test-staff-idle-migration.sh
       - name: Build and qualify a disposable media guest on the owned runner
@@ -67,7 +124,6 @@ jobs:
           systemctl --version
           stat --file-system --format='cgroup filesystem: %T' /sys/fs/cgroup
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
-          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked
           python3 -m unittest discover -s tests/media -p test_runner.py
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/debug"
@@ -87,7 +143,7 @@ jobs:
             bash scripts/test-media-publication.sh
       - name: Qualify authenticated media dispatch and native service boundaries
         run: |
-          sudo env MEDIA_DISPATCH_ROOT_TESTS=1 CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
+          sudo env MEDIA_DISPATCH_ROOT_TESTS=1 CARGO_INCREMENTAL=0 CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
             "$HOME/.cargo/bin/cargo" test -p board-media-dispatch --all-targets --locked
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
@@ -201,6 +257,28 @@ jobs:
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin MAINTENANCE_QUALIFICATION_INTERRUPT=1 \
             MAINTENANCE_QUALIFICATION_PYTHON="$PWD/.local/monitor-auth-venv/bin/python" \
             bash scripts/test-maintenance-monitoring.sh "$PWD/target/debug/board-maintenance-monitor" "$PWD/.local/monitoring/bin"
+      - name: Restore cache ownership after privileged qualification
+        if: always()
+        run: |
+          for cache_dir in target "$HOME/.cargo/registry" "$HOME/.cargo/git"; do
+            if [ -d "$cache_dir" ]; then
+              sudo chown -R "$(id -u):$(id -g)" "$cache_dir"
+            fi
+          done
+  rust-and-postgres:
+    # Keep the existing Linux check responsible for every qualification.
+    needs: [rust-and-browser, media-and-operations]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require application and privileged qualification
+        env:
+          APPLICATION_RESULT: ${{ needs.rust-and-browser.result }}
+          QUALIFICATION_RESULT: ${{ needs.media-and-operations.result }}
+        run: |
+          test "$APPLICATION_RESULT" = success
+          test "$QUALIFICATION_RESULT" = success
   visual-windows:
     runs-on: windows-2025
     timeout-minutes: 30
@@ -212,10 +290,20 @@ jobs:
         with:
           node-version: '24.14.0'
           package-manager-cache: false
-      - name: Install toolchain and browser
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned Rust
+        shell: pwsh
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: windows-2025-${{ hashFiles('Cargo.toml') }}
+          cache-bin: false
+          cache-on-failure: true
+      - name: Install browser dependencies
         shell: pwsh
         run: |
-          rustup toolchain install 1.94.0 --profile minimal
           npm ci --ignore-scripts
           npx playwright install chromium
       - name: Build visual fixture before the server startup deadline
