@@ -32,6 +32,61 @@ const update = page => page.locator('.threadNav.desktop a[data-cmd="update"]').f
 const status = page => page.locator('.threadNav.desktop .nativeUpdaterStatus').first();
 const serverLink = url => `<a href="${url}" rel="nofollow noreferrer noopener">${url}</a>`;
 
+test('linkification preserves filtering when generated markup would exceed its parser budget', async ({ page, owned }) => {
+  const seed = 'https://seed.test/path';
+  const original = `Budget needle ${serverLink(seed)}`;
+  const longComment = `${original} ${'HTTP://EXAMPLE.test/a '.repeat(700)}`;
+  const reply = await owned.reply(`Budget needle ${seed}`);
+  const normal = await owned.reply('Normal https://seed.test/path HTTP://NORMAL.test/a');
+  // The default demo board has a smaller posting limit. Substitute a synthetic
+  // comment within the supported 16,000-character ceiling in its owned response
+  // to exercise the real client/filter interaction without changing board policy.
+  await page.route(`**${owned.url}`, async route => {
+    const response = await route.fetch();
+    const body = await response.text();
+    if (!body.includes(original)) throw new Error('Owned filter-budget fixture was not found');
+    await route.fulfill({ response, body: body.replace(original, longComment) });
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ filter: true, linkify: false }));
+    localStorage.setItem('4chan-filters', JSON.stringify([
+      { type: 2, pattern: 'needle', boards: '', active: true, auto: false, hide: true },
+    ]));
+  });
+  await page.goto(owned.url);
+  const message = page.locator(`#m${reply}`);
+  const post = page.locator(`#p${reply}`);
+  await expect(post).toHaveClass(/post-hidden/);
+  const before = await message.innerHTML();
+  expect(before.length).toBeLessThan(65536);
+  expect(await message.evaluate(node => node.textContent.length)).toBeLessThanOrEqual(16000);
+  await message.evaluate(node => { window.budgetServerAnchor = node.querySelector('a'); });
+
+  // Saving settings navigates that tab. Use the real settings UI in another tab
+  // so the first tab receives an actual storage event and retains its DOM nodes.
+  const settingsPage = await page.context().newPage();
+  try {
+    await settingsPage.goto(owned.url);
+    const dialog = await openWatcherSettings(settingsPage);
+    const navigation = dialog.getByRole('button', { name: 'Navigation', exact: true });
+    if (await navigation.getAttribute('aria-expanded') === 'false') await navigation.click();
+    await dialog.getByLabel('Linkify URLs', { exact: true }).check();
+    await Promise.all([
+      settingsPage.waitForEvent('load'),
+      dialog.getByRole('button', { name: 'Save Settings', exact: true }).click(),
+    ]);
+  } finally { await settingsPage.close(); }
+  await expect(page.locator(`#m${normal} ${generated}`)).toHaveCount(1);
+  await expect(message.locator(generated)).toHaveCount(0);
+  expect(await message.innerHTML()).toBe(before);
+  expect(await message.evaluate(node => window.budgetServerAnchor === node.querySelector('a'))).toBe(true);
+  // Force the normal cross-tab refresh path to consume the final decorated DOM,
+  // so an earlier successful match cannot mask a later parser-budget failure.
+  await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: '4chan-filters' })));
+  await expect(page.locator('.nativeFilterNotice')).toBeEmpty();
+  await expect(post).toHaveClass(/post-hidden/);
+});
+
 async function serveInitialUrlAsText(page, owned) {
   await page.route(`**${owned.url}`, async route => {
     const response = await route.fetch();

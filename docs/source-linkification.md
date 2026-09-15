@@ -65,6 +65,14 @@ supplies the initial probe. Replacements run backwards, preserve surrounding
 markup and soft breaks, and do not nest or recreate existing anchors. Repeated
 processing does not add duplicate links.
 
+Page filters consume the final message HTML through their existing 65,536-code-
+unit parser ceiling. Before changing a live message, the linker applies its
+complete plan to a bounded detached clone and measures that exact serialization,
+including anchor attributes and literal zero-width-space conversion to `wbr`.
+If decoration would exceed the filter ceiling, the original message stays
+unchanged. This preserves filter behavior and server-anchor identity without
+increasing parser limits or retaining a stale copy of the comment.
+
 ## Redirect and security boundaries
 
 Generated links use the fixed same-origin `/derefer?url=` route rather than the
@@ -95,6 +103,12 @@ remain independently enforced by the redirect handler and HTTP stack.
 spelling, option precedence, generated parenthesis cases, finite DOM rejection,
 unchanged existing anchors, idempotence and the mounted settings/update lifecycle.
 DOM fixtures block external requests and execute only the local implementation.
+The output-budget regression passes the actual before/after HTML through the
+production filter parser. Its 15,419-character comment occupies 15,452 HTML code
+units before linking; the previous behavior creates 700 anchors and expands it
+to 120,452, which the filter rejects. The fixed path leaves that message intact.
+A separate case covers literal zero-width-space expansion, and a normal URL
+control still linkifies and remains parseable.
 
 `tests/browser/native-linkification.spec.js` uses real persisted posts and the
 production page/client. Its unmodified-response case posts mixed lowercase and
@@ -110,10 +124,19 @@ Other checks cover existing server anchors, desktop/mobile settings, disabled or
 unavailable storage, live option changes, synthetic preview insertion, bounded
 DOM and absence of a catalog mount.
 
+The filter-interaction browser case substitutes a synthetic comment within the
+supported 16,000-character ceiling into an owned post response because the demo
+board uses a smaller posting limit. It activates linking through the real
+settings UI in another tab, observes the storage event, and requires the first
+tab's HTML, server-anchor object and active filter to survive. The same test
+fails against the frozen pre-fix public binary at the 700 generated anchors.
+This is client-integration evidence; it does not claim the demo board accepted
+an oversized post or establish a new server-formatting rule.
+
 `cargo test -p board-public --test derefer --locked` exercises the real router,
 escaping, redirects, CSP, cache policy, assets and invalid destinations/referrers
 without requiring a database. Handler unit tests cover decoding and bounds.
-`npm run test:linkification` runs the release-bundle check, core tests and all six
+`npm run test:linkification` runs the release-bundle check, core tests and all seven
 persisted browser cases; the Linux verification script invokes this command.
 The current-head local and hosted results are recorded in the pull request;
 full original-page parity and deployed production boundaries remain separate

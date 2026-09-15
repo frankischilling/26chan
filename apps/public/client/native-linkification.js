@@ -1,3 +1,5 @@
+import { FILTER_LIMITS } from './native-filter-limits.js';
+
 // Public extension v1191 Linkify lexical rules. Offsets address a serialized text
 // run with <wbr> represented as ZWS; this module never parses strings as HTML.
 export const LINKIFY_LIMITS = Object.freeze({ characters: 192000, nodes: 32001, depth: 32 });
@@ -40,10 +42,10 @@ const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const escapeText = ch => ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
 const generated = 'data-native-linkified';
 
-// Runs cannot cross an element boundary except a soft break. Validate and plan
-// the whole message before mutation, then replace ranges from right to left.
-export function linkifyMessage(message) {
-  if (!message || message.nodeType !== 1) return 0;
+// Runs cannot cross an element boundary except a soft break. Build a complete
+// plan before mutation so the live message can remain unchanged on any bound.
+function planMessage(message) {
+  if (!message || message.nodeType !== 1) return null;
   let nodes = 0, characters = 0;
   const runs = [];
   function attributes(node) {
@@ -101,13 +103,16 @@ export function linkifyMessage(message) {
       if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
     }
   }
-  try { visit(message, 0); } catch { return 0; }
+  try { visit(message, 0); } catch { return null; }
   // Read-only serialization retains the source's global, case-sensitive probe.
-  if (!hasSourceLink(message.innerHTML)) return 0;
-  const planned = runs.flatMap(run => sourceLinkSpans(run.text, true).flatMap(span => {
+  if (!hasSourceLink(message.innerHTML)) return null;
+  return runs.flatMap(run => sourceLinkSpans(run.text, true).flatMap(span => {
     const start = run.points[span.start], end = run.points[span.end];
     return start && end ? [{ start, end, parameter: span.parameter }] : [];
   }));
+}
+
+function decorateMessage(message, planned) {
   const document = message.ownerDocument;
   for (const { start, end, parameter } of planned.reverse()) {
     const range = document.createRange();
@@ -131,6 +136,23 @@ export function linkifyMessage(message) {
     });
     node.replaceWith(fragment);
   }
+}
+
+export function linkifyMessage(message) {
+  const planned = planMessage(message);
+  if (planned === null) return 0;
+
+  // Page filters consume the live postMessage.innerHTML under FILTER_LIMITS.html.
+  // Decorate an exact detached clone first, including generated anchor markup and
+  // the source's global ZWS-to-WBR pass. Crossing that existing ceiling leaves
+  // the entire live message untouched, including server-created anchor identity.
+  const preview = message.cloneNode(true);
+  const previewPlan = planMessage(preview);
+  if (previewPlan === null) return 0;
+  decorateMessage(preview, previewPlan);
+  if (preview.innerHTML.length > FILTER_LIMITS.html) return 0;
+
+  decorateMessage(message, planned);
   return planned.length;
 }
 

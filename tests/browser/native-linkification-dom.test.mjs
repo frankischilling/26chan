@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
+import { nativeCommentText } from '../../apps/public/client/native-filter-html.js';
+import { FILTER_LIMITS } from '../../apps/public/client/native-filter-limits.js';
+
+async function linkerSources() {
+  return {
+    source: await readFile(new URL('../../apps/public/client/native-linkification.js', import.meta.url), 'utf8'),
+    limits: await readFile(new URL('../../apps/public/client/native-filter-limits.js', import.meta.url), 'utf8'),
+  };
+}
 
 test('finite link DOM preserves source text, nodes, soft breaks and anchor boundaries', async () => {
   const browser = await chromium.launch({ headless: true });
@@ -9,12 +18,14 @@ test('finite link DOM preserves source text, nodes, soft breaks and anchor bound
     const page = await browser.newPage();
     await page.route('**/*', route => route.abort());
     await page.goto('about:blank');
-    const code = await readFile(new URL('../../apps/public/client/native-linkification.js', import.meta.url), 'utf8');
-    await page.evaluate(async source => {
+    const sources = await linkerSources();
+    await page.evaluate(async ({ source, limits }) => {
+      const limitsUrl = URL.createObjectURL(new Blob([limits], { type: 'text/javascript' }));
+      source = source.replace('./native-filter-limits.js', limitsUrl);
       const module = await import(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
       window.linkify = module.linkifyMessage;
       window.mountLinkification = module.mountNativeLinkification;
-    }, code);
+    }, sources);
     const results = await page.evaluate(() => {
       const cases = [
         ['https://example.test/path?!', ['https://example.test/path']],
@@ -83,8 +94,10 @@ test('mounted linkification follows settings, mobile defaults and live post inse
     const page = await browser.newPage();
     await page.route('**/*', route => route.abort());
     await page.goto('about:blank');
-    const code = await readFile(new URL('../../apps/public/client/native-linkification.js', import.meta.url), 'utf8');
-    const result = await page.evaluate(async source => {
+    const sources = await linkerSources();
+    const result = await page.evaluate(async ({ source, limits }) => {
+      const limitsUrl = URL.createObjectURL(new Blob([limits], { type: 'text/javascript' }));
+      source = source.replace('./native-filter-limits.js', limitsUrl);
       const module = await import(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
       document.body.innerHTML = '<main class="board"><article><blockquote class="postMessage" id="m1">'
         + 'https://initial.test/path <a id="server" class="linkified" href="https://historical.test/" rel="nofollow noreferrer noopener">historical</a>'
@@ -163,7 +176,7 @@ test('mounted linkification follows settings, mobile defaults and live post inse
       output.afterPagehide = count('#retired-message a[data-native-linkified]');
       mounted.disconnect();
       return output;
-    }, code);
+    }, sources);
     assert.deepEqual(result, {
       desktopDefault: 0,
       desktopOptIn: 1,
@@ -183,5 +196,81 @@ test('mounted linkification follows settings, mobile defaults and live post inse
       afterCacheRestore: 1,
       afterPagehide: 0,
     });
+  } finally { await browser.close(); }
+});
+
+test('full decorated HTML preflight preserves filter-parseable messages atomically', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.route('**/*', route => route.abort());
+    await page.goto('about:blank');
+    const sources = await linkerSources();
+    const result = await page.evaluate(async ({ source, limits, htmlLimit }) => {
+      const limitsUrl = URL.createObjectURL(new Blob([limits], { type: 'text/javascript' }));
+      const prepared = source.replace('./native-filter-limits.js', limitsUrl);
+      const fixed = await import(URL.createObjectURL(new Blob([prepared], { type: 'text/javascript' })));
+      const gate = 'if (preview.innerHTML.length > FILTER_LIMITS.html) return 0;';
+      if (!prepared.includes(gate)) throw new Error('Linkification HTML preflight gate not found');
+      const legacy = await import(URL.createObjectURL(new Blob([prepared.replace(gate, '')], { type: 'text/javascript' })));
+      const seed = '<a href="https://seed.test/">https://seed.test/</a> ';
+
+      function exercise(tail) {
+        const message = document.createElement('blockquote');
+        message.className = 'postMessage'; message.innerHTML = seed + tail;
+        const before = message.innerHTML;
+        const server = message.querySelector('a');
+        const legacyMessage = message.cloneNode(true);
+        const legacyCount = legacy.linkifyMessage(legacyMessage);
+        const legacyHtml = legacyMessage.innerHTML;
+        const fixedCount = fixed.linkifyMessage(message);
+        return {
+          before, legacyHtml, legacyCount, fixedCount,
+          after: message.innerHTML,
+          generated: message.querySelectorAll('a[data-native-linkified="true"]').length,
+          serverIdentity: server === message.querySelector('a'),
+          serverHref: server.getAttribute('href'),
+          breaks: message.querySelectorAll('wbr').length,
+          legacyBreaks: legacyMessage.querySelectorAll('wbr').length,
+          overLimit: legacyHtml.length > htmlLimit,
+        };
+      }
+
+      return {
+        anchors: exercise('HTTP://EXAMPLE.test/a '.repeat(700)),
+        zws: exercise('HTTP://EXAMPLE.test/a ' + '\u200b'.repeat(13200)),
+        normal: exercise('HTTP://EXAMPLE.test/a'),
+      };
+    }, { ...sources, htmlLimit: FILTER_LIMITS.html });
+
+    assert.equal(result.anchors.before.length, 15452);
+    assert.equal(nativeCommentText(result.anchors.before).length, 15419);
+    assert.equal(result.anchors.legacyCount, 700);
+    assert.equal(result.anchors.overLimit, true);
+    assert.throws(() => nativeCommentText(result.anchors.legacyHtml), /html-limit/);
+    assert.equal(result.anchors.fixedCount, 0);
+    assert.equal(result.anchors.after, result.anchors.before);
+    assert.equal(result.anchors.generated, 0);
+    assert.equal(result.anchors.serverIdentity, true);
+    assert.equal(result.anchors.serverHref, 'https://seed.test/');
+    assert.doesNotThrow(() => nativeCommentText(result.anchors.after));
+
+    assert.doesNotThrow(() => nativeCommentText(result.zws.before));
+    assert.equal(result.zws.legacyCount, 1);
+    assert.equal(result.zws.legacyBreaks, 13200);
+    assert.equal(result.zws.overLimit, true);
+    assert.throws(() => nativeCommentText(result.zws.legacyHtml), /html-limit/);
+    assert.equal(result.zws.fixedCount, 0);
+    assert.equal(result.zws.after, result.zws.before);
+    assert.equal(result.zws.breaks, 0);
+    assert.equal(result.zws.serverIdentity, true);
+    assert.doesNotThrow(() => nativeCommentText(result.zws.after));
+
+    assert.doesNotThrow(() => nativeCommentText(result.normal.before));
+    assert.equal(result.normal.fixedCount, 1);
+    assert.equal(result.normal.generated, 1);
+    assert.equal(result.normal.serverIdentity, true);
+    assert.equal(result.normal.serverHref, 'https://seed.test/');
+    assert.doesNotThrow(() => nativeCommentText(result.normal.after));
   } finally { await browser.close(); }
 });
