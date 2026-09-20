@@ -328,7 +328,8 @@ jobs:
         run: cargo test -p board-config --locked
       - name: Verify public TCP transport budgets
         shell: pwsh
-        run: cargo test -p board-public --lib transport:: --locked
+        run: |
+          cargo test -p board-public --lib transport:: --locked
       - name: Verify public startup and paired listeners
         shell: pwsh
         run: cargo test -p board-public --bin board-public --test startup --locked
