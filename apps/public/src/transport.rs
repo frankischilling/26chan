@@ -167,10 +167,27 @@ async fn serve_connection<I, P>(
     let router = hyper_util::service::TowerToHyperService::new(app);
     let service =
         hyper::service::service_fn(move |mut request: hyper::Request<hyper::body::Incoming>| {
-            // Set the actual listener identity on every request, including reuse
-            // of the connection. Headers never supply this extension.
-            request.extensions_mut().insert(ConnectInfo(peer.clone()));
-            hyper::service::Service::call(&router, request)
+            let router = router.clone();
+            let peer = peer.clone();
+            async move {
+                // Hyper's graceful HTTP/1 shutdown closes an idle connection,
+                // but a header block already being read is still allowed to
+                // finish. Make dispatch time authoritative so a request that
+                // becomes ready at or after retirement cannot enter the router.
+                if tokio::time::Instant::now() >= timing.retirement {
+                    return Err(io::Error::new(
+                        io::ErrorKind::ConnectionAborted,
+                        "public connection retired",
+                    ));
+                }
+                // Set the actual listener identity on every request, including
+                // reuse of the connection. Headers never supply this extension.
+                request.extensions_mut().insert(ConnectInfo(peer));
+                match hyper::service::Service::call(&router, request).await {
+                    Ok(response) => Ok(response),
+                    Err(error) => match error {},
+                }
+            }
         });
     let mut builder = hyper::server::conn::http1::Builder::new();
     builder

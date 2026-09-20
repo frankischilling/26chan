@@ -470,6 +470,93 @@ async fn idle_keep_alive_retires_before_the_hard_deadline() {
 }
 
 #[tokio::test]
+async fn headers_completed_after_retirement_never_reach_the_router() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let (listener, address) = listener().await;
+    let invoked = Arc::new(AtomicUsize::new(0));
+    let app = Router::new()
+        .route("/early", get(|| async { "early" }))
+        .route(
+            "/late",
+            get({
+                let invoked = invoked.clone();
+                move || {
+                    let invoked = invoked.clone();
+                    async move {
+                        invoked.fetch_add(1, Ordering::Relaxed);
+                        "late"
+                    }
+                }
+            }),
+        );
+    let budget = ConnectionBudget::new(limits(3, 10000, 4000));
+    let (stop, stopped) = watch::channel(false);
+    let server = serve(listener, app, stopped, budget.clone());
+
+    let earliest_hard_deadline = tokio::time::Instant::now() + budget.connection_timeout;
+    let mut silent = connect(address).await;
+    let mut partial = connect(address).await;
+    let mut reused = connect(address).await;
+    permits(&budget, 0).await;
+    let admitted = tokio::time::Instant::now();
+    partial
+        .write_all(b"GET /late HTTP/1.1\r\nHost: localhost\r\nX-Partial")
+        .await
+        .unwrap();
+    request(&mut reused, "/early", false).await;
+    assert!(response(&mut reused).await.ends_with("early"));
+    reused
+        .write_all(b"GET /late HTTP/1.1\r\nHost: localhost\r\nX-Partial")
+        .await
+        .unwrap();
+
+    // The 4 second hard lifetime begins at accept and retires at 3.5 seconds.
+    // A fresh silent socket plus first and subsequent headers already being read
+    // must all stop before a late request can be dispatched.
+    tokio::time::sleep_until(admitted + Duration::from_millis(3600)).await;
+    let _ = silent
+        .write_all(b"GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n")
+        .await;
+    partial
+        .write_all(b": value\r\nConnection: keep-alive\r\n\r\n")
+        .await
+        .unwrap();
+    let _ = reused
+        .write_all(b": value\r\nConnection: keep-alive\r\n\r\n")
+        .await;
+
+    assert_eq!(
+        closed_bytes(&mut silent, Duration::from_millis(300)).await,
+        0,
+        "silent first request received a response after retirement"
+    );
+    assert_eq!(
+        closed_bytes(&mut partial, Duration::from_millis(300)).await,
+        0,
+        "partial first request received a response after retirement"
+    );
+    assert_eq!(
+        closed_bytes(&mut reused, Duration::from_millis(300)).await,
+        0,
+        "partial reused request received a response after retirement"
+    );
+    assert!(
+        tokio::time::Instant::now() < earliest_hard_deadline,
+        "the hard deadline must not satisfy the retirement regression"
+    );
+    assert_eq!(
+        invoked.load(Ordering::Relaxed),
+        0,
+        "a request entered the router after retirement"
+    );
+    permits(&budget, 3).await;
+
+    stop.send(true).unwrap();
+    finish(server).await;
+}
+
+#[tokio::test]
 async fn keep_alive_retires_before_the_hard_deadline_after_draining_an_inflight_request() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
