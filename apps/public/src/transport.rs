@@ -9,14 +9,17 @@ pub struct ConnectionBudget {
     admission: Arc<Semaphore>,
     header_timeout: Duration,
     connection_timeout: Duration,
+    retirement_window: Duration,
 }
 
 impl ConnectionBudget {
     pub fn new(limits: board_config::PublicRequestLimits) -> Self {
+        let connection_timeout = limits.connection_timeout();
         Self {
             admission: Arc::new(Semaphore::new(limits.connections())),
             header_timeout: limits.header_timeout(),
-            connection_timeout: limits.connection_timeout(),
+            connection_timeout,
+            retirement_window: limits.handler_timeout().min(connection_timeout / 8),
         }
     }
 }
@@ -82,6 +85,11 @@ impl PublicListener {
                         }
                     };
                     let deadline = tokio::time::Instant::now() + budget.connection_timeout;
+                    let timing = ConnectionTiming {
+                        header_timeout: budget.header_timeout,
+                        retirement: deadline - budget.retirement_window,
+                        deadline,
+                    };
                     // Acquire after accept so an idle listener cannot reserve
                     // capacity that belongs to the other listener. Excess
                     // sockets close without parsing a request or queuing work.
@@ -92,7 +100,7 @@ impl PublicListener {
                         Accepted::Tcp(stream, peer) => {
                             connections.spawn(serve_connection(
                                 stream, peer, app.clone(), stopped.clone(), permit,
-                                budget.header_timeout, deadline,
+                                timing,
                             ));
                         }
                         #[cfg(target_os = "linux")]
@@ -102,7 +110,7 @@ impl PublicListener {
                             );
                             connections.spawn(serve_connection(
                                 stream, peer, app.clone(), stopped.clone(), permit,
-                                budget.header_timeout, deadline,
+                                timing,
                             ));
                         }
                     }
@@ -137,14 +145,20 @@ enum Accepted {
     Unix(tokio::net::UnixStream),
 }
 
+#[derive(Clone, Copy)]
+struct ConnectionTiming {
+    header_timeout: Duration,
+    retirement: tokio::time::Instant,
+    deadline: tokio::time::Instant,
+}
+
 async fn serve_connection<I, P>(
     stream: I,
     peer: P,
     app: axum::Router,
     stopped: watch::Receiver<bool>,
     permit: OwnedSemaphorePermit,
-    header_timeout: Duration,
-    deadline: tokio::time::Instant,
+    timing: ConnectionTiming,
 ) where
     I: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     P: Clone + Send + Sync + 'static,
@@ -161,7 +175,7 @@ async fn serve_connection<I, P>(
     let mut builder = hyper::server::conn::http1::Builder::new();
     builder
         .timer(hyper_util::rt::TokioTimer::new())
-        .header_read_timeout(header_timeout);
+        .header_read_timeout(timing.header_timeout);
     let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(stream), service);
     tokio::pin!(connection);
     let exchange = async {
@@ -171,13 +185,21 @@ async fn serve_connection<I, P>(
                 connection.as_mut().graceful_shutdown();
                 let _ = connection.await;
             }
+            () = tokio::time::sleep_until(timing.retirement) => {
+                // Stop admitting requests before the hard lifetime so an idle
+                // pooled connection cannot be reused for work that the absolute
+                // deadline would interrupt. An in-flight exchange may finish in
+                // the remaining retirement window.
+                connection.as_mut().graceful_shutdown();
+                let _ = connection.await;
+            }
             _ = &mut connection => {}
         }
     };
-    // This deadline starts at acceptance and includes silent connections,
-    // headers, request bodies, handlers, response writes and keep-alive reuse.
+    // The hard deadline starts at acceptance and includes silent connections,
+    // headers, request bodies, handlers, response writes and graceful retirement.
     // Client errors may contain private input, so do not log their contents.
-    let _ = tokio::time::timeout_at(deadline, exchange).await;
+    let _ = tokio::time::timeout_at(timing.deadline, exchange).await;
 }
 
 async fn wait_for_stop(mut stopped: watch::Receiver<bool>) {
