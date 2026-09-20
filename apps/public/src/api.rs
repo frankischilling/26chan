@@ -15,25 +15,25 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 fn response(
+    limits: &crate::security::Limits,
     value: Value,
     modified: Option<DateTime<Utc>>,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let bytes = serde_json::to_vec(&value).map_err(|_| {
-        AppError(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "JSON could not be rendered.",
-        )
-    })?;
+    let bytes = crate::output::json(limits.response_writer(usize::MAX), &value)?;
     bytes_response(bytes, modified, headers)
 }
 
 pub(crate) fn bytes_response(
-    bytes: Vec<u8>,
+    bytes: board_http::EncodedResponse,
     modified: Option<DateTime<Utc>>,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let etag = format!("\"{:x}\"", Sha256::digest(&bytes));
+    let mut hash = Sha256::new();
+    for chunk in bytes.chunks() {
+        hash.update(chunk);
+    }
+    let etag = format!("\"{:x}\"", hash.finalize());
     let unchanged = if let Some(candidate) = headers.get("if-none-match") {
         candidate.to_str().is_ok_and(|c| {
             c.split(',').any(|tag| {
@@ -54,7 +54,7 @@ pub(crate) fn bytes_response(
     let mut response = if unchanged {
         StatusCode::NOT_MODIFIED.into_response()
     } else {
-        ([("content-type", "application/json")], bytes).into_response()
+        ([("content-type", "application/json")], bytes.into_body()).into_response()
     };
     response.headers_mut().insert(
         "etag",
@@ -116,7 +116,7 @@ pub async fn boards(
         }
         value
     }).collect();
-    response(json!({"boards": boards}), None, &headers)
+    response(&state.limits, json!({"boards": boards}), None, &headers)
 }
 
 fn post_json(
@@ -275,6 +275,7 @@ pub async fn thread_selection(
         posts[0]["tail_size"] = json!(tail_size);
     }
     response(
+        &state.limits,
         json!({"posts": posts}),
         Some(thread.http_modified_at),
         headers,
@@ -288,7 +289,7 @@ pub async fn archive(
 ) -> Result<Response, AppError> {
     let snapshot = board_store::archive_snapshot(&state.pool, slug).await?;
     let ids: Vec<_> = snapshot.entries.into_iter().map(|entry| entry.id).collect();
-    response(json!(ids), None, headers)
+    response(&state.limits, json!(ids), None, headers)
 }
 
 fn preview_thread(
@@ -339,7 +340,7 @@ pub async fn thread_list(
         pages.push(json!({"page": index+1, "threads": entries}));
     }
     // An ETag covers removal of the most recently modified thread too.
-    response(json!(pages), None, headers)
+    response(&state.limits, json!(pages), None, headers)
 }
 
 pub async fn catalog(
@@ -371,7 +372,7 @@ pub async fn catalog(
         }
         pages.push(json!({"page": pages.len()+1, "threads": entries}));
     }
-    response(json!(pages), None, headers)
+    response(&state.limits, json!(pages), None, headers)
 }
 
 pub async fn index(
@@ -409,7 +410,7 @@ pub async fn index(
         }
         entries.push(json!({"posts": posts}));
     }
-    response(json!({"threads": entries}), None, headers)
+    response(&state.limits, json!({"threads": entries}), None, headers)
 }
 
 #[cfg(test)]
@@ -423,6 +424,7 @@ mod tests {
     }
     #[test]
     fn etag_precedes_date_and_same_second_dates_do_not_hide_changes() {
+        let limits = crate::security::Limits::new(board_config::PublicRequestLimits::default());
         let modified = DateTime::from_timestamp(1_700_000_000, 500_000_000).unwrap();
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -430,7 +432,7 @@ mod tests {
             HeaderValue::from_static("Tue, 14 Nov 2023 22:13:20 GMT"),
         );
         assert_eq!(
-            response(json!({"posts": [1]}), Some(modified), &headers)
+            response(&limits, json!({"posts": [1]}), Some(modified), &headers)
                 .unwrap()
                 .status(),
             StatusCode::OK
@@ -441,7 +443,7 @@ mod tests {
             HeaderValue::from_static("Tue, 14 Nov 2023 22:14:20 GMT"),
         );
         assert_eq!(
-            response(json!({"posts": [1]}), Some(modified), &headers)
+            response(&limits, json!({"posts": [1]}), Some(modified), &headers)
                 .unwrap()
                 .status(),
             StatusCode::OK

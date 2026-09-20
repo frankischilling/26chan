@@ -4,13 +4,12 @@ use crate::{
     intake,
     views::{UploadForm, UploadPage},
 };
-use askama::Template;
 use axum::{
     Form,
     body::Body,
     extract::{FromRequest, Multipart, Path, Request, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{IntoResponse, Redirect, Response},
 };
 use bytes::Bytes;
 
@@ -59,6 +58,7 @@ async fn settings(
 }
 
 fn page(
+    state: &AppState,
     board: board_store::Board,
     form: UploadForm,
     ready: bool,
@@ -66,15 +66,15 @@ fn page(
 ) -> Result<Response, AppError> {
     Ok((
         [("cache-control", "private, no-store")],
-        Html(
-            UploadPage {
+        crate::output::html(
+            state,
+            &UploadPage {
                 board,
                 form,
                 ready,
                 message,
-            }
-            .render()?,
-        ),
+            },
+        )?,
     )
         .into_response())
 }
@@ -188,6 +188,7 @@ pub async fn upload(
         return Err(invalid());
     }
     page(
+        &state,
         board_settings,
         UploadForm {
             upload_id: reservation.id,
@@ -221,7 +222,7 @@ pub async fn status(
         "published" => "No approved output is available. Cancel this upload and try another file.",
         _ => "Your file is still being processed. Check again shortly.",
     };
-    page(board_settings, form, ready, message)
+    page(&state, board_settings, form, ready, message)
 }
 
 pub async fn cancel(

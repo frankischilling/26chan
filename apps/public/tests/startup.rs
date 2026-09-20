@@ -42,6 +42,25 @@ fn invalid_request_budgets_fail_before_binding_or_database_access() {
             assert!(!error.contains("AddrInUse"));
         }
     }
+    let output = command()
+        .env("PUBLIC_MAX_RESPONSE_BUFFER_BYTES", "4095")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(error.contains("PUBLIC_MAX_RESPONSE_BUFFER_BYTES"));
+    assert!(!error.contains("unused-secret"));
+    assert!(!error.contains("AddrInUse"));
+
+    // The minimum aggregate output pool is valid and reaches the same healthy,
+    // already-owned listener instead of failing configuration validation.
+    let output = command()
+        .env("PUBLIC_MAX_RESPONSE_BUFFER_BYTES", "4096")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("AddrInUse"));
+
     // A valid configuration reaches the same healthy, already-owned listener.
     let output = command().output().unwrap();
     assert!(!output.status.success());

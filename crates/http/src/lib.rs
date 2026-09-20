@@ -1,7 +1,12 @@
 #![forbid(unsafe_code)]
 
-//! Retain request admission until the final response body and its emitted data
-//! have been released. This counts admitted responses, not bytes or connections.
+//! Retain request admission and encoded payload reservations through response
+//! delivery. Request leases count admitted responses; the shared output budget
+//! counts allocated payload blocks. Emitted data keeps both leases alive.
+
+mod output;
+
+pub use output::{EncodedResponse, OutputError, ResponseBudget, ResponseWriter};
 
 use std::{
     pin::Pin,

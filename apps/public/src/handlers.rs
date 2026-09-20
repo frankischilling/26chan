@@ -102,13 +102,13 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
     }
     Ok("ready")
 }
-pub async fn home(State(state): State<AppState>) -> Result<Html<String>, AppError> {
-    Ok(Html(
-        Home {
+pub async fn home(State(state): State<AppState>) -> Result<Response, AppError> {
+    crate::output::html(
+        &state,
+        &Home {
             boards: board_store::boards(&state.pool).await?,
-        }
-        .render()?,
-    ))
+        },
+    )
 }
 pub async fn board_redirect(
     State(state): State<AppState>,
@@ -142,14 +142,13 @@ pub async fn page(
         "archive.json" => api::archive(&state, &board, &headers).await,
         "archive" => {
             let snapshot = board_store::archive_snapshot(&state.pool, &board).await?;
-            Ok(Html(
-                ArchivePage {
+            crate::output::html(
+                &state,
+                &ArchivePage {
                     board: snapshot.board,
                     entries: snapshot.entries,
-                }
-                .render()?,
+                },
             )
-            .into_response())
         }
         _ => {
             if let Some(index) = page.strip_suffix(".json") {
@@ -231,8 +230,9 @@ async fn board_page(
             hidden_views.push(view);
         }
     }
-    Ok(Html(
-        BoardPage {
+    crate::output::html(
+        state,
+        &BoardPage {
             catalog_hidden: hidden_views,
             board,
             threads: views,
@@ -254,10 +254,8 @@ async fn board_page(
                 .as_ref()
                 .map(|m| m.settings.origin.as_string())
                 .unwrap_or_default(),
-        }
-        .render()?,
+        },
     )
-    .into_response())
 }
 pub async fn thread(
     State(state): State<AppState>,
@@ -293,8 +291,9 @@ pub async fn thread(
         .map(|post| post.id)
         .max();
     let posts = posts.into_iter().map(PostView::new).collect();
-    Ok(Html(
-        BoardPage {
+    crate::output::html(
+        &state,
+        &BoardPage {
             catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {
@@ -316,10 +315,8 @@ pub async fn thread(
                 .as_ref()
                 .map(|m| m.settings.origin.as_string())
                 .unwrap_or_default(),
-        }
-        .render()?,
+        },
     )
-    .into_response())
 }
 pub async fn quote(
     State(state): State<AppState>,
