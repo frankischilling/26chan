@@ -1,5 +1,25 @@
-//! Public transport owns the socket and obtains identity from the kernel.
-use std::{io, net::SocketAddr};
+//! Public transport owns connections, their deadlines and kernel peer identity.
+use axum::extract::ConnectInfo;
+use std::{io, net::SocketAddr, sync::Arc, time::Duration};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, watch};
+
+/// Clone this budget to share admission between public and JSON API listeners.
+#[derive(Clone)]
+pub struct ConnectionBudget {
+    admission: Arc<Semaphore>,
+    header_timeout: Duration,
+    connection_timeout: Duration,
+}
+
+impl ConnectionBudget {
+    pub fn new(limits: board_config::PublicRequestLimits) -> Self {
+        Self {
+            admission: Arc::new(Semaphore::new(limits.connections())),
+            header_timeout: limits.header_timeout(),
+            connection_timeout: limits.connection_timeout(),
+        }
+    }
+}
 
 pub enum PublicListener {
     Tcp(tokio::net::TcpListener),
@@ -31,39 +51,136 @@ impl PublicListener {
     pub async fn serve(
         self,
         app: axum::Router,
-        stopped: tokio::sync::watch::Receiver<bool>,
+        stopped: watch::Receiver<bool>,
+        budget: ConnectionBudget,
     ) -> io::Result<()> {
-        match self {
-            Self::Tcp(listener) => serve_tcp(listener, app, stopped).await,
-            #[cfg(target_os = "linux")]
-            Self::Unix(listener) => {
-                // Keep the ownership guard until connections have drained.
-                let UnixListener { listener, _guard } = listener;
-                axum::serve(
-                    listener,
-                    app.into_make_service_with_connect_info::<crate::proxy_peer::UnixPeer>(),
-                )
-                .with_graceful_shutdown(wait_for_stop(stopped))
-                .await
+        // Retain every task so cancelling this server aborts its connections.
+        // Separate tasks preserve connection scheduling and panic isolation.
+        let mut connections = tokio::task::JoinSet::new();
+        let mut next_accept = tokio::time::Instant::now();
+        loop {
+            tokio::select! {
+                biased;
+                () = wait_for_stop(stopped.clone()) => break,
+                result = connections.join_next(), if !connections.is_empty() => {
+                    if result.is_some_and(|result| result.is_err()) {
+                        tracing::warn!("public connection task terminated");
+                    }
+                },
+                accepted = async {
+                    tokio::time::sleep_until(next_accept).await;
+                    self.accept().await
+                } => {
+                    let accepted = match accepted {
+                        Ok(accepted) => accepted,
+                        Err(error) => {
+                            // Back off without suspending existing connection
+                            // futures, their deadlines or the shutdown signal.
+                            tracing::warn!(kind = ?error.kind(), "public listener accept failed");
+                            next_accept = tokio::time::Instant::now() + Duration::from_secs(1);
+                            continue;
+                        }
+                    };
+                    let deadline = tokio::time::Instant::now() + budget.connection_timeout;
+                    // Acquire after accept so an idle listener cannot reserve
+                    // capacity that belongs to the other listener. Excess
+                    // sockets close without parsing a request or queuing work.
+                    let Ok(permit) = budget.admission.clone().try_acquire_owned() else {
+                        continue;
+                    };
+                    match accepted {
+                        Accepted::Tcp(stream, peer) => {
+                            connections.spawn(serve_connection(
+                                stream, peer, app.clone(), stopped.clone(), permit,
+                                budget.header_timeout, deadline,
+                            ));
+                        }
+                        #[cfg(target_os = "linux")]
+                        Accepted::Unix(stream) => {
+                            let peer = crate::proxy_peer::UnixPeer(
+                                stream.peer_cred().ok().map(|credentials| credentials.uid()),
+                            );
+                            connections.spawn(serve_connection(
+                                stream, peer, app.clone(), stopped.clone(), permit,
+                                budget.header_timeout, deadline,
+                            ));
+                        }
+                    }
+                }
             }
+        }
+        // Each connection observes the same stop signal and drains under its
+        // original deadline. The Unix socket guard remains owned until then.
+        while connections.join_next().await.is_some() {}
+        Ok(())
+    }
+
+    async fn accept(&self) -> io::Result<Accepted> {
+        match self {
+            Self::Tcp(listener) => listener
+                .accept()
+                .await
+                .map(|(stream, peer)| Accepted::Tcp(stream, peer)),
+            #[cfg(target_os = "linux")]
+            Self::Unix(listener) => listener
+                .listener
+                .accept()
+                .await
+                .map(|(stream, _)| Accepted::Unix(stream)),
         }
     }
 }
 
-pub async fn serve_tcp(
-    listener: tokio::net::TcpListener,
-    app: axum::Router,
-    stopped: tokio::sync::watch::Receiver<bool>,
-) -> io::Result<()> {
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .with_graceful_shutdown(wait_for_stop(stopped))
-    .await
+enum Accepted {
+    Tcp(tokio::net::TcpStream, SocketAddr),
+    #[cfg(target_os = "linux")]
+    Unix(tokio::net::UnixStream),
 }
 
-async fn wait_for_stop(mut stopped: tokio::sync::watch::Receiver<bool>) {
+async fn serve_connection<I, P>(
+    stream: I,
+    peer: P,
+    app: axum::Router,
+    stopped: watch::Receiver<bool>,
+    permit: OwnedSemaphorePermit,
+    header_timeout: Duration,
+    deadline: tokio::time::Instant,
+) where
+    I: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+    P: Clone + Send + Sync + 'static,
+{
+    let _permit = permit;
+    let router = hyper_util::service::TowerToHyperService::new(app);
+    let service =
+        hyper::service::service_fn(move |mut request: hyper::Request<hyper::body::Incoming>| {
+            // Set the actual listener identity on every request, including reuse
+            // of the connection. Headers never supply this extension.
+            request.extensions_mut().insert(ConnectInfo(peer.clone()));
+            hyper::service::Service::call(&router, request)
+        });
+    let mut builder = hyper::server::conn::http1::Builder::new();
+    builder
+        .timer(hyper_util::rt::TokioTimer::new())
+        .header_read_timeout(header_timeout);
+    let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(stream), service);
+    tokio::pin!(connection);
+    let exchange = async {
+        tokio::select! {
+            biased;
+            () = wait_for_stop(stopped) => {
+                connection.as_mut().graceful_shutdown();
+                let _ = connection.await;
+            }
+            _ = &mut connection => {}
+        }
+    };
+    // This deadline starts at acceptance and includes silent connections,
+    // headers, request bodies, handlers, response writes and keep-alive reuse.
+    // Client errors may contain private input, so do not log their contents.
+    let _ = tokio::time::timeout_at(deadline, exchange).await;
+}
+
+async fn wait_for_stop(mut stopped: watch::Receiver<bool>) {
     if !*stopped.borrow_and_update() {
         let _ = stopped.changed().await;
     }
@@ -128,10 +245,92 @@ impl Drop for SocketGuard {
     }
 }
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(all(test, target_os = "linux"))]
-mod tests {
+mod unix_tests {
     use super::*;
     use std::os::unix::fs::{PermissionsExt, symlink};
+
+    #[tokio::test]
+    async fn unix_and_tcp_connections_share_admission_before_headers_are_complete() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("public.sock");
+        let public = PublicListener::Unix(UnixListener::bind(&path).unwrap());
+        let api = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = api.local_addr().unwrap();
+        let limits = board_config::PublicRequestLimits::from_lookup(|name| {
+            (name == "PUBLIC_MAX_CONNECTIONS").then(|| "1".into())
+        })
+        .unwrap();
+        let budget = ConnectionBudget::new(limits);
+        let app = axum::Router::new().route("/healthz", axum::routing::get(|| async { "healthy" }));
+        let (stop, stopped) = watch::channel(false);
+        let public_server =
+            tokio::spawn(public.serve(app.clone(), stopped.clone(), budget.clone()));
+        let api_server = tokio::spawn(PublicListener::Tcp(api).serve(app, stopped, budget.clone()));
+        let mut held = tokio::net::UnixStream::connect(&path).await.unwrap();
+        held.write_all(b"GET /healthz HTTP/1.1\r\n").await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while budget.admission.available_permits() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+
+        let mut excess = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut response = Vec::new();
+        let closed =
+            tokio::time::timeout(Duration::from_secs(2), excess.read_to_end(&mut response))
+                .await
+                .expect("the API must reject a socket while the Unix connection holds admission");
+        assert!(response.is_empty());
+        assert!(
+            closed.is_ok()
+                || closed.is_err_and(|error| matches!(
+                    error.kind(),
+                    io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted
+                ))
+        );
+        drop(held);
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while budget.admission.available_permits() != 1 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+
+        let mut healthy = tokio::net::TcpStream::connect(address).await.unwrap();
+        healthy
+            .write_all(b"GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
+        let mut response = String::new();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            healthy.read_to_string(&mut response),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(response.starts_with("HTTP/1.1 200") && response.ends_with("healthy"));
+        stop.send(true).unwrap();
+        tokio::time::timeout(Duration::from_secs(2), public_server)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), api_server)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(!path.exists());
+    }
 
     #[tokio::test]
     async fn unix_shutdown_retains_the_owned_socket_until_requests_drain() {
@@ -156,7 +355,11 @@ mod tests {
             }),
         );
         let (stop, stopped) = tokio::sync::watch::channel(false);
-        let server = tokio::spawn(listener.serve(app, stopped));
+        let server = tokio::spawn(listener.serve(
+            app,
+            stopped,
+            ConnectionBudget::new(board_config::PublicRequestLimits::default()),
+        ));
         let mut client = tokio::net::UnixStream::connect(&path).await.unwrap();
         client
             .write_all(b"GET /hold HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
@@ -208,7 +411,11 @@ mod tests {
                 Some(expected),
             );
             let (stop, stopped) = tokio::sync::watch::channel(false);
-            let server = tokio::spawn(listener.serve(app, stopped));
+            let server = tokio::spawn(listener.serve(
+                app,
+                stopped,
+                ConnectionBudget::new(board_config::PublicRequestLimits::default()),
+            ));
             for (headers, status) in [
                 ("X-Board-Client-IP: 192.0.2.1\r\n", 200),
                 ("", 400),

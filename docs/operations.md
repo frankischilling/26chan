@@ -63,7 +63,18 @@ successful scrape, or local webhook delivery as equivalent production coverage.
 
 Comment limits count Rust `chars()` and PostgreSQL `char_length` in a UTF8 database. New comments normalize CRLF and bare CR to LF before the board character check; combining marks count separately. [Source spacing cleanup](source-comment-spacing.md) then applies locked operator policy while retaining independent storage ceilings. Existing text is unchanged. A maximum comment can occupy 64,000 bytes before HTML escaping. Thread and catalog row caps do not establish a safe aggregate response-memory budget. Mixed load, large responses and the candidate OS memory ceiling still need external qualification.
 
-Admission remains occupied after a handler returns while its response body or emitted data is retained. The final body layer runs after API error/HEAD/OPTIONS transformations; data clones and slices share the permit owner. Dropping an unconsumed response or releasing its completed data frees capacity. Empty responses release immediately. This is a count limit, not a byte budget or acknowledgement that the client received data. Small overload responses, kernel buffers and copies made by downstream consumers are outside it. Configure and exercise proxy connection, header and response-write timeouts: a slow client can still occupy a slot, and the ten-second handler timeout does not cover the socket write. See [admission verification](verification-response-admission.md).
+Admission remains occupied after a handler returns while its response body or emitted data is retained. The final body layer runs after API error/HEAD/OPTIONS transformations; data clones and slices share the permit owner. Dropping an unconsumed response or releasing its completed data frees capacity. Empty responses release immediately. This is a count limit, not a byte budget or acknowledgement that the client received data. Small overload responses, kernel buffers and copies made by downstream consumers are outside it. See [admission verification](verification-response-admission.md).
+
+Public and JSON API serving share a [connection budget](public-request-limits.md)
+separate from request admission.
+The defaults admit 128 connections, allow 10 seconds for HTTP request headers and
+close each connection after an absolute 120-second lifetime. The lifetime also
+bounds stalled request bodies, handlers, response writes and graceful draining;
+it is not renewed by keep-alive traffic. Excess sockets close before HTTP parsing.
+These limits do not cancel blocking work or prove that a response was received.
+Do not replay a write automatically after an interrupted response. Configure and
+qualify the proxy's own connections, timeouts and resource ceilings on the deployed
+host. Staff, media and metrics retain their separate transport policies.
 
 ## Backup and recovery
 

@@ -35,8 +35,9 @@ responses/data allocations may be admitted at once. Authentication and expositio
 do not query databases. The exporter uses HTTP/1 with at most 16 accepted
 connection tasks, no keep-alive, and a 10-second total connection deadline,
 including request headers and response writes. Pending OS accepts are outside
-that task count. Public/staff/media transport deadlines and deployed host resource
-limits still need separate qualification.
+that task count. Public and JSON API serving share their own
+[connection and deadline budgets](public-request-limits.md). Staff/media transport
+deadlines and deployed host resource limits still need separate qualification.
 
 | Series | Meaning |
 |---|---|

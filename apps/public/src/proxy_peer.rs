@@ -8,17 +8,6 @@ use std::net::{IpAddr, SocketAddr};
 #[derive(Clone, Copy)]
 pub(crate) struct UnixPeer(pub Option<u32>);
 
-#[cfg(target_os = "linux")]
-impl
-    axum::extract::connect_info::Connected<
-        axum::serve::IncomingStream<'_, tokio::net::UnixListener>,
-    > for UnixPeer
-{
-    fn connect_info(stream: axum::serve::IncomingStream<'_, tokio::net::UnixListener>) -> Self {
-        Self(stream.io().peer_cred().ok().map(|cred| cred.uid()))
-    }
-}
-
 pub(crate) fn resolve(
     request: &Request,
     proxy_uid: Option<u32>,

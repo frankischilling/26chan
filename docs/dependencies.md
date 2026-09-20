@@ -1,5 +1,16 @@
 # Dependency and update inventory
 
+Public connection limits reuse pinned Hyper 1.11.1 and Hyper-util 0.1.20. The public
+crate now declares the `server` and `service` features it directly uses; those
+features were already present through the metrics crate. No registry versions or
+checksums change. HTTP/1 parsing uses Hyper's
+[header deadline](https://docs.rs/hyper/1.11.1/hyper/server/conn/http1/struct.Builder.html#method.header_read_timeout)
+with a Tokio timer. The listener owns its connection tasks, each with a total
+deadline covering sockets, requests and responses. Listener cancellation aborts
+those tasks; ordinary shutdown drains them within their existing deadlines.
+Hyper and Tokio remain part of the public process's trust base; these limits do
+not establish soundness of their parsers or deployed host capacity.
+
 JPEG input uses [zune-jpeg 0.5.15](https://docs.rs/zune-jpeg/0.5.15/zune_jpeg/)
 and locked zune-core 0.5.3 exclusively in the disposable guest. The direct
 declaration disables default features and enables only `std`; x86/NEON SIMD
