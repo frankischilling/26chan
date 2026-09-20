@@ -441,6 +441,101 @@ async fn keep_alive_reuses_within_one_absolute_lifetime_and_does_not_reset_it() 
 }
 
 #[tokio::test]
+async fn idle_keep_alive_retires_before_the_hard_deadline() {
+    let (listener, address) = listener().await;
+    let app = Router::new().route("/", get(|| async { "ok" }));
+    let budget = ConnectionBudget::new(limits(1, 10000, 4000));
+    let (stop, stopped) = watch::channel(false);
+    let server = serve(listener, app, stopped, budget.clone());
+
+    let mut client = connect(address).await;
+    permits(&budget, 0).await;
+    let admitted = tokio::time::Instant::now();
+    request(&mut client, "/", false).await;
+    assert!(response(&mut client).await.ends_with("ok"));
+
+    // The 4 second hard lifetime has a 500 ms retirement window. An idle
+    // keep-alive connection must close inside that window rather than remaining
+    // available for a pooled client to reuse right up to the hard cutoff.
+    tokio::time::sleep_until(admitted + Duration::from_millis(3000)).await;
+    assert_eq!(
+        closed_bytes(&mut client, Duration::from_millis(600)).await,
+        0,
+        "idle keep-alive connection survived past its retirement window"
+    );
+    permits(&budget, 1).await;
+
+    stop.send(true).unwrap();
+    finish(server).await;
+}
+
+#[tokio::test]
+async fn keep_alive_retires_before_the_hard_deadline_after_draining_an_inflight_request() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let (listener, address) = listener().await;
+    let started = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let completed = Arc::new(AtomicUsize::new(0));
+    let app = Router::new().route("/one", get(|| async { "one" })).route(
+        "/hold",
+        post({
+            let started = started.clone();
+            let release = release.clone();
+            let completed = completed.clone();
+            move || {
+                let started = started.clone();
+                let release = release.clone();
+                let completed = completed.clone();
+                async move {
+                    started.notify_one();
+                    release.notified().await;
+                    completed.fetch_add(1, Ordering::Relaxed);
+                    "drained"
+                }
+            }
+        }),
+    );
+    let budget = ConnectionBudget::new(limits(1, 10000, 4000));
+    let (stop, stopped) = watch::channel(false);
+    let server = serve(listener, app, stopped, budget.clone());
+
+    let mut client = connect(address).await;
+    permits(&budget, 0).await;
+    let admitted = tokio::time::Instant::now();
+    request(&mut client, "/one", false).await;
+    assert!(response(&mut client).await.ends_with("one"));
+
+    // The 4 second hard lifetime leaves a 500 ms retirement window. Start a
+    // request before that window, keep it active across the soft cutoff, then
+    // let it finish. Graceful retirement must deliver this response and close
+    // the keep-alive connection instead of leaving it reusable until 4 seconds.
+    tokio::time::sleep_until(admitted + Duration::from_millis(3100)).await;
+    client
+        .write_all(
+            b"POST /hold HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n",
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(OUTER, started.notified())
+        .await
+        .expect("held request did not start before retirement");
+    tokio::time::sleep_until(admitted + Duration::from_millis(3600)).await;
+    release.notify_one();
+    assert!(response(&mut client).await.ends_with("drained"));
+    assert_eq!(completed.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        closed_bytes(&mut client, Duration::from_millis(200)).await,
+        0,
+        "retired keep-alive connection remained reusable near its hard deadline"
+    );
+    permits(&budget, 1).await;
+
+    stop.send(true).unwrap();
+    finish(server).await;
+}
+
+#[tokio::test]
 async fn absolute_connection_deadline_cancels_a_held_handler_and_releases_its_permit() {
     let (listener, address) = listener().await;
     let started = Arc::new(Notify::new());
