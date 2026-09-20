@@ -225,7 +225,7 @@ mod tests {
                 release: release.clone(),
             });
         let (stop, stopped) = tokio::sync::watch::channel(false);
-        let server = tokio::spawn(serve_pair(
+        let mut server = tokio::spawn(serve_pair(
             PublicListener::Tcp(public_listener),
             app.clone(),
             Some(api_listener),
@@ -242,8 +242,12 @@ mod tests {
                 .expect("server keeps its active-request channel open");
         }
         stop.send(true).unwrap();
-        tokio::task::yield_now().await;
-        assert!(!server.is_finished());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), &mut server)
+                .await
+                .is_err(),
+            "paired listeners stopped before active requests could drain"
+        );
         release.notify_one();
         release.notify_one();
         let public_response = tokio::task::spawn_blocking(move || read_response(public_client));

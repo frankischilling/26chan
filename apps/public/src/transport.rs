@@ -355,7 +355,7 @@ mod unix_tests {
             }),
         );
         let (stop, stopped) = tokio::sync::watch::channel(false);
-        let server = tokio::spawn(listener.serve(
+        let mut server = tokio::spawn(listener.serve(
             app,
             stopped,
             ConnectionBudget::new(board_config::PublicRequestLimits::default()),
@@ -369,8 +369,12 @@ mod unix_tests {
             .await
             .unwrap();
         stop.send(true).unwrap();
-        tokio::task::yield_now().await;
-        assert!(!server.is_finished());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), &mut server)
+                .await
+                .is_err(),
+            "Unix listener stopped before its active request could drain"
+        );
         assert!(path.exists());
         release.notify_one();
         let mut response = String::new();
