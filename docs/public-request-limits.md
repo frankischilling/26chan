@@ -50,10 +50,13 @@ socket is accepted and covers silent peers, headers, bodies,
 handlers, response writes and keep-alive time. It is not reset by later requests
 on the same connection. Before that hard deadline, the server gracefully retires
 the connection with a lead time equal to the smaller of the handler timeout and
-one eighth of the connection lifetime. Retirement stops new keep-alive requests;
-an exchange already in progress may finish during the remaining window. The hard
-deadline still cancels anything that has not drained by then. With the defaults,
-graceful retirement begins at 110 seconds and the hard cutoff remains 120 seconds.
+one eighth of the connection lifetime. Retirement closes idle connections and
+prevents a header block that becomes complete at or after the retirement instant
+from entering the router, including a first request whose headers were already
+being read. An exchange dispatched before retirement may finish during the
+remaining window. The hard deadline still cancels anything that has not drained
+by then. With the defaults, graceful retirement begins at 110 seconds and the
+hard cutoff remains 120 seconds.
 
 Ordinary shutdown stops acceptance and drains owned connection tasks under their
 original deadlines. Cancelling the serving future aborts those tasks. The
@@ -172,11 +175,12 @@ keep-alive reuse and retirement, incomplete request bodies, blocked response
 writes, listener cancellation, panic isolation and graceful draining. The
 retirement regression keeps a request active across the soft cutoff, verifies its
 response completes, then verifies the keep-alive socket closes before the hard
-deadline. Header tests set the total connection lifetime beyond the outer test
-deadline, so a total timeout cannot hide missing header enforcement. The response
-test leaves a small client receive buffer unread, observes the producer stop
-advancing, and serves a healthy control request before the blocked connection
-expires.
+deadline. It also holds first and reused header blocks across retirement and
+verifies that completing them afterward cannot enter the router. Header tests set
+the total connection lifetime beyond the outer test deadline, so a total timeout
+cannot hide missing header enforcement. The response test leaves a small client
+receive buffer unread, observes the producer stop advancing, and serves a healthy
+control request before the blocked connection expires.
 
 `apps/public/src/main.rs` exercises the actual paired-listener entry point in
 both admission directions and checks normal draining. Linux tests in
