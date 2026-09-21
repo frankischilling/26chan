@@ -28,10 +28,11 @@ It does mean a filtered HTML response contains the complete public snapshot;
 filtering is not a confidentiality boundary.
 
 Both server and client use the bounded operator/case contract in
-[catalog search](catalog-search.md). They still match subject, raw comment and
-non-deleted filename separately rather than claiming parity with the reference's
-generated teaser. Sorting continues to use the same snapshot and preserves
-optional reply IDs, sticky priority and exact integer ranks.
+[catalog search](catalog-search.md). They match one serialized subject/teaser
+value and test the non-deleted filename separately, following the observed field
+composition. Complete teaser preprocessing and filename parity remain open under
+#82. Sorting continues to use the same snapshot and preserves optional reply IDs,
+sticky priority and exact integer ranks.
 
 ## State, URLs and failure handling
 
