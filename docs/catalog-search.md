@@ -32,11 +32,12 @@ backtracking, nested repetition, lookarounds or backreferences. The worst-case
 literal comparison work is proportional to input units times the bounded total
 query units. Existing public admission and handler deadlines remain in force.
 
-The server still searches subject, raw comment and non-deleted display filename
-as separate fields. The reference client searches its generated teaser and file
-field, whose server preprocessing is not established by the permitted source.
-Field selection is therefore still a documented difference. [Live filtering](catalog-live-search.md)
-now uses the same bounded pattern contract with the observed 250 ms debounce,
+The server and live client search one serialized subject/teaser value and match
+the non-deleted display filename separately, following the pinned client's
+observed field composition. Issue #82 remains open for complete teaser
+preprocessing and filename parity, including formatting, whitespace, truncation
+and filename edge behavior. [Live filtering](catalog-live-search.md)
+uses the same bounded pattern contract with the observed 250 ms debounce,
 per-tab storage keys and fragment links. The original search-toggle interface and
 complete generated-teaser parity remain unfinished. GET is retained as fallback.
 
