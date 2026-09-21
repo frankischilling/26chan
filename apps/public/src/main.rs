@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use board_config::Settings;
-use board_public::transport::{PublicListener, serve_tcp};
+use board_public::transport::{ConnectionBudget, PublicListener};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -44,7 +44,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let serving = metrics_endpoint.serve(
         metrics,
-        serve_pair(listener, app, api_listener, api_app, stopped),
+        serve_pair(
+            listener,
+            app,
+            api_listener,
+            api_app,
+            stopped,
+            settings.request_limits,
+        ),
     );
     tokio::pin!(serving);
     let result = tokio::select! {
@@ -65,10 +72,15 @@ async fn serve_pair(
     api_listener: Option<tokio::net::TcpListener>,
     api_app: axum::Router,
     stopped: tokio::sync::watch::Receiver<bool>,
+    limits: board_config::PublicRequestLimits,
 ) -> std::io::Result<()> {
-    let public = listener.serve(app, stopped.clone());
+    let budget = ConnectionBudget::new(limits);
+    let public = listener.serve(app, stopped.clone(), budget.clone());
     if let Some(api_listener) = api_listener {
-        tokio::try_join!(public, serve_tcp(api_listener, api_app, stopped))?;
+        tokio::try_join!(
+            public,
+            PublicListener::Tcp(api_listener).serve(api_app, stopped, budget)
+        )?;
     } else {
         public.await?;
     }
@@ -112,6 +124,93 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn paired_listeners_share_connection_admission_in_both_directions() {
+        for public_first in [true, false] {
+            let public_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let public_address = public_listener.local_addr().unwrap();
+            let api_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let api_address = api_listener.local_addr().unwrap();
+            let (started, mut active) = mpsc::unbounded_channel();
+            let release = Arc::new(Notify::new());
+            let app = Router::new()
+                .route("/hold", get(hold))
+                .with_state(TestState {
+                    started,
+                    release: release.clone(),
+                });
+            let limits = board_config::PublicRequestLimits::from_lookup(|name| {
+                (name == "PUBLIC_MAX_CONNECTIONS").then(|| "1".into())
+            })
+            .unwrap();
+            let (stop, stopped) = tokio::sync::watch::channel(false);
+            let server = tokio::spawn(serve_pair(
+                PublicListener::Tcp(public_listener),
+                app.clone(),
+                Some(api_listener),
+                app,
+                stopped,
+                limits,
+            ));
+            let (first, second) = if public_first {
+                (public_address, api_address)
+            } else {
+                (api_address, public_address)
+            };
+            let held = request_hold(first);
+            tokio::time::timeout(Duration::from_secs(2), active.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            let mut excess = request_hold(second);
+            tokio::task::spawn_blocking(move || {
+                let mut response = String::new();
+                let result = excess.read_to_string(&mut response);
+                assert!(response.is_empty(), "excess connection reached a handler");
+                match result {
+                    Ok(0) => {}
+                    Err(error)
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::ConnectionReset
+                                | std::io::ErrorKind::ConnectionAborted
+                                | std::io::ErrorKind::BrokenPipe
+                        ) => {}
+                    other => panic!("excess connection did not close promptly: {other:?}"),
+                }
+            })
+            .await
+            .unwrap();
+            assert!(active.try_recv().is_err());
+            release.notify_one();
+            assert!(
+                tokio::task::spawn_blocking(move || read_response(held))
+                    .await
+                    .unwrap()
+                    .starts_with("HTTP/1.1 200")
+            );
+
+            let recovered = request_hold(second);
+            tokio::time::timeout(Duration::from_secs(2), active.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            release.notify_one();
+            assert!(
+                tokio::task::spawn_blocking(move || read_response(recovered))
+                    .await
+                    .unwrap()
+                    .starts_with("HTTP/1.1 200")
+            );
+            stop.send(true).unwrap();
+            tokio::time::timeout(Duration::from_secs(2), server)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+        }
+    }
+
+    #[tokio::test]
     async fn paired_listener_shutdown_drains_requests_before_releasing_sockets() {
         let public_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let public_address = public_listener.local_addr().unwrap();
@@ -126,12 +225,13 @@ mod tests {
                 release: release.clone(),
             });
         let (stop, stopped) = tokio::sync::watch::channel(false);
-        let server = tokio::spawn(serve_pair(
+        let mut server = tokio::spawn(serve_pair(
             PublicListener::Tcp(public_listener),
             app.clone(),
             Some(api_listener),
             app,
             stopped,
+            board_config::PublicRequestLimits::default(),
         ));
         let public_client = request_hold(public_address);
         let api_client = request_hold(api_address);
@@ -142,8 +242,12 @@ mod tests {
                 .expect("server keeps its active-request channel open");
         }
         stop.send(true).unwrap();
-        tokio::task::yield_now().await;
-        assert!(!server.is_finished());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), &mut server)
+                .await
+                .is_err(),
+            "paired listeners stopped before active requests could drain"
+        );
         release.notify_one();
         release.notify_one();
         let public_response = tokio::task::spawn_blocking(move || read_response(public_client));

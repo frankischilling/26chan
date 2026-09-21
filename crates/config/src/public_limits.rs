@@ -5,11 +5,14 @@ use std::{collections::BTreeMap, time::Duration};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicRequestLimits {
     active_requests: usize,
+    connections: usize,
     hash_operations: usize,
     uploads: usize,
     writes_per_minute: u32,
     tracked_peers: usize,
     handler_timeout: Duration,
+    header_timeout: Duration,
+    connection_timeout: Duration,
 }
 
 impl Default for PublicRequestLimits {
@@ -19,13 +22,16 @@ impl Default for PublicRequestLimits {
 }
 
 impl PublicRequestLimits {
-    pub const NAMES: [&'static str; 6] = [
+    pub const NAMES: [&'static str; 9] = [
         "PUBLIC_MAX_ACTIVE_REQUESTS",
+        "PUBLIC_MAX_CONNECTIONS",
         "PUBLIC_MAX_HASH_OPERATIONS",
         "PUBLIC_MAX_UPLOADS",
         "PUBLIC_WRITES_PER_MINUTE",
         "PUBLIC_MAX_TRACKED_PEERS",
         "PUBLIC_HANDLER_TIMEOUT_MS",
+        "PUBLIC_HEADER_TIMEOUT_MS",
+        "PUBLIC_CONNECTION_TIMEOUT_MS",
     ];
 
     pub fn from_env() -> Result<Self, ConfigError> {
@@ -71,41 +77,62 @@ impl PublicRequestLimits {
                 1024,
                 "PUBLIC_MAX_ACTIVE_REQUESTS must be a decimal integer from 1 through 1024.",
             )? as usize,
-            hash_operations: read(
+            connections: read(
                 Self::NAMES[1],
+                128,
+                4096,
+                "PUBLIC_MAX_CONNECTIONS must be a decimal integer from 1 through 4096.",
+            )? as usize,
+            hash_operations: read(
+                Self::NAMES[2],
                 4,
                 32,
                 "PUBLIC_MAX_HASH_OPERATIONS must be a decimal integer from 1 through 32.",
             )? as usize,
             uploads: read(
-                Self::NAMES[2],
+                Self::NAMES[3],
                 4,
                 32,
                 "PUBLIC_MAX_UPLOADS must be a decimal integer from 1 through 32.",
             )? as usize,
             writes_per_minute: read(
-                Self::NAMES[3],
+                Self::NAMES[4],
                 30,
                 10_000,
                 "PUBLIC_WRITES_PER_MINUTE must be a decimal integer from 1 through 10000.",
             )? as u32,
             tracked_peers: read(
-                Self::NAMES[4],
+                Self::NAMES[5],
                 10_000,
                 100_000,
                 "PUBLIC_MAX_TRACKED_PEERS must be a decimal integer from 1 through 100000.",
             )? as usize,
             handler_timeout: Duration::from_millis(read(
-                Self::NAMES[5],
+                Self::NAMES[6],
                 10_000,
                 120_000,
                 "PUBLIC_HANDLER_TIMEOUT_MS must be a decimal integer from 1 through 120000.",
+            )?),
+            header_timeout: Duration::from_millis(read(
+                Self::NAMES[7],
+                10_000,
+                120_000,
+                "PUBLIC_HEADER_TIMEOUT_MS must be a decimal integer from 1 through 120000.",
+            )?),
+            connection_timeout: Duration::from_millis(read(
+                Self::NAMES[8],
+                120_000,
+                600_000,
+                "PUBLIC_CONNECTION_TIMEOUT_MS must be a decimal integer from 1 through 600000.",
             )?),
         })
     }
 
     pub fn active_requests(self) -> usize {
         self.active_requests
+    }
+    pub fn connections(self) -> usize {
+        self.connections
     }
     pub fn hash_operations(self) -> usize {
         self.hash_operations
@@ -122,6 +149,12 @@ impl PublicRequestLimits {
     pub fn handler_timeout(self) -> Duration {
         self.handler_timeout
     }
+    pub fn header_timeout(self) -> Duration {
+        self.header_timeout
+    }
+    pub fn connection_timeout(self) -> Duration {
+        self.connection_timeout
+    }
 }
 
 #[cfg(test)]
@@ -132,19 +165,21 @@ mod tests {
     fn defaults_preserve_existing_budgets() {
         let limits = PublicRequestLimits::default();
         assert_eq!(limits.active_requests(), 32);
+        assert_eq!(limits.connections(), 128);
         assert_eq!(limits.hash_operations(), 4);
         assert_eq!(limits.uploads(), 4);
         assert_eq!(limits.writes_per_minute(), 30);
         assert_eq!(limits.tracked_peers(), 10_000);
         assert_eq!(limits.handler_timeout(), Duration::from_secs(10));
+        assert_eq!(limits.header_timeout(), Duration::from_secs(10));
+        assert_eq!(limits.connection_timeout(), Duration::from_secs(120));
     }
 
     #[test]
     fn every_budget_rejects_malformed_and_out_of_range_values_without_echoing_them() {
-        for (name, maximum) in PublicRequestLimits::NAMES
-            .into_iter()
-            .zip([1024, 32, 32, 10_000, 100_000, 120_000])
-        {
+        for (name, maximum) in PublicRequestLimits::NAMES.into_iter().zip([
+            1024, 4096, 32, 32, 10_000, 100_000, 120_000, 120_000, 600_000,
+        ]) {
             for value in [
                 "",
                 "0",
@@ -171,7 +206,10 @@ mod tests {
                 .is_err()
             );
             for value in [1, maximum] {
-                assert!(PublicRequestLimits::from_lookup(|key| (key == name).then(|| value.to_string())).is_ok());
+                assert!(PublicRequestLimits::from_lookup(
+                    |key| (key == name).then(|| value.to_string())
+                )
+                .is_ok());
             }
         }
     }
