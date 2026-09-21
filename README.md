@@ -20,7 +20,7 @@ Requirements:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl
+sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light
 
 git clone https://github.com/frankischilling/26chan.git
 cd 26chan
