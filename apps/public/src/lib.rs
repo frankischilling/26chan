@@ -7,6 +7,7 @@ mod derefer;
 mod handlers;
 mod intake;
 mod native_updater_snapshot;
+mod output;
 mod post_receipts;
 mod posting_form;
 mod posting_response;
@@ -156,7 +157,11 @@ fn routers_with_proxy(
         proxy_uid,
     };
     let mut public = Router::new()
-        .merge(themes::routes(state.origin.clone(), state.production))
+        .merge(themes::routes_with_limits(
+            state.origin.clone(),
+            state.production,
+            state.limits.clone(),
+        ))
         .merge(ui_assets::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))

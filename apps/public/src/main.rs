@@ -37,7 +37,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         tracing::info!(bind = %settings.bind, media_enabled = settings.media.is_some(), "public server started");
     }
-    tracing::info!(request_limits = ?settings.request_limits, "public request budgets configured");
+    tracing::info!(
+        request_limits = ?settings.request_limits,
+        response_bytes = settings.request_limits.response_bytes(),
+        response_buffer_bytes = settings.request_limits.response_buffer_bytes(),
+        "public request budgets configured"
+    );
     if let Some(api) = &settings.api {
         tracing::info!(bind = %api.bind, origin = %api.origin.as_string(), "JSON API listener started");
     }

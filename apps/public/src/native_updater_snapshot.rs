@@ -93,7 +93,8 @@ fn encode(
     snapshot: board_store::ThreadSnapshot,
     media_origin: &str,
     limit: usize,
-) -> Result<Vec<u8>, AppError> {
+    output: board_http::ResponseWriter,
+) -> Result<board_http::EncodedResponse, AppError> {
     let board_store::ThreadSnapshot {
         board,
         thread,
@@ -179,16 +180,15 @@ fn encode(
         tail_size,
         tail_id: tail_id.map(|id| id.to_string()),
     };
-    let mut output = LimitedOutput::new(limit);
-    serde_json::to_writer(&mut output, &result).map_err(|_| unavailable())?;
-    Ok(output.bytes)
+    crate::output::json(output, &result).map_err(|_| unavailable())
 }
 
 fn encode_preview(
     snapshot: board_store::PostSnapshot,
     media_origin: &str,
     limit: usize,
-) -> Result<Vec<u8>, AppError> {
+    encoded: board_http::ResponseWriter,
+) -> Result<board_http::EncodedResponse, AppError> {
     let board_store::PostSnapshot {
         board,
         thread,
@@ -238,9 +238,7 @@ fn encode_preview(
             html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
         },
     };
-    let mut output = LimitedOutput::new(limit);
-    serde_json::to_writer(&mut output, &preview).map_err(|_| unavailable())?;
-    Ok(output.bytes)
+    crate::output::json(encoded, &preview).map_err(|_| unavailable())
 }
 
 pub(crate) async fn get_preview(
@@ -266,7 +264,13 @@ pub(crate) async fn get_preview(
         .as_ref()
         .map(|media| media.settings.origin.as_string())
         .unwrap_or_default();
-    let bytes = encode_preview(snapshot, &media_origin, MAX_PREVIEW_BYTES)?;
+    let limit = state.limits.response_limit(MAX_PREVIEW_BYTES);
+    let bytes = encode_preview(
+        snapshot,
+        &media_origin,
+        limit,
+        state.limits.response_writer(limit),
+    )?;
     // The ETag includes every rendered field. A board-only policy change can
     // change this projection without advancing the thread's timestamp.
     crate::api::bytes_response(bytes, None, &headers)
@@ -316,7 +320,13 @@ async fn selected(
         .as_ref()
         .map(|media| media.settings.origin.as_string())
         .unwrap_or_default();
-    let bytes = encode(snapshot, &media_origin, MAX_BYTES)?;
+    let limit = state.limits.response_limit(MAX_BYTES);
+    let bytes = encode(
+        snapshot,
+        &media_origin,
+        limit,
+        state.limits.response_writer(limit),
+    )?;
     crate::api::bytes_response(bytes, Some(modified), &headers)
 }
 
@@ -324,6 +334,28 @@ async fn selected(
 mod tests {
     use super::*;
     use board_store::{Board, Post, Thread, ThreadSnapshot, post_media::PostAttachment};
+
+    // Production hands the charged blocks directly to the transport. These
+    // helpers collect the same encoder's bytes for the existing literal checks.
+    fn encode(
+        snapshot: ThreadSnapshot,
+        media_origin: &str,
+        limit: usize,
+    ) -> Result<Vec<u8>, AppError> {
+        let budget = board_http::ResponseBudget::new(2 * MAX_BYTES).unwrap();
+        let encoded = super::encode(snapshot, media_origin, limit, budget.writer(limit))?;
+        Ok(encoded.chunks().flatten().copied().collect())
+    }
+
+    fn encode_preview(
+        snapshot: board_store::PostSnapshot,
+        media_origin: &str,
+        limit: usize,
+    ) -> Result<Vec<u8>, AppError> {
+        let budget = board_http::ResponseBudget::new(2 * MAX_PREVIEW_BYTES).unwrap();
+        let encoded = super::encode_preview(snapshot, media_origin, limit, budget.writer(limit))?;
+        Ok(encoded.chunks().flatten().copied().collect())
+    }
 
     fn fixture() -> ThreadSnapshot {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();

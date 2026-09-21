@@ -4,7 +4,7 @@ use askama::Template;
 use axum::{
     extract::{RawQuery, State},
     http::{HeaderMap, StatusCode, header},
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
 };
 use url::Url;
 
@@ -76,9 +76,9 @@ pub async fn get(
         domain: url.host_str().expect("validated host").into(),
         destination,
     };
-    match page.render() {
-        Ok(html) => Html(html).into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    match crate::output::html(&state, &page) {
+        Ok(response) => response,
+        Err(error) => error.into_response(),
     }
 }
 

@@ -16,6 +16,7 @@ use tokio::sync::Semaphore;
 pub struct Limits {
     settings: board_config::PublicRequestLimits,
     active: std::sync::Arc<Semaphore>,
+    output: board_http::ResponseBudget,
     pub hashes: std::sync::Arc<Semaphore>,
     pub uploads: Semaphore,
     peers: Mutex<HashMap<IpAddr, (Instant, u32)>>,
@@ -26,10 +27,20 @@ impl Limits {
         Self {
             settings,
             active: std::sync::Arc::new(Semaphore::new(settings.active_requests())),
+            output: board_http::ResponseBudget::new(settings.response_buffer_bytes())
+                .expect("validated response buffer capacity"),
             hashes: std::sync::Arc::new(Semaphore::new(settings.hash_operations())),
             uploads: Semaphore::new(settings.uploads()),
             peers: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub(crate) fn response_writer(&self, limit: usize) -> board_http::ResponseWriter {
+        self.output.writer(self.response_limit(limit))
+    }
+
+    pub(crate) fn response_limit(&self, limit: usize) -> usize {
+        limit.min(self.settings.response_bytes())
     }
 }
 

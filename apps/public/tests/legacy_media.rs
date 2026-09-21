@@ -74,11 +74,14 @@ async fn legacy_manifest_upgrade_invalidates_public_and_api_dates_without_renumb
         let before = &old[0].2["posts"][0];
         assert!(before.get("md5").is_none()); assert!(before.get("tn_w").is_none());
         // Source metadata can be old while the independent HTTP clock is new.
-        // Cross its actual second before requiring a different date header.
+        // Cross its actual database second before requiring a different date
+        // header; the test runner may be on a different host and clock.
         let next_second = httpdate::parse_http_date(old[0].1.as_ref().unwrap()).unwrap()
             + std::time::Duration::from_secs(1);
+        let next_second = chrono::DateTime::<chrono::Utc>::from(next_second);
         tokio::time::timeout(std::time::Duration::from_secs(3), async {
-            while std::time::SystemTime::now() < next_second {
+            while !sqlx::query_scalar::<_, bool>("SELECT clock_timestamp() >= $1")
+                .bind(next_second).fetch_one(&test_owner).await.unwrap() {
                 tokio::time::sleep(std::time::Duration::from_millis(20)).await;
             }
         }).await.expect("owned backfill crosses the prior HTTP date second");

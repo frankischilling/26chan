@@ -4,15 +4,17 @@ use axum::{
     Form, Router,
     extract::{DefaultBodyLimit, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{IntoResponse, Redirect, Response},
     routing::get,
 };
 use serde::Deserialize;
+use std::sync::Arc;
 
 #[derive(Clone)]
 struct Settings {
     origin: String,
     production: bool,
+    limits: Arc<crate::security::Limits>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -118,6 +120,20 @@ impl Settings {
 /// Reused by the synthetic renderer; the normal app also applies its admission,
 /// write-rate, timeout and security-header middleware around these routes.
 pub fn routes<S: Clone + Send + Sync + 'static>(origin: String, production: bool) -> Router<S> {
+    routes_with_limits(
+        origin,
+        production,
+        Arc::new(crate::security::Limits::new(
+            board_config::PublicRequestLimits::default(),
+        )),
+    )
+}
+
+pub(crate) fn routes_with_limits<S: Clone + Send + Sync + 'static>(
+    origin: String,
+    production: bool,
+    limits: Arc<crate::security::Limits>,
+) -> Router<S> {
     Router::new()
         .route("/settings/theme", get(page).post(update))
         .route("/static/theme.css", get(stylesheet))
@@ -130,7 +146,11 @@ pub fn routes<S: Clone + Send + Sync + 'static>(origin: String, production: bool
             get(|| async { background(include_bytes!("../static/themes/fade-blue.png")) }),
         )
         .layer(DefaultBodyLimit::max(1024))
-        .with_state(Settings { origin, production })
+        .with_state(Settings {
+            origin,
+            production,
+            limits,
+        })
 }
 
 #[derive(Template)]
@@ -184,9 +204,9 @@ async fn page(
         return_to,
         worksafe: default.worksafe,
     };
-    match page.render() {
-        Ok(body) => private(Html(body).into_response()),
-        Err(_) => private(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+    match crate::output::html_writer(settings.limits.response_writer(usize::MAX), &page) {
+        Ok(response) => private(response),
+        Err(error) => private(error.into_response()),
     }
 }
 
@@ -269,18 +289,30 @@ async fn stylesheet(
     headers: HeaderMap,
 ) -> Response {
     let theme = settings.selection(&headers, default.theme());
-    private(
-        (
-            [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-            format!(
-                "{}\n{}\n{}",
-                include_str!("../static/themes/common.css"),
-                theme.css(),
-                include_str!("../../../assets/comment-markup-mobile.css")
-            ),
-        )
-            .into_response(),
+    let mut writer = settings.limits.response_writer(usize::MAX);
+    if std::fmt::Write::write_fmt(
+        &mut writer,
+        format_args!(
+            "{}\n{}\n{}",
+            include_str!("../static/themes/common.css"),
+            theme.css(),
+            include_str!("../../../assets/comment-markup-mobile.css")
+        ),
     )
+    .is_err()
+    {
+        return private(crate::output::unavailable().into_response());
+    }
+    match writer.finish() {
+        Ok(encoded) => private(
+            (
+                [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                encoded.into_body(),
+            )
+                .into_response(),
+        ),
+        Err(_) => private(crate::output::unavailable().into_response()),
+    }
 }
 
 fn private(mut response: Response) -> Response {
@@ -326,7 +358,11 @@ mod tests {
 
         #[test]
         fn arbitrary_cookie_values_only_select_literal_styles(value in "[ -~]{0,256}") {
-            let settings = Settings { origin: "https://board.example".into(), production: true };
+            let settings = Settings {
+                origin: "https://board.example".into(),
+                production: true,
+                limits: Arc::new(crate::security::Limits::new(board_config::PublicRequestLimits::default())),
+            };
             let mut headers = HeaderMap::new();
             headers.insert(header::COOKIE, format!("__Host-board-theme={value}").parse().unwrap());
             let selected = settings.selection(&headers, Theme::Yotsuba);
@@ -344,6 +380,9 @@ mod tests {
         let settings = Settings {
             origin: "http://127.0.0.1:3000".into(),
             production: false,
+            limits: Arc::new(crate::security::Limits::new(
+                board_config::PublicRequestLimits::default(),
+            )),
         };
         for theme in Theme::ALL {
             let mut headers = HeaderMap::new();
