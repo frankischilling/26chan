@@ -2,6 +2,13 @@ import { FILTER_LIMITS } from './native-filter-limits.js';
 import { readFilterRules, filterColor } from './native-filter-rules.js';
 import { filterEditor } from './native-filter-editor.js';
 
+const filenameEncoder = new TextEncoder();
+function spoilerFilename(file) {
+  if (file?.getAttribute('data-image-spoiler') !== 'true') return null;
+  const value = file.getAttribute('data-image-filename');
+  return value && value.length <= 255 && filenameEncoder.encode(value).length <= 255 && !/\p{Cc}/u.test(value) ? value : null;
+}
+
 function selectedFilter() {
   try {
     const selection = window.getSelection();
@@ -58,8 +65,8 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
       for (const [key, selector] of [['name', '.name'], ['trip', '.postertrip'], ['id', '.posteruid > :first-child'], ['sub', '.subject']]) {
         const element = query(info, selector); if (element) value[key] = projection ? projection.text(element) : element.textContent;
       }
-      const filename = query(post, '.file > p > a');
-      value.filename = projection ? projection.text(filename) : filename?.textContent ?? '';
+      const file = query(post, '.file'), filename = query(post, '.file > p > a');
+      value.filename = spoilerFilename(file) ?? (projection ? projection.text(filename) : filename?.textContent ?? '');
       for (const [key, text] of Object.entries(value)) {
         if (text.length > (key === 'com' ? FILTER_LIMITS.html : FILTER_LIMITS.field)) throw new Error('field-limit');
       }

@@ -59,7 +59,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
       const checked = optionChecked?.(key, initial);
       input.checked = (typeof checked === 'boolean' ? checked
-        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview', 'backlinks'].includes(key) ? initial[key] !== false : initial[key] === true))
+        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
@@ -70,7 +70,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     }
     let category;
     let expand;
-    let filterCategory, filterExpand, navigationCategory, navigationExpand;
+    let filterCategory, filterExpand, navigationCategory, navigationExpand, imageCategory, imageExpand;
     if (catalog) {
       form.append(node('h4', 'Options'));
       const options = node('ul', undefined, 'clickset');
@@ -83,6 +83,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
         category.hidden = false; expand.setAttribute('aria-expanded', 'true');
         filterCategory.hidden = false; filterExpand.setAttribute('aria-expanded', 'true');
         navigationCategory.hidden = false; navigationExpand.setAttribute('aria-expanded', 'true');
+        imageCategory.hidden = false; imageExpand.setAttribute('aria-expanded', 'true');
       }), ']');
       form.append(all);
       const heading = node('h3', undefined, 'settings-cat-lbl');
@@ -141,9 +142,27 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(navigationCategory, 'inlineQuotes', 'Inline quote links', 'Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining', undefined, true);
       const keys = option(navigationCategory, 'keyBinds', 'Use keyboard shortcuts', 'Enable handy keyboard shortcuts for common actions');
       keys.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
+      const imageHeading = node('h3', undefined, 'settings-cat-lbl');
+      imageCategory = node('ul', undefined, 'settings-cat');
+      imageCategory.id = 'settings-images';
+      imageCategory.hidden = Object.keys(initial).length !== 0;
+      imageExpand = button('Images & Media', () => {
+        imageCategory.hidden = !imageCategory.hidden;
+        imageExpand.setAttribute('aria-expanded', String(!imageCategory.hidden));
+      }, 'settings-expand');
+      imageExpand.setAttribute('aria-controls', imageCategory.id);
+      imageExpand.setAttribute('aria-label', 'Images & Media');
+      imageExpand.setAttribute('aria-expanded', String(!imageCategory.hidden));
+      imageHeading.append(imageExpand);
+      option(imageCategory, 'imageExpansion', 'Image expansion', 'Enable inline image expansion, limited to browser width');
+      option(imageCategory, 'fitToScreenExpansion', 'Fit expanded images to screen', 'Limit expanded images to both browser width and height', undefined, true);
+      option(imageCategory, 'imageHover', 'Image hover', 'Mouse over images to view full size, limited to browser size', undefined, true);
+      option(imageCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
+      option(imageCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
+      option(imageCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
-      form.append(filterHeading, filterCategory, navigationHeading, navigationCategory, heading, category, global);
+      form.append(filterHeading, filterCategory, navigationHeading, navigationCategory, heading, category, imageHeading, imageCategory, global);
     }
     const message = node('p', '', 'settingsMessage');
     message.setAttribute('role', 'status');

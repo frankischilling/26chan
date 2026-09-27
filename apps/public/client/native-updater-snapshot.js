@@ -9,7 +9,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'op', 'reply', 'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
-  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden'], span: ['class', 'tabindex', 'aria-label'],
+  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label'],
   time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
@@ -97,6 +97,15 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (['width', 'height', 'minlength', 'maxlength'].includes(key)) require(/^[1-9][0-9]{0,3}$/.test(value));
       if (key === 'autocomplete') require(value === 'off');
       if (key === 'required') require(value === '');
+      if (key.startsWith('data-')) {
+        require(node.tag === 'div' && node.attrs.class === 'file' && node.attrs['data-image-spoiler'] === 'true');
+        if (key === 'data-image-filename') {
+          require(value.length > 0 && value.length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
+            && new TextEncoder().encode(value).length <= 255);
+        } else if (['data-thumbnail-width', 'data-thumbnail-height'].includes(key)) {
+          require(/^[1-9][0-9]{0,3}$/.test(value) && Number(value) <= 1024);
+        } else require(value === 'true');
+      }
     }
     if (node.tag === 'form') {
       require(form === null && node.attrs.method === 'post' && ['delete', 'report'].some(action => node.attrs.action === `/${context.board}/${action}`));
