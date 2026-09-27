@@ -8,6 +8,8 @@ Development is ongoing. The explicit isolated development profile supports publi
 
 A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG and [JPEG decoders](docs/jpeg-media.md) inside a per-job guest and validates bounded output. All published files are normalized PNGs; original uploads are never downloadable. [Publication commands](docs/media-approval.md) provide durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. [HTTP intake](docs/media-intake.md) connects uploads to authenticated dispatch. Native JPEG verification and production host/storage qualification remain unfinished.
 
+[Native image controls](docs/native-image-controls.md) add inline expansion, screen fitting, hover previews and image display preferences to approved attachments. They share the existing settings and quote ownership rules, with finite full-image loading and an explicit media-origin boundary.
+
 ## Getting started
 
 The development scripts support Ubuntu 24.04, including Ubuntu running in WSL. Run the following commands in an Ubuntu terminal as a regular user with `sudo` access.
@@ -76,6 +78,7 @@ cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
+npm run test:images-core
 npm run test:behavior
 npm run test:staff
 sudo bash scripts/test-comment-migration.sh

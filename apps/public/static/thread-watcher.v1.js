@@ -8,6 +8,7 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
   localQuoteTree, prepareQuotePost, mobileQuoteDevice, NativeQuotePreviewTransport, checkedQuotePreview } from './native-filter.v1.js';
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
+import { mountNativeImages } from './native-images.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -268,6 +269,9 @@ function start(context) {
     quoteContext: link => nativeInlineQuotes?.quoteContext(link),
     companion: link => nativeBacklinks?.companion(link) ?? nativeInlineQuotes?.companion(link),
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
+  });
+  const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
+    mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family,
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
@@ -695,6 +699,7 @@ function start(context) {
     nativeBacklinks?.refresh();
     nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
+    nativeImages?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();
     nativeReplies?.refresh();

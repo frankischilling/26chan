@@ -9,6 +9,7 @@ pub(crate) const NATIVE_SETTINGS_PATH: &str = "/static/native-settings.v1.js";
 pub(crate) const WATCHER_POSITION_PATH: &str = "/static/watcher-position.v1.js";
 pub(crate) const NATIVE_FILTER_PATH: &str = "/static/native-filter.v1.js";
 pub(crate) const NATIVE_BACKLINKS_PATH: &str = "/static/native-backlinks.v1.js";
+pub(crate) const NATIVE_IMAGES_PATH: &str = "/static/native-images.v1.js";
 pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
@@ -422,6 +423,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            NATIVE_IMAGES_PATH,
+            include_bytes!("../static/native-images.v1.js").as_slice(),
+        ),
         (
             NATIVE_BACKLINKS_PATH,
             include_bytes!("../static/native-backlinks.v1.js").as_slice(),

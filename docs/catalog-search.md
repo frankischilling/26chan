@@ -34,12 +34,13 @@ query units. Existing public admission and handler deadlines remain in force.
 
 The server and live client search one serialized subject/teaser value and match
 the non-deleted display filename separately, following the pinned client's
-observed field composition. Issue #82 remains open for complete teaser
-preprocessing and filename parity, including formatting, whitespace, truncation
-and filename edge behavior. [Live filtering](catalog-live-search.md)
+observed field composition. The merged catalog teaser projection handles the
+known generated-break, formatting, board-policy and `/b/` truncation branches.
+Issue #82 remains open for the narrower public-reference gaps around entity and
+link-generated truncation boundaries and filename edge serialization. [Live filtering](catalog-live-search.md)
 uses the same bounded pattern contract with the observed 250 ms debounce,
 per-tab storage keys and fragment links. The original search-toggle interface and
-complete generated-teaser parity remain unfinished. GET is retained as fallback.
+complete surrounding catalog parity remain unfinished. GET is retained as fallback.
 
 No HTML rendering, CSP, database privileges, dependency, media or deployment
 policy changes are included. Production readiness and full search parity are
@@ -49,7 +50,9 @@ not established by this contract change.
 
 `tests/fixtures/catalog-search-cases.json` contains shared operator and case
 examples. Rust unit tests and the pinned Chromium browser execute the same
-expectations. Bounded property tests check literal/anchor behavior and code-unit
+expectations. `catalog-search-fields.spec.js` also feeds the shared serialized
+field and filename cases through the shipped catalog script instead of a test-only
+formatter. Bounded property tests check literal/anchor behavior and code-unit
 canonicalization; compilation-bound tests cover rejection and the maximum number
 of alternatives. Real database-backed catalog handlers test prefix, suffix and
 alternative queries alongside escaped output, deletion and visible ordering.

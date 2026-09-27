@@ -15,6 +15,14 @@ export async function attachComparedImage(info, name, bytes) {
 export async function readVisualState(page) {
   return page.evaluate(() => {
     const node = selector => document.querySelector(selector);
+    const path = value => {
+      if (!value) return null;
+      try {
+        const parsed = new URL(value, location.href);
+        return ['http:', 'https:'].includes(parsed.protocol) ? parsed.pathname.slice(0, 128) : null;
+      } catch { return null; }
+    };
+    const finite = value => Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
     const select = selector => {
       const value = node(selector)?.value;
       return ['small', 'large', 'on', 'off'].includes(value) ? value : null;
@@ -33,8 +41,17 @@ export async function readVisualState(page) {
         closed: element.dataset.closed === 'true', archived: element.dataset.archived === 'true',
         rect: [element.getBoundingClientRect().width, element.getBoundingClientRect().height],
       })),
-      images: Array.from(document.querySelectorAll('#threads img')).slice(0, 4)
-        .map(image => ({ complete: image.complete, size: [image.width, image.height], natural: [image.naturalWidth, image.naturalHeight] })),
+      images: Array.from(document.querySelectorAll('#threads img')).slice(0, 4).map(image => {
+        const rect = image.getBoundingClientRect();
+        return {
+          id: /^[a-zA-Z0-9_-]{1,64}$/.test(image.id) ? image.id : '',
+          source: path(image.getAttribute('src')),
+          spoilerSource: path(image.dataset.spoilerSrc),
+          complete: image.complete,
+          size: [image.width, image.height], natural: [image.naturalWidth, image.naturalHeight],
+          rect: [finite(rect.x), finite(rect.y), finite(rect.width), finite(rect.height)],
+        };
+      }),
       events: Array.isArray(window.ownedVisualEvents) ? window.ownedVisualEvents.slice(-8) : [],
     };
   });

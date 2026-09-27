@@ -20,6 +20,8 @@ npm run test:linkification
 npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes
+npm run test:images-core
+npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
 npm run test:quick-reply
 npm run test:behavior
 npx playwright test tests/browser/catalog-teasers.spec.js

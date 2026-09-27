@@ -203,7 +203,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{}",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -213,7 +213,9 @@ fn headers(
             state.origin,
             crate::ui_assets::NATIVE_FILTER_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_BACKLINKS_PATH
+            crate::ui_assets::NATIVE_BACKLINKS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_IMAGES_PATH
         )
     } else {
         script

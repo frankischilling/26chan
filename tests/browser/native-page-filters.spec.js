@@ -98,6 +98,67 @@ test('first matching rule highlights and tracked own replies are exempt', async 
   await expect(page.locator('.nativeFilterNotice')).toBeEmpty();
 });
 
+test('filename filters use bounded original spoiler metadata and preserve ordinary captions', async ({ page, fixture }) => {
+  await prepare(page, fixture, []);
+  const post = page.locator(`#p${fixture.reply}`);
+  await post.evaluate(element => {
+    const file = document.createElement('div');
+    file.className = 'file';
+    file.dataset.imageSpoiler = 'true';
+    file.dataset.imageFilename = 'owned-spoiler-original.png';
+    file.innerHTML = '<p>File: <a>Spoiler Image</a></p>';
+    element.insertBefore(file, element.querySelector('.postMessage'));
+  });
+  const setRule = async pattern => page.evaluate(ruleValue => {
+    localStorage.setItem('4chan-filters', JSON.stringify([ruleValue]));
+    window.dispatchEvent(new StorageEvent('storage', { key: '4chan-filters' }));
+  }, rule(pattern, { type: 6, hide: false, color: '#ff0000' }));
+
+  await setRule('owned-spoiler-original.png');
+  await expect(post).toHaveClass(/filter-hl/);
+  await expect(post.locator('.file > p > a')).toHaveText('Spoiler Image');
+
+  await post.locator('.file > p > a').evaluate((link, filename) => {
+    link.hidden = true;
+    const replacement = document.createElement('a');
+    replacement.textContent = filename;
+    link.after(replacement);
+  }, 'owned-spoiler-original.png');
+  await expect(post.locator('.file > p > a').first()).toHaveText('Spoiler Image');
+  await expect(post.locator('.file > p > a').first()).toBeHidden();
+  await expect(post.locator('.file > p > a').last()).toHaveText('owned-spoiler-original.png');
+  await expect(post).toHaveClass(/filter-hl/);
+
+  await post.locator('.file').evaluate(file => {
+    const links = file.querySelectorAll('p > a');
+    links[1]?.remove();
+    links[0].hidden = false;
+    file.dataset.imageFilename = 'x'.repeat(256);
+    file.querySelector('p > a').textContent = 'visible-fallback.png';
+  });
+  await setRule('owned-spoiler-original.png');
+  await expect(post).not.toHaveClass(/filter-hl/);
+  await setRule('visible-fallback.png');
+  await expect(post).toHaveClass(/filter-hl/);
+
+  await post.locator('.file').evaluate(file => {
+    file.dataset.imageFilename = 'forbidden-' + 'é'.repeat(128);
+    file.querySelector('p > a').textContent = 'utf8-fallback.png';
+  });
+  await setRule('forbidden');
+  await expect(post).not.toHaveClass(/filter-hl/);
+  await setRule('utf8-fallback.png');
+  await expect(post).toHaveClass(/filter-hl/);
+
+  await post.locator('.file').evaluate(file => {
+    delete file.dataset.imageSpoiler;
+    delete file.dataset.imageFilename;
+    file.querySelector('p > a').textContent = 'ordinary-file.png';
+  });
+  await setRule('ordinary-file.png');
+  await expect(post).toHaveClass(/filter-hl/);
+});
+
 test('invalid patterns and hostile colors fail visibly without injecting nodes or requesting resources', async ({ page, fixture }) => {
   const requests = [];
   page.on('request', request => { if (request.url().includes('filter-attack')) requests.push(request.url()); });

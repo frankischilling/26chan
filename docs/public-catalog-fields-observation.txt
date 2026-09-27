@@ -1,0 +1,71 @@
+Catalog field public comparison, 2026-09-27
+
+No post text or media is copied into this report. Raw responses are ignored local
+reference files and must not be committed as fixtures.
+
+Pinned client
+- https://s.4cdn.org/js/catalog.min.1025.js
+- bytes: 51921
+- sha256: ce645b150e747f9ad1682dc005daf30d7bc1a9f2cd473b4f1e55f99adf76fa9f
+- scripts/verify-public-catalog-search.mjs: 48 grammar cases and 8 serialized
+  field cases / 18 queries passed.
+
+/g/ public catalog HTML
+- URL: https://boards.4chan.org/g/catalog
+- HTTP: 200
+- bytes: 129311
+- sha256: abca00bdc9c1a2f5214a7d34905950c3a9b2f0499b2b7b78165102164b93d9fc
+
+/g/ public catalog API
+- URL: https://a.4cdn.org/g/catalog.json
+- HTTP: 200
+- bytes: 404074
+- sha256: 8a340f99591d9ec673b55ebc64403a70c719e30138df06acd53a2057cf8f6a8f
+
+/g/ aggregate comparison
+- embedded catalog threads: 151
+- API threads: 151
+- overlapping threads: 151
+- API subjects present: 74
+- present API subjects exactly matching embedded sub: 74
+- embedded file exactly matching API filename + ext: 151
+- API comments compared with embedded teaser: 149
+- replacing each run of <br> with one space, stripping tags and trimming edge
+  whitespace exactly reproduced embedded teaser: 149 / 149
+- embedded teasers with repeated ASCII whitespace: 14
+- embedded teasers with tag-like markup: 0
+- maximum embedded teaser string length in this snapshot: 2062
+
+/b/ public catalog HTML
+- URL: https://boards.4chan.org/b/catalog
+- HTTP: 200
+- bytes: 69185
+- sha256: bb7c4f1350e20536f8e22c9d94684309f9df401a9d3432afd056460ef1bead07
+
+/b/ public catalog API
+- URL: https://a.4cdn.org/b/catalog.json
+- HTTP: 200
+- bytes: 200306
+- sha256: bd00c81ac6b372a9391dc70219c69ceb0e58363ec7f48b4280751162e762a9d8
+
+/b/ aggregate comparison
+- embedded catalog threads: 150
+- API threads: 150
+- overlapping threads: 150
+- embedded/API subject representation matches, treating absent API sub as
+  embedded empty sub: 150
+- embedded file exactly matching API filename + ext: 150
+- API comments present: 135
+- ellipsis-ending embedded teasers: 9
+- ellipsis-ending teaser string lengths: 296 (1), 299 (2), 300 (1), 301 (5)
+- untruncated embedded teasers: 126
+- untruncated embedded teasers retaining tag-like markup: 4
+
+Interpretation boundary
+- The /g/ snapshot supports generated-break replacement, generated-tag removal
+  and preservation of literal repeated whitespace for the observed posts.
+- The /b/ snapshot is consistent with a bounded, markup-sensitive truncation
+  branch, but one snapshot does not establish every entity spelling, link
+  attribute contribution or truncation boundary.
+- Current filenames contained no observed escaping edge that distinguishes raw
+  filename + ext from an entity-serialized alternative.

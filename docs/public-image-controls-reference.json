@@ -1,0 +1,160 @@
+{
+  "scope": "Still-image expansion, hover geometry, image-control defaults and fixed presentation instructions from a permitted released public client. The pinned client is executed only through bounded synthetic VM stubs; no public posts or media are inputs.",
+  "extension": {
+    "url": "https://s.4cdn.org/js/extension.min.1191.js",
+    "collected_utc": "2026-09-13T12:55:46.721Z",
+    "bytes": 182061,
+    "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+    "pin_reused_from": "public-quote-preview-reference.json",
+    "inspected_symbols": [
+      "ImageExpansion.onLoadStart",
+      "ImageHover.onLoadStart",
+      "ImageHover.show",
+      "Parser.buildHTMLFromJSON",
+      "Parser.revealImageSpoiler",
+      "Config",
+      "SettingsMenu.options",
+      "Main.addCSS"
+    ]
+  },
+  "defaults": {
+    "imageExpansion": true,
+    "fitToScreenExpansion": false,
+    "imageHover": false,
+    "revealSpoilers": false,
+    "noPictures": false,
+    "disableAll": false
+  },
+  "implicit_false": [
+    "imageHoverBg"
+  ],
+  "settings": {
+    "imageExpansion": {
+      "label": "Image expansion",
+      "tip": "Enable inline image expansion, limited to browser width"
+    },
+    "fitToScreenExpansion": {
+      "label": "Fit expanded images to screen",
+      "tip": "Limit expanded images to both browser width and height"
+    },
+    "imageHover": {
+      "label": "Image hover",
+      "tip": "Mouse over images to view full size, limited to browser size"
+    },
+    "imageHoverBg": {
+      "label": "Set a background color for transparent images",
+      "tip": ""
+    },
+    "revealSpoilers": {
+      "label": "Don't spoiler images",
+      "tip": "Show image thumbnail and original filename instead of spoiler placeholders"
+    },
+    "noPictures": {
+      "label": "Hide thumbnails",
+      "tip": "Don't display thumbnails while browsing"
+    }
+  },
+  "geometry": {
+    "expansion_width": "documentElement.clientWidth - thumbnail.left - 25",
+    "expansion_height": "Natural height unless fitToScreenExpansion is true, then documentElement.clientHeight.",
+    "hover_width": "window.innerWidth - thumbnail.right - 20",
+    "hover_height": "The load-start handler limits width; fixed #image-hover CSS supplies max-height: 100% of the viewport.",
+    "expansion_cases": [
+      {
+        "name": "natural size",
+        "image": [600, 360],
+        "viewport": [1000, 900],
+        "left": 100,
+        "fit_to_screen": false,
+        "expected": [600, 360]
+      },
+      {
+        "name": "width limited",
+        "image": [1600, 900],
+        "viewport": [1000, 900],
+        "left": 100,
+        "fit_to_screen": false,
+        "expected": [875, 492.1875]
+      },
+      {
+        "name": "height limited after width",
+        "image": [1600, 1200],
+        "viewport": [1200, 600],
+        "left": 100,
+        "fit_to_screen": true,
+        "expected": [800, 600]
+      },
+      {
+        "name": "height limited",
+        "image": [400, 1000],
+        "viewport": [1200, 600],
+        "left": 100,
+        "fit_to_screen": true,
+        "expected": [240, 600]
+      }
+    ],
+    "hover_cases": [
+      {
+        "name": "natural size",
+        "image": [600, 360],
+        "viewport": [1200, 900],
+        "right": 200,
+        "expected": [600, 360]
+      },
+      {
+        "name": "width limited",
+        "image": [1600, 900],
+        "viewport": [1200, 900],
+        "right": 200,
+        "expected": [980, 551.25]
+      },
+      {
+        "name": "CSS height limited",
+        "image": [400, 1600],
+        "viewport": [1200, 600],
+        "right": 200,
+        "expected": [150, 600]
+      },
+      {
+        "name": "width then CSS height limited",
+        "image": [1600, 1600],
+        "viewport": [1000, 500],
+        "right": 100,
+        "expected": [500, 500]
+      }
+    ]
+  },
+  "presentation": {
+    "hover": {
+      "position": "fixed",
+      "top": "0px",
+      "right": "0px",
+      "max_width": "100%",
+      "max_height": "100%",
+      "z_index": 9002,
+      "transparent_background_when_enabled": "inherit"
+    },
+    "noPictures": {
+      "thumbnail_opacity": 0,
+      "border_width": "1px",
+      "border_colors": {
+        "futaba": "#800",
+        "burichan": "#34345C",
+        "tomorrow": "#C5C8C6",
+        "photon": "#004A99"
+      }
+    },
+    "spoiler_filename": {
+      "unrevealed_label": "Spoiler Image",
+      "hidden_original_carrier": "The unrevealed file-text element keeps the original filename in its title metadata.",
+      "revealed_behavior": "Reveal restores the original filename in the file-text link while replacing the spoiler placeholder thumbnail with the real thumbnail."
+    }
+  },
+  "rewrite_boundaries": [
+    "The rewrite accepts only approved normalized PNG routes from its configured media origin. The public client can expand other still-image formats and has separate WebM/MP4 handling; its PDF match bypasses the still-image expansion branch.",
+    "The rewrite caps decoded image dimensions at 1024, simultaneous expansions at eight and an individual load at ten seconds. These are finite local safety bounds, not v1191 defaults.",
+    "The rewrite keeps one hover image and uses the fixed page module without upstream runtime imports or new network authority.",
+    "The public client inherits an opaque body background for transparent-image previews. Rewrite themes place the paper color on the document root and keep the body transparent, so preview CSS uses --paper to retain the visible page color.",
+    "The source expansion width uses documentElement.clientWidth, while source hover width uses window.innerWidth. A rewrite using clientWidth for hover can be narrower when a classic scrollbar consumes layout width."
+  ]
+}

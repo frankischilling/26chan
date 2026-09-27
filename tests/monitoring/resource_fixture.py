@@ -169,9 +169,11 @@ class OwnedFixture:
         print('STAGE start finite resource pressure service', flush=True)
         self.start_unit(self.fixture_unit, ['/usr/bin/python3', self.public / 'resource_fixture.py',
                                            'serve', self.control, self.cgroup], dynamic=False)
+        print('STAGE wait for listening resource control', flush=True)
         wait_for(self.control.exists)
         if self.command('ping') != {'ok': True}:
             raise AssertionError('Owned pressure fixture control is unavailable')
+        print('STAGE verify finite resource ceilings', flush=True)
         if (int((self.cgroup / 'memory.max').read_text()) != MEMORY_LIMIT
                 or int((self.cgroup / 'pids.max').read_text()) != TASK_LIMIT
                 or (self.cgroup / 'memory.oom.group').read_text().strip() != '0'
@@ -350,12 +352,17 @@ def serve(control, cgroup):
 
     signal.signal(signal.SIGTERM, stop_signal)
     deadline = time.monotonic() + 570
+    starting = control.with_name(control.name + '.starting')
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
-            server.bind(str(control))
-            control.chmod(0o600)
+            # A bound Unix socket has a pathname before it accepts connections.
+            # Publish only the listening endpoint in this exclusive private
+            # directory so setup's pathname wait cannot race bind/listen.
+            server.bind(str(starting))
+            starting.chmod(0o600)
             server.listen(1)
             server.settimeout(1)
+            starting.replace(control)
             while time.monotonic() < deadline:
                 try:
                     peer, _address = server.accept()
@@ -402,6 +409,7 @@ def serve(control, cgroup):
     finally:
         stop_children()
         control.unlink(missing_ok=True)
+        starting.unlink(missing_ok=True)
 
 
 def worker(kind):

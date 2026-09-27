@@ -8,6 +8,13 @@ excludes source-only claims from the supplied leaked checkout as compatibility
 evidence. Preserve existing implementation while collecting permitted evidence;
 missing evidence is not a reason to invent a replacement server policy.
 
+The September 27 image-control batch adds expansion, screen fitting, hover,
+transparent-preview backgrounds, spoiler reveal and thumbnail hiding for
+approved media. [Its reference and limits](native-image-controls.md) are tracked
+in #180. Catalog release-script tests and Windows script-transport diagnostics
+also improve the evidence for #82, #139 and #142; those issues remain open where
+reference rules or the original failure cause are still unconfirmed.
+
 | Work item | Current state | Acceptance needed |
 |---|---|---|
 | Approved design brief | User clarified on September 13, 2026: recreate the old 4chan frontend 1:1, rather than redesign it; no separate attachment is required | Match the reference layout, typography, colors, assets, controls and states on desktop and mobile using source permitted by the rewrite prompt; record differences and verify visual and behavioral parity |
