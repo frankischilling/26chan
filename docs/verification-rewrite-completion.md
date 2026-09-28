@@ -102,6 +102,29 @@ for the published head before merge, including the rebuilt guest with the
 trailing-data fix and the complete browser and operational suites. The PR records
 the final checked commit and merge result.
 
+## Navigation, incremental pages and layout checkpoint
+
+The next batch adds the bounded board-directory and page projections, movable
+navigation, persistent board menus, compact and centered layouts, and a temporary
+Tomorrow stylesheet preference. Loaded theme changes refresh existing controls and
+images without replacing expanded media or post drafts.
+
+The focused Linux check passed 15 board-page, theme and fixed-asset tests, followed
+by full-workspace Clippy with warnings denied. The Windows fixture run passed
+3 general visual, 6 archive, 48 media, 150 theme and 10 empty/error-state tests
+without changing baselines or tolerances. After the final lifecycle corrections,
+the incremental-page suite passed 19 cases, navigation passed 9, layout passed 10,
+and the real media fixture passed the held stylesheet restore/re-enable case.
+The rebuilt filter and thread-control bundles contain 254,564 and 28,700 bytes,
+respectively, within their existing 256 KiB and 32 KiB ceilings.
+
+The full local Rust rerun stopped during compilation because another worktree's
+ignored compiler-output directories disappeared. It did not reach test execution
+and is not counted as a passing run. Qualification is being repeated with a
+dedicated build directory and disposable database. The public extension was
+retrieved again and matched the recorded SHA-256 exactly. Current-head browser,
+operational and hosted checks remain required before merge.
+
 ## Remaining acceptance work
 
 The catalog and server-link review retained #82 and #165 where public evidence

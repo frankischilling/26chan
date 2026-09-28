@@ -1,0 +1,135 @@
+{
+    "collected_date":  "2026-09-28",
+    "reference":  "Public extension v1191 Main.icons and Main.initIcons",
+    "scope":  "Fixed public navigation UI assets; no user media",
+    "files":  [
+                  {
+                      "path":  "apps/public/static/navigation/futaba/arrow_up.png",
+                      "url":  "https://s.4cdn.org/image/buttons/futaba/arrow_up.png",
+                      "bytes":  134,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "cd73064f425433c0b3f921bf745a42e8b0aa8da94a3214e0b52061a31c38631c"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/futaba/arrow_up@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/futaba/arrow_up@2x.png",
+                      "bytes":  139,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "d63d71a822d6a5e25d14264e5d5e582b7c4092b997dec91554d615496326d26d"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/futaba/arrow_down.png",
+                      "url":  "https://s.4cdn.org/image/buttons/futaba/arrow_down.png",
+                      "bytes":  136,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "8ce3dbc2a7cbaa7cf0ec7ec387790d59d68795a8c77a8e30138d88c01fdb628a"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/futaba/arrow_down@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/futaba/arrow_down@2x.png",
+                      "bytes":  141,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "557a90f2e13615a5d3f6f84cefea63921c61337d793e16ca8fbd724f6352962c"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/burichan/arrow_up.png",
+                      "url":  "https://s.4cdn.org/image/buttons/burichan/arrow_up.png",
+                      "bytes":  115,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "e9485ff637893304a522dfa0abbb9a53dec6b9b5303202e36bdf8bcc612c5260"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/burichan/arrow_up@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/burichan/arrow_up@2x.png",
+                      "bytes":  139,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "e56aac7134fa834caa03ef82883b61343e7fc69b8b25b504eabc6ce915e1a6ad"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/burichan/arrow_down.png",
+                      "url":  "https://s.4cdn.org/image/buttons/burichan/arrow_down.png",
+                      "bytes":  117,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "e31da721cd523894c50d00aa2c5ef59933c4e9c8cabb54267bb9183dd0cc3f78"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/burichan/arrow_down@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/burichan/arrow_down@2x.png",
+                      "bytes":  141,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "4a79653c39888f9107ec102e08d6a98a1f36fd37bc9e38aa4953f4493e076419"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/tomorrow/arrow_up.png",
+                      "url":  "https://s.4cdn.org/image/buttons/tomorrow/arrow_up.png",
+                      "bytes":  106,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "eaaf2d4843186f3f65d5c3a630bc9fd5b1412608e472229d891b4cbef1716dc1"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/tomorrow/arrow_up@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/tomorrow/arrow_up@2x.png",
+                      "bytes":  122,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "e4fc450396075356a39c60ecc408fb4dfb9173d50965d44b3db7e691face276a"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/tomorrow/arrow_down.png",
+                      "url":  "https://s.4cdn.org/image/buttons/tomorrow/arrow_down.png",
+                      "bytes":  109,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "e9de16002c9d2aabca5c5830c92451505f08bd1aae5aec0590c29263f273653c"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/tomorrow/arrow_down@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/tomorrow/arrow_down@2x.png",
+                      "bytes":  122,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "8e7f6ddcfbf54bc77026b9aed7b2cfabaec34a2558ef8530d1c36bd9226fd6b2"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/photon/arrow_up.png",
+                      "url":  "https://s.4cdn.org/image/buttons/photon/arrow_up.png",
+                      "bytes":  113,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "e0f6a892e8fe367cf2b734daf803588024157d78e3e46628561a837dbad5111b"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/photon/arrow_up@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/photon/arrow_up@2x.png",
+                      "bytes":  139,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "d7c0bf4a56ca4278b66b88991cdfa1cbd812fac01116a062a1f706f9e12a76e6"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/photon/arrow_down.png",
+                      "url":  "https://s.4cdn.org/image/buttons/photon/arrow_down.png",
+                      "bytes":  115,
+                      "width":  18,
+                      "height":  18,
+                      "sha256":  "efca0464db256c8073c067d56235597abdaa0c1fb80c8fa4fea17a3304ae118e"
+                  },
+                  {
+                      "path":  "apps/public/static/navigation/photon/arrow_down@2x.png",
+                      "url":  "https://s.4cdn.org/image/buttons/photon/arrow_down@2x.png",
+                      "bytes":  141,
+                      "width":  36,
+                      "height":  36,
+                      "sha256":  "69337d3cf66946c415276057640d673b0783a514e3d253f340d7264bcb3fc535"
+                  }
+              ]
+}

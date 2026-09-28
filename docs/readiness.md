@@ -21,7 +21,9 @@ The September 28 batch adds [legacy deletion and report routes](legacy-actions.m
 [combined verification record](verification-rewrite-completion.md) distinguishes
 completed local checks from pending browser, native and hosted qualification.
 The same PR also adds [index expansion](native-thread-expansion.md) and
-[thread statistics](native-thread-stats.md). Animation, remaining original-server
+[thread statistics](native-thread-stats.md), followed by
+[incremental pages](native-depager.md), [navigation controls](native-navigation.md)
+and [layout/theme preferences](native-layout.md). Animation, remaining original-server
 rules and the production requirements below remain open.
 
 | Work item | Current state | Acceptance needed |

@@ -375,6 +375,31 @@ dialog.filterHelp { width: 400px; }
 .board .thread.tCollapsed > .rExpanded, .nativeExpansionOriginal[hidden] { display: none !important; }
 .nativeThreadExpand { vertical-align: middle; margin-right: 4px; }
 .nativeExpansionStatus:empty { display: none; }
+.nativeDepagerControls button { font: inherit; color: var(--link); background: transparent; border: 0; padding: 0 3px; }
+.nativeDepagerControls [hidden], .nativeDepagerControls[hidden] { display: none; }
+.nativeDepagerStatus:empty { display: none; }
+.depageNumber { display: block; text-align: right; font-weight: bold; padding: 4px; }
+.nativePersistentNavigation { position: fixed; top: 0; left: 0; width: 100%; min-height: 36px; max-height: 50vh; overflow: auto; padding: 5px 8px; background: var(--paper); color: var(--ink); border-bottom: 2px solid var(--edge); z-index: 1000; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; transition: top .2s ease-in-out; }
+.nativePersistentNavigation label, .nativePersistentNavigation select { max-width: min(320px, 70vw); }
+.nativePersistentNavigation .nativeBoardLinks { max-width: 80%; overflow-wrap: anywhere; }
+.nativePersistentNavigation button { border: 0; background: transparent; color: var(--link); padding: 0 3px; font: inherit; }
+.nativeNavigationStatus { font-size: .85em; }
+.nativeNavigationStatus:empty { display: none; }
+body.hasDropDownNav { margin-top: var(--native-navigation-height, 45px); }
+body.hasDropDownNav > nav.boardList { display: none !important; }
+.nativeNavigationDock { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); padding: 3px; z-index: 40; max-width: calc(100vw - 12px); }
+.topPageNav { position: absolute; }
+.topPageNav > div { padding: 3px; cursor: move; }
+#stickyNav { position: fixed; }
+#stickyNav > div { cursor: move; touch-action: none; }
+#stickyNav button { width: 18px; height: 18px; padding: 0; border: 0; background: transparent; color: var(--link); }
+#stickyNav img { width: 18px; height: 18px; vertical-align: middle; }
+body[data-native-thread-layout="compact"] .board .thread { max-width: 75%; }
+body[data-native-thread-layout="centered"] .board .opContainer { display: block; }
+body[data-native-thread-layout="centered"] .board .postContainer { margin: auto; width: 75%; }
+body[data-native-thread-layout="centered"] .board .sideArrows { display: none; }
+body[data-native-thread-layout="centered"] .board .omitted { margin-left: 12.5%; display: block; }
+@media (prefers-reduced-motion: reduce) { .nativePersistentNavigation { transition: none; } }
 .thread-stats { float: right; margin-right: 5px; cursor: default; }
 @media (max-width: 480px) {
   .thread-stats { float: none; text-align: center; }

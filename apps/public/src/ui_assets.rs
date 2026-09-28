@@ -13,9 +13,91 @@ pub(crate) const NATIVE_IMAGES_PATH: &str = "/static/native-images.v1.js";
 pub(crate) const NATIVE_DISPLAY_PATH: &str = "/static/native-display.v1.js";
 pub(crate) const NATIVE_THREAD_CONTROLS_PATH: &str = "/static/native-thread-controls.v1.js";
 pub(crate) const NATIVE_THREAD_STATS_PATH: &str = "/static/native-thread-stats.v1.js";
+pub(crate) const NATIVE_NAVIGATION_PATH: &str = "/static/native-navigation.v1.js";
+pub(crate) const NATIVE_LAYOUT_PATH: &str = "/static/native-layout.v1.js";
 pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
+    (
+        "/static/navigation/futaba/arrow_up.png",
+        "image/png",
+        include_bytes!("../static/navigation/futaba/arrow_up.png"),
+    ),
+    (
+        "/static/navigation/futaba/arrow_up@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/futaba/arrow_up@2x.png"),
+    ),
+    (
+        "/static/navigation/futaba/arrow_down.png",
+        "image/png",
+        include_bytes!("../static/navigation/futaba/arrow_down.png"),
+    ),
+    (
+        "/static/navigation/futaba/arrow_down@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/futaba/arrow_down@2x.png"),
+    ),
+    (
+        "/static/navigation/burichan/arrow_up.png",
+        "image/png",
+        include_bytes!("../static/navigation/burichan/arrow_up.png"),
+    ),
+    (
+        "/static/navigation/burichan/arrow_up@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/burichan/arrow_up@2x.png"),
+    ),
+    (
+        "/static/navigation/burichan/arrow_down.png",
+        "image/png",
+        include_bytes!("../static/navigation/burichan/arrow_down.png"),
+    ),
+    (
+        "/static/navigation/burichan/arrow_down@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/burichan/arrow_down@2x.png"),
+    ),
+    (
+        "/static/navigation/tomorrow/arrow_up.png",
+        "image/png",
+        include_bytes!("../static/navigation/tomorrow/arrow_up.png"),
+    ),
+    (
+        "/static/navigation/tomorrow/arrow_up@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/tomorrow/arrow_up@2x.png"),
+    ),
+    (
+        "/static/navigation/tomorrow/arrow_down.png",
+        "image/png",
+        include_bytes!("../static/navigation/tomorrow/arrow_down.png"),
+    ),
+    (
+        "/static/navigation/tomorrow/arrow_down@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/tomorrow/arrow_down@2x.png"),
+    ),
+    (
+        "/static/navigation/photon/arrow_up.png",
+        "image/png",
+        include_bytes!("../static/navigation/photon/arrow_up.png"),
+    ),
+    (
+        "/static/navigation/photon/arrow_up@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/photon/arrow_up@2x.png"),
+    ),
+    (
+        "/static/navigation/photon/arrow_down.png",
+        "image/png",
+        include_bytes!("../static/navigation/photon/arrow_down.png"),
+    ),
+    (
+        "/static/navigation/photon/arrow_down@2x.png",
+        "image/png",
+        include_bytes!("../static/navigation/photon/arrow_down@2x.png"),
+    ),
     (
         "/static/derefer.css",
         "text/css; charset=utf-8",
@@ -426,6 +508,14 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            NATIVE_NAVIGATION_PATH,
+            include_bytes!("../static/native-navigation.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_LAYOUT_PATH,
+            include_bytes!("../static/native-layout.v1.js").as_slice(),
+        ),
         (
             NATIVE_THREAD_CONTROLS_PATH,
             include_bytes!("../static/native-thread-controls.v1.js").as_slice(),

@@ -19,6 +19,11 @@ script-free report form alongside posting.
 replacing existing posts or drafts. [Thread statistics](docs/native-thread-stats.md)
 show counts and page position from one database snapshot.
 
+[Incremental page loading](docs/native-depager.md) keeps existing threads and
+drafts while fetching later index pages. [Navigation controls](docs/native-navigation.md)
+and [layout preferences](docs/native-layout.md) provide movable page navigation,
+board selection, compact or centered threads, and an optional Tomorrow theme.
+
 ## Getting started
 
 The development scripts support Ubuntu 24.04, including Ubuntu running in WSL. Run the following commands in an Ubuntu terminal as a regular user with `sudo` access.

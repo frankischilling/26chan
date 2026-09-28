@@ -92,6 +92,8 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
             })
         })
         .collect();
+    let navigation: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/public-navigation-assets.json")).unwrap();
     for origin in ["http://127.0.0.1:3000", "https://board.example"] {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
@@ -99,6 +101,14 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
         let app = board_public::router(pool.clone(), origin.into(), origin.starts_with("https:"));
         let mut sources =
             format!("img-src {origin}/static/themes/fade.png {origin}/static/themes/fade-blue.png");
+        for icon in navigation["files"].as_array().unwrap() {
+            let path = icon["path"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("apps/public")
+                .unwrap();
+            sources.push_str(&format!(" {origin}{path}"));
+        }
         for (path, _) in &assets {
             sources.push_str(&format!(" {origin}{path}"));
         }
@@ -465,6 +475,14 @@ async fn display_and_thread_controls_serve_exact_page_assets_without_worker_auth
     let (app, api) = board_public::routers(pool, origin.into(), false);
     for (path, expected) in [
         (
+            "/static/native-navigation.v1.js",
+            include_bytes!("../static/native-navigation.v1.js").as_slice(),
+        ),
+        (
+            "/static/native-layout.v1.js",
+            include_bytes!("../static/native-layout.v1.js").as_slice(),
+        ),
+        (
             "/static/native-display.v1.js",
             include_bytes!("../static/native-display.v1.js").as_slice(),
         ),
@@ -520,6 +538,78 @@ async fn display_and_thread_controls_serve_exact_page_assets_without_worker_auth
             } else {
                 assert!(bytes.is_empty());
             }
+        }
+        assert_eq!(
+            api.clone()
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+}
+
+#[tokio::test]
+async fn public_navigation_icons_match_pinned_bytes_and_have_no_api_or_post_route() {
+    let manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/public-navigation-assets.json")).unwrap();
+    let files = manifest["files"].as_array().unwrap();
+    assert_eq!(files.len(), 16);
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+        .unwrap();
+    let origin = "http://127.0.0.1:3000";
+    let (app, api) = board_public::routers(pool, origin.into(), false);
+    let mut seen = std::collections::BTreeSet::new();
+    for file in files {
+        let relative = file["path"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("apps/public/static/navigation/")
+            .unwrap();
+        assert!(seen.insert(relative));
+        let path = format!("/static/navigation/{relative}");
+        for method in ["GET", "HEAD", "POST"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(&path)
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            if method == "POST" {
+                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+                continue;
+            }
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.headers()["content-type"], "image/png");
+            assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+            assert!(!response.headers().contains_key("set-cookie"));
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            if method == "HEAD" {
+                assert!(bytes.is_empty());
+                continue;
+            }
+            assert_eq!(bytes.len() as u64, file["bytes"].as_u64().unwrap());
+            assert_eq!(
+                format!("{:x}", Sha256::digest(&bytes)),
+                file["sha256"].as_str().unwrap()
+            );
+            assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+            assert_eq!(
+                u32::from_be_bytes(bytes[16..20].try_into().unwrap()) as u64,
+                file["width"].as_u64().unwrap()
+            );
+            assert_eq!(
+                u32::from_be_bytes(bytes[20..24].try_into().unwrap()) as u64,
+                file["height"].as_u64().unwrap()
+            );
         }
         assert_eq!(
             api.clone()

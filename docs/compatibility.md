@@ -49,6 +49,10 @@ or production-host requirements. See the
 [Index expansion](native-thread-expansion.md) and
 [thread statistics](native-thread-stats.md) also follow the pinned public client,
 with bounded same-origin projections and explicit lifecycle checks.
+The same integration adds [incremental index pages](native-depager.md),
+[persistent and movable navigation](native-navigation.md), and
+[layout and dark-theme preferences](native-layout.md). Their documents distinguish
+public client rules from local pagination, resource limits and theme adaptations.
 
 ## Reference inventory
 

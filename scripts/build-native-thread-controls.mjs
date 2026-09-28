@@ -18,12 +18,16 @@ const output = Object.values(result.metafile.outputs)[0];
 assert.deepEqual(output.imports.map(item => [item.path, item.kind, item.external]), [
   ['../static/native-filter.v1.js', 'import-statement', true],
   ['../static/native-filter.v1.js', 'import-statement', true],
+  ['../static/native-filter.v1.js', 'import-statement', true],
+  ['../static/native-filter.v1.js', 'import-statement', true],
 ]);
-assert.deepEqual(output.exports.sort(), ['EXPANSION_LIMITS', 'mountNativeThreadExpansion', 'mountNativeThreadUpdater', 'planThreadExpansion'].sort());
+assert.deepEqual(output.exports.sort(), ['EXPANSION_LIMITS', 'mountNativeThreadExpansion', 'mountNativeThreadUpdater', 'planThreadExpansion', 'NativeBoardPageTransport', 'mountNativeDepager'].sort());
 for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-thread-controls.js', 'apps/public/client/native-thread-expansion.js', 'apps/public/client/native-post-tree.js',
   'apps/public/client/native-thread-updater.js', 'apps/public/client/native-updater-schedule.js',
   'apps/public/client/native-updater-tail.js', 'apps/public/client/native-tracked-quotes.js',
+  'apps/public/client/native-depager-transport.js',
+  'apps/public/client/native-depager.js',
   'apps/public/static/thread-watcher-core.v1.js',
 ].includes(path), `Unexpected expansion source: ${path}`);
 const bytes = result.outputFiles[0].contents;

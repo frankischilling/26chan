@@ -26,6 +26,9 @@ npm run check:native-thread-controls
 npm run test:thread-updater-dom
 npm run test:expansion
 npm run test:stats
+npm run test:navigation
+npm run test:layout
+npm run test:depager
 npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
 npm run test:quick-reply
 npm run test:behavior

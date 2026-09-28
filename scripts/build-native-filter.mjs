@@ -42,6 +42,7 @@ assert.deepEqual([...outputs[0].exports].sort(), [
   'mountNativeKeybinds', 'mountNativeQuickReply', 'mountNativeLinkification', 'mountNativeQuotePreview',
   'prepareQuotePost', 'quoteTarget', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters',
   'runNativeFilterJob', 'writeBlacklist',
+  'boardPageContext', 'validateBoardPageSnapshot',
 ].sort());
 for (const path of Object.keys(result.metafile.inputs)) {
   assert.ok(path === 'apps/public/static/thread-watcher-core.v1.js'

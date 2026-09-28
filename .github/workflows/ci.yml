@@ -360,6 +360,14 @@ jobs:
       - name: Verify atomic updater page integration
         shell: pwsh
         run: npm run test:thread-updater-dom
+      - name: Verify navigation bounds and native layout transitions
+        shell: pwsh
+        run: |
+          npm run test:navigation-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:layout-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:depager-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

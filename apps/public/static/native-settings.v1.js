@@ -134,6 +134,12 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       navigationExpand.setAttribute('aria-label', 'Navigation');
       navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
       navigationHeading.append(navigationExpand);
+      option(navigationCategory, 'dropDownNav', 'Use persistent drop-down navigation bar', 'Keep board navigation at the top of the window');
+      option(navigationCategory, 'classicNav', 'Use traditional board list', 'Show board links instead of the selection menu', 'settings-sub');
+      option(navigationCategory, 'autoHideNav', 'Auto-hide on scroll', 'Hide persistent navigation while scrolling down', 'settings-sub');
+      option(navigationCategory, 'topPageNav', 'Page navigation at top of page', 'Hold Shift and drag to move the page switcher');
+      option(navigationCategory, 'stickyNav', 'Navigation arrows', 'Show Top and Bottom arrows; hold Shift and drag to move');
+      option(navigationCategory, 'alwaysDepage', 'Always use infinite scroll', 'Load later index pages as you approach the bottom');
       const customMenu = option(navigationCategory, 'customMenu', 'Custom board list', 'Only show selected boards in the board navigation');
       customMenu.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
       option(navigationCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
@@ -165,6 +171,9 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(imageCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
       option(imageCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
       option(imageCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
+      option(imageCategory, 'darkTheme', 'Use a dark theme', 'Use the Tomorrow theme while browsing');
+      option(imageCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
+      option(imageCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
       form.append(filterHeading, filterCategory, navigationHeading, navigationCategory, heading, category, imageHeading, imageCategory, global);

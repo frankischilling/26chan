@@ -1,0 +1,232 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { chromium } from '@playwright/test';
+import { navigationPage, parseNavigationDirectory, navigationDirectory } from '../../apps/public/static/native-navigation.v1.js';
+
+const origin = 'https://navigation.example';
+const directory = { version: 1, boards: [{ board: 'demo', title: 'Owned <img src=x> title' }, { board: 'test', title: 'Owned Test' }] };
+
+test('navigation uses canonical local pages and a finite exact board schema', () => {
+  assert.equal(navigationPage('/test/', 'test'), 0);
+  assert.equal(navigationPage('/test/0', 'test'), 0);
+  assert.equal(navigationPage('/test/999', 'test'), 999);
+  for (const path of ['/test/00', '/test/01', '/test/1000', '/demo/1', '//evil/test/1', '/test/1?q=x', '/test/thread/1']) assert.equal(navigationPage(path, 'test'), null);
+  assert.deepEqual(parseNavigationDirectory(JSON.stringify(directory)), directory.boards);
+  for (const value of [null, { ...directory, extra: true }, { ...directory, version: 2 }, { ...directory, boards: Array(101).fill(directory.boards[0]) },
+    { ...directory, boards: [directory.boards[0], directory.boards[0]] },
+    { ...directory, boards: [{ board: '../test', title: 'test' }] },
+    { ...directory, boards: [{ board: 'test', title: 'x'.repeat(121) }] },
+    { ...directory, boards: [{ board: 'test', title: 'test', url: 'https://evil.test' }] }]) {
+    assert.throws(() => parseNavigationDirectory(JSON.stringify(value)));
+  }
+  assert.throws(() => parseNavigationDirectory(' '.repeat(32769)));
+});
+
+test('directory transport bounds authority, deadlines and empty-chunk stream work', async () => {
+  const response = (body, options = {}) => ({ url: `${origin}/_watch/boards`, status: 200, redirected: false,
+    headers: new Headers({ 'content-type': 'application/json' }), body: new Response(body).body, ...options });
+  const healthy = async (url, options) => {
+    assert.equal(url, `${origin}/_watch/boards`);
+    assert.equal(options.credentials, 'omit'); assert.equal(options.redirect, 'error'); assert.equal(options.mode, 'same-origin');
+    return response(JSON.stringify(directory));
+  };
+  assert.deepEqual(await navigationDirectory({ origin, fetcher: healthy }), { status: 'ok', boards: directory.boards });
+  for (const value of [response('{}'), response(JSON.stringify(directory), { url: `${origin}/redirect` }),
+    response(JSON.stringify(directory), { redirected: true }), response(JSON.stringify(directory), { status: 404 }),
+    response(JSON.stringify(directory), { headers: new Headers({ 'content-type': 'text/html' }) }),
+    response(JSON.stringify(directory), { headers: new Headers({ 'content-type': 'application/json', 'content-length': '32769' }) })]) {
+    assert.notEqual((await navigationDirectory({ origin, fetcher: async () => value })).status, 'ok');
+  }
+  assert.equal((await navigationDirectory({ origin, fetcher: () => new Promise(() => {}), requestMs: 10 })).status, 'timeout');
+  let reads = 0, cancelled = 0;
+  const stream = response('', { body: { getReader: () => ({
+    async read() { reads++; return { done: false, value: new Uint8Array() }; }, async cancel() { cancelled++; },
+  }) } });
+  assert.equal((await navigationDirectory({ origin, fetcher: async () => stream })).status, 'response-limit');
+  assert.equal(reads, 4097); assert.equal(cancelled, 1);
+  const controller = new AbortController();
+  const pending = navigationDirectory({ origin, signal: controller.signal, fetcher: () => new Promise(() => {}) });
+  controller.abort(); assert.equal((await pending).status, 'cancelled');
+  assert.equal((await navigationDirectory({ origin, fetcher: healthy })).status, 'ok');
+});
+
+test('navigation controls own only their layout, local links and finite saved positions', async t => {
+  const files = {};
+  for (const name of ['native-navigation.v1.js', 'native-display.v1.js', 'watcher-position.v1.js']) {
+    files[`/static/${name}`] = await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8');
+  }
+  const css = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8');
+  const browser = await chromium.launch({ headless: true });
+  try {
+    async function setup(config = {}) {
+      const context = await browser.newContext({ viewport: { width: 1000, height: 700 } });
+      const page = await context.newPage(), requests = [], errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.route('**/*', async route => {
+        const url = new URL(route.request().url());
+        if (files[url.pathname]) return route.fulfill({ contentType: 'text/javascript', body: files[url.pathname] });
+        if (url.pathname === '/_watch/boards') { requests.push(url.pathname); return route.fulfill({ contentType: 'application/json', body: JSON.stringify(directory) }); }
+        if (url.pathname === '/test/1') return route.fulfill({ contentType: 'text/html', body:
+          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><nav class="boardList">[ <a href="/">All boards</a> ]</nav><main><textarea id="draft">Owned draft</textarea><div style="height:3000px">Owned scroll area</div><nav class="pages"><a href="/test/0" rel="prev">Previous</a><a href="/test/2" rel="next">Next</a></nav></main></body></html>` });
+        if (url.pathname.endsWith('favicon.ico')) return route.fulfill({ status: 204 });
+        requests.push(url.href); return route.abort();
+      });
+      await page.goto(`${origin}/test/1`);
+      await page.evaluate(async config => {
+        window.config = config; window.saved = []; window.heldSaves = []; window.holdSave = false;
+        window.original = document.querySelector('nav.boardList'); window.draft = document.querySelector('#draft');
+        window.settingsOpened = window.editorOpened = 0;
+        const { mountNativeNavigation } = await import('/static/native-navigation.v1.js');
+        window.mountNavigation = () => mountNativeNavigation({
+          root: document.body, board: 'test', thread: null, settings: () => config,
+          mobile: matchMedia('(max-width:480px)'), readNeverMobile: () => config.neverMobile,
+          openSettings: () => settingsOpened++, openCustomMenu: () => editorOpened++,
+          savePosition: async (key, value, expected, signal) => {
+            if (holdSave) await new Promise(resolve => heldSaves.push({ resolve, signal }));
+            if (signal.aborted || (config[key] ?? null) !== expected) return false;
+            config[key] = value; saved.push({ key, value }); return true;
+          },
+        });
+        window.navigation = mountNavigation();
+      }, config);
+      return { context, page, requests, errors };
+    }
+
+    await t.test('default-off controls preserve original nodes and make no directory request', async () => {
+      const { context, page, requests, errors } = await setup();
+      try {
+        assert.equal(await page.locator('.nativePersistentNavigation,.topPageNav,#stickyNav').count(), 0);
+        assert.deepEqual(requests, []); assert.deepEqual(errors, []);
+        assert.equal(await page.evaluate(() => original.isConnected && draft.value === 'Owned draft'), true);
+      } finally { await context.close(); }
+    });
+
+    await t.test('fixed and classic menus use escaped local links and restore after disabling', async () => {
+      const { context, page, requests, errors } = await setup({ dropDownNav: true });
+      try {
+        await page.waitForFunction(() => document.querySelectorAll('.nativePersistentNavigation option').length === 2);
+        assert.equal(await page.locator('.nativePersistentNavigation img').count(), 0);
+        assert.equal(await page.getByLabel('Board', { exact: true }).inputValue(), 'test');
+        await page.getByRole('button', { name: 'Settings', exact: true }).click();
+        await page.getByRole('button', { name: 'Edit boards', exact: true }).click();
+        assert.deepEqual(await page.evaluate(() => [settingsOpened, editorOpened]), [1, 1]);
+        await page.evaluate(() => { config.classicNav = true; config.customMenu = true; config.customMenuList = 'test demo test'; navigation.refresh(); });
+        assert.deepEqual(await page.locator('.nativeBoardLinks a').evaluateAll(nodes => nodes.map(a => a.getAttribute('href'))), ['/test/', '/demo/', '/test/']);
+        await page.evaluate(() => { config.customMenuList = Array(64).fill('longboard1').join(' '); navigation.refresh(); });
+        await page.waitForFunction(() => {
+          const bar = document.querySelector('.nativePersistentNavigation').getBoundingClientRect();
+          return document.querySelector('#draft').getBoundingClientRect().top >= bar.bottom;
+        });
+        assert.ok((await page.locator('.nativePersistentNavigation').boundingBox()).height <= 350);
+        await page.setViewportSize({ width: 390, height: 700 });
+        await page.waitForFunction(() => document.querySelector('.nativePersistentNavigation select'));
+        assert.equal(await page.locator('.nativeBoardLinks').count(), 0);
+        await page.evaluate(() => { config.disableAll = true; navigation.refresh(); });
+        assert.equal(await page.locator('.nativePersistentNavigation').count(), 0);
+        assert.equal(await page.evaluate(() => original.isConnected && !document.body.classList.contains('hasDropDownNav') && draft.value === 'Owned draft'), true);
+        assert.equal(await page.evaluate(() => document.body.style.getPropertyValue('--native-navigation-height')), '');
+        assert.deepEqual(requests, ['/_watch/boards']); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('auto-hide follows scroll direction, respects focus and cannot outlive its setting', async () => {
+      const { context, page, errors } = await setup({ dropDownNav: true, autoHideNav: true });
+      try {
+        await page.evaluate(() => scrollTo(0, 700));
+        await page.waitForFunction(() => document.querySelector('.nativePersistentNavigation').getBoundingClientRect().bottom <= 0);
+        await page.evaluate(() => scrollTo(0, 400));
+        await page.waitForFunction(() => document.querySelector('.nativePersistentNavigation').getBoundingClientRect().top === 0);
+        await page.getByRole('button', { name: 'Settings', exact: true }).focus();
+        await page.evaluate(() => scrollTo(0, 900));
+        await new Promise(resolve => setTimeout(resolve, 80));
+        assert.equal(await page.locator('.nativePersistentNavigation').evaluate(node => node.style.top), '');
+        await page.evaluate(() => { document.activeElement.blur(); scrollTo(0, 800); });
+        await new Promise(resolve => setTimeout(resolve, 80));
+        assert.equal(await page.locator('.nativePersistentNavigation').evaluate(node => node.style.top), '');
+        await page.evaluate(() => { config.autoHideNav = false; navigation.refresh(); scrollTo(0, 1000); });
+        assert.equal(await page.locator('.nativePersistentNavigation').evaluate(node => node.style.top), '');
+        await page.evaluate(() => { config.autoHideNav = true; navigation.refresh(); scrollTo(0, 900); });
+        await new Promise(resolve => setTimeout(resolve, 80));
+        assert.equal(await page.locator('.nativePersistentNavigation').evaluate(node => node.style.top), '');
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('Shift-key movement is bounded, saved, and cancelled on disable before a delayed write', async () => {
+      const { context, page, errors } = await setup({ topPageNav: true, stickyNav: true, 'TN-position': 'left: 10px;', 'SN-position': 'right: 9999%; top: 9999%;' });
+      try {
+        const box = await page.locator('#stickyNav').boundingBox();
+        assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= 1000 && box.y + box.height <= 700);
+        assert.deepEqual(await page.locator('.topPageNav a').evaluateAll(nodes => nodes.map(a => a.getAttribute('href'))), ['/test/0', '/test/2']);
+        const handle = page.locator('.topPageNav > div');
+        const before = await handle.boundingBox(); await handle.focus(); await page.keyboard.press('Shift+ArrowRight');
+        await page.waitForFunction(() => saved.length === 1);
+        assert.ok((await handle.boundingBox()).x > before.x);
+        await page.evaluate(() => { holdSave = true; });
+        await page.keyboard.press('Shift+ArrowRight');
+        await page.waitForFunction(() => heldSaves.length === 1);
+        await page.evaluate(() => { config['TN-position'] = 'left: 77px; top: 88px;'; navigation.refresh(); });
+        assert.equal(await page.evaluate(() => heldSaves[0].signal.aborted), true);
+        await page.evaluate(async () => { heldSaves[0].resolve(); await Promise.resolve(); });
+        await page.waitForFunction(() => document.querySelector('.topPageNav').style.left === '77px');
+        assert.equal(await page.evaluate(() => config['TN-position']), 'left: 77px; top: 88px;');
+        assert.equal(await page.evaluate(() => saved.length), 1);
+        await page.keyboard.press('Shift+ArrowRight');
+        await page.waitForFunction(() => heldSaves.length === 2);
+        await page.evaluate(() => { config.disableAll = true; navigation.refresh(); });
+        assert.equal(await page.evaluate(() => heldSaves[1].signal.aborted), true);
+        await page.evaluate(async () => { heldSaves[1].resolve(); await Promise.resolve(); });
+        assert.equal(await page.evaluate(() => saved.length), 1);
+        assert.equal(await page.locator('.topPageNav,#stickyNav').count(), 0);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('persistent bar bounds movable controls and repeated mounting replaces the old owner', async () => {
+      const { context, page, errors } = await setup({ dropDownNav: true, topPageNav: true, stickyNav: true,
+        'TN-position': 'left: 10px; top: 0px;', 'SN-position': 'left: 10px; top: 0px;' });
+      try {
+        const geometry = await page.evaluate(() => {
+          const bar = document.querySelector('.nativePersistentNavigation').getBoundingClientRect();
+          const top = document.querySelector('.topPageNav').getBoundingClientRect();
+          const sticky = document.querySelector('#stickyNav').getBoundingClientRect();
+          return { barBottom: bar.bottom, top: top.top, sticky: sticky.top };
+        });
+        assert.ok(geometry.top >= geometry.barBottom - 1);
+        assert.ok(geometry.sticky >= geometry.barBottom - 1);
+
+        await page.evaluate(() => { config.autoHideNav = true; navigation.refresh(); });
+        assert.equal(await page.locator('.topPageNav').evaluate(node => node.style.top), '0px');
+        assert.equal(await page.locator('#stickyNav').evaluate(node => node.style.top), '0px');
+        await page.evaluate(() => { config.autoHideNav = false; navigation.refresh(); });
+        assert.ok((await page.locator('.topPageNav').boundingBox()).y >= (await page.locator('.nativePersistentNavigation').boundingBox()).height - 1);
+
+        await page.evaluate(() => { window.firstNavigation = navigation; navigation = mountNavigation(); });
+        assert.equal(await page.locator('.nativePersistentNavigation,.topPageNav,#stickyNav').count(), 3);
+        await page.evaluate(() => firstNavigation.destroy());
+        assert.equal(await page.locator('.nativePersistentNavigation,.topPageNav,#stickyNav').count(), 3);
+        assert.equal(await page.evaluate(() => document.body.classList.contains('hasDropDownNav')), true);
+        assert.notEqual(await page.evaluate(() => document.body.style.getPropertyValue('--native-navigation-height')), '');
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('history restoration produces one control set and final teardown keeps original navigation', async () => {
+      const { context, page, errors } = await setup({ topPageNav: true, stickyNav: true, dropDownNav: true });
+      try {
+        await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+        assert.equal(await page.locator('.nativePersistentNavigation,.topPageNav,#stickyNav').count(), 0);
+        await page.evaluate(() => {
+          window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+          window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+        });
+        assert.equal(await page.locator('.nativePersistentNavigation,.topPageNav,#stickyNav').count(), 3);
+        await page.evaluate(() => { navigation.destroy(); document.dispatchEvent(new Event('4chanSettingsSaved')); });
+        assert.equal(await page.locator('.nativePersistentNavigation,.topPageNav,#stickyNav').count(), 0);
+        assert.equal(await page.evaluate(() => original.isConnected && draft === document.querySelector('#draft')), true);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+  } finally { await browser.close(); }
+});

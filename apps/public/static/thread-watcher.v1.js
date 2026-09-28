@@ -10,8 +10,10 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
 import { mountNativeDisplay } from './native-display.v1.js';
-import { mountNativeThreadUpdater, mountNativeThreadExpansion } from './native-thread-controls.v1.js';
+import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
+import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
+import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './native-layout.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -160,8 +162,10 @@ function start(context) {
   const close = button('Close', () => { refresh.cancel(); collapsed = true; render(); });
   close.id = 'twClose';
   panel.classList.add(catalog ? 'watcherCatalog' : 'watcherExtension');
-  const iconFamily = getComputedStyle(document.documentElement).getPropertyValue('--watcher-icon-family').trim();
-  const family = ['futaba', 'burichan', 'tomorrow', 'photon'].includes(iconFamily) ? iconFamily : 'futaba';
+  function themeFamily() {
+    const value = getComputedStyle(document.documentElement).getPropertyValue('--watcher-icon-family').trim().replace(/['"]/g, '');
+    return ['futaba', 'burichan', 'tomorrow', 'photon'].includes(value) ? value : 'futaba';
+  }
   const highDensity = matchMedia('(min-resolution: 2dppx)');
   function icon(control, name, description) {
     control.setAttribute('aria-label', description);
@@ -179,14 +183,14 @@ function start(context) {
         image.draggable = false;
         control.append(image);
       }
-      const path = `/static/watcher/${family}/${name}${highDensity.matches ? '@2x' : ''}.${name === 'post_expand_rotate' ? 'gif' : 'png'}`;
+      const path = `/static/watcher/${themeFamily()}/${name}${highDensity.matches ? '@2x' : ''}.${name === 'post_expand_rotate' ? 'gif' : 'png'}`;
       if (image.getAttribute('src') !== path) image.src = path;
     }
   }
   refreshButton.textContent = close.textContent = '';
   refreshButton.classList.add('watcherIcon');
   close.classList.add('watcherIcon');
-  highDensity.addEventListener('change', () => render());
+  highDensity.addEventListener('change', () => { render(); nativeNavigation?.themeChanged(); });
   heading.append(close, title, refreshButton);
   for (const control of document.querySelectorAll('[data-thread-refresh]')) {
     control.addEventListener('click', event => {
@@ -274,7 +278,7 @@ function start(context) {
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
   });
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
-    mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family,
+    mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
@@ -334,6 +338,46 @@ function start(context) {
   const nativeStats = catalog ? null : mountNativeThreadStats({ board, thread: threadId,
     settings: configuration, mobile, readNeverMobile,
   });
+  let nativeLayout = null, nativeNavigation = null;
+  const themeChanged = () => {
+    nativeQuotePreview?.clear();
+    render();
+    nativeNavigation?.themeChanged();
+  };
+  document.addEventListener(THEME_READY_EVENT, themeChanged);
+  nativeLayout = catalog ? null : mountNativeLayout({ root: document.body, settings: configuration,
+    mobile, readNeverMobile, themeStylesheet: document.querySelector('link[data-native-theme-stylesheet]'),
+  });
+  nativeNavigation = catalog ? null : mountNativeNavigation({ root: document.body, board, thread: threadId, catalog,
+    settings: configuration, mobile, readNeverMobile,
+    openSettings: opener => settingsNavigation.open(opener), openCustomMenu: opener => nativeDisplay?.openEditor(opener),
+    decorateButton: (control, name, description) => {
+      control.title = description; control.setAttribute('aria-label', description);
+      let image = control.querySelector('img');
+      if (!image) { image = document.createElement('img'); image.alt = ''; image.width = image.height = 18; control.append(image); }
+      image.src = `/static/navigation/${themeFamily()}/${name}${highDensity.matches ? '@2x' : ''}.png`;
+    },
+    savePosition: (key, position, expected, signal) => locked(() => {
+      const current = configuration();
+      if (!['TN-position', 'SN-position'].includes(key) || current.disableAll === true
+        || current[key === 'TN-position' ? 'topPageNav' : 'stickyNav'] !== true
+        || (typeof current[key] === 'string' ? current[key] : null) !== expected) return false;
+      return writeSettings({ ...current, [key]: position });
+    }, signal),
+  });
+  document.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey
+      || configuration().darkTheme !== true) return;
+    const link = event.target.closest?.('a');
+    if (!link || link.target || link.hasAttribute('download')) return;
+    const href = link.getAttribute('href');
+    if (!/^\/settings\/theme(?:\?worksafe=(?:true|false))?$/.test(href ?? '')) return;
+    event.preventDefault();
+    void saveSettings({ darkTheme: false }).then(result => {
+      if (result !== false) { nativeLayout?.refresh(); window.location.assign(href); }
+      else notice.textContent = 'The style preference could not be updated. Try again.';
+    }).catch(() => { notice.textContent = 'The style preference could not be updated. Try again.'; });
+  });
   const nativeExpansion = catalog ? null : mountNativeThreadExpansion({ root: document.querySelector('.board'),
     board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, decorateButton: icon,
     applied: async (_snapshot, signal) => {
@@ -342,6 +386,52 @@ function start(context) {
       if (nativeFilters && !await nativeFilters.refreshSettled(signal) && !signal.aborted) throw new Error('Expansion filters did not settle.');
     },
   });
+  const nativeDepager = setupDepager();
+  function setupDepager() {
+    const page = navigationPage(window.location.pathname, board), pages = document.querySelector('nav.pages');
+    const root = document.querySelector('.board');
+    if (catalog || threadId || page === null || !pages || !root) return null;
+    const next = navigationPage(pages.querySelector('[rel="next"]')?.getAttribute('href'), board);
+    const mobileLayout = () => sourceMobileLayout(mobile.matches, readNeverMobile());
+    const controls = node('span', undefined, 'nativeDepagerControls');
+    const more = button(mobileLayout() ? 'Load More' : 'All', () => {
+      if (!controller) return;
+      if (!mobileLayout()) {
+        overrideAuto = !controller.stats().auto;
+        controller.refresh();
+        if (!overrideAuto) return;
+      }
+      void controller.loadMore();
+    });
+    more.id = 'depage'; more.setAttribute('aria-label', 'Load more threads');
+    const cancel = button('Cancel loading', () => controller?.cancel()); cancel.id = 'depage-cancel'; cancel.hidden = true;
+    const status = node('span', '', 'nativeDepagerStatus'); status.id = 'depage-status'; status.setAttribute('role', 'status');
+    controls.append(' [', more, '] ', cancel, status); pages.append(controls);
+    let controller = null, overrideAuto = null, lastAlways = configuration().alwaysDepage === true;
+    controller = mountNativeDepager({ root, board, page, nextPage: next, mediaOrigin: context.dataset.mediaOrigin,
+      settings: () => {
+        const config = configuration(), always = config.alwaysDepage === true;
+        if (lastAlways !== always) { overrideAuto = null; lastAlways = always; }
+        return { ...config, alwaysDepage: overrideAuto ?? always };
+      },
+      createTransport: config => new NativeBoardPageTransport(config),
+      stateChanged: state => {
+        const loading = state.state === 'loading' || state.state === 'applying';
+        controls.hidden = state.state === 'disabled' || (state.complete && next === null);
+        more.textContent = mobileLayout() ? 'Load More' : 'All';
+        more.disabled = loading || (state.complete && (mobileLayout() || !state.auto));
+        more.setAttribute('aria-pressed', String(state.auto)); cancel.hidden = !loading;
+        status.textContent = { loading: ' Loading next page...', applying: ' Applying page filters...', error: ' Page unavailable. Retry or use Next.',
+          limit: ' Page limit reached. Use the ordinary page links to continue.', complete: ' Done.', paused: ' Loading paused.' }[state.state] ?? '';
+      },
+      applied: async (_page, signal) => {
+        render(); await new Promise(resolve => queueMicrotask(resolve));
+        if (signal.aborted) return;
+        if (nativeFilters && !await nativeFilters.refreshSettled(signal) && !signal.aborted) throw new Error('Page filters did not settle.');
+      },
+    });
+    return controller;
+  }
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
     save: (position, expected, expectedFixed) => locked(() => {
       const settings = configuration();
@@ -684,7 +774,6 @@ function start(context) {
           }, 'postMenuBtn');
           trigger.dataset.postMenu = id;
           trigger.dataset.cmd = 'post-menu';
-          trigger.dataset.family = family;
           trigger.title = 'Post menu';
           trigger.setAttribute('aria-label', `Post menu for post ${id}`);
           trigger.setAttribute('aria-haspopup', 'menu');
@@ -697,6 +786,7 @@ function start(context) {
           });
         }
         if (!trigger) continue;
+        trigger.dataset.family = themeFamily();
         trigger.hidden = disabled;
         trigger.textContent = mobile.matches ? '...' : '\u25b6';
         if (mobile.matches) {
@@ -719,7 +809,10 @@ function start(context) {
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
     nativeDisplay?.refresh();
+    nativeLayout?.refresh();
+    nativeNavigation?.refresh();
     nativeExpansion?.refresh();
+    nativeDepager?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();
     nativeReplies?.refresh();
@@ -880,6 +973,7 @@ function start(context) {
     history.replaceState(null, '', location.pathname + location.search);
   }
   window.addEventListener('storage', event => {
+    if (event.key === '4chan_never_show_mobile') { nativeDepager?.refresh(); return; }
     if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;
     refresh.cancel();
     load();
