@@ -9,6 +9,7 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
   localQuoteTree, prepareQuotePost, mobileQuoteDevice, NativeQuotePreviewTransport, checkedQuotePreview } from './native-filter.v1.js';
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
+import { mountNativeDisplay } from './native-display.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -318,11 +319,15 @@ function start(context) {
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
+    openCustomMenu: opener => nativeDisplay?.openEditor(opener),
     optionChecked: (key, initial) => key === 'linkify'
       ? (initial.disableAll === true ? initial.linkify === true
         : (mobile.matches && readNeverMobile() !== 'true') || initial.linkify === true)
       : undefined,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
+  });
+  const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
+    settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
   });
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
     save: (position, expected, expectedFixed) => locked(() => {
@@ -700,6 +705,7 @@ function start(context) {
     nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
+    nativeDisplay?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();
     nativeReplies?.refresh();

@@ -203,7 +203,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{}",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -215,7 +215,9 @@ fn headers(
             state.origin,
             crate::ui_assets::NATIVE_BACKLINKS_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_IMAGES_PATH
+            crate::ui_assets::NATIVE_IMAGES_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_DISPLAY_PATH
         )
     } else {
         script
@@ -332,6 +334,12 @@ mod tests {
                         .unwrap()
                 };
                 let backlink = format!("{origin}/static/native-backlinks.v1.js");
+                assert_eq!(
+                    directive("script-src")
+                        .split_whitespace()
+                        .any(|value| value == format!("{origin}/static/native-display.v1.js")),
+                    page.is_some()
+                );
                 assert_eq!(
                     directive("script-src")
                         .split_whitespace()

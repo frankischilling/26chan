@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:display-core": "node --test tests/browser/native-display.test.mjs",
+    "test:display": "npm run test:display-core && playwright test tests/browser/native-display.spec.js tests/browser/legacy-actions.spec.js",
     "test:linkification": "npm run check:native-filter && npm run test:linkification-core && playwright test tests/browser/native-linkification.spec.js",
     "test:linkification-core": "node --test tests/browser/native-linkification.test.mjs tests/browser/native-linkification-dom.test.mjs",
     "test:quote-preview": "npm run check:native-filter && npm run test:quote-preview-core && playwright test tests/browser/native-quote-preview.spec.js",

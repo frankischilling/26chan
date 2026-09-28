@@ -145,6 +145,29 @@ class VmTest(unittest.TestCase):
                 self.assertEqual(output[19], 255)
                 self.assertEqual(output[20:], bytes(4_194_796))
 
+    def test_still_gif_variants_decode_under_the_same_guest_boundary(self):
+        self.assertEqual(os.geteuid(), 0, 'owned disposable Linux root required')
+        config = os.environ['MEDIA_VM_TEST_CONFIG']
+        red, blue = b'\xff\0\0\xff', b'\0\0\xff\xff'
+        for name, width, height, pixels in (
+                ('static', 1, 1, red),
+                ('transparent', 2, 1, red + b'\0\0\xff\0'),
+                ('interlaced', 2, 8, (red * 2 + blue * 2) * 4)):
+            with self.subTest(format=name), tempfile.TemporaryDirectory(prefix='26chan-gif-vm-') as name_root:
+                root = pathlib.Path(name_root)
+                source = root / 'input.gif'
+                source.write_bytes((REPO / 'tests/media/fixtures/gif' / f'{name}.gif').read_bytes())
+                result = subprocess.run(
+                    [sys.executable, str(REPO / 'scripts/media/run-job.py'), config, str(source), str(root / 'result.disk')],
+                    capture_output=True, text=True, timeout=45)
+                self.assert_clean()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = (root / 'result.disk').read_bytes()
+                expected = b'IBRGBA01' + struct.pack('>II', width, height) + pixels
+                self.assertEqual(len(output), 4_194_816)
+                self.assertEqual(output[:len(expected)], expected)
+                self.assertEqual(output[len(expected):], bytes(4_194_816 - len(expected)))
+
     @contextlib.contextmanager
     def sleeping_vm(self):
         self.assert_clean()

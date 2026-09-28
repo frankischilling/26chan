@@ -55,7 +55,10 @@ export function localQuoteTree(article, context, no, projection) {
   function read(node, depth) {
     if (projection?.has(node)) return [];
     if (++nodes > PREVIEW_LIMITS.nodes || depth > PREVIEW_LIMITS.depth) throw new RangeError('preview-nodes');
-    if (node.nodeType === 3) { charge(node.data); return [node.data]; }
+    if (node.nodeType === 3) {
+      const text = projection?.sourceText?.(node) ?? node.data;
+      charge(text); return [text];
+    }
     if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml') return [];
     const tag = node.localName;
     if (!Object.hasOwn(localTags, tag) || node.matches(controls)) return [];

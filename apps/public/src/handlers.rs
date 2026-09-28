@@ -14,8 +14,9 @@ use sha2::{Digest, Sha256};
 
 // The stored hash is not allowed to choose an unbounded verification workload.
 // Public posting creates exactly this Argon2id profile; other encodings cannot
-// prove OP ownership. Keep this work inside the shared hash semaphore.
-fn same_op_password(password: &str, encoded: &str) -> bool {
+// authorize deletion or prove OP ownership. Keep this work inside the shared
+// hash semaphore.
+fn verify_deletion_password(password: &str, encoded: &str) -> bool {
     if encoded.len() > 256 {
         return false;
     }
@@ -491,7 +492,7 @@ async fn submit_post(
         let _permit = permit;
         let proof = op_hash
             .as_deref()
-            .filter(|hash| same_op_password(&form.password, hash))
+            .filter(|hash| verify_deletion_password(&form.password, hash))
             .map(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())));
         Argon2::default()
             .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
@@ -553,10 +554,10 @@ async fn submit_post(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteForm {
-    no: i64,
-    password: String,
+    pub(crate) no: i64,
+    pub(crate) password: String,
     #[serde(default)]
-    file_only: bool,
+    pub(crate) file_only: bool,
 }
 pub async fn delete(
     State(state): State<AppState>,
@@ -583,11 +584,7 @@ pub async fn delete(
         })?;
     let valid = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        PasswordHash::new(&hash).is_ok_and(|hash| {
-            Argon2::default()
-                .verify_password(form.password.as_bytes(), &hash)
-                .is_ok()
-        })
+        verify_deletion_password(&form.password, &hash)
     })
     .await
     .unwrap_or(false);
@@ -636,20 +633,20 @@ mod op_password_tests {
             .hash_password(b"owned-op-password", &SaltString::generate(&mut OsRng))
             .unwrap()
             .to_string();
-        assert!(same_op_password("owned-op-password", &hash));
-        assert!(!same_op_password("different-password", &hash));
-        assert!(!same_op_password(
+        assert!(verify_deletion_password("owned-op-password", &hash));
+        assert!(!verify_deletion_password("different-password", &hash));
+        assert!(!verify_deletion_password(
             "owned-op-password",
             &hash.replace("m=19456", "m=4294967295")
         ));
-        assert!(!same_op_password(
+        assert!(!verify_deletion_password(
             "owned-op-password",
             &hash.replace("t=2", "t=4294967295")
         ));
-        assert!(!same_op_password(
+        assert!(!verify_deletion_password(
             "owned-op-password",
             &hash.replace("argon2id", "argon2i")
         ));
-        assert!(!same_op_password("owned-op-password", "missing"));
+        assert!(!verify_deletion_password("owned-op-password", "missing"));
     }
 }

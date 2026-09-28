@@ -1,5 +1,18 @@
 # Dependency and update inventory
 
+Single-frame GIF input adds pinned [gif 0.14.2](https://docs.rs/gif/0.14.2/gif/)
+and locked [weezl 0.1.12](https://docs.rs/weezl/0.1.12/weezl/) to the disposable
+guest. The direct declaration disables default features and enables `std`.
+These two registry entries are the only added locked packages in this batch;
+existing registry versions are unchanged. Both codecs are part of the untrusted
+guest workload. Their per-frame allocation checks supplement the VM and
+address-space limits and do not replace containment. The executable dependency
+guard now rejects these packages in credential-bearing runtime graphs and
+checks a guest control plus a deliberately injected forbidden edge. Rebuild and
+requalify the guest after changes; see [GIF policy and checks](gif-media.md).
+The batch's advisory and native results belong to its
+[verification record](verification-rewrite-completion.md).
+
 Public connection limits reuse pinned Hyper 1.11.1 and Hyper-util 0.1.20. The public
 crate now declares the `server` and `service` features it directly uses; those
 features were already present through the metrics crate. No registry versions or

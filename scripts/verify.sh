@@ -21,6 +21,7 @@ npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes
 npm run test:images-core
+npm run test:display
 npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
 npm run test:quick-reply
 npm run test:behavior

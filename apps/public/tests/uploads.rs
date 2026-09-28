@@ -486,13 +486,32 @@ async fn exercise(
     assert_eq!(
         app.clone()
             .oneshot(post_request(
-                &format!("/{board}/delete"),
-                format!("no={thread}&password=synthetic-password-123&file_only=true")
+                &format!("/{board}/imgboard.php"),
+                format!("mode=usrdel&{thread}=delete&pwd=wrong-password&onlyimgdel=on")
             ))
             .await
             .unwrap()
             .status(),
-        StatusCode::SEE_OTHER
+        StatusCode::FORBIDDEN
+    );
+    reader.get(&asset.id).await.unwrap();
+    let deleted = app
+        .clone()
+        .oneshot(multipart_post_request(
+            &format!("/{board}/imgboard.php"),
+            &[
+                ("mode", "usrdel".into()),
+                (&thread.to_string(), "delete".into()),
+                ("pwd", "synthetic-password-123".into()),
+                ("onlyimgdel", "on".into()),
+            ],
+        ))
+        .await
+        .unwrap();
+    assert!(
+        html(deleted, StatusCode::OK)
+            .await
+            .contains("Updating index")
     );
     assert!(matches!(
         reader.get(&asset.id).await,

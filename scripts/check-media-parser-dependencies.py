@@ -9,7 +9,8 @@ RUNTIMES = (
     'board-media-intake', 'board-media-dispatch', 'board-monitor',
     'board-resource-monitor', 'board-maintenance-monitor',
 )
-PARSERS = {'board-media-guest', 'zune-jpeg', 'zune-core', 'jpeg-encoder'}
+PARSERS = {'board-media-guest', 'zune-jpeg', 'zune-core', 'jpeg-encoder', 'gif', 'weezl'}
+GUEST_PARSERS = {'zune-jpeg', 'gif', 'weezl'}
 
 
 def reachable(start, nodes):
@@ -38,17 +39,17 @@ def main():
         if found:
             raise RuntimeError(f'{runtime} links prohibited guest parsing dependencies: {sorted(found)}')
     guest = workspace['board-media-guest']
-    if 'zune-jpeg' not in {packages[package] for package in reachable(guest, nodes)}:
-        raise RuntimeError('healthy guest JPEG dependency is missing')
+    if not GUEST_PARSERS <= {packages[package] for package in reachable(guest, nodes)}:
+        raise RuntimeError('healthy guest image dependency is missing')
     # Mutate only this in-memory graph, not Cargo manifests or files. Prove the
     # same traversal detects a forbidden normal dependency from a real runtime.
     public = workspace['board-public']
     control = dict(nodes)
     control[public] = {**nodes[public], 'deps': [*nodes[public]['deps'],
         {'pkg': guest, 'dep_kinds': [{'kind': None, 'target': None}]}]}
-    if 'zune-jpeg' not in {packages[package] for package in reachable(public, control)}:
+    if not GUEST_PARSERS <= {packages[package] for package in reachable(public, control)}:
         raise RuntimeError('injected guest dependency was not detected')
-    print('PASS credentialed runtime dependency graphs exclude JPEG parsers; guest control and injected-edge rejection passed')
+    print('PASS credentialed runtime dependency graphs exclude JPEG/GIF parsers; guest control and injected-edge rejection passed')
 
 
 if __name__ == '__main__':

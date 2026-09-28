@@ -6,6 +6,8 @@ pub mod catalog;
 mod derefer;
 mod handlers;
 mod intake;
+mod legacy_form;
+mod legacy_report;
 mod native_updater_snapshot;
 mod output;
 mod post_receipts;
@@ -188,7 +190,10 @@ fn routers_with_proxy(
         .route("/{board}/thread/{key}", get(handlers::thread))
         .route("/{board}/post/{id}", get(handlers::quote))
         .route("/{board}/post", post(handlers::post))
-        .route("/{board}/imgboard.php", post(handlers::post))
+        .route(
+            "/{board}/imgboard.php",
+            get(legacy_report::get).post(legacy_form::submit),
+        )
         .route("/{board}/delete", post(handlers::delete))
         .route("/{board}/report", post(handlers::report));
     if state.media.is_some() {

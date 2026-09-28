@@ -1,5 +1,5 @@
 // Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, optionChecked, hasMobileLayout = () => false }) {
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, optionChecked, hasMobileLayout = () => false }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
   let opener = null;
@@ -59,7 +59,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
       const checked = optionChecked?.(key, initial);
       input.checked = (typeof checked === 'boolean' ? checked
-        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion'].includes(key) ? initial[key] !== false : initial[key] === true))
+        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
@@ -134,6 +134,9 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       navigationExpand.setAttribute('aria-label', 'Navigation');
       navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
       navigationHeading.append(navigationExpand);
+      const customMenu = option(navigationCategory, 'customMenu', 'Custom board list', 'Only show selected boards in the board navigation');
+      customMenu.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
+      option(navigationCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
       option(navigationCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
       option(navigationCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
       option(navigationCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
@@ -227,6 +230,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
   navigationLinks.append(desktop, mobile);
   navigation?.append(navigationLinks);
   return {
+    open,
     setWatcherEnabled(enabled, visible) {
       watcher.hidden = !enabled;
       watcher.setAttribute('aria-expanded', String(visible));

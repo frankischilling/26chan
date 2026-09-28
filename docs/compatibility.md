@@ -36,6 +36,17 @@ one-post transport and trusted mobile request arbitration are explicit bounded
 replacements. Other extension features and complete original-page matching
 remain unfinished.
 
+The September 28 continuation adds publicly referenced
+[deletion/report request shapes](legacy-actions.md) and
+[local-time/custom-menu behavior](native-display.md). Existing password and
+report policies, normalized same-origin navigation and finite client work are
+documented adaptations. The guest also accepts
+[single-frame GIFs](gif-media.md) through the existing normalized attachment
+pipeline. These changes advance I-009, B-004, B-006 and the media/native-client
+inventory; they do not resolve the remaining server-link, complete original-page
+or production-host requirements. See the
+[combined verification record](verification-rewrite-completion.md).
+
 ## Reference inventory
 
 The pinned input is the public [4chan read-only API documentation](https://github.com/4chan/4chan-API/tree/2bd670d507ba2daa37a3961a661e088cf6f89d57), revision `2bd670d507ba2daa37a3961a661e088cf6f89d57`, collected September 8, 2026. [reference-manifest.json](reference-manifest.json) records exact source URLs and SHA-256 hashes. Files were fetched as public documentation; no live user posts, media or private source were imported. The input does not specify posting, authentication or private moderation behavior.

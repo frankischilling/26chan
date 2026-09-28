@@ -15,6 +15,14 @@ in #180. Catalog release-script tests and Windows script-transport diagnostics
 also improve the evidence for #82, #139 and #142; those issues remain open where
 reference rules or the original failure cause are still unconfirmed.
 
+The September 28 batch adds [legacy deletion and report routes](legacy-actions.md),
+[local dates and custom navigation](native-display.md), and
+[single-frame GIF input](gif-media.md). Its
+[combined verification record](verification-rewrite-completion.md) distinguishes
+completed local checks from pending browser, native and hosted qualification.
+Animation, remaining original-server rules and the production requirements below
+remain open.
+
 | Work item | Current state | Acceptance needed |
 |---|---|---|
 | Approved design brief | User clarified on September 13, 2026: recreate the old 4chan frontend 1:1, rather than redesign it; no separate attachment is required | Match the reference layout, typography, colors, assets, controls and states on desktop and mobile using source permitted by the rewrite prompt; record differences and verify visual and behavioral parity |

@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report post</title><link rel="stylesheet" href="/static/board.css"></head>
+<body><main><h1>Report post No.{{ no }}</h1>
+<form method="post" action="/{{ board }}/report"><input type="hidden" name="no" value="{{ no }}"><label for="reason">Report reason</label> <input id="reason" name="reason" maxlength="1000" required> <button>Report post</button></form>
+<p><a href="/{{ board }}/thread/{{ thread }}#p{{ no }}">Return to post</a></p></main></body></html>
