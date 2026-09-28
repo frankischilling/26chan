@@ -40,7 +40,8 @@ for (const scale of [1, 2]) {
           const threadFixture = location.pathname.startsWith('/img/thread/');
           const id = threadFixture ? 1000201 : 1000001;
           const board = threadFixture ? 'img' : 'demo';
-          localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true }));
+          // Keep the held request dedicated to watcher icon transitions.
+          localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true, threadStats: false }));
           localStorage.setItem('4chan-watch', JSON.stringify({
             [`${id}-${board}`]: ['Wide watcher label '.repeat(3).slice(0, 45), id, 0, false, false],
           }));
