@@ -10,12 +10,14 @@ pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
 mod read;
+mod thread_statistics;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
+pub use thread_statistics::{ThreadStatistics, thread_statistics};
 pub use write::*;
 
 #[derive(Debug, thiserror::Error)]

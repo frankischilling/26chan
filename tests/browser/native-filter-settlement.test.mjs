@@ -99,7 +99,7 @@ test('filter settlement follows bounded replacement work', async t => {
       });
     }
 
-    await t.test('cycle cancellation and page exit settle without a worker response, and a restored page can retry', async () => {
+    await t.test('page restoration starts a fresh filter pass without an explicit retry', async () => {
       const { context, page } = await setup();
       try {
         await page.evaluate(() => { window.ignoreAbort = true; window.begin(); });
@@ -114,10 +114,10 @@ test('filter settlement follows bounded replacement work', async t => {
           window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
         });
         assert.equal(await page.locator('#p101').getAttribute('class'), 'post reply');
-        await page.evaluate(() => { window.ignoreAbort = false; window.begin(); });
-        await page.waitForFunction(() => window.jobs.length === 2);
+        await page.waitForFunction(() => window.jobs.length === 2, null, { timeout: 1000 });
         await page.evaluate(() => window.release());
-        await page.waitForFunction(() => window.result === true);
+        await page.waitForFunction(() => document.getElementById('p101').classList.contains('filter-hl'));
+        assert.equal(await page.evaluate(() => window.result), false, 'The old caller remains cancelled');
       } finally { await context.close(); }
     });
 

@@ -455,3 +455,79 @@ async fn updater_sound_is_fixed_public_audio_without_image_or_api_authority() {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }
+
+#[tokio::test]
+async fn display_and_thread_controls_serve_exact_page_assets_without_worker_authority() {
+    let origin = "http://127.0.0.1:3000";
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+        .unwrap();
+    let (app, api) = board_public::routers(pool, origin.into(), false);
+    for (path, expected) in [
+        (
+            "/static/native-display.v1.js",
+            include_bytes!("../static/native-display.v1.js").as_slice(),
+        ),
+        (
+            "/static/native-thread-controls.v1.js",
+            include_bytes!("../static/native-thread-controls.v1.js").as_slice(),
+        ),
+        (
+            "/static/native-thread-stats.v1.js",
+            include_bytes!("../static/native-thread-stats.v1.js").as_slice(),
+        ),
+    ] {
+        for method in ["GET", "HEAD", "POST"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            if method == "POST" {
+                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+                continue;
+            }
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                response.headers()["content-type"],
+                "text/javascript; charset=utf-8"
+            );
+            assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+            assert_eq!(
+                response.headers()["cache-control"],
+                "public, max-age=0, must-revalidate"
+            );
+            let csp = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            for directive in [
+                "script-src 'none';",
+                "worker-src 'none';",
+                "connect-src 'none';",
+            ] {
+                assert!(csp.contains(directive));
+            }
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            if method == "GET" {
+                assert_eq!(bytes.as_ref(), expected);
+            } else {
+                assert!(bytes.is_empty());
+            }
+        }
+        assert_eq!(
+            api.clone()
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+}

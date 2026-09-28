@@ -32,16 +32,16 @@ const test = base.extend({
 });
 
 async function prepare(page, fixture, blacklist = {}) {
-  await page.goto(`/demo/thread/${fixture.control}`);
-  // Native stored preferences exercise integration independently of the editor,
-  // which remains a separate unfinished requirement.
+  await page.goto('/');
+  // This fixture measures watcher traffic. Statistics have their own endpoint
+  // and transport coverage, so disable that independent default-on feature.
   await page.evaluate(({ filters, blacklist }) => {
-    localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true, filter: true }));
+    localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true, filter: true, threadStats: false }));
     localStorage.setItem('4chan-filters', JSON.stringify(filters));
     localStorage.setItem('4chan-watch-bl', JSON.stringify(blacklist));
     localStorage.removeItem('4chan-tw-timestamp');
   }, { filters: fixture.filters, blacklist });
-  await page.reload();
+  await page.goto(`/demo/thread/${fixture.control}`);
   await expect(page.locator('#threadWatcher')).toBeVisible();
 }
 

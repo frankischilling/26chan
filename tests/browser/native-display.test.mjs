@@ -119,6 +119,13 @@ test('display controls preserve original content, finite navigation and lifecycl
         await page.evaluate(() => { config.customMenuList = '<img src=x onerror=alert(1)>'; display.refresh(); });
         assert.equal(await page.locator('.customBoardList img, .customBoardList script').count(), 0);
         assert.ok(await page.locator('.customBoardList a').evaluateAll(links => links.every(a => a.origin === location.origin)));
+        await page.evaluate(() => {
+          const nested = []; let current = nested;
+          for (let index = 0; index < 20000; index++) { const next = []; current.push(next); current = next; }
+          config.customMenuList = nested;
+          display.refresh();
+        });
+        assert.equal(await page.locator('.customBoardList').count(), 0);
         await page.evaluate(() => { config.disableAll = true; display.refresh(); });
         assert.equal(await page.locator('.customBoardList').count(), 0);
         assert.deepEqual(requests, []);

@@ -15,6 +15,10 @@ settings and preserve server output when disabled. The
 [legacy action route](docs/legacy-actions.md) supports password deletion and a
 script-free report form alongside posting.
 
+[Index expansion](docs/native-thread-expansion.md) loads omitted replies without
+replacing existing posts or drafts. [Thread statistics](docs/native-thread-stats.md)
+show counts and page position from one database snapshot.
+
 ## Getting started
 
 The development scripts support Ubuntu 24.04, including Ubuntu running in WSL. Run the following commands in an Ubuntu terminal as a regular user with `sudo` access.

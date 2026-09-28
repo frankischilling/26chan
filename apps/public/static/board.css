@@ -372,6 +372,16 @@ dialog.filterHelp { width: 400px; }
 .open-qr-wrap { margin-bottom: 5px; }
 @media (max-width: 480px) { #quickReply { position: absolute; } #quickReply input[type=text], #quickReply input[type=password], #quickReply textarea { font-size: 16px; } }
 .nativeUpdater[hidden] { display: none !important; }
+.board .thread.tCollapsed > .rExpanded, .nativeExpansionOriginal[hidden] { display: none !important; }
+.nativeThreadExpand { vertical-align: middle; margin-right: 4px; }
+.nativeExpansionStatus:empty { display: none; }
+.thread-stats { float: right; margin-right: 5px; cursor: default; }
+@media (max-width: 480px) {
+  .thread-stats { float: none; text-align: center; }
+  .ts-replies::before { content: 'Replies: '; }
+  .ts-images::before { content: 'Images: '; }
+  .ts-page::before { content: 'Page: '; }
+}
 .nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
 .nativeUpdaterStatus.tu-error { color: #d00; }
 .newPostsMarker:not(#quote-preview) { box-shadow: 0 3px red; }

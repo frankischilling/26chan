@@ -251,7 +251,9 @@ class IntakeExercise(MediaHttpExercise):
 
         gif_root = REPO / 'tests/media/fixtures/gif'
         for data in [(gif_root / name).read_bytes() for name in ('too-wide.gif', 'animated.gif', 'partial.gif')] + [
-                (gif_root / 'static.gif').read_bytes()[:-1]]:
+                (gif_root / 'static.gif').read_bytes()[:-1],
+                (gif_root / 'static.gif').read_bytes() + b'JUNK;',
+                (gif_root / 'static.gif').read_bytes() * 2]:
             approved_files = set(self.objects.iterdir())
             job, cap = self.reserve_http()
             assert self.upload_http(job, cap, data)[0] == 202
@@ -271,7 +273,7 @@ class IntakeExercise(MediaHttpExercise):
         assert status == 200 and result['state'] == 'published' and result['output_id'] == asset
         status, _, body = self.http(f'/media/{asset}.png')
         assert status == 200 and body == (self.objects / f'{asset}.png').read_bytes()
-        print('PASS excessive, animated, partial and truncated GIFs grant no approval or files; healthy GIF dispatch succeeds afterward', flush=True)
+        print('PASS excessive, animated, partial, truncated and trailing-data GIFs grant no approval or files; healthy GIF dispatch succeeds afterward', flush=True)
 
         job, cap = self.reserve_http()
         assert self.upload_http(job, cap, iter([b'x' * 8192] * 1025), chunked=True)[0] == 413

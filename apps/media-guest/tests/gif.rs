@@ -100,6 +100,20 @@ fn every_truncation_is_rejected_and_a_healthy_decode_still_works() {
 }
 
 #[test]
+fn data_after_the_first_gif_trailer_is_rejected_even_when_the_last_byte_is_a_trailer() {
+    let input = encode(2, 2, &[frame(2, 2)], false);
+    for suffix in [b";".as_slice(), b"JUNK;", input.as_slice()] {
+        let mut trailing = input.clone();
+        trailing.extend_from_slice(suffix);
+        assert!(
+            decode_image(&trailing).is_err(),
+            "accepted trailing bytes: {suffix:?}"
+        );
+    }
+    assert_eq!(decode_image(&input).unwrap().len(), 32);
+}
+
+#[test]
 fn maximum_accepted_canvas_stays_within_the_pixel_protocol() {
     let input = encode(1024, 1024, &[frame(1024, 1024)], false);
     let output = decode_image(&input).unwrap();

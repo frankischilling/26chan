@@ -4,12 +4,14 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
+import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
   localQuoteTree, prepareQuotePost, mobileQuoteDevice, NativeQuotePreviewTransport, checkedQuotePreview } from './native-filter.v1.js';
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
 import { mountNativeDisplay } from './native-display.v1.js';
+import { mountNativeThreadUpdater, mountNativeThreadExpansion } from './native-thread-controls.v1.js';
+import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -328,6 +330,17 @@ function start(context) {
   });
   const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
     settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
+  });
+  const nativeStats = catalog ? null : mountNativeThreadStats({ board, thread: threadId,
+    settings: configuration, mobile, readNeverMobile,
+  });
+  const nativeExpansion = catalog ? null : mountNativeThreadExpansion({ root: document.querySelector('.board'),
+    board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, decorateButton: icon,
+    applied: async (_snapshot, signal) => {
+      render(); await new Promise(resolve => queueMicrotask(resolve));
+      if (signal.aborted) return;
+      if (nativeFilters && !await nativeFilters.refreshSettled(signal) && !signal.aborted) throw new Error('Expansion filters did not settle.');
+    },
   });
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
     save: (position, expected, expectedFixed) => locked(() => {
@@ -706,6 +719,7 @@ function start(context) {
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
     nativeDisplay?.refresh();
+    nativeExpansion?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();
     nativeReplies?.refresh();

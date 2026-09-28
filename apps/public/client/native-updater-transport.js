@@ -111,11 +111,12 @@ export class NativeUpdaterTransport {
           }
           if (!body) { finish({ status: 'invalid-response' }); return; }
           reader = body.getReader();
-          const chunks = []; let bytes = 0;
+          const chunks = []; let bytes = 0, reads = 0;
           while (true) {
             const part = await reader.read();
             if (settled) return;
             if (part.done) break;
+            if (++reads > 65536) { finish({ status: 'response-limit' }); return; }
             if (!(part.value instanceof Uint8Array)) { finish({ status: 'invalid-response' }); return; }
             bytes += part.value.byteLength; used += part.value.byteLength;
             if (used > this.limits.bytes) { finish({ status: 'response-limit' }); return; }

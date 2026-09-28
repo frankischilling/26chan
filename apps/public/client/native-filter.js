@@ -1,7 +1,8 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { nativeCommentText, nativeWatchLabel } from './native-filter-html.js';
 import { parseUpdaterSnapshot, parseQuotePreviewSnapshot } from './native-updater-snapshot.js';
-export { mountNativeThreadUpdater } from './native-thread-updater.js';
+export { NativeUpdaterTransport } from './native-updater-transport.js';
+export { UPDATER_LIMITS, updaterContext, validatePostTree, validateSnapshotMetadata } from './native-updater-snapshot.js';
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';

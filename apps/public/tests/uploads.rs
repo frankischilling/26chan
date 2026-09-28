@@ -1239,6 +1239,13 @@ async fn image_reply_contract(
         "An image OP does not use a reply image slot"
     );
     assert_eq!(full["posts"][0]["imagelimit"], 1);
+    let stats_path = format!("/_watch/{board}/thread/{thread}/stats");
+    let (stats, _) = json(app, &stats_path).await;
+    assert_eq!(
+        stats["images"], 7,
+        "Statistics exclude the opening post's image"
+    );
+    assert_eq!(stats["image_limited"], true);
     for (index, p) in full["posts"].as_array().unwrap().iter().enumerate() {
         if index % 2 == 0 || index == 1 {
             assert!(p.get("com").is_none());
@@ -1298,6 +1305,9 @@ async fn image_reply_contract(
     );
     let (after, _) = json(app, &path).await;
     assert_eq!(after["posts"][0]["images"], 6);
+    let (stats, _) = json(app, &stats_path).await;
+    assert_eq!(stats["images"], 6);
+    assert_eq!(stats["image_limited"], false);
     assert!(after["posts"][0].get("imagelimit").is_none());
     assert_eq!(after["posts"][1]["filedeleted"], 1);
     for key in ["tim", "filename", "md5", "ext", "tn_w", "tn_h", "spoiler"] {
@@ -1338,6 +1348,9 @@ async fn image_reply_contract(
         .unwrap();
     assert_eq!(op["replies"], 6);
     assert_eq!(op["images"], 5);
+    let (stats, _) = json(app, &stats_path).await;
+    assert_eq!(stats["replies"], 6);
+    assert_eq!(stats["images"], 5);
     let filter = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("q", &format!("<b>{board}</b>.png"))
         .finish();

@@ -8,6 +8,7 @@ mod handlers;
 mod intake;
 mod legacy_form;
 mod legacy_report;
+mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
 mod post_receipts;
@@ -172,6 +173,10 @@ fn routers_with_proxy(
         .route("/static/board.css", get(handlers::css))
         .route("/boards.json", get(api::boards))
         .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
+        .route(
+            "/_watch/{board}/thread/{key}/stats",
+            get(native_thread_stats::get),
+        )
         .route(
             "/_watch/{board}/post/{key}",
             get(native_updater_snapshot::get_preview),

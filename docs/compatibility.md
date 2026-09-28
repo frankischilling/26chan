@@ -46,6 +46,9 @@ pipeline. These changes advance I-009, B-004, B-006 and the media/native-client
 inventory; they do not resolve the remaining server-link, complete original-page
 or production-host requirements. See the
 [combined verification record](verification-rewrite-completion.md).
+[Index expansion](native-thread-expansion.md) and
+[thread statistics](native-thread-stats.md) also follow the pinned public client,
+with bounded same-origin projections and explicit lifecycle checks.
 
 ## Reference inventory
 

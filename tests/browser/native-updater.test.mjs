@@ -179,6 +179,25 @@ test('hung or hostile worker results are terminated and cannot become DOM instru
   }
 });
 
+test('empty chunks cannot keep an updater read alive beyond its finite stream-work budget', async () => {
+  let reads = 0, cancels = 0, healthy = false, now = 0;
+  const record = { created: 0, terminated: 0 };
+  const transport = new NativeUpdaterTransport({ ...context, now: () => now, createWorker: workerFactory(record),
+    fetcher: async url => ({ url, status: 200, headers: new Headers({ 'content-type': 'application/json' }),
+      body: healthy ? new Response(JSON.stringify(snapshot())).body : { getReader() { return {
+        async read() { reads++; return { done: false, value: new Uint8Array() }; },
+        async cancel() { cancels++; },
+      }; } },
+    }),
+  });
+  assert.equal((await transport.refresh()).status, 'response-limit');
+  assert.equal(reads, 65537); assert.equal(cancels, 1);
+  assert.equal(record.created, 0); assert.equal(transport.active, null);
+  healthy = true; now = 1000;
+  assert.equal((await transport.refresh()).status, 'ok');
+  assert.equal(record.created, 1); assert.equal(record.terminated, 1);
+});
+
 function rangedSnapshot(count, size, tail = false) {
   const ids = Array.from({ length: count + 1 }, (_, i) => String(BigInt(context.thread) + BigInt(i)));
   const s = snapshot(); s.replies = count; s.tail_size = size;

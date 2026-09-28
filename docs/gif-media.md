@@ -23,8 +23,10 @@ remain necessary.
 
 The first frame must cover the complete logical screen with zero offsets and an
 exactly sized RGBA buffer. A second frame causes rejection before any pixels are
-returned. Interlaced rows and transparent palette entries are decoded. Comments
-and application metadata do not enter the output protocol.
+returned. After the trailer, the decoder's buffered reader must be at EOF; extra
+trailers, appended bytes and concatenated GIFs are rejected. Interlaced rows and
+transparent palette entries are decoded. Comments and application metadata do
+not enter the output protocol.
 
 Animation and partial-frame composition are unsupported. A future compositor
 needs explicit limits for frames, aggregate decoded pixels, disposal state and
@@ -42,7 +44,8 @@ The [six GIF fixtures](../tests/media/fixtures/gif/README.md) contain constant
 indexed pixels and reproduce byte-for-byte with the pinned Rust encoder.
 The guest tests cover exact opaque output, transparency, metadata removal,
 interlacing, both signatures, the largest accepted canvas, every truncation of a
-small fixture, malformed input, animation, partial frames and bounded mutations.
+small fixture, bytes after the first trailer, malformed input, animation,
+partial frames and bounded mutations.
 A healthy decode follows rejection cases.
 
 Native VM tests exercise static, transparent and interlaced input through the

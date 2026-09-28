@@ -33,6 +33,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
   storageNotice.setAttribute('role', 'status');
   root?.before(storageNotice);
   let controller, pending, generation = 0, signature, scheduled = false;
+  let suspended = false, retired = false;
   const effects = new Map(), revealed = new Set();
   function clear() {
     for (const [element, prior] of effects) {
@@ -157,6 +158,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     }
   }
   function refresh() {
+    if (suspended || retired) return Promise.resolve();
     pending = applyFilters();
     return pending;
   }
@@ -164,7 +166,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
   // Await the replacement as well: a cancelled pass has not established the
   // final DOM state used by updater notifications and read acknowledgement.
   async function refreshSettled(signal) {
-    if (signal?.aborted) return false;
+    if (signal?.aborted || suspended || retired) return false;
     let stop;
     const stopped = new Promise(resolve => { stop = () => resolve(false); });
     const deadline = setTimeout(stop, 60000);
@@ -184,17 +186,29 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     }
   }
   function schedule() {
-    if (scheduled) return; scheduled = true;
+    if (scheduled || suspended || retired) return; scheduled = true;
     queueMicrotask(() => { scheduled = false; void refresh(); });
   }
-  if (root) new MutationObserver(changes => {
+  const observer = new MutationObserver(changes => {
     if (changes.some(change => (!projection || projection.originalMutation(change))
       && (change.target.parentElement?.closest('.postMessage,.name,.subject,.postertrip,.posteruid,.file')
       || change.target.closest?.('.postMessage,.name,.subject,.postertrip,.posteruid,.file')
       || [...change.addedNodes, ...change.removedNodes].some(node => node.nodeType === 1
         && (node.matches('.post,.postContainer,.thread') || node.querySelector('.post')))))) schedule();
-  }).observe(root, { childList: true, subtree: true, characterData: true });
-  window.addEventListener('pagehide', () => { generation++; controller?.abort(); });
+  });
+  const observe = () => { if (root) observer.observe(root, { childList: true, subtree: true, characterData: true }); };
+  const hide = event => {
+    suspended = true; generation++; controller?.abort(); observer.disconnect();
+    if (!event.persisted) {
+      retired = true;
+      window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);
+    }
+  };
+  const show = event => {
+    if (event.persisted && !retired) { suspended = false; observe(); void refresh(); }
+  };
+  observe();
+  window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
   const open = filterEditor({ board, read, save, match, changed: result => {
     if (result.persisted === false) {
       storageNotice.textContent = 'Filters are saved only in this tab. Browser storage or cross-tab locking is unavailable.';

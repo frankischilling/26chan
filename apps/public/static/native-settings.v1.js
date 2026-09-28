@@ -59,7 +59,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
       const checked = optionChecked?.(key, initial);
       input.checked = (typeof checked === 'boolean' ? checked
-        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime'].includes(key) ? initial[key] !== false : initial[key] === true))
+        : (['threadHiding', 'threadUpdater', 'threadExpansion', 'threadStats', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
@@ -137,6 +137,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       const customMenu = option(navigationCategory, 'customMenu', 'Custom board list', 'Only show selected boards in the board navigation');
       customMenu.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
       option(navigationCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
+      option(navigationCategory, 'threadExpansion', 'Thread expansion', 'Expand omitted replies on board indexes');
+      option(category, 'threadStats', 'Thread statistics', 'Display reply and image counts; italics indicate a reached bump or image limit');
       option(navigationCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
       option(navigationCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
       option(navigationCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');

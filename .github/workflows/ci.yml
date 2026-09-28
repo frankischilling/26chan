@@ -351,6 +351,15 @@ jobs:
       - name: Verify local dates and bounded board navigation
         shell: pwsh
         run: npm run test:display-core
+      - name: Verify bounded thread expansion
+        shell: pwsh
+        run: npm run test:expansion-core
+      - name: Verify typed thread statistics and lifecycle
+        shell: pwsh
+        run: npm run test:stats-core
+      - name: Verify atomic updater page integration
+        shell: pwsh
+        run: npm run test:thread-updater-dom
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |

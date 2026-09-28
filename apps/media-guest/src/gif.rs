@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Cursor},
+    io::{self, BufRead, Cursor},
     num::NonZeroU64,
 };
 
@@ -51,6 +51,11 @@ pub(super) fn decode(input: &[u8]) -> io::Result<Vec<u8>> {
         .is_some()
     {
         return Err(io::Error::other("animated GIF rejected"));
+    }
+    // The decoder stops at the first trailer. Its buffered reader retains any
+    // bytes after that marker, even when the input also ends with a trailer.
+    if !decoder.into_inner().fill_buf()?.is_empty() {
+        return Err(io::Error::other("trailing GIF data rejected"));
     }
     Ok(output)
 }

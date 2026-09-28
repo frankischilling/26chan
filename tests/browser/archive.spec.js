@@ -5,10 +5,11 @@ import path from 'node:path';
 
 function fixture(command, slug) {
   const binary = process.platform === 'win32' ? '.exe' : '';
-  const result = spawnSync(path.resolve(`target/debug/examples/archive-fixture${binary}`), [command, slug], {
+  const result = spawnSync(path.resolve(process.env.CARGO_TARGET_DIR || 'target', `debug/examples/archive-fixture${binary}`), [command, slug], {
     encoding: 'utf8', timeout: 15_000,
     env: { MIGRATION_DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PATH: process.env.PATH, SystemRoot: process.env.SystemRoot },
   });
+  expect(result.error, 'Owned archive fixture helper must launch').toBeUndefined();
   expect(result.status, 'Owned archive fixture helper must succeed').toBe(0);
 }
 

@@ -11,6 +11,8 @@ pub(crate) const NATIVE_FILTER_PATH: &str = "/static/native-filter.v1.js";
 pub(crate) const NATIVE_BACKLINKS_PATH: &str = "/static/native-backlinks.v1.js";
 pub(crate) const NATIVE_IMAGES_PATH: &str = "/static/native-images.v1.js";
 pub(crate) const NATIVE_DISPLAY_PATH: &str = "/static/native-display.v1.js";
+pub(crate) const NATIVE_THREAD_CONTROLS_PATH: &str = "/static/native-thread-controls.v1.js";
+pub(crate) const NATIVE_THREAD_STATS_PATH: &str = "/static/native-thread-stats.v1.js";
 pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
@@ -424,6 +426,14 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            NATIVE_THREAD_CONTROLS_PATH,
+            include_bytes!("../static/native-thread-controls.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_THREAD_STATS_PATH,
+            include_bytes!("../static/native-thread-stats.v1.js").as_slice(),
+        ),
         (
             NATIVE_DISPLAY_PATH,
             include_bytes!("../static/native-display.v1.js").as_slice(),
