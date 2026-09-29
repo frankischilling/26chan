@@ -222,6 +222,36 @@ production timestamp behavior, tolerance or retry was changed.
 These results belong to the reviewed integration source. The complete hosted
 checks for the final published commit remain required before merge.
 
+## Native upload transport and continued browser qualification
+
+On `d493f57`, hosted dependency advisories, monitoring and media/operations passed.
+The Linux job passed the complete Rust/database suite, then failed two inline
+quote assertions when the separate statistics feature made valid requests after
+navigation or a settings event. The inline fixtures now initialize that feature
+as disabled while retaining their exact request arrays. All 25 core cases and
+36 persisted browser cases passed in one local run, including both failures.
+The independent enabled-statistics suite remains intact.
+
+The same checkpoint's Windows job passed the earlier functional and base,
+archive and attachment visual checks, then failed two live/server catalog
+comparisons. Retained images and state are being used to diagnose that failure;
+passing a different checkpoint does not settle it.
+
+Commit `9f634b9` adds private, bounded JSON representations to the existing upload,
+status and cancellation routes for native Quick Reply. It keeps the streaming
+intake, approved-output selection and single-use posting authority. The native
+route test and original HTML upload test passed against actual intake and
+PostgreSQL. Coverage includes every upload state, malformed/expired/revoked
+capabilities, approved attachment-only posting, spoiler metadata, denied reuse,
+HTML negotiation and exact board/catalog CSP permissions. Approval in this
+fixture is synthetic; the separate media qualification runs an actual guest.
+
+All 84 public-library tests and the complete Linux workspace Clippy check passed
+after the transport change. Two initial fixture errors, the router constructor
+and a missing subject on the image OP, were corrected before those results.
+The server's required-subject policy was unchanged. Client attachment controls
+and the final combined hosted checks remain under implementation and review.
+
 ## Remaining acceptance work
 
 The catalog and server-link review retained #82 and #165 where public evidence
