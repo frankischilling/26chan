@@ -63,13 +63,48 @@ test('a timed-out settings save retains its dialog draft and cannot overwrite st
   await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
   await page.locator('#setting-threadAutoWatcher').check(); await holder.hold();
   const save = page.getByRole('button', { name: 'Save Settings', exact: true }); await save.click(); await queued(holder);
+  const exportSettings = page.getByRole('button', { name: 'Export Settings', exact: true });
+  await expect(exportSettings).toBeDisabled();
+  await exportSettings.dispatchEvent('click');
+  await expect(page.getByRole('dialog', { name: 'Export Settings', exact: true })).toHaveCount(0);
   await expect(save).toBeDisabled(); await page.clock.runFor(5001);
   await expect(save).toBeEnabled(); await expect(page.locator('.settingsMessage')).toContainText('Settings could not be saved');
+  await expect(exportSettings).toBeEnabled();
   await expect(page.locator('#setting-threadAutoWatcher')).toBeChecked();
   await holder.release();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).threadAutoWatcher)).toBeUndefined();
   await page.keyboard.press('Escape');
 });
+
+for (const cancellation of ['close', 'pagehide']) {
+  test(`settings ${cancellation} cancels a held save without closing a newer dialog or navigating`, async ({ page, owned, holder }) => {
+    await initialize(page, owned);
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
+    await page.locator('#setting-threadAutoWatcher').check();
+    await holder.hold();
+    await page.getByRole('button', { name: 'Save Settings', exact: true }).click();
+    await queued(holder);
+    let navigations = 0;
+    page.on('request', request => { if (request.isNavigationRequest()) navigations++; });
+    if (cancellation === 'close') await page.getByRole('button', { name: 'Close settings' }).click();
+    else {
+      await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+      await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+    }
+    await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
+    await page.locator('#setting-fixedThreadWatcher').check();
+    await holder.release();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')))).toEqual({ threadWatcher: true });
+    await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(page.locator('#setting-fixedThreadWatcher')).toBeChecked();
+    await expect(page.locator('#setting-threadAutoWatcher')).not.toBeChecked();
+    expect(navigations).toBe(0);
+    await page.keyboard.press('Escape');
+  });
+}
 
 test('page exit cancels queued unwatch and suppression, and persisted resumption permits a fresh action', async ({ page, owned, holder }) => {
   await initialize(page, owned); await watch(page, owned.id).click(); await expect(row(page, owned.id)).toBeVisible();

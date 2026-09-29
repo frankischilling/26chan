@@ -41,11 +41,11 @@ assert.deepEqual([...outputs[0].exports].sort(), [
   'markNativeTrackedQuotes', 'mobileQuoteDevice', 'mountNativeFilters', 'mountNativeReplyHiding', 'mountNativeThreadHiding',
   'mountNativeKeybinds', 'mountNativeQuickReply', 'mountNativeLinkification', 'mountNativeQuotePreview',
   'prepareQuotePost', 'quoteTarget', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters',
-  'runNativeFilterJob', 'writeBlacklist',
+  'runNativeFilterJob', 'writeBlacklist', 'filterColor',
   'boardPageContext', 'validateBoardPageSnapshot',
 ].sort());
 for (const path of Object.keys(result.metafile.inputs)) {
-  assert.ok(path === 'apps/public/static/thread-watcher-core.v1.js'
+  assert.ok(['apps/public/static/thread-watcher-core.v1.js', 'apps/public/static/watcher-position.v1.js'].includes(path)
     || ['apps/public/client/', 'node_modules/parse5/', 'node_modules/entities/'].some(prefix => path.startsWith(prefix)), `Unexpected worker source: ${path}`);
 }
 const bytes = result.outputFiles[0].contents;

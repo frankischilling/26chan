@@ -99,7 +99,9 @@ test('the actual live matcher passes every shared operator and case example with
     document.body.replaceChildren(form, threads, hidden);
     await new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = '/static/catalog-preferences.v1.js';
+      script.type = 'module';
+      // The replaced fixture needs a fresh module instance for its new controls.
+      script.src = '/static/catalog-preferences.v1.js?live-contract=1';
       script.onload = resolve;
       script.onerror = reject;
       document.body.append(script);
@@ -129,7 +131,7 @@ test('inert filtered cards do not request their images until shown', async ({ pa
   expect(healthy).toBe(77);
   const card = (id, text, image = '') => `<section class="thread" id="thread-${id}" data-thread-id="${id}" data-bumped="100" data-latest-reply="" data-replies="0" data-sticky="false"><a class="catalogThumb" data-search-text="${text}" data-search-file="" data-has-file="false">${image}</a><div class="teaser">${text}</div></section>`;
   const image = '<img id="thumb-2" src="/static/catalog/nofile.png?hidden-probe" width="77" height="13" data-small-width="77" data-small-height="13" data-large-width="77" data-large-height="13">';
-  const html = `<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search" value="visible"><button>Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small">${card(1, 'visible')}</div><template id="catalogFiltered">${card(2, 'hidden', image)}</template><script src="/static/catalog-preferences.v1.js" defer></script>`;
+  const html = `<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search" value="visible"><button>Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small">${card(1, 'visible')}</div><template id="catalogFiltered">${card(2, 'hidden', image)}</template><script type="module" src="/static/catalog-preferences.v1.js"></script>`;
   await page.route('**/test/catalog?q=visible', route => route.fulfill({ contentType: 'text/html', headers: { 'content-security-policy': csp }, body: html }));
   let requests = 0;
   page.on('request', request => { if (request.url().includes('hidden-probe')) requests += 1; });
@@ -175,7 +177,7 @@ test('live search stays usable without storage and enforces scalar-value bounds'
 test('empty catalogs distinguish no threads from no matches across every clear control', async ({ page }) => {
   const response = await page.goto(`${catalog}?q=`);
   const csp = response.headers()['content-security-policy'];
-  const html = initial => `<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search" value="${initial}"><button>Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small"><p class="empty">${initial ? 'No matching threads. <a href="/test/catalog">Show all threads</a>.' : 'No threads yet. <a href="/test/#reply">Start the first thread</a>.'}</p></div><template id="catalogFiltered"></template><script src="/static/catalog-preferences.v1.js" defer></script>`;
+  const html = initial => `<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search" value="${initial}"><button>Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small"><p class="empty">${initial ? 'No matching threads. <a href="/test/catalog">Show all threads</a>.' : 'No threads yet. <a href="/test/#reply">Start the first thread</a>.'}</p></div><template id="catalogFiltered"></template><script type="module" src="/static/catalog-preferences.v1.js"></script>`;
   await page.route('**/test/catalog?empty-state=*', route => {
     const initial = new URL(route.request().url()).searchParams.get('q');
     return route.fulfill({ contentType: 'text/html', headers: { 'content-security-policy': csp }, body: html(initial) });

@@ -30,10 +30,10 @@ flowchart LR
   StaffBrowser[Staff browser] --> Staff[Staff Axum process]
   Staff -->|board_auth login| Identity[(Protected staff_identity schema)]
   Staff -->|board_staff login| Content
-  Intake[Development media command] -->|board_media login| Queue[(Media queue)]
+  Public -->|authenticated bounded upload| Intake[Development HTTP intake]
+  Intake -->|board_media_intake login| Queue[(Media queue)]
   Intake --> Quarantine[Private quarantine library]
-  Public -. disabled .-> Quarantine
-  Coordinator[Development media coordinator] --> Queue
+  Coordinator[Development media coordinator] -->|board_media login| Queue
   Coordinator --> Quarantine
   Coordinator -->|bounded input over mutual TLS| Gateway[Nonroot gateway]
   Gateway -->|Unix peer UID| Broker[Root broker]
@@ -59,7 +59,7 @@ flowchart LR
   Alertmanager -->|verified HTTPS and Bearer credential| Receiver[Operator receiver candidate]
 ```
 
-Dashed flows are not implemented production routes. The [development coordinator](media-dispatch.md) connects the persisted queue, authenticated gateway, root launcher and [local Firecracker profile](firecracker.md), then validates and durably publishes with the current lease. A restricted reader checks approved metadata and file integrity. The owned native harness exercises that complete path. A separate [development HTTP reader](media-http.md) serves approved files; production media serving, public intake/post attachment and deployed host qualification remain unfinished. No ordinary container is claimed to substitute for a microVM.
+Dashed flows are not implemented production routes. The [development coordinator](media-dispatch.md) connects the persisted queue, authenticated gateway, root launcher and [local Firecracker profile](firecracker.md), then validates and durably publishes with the current lease. A restricted reader checks approved metadata and file integrity. The owned native harness exercises that complete path. The explicit isolated development profile connects [public uploads and persisted attachments](post-attachments.md) to the intake service and the separate [HTTP reader](media-http.md). Production media serving and deployed host qualification remain unfinished. No ordinary container is claimed to substitute for a microVM.
 
 ## Identities and authority
 
@@ -87,7 +87,7 @@ PostgreSQL grants are real and versioned. Runtime startup checks expected login 
 
 Posting/deletion/reporting acquire a board row lock in a transaction. Replies inspect thread state while locked; sequence IDs and foreign keys preserve relationships. The reply limit counts accepted replies over the thread's life. `sage` suppresses a bump. OP deletion hides its replies atomically. A failed transaction is rolled back. A request timeout near commit may leave an accepted post; the response asks users to check before retrying. Posting idempotency keys are not implemented.
 
-The public process decodes no media. Its only user-text grammar recognizes greentext lines, local numeric quotes, flat spoiler tags and HTTP(S) links without URL credentials. Rendering uses template macros over typed nodes; no `safe` filter or arbitrary HTML insertion is used. Staff previews use the same domain grammar and escaped Askama rendering. Filenames and worker metadata do not enter the public application because media is disabled. The separate media library accepts only a capped raw-pixel format and invokes a PNG encoder; its dependency also contains decoder APIs, which runtime code does not call.
+The public process decodes no media. User text passes through the bounded domain formatter and typed rendering nodes; staff previews use the same grammar and escaped Askama templates. Historical format profiles and the public browser linker remain distinct, as described in the [compatibility record](compatibility.md). In the isolated development profile, the public application reads approved attachment metadata through restricted database functions and renders filenames as escaped text. It never accepts worker claims as posting authority. The separate media library accepts a capped raw-pixel format and invokes a PNG encoder; its dependency also contains decoder APIs, which runtime code does not call.
 
 JSON encodes comments through the same renderer. Mutable HTML/errors use `no-store`. JSON has representation-derived ETags with `max-age=0, must-revalidate`; deleted threads return 404 before validators are processed. Thread list/catalog previews fetch only bounded preview rows, while counts stay in SQL. Individual thread reads cap at the schema's 1,001 posts.
 
@@ -97,9 +97,11 @@ Individual thread HTML and JSON responses also read their board settings, thread
 
 ## Browser and network boundary
 
-Public, staff and media origins must differ. Production origins require HTTPS and distinct public/staff hostnames because cookies do not respect port boundaries. Media must have a different registrable domain from both applications, checked using the pinned public suffix list dependency. Development exceptions require loopback hosts; use `localhost` for staff and `127.0.0.1` for public to keep local cookies separate. The public application sets no cookies. Staff cookies are host-only, HttpOnly and SameSite=Strict; production uses Secure and the `__Host-` prefix. WebAuthn ceremonies bind the configured staff origin and RP ID, require user verification and remain server-side. Hardware attestation is not enforced.
+Public, staff and media origins must differ. Production origins require HTTPS and distinct public/staff hostnames because cookies do not respect port boundaries. Media must have a different registrable domain from both applications, checked using the pinned public suffix list dependency. Development exceptions require loopback hosts; use `localhost` for staff and `127.0.0.1` for public to keep local cookies separate. Public theme cookies are host-only and HttpOnly; short-lived posting receipts are readable by the native client and scoped to the board path. Neither grants staff authority. Staff cookies are host-only, HttpOnly and SameSite=Strict; production uses Secure and the `__Host-` prefix. WebAuthn ceremonies bind the configured staff origin and RP ID, require user verification and remain server-side. Hardware attestation is not enforced.
 
-POST requires the exact configured Origin and rejects inappropriate Fetch Metadata. Staff moderation also requires a session-bound CSRF token and authentication within ten minutes. Referrer policy is `same-origin` so native form submissions retain their origin signal while external navigation receives no referrer. Public CSP permits local styles and forms and prohibits scripts, objects, framing and media. Staff CSP additionally permits its local WebAuthn script and same-origin fetches. CSP supplements escaped rendering.
+POST requires the exact configured Origin and rejects inappropriate Fetch Metadata. Staff moderation also requires a session-bound CSRF token and authentication within ten minutes. Referrer policy is `same-origin` so native form submissions retain their origin signal while ordinary external navigation receives no referrer. Public CSP permits fixed release scripts and the parser worker only on the routes that use them, with finite same-origin fetch paths, release image assets and the configured approved-media origin. Notification audio has one fixed asset URL. Objects and embedding the board in another page are prohibited.
+
+Board and thread pages permit only the fixed YouTube and SoundCloud frame paths used by [provider embeds](native-embeds.md). Players require an explicit click. A YouTube frame sends an origin-only referrer for provider identification; the board path and query are withheld. Upload confirmations, catalogs, errors and other pages retain `frame-src 'none'`. [Custom CSS](native-custom-css.md) accepts only bounded post selectors and finite values before constructing a stylesheet; it grants no inline-style or external resource permission. Staff CSP separately permits its local WebAuthn script and same-origin fetches. CSP supplements escaped rendering and does not establish the safety of provider content.
 
 Direct TCP ignores forwarding headers. Linux production uses a [verified Unix proxy](public-proxy.md): kernel peer UID authenticates the proxy before its single client-address header is accepted. The canonical address drives rate limits and OP identity, with defaults of at most 10,000 transient entries and 30 writes per peer per minute. Additional proxy hops and the actual production edge require separate qualification. Public form bodies are limited to 256 KiB to accommodate percent-encoded UTF-8 comments; the JSON-only listener retains 64 KiB. Comments are bounded to the board's Unicode scalar limit, at most 16,000 scalars and 64,000 bytes, in validation and PostgreSQL. The parser independently caps scalar input.
 

@@ -14,6 +14,9 @@ import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepage
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
 import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './native-layout.v1.js';
+import { mountNativeEmbeds } from './native-embeds.v1.js';
+import { mountNativeCustomCSS } from './native-custom-css.v1.js';
+import { mountNativeSettingsTransfer, checkTransferValues, SETTINGS_TRANSFER_STORAGE_KEYS, SETTINGS_TRANSFER_LIMITS } from './native-settings-transfer.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -28,6 +31,7 @@ function start(context) {
   const timestampKey = '4chan-tw-timestamp';
   const blacklistKey = '4chan-watch-bl';
   const filterKey = '4chan-filters';
+  const cssKey = '4chan-css';
   const lockName = 'paperboard-thread-watcher';
   const hasLocks = typeof navigator.locks?.request === 'function';
   let persistent = hasLocks;
@@ -39,8 +43,8 @@ function start(context) {
         if (entered || signal.aborted || error?.name !== 'SecurityError') throw error;
         // Browser policy can expose Web Locks while denying their use. Every
         // participant must become volatile before any unlocked callback runs.
-        configuration(); filterCache = read(filterKey);
-        persistent = false; volatileSettings = true; volatileFilters = true;
+        configuration(); filterCache = read(filterKey); cssCache = read(cssKey);
+        persistent = false; volatileSettings = true; volatileFilters = true; volatileCSS = true;
         tracking.persistent = false;
         mutationLock.acquire = null;
         return action();
@@ -52,6 +56,8 @@ function start(context) {
   let volatileSettings = false;
   let volatileFilters = false;
   let filterCache = null;
+  let volatileCSS = false;
+  let cssCache = null;
   let timestampCache = null;
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
@@ -69,6 +75,7 @@ function start(context) {
 
   function read(key) {
     if (key === filterKey && volatileFilters) return filterCache;
+    if (key === cssKey && volatileCSS) return cssCache;
     if (key === timestampKey && !persistent) return timestampCache;
     try {
       const value = localStorage.getItem(key);
@@ -320,16 +327,20 @@ function start(context) {
     watch: () => { if (enabled && threadId) void toggleThread(document.getElementById(`t${threadId}`)); },
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });
+  let nativeEmbeds = null, nativeCustomCSS = null, settingsTransfer = null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     hasMobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
     openCustomMenu: opener => nativeDisplay?.openEditor(opener),
+    openCustomCSS: document.querySelector('.board') ? opener => nativeCustomCSS?.open(opener) : undefined,
+    openExport: opener => settingsTransfer?.openExport(opener),
     optionChecked: (key, initial) => key === 'linkify'
       ? (initial.disableAll === true ? initial.linkify === true
         : (mobile.matches && readNeverMobile() !== 'true') || initial.linkify === true)
-      : undefined,
+      : key === 'embedYouTube' ? (typeof initial.embedYouTube === 'boolean' ? initial.embedYouTube
+        : !sourceMobileLayout(mobile.matches, readNeverMobile())) : undefined,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
@@ -387,6 +398,15 @@ function start(context) {
     },
   });
   const nativeDepager = setupDepager();
+  nativeEmbeds = catalog ? null : mountNativeEmbeds({ root: document.querySelector('.board'),
+    settings: configuration, hasMobileLayout: () => sourceMobileLayout(mobile.matches, readNeverMobile()), projection,
+  });
+  nativeCustomCSS = catalog ? null : mountNativeCustomCSS({ root: document.querySelector('.board'),
+    settings: configuration, readCSS: () => read(cssKey), saveCSS: saveCustomCSS,
+  });
+  settingsTransfer = mountNativeSettingsTransfer({ root: document.body,
+    readItem: readTransferItem, restore: restorePreferences,
+  });
   function setupDepager() {
     const page = navigationPage(window.location.pathname, board), pages = document.querySelector('nav.pages');
     const root = document.querySelector('.board');
@@ -465,8 +485,86 @@ function start(context) {
       return { status: 'ok', persisted: persistent };
     }, signal);
   }
-  async function saveSettings(changes) {
+  function saveCustomCSS(raw, expected, signal) {
+    if (typeof raw !== 'string' || raw.length > 16384 || new TextEncoder().encode(raw).byteLength > 16384) {
+      return Promise.resolve({ status: 'invalid' });
+    }
+    return locked(() => {
+      if (signal.aborted || read(cssKey) !== expected) return { status: 'conflict' };
+      if (persistent) {
+        try {
+          if (raw === '') localStorage.removeItem(cssKey);
+          else localStorage.setItem(cssKey, raw);
+        }
+        catch { persistent = false; }
+      }
+      if (!persistent) { volatileCSS = true; cssCache = raw === '' ? null : raw; }
+      return { status: 'ok', persisted: persistent };
+    }, signal);
+  }
+  function readTransferItem(key) {
+    if (!SETTINGS_TRANSFER_STORAGE_KEYS.includes(key)) throw new TypeError('Unsupported preference key');
+    if (key === settingsKey && volatileSettings) return JSON.stringify(settingsCache);
+    if (key === filterKey && volatileFilters) return filterCache;
+    if (key === cssKey && volatileCSS) return cssCache;
+    return localStorage.getItem(key);
+  }
+  async function restorePreferences(values, expected, signal) {
+    const checked = checkTransferValues(values);
+    if (checked.status !== 'ok' || !expected || typeof expected !== 'object' || Array.isArray(expected)) {
+      return Promise.resolve({ status: 'invalid' });
+    }
+    const next = Object.freeze({ ...checked.values });
+    const keys = Object.keys(next);
+    const expectedKeys = Object.keys(expected);
+    if (expectedKeys.length !== keys.length || keys.some(key => !Object.hasOwn(expected, key)
+      || (expected[key] !== null && (typeof expected[key] !== 'string' || expected[key].length > SETTINGS_TRANSFER_LIMITS.existingValueChars)))) {
+      return Promise.resolve({ status: 'invalid' });
+    }
+    const previous = Object.freeze({ ...expected });
+    if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
+    if (Object.hasOwn(next, filterKey)) {
+      // Use the editor's disposable-worker syntax check. An empty post batch
+      // compiles active patterns without running them against post text.
+      const parsed = readNativeFilters(next[filterKey]);
+      const validation = await matcher.match(parsed.filters, board, [], { mode: 'page', signal });
+      if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
+      if (validation.status !== 'ok') return { status: 'invalid' };
+    }
+    return locked(() => {
+      if (signal?.aborted) return { status: 'conflict' };
+      if (!hasLocks || !persistent || volatileSettings || volatileFilters || volatileCSS) return { status: 'unavailable' };
+      try {
+        if (keys.some(key => localStorage.getItem(key) !== previous[key])) return { status: 'conflict' };
+      } catch { return { status: 'unavailable' }; }
+      // Write enabling preferences last. Web Storage has no multi-key transaction;
+      // cooperating writers share this lock, and failed writes are rolled back.
+      const ordered = [...keys.filter(key => key !== settingsKey), settingsKey];
+      const written = [];
+      try {
+        for (const key of ordered) {
+          localStorage.setItem(key, next[key]);
+          written.push(key);
+        }
+      } catch {
+        for (const key of written.reverse()) {
+          try {
+            // Never undo a value replaced by a nonparticipating writer.
+            if (localStorage.getItem(key) !== next[key]) continue;
+            if (previous[key] === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, previous[key]);
+          } catch { /* Report incomplete recovery below. */ }
+        }
+        let partial = true;
+        try { partial = keys.some(key => localStorage.getItem(key) !== previous[key]); } catch { /* Storage is unavailable. */ }
+        return { status: 'storage-error', partial };
+      }
+      return { status: 'ok', persisted: true };
+    }, signal);
+  }
+  async function saveSettings(changes, signal) {
     const applied = await locked(() => {
+      if (signal?.aborted) return false;
       const settings = { ...configuration(), ...changes };
       if (catalog && changes.threadWatcher === true) settings.disableAll = false;
       if (!writeSettings(settings)) return false;
@@ -475,9 +573,9 @@ function start(context) {
       collapsed = mobile.matches;
       render();
       return true;
-    });
-    if (applied === false || !mutationLock.active) return false;
-    if (enabled) { await acknowledgeCurrent(); if (!mutationLock.active) return false; navigateReadPosition(); }
+    }, signal);
+    if (applied === false || signal?.aborted || !mutationLock.active) return false;
+    if (enabled) { await acknowledgeCurrent(signal); if (signal?.aborted || !mutationLock.active) return false; navigateReadPosition(); }
     void nativeFilters?.refresh();
     return { persisted: !volatileSettings };
   }
@@ -808,6 +906,8 @@ function start(context) {
     nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
+    nativeEmbeds?.refresh();
+    nativeCustomCSS?.refresh();
     nativeDisplay?.refresh();
     nativeLayout?.refresh();
     nativeNavigation?.refresh();
@@ -972,8 +1072,17 @@ function start(context) {
     if (post) { post.classList.add('watcherReadTarget'); post.scrollIntoView({ block: 'nearest' }); }
     history.replaceState(null, '', location.pathname + location.search);
   }
+  document.addEventListener('4chanPreferencesRestored', () => {
+    if (!mutationLock.active) return;
+    refresh.cancel();
+    const settings = configuration();
+    enabled = settings.threadWatcher === true && settings.disableAll !== true;
+    collapsed = mobile.matches;
+    render();
+    void nativeFilters?.refresh();
+  });
   window.addEventListener('storage', event => {
-    if (event.key === '4chan_never_show_mobile') { nativeDepager?.refresh(); return; }
+    if (event.key === '4chan_never_show_mobile') { nativeDepager?.refresh(); nativeEmbeds?.refresh(); return; }
     if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;
     refresh.cancel();
     load();

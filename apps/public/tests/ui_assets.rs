@@ -475,6 +475,18 @@ async fn display_and_thread_controls_serve_exact_page_assets_without_worker_auth
     let (app, api) = board_public::routers(pool, origin.into(), false);
     for (path, expected) in [
         (
+            "/static/native-embeds.v1.js",
+            include_bytes!("../static/native-embeds.v1.js").as_slice(),
+        ),
+        (
+            "/static/native-custom-css.v1.js",
+            include_bytes!("../static/native-custom-css.v1.js").as_slice(),
+        ),
+        (
+            "/static/native-settings-transfer.v1.js",
+            include_bytes!("../static/native-settings-transfer.v1.js").as_slice(),
+        ),
+        (
             "/static/native-navigation.v1.js",
             include_bytes!("../static/native-navigation.v1.js").as_slice(),
         ),

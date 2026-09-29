@@ -4,7 +4,7 @@ The development attachment workflow for [issue #48](https://github.com/frankisch
 
 ## Browser workflow and configuration
 
-The development form accepts PNG and JPEG input. Format selection and decoding happen only inside the guest; filenames and browser content types do not authorize publication. Both formats become normalized PNG full images and thumbnails. [JPEG limits and exceptions](jpeg-media.md) include discarded metadata and unimplemented EXIF orientation/color-profile handling.
+The development form accepts PNG, JPEG and [single-frame GIF](gif-media.md) input. Format selection and decoding happen only inside the guest; filenames and browser content types do not authorize publication. Accepted formats become normalized PNG full images and thumbnails. Animated GIFs are rejected. [JPEG limits and exceptions](jpeg-media.md) include discarded metadata and unimplemented EXIF orientation/color-profile handling.
 
 The image form sends `resto` followed by one `upfile` multipart field to `/{board}/upload`. The public process streams at most 8 MiB through an authenticated connection to the intake service. It neither decodes the file nor reads quarantine storage. The route allows 16 KiB of multipart overhead, admits four uploads, and retains the public request's ten-second deadline. A one-slot channel forwards copied chunks of at most 16 KiB. The fixed-endpoint client caps response headers at 16 KiB and JSON bodies at 4 KiB; invalid responses and redirects fail closed.
 

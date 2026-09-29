@@ -23,8 +23,13 @@ completed local checks from pending browser, native and hosted qualification.
 The same PR also adds [index expansion](native-thread-expansion.md) and
 [thread statistics](native-thread-stats.md), followed by
 [incremental pages](native-depager.md), [navigation controls](native-navigation.md)
-and [layout/theme preferences](native-layout.md). Animation, remaining original-server
-rules and the production requirements below remain open.
+and [layout/theme preferences](native-layout.md). [Click-to-load provider players](native-embeds.md)
+and [bounded Custom CSS](native-custom-css.md) add the corresponding public
+settings with documented security restrictions. Animation, remaining
+original-server rules and the production requirements below remain open.
+[Settings transfer](native-settings-transfer.md) adds explicit review and restore
+of supported local preferences. [Catalog preference locking](catalog-preference-locks.md)
+prevents an older queued catalog change from overwriting a completed restore.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|

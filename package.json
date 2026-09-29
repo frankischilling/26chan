@@ -3,6 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:settings-transfer-core": "node --test tests/browser/native-settings-transfer.test.mjs",
+    "test:catalog-preference-locks-core": "node --test tests/browser/catalog-preference-locks.test.mjs",
+    "test:settings-transfer": "npm run test:settings-transfer-core && npm run test:catalog-preference-locks-core && playwright test tests/browser/native-settings-transfer.spec.js tests/browser/catalog-preference-locks.spec.js",
+    "test:embeds-core": "node --test tests/browser/native-embeds.test.mjs",
+    "test:embeds": "npm run test:embeds-core && playwright test tests/browser/native-embeds.spec.js",
+    "test:custom-css-core": "node --test tests/browser/native-custom-css.test.mjs",
+    "test:custom-css": "npm run test:custom-css-core && playwright test tests/browser/native-custom-css.spec.js",
     "test:navigation-core": "node --test tests/browser/native-navigation.test.mjs",
     "test:navigation": "npm run test:navigation-core && playwright test tests/browser/native-navigation.spec.js",
     "test:layout-core": "node --test tests/browser/native-layout.test.mjs tests/browser/native-layout-dom.test.mjs",

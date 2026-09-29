@@ -50,6 +50,13 @@ pub(crate) struct RequestStart(pub chrono::DateTime<chrono::Utc>);
 #[derive(Clone, Copy)]
 pub(crate) struct RequestPeer(pub Option<IpAddr>);
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InteractivePage {
+    Board,
+    Catalog,
+    Upload,
+}
+
 pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
     // Replace even a pre-existing extension; headers/form fields have no clock authority.
     request
@@ -96,10 +103,16 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
     };
     let upload_page = *request.method() == Method::POST
         && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
-    let page = ((board_page && matches!(*request.method(), Method::GET | Method::HEAD))
-        || upload_page)
-        .then_some(parts.last() == Some(&"catalog"));
-    let posting = (page == Some(false)
+    let page = if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
+        Some(if parts.last() == Some(&"catalog") {
+            InteractivePage::Catalog
+        } else {
+            InteractivePage::Board
+        })
+    } else {
+        upload_page.then_some(InteractivePage::Upload)
+    };
+    let posting = (matches!(page, Some(InteractivePage::Board | InteractivePage::Upload))
         && parts[0].len() <= 10
         && parts[0]
             .bytes()
@@ -171,7 +184,7 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
 fn headers(
     mut response: Response,
     state: &AppState,
-    page: Option<bool>,
+    page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
     let interactive = page.is_some()
@@ -189,7 +202,7 @@ fn headers(
             state.origin,
             crate::ui_assets::WATCHER_CORE_PATH
         );
-        if page == Some(true) {
+        if page == Some(InteractivePage::Catalog) {
             format!(
                 "{}{} {watcher}",
                 state.origin,
@@ -203,7 +216,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{}",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -225,7 +238,13 @@ fn headers(
             state.origin,
             crate::ui_assets::NATIVE_NAVIGATION_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_LAYOUT_PATH
+            crate::ui_assets::NATIVE_LAYOUT_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_EMBEDS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_CUSTOM_CSS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_SETTINGS_TRANSFER_PATH
         )
     } else {
         script
@@ -247,6 +266,11 @@ fn headers(
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
     } else {
         "'none'".into()
+    };
+    let frames = if interactive && page == Some(InteractivePage::Board) {
+        "https://www.youtube-nocookie.com/embed/ https://w.soundcloud.com/player/"
+    } else {
+        "'none'"
     };
     let script_resource = response
         .headers()
@@ -271,7 +295,7 @@ fn headers(
         "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
     } else {
         format!(
-            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; frame-src {frames}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
         )
     };
     headers.insert(
@@ -325,7 +349,12 @@ mod tests {
                 media: None,
                 proxy_uid: None,
             };
-            for page in [None, Some(false), Some(true)] {
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+            ] {
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,
@@ -342,6 +371,23 @@ mod tests {
                         .unwrap()
                 };
                 let backlink = format!("{origin}/static/native-backlinks.v1.js");
+                for path in ["native-embeds.v1.js", "native-custom-css.v1.js"] {
+                    assert_eq!(
+                        directive("script-src")
+                            .split_whitespace()
+                            .any(|value| value == format!("{origin}/static/{path}")),
+                        page.is_some()
+                    );
+                }
+                assert_eq!(directive("style-src"), "style-src 'self'");
+                assert_eq!(
+                    directive("frame-src"),
+                    if page == Some(InteractivePage::Board) {
+                        "frame-src https://www.youtube-nocookie.com/embed/ https://w.soundcloud.com/player/"
+                    } else {
+                        "frame-src 'none'"
+                    }
+                );
                 assert_eq!(
                     directive("script-src")
                         .split_whitespace()
@@ -401,7 +447,12 @@ mod tests {
                 media: None,
                 proxy_uid: None,
             };
-            for page in [None, Some(false), Some(true)] {
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+            ] {
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,

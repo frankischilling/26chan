@@ -15,6 +15,9 @@ pub(crate) const NATIVE_THREAD_CONTROLS_PATH: &str = "/static/native-thread-cont
 pub(crate) const NATIVE_THREAD_STATS_PATH: &str = "/static/native-thread-stats.v1.js";
 pub(crate) const NATIVE_NAVIGATION_PATH: &str = "/static/native-navigation.v1.js";
 pub(crate) const NATIVE_LAYOUT_PATH: &str = "/static/native-layout.v1.js";
+pub(crate) const NATIVE_EMBEDS_PATH: &str = "/static/native-embeds.v1.js";
+pub(crate) const NATIVE_CUSTOM_CSS_PATH: &str = "/static/native-custom-css.v1.js";
+pub(crate) const NATIVE_SETTINGS_TRANSFER_PATH: &str = "/static/native-settings-transfer.v1.js";
 pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
@@ -508,6 +511,18 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            NATIVE_EMBEDS_PATH,
+            include_bytes!("../static/native-embeds.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_CUSTOM_CSS_PATH,
+            include_bytes!("../static/native-custom-css.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_SETTINGS_TRANSFER_PATH,
+            include_bytes!("../static/native-settings-transfer.v1.js").as_slice(),
+        ),
         (
             NATIVE_NAVIGATION_PATH,
             include_bytes!("../static/native-navigation.v1.js").as_slice(),

@@ -24,6 +24,14 @@ drafts while fetching later index pages. [Navigation controls](docs/native-navig
 and [layout preferences](docs/native-layout.md) provide movable page navigation,
 board selection, compact or centered threads, and an optional Tomorrow theme.
 
+[Provider embeds](docs/native-embeds.md) load YouTube or SoundCloud players only
+after an explicit click. [Custom CSS](docs/native-custom-css.md) supports saved
+post colors, typography and spacing through a bounded editor. Provider frames
+have fixed destinations; saved styles cannot import resources or cover controls.
+[Settings export and restore](docs/native-settings-transfer.md) moves supported
+preferences, filters and post styles through a saved link. Restoring requires
+confirmation and checks for intervening changes in other tabs.
+
 ## Getting started
 
 The development scripts support Ubuntu 24.04, including Ubuntu running in WSL. Run the following commands in an Ubuntu terminal as a regular user with `sudo` access.

@@ -469,3 +469,21 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 #image-hover { position: fixed; top: 0; right: 0; max-width: 100%; max-height: 100%; pointer-events: none; z-index: 9002; }
 #image-hover.nativeImageBackground { background-color: var(--paper, inherit); }
 .nativeImageFeedback { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 30px); padding: 6px 10px; border: 1px solid var(--edge); background: var(--panel); color: var(--ink); z-index: 9999; }
+
+.nativeMediaEmbed { width: min(640px, calc(100vw - 60px)); max-width: 100%; margin: 6px 0; }
+.nativeEmbedFrame { box-sizing: border-box; display: block; width: 100%; max-width: 100%; border: 0; }
+.nativeMediaEmbedYouTube .nativeEmbedFrame { height: auto; min-height: 200px; aspect-ratio: 16 / 9; }
+.nativeMediaEmbedSoundCloud { width: min(500px, calc(100vw - 60px)); }
+.nativeMediaEmbedSoundCloud .nativeEmbedFrame { height: 166px; }
+.nativeCustomCSS .nativeSettingsBody { width: 600px; }
+.nativeCustomCSS form { padding: 8px; }
+.nativeCustomCSS label { display: block; margin-bottom: 4px; }
+.nativeCustomCSS textarea { box-sizing: border-box; display: block; width: 100%; min-height: 12em; resize: vertical; font: 13px/1.4 monospace; }
+.nativeCustomCSS .center button + button { margin-left: 8px; }
+.nativeSettingsTransfer .nativeSettingsBody { width: 600px; }
+.nativeSettingsTransfer .nativeSettingsBody > p,
+.nativeSettingsTransfer .nativeSettingsBody > ul,
+.nativeSettingsTransfer .nativeSettingsBody > details { margin: 8px; }
+.nativeSettingsTransfer .export-field { box-sizing: border-box; width: 100%; }
+.nativeSettingsTransfer pre { max-height: 16em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nativeSettings .center > button + button { margin-left: 8px; }

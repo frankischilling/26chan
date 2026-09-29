@@ -7,7 +7,7 @@ export { UPDATER_LIMITS, updaterContext, validatePostTree, validateSnapshotMetad
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
-export { readFilterRules } from './native-filter-rules.js';
+export { readFilterRules, filterColor } from './native-filter-rules.js';
 export { mountNativeFilters } from './native-page-filters.js';
 export { mountNativeReplyHiding } from './native-reply-hiding.js';
 export { mountNativeThreadHiding } from './native-thread-hiding.js';

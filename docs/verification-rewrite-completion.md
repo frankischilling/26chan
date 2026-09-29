@@ -125,6 +125,54 @@ dedicated build directory and disposable database. The public extension was
 retrieved again and matched the recorded SHA-256 exactly. Current-head browser,
 operational and hosted checks remain required before merge.
 
+## Provider players and preference transfer checkpoint
+
+The browser integration adds [explicit provider players](native-embeds.md),
+[bounded post styles](native-custom-css.md), and
+[settings export and restore](native-settings-transfer.md). Players load only
+after a click. Restoring a link requires a review and confirmation, validates
+filter colors and syntax, and checks that another tab has not changed any
+included value. [Catalog preference writes](catalog-preference-locks.md) share
+the same lock. Closing a settings dialog cancels a waiting save, and Export is
+disabled while a save is pending.
+
+The current source passed these local checks before publication:
+
+| Check | Result |
+|---|---|
+| `npm run test:watcher-core` | 134 cases passed across the watcher, worker, parser, lifecycle and shared-lock suites |
+| `node --test tests/browser/native-quick-reply.test.mjs` | Six transport, posting, limit and cancellation cases passed |
+| `npm run test:embeds-core` | Eight parser and browser lifecycle cases passed |
+| `npm run test:custom-css-core` | Seven parser, stylesheet, editor and cancellation cases passed |
+| `npm run test:settings-transfer-core` | 16 format, coordinate, color, review and lifetime cases passed |
+| `npm run test:catalog-preference-locks-core` | Eight lock, conflict, reset, storage and lifetime cases passed |
+| Real public browser integration | 57 cases passed across catalog behavior, provider players, Custom CSS, settings transfer, Quick Reply and watcher locks |
+| Release worker | Rebuilt output matches its pinned sources at 255,593 bytes, within the unchanged 256 KiB limit |
+| Dialog inspection | Desktop and mobile CSS, export and restore flows passed; inspected mobile CSS/restore and desktop export screenshots retained under the ignored validation directory |
+
+The real restore tests cover an invalid color, malformed regular expression,
+worker cancellation, changes during worker validation, unavailable storage or
+locking, rollback after a partially completed write, and repair of malformed
+existing preferences. Quick Reply converts the public client's saved coordinate
+text through the finite position parser and preserves a draft during resizing.
+No arbitrary saved CSS is applied to its dialog.
+
+The published `803aea7640d9d7d72192698f5cde594e5e406a5e` Linux job failed an
+order-sensitive image-source assertion after navigation assets were added.
+The test now parses the CSP directive and checks required sources and prohibited
+broad sources separately. The actual upload test also requires `frame-src 'none'`
+on the confirmation page. The focused public run passed 103 tests, including
+that upload, the fixed asset routes and the route-specific CSP checks.
+
+A full local Rust run later exposed a timing assumption in the intake expiry
+test: a 500 ms runtime sleep did not reliably establish expiration against the
+database clock after a row-lock wait. The test now observes the blocked SQL
+waiter, explicitly expires the held row, confirms expiration in PostgreSQL and
+then requires the waiting mutation to return `NotFound`. The corrected focused
+test passed. Production SQL and its authorization checks were unchanged. The
+complete Rust suite and current-head hosted checks remain required before merge;
+earlier partial or failed runs do not satisfy them.
+
 ## Remaining acceptance work
 
 The catalog and server-link review retained #82 and #165 where public evidence

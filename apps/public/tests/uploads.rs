@@ -208,12 +208,31 @@ async fn exercise(
         )
         .await
         .unwrap();
-    assert!(
-        response.headers()["content-security-policy"]
-            .to_str()
-            .unwrap()
-            .contains("img-src http://localhost:3002 http://127.0.0.1:3000/static/themes/fade.png http://127.0.0.1:3000/static/themes/fade-blue.png http://127.0.0.1:3000/static/catalog/filedeleted-res.gif")
-    );
+    let image_sources: Vec<_> = response.headers()["content-security-policy"]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .find_map(|directive| directive.trim().strip_prefix("img-src "))
+        .unwrap()
+        .split_ascii_whitespace()
+        .collect();
+    for source in [
+        "http://localhost:3002",
+        "http://127.0.0.1:3000/static/themes/fade.png",
+        "http://127.0.0.1:3000/static/themes/fade-blue.png",
+        "http://127.0.0.1:3000/static/catalog/filedeleted-res.gif",
+    ] {
+        assert!(
+            image_sources.contains(&source),
+            "Missing image source {source}"
+        );
+    }
+    for source in ["'self'", "*", "data:", "blob:", "http://127.0.0.1:3000"] {
+        assert!(
+            !image_sources.contains(&source),
+            "Broad image source {source}"
+        );
+    }
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));
     assert!(page.contains("rows=\"4\" aria-describedby=\"postHelp\""));
@@ -239,6 +258,13 @@ async fn exercise(
         .unwrap();
     assert_eq!(response.headers()["cache-control"], "private, no-store");
     assert!(!response.headers().contains_key("location"));
+    assert!(
+        response.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .split(';')
+            .any(|directive| directive.trim() == "frame-src 'none'")
+    );
     let page = html(response, StatusCode::OK).await;
     assert!(
         !page.contains(&"a".repeat(64)),

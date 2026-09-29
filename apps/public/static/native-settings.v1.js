@@ -1,7 +1,8 @@
-// Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, optionChecked, hasMobileLayout = () => false }) {
+// Release-owned settings controls. Stored strings never become HTML.
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, optionChecked, hasMobileLayout = () => false }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
+  let pendingSave = null;
   let opener = null;
   function node(tag, text, className) {
     const element = document.createElement(tag);
@@ -23,6 +24,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     return element;
   }
   function close() {
+    pendingSave?.abort();
+    pendingSave = null;
     if (!active) return;
     active.close();
     active.remove();
@@ -171,7 +174,13 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(imageCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
       option(imageCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
       option(imageCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
+      option(imageCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed', undefined, true);
+      option(imageCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed', undefined, true);
       option(imageCategory, 'darkTheme', 'Use a dark theme', 'Use the Tomorrow theme while browsing');
+      const customCSS = option(imageCategory, 'customCSS', 'Custom CSS', 'Use saved colors, typography and spacing for posts');
+      if (typeof openCustomCSS === 'function') {
+        customCSS.parentElement.parentElement.append(' [', link('custom-css-edit', 'Edit', source => openCustomCSS(source)), ']');
+      }
       option(imageCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
       option(imageCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
       const global = node('ul');
@@ -181,6 +190,12 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     const message = node('p', '', 'settingsMessage');
     message.setAttribute('role', 'status');
     const actions = node('div', undefined, 'center');
+    let exportButton;
+    if (typeof openExport === 'function') {
+      exportButton = button('Export Settings', event => { if (!pendingSave) openExport(event.currentTarget); });
+      exportButton.id = 'settings-export';
+      actions.append(exportButton);
+    }
     const submit = node('button', 'Save Settings');
     submit.type = 'submit';
     submit.id = catalog ? 'theme-save' : 'settings-save';
@@ -190,12 +205,16 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       event.preventDefault();
       if (submit.disabled) return;
       submit.disabled = true;
+      if (exportButton) exportButton.disabled = true;
+      const controller = new AbortController();
+      pendingSave = controller;
       const changes = {};
       for (const [key, field] of fields) {
         if (catalog || field.input.checked !== field.initial) changes[key] = field.input.checked;
       }
       try {
-        const result = await save(changes);
+        const result = await save(changes, controller.signal);
+        if (controller.signal.aborted || active !== dialog || !dialog.isConnected) return;
         if (result === false) {
           message.textContent = 'Settings could not be saved. Try again.';
           return;
@@ -206,8 +225,12 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
         // stays on this page so unavailable storage cannot discard the changes.
         if (!catalog && result.persisted) location.assign(location.pathname + location.search);
       } catch {
-        message.textContent = 'Settings could not be saved. Try again.';
-      } finally { submit.disabled = false; }
+        if (!controller.signal.aborted && active === dialog) message.textContent = 'Settings could not be saved. Try again.';
+      } finally {
+        if (pendingSave === controller) pendingSave = null;
+        submit.disabled = false;
+        if (exportButton) exportButton.disabled = false;
+      }
     });
     content.append(form);
     if (!catalog) dialog.append(content);
@@ -240,6 +263,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
   navigationLinks.id = 'navtopright';
   navigationLinks.append(desktop, mobile);
   navigation?.append(navigationLinks);
+  window.addEventListener('pagehide', close);
   return {
     open,
     setWatcherEnabled(enabled, visible) {

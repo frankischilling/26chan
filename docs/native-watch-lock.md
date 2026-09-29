@@ -25,7 +25,14 @@ mutation.
 This change does not make writes across separate storage keys atomic.
 
 A settings save that times out retains the dialog draft and allows another
-attempt. An expired receipt-consumption attempt retains the receipt cookie for
+attempt. Closing the settings dialog aborts its waiting save. A late completion
+cannot write the cancelled draft, close a newer dialog or start navigation.
+Custom CSS saves use the same lock with an expected-value check against newer
+edits from another tab. Settings restore checks all included preference keys
+under the same lock as catalog preference writes. Web Storage has no multi-key
+transaction: failed writes attempt rollback, and incomplete recovery is reported
+without claiming that the previous values were restored. Restore requires
+working persistent storage and cross-tab locking. An expired receipt-consumption attempt retains the receipt cookie for
 a later navigation. An expired refresh claim does not start network work or
 report the separate one-minute refresh cooldown. Page-exit cancellation also
 prevents settings and initial receipt continuations from restarting navigation

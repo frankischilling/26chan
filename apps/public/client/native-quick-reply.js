@@ -1,6 +1,7 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { commentLengthWarning, quoteInsertion, sendQuickReply } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
+import { quickReplyPosition } from './native-quick-reply-position.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
@@ -22,11 +23,12 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   function place(value, reopening = false) {
     if (!dialog) return;
     if (mobile()) { dialog.style.left = '5px'; dialog.style.right = 'auto'; dialog.style.top = `${scrollY + (reopening ? 25 : 28)}px`; return; }
-    if (!value || !Number.isFinite(value.left) || !Number.isFinite(value.top)) {
+    const next = quickReplyPosition(value, { width: innerWidth, height: innerHeight,
+      panelWidth: dialog.offsetWidth, panelHeight: dialog.offsetHeight });
+    if (!next) {
       dialog.style.left = 'auto'; dialog.style.right = '0px'; dialog.style.top = '10%'; return;
     }
-    position = { left: Math.max(0, Math.min(innerWidth - dialog.offsetWidth, value.left)),
-      top: Math.max(0, Math.min(innerHeight - dialog.offsetHeight, value.top)) };
+    position = next;
     dialog.style.left = `${position.left}px`; dialog.style.top = `${position.top}px`; dialog.style.right = 'auto';
   }
   function close() {

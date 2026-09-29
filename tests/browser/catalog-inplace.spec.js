@@ -16,7 +16,7 @@ function synthetic(corrupt = false) {
     <a id="catalog-reset" href="/test/catalog">Reset</a></form>
     <div id="threads" class="catalog extended-small">${cards.map(([id,bump,latest,replies,sticky]) =>
       `<section class="thread" id="thread-${id}" data-thread-id="${id}" data-bumped="${bump}" data-latest-reply="${latest}" data-replies="${replies}" data-sticky="${sticky}"><div class="teaser">Synthetic ${id}</div></section>`).join('\n')}</div>
-    <script src="/static/catalog-preferences.v1.js" defer></script>`;
+    <script type="module" src="/static/catalog-preferences.v1.js"></script>`;
 }
 
 test('in-place catalog ranks retain integer precision, sticky priority and tie ordering', async ({ page }) => {

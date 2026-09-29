@@ -54,6 +54,22 @@ The same integration adds [incremental index pages](native-depager.md),
 [layout and dark-theme preferences](native-layout.md). Their documents distinguish
 public client rules from local pagination, resource limits and theme adaptations.
 
+[Provider embeds](native-embeds.md) retain the public client's desktop Embed and
+mobile YouTube Open actions, with no provider requests before a click. Only the
+fixed YouTube and SoundCloud player origins are permitted on board/thread pages.
+[Custom CSS](native-custom-css.md) retains the default-off setting, editor and
+`4chan-css` storage key through a finite post-style grammar. Resource imports,
+arbitrary selectors and styles that can cover controls are rejected. These are
+explicit security adaptations to the public client's unrestricted CSS and player
+integration.
+
+[Settings transfer](native-settings-transfer.md) uses the public `#cfg=` envelope
+for settings, filters, CSS and catalog display preferences. Restore first shows
+the proposed values and requires confirmation. It rejects unsupported catalog
+filter data and unsafe style rules. The three known settings whose underlying
+features are unavailable remain inactive values; importing them does not add
+poster IDs, WebM processing or optional production HTTPS.
+
 ## Reference inventory
 
 The pinned input is the public [4chan read-only API documentation](https://github.com/4chan/4chan-API/tree/2bd670d507ba2daa37a3961a661e088cf6f89d57), revision `2bd670d507ba2daa37a3961a661e088cf6f89d57`, collected September 8, 2026. [reference-manifest.json](reference-manifest.json) records exact source URLs and SHA-256 hashes. Files were fetched as public documentation; no live user posts, media or private source were imported. The input does not specify posting, authentication or private moderation behavior.

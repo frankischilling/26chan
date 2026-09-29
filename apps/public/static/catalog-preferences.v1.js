@@ -1,3 +1,5 @@
+import { NativeWatchLock } from './native-filter.v1.js';
+
 (() => {
   'use strict';
   const form = document.getElementById('ctrl');
@@ -6,6 +8,7 @@
   const teaser = document.getElementById('teaser-ctrl');
   const reset = document.getElementById('catalog-reset');
   const search = document.getElementById('qf-box');
+  const preferenceStatus = document.getElementById('catalog-preference-status');
   const spoilers = document.getElementById('theme-nospoiler');
   const spoilerControl = spoilers instanceof HTMLSelectElement;
   const themeKey = 'catalog-theme';
@@ -21,6 +24,11 @@
   const current = () => ({ orderby: order.value, large: size.value === 'large', extended: teaser.value === 'on' });
   const valid = value => value !== null && typeof value === 'object' && !Array.isArray(value)
     && orders.includes(value.orderby) && typeof value.large === 'boolean' && typeof value.extended === 'boolean';
+  const storedPreference = raw => {
+    if (raw === null || typeof raw !== 'string' || raw.length > 1024) return null;
+    try { const value = JSON.parse(raw); return valid(value) ? value : null; }
+    catch { return null; }
+  };
   const validQuery = value => typeof value === 'string' && value.length <= 256
     && Array.from(value).length <= 128 && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
   const container = document.getElementById('threads');
@@ -378,10 +386,103 @@
     updateStateControls();
   };
 
+  const lockName = 'paperboard-thread-watcher';
+  const hasLocks = typeof navigator.locks?.request === 'function';
+  let lockUsable = hasLocks;
+  let pendingPreference = null;
+  let preferenceSuspended = false;
+  let preferenceDestroyed = false;
+  const setPreferenceStatus = message => {
+    if (!(preferenceStatus instanceof HTMLElement)) return;
+    preferenceStatus.textContent = message;
+    preferenceStatus.hidden = !message;
+  };
+  const livePreferenceControls = () => !preferenceDestroyed && !preferenceSuspended && form.isConnected
+    && document.getElementById('ctrl') === form && form.contains(order) && form.contains(size)
+    && form.contains(teaser) && form.contains(reset) && container instanceof HTMLElement && container.isConnected
+    && document.getElementById('threads') === container;
+  const readPreferenceRaw = () => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null || typeof raw === 'string' ? { status: 'ok', raw } : { status: 'unavailable' };
+    } catch { return { status: 'unavailable' }; }
+  };
+  const preferenceLock = new NativeWatchLock({
+    acquire: hasLocks ? async (action, signal) => {
+      let entered = false;
+      try {
+        return await navigator.locks.request(lockName, { signal }, () => { entered = true; return action(); });
+      } catch (error) {
+        if (signal.aborted) return false;
+        if (!entered && error?.name === 'SecurityError') {
+          lockUsable = false;
+          return { status: 'unavailable' };
+        }
+        throw error;
+      }
+    } : null,
+    warn: message => {
+      if (!pendingPreference || pendingPreference.controller.signal.aborted) return;
+      setPreferenceStatus(message.includes('busy')
+        ? 'Catalog preference storage is busy in another tab. This display change is still applied here.'
+        : 'Catalog preferences could not be saved. This display change is still applied here.');
+    },
+  });
+  const cancelPreferenceWrite = message => {
+    const pending = pendingPreference;
+    if (!pending) return false;
+    pendingPreference = null;
+    pending.controller.abort();
+    if (message) setPreferenceStatus(message);
+    return true;
+  };
+  const persistenceUnavailable = () => {
+    setPreferenceStatus('Catalog preferences cannot be persisted because browser storage or cross-tab locking is unavailable. This display change is still applied here.');
+  };
+  const persistPreference = nextRaw => {
+    cancelPreferenceWrite();
+    if (!livePreferenceControls()) return;
+    const expected = readPreferenceRaw();
+    if (expected.status !== 'ok' || !lockUsable) { persistenceUnavailable(); return; }
+    const controller = new AbortController();
+    const request = { controller, expected: expected.raw, nextRaw };
+    pendingPreference = request;
+    setPreferenceStatus('');
+    void preferenceLock.run(() => {
+      if (pendingPreference !== request || controller.signal.aborted || !livePreferenceControls()) {
+        return { status: 'cancelled' };
+      }
+      const actual = readPreferenceRaw();
+      if (actual.status !== 'ok') return { status: 'unavailable' };
+      if (actual.raw !== request.expected) return { status: 'conflict' };
+      try {
+        if (request.nextRaw === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, request.nextRaw);
+      } catch { return { status: 'unavailable' }; }
+      return { status: 'ok' };
+    }, controller.signal).then(result => {
+      if (pendingPreference !== request) return;
+      pendingPreference = null;
+      if (controller.signal.aborted || preferenceSuspended || preferenceDestroyed) return;
+      if (result?.status === 'ok') setPreferenceStatus('');
+      else if (result?.status === 'conflict') {
+        setPreferenceStatus('Catalog preferences changed before this choice could be saved. This page kept its current display.');
+      } else if (result?.status === 'unavailable') persistenceUnavailable();
+      else if (result !== false && result?.status !== 'cancelled') {
+        setPreferenceStatus('Catalog preferences could not be saved. This display change is still applied here.');
+      }
+    }).catch(() => {
+      if (pendingPreference !== request) return;
+      pendingPreference = null;
+      if (!controller.signal.aborted && !preferenceSuspended && !preferenceDestroyed) {
+        setPreferenceStatus('Catalog preferences could not be saved. This display change is still applied here.');
+      }
+    });
+  };
   const save = () => {
     const value = current();
     if (!valid(value)) return;
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage is optional. */ }
+    persistPreference(JSON.stringify(value));
   };
   const saveSearch = query => {
     try {
@@ -411,7 +512,7 @@
     }
     try { history.replaceState(null, '', url.href); } catch { /* Display still works without history. */ }
   };
-  const apply = (value, query = renderedQuery) => {
+  const apply = (value, query = renderedQuery, persistPins = true) => {
     if (entries === null || !valid(value) || (searchReady && !validQuery(query))) return false;
     hidePreview();
     closeMenu();
@@ -496,7 +597,7 @@
     }
     entriesRoot.replaceChildren(fragment);
     if (searchReady) renderedQuery = query;
-    if (stateReady) { persistState(pinKey, pins); updateStateControls(); }
+    if (stateReady) { if (persistPins) persistState(pinKey, pins); updateStateControls(); }
     return true;
   };
   const applySearch = () => {
@@ -554,7 +655,7 @@
   }
   reset.addEventListener('click', event => {
     clearTimeout(timer);
-    try { localStorage.removeItem(key); } catch { /* Explicit defaults are also safe without removal. */ }
+    persistPreference(null);
     saveSearch('');
     if (spoilerControl) {
       spoilers.value = 'off';
@@ -573,6 +674,45 @@
         try { history.replaceState(null, '', url.href); } catch { /* No history permission is required. */ }
       }
     }
+  });
+
+  window.addEventListener('storage', event => {
+    if (event.storageArea !== null) {
+      try { if (event.storageArea !== window.localStorage) return; }
+      catch { return; }
+    }
+    if (event.key !== null && event.key !== key) return;
+    cancelPreferenceWrite('Catalog preferences changed in another tab before this choice was saved. This page kept its current display.');
+  });
+  window.addEventListener('pagehide', event => {
+    preferenceSuspended = true;
+    cancelPreferenceWrite();
+    preferenceLock.suspend();
+    if (!event.persisted) preferenceDestroyed = true;
+  });
+  window.addEventListener('pageshow', event => {
+    if (!event.persisted || preferenceDestroyed || !form.isConnected) return;
+    preferenceSuspended = false;
+    preferenceLock.resume();
+  });
+  document.addEventListener('4chanPreferencesRestored', () => {
+    cancelPreferenceWrite();
+    if (!livePreferenceControls()) return;
+    const raw = readPreferenceRaw();
+    if (raw.status !== 'ok') { persistenceUnavailable(); return; }
+    if (raw.raw === null) { setPreferenceStatus(''); return; }
+    const restored = storedPreference(raw.raw);
+    if (!restored) {
+      setPreferenceStatus('Restored catalog preferences are invalid and were not applied on this page.');
+      return;
+    }
+    const query = searchReady && validQuery(search.value) ? search.value : renderedQuery;
+    if (!apply(restored, query, false)) {
+      setPreferenceStatus('Restored catalog preferences could not be applied to this catalog snapshot.');
+      return;
+    }
+    updateURL(restored);
+    setPreferenceStatus('');
   });
 
   if (stateReady) installThreadControls();
@@ -597,8 +737,8 @@
     try {
       const raw = localStorage.getItem(key);
       if (raw !== null && raw.length <= 1024) {
-        const saved = JSON.parse(raw);
-        if (valid(saved)) display = saved;
+        const saved = storedPreference(raw);
+        if (saved) display = saved;
       }
     } catch { /* Ignore malformed or unavailable preferences. */ }
   }
