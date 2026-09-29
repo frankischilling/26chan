@@ -251,6 +251,15 @@ fn headers(
     };
     let connect = if interactive {
         match posting {
+            Some(posting) if page == Some(InteractivePage::Board) && state.media.is_some() => {
+                // Only this board's bounded public upload workflow is available
+                // to Quick Reply. Intake credentials and endpoints stay private.
+                let base = posting.strip_suffix("imgboard.php").unwrap_or(posting);
+                format!(
+                    "{}/_watch/ {posting} {base}upload {base}upload/",
+                    state.origin
+                )
+            }
             Some(posting) => format!("{}/_watch/ {posting}", state.origin),
             None => format!("{}/_watch/", state.origin),
         }
