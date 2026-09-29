@@ -59,9 +59,10 @@ try {
   await expect(qr.locator('[name=upload_id]')).toHaveValue(uploadId);
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
   await qr.locator('[name=spoiler]').check(); await page.locator('#qr-pwd').fill(password);
-  const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`));
+  const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`))
+    .then(async response => ({ status: response.status(), result: await response.json() }));
   await qr.locator('input[type=submit]').click(); const response = await posted;
-  assert.equal(response.status(), 200); const result = await response.json();
+  assert.equal(response.status, 200); const result = response.result;
   assert.equal(String(result.tid), thread); assert.ok(result.pid > result.tid);
   const post = String(result.pid); await expect(qr).toBeVisible(); await expect(page.locator('#qrCom')).toHaveValue('');
   assert.equal(page.url(), approvalUrl);
