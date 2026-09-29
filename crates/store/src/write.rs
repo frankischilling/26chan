@@ -262,45 +262,96 @@ pub async fn create_post_with_context(
     Ok(id)
 }
 
-/// Caller must verify the deletion password before entering this operation.
-/// The board/post relationship is checked again under the mutation lock.
+/// Trusted store operation for callers that already own deletion authority.
+/// Public password requests must use `delete_with_password_proof` instead.
 pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), StoreError> {
     let mut tx = pool.begin().await?;
+    lock_deletion_board(&mut tx, slug).await?;
+    delete_post_in(&mut tx, slug, id).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// The proof is the SHA-256 of the stored hash actually verified by the server.
+/// Never deserialize this argument from a request. Expensive password work stays
+/// outside database locks; current authority is checked inside the mutation.
+pub async fn delete_with_password_proof(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    proof: [u8; 32],
+    file_only: bool,
+) -> Result<(), StoreError> {
+    let mut tx = pool.begin().await?;
+    lock_deletion_board(&mut tx, slug).await?;
+    let current: Option<String> = sqlx::query_scalar(crate::read::DELETION_HASH)
+        .bind(slug)
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    if current.is_none_or(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) != proof) {
+        return Err(StoreError::AuthorizationChanged);
+    }
+    if file_only {
+        post_media::delete_attachment(&mut *tx, slug, id).await?;
+    } else {
+        delete_post_in(&mut tx, slug, id).await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+async fn lock_deletion_board(
+    connection: &mut sqlx::PgConnection,
+    slug: &str,
+) -> Result<(), StoreError> {
+    // The next statement must see credential changes committed during this wait,
+    // even when the pool's default isolation level is more restrictive.
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *connection)
+        .await?;
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut *connection)
         .await?
         .ok_or(StoreError::NotFound)?;
-    let post: Post = sqlx::query_as(
-        "SELECT * FROM content.posts p WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads t WHERE t.board=p.board AND t.id=p.thread_id) FOR UPDATE",
+    Ok(())
+}
+
+async fn delete_post_in(
+    connection: &mut sqlx::PgConnection,
+    slug: &str,
+    id: i64,
+) -> Result<(), StoreError> {
+    let thread_id: i64 = sqlx::query_scalar(
+        "SELECT thread_id FROM content.posts p WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads t WHERE t.board=p.board AND t.id=p.thread_id) FOR UPDATE",
     )
     .bind(slug)
     .bind(id)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut *connection)
     .await?
     .ok_or(StoreError::NotFound)?;
-    if id == post.thread_id {
-        sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(slug).bind(id).execute(&mut *tx).await?;
+    if id == thread_id {
+        sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(slug).bind(id).execute(&mut *connection).await?;
         sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND thread_id=$2")
             .bind(slug)
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut *connection)
             .await?;
     } else {
         sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND id=$2")
             .bind(slug)
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut *connection)
             .await?;
         sqlx::query(
             "UPDATE content.threads SET modified_at=clock_timestamp() WHERE board=$1 AND id=$2",
         )
         .bind(slug)
-        .bind(post.thread_id)
-        .execute(&mut *tx)
+        .bind(thread_id)
+        .execute(&mut *connection)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }
 

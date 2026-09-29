@@ -56,6 +56,9 @@ impl From<StoreError> for AppError {
             }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
+            StoreError::AuthorizationChanged => {
+                Self(StatusCode::FORBIDDEN, "Deletion password is invalid.")
+            }
             _ => {
                 tracing::warn!(
                     event = "database_operation_failed",
@@ -582,23 +585,21 @@ pub async fn delete(
                 "Password processing is busy. Try again.",
             )
         })?;
-    let valid = tokio::task::spawn_blocking(move || {
+    let proof = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         verify_deletion_password(&form.password, &hash)
+            .then(|| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())))
     })
     .await
-    .unwrap_or(false);
-    if !valid {
+    .unwrap_or(None);
+    let Some(proof) = proof else {
         return Err(AppError(
             StatusCode::FORBIDDEN,
             "Deletion password is invalid.",
         ));
-    }
-    if form.file_only {
-        board_store::post_media::delete_attachment(&state.pool, &board, form.no).await?;
-    } else {
-        board_store::delete_post(&state.pool, &board, form.no).await?;
-    }
+    };
+    board_store::delete_with_password_proof(&state.pool, &board, form.no, proof, form.file_only)
+        .await?;
     Ok(Redirect::to(&format!("/{board}/")))
 }
 

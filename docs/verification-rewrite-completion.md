@@ -173,6 +173,55 @@ test passed. Production SQL and its authorization checks were unchanged. The
 complete Rust suite and current-head hosted checks remain required before merge;
 earlier partial or failed runs do not satisfy them.
 
+## September 29 review and authorization checks
+
+The published `a3af4b8` Linux browser job in run `36502846031` failed six
+backlink request assertions. Board indexes incorrectly accepted a null thread
+context and requested `/_watch/demo/thread/null/stats`. Thread pages also made
+valid statistics requests that the backlink fixtures had not isolated. The
+context guard now rejects null values, and backlink fixtures disable the
+independent statistics feature. Its dedicated default-on tests remain enabled.
+
+The corrected source passed all 54 real browser cases in one unretried Windows
+run against an owned PostgreSQL database: 50 backlink cases and four statistics
+cases. All six previously failing cases passed. Thirteen focused statistics
+core and DOM cases also passed. No screenshot baseline or retry policy changed.
+
+Provider review found a separate stale mobile **Open** control. It could act
+before checking a synchronously changed or hidden source link. Both provider
+actions now validate the live source and settings at click time. The nine
+provider parser and browser cases passed, followed by 31 Custom CSS, settings
+transfer and catalog locking cases. The public v1191 asset was fetched again
+and matched its pinned SHA-256.
+
+The new deletion authorization regression failed on the original implementation:
+a request waiting for the board lock returned 303 after an operator changed its
+password hash. A second regression showed that credential updates could finish
+while a public mutation held that lock. The fix checks the verified hash again
+inside the deletion transaction, and migration 0037 serializes credential
+updates and removals with that transaction. The original regressions passed;
+review then expanded the matrix to 24 queued cases and 24 fresh controls so each
+encoding covers both rotation and revocation for OPs, replies and files. A third
+test checks both affected boards during credential reassignment. Bulk operator
+credential changes have an explicit board-lock ordering contract. All three
+authorization tests passed after these additions.
+
+The focused persisted checks passed for deletion authorization, legacy actions,
+OP ownership, streaming upload/file deletion, archives, concurrent posting and
+attachment authorization. The complete Linux workspace passed Clippy with all
+targets and features enabled and warnings denied. Formatting checks passed.
+
+The attachment test initially exposed two assumptions about clocks shared by
+the application and database hosts. A measured Windows/WSL difference was about
+2.7 seconds. SQL-assigned timestamps are now bracketed by PostgreSQL clock reads.
+The file-deletion case deliberately supplies a future request timestamp and
+checks that the independent HTTP change clock advances while the saved deletion
+time comes from the database. The complete attachment test then passed. No
+production timestamp behavior, tolerance or retry was changed.
+
+These results belong to the reviewed integration source. The complete hosted
+checks for the final published commit remain required before merge.
+
 ## Remaining acceptance work
 
 The catalog and server-link review retained #82 and #165 where public evidence

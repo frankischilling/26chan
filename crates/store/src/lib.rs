@@ -30,6 +30,8 @@ pub enum StoreError {
     Invalid(&'static str),
     #[error("{0}")]
     Conflict(&'static str),
+    #[error("Authorization is no longer valid.")]
+    AuthorizationChanged,
     #[error("Database unavailable.")]
     Database(#[from] sqlx::Error),
     #[error("Unsafe database role.")]

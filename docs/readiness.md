@@ -31,6 +31,14 @@ original-server rules and the production requirements below remain open.
 of supported local preferences. [Catalog preference locking](catalog-preference-locks.md)
 prevents an older queued catalog change from overwriting a completed restore.
 
+The September 29 review fixes invalid index statistics requests, stale mobile
+provider controls and password revocation during a queued deletion. The
+[deletion transaction](legacy-actions.md#request-and-authorization-rules) checks
+current password authority after its lock wait, and migration 0037 serializes
+operator credential changes with public mutations. The verification record
+includes reproduced failures, passing regressions and the separate clocks used
+by application requests and database changes.
+
 | Work item | Current state | Acceptance needed |
 |---|---|---|
 | Approved design brief | User clarified on September 13, 2026: recreate the old 4chan frontend 1:1, rather than redesign it; no separate attachment is required | Match the reference layout, typography, colors, assets, controls and states on desktop and mobile using source permitted by the rewrite prompt; record differences and verify visual and behavioral parity |

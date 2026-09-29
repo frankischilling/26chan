@@ -42,6 +42,29 @@ ownership and deletion paths now share the same fixed-profile verifier, which
 rejects unsupported stored parameters before running the hash. OP deletion
 hides the thread; file-only deletion preserves text and revokes media access.
 
+Password verification runs before acquiring database locks. The server retains
+a fingerprint of the hash it verified, then checks the current hash after taking
+the board mutation lock. Post and file removal happen in that same transaction.
+A password changed or revoked while the request waits causes a 403 response and
+leaves the post and attachment intact. The fingerprint is internal server state;
+neither deletion route accepts it from the client.
+
+Migration 0037 makes password rotation and revocation acquire the affected board
+locks as well. Its trigger runs with the caller's privileges, uses a fixed search
+path and grants no new access to password state. Public credentials still cannot
+update or delete stored hashes. The deletion transaction explicitly uses Read
+Committed so its final check sees a change committed during the lock wait, even
+when the connection defaults to a stronger snapshot isolation level.
+
+For bulk operator changes, acquire every affected board lock in sorted slug
+order within the same transaction before changing credential rows. The row
+trigger orders the two boards of an individual reassignment; it does not impose
+a global order across concurrent, multi-row maintenance statements.
+
+Apply migration 0037 before deploying this deletion fix. It preserves existing
+posts, hashes and grants. Keep the additive schema on a binary rollback; older
+binaries do not perform the final password check and retain the original race.
+
 Successful legacy deletion returns bounded, escaped, script-free HTML with the
 public client's success marker and a return link. The existing `/delete` route
 keeps its redirect response. Neither route reflects the password.
@@ -60,6 +83,16 @@ fields, unsupported modes, field-count overflow and streamed body overflow.
 wrong-board/password/origin rejection and confirms deletion through the read API.
 The existing attachment test also exercises legacy multipart file-only deletion,
 including wrong-password rejection and revoked reader access.
+
+`deletion_authorization` exercises 24 queued deletion cases across the
+ordinary route, URL-encoded legacy forms and multipart legacy forms. They cover
+changed and removed hashes, OPs, replies and file-only requests, with a successful
+fresh request for each rejected case. The tests observe actual PostgreSQL lock
+waiters, preserve unrelated posts and include Repeatable Read connection
+defaults. A separate case holds the public mutation lock and proves that an
+operator's hash update or removal waits, while both operations remain forbidden
+to the public database role. Reassignment checks hold the source or target board
+lock while an operator moves one credential in each direction between two boards.
 
 `legacy-actions.spec.js` checks real posting/report/deletion with JavaScript
 enabled and disabled. The JavaScript case sends actual browser FormData under

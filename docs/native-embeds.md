@@ -124,6 +124,11 @@ Players do not resume automatically. A terminal page exit destroys the mount.
 Mounting again on the same board destroys the previous owner, and an old retained
 toggle cannot create a frame after suspension or destruction.
 
+Both **Open** and **Embed** recheck the source link, its visibility and the current
+settings when clicked. A control retained across a synchronous link change or
+post hiding cannot navigate to its old destination before the observer catches
+up. The click is cancelled and the controls are reconciled immediately.
+
 The fixed CSS hooks are `nativeEmbedControls`, `nativeEmbedToggle`,
 `nativeMediaEmbed`, `nativeMediaEmbedYouTube`, `nativeMediaEmbedSoundCloud`, and
 `nativeEmbedFrame`. Shared board CSS owns responsive sizing. YouTube keeps a
