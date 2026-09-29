@@ -184,6 +184,35 @@ test('native embeds are click-only, projection-owned and cleared across disable,
       } finally { await context.close(); }
     });
 
+    await t.test('a stale mobile Open control revalidates its source before navigation', async () => {
+      const { context, page, providerRequests, errors } = await setup({ mobile: true, embedYouTube: false });
+      try {
+        const changed = 'AAAAAAAAAAA';
+        const before = page.url();
+        await page.evaluate(id => {
+          const anchor = document.querySelector('#yt');
+          const stale = anchor.nextElementSibling.querySelector('.nativeEmbedToggle');
+          anchor.href = `https://www.youtube.com/watch?v=${id}`;
+          stale.click();
+        }, changed);
+        const open = page.locator('#yt + .nativeEmbedControls .nativeEmbedToggle');
+        assert.equal(await open.getAttribute('href'), `https://www.youtube.com/watch?v=${changed}`);
+        assert.equal(page.url(), before);
+        assert.deepEqual(providerRequests, []);
+
+        await page.evaluate(() => {
+          const anchor = document.querySelector('#yt');
+          const stale = anchor.nextElementSibling.querySelector('.nativeEmbedToggle');
+          document.querySelector('#p1').classList.add('post-hidden');
+          stale.click();
+        });
+        assert.equal(await page.locator('#yt + .nativeEmbedControls').count(), 0);
+        assert.equal(page.url(), before);
+        assert.deepEqual(providerRequests, []);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
     await t.test('native-linkified derefer anchors qualify only when label and destination agree', async () => {
       const { context, page, providerRequests, errors } = await setup();
       try {

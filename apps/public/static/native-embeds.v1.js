@@ -225,12 +225,12 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
     if (destroyed || suspended || !root.isConnected || entries.get(entry.anchor) !== entry
       || !entry.anchor.isConnected || !entry.control.isConnected || entry.control.parentNode !== entry.anchor.parentNode
       || entry.anchor.nextSibling !== entry.control) { event.preventDefault(); return; }
-    if (entry.mode === 'open') return;
-    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     const config = configuration(), mobile = mobileLayout();
     const current = anchorTarget(entry.anchor);
     if (!sourceContext(entry.anchor) || !current || !sameTarget(entry.target, current)
-      || mode(current, config, mobile) !== 'embed') { refresh(); return; }
+      || mode(current, config, mobile) !== entry.mode) { event.preventDefault(); refresh(); return; }
+    if (entry.mode === 'open') return;
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     event.preventDefault();
     if (entry.frame) closePlayer(entry);
     else if (players.size < bounds.frames) createPlayer(entry);
