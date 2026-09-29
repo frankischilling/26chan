@@ -15,7 +15,7 @@ function threadId(value) {
 
 export function threadStatsContext({ origin = globalThis.location?.origin, board, thread } = {}) {
   if (typeof origin !== 'string' || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board)
-    || threadId(thread) !== thread) throw new TypeError('invalid-thread-stats-context');
+    || typeof thread !== 'string' || threadId(thread) !== thread) throw new TypeError('invalid-thread-stats-context');
   let parsed;
   try { parsed = new URL(origin); } catch { throw new TypeError('invalid-thread-stats-context'); }
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== origin

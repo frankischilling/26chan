@@ -64,7 +64,7 @@ test.use({ channel: 'chromium', launchOptions: { ignoreDefaultArgs: ['--disable-
 
 async function initialize(page, url, settings = {}, { rules, neverMobile } = {}) {
   await page.addInitScript(({ settings, rules, neverMobile }) => {
-    if (localStorage.getItem('4chan-settings') === null) localStorage.setItem('4chan-settings', JSON.stringify(settings));
+    if (localStorage.getItem('4chan-settings') === null) localStorage.setItem('4chan-settings', JSON.stringify({ threadStats: false, ...settings }));
     if (rules !== undefined && localStorage.getItem('4chan-filters') === null) localStorage.setItem('4chan-filters', JSON.stringify(rules));
     if (neverMobile !== undefined && localStorage.getItem('4chan_never_show_mobile') === null) localStorage.setItem('4chan_never_show_mobile', neverMobile);
   }, { settings, rules, neverMobile });

@@ -26,6 +26,19 @@ const test = base.extend({
   },
 });
 
+test('board index does not request thread statistics without a thread context', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/_watch/demo/thread/') && path.endsWith('/stats')) requests.push(path);
+  });
+  await page.goto('/demo/');
+  await expect(page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')).toBeVisible();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(requests).toEqual([]);
+  await expect(page.locator('.thread-stats')).toHaveCount(0);
+});
+
 test('real thread stats use the typed coherent endpoint and ignore synthetic DOM counts', async ({ page, request, owned }) => {
   const response = await request.get(owned.stats);
   expect(response.status()).toBe(200);

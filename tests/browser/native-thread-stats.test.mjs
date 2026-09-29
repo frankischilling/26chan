@@ -50,6 +50,7 @@ test('thread stats context and URL accept only canonical same-origin board/threa
     { ...context, origin: 'javascript:alert(1)' },
     { ...context, board: 'Demo' },
     { ...context, board: 'x'.repeat(11) },
+    { ...context, thread: null },
     { ...context, thread: '0123' },
     { ...context, thread: '0' },
     { ...context, thread: '9223372036854775808' },
