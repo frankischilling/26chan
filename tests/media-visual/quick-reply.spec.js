@@ -87,6 +87,265 @@ test('Quick Reply guards closed threads and keeps the source spoiler caret behav
   await expect(page.locator('#quickReply')).toHaveCount(0); expect(page.url()).toBe(before);
 });
 
+test('media-enabled Quick Reply exposes one visible inline file selector', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  await page.locator('.open-qr-link').click();
+  const qr = page.locator('#quickReply');
+  await expect(qr.locator('#qrFile')).toBeVisible();
+  await expect(qr.locator('#qrFile')).toHaveAttribute('type', 'file');
+  await expect(qr.locator('#qrFile')).toHaveAttribute('accept', 'image/png,image/jpeg,image/gif');
+  await expect(qr.locator('#qrFile')).toHaveAttribute('title', /replace|remove/i);
+  await expect(qr.locator('.qr-upload-link')).toHaveCount(0);
+});
+
+test('inline Quick Reply upload reaches approval through bounded status checks and submits only the approved capability', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  const calls = [];
+  const receipt = { upload_id: '1'.repeat(32), upload_capability: '2'.repeat(64), resto: '1000201' };
+  let statuses = 0;
+  await page.route('**/img/upload', async route => {
+    calls.push('upload');
+    const request = route.request();
+    expect(request.method()).toBe('POST');
+    expect(request.headers().accept).toBe('application/json');
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'queued' }) });
+  });
+  await page.route('**/img/upload/status', async route => {
+    calls.push('status');
+    statuses++;
+    await route.fulfill({ contentType: 'application/json',
+      body: JSON.stringify({ ...receipt, state: statuses < 2 ? 'processing' : 'approved' }) });
+  });
+  let posted;
+  await page.route('**/img/imgboard.php', async route => {
+    posted = await route.request().postDataBuffer();
+    await route.fulfill({ contentType: 'application/json', body: '{"tid":1000201,"pid":1000207}' });
+  });
+  await page.locator('.open-qr-link').click();
+  const qr = page.locator('#quickReply');
+  await qr.locator('#qrFile').setInputFiles({ name: 'inline.png', mimeType: 'image/png', buffer: Buffer.from([1, 2, 3]) });
+  await expect(qr.locator('#qrUploadStatus')).toContainText('queued');
+  await expect(qr.locator('input[type=submit]')).toBeDisabled();
+  await expect.poll(() => statuses, { timeout: 8_000 }).toBe(2);
+  await expect(qr.locator('#qrUploadStatus')).toContainText('approved');
+  await expect(qr.locator('[name=upload_id]')).toHaveValue(receipt.upload_id);
+  await expect(qr.locator('[name=upload_capability]')).toHaveValue(receipt.upload_capability);
+  await expect(qr.locator('[name=spoiler]')).toBeEnabled();
+  await qr.locator('[name=spoiler]').check();
+  await qr.locator('#qr-pwd').fill('owned-password');
+  await qr.locator('input[type=submit]').click();
+  await expect.poll(() => posted !== undefined).toBe(true);
+  const text = posted.toString('utf8');
+  expect(text).toContain(receipt.upload_id);
+  expect(text).toContain(receipt.upload_capability);
+  expect(calls).toEqual(['upload', 'status', 'status']);
+});
+
+test('inline file replacement cancels the known receipt first and a failed cancel keeps the old approval', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  const first = { upload_id: '1'.repeat(32), upload_capability: '2'.repeat(64), resto: '1000201', state: 'queued' };
+  let uploads = 0, cancels = 0, denyCancel = true;
+  await page.route('**/img/upload', route => {
+    uploads++;
+    const digit = uploads === 1 ? '1' : '3';
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      upload_id: digit.repeat(32), upload_capability: (uploads === 1 ? '2' : '4').repeat(64),
+      resto: '1000201', state: 'queued',
+    }) });
+  });
+  let statusCalls = 0;
+  await page.route('**/img/upload/status', route => {
+    statusCalls++;
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...first, state: 'approved' }) });
+  });
+  await page.route('**/img/upload/cancel', route => {
+    cancels++;
+    if (denyCancel) route.fulfill({ status: 409, contentType: 'application/json', body: '{"error":"Upload is already in use."}' });
+    else route.fulfill({ contentType: 'application/json', body: '{"cancelled":true}' });
+  });
+  await page.locator('.open-qr-link').click();
+  const file = page.locator('#qrFile');
+  await file.setInputFiles({ name: 'first.png', mimeType: 'image/png', buffer: Buffer.from([1]) });
+  await expect(page.locator('#qrUploadStatus')).toContainText('queued');
+  await expect.poll(() => statusCalls).toBe(1);
+  await expect(page.locator('[name=upload_id]')).toHaveValue(first.upload_id, { timeout: 6_000 });
+  await file.setInputFiles({ name: 'second.png', mimeType: 'image/png', buffer: Buffer.from([2]) });
+  await expect(page.locator('#qrError')).toHaveText('Upload is already in use.');
+  expect(uploads).toBe(1); expect(cancels).toBe(1);
+  await expect(page.locator('[name=upload_id]')).toHaveValue(first.upload_id);
+  denyCancel = false;
+  await file.setInputFiles({ name: 'second.png', mimeType: 'image/png', buffer: Buffer.from([2]) });
+  await expect.poll(() => uploads).toBe(2);
+  expect(cancels).toBe(2);
+});
+
+test('inline drop accepts exactly one file, finite polling exposes Check status, and close cancels owned authority', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/img/thread/1000201');
+  const receipt = { upload_id: '5'.repeat(32), upload_capability: '6'.repeat(64), resto: '1000201' };
+  let status = 0, cancelled = 0;
+  await page.route('**/img/upload', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'queued' }),
+  }));
+  await page.route('**/img/upload/status', route => {
+    status++;
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'processing' }) });
+  });
+  await page.route('**/img/upload/cancel', route => {
+    cancelled++;
+    route.fulfill({ contentType: 'application/json', body: '{"cancelled":true}' });
+  });
+  await page.locator('.open-qr-link').click();
+  const row = page.locator('.qr-file-row');
+  await row.dispatchEvent('drop', { dataTransfer: await page.evaluateHandle(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array([7])], 'dropped.png', { type: 'image/png' }));
+    return transfer;
+  }) });
+  await expect(page.locator('#qrUploadStatus')).toContainText('queued');
+  await page.clock.runFor(1_100); await expect.poll(() => status).toBe(1);
+  await page.clock.runFor(2_100); await expect.poll(() => status).toBe(2);
+  await page.clock.runFor(4_100); await expect.poll(() => status).toBe(3);
+  expect(status).toBe(3);
+  await expect(page.getByRole('button', { name: 'Check status', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Check status', exact: true }).click();
+  await expect.poll(() => status).toBe(4);
+  await expect(page.getByRole('button', { name: 'Check status', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
+  await expect(page.locator('#quickReply')).toHaveCount(0);
+  await expect.poll(() => cancelled).toBe(1);
+});
+
+test('inline Cancel aborts an in-flight upload before any receipt can become posting authority', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  let held, statusCalls = 0, cancelCalls = 0;
+  await page.route('**/img/upload', route => { held = route; });
+  await page.route('**/img/upload/status', route => { statusCalls++; return route.abort(); });
+  await page.route('**/img/upload/cancel', route => { cancelCalls++; return route.fulfill({ contentType: 'application/json', body: '{"cancelled":true}' }); });
+  await page.locator('.open-qr-link').click();
+  await page.locator('#qrFile').setInputFiles({ name: 'held.png', mimeType: 'image/png', buffer: Buffer.from([9]) });
+  await expect(page.locator('#qrUploadStatus')).toContainText('Uploading');
+  await expect(page.getByRole('button', { name: 'Cancel file', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel file', exact: true }).click();
+  await expect(page.locator('#qrUploadStatus')).toHaveText('');
+  await expect(page.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
+  expect(statusCalls).toBe(0); expect(cancelCalls).toBe(0);
+  await held.fulfill({ contentType: 'application/json', body: JSON.stringify({
+    upload_id: '7'.repeat(32), upload_capability: '8'.repeat(64), resto: '1000201', state: 'queued',
+  }) }).catch(() => {});
+  await page.waitForTimeout(50);
+  await expect(page.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
+});
+
+test('approved inline authority survives a server posting error and is retired after an ambiguous posting failure', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  const receipt = { upload_id: '9'.repeat(32), upload_capability: 'a'.repeat(64), resto: '1000201' };
+  await page.route('**/img/upload', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'queued' }),
+  }));
+  await page.route('**/img/upload/status', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'approved' }),
+  }));
+  let posts = 0;
+  await page.route('**/img/imgboard.php', route => {
+    posts++;
+    if (posts === 1) return route.fulfill({ status: 422, contentType: 'application/json', body: '{"error":"Comment required."}' });
+    return route.abort('failed');
+  });
+  await page.locator('.open-qr-link').click();
+  const qr = page.locator('#quickReply');
+  await qr.locator('#qrFile').setInputFiles({ name: 'approved.png', mimeType: 'image/png', buffer: Buffer.from([3]) });
+  await expect(qr.locator('[name=upload_id]')).toHaveValue(receipt.upload_id, { timeout: 6_000 });
+  await qr.locator('#qr-pwd').fill('owned-password');
+  await qr.locator('input[type=submit]').click();
+  await expect(qr.locator('#qrError')).toHaveText('Comment required.');
+  await expect(qr.locator('[name=upload_id]')).toHaveValue(receipt.upload_id);
+  await qr.locator('input[type=submit]').click();
+  await expect(qr.locator('#qrError')).toContainText('Check the thread');
+  await expect(qr.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
+  await expect(qr.locator('[name=spoiler]')).toBeDisabled();
+});
+
+test('disable and persisted pagehide cancel owned inline authority and reject late status results', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  let sequence = 0, cancels = 0, heldStatus;
+  await page.route('**/img/upload', route => {
+    sequence++;
+    const digit = sequence === 1 ? 'b' : 'd';
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      upload_id: digit.repeat(32), upload_capability: (sequence === 1 ? 'c' : 'e').repeat(64),
+      resto: '1000201', state: 'queued',
+    }) });
+  });
+  await page.route('**/img/upload/status', route => { heldStatus = route; });
+  await page.route('**/img/upload/cancel', route => {
+    cancels++; return route.fulfill({ contentType: 'application/json', body: '{"cancelled":true}' });
+  });
+  await page.locator('.open-qr-link').click();
+  await page.locator('#qrFile').setInputFiles({ name: 'disable.png', mimeType: 'image/png', buffer: Buffer.from([1]) });
+  await expect(page.locator('#qrUploadStatus')).toContainText('queued');
+  await page.evaluate(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true }));
+    dispatchEvent(new StorageEvent('storage', { key: '4chan-settings' }));
+  });
+  await expect(page.locator('#quickReply')).toHaveCount(0);
+  await expect.poll(() => cancels).toBe(1);
+  await heldStatus?.fulfill({ contentType: 'application/json', body: JSON.stringify({
+    upload_id: 'b'.repeat(32), upload_capability: 'c'.repeat(64), resto: '1000201', state: 'approved',
+  }) }).catch(() => {});
+
+  await page.evaluate(() => {
+    localStorage.setItem('4chan-settings', '{}');
+    dispatchEvent(new StorageEvent('storage', { key: '4chan-settings' }));
+  });
+  await page.locator('.open-qr-link').click();
+  await page.locator('#qrFile').setInputFiles({ name: 'cache.png', mimeType: 'image/png', buffer: Buffer.from([2]) });
+  await expect(page.locator('#qrUploadStatus')).toContainText('queued');
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+  await expect(page.locator('#quickReply')).toHaveCount(0);
+  await expect.poll(() => cancels).toBe(2);
+});
+
+test('closing an approved inline upload resets the reopened editor', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  const receipt = { upload_id: '1'.repeat(32), upload_capability: '2'.repeat(64), resto: '1000201' };
+  await page.route('**/img/upload', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'queued' }) }));
+  await page.route('**/img/upload/status', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'approved' }) }));
+  await page.route('**/img/upload/cancel', route => route.fulfill({ contentType: 'application/json', body: '{"cancelled":true}' }));
+  await page.locator('.open-qr-link').click();
+  await page.locator('#qrFile').setInputFiles({ name: 'closed.png', mimeType: 'image/png', buffer: Buffer.from([1]) });
+  await expect(page.locator('#quickReply [name=upload_id]')).toHaveValue(receipt.upload_id);
+  await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
+  await page.locator('.open-qr-link').click();
+  await expect(page.locator('#qrUploadStatus')).toHaveText('');
+  await expect(page.locator('#quickReply [name=spoiler]')).toBeDisabled();
+  await expect(page.locator('#quickReply [name=upload_id], #quickReply [name=upload_capability]')).toHaveCount(0);
+});
+
+test('posting freezes inline attachment replacement and cancellation', async ({ page }) => {
+  await page.goto('/img/thread/1000201');
+  const receipt = { upload_id: '3'.repeat(32), upload_capability: '4'.repeat(64), resto: '1000201' };
+  let uploads = 0, cancels = 0, pending;
+  await page.route('**/img/upload', route => { uploads++; return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'queued' }) }); });
+  await page.route('**/img/upload/status', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...receipt, state: 'approved' }) }));
+  await page.route('**/img/upload/cancel', route => { cancels++; return route.fulfill({ contentType: 'application/json', body: '{"cancelled":true}' }); });
+  await page.route('**/img/imgboard.php', route => { pending = route; });
+  await page.locator('.open-qr-link').click();
+  await page.locator('#qrFile').setInputFiles({ name: 'posting.png', mimeType: 'image/png', buffer: Buffer.from([1]) });
+  await expect(page.locator('#quickReply [name=upload_id]')).toHaveValue(receipt.upload_id);
+  await page.locator('#qr-pwd').fill('owned-password');
+  await page.locator('#quickReply input[type=submit]').click();
+  await expect.poll(() => !!pending).toBe(true);
+  await expect(page.getByRole('button', { name: 'Cancel file', exact: true })).toBeDisabled();
+  await page.locator('.qr-file-row').dispatchEvent('drop', { dataTransfer: await page.evaluateHandle(() => {
+    const transfer = new DataTransfer(); transfer.items.add(new File([new Uint8Array([2])], 'replacement.png', { type: 'image/png' })); return transfer;
+  }) });
+  await pending.fulfill({ contentType: 'application/json', body: '{"error":"Correct the post."}' });
+  await expect(page.locator('#qrError')).toHaveText('Correct the post.');
+  expect(uploads).toBe(1); expect(cancels).toBe(0);
+  await expect(page.locator('#quickReply [name=upload_id]')).toHaveValue(receipt.upload_id);
+});
+
 test('an approved Quick Reply consumes both editors capability fields and reopening permits text only', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true })));
   await page.goto('/demo/upload/fixture');

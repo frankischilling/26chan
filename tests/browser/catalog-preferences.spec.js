@@ -111,6 +111,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/native-settings.v1.js',
     'http://127.0.0.1:3000/static/watcher-position.v1.js',
     'http://127.0.0.1:3000/static/native-filter.v1.js',
+    'http://127.0.0.1:3000/static/native-quick-reply.v1.js',
     'http://127.0.0.1:3000/static/native-backlinks.v1.js',
     'http://127.0.0.1:3000/static/native-images.v1.js',
     'http://127.0.0.1:3000/static/native-display.v1.js',

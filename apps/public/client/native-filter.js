@@ -12,7 +12,6 @@ export { mountNativeFilters } from './native-page-filters.js';
 export { mountNativeReplyHiding } from './native-reply-hiding.js';
 export { mountNativeThreadHiding } from './native-thread-hiding.js';
 export { mountNativeKeybinds } from './native-keybinds.js';
-export { mountNativeQuickReply } from './native-quick-reply.js';
 export { mountNativeLinkification } from './native-linkification.js';
 export { mountNativeQuotePreview, quoteTarget, localQuoteTree, prepareQuotePost, mobileQuoteDevice } from './native-quote-preview.js';
 export { NativeQuotePreviewTransport, checkedQuotePreview } from './native-quote-preview-transport.js';

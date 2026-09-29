@@ -107,6 +107,7 @@ class PublicUpload:
         for suffix, data, javascript in cases:
             self.upload_one(suffix, data, javascript)
         self.upload_one('quick-reply.png', red_png(), True, quick_reply=True)
+        self.upload_one('quick-reply-inline.png', red_png(), True, quick_reply='inline')
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False):
         f = self.f
@@ -128,7 +129,7 @@ class PublicUpload:
             flags.append('--javascript')
         script = 'public-upload.mjs'
         if quick_reply:
-            script, flags = 'quick-reply-upload.mjs', []
+            script, flags = 'quick-reply-upload.mjs', (['--inline'] if quick_reply == 'inline' else [])
         process = f.launch([node, REPO / 'tests/browser' / script, self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
@@ -166,7 +167,7 @@ class PublicUpload:
             self.f.stop(self.unit)
         if self.created:
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

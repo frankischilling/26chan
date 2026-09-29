@@ -39,7 +39,7 @@ assert.deepEqual([...outputs[0].exports].sort(), [
   'NativeUpdaterTransport', 'UPDATER_LIMITS', 'updaterContext', 'validatePostTree', 'validateSnapshotMetadata',
   'NativeWatchLock', 'autoWatchBoards', 'catalogApiUrl', 'checkedQuotePreview', 'collectAutoWatches', 'localQuoteTree',
   'markNativeTrackedQuotes', 'mobileQuoteDevice', 'mountNativeFilters', 'mountNativeReplyHiding', 'mountNativeThreadHiding',
-  'mountNativeKeybinds', 'mountNativeQuickReply', 'mountNativeLinkification', 'mountNativeQuotePreview',
+  'mountNativeKeybinds', 'mountNativeLinkification', 'mountNativeQuotePreview',
   'prepareQuotePost', 'quoteTarget', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters',
   'runNativeFilterJob', 'writeBlacklist', 'filterColor',
   'boardPageContext', 'validateBoardPageSnapshot',
