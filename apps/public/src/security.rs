@@ -216,7 +216,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -244,7 +244,8 @@ fn headers(
             state.origin,
             crate::ui_assets::NATIVE_CUSTOM_CSS_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_SETTINGS_TRANSFER_PATH
+            crate::ui_assets::NATIVE_SETTINGS_TRANSFER_PATH,
+            state.origin
         )
     } else {
         script
@@ -380,7 +381,11 @@ mod tests {
                         .unwrap()
                 };
                 let backlink = format!("{origin}/static/native-backlinks.v1.js");
-                for path in ["native-embeds.v1.js", "native-custom-css.v1.js"] {
+                for path in [
+                    "native-embeds.v1.js",
+                    "native-custom-css.v1.js",
+                    "native-quick-reply.v1.js",
+                ] {
                     assert_eq!(
                         directive("script-src")
                             .split_whitespace()
