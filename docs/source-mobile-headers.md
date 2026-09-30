@@ -63,6 +63,12 @@ one existing trigger between the original headers when the viewport or exact
 desktop stylesheet and applies the released dark class; desktop dark mode uses
 the existing local stylesheet override.
 
+Filter stubs keep one `[View]` control in the currently displayed original
+header. Resizing or changing the mobile opt-out moves that same control without
+revealing the post or changing its filter match. Matching continues to read the
+full desktop fields. This placement preserves the existing native filter action;
+the property reference does not qualify the released client's filter controls.
+
 ```sh
 node scripts/verify-public-mobile-label-reference.mjs /path/to/extension.1191.js
 node scripts/verify-public-mobile-header-reference.mjs /path/to/extension.1191.js /path/to/desktop-css /path/to/mobile-css

@@ -37,6 +37,9 @@ exempt. Thread-page OPs are not filtered. The first matching active rule consume
 the post even when it has no highlight color. On board indexes, OP hiding affects
 the whole thread; View navigates to the thread. Reply View reveals content in
 place. Hide Stubs retains a stub for sticky threads.
+The single View control follows the displayed mobile or desktop header when
+the viewport or mobile opt-out changes. Matching uses the full desktop fields;
+moving the control leaves filter and manual-hide state intact.
 
 Patterns and HTML preparation remain inside bounded workers. Page batches use
 the existing field, post and request limits, with at most 20,001 DOM posts and
@@ -45,7 +48,7 @@ The renderer uses text nodes and parsed color values, not arbitrary CSS or HTML
 from saved preferences. Colors cannot contain declarations, custom-property
 substitutions or inherited values. Filtering is not applied to catalog cards.
 
-`npm run test:page-filters` passes fourteen owned Chromium/PostgreSQL cases covering
+`npm run test:page-filters` passes sixteen owned Chromium/PostgreSQL cases covering
 editor persistence, order and palette, effects, first-match precedence, own-post
 exemption, cross-tab conflict, queued-save cancellation, failed writes and hostile
 input. One case exercises all six themes at 1280px and 390px with nested-dialog

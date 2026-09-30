@@ -66,7 +66,8 @@ test('editor creates ordered native rules and palette values, then applies a glo
   await expect(page.locator(`#m${fixture.thread}`)).toBeVisible();
 });
 
-test('board subject filters hide OP threads, navigate through stubs, and never filter thread-page OPs', async ({ page, fixture }) => {
+for (const width of [1280, 390]) test(`board subject filters hide OP threads, navigate through stubs, and never filter thread-page OPs at ${width}px`, async ({ page, fixture }) => {
+  await page.setViewportSize({ width, height: 900 });
   await prepare(page, fixture, [rule(fixture.title, { type: 5 })]);
   await page.goto('/demo/');
   const section = page.locator(`#t${fixture.thread}`);

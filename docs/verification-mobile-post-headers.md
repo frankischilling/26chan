@@ -35,13 +35,29 @@ fonts and zero-pixel comparison settings. Browser retries remain disabled.
 | `node node_modules/@playwright/test/cli.js test --config playwright.archive-visual.config.js` | All six Windows tests passed |
 | `node node_modules/@playwright/test/cli.js test --config playwright.states.config.js` | All ten Windows tests passed |
 | `node node_modules/@playwright/test/cli.js test tests/browser/visual.spec.js` with the visual fixture server | All three Windows tests passed |
+| Linux production header properties | All 32 tests passed |
+| Linux persisted display, IDs, posting preferences, menus and mobile headers | All 42 tests passed after correcting the watcher tuple assertion |
+| `node node_modules/@playwright/test/cli.js test --config playwright.inline-quotes.config.js tests/browser/native-inline-quotes.spec.js` | All 36 Linux tests passed |
+| `node node_modules/@playwright/test/cli.js test --config playwright.staff.config.js tests/browser/staff.spec.js` | The Linux WebAuthn, moderation, recovery and logout test passed |
+| Corrected filter asset checks and complete JavaScript suite | All three assets matched their pinned sources; all 394 tests passed again |
+| `node node_modules/@playwright/test/cli.js test tests/browser/native-reply-hiding.spec.js tests/browser/native-page-filters.spec.js` | All 25 Linux tests passed, including mobile View placement and desktop/mobile board stubs |
 
-At this checkpoint, the complete Rust rerun, inline quotes and staff browser
-qualification are pending. Final outcomes are recorded on the pull request
-before merge. The earlier 42-case persisted run passed 41 cases and failed a
-fixture assertion that read a watcher tuple as an object. After correcting that
-assertion, all four mobile cases passed in the 86-case run above, including the
-full-label watcher and filter case.
+The [first hosted run](https://github.com/frankischilling/26chan/actions/runs/36740994438)
+passed the full Rust workspace phase: 544 tests across 154 result groups, with
+none ignored. Windows visual and privileged media qualification also passed.
+Its later browser phase failed because the filter `[View]` control stayed in
+the hidden desktop header at mobile width. The same failure reproduced locally.
+The control now follows the displayed header; the regression checks preserve
+its identity across 480/481px and actual cross-tab opt-out changes, then require
+manual hiding to remain independent. Board-thread filter stubs are checked at
+desktop and mobile widths. The 394 JavaScript and 25 filter/hiding tests passed
+after this correction. Fresh exact-head hosted qualification is pending at this
+checkpoint; final results are recorded on the pull request before merge.
+
+An earlier local complete Rust run failed when a newly generated TLS
+certificate was reported as not yet valid. The unchanged focused proxy test
+passed afterward. The original cause remains unconfirmed; no clock, TLS
+verification, retry or deadline policy changed.
 
 ## Screenshot review
 

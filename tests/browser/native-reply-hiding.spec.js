@@ -82,7 +82,7 @@ test('queued edits merge different replies and disabling cancels a waiting hide'
   await expect(page.locator(`#m${second}`)).toBeHidden();
 });
 
-test('manual hides remain independent of filter View and mobile menus remain usable', async ({ page, owned }) => {
+test('manual hides remain independent of filter View and mobile menus remain usable', async ({ page, context, owned }) => {
   const [id] = owned.replies;
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(owned.url);
@@ -93,9 +93,30 @@ test('manual hides remain independent of filter View and mobile menus remain usa
   await page.reload();
   const view = page.getByRole('button', { name: `View filtered post ${id}`, exact: true });
   await expect(view).toBeVisible();
+  await view.evaluate(button => { window.ownedFilterView = button; });
+  const placed = async header => {
+    await expect(page.locator(`#p${id} > .${header} > .filter-preview`)).toHaveCount(1);
+    await expect(page.locator(`#p${id} .filter-preview`)).toHaveCount(1);
+    await expect(view).toBeVisible();
+    expect(await view.evaluate(button => button === window.ownedFilterView)).toBe(true);
+    await expect(page.locator(`#m${id}`)).toBeHidden();
+  };
+  await placed('postInfoM');
+  await page.setViewportSize({ width: 481, height: 844 });
+  await placed('postInfo');
+  await page.setViewportSize({ width: 480, height: 844 });
+  await placed('postInfoM');
+  const other = await context.newPage(); await other.goto(owned.url);
+  await other.evaluate(() => localStorage.setItem('4chan_never_show_mobile', 'true'));
+  await placed('postInfo');
+  await other.evaluate(() => localStorage.setItem('4chan_never_show_mobile', '1'));
+  await placed('postInfoM');
+  await other.close();
+  await page.setViewportSize({ width: 390, height: 844 });
   await menu(page, id, 'Hide post');
   await expect(page.locator(`#pc${id}`)).toHaveClass(/post-hidden/);
   await view.click(); await expect(page.locator(`#m${id}`)).toBeHidden();
+  await expect(page.locator(`#p${id} .filter-preview`)).toHaveCount(0);
   await menu(page, id, 'Unhide post'); await expect(page.locator(`#m${id}`)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

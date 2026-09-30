@@ -23,7 +23,7 @@ function selectedFilter() {
   } catch { return { pattern: null, type: 2 }; }
 }
 
-export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML, projection }) {
+export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML, projection, headerForPost }) {
   const root = document.querySelector('.board');
   const query = (parent, selector) => projection ? projection.query(parent, selector) : parent.querySelector(selector);
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
@@ -35,6 +35,15 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
   let controller, pending, generation = 0, signature, scheduled = false;
   let suspended = false, retired = false;
   const effects = new Map(), revealed = new Set();
+  function placePreview(prior) {
+    const header = headerForPost?.(prior.post) ?? prior.info;
+    if (header && prior.preview.parentElement !== header) header.append(prior.preview);
+  }
+  function syncHeaders() {
+    for (const prior of effects.values()) {
+      if (prior.preview?.isConnected && prior.post.isConnected) placePreview(prior);
+    }
+  }
   function clear() {
     for (const [element, prior] of effects) {
       if (!prior.hidden) element.classList.remove('post-hidden');
@@ -122,7 +131,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
         const row = byId.get(result.id), rule = rules[result.filter];
         if (!row?.post.isConnected || !rule || revealed.has(row.id)) continue;
         const element = row.op ? row.section : row.post;
-        const prior = { hidden: element.classList.contains('post-hidden'), highlight: element.classList.contains('filter-hl'),
+        const prior = { post: row.post, info: row.info, hidden: element.classList.contains('post-hidden'), highlight: element.classList.contains('filter-hl'),
           shadow: element.style.boxShadow, assigned: element.style.boxShadow };
         effects.set(element, prior);
         if (rule.hide) {
@@ -137,7 +146,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
               if (row.op) return;
               event.preventDefault(); revealed.add(row.id); element.classList.remove('post-hidden'); preview.remove();
             });
-            row.info.append(preview); prior.preview = preview;
+            prior.preview = preview; placePreview(prior);
           }
         } else {
           element.classList.add('filter-hl');
@@ -216,6 +225,6 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     }
     changed(); void refresh();
   } });
-  return { refresh, refreshSettled, open, selection: selectedFilter,
+  return { refresh, refreshSettled, syncHeaders, open, selection: selectedFilter,
     addSelection: (opener, selected) => open(opener, selected) };
 }

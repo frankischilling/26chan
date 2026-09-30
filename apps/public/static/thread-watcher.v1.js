@@ -256,6 +256,8 @@ function start(context) {
     changed: () => { nativeQuotePreview?.refresh(); if (nativeBacklinks) syncPostMenus(); },
   });
   const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration, projection,
+    headerForPost: post => post.querySelector(sourceMobileLayout(mobile.matches, readNeverMobile())
+      ? ':scope > .postInfoM' : ':scope > .postInfo'),
     read: () => read(filterKey), save: saveFilterRules,
     match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
     changed: () => refresh.cancel(),
@@ -917,6 +919,7 @@ function start(context) {
     nativePosterIds?.refresh();
     nativePosterIdActions?.refresh();
     nativeLayout?.refresh();
+    nativeFilters?.syncHeaders();
     nativeNavigation?.refresh();
     nativeExpansion?.refresh();
     nativeDepager?.refresh();
