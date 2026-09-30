@@ -34,7 +34,11 @@ test('persisted IDs render, color, filter and update through actual public proje
     expect(data.posts[1].id).toBe(id);
     const other = await (await request.get(`/${board}/thread/${remote}.json`)).json();
     expect(other.posts[0].id).not.toBe(id);
-    await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quotePreview: true, filter: true, threadStats: false })));
+    await page.addInitScript(() => {
+      if (localStorage.getItem('4chan-settings') === null) {
+        localStorage.setItem('4chan-settings', JSON.stringify({ quotePreview: true, filter: true, threadStats: false }));
+      }
+    });
     await page.goto(`/${board}/thread/${remote}`);
     await page.locator(`#m${remote} .quotelink`).hover();
     await expect(page.locator('#quote-preview .posteruid .hand')).toHaveText(id);
@@ -46,7 +50,7 @@ test('persisted IDs render, color, filter and update through actual public proje
       expect(await page.locator(`#p${reply} .posteruid .hand`).evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
     }
     const added = await post(thread, 'Owned live reply');
-    await page.getByRole('button', { name: 'Update', exact: true }).first().click();
+    await page.locator('.threadNav.mobile a[data-cmd="update"]').first().click();
     await expect(page.locator(`#p${added} .posteruid .hand`)).toHaveText(id);
     await expect(page.locator(`#p${added} .posteruid .hand`)).toHaveCSS('border-radius', '6px');
     await page.evaluate(id => {

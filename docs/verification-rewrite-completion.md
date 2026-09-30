@@ -448,6 +448,47 @@ LF file. No published migration or deployed database was rewritten. A separate
 runner regression passed its healthy job-dispatch control and four identity-key
 environment denials before any configuration read or job execution.
 
-Persisted browser, updated staff and final hosted checks remain pending until
-their actual results are recorded. Original server hashing and complete page
-parity remain unqualified. Production uploads stay disabled.
+Further qualification passed seven staff unit tests, including hostile ID
+escaping, and workspace Clippy with all targets/features and warnings denied:
+
+```sh
+cargo test -p board-staff --lib --all-features --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+node node_modules/@playwright/test/cli.js test --config playwright.themes.config.js
+cargo test -p board-store --test post_media --all-features --locked -- --nocapture
+cargo test -p board-public --test upload_browser --all-features --locked -- --nocapture
+```
+
+All 150 Windows theme cases passed on `98489cd`, retaining the existing
+screenshots and zero-pixel tolerance. The attachment authorization test and
+all six supervised upload-browser workflows passed after correcting their
+cookie expectations. The upload test covers isolated approval through the
+development supervisor; the hosted native guest result is required separately.
+An unnecessarily slow duplicate staff build on the Windows-mounted filesystem
+was stopped after identifying its owned process tree. The completed staff and
+workspace checks used the cached Linux filesystem target instead.
+
+Hosted continuation build 36655392196 failed in the upload browser: its old
+assertion counted the new display cookie as a posting receipt. The media job
+stopped at the same browser workflow. Local reproduction found a second stale
+cookie assertion after deletion. The tests now require the exact display-name
+and Options cookies while retaining receipt counts, scopes, consumption and
+no-JavaScript receipt denial. Both local upload tests passed afterward.
+The hosted Windows visual job, advisory run 36655392161 and monitoring run
+36655392204 passed; they do not make the failed build eligible for merge.
+
+The new ID browser fixture also targeted a button where Update is a link,
+then reset settings on every reload and overwrote its own `IDColor: false`.
+The fixture now uses the visible mobile update link and initializes settings
+only when absent. All twelve persisted browser cases passed together without
+retries:
+
+```sh
+node node_modules/@playwright/test/cli.js test tests/browser/poster-ids.spec.js tests/browser/post-preferences.spec.js tests/browser/post-identities.spec.js tests/browser/quick-reply.spec.js
+```
+
+The ID case covers saved API labels, remote previews, desktop/mobile colors,
+manual updates, ID filters and disabling color without removing the label.
+Current-head hosted checks remain required before merge. Original server
+hashing and complete page parity remain unqualified. Production uploads stay
+disabled.
