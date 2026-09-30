@@ -266,6 +266,16 @@ pub async fn create_post_with_identity_keys(
         .bind(poster_id.as_deref().unwrap_or(""))
         .execute(&mut *tx)
         .await?;
+    let count_context = keys
+        .poster_id
+        .zip(context.peer)
+        .map(|(key, peer)| key.count_context(slug, thread_id, peer))
+        .transpose()
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    sqlx::query("SELECT set_config('board.poster_fingerprint', $1, true),set_config('board.poster_epoch', $2, true)")
+        .bind(count_context.as_ref().map_or("", |value| value.fingerprint.as_str()))
+        .bind(count_context.as_ref().map_or("", |value| value.epoch.as_str()))
+        .execute(&mut *tx).await?;
     let identity = board_domain::identity::prepare(post_name, keys.tripcode)
         .map_err(|error| StoreError::Invalid(error.0))?;
     sqlx::query("SELECT set_config('board.post_trip', $1, true)")

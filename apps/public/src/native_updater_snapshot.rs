@@ -103,6 +103,7 @@ fn encode(
         images,
         tail_size,
         tail_id,
+        ..
     } = snapshot;
     if posts.is_empty()
         || posts.len() > MAX_POSTS
@@ -443,6 +444,7 @@ mod tests {
             posts,
             replies: 1,
             images: 0,
+            unique_ips: None,
             tail_size: 0,
             tail_id: None,
         }

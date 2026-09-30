@@ -11,6 +11,7 @@ pub struct ThreadPreview {
     pub posts: Vec<Post>,
     pub visible_posts: i64,
     pub visible_images: i64,
+    pub unique_ips: Option<i32>,
     pub latest_reply_id: Option<i64>,
     pub catalog_last_reply: Option<CatalogReply>,
 }
@@ -92,6 +93,13 @@ pub async fn board_snapshot(
         Vec::new()
     };
     crate::post_media::load(&mut tx, &mut posts).await?;
+    let poster_counts: Vec<(i64, Option<i32>)> = sqlx::query_as(
+        "SELECT id,content.unique_posters($1,id) FROM unnest($2::bigint[]) selected(id)",
+    )
+    .bind(slug)
+    .bind(&ids)
+    .fetch_all(&mut *tx)
+    .await?;
     tx.commit().await?;
 
     let counts: BTreeMap<_, _> = counts
@@ -99,6 +107,7 @@ pub async fn board_snapshot(
         .map(|(id, count, latest)| (id, (count, latest)))
         .collect();
     let images: BTreeMap<_, _> = images.into_iter().collect();
+    let poster_counts: BTreeMap<_, _> = poster_counts.into_iter().collect();
     let mut previews: BTreeMap<i64, Vec<Post>> = BTreeMap::new();
     for post in posts {
         previews.entry(post.thread_id).or_default().push(post);
@@ -109,6 +118,7 @@ pub async fn board_snapshot(
             posts: previews.remove(&thread.id).unwrap_or_default(),
             visible_posts: counts.get(&thread.id).map_or(0, |value| value.0),
             visible_images: images.get(&thread.id).copied().unwrap_or(0),
+            unique_ips: poster_counts.get(&thread.id).copied().flatten(),
             latest_reply_id: counts.get(&thread.id).and_then(|value| value.1),
             catalog_last_reply: catalog_replies.remove(&thread.id),
             thread,

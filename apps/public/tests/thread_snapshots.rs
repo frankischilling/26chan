@@ -68,6 +68,9 @@ async fn coherent_during_commit(owner: PgPool, control: PgPool, slug: String, id
                 .execute(&owner)
                 .await
                 .unwrap();
+            // Owned fingerprints make the public count change with this same commit.
+            sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) VALUES($1,$1,decode(repeat('11',32),'hex'),decode(repeat('aa',32),'hex')) ON CONFLICT(post_id) DO NOTHING")
+                .bind(id).execute(&owner).await.unwrap();
             let path = if updater {
                 format!("/_watch/{slug}/thread/{id}/posts")
             } else {
@@ -179,6 +182,8 @@ async fn coherent_during_commit(owner: PgPool, control: PgPool, slug: String, id
                     .unwrap();
                 sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','A committed reply')")
                 .bind(&slug).bind(id).execute(&mut *writer).await.unwrap();
+                sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) SELECT id,thread_id,decode(repeat('22',32),'hex'),decode(repeat('aa',32),'hex') FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2")
+                    .bind(&slug).bind(id).execute(&mut *writer).await.unwrap();
                 writer.commit().await.unwrap();
                 resume.notify_one();
             };
@@ -190,6 +195,12 @@ async fn coherent_during_commit(owner: PgPool, control: PgPool, slug: String, id
                 "connection-release barrier timed out"
             );
             let after = get(control_app, &path).await;
+            if json && !updater {
+                let before_json: serde_json::Value = serde_json::from_slice(&before).unwrap();
+                let after_json: serde_json::Value = serde_json::from_slice(&after).unwrap();
+                assert_eq!(before_json["posts"][0]["unique_ips"], 1);
+                assert_eq!(after_json["posts"][0]["unique_ips"], 2);
+            }
             assert_ne!(before, after, "the committed control must change {path}");
             if during != before && during != after {
                 inconsistent.push(format!(

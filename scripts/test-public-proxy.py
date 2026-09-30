@@ -64,7 +64,10 @@ def main():
         for directory in ['body', 'proxy']:
             (root / directory).mkdir()
         config = root / 'nginx.conf'
-        config.write_text(f'pid {root}/nginx.pid;\nerror_log {root}/nginx-error.log warn;\n'
+        # This private fixture authenticates the worker as the invoking UID.
+        # Root invocation must not inherit nginx's default nobody worker.
+        worker_identity = 'user root;\n' if os.getuid() == 0 else ''
+        config.write_text(worker_identity + f'pid {root}/nginx.pid;\nerror_log {root}/nginx-error.log warn;\n'
                           f'events {{ worker_connections 64; }}\nhttp {{ access_log off; '
                           f'client_body_temp_path {root}/body; proxy_temp_path {root}/proxy; '
                           f'include {root}/site.conf; }}\n')

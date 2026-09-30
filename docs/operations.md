@@ -10,6 +10,11 @@ For an owned staging host, create an OS account `board-public` without a login s
 
 The bootstrap deliberately leaves `board_auth` and `board_staff` as NOLOGIN until staff provisioning. The production secret-management process must enable those two logins, supply distinct passwords, grant database CONNECT and set their statement/lock/idle-transaction limits before starting the candidate staff service. The development script performs those actions only on the verified disposable cluster; do not run it against production. Keep account administration in the separate operator process.
 
+Existing installations need the bootstrap-only `deploy/poster-count-role.sql`
+before migration 0040. The [private poster-count notes](private-poster-counts.md)
+cover its restricted function owner, key continuity, historical omission and
+rollback behavior. Fresh `deploy/roles.sql` already creates this NOLOGIN owner.
+
 Migration 0008 also requires `board_media_read` to exist. The staging role template creates it as NOLOGIN with bounded database timeouts; it gains only the approved-asset view grant when migrations run. Keep it disabled until a media serving deployment is qualified. The development reader bootstrap creates a separate login only in the verified disposable cluster. `scripts/test-role-bootstrap.sh` applies the role template and every migration in an isolated Unix-socket-only cluster, then checks the reader's grants and disabled login.
 
 Provide the public database URL through a root-owned `/etc/paperboard/public.env` readable only by systemd/operator, using `board_public` and `sslmode=verify-full` with a validated CA. Do not put migration, staff, media, release, cloud-management or backup credentials in that file. Startup rejects unrelated database credentials. The unit clears capabilities, prevents new privileges, restricts filesystem access and caps resources. Review its requirements against the target distribution before enabling it.

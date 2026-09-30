@@ -234,12 +234,23 @@ async fn exercise(public: PgPool, slug: String) {
 
             let polled = Arc::new(AtomicI64::new(0));
             let seen = polled.clone();
+            let released = Arc::new(AtomicI64::new(0));
+            let body_released = released.clone();
             let body = Body::from_stream(futures_util::stream::once(async move {
                 let start = Utc::now().timestamp();
                 seen.store(start, Ordering::SeqCst);
-                while Utc::now().timestamp() <= start {
-                    tokio::time::sleep(Duration::from_millis(20)).await;
-                }
+                let release = tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        let now = Utc::now().timestamp();
+                        if now > start {
+                            break now;
+                        }
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                })
+                .await
+                .expect("owned delayed body clock did not advance before its deadline");
+                body_released.store(release, Ordering::SeqCst);
                 let value = if multipart {
                     format!(
                         "--clock\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{id}\r\n--clock\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\nOwned delayed clock\r\n--clock\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--clock--\r\n"
@@ -286,7 +297,10 @@ async fn exercise(public: PgPool, slug: String) {
                 .created_at;
             assert!((started..=polled.load(Ordering::SeqCst)).contains(&saved.timestamp()));
             assert_eq!(saved.nanosecond(), 0);
-            assert!(saved.timestamp() < Utc::now().timestamp());
+            assert!(
+                saved.timestamp() < released.load(Ordering::SeqCst),
+                "saved request time must precede the actual body release"
+            );
             assert_eq!(snapshot.thread.modified_at, saved);
         }
     }

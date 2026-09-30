@@ -43,10 +43,14 @@ export function parseThreadStats(raw, context) {
   try { value = JSON.parse(raw); } catch { throw new TypeError('invalid-thread-stats'); }
   const keys = ['version', 'board', 'thread', 'replies', 'images', 'sticky', 'closed', 'archived',
     'bump_limited', 'image_limited', 'page'];
+  const hasCount = value !== null && typeof value === 'object' && Object.hasOwn(value, 'unique_ips');
+  if (hasCount) keys.push('unique_ips');
   if (!exactObject(value, keys) || value.version !== 1 || value.board !== checked.board
     || value.thread !== checked.thread || !Number.isInteger(value.replies) || value.replies < 0
     || value.replies > 1000 || !Number.isInteger(value.images) || value.images < 0
     || value.images > value.replies
+    || (hasCount && (!Number.isInteger(value.unique_ips) || value.unique_ips < 1
+      || value.unique_ips > value.replies + 1 || value.archived))
     || ['sticky', 'closed', 'archived', 'bump_limited', 'image_limited'].some(key => typeof value[key] !== 'boolean')
     || (value.archived ? value.page !== null
       : !Number.isInteger(value.page) || value.page < 1 || value.page > 1000)) {
@@ -186,6 +190,8 @@ export function fillThreadStatsNode(node, snapshot) {
     tip: snapshot.bump_limited ? 'Replies (bump limit reached)' : 'Replies' });
   parts.push({ className: 'ts-images', value: snapshot.images, emphasis: snapshot.image_limited,
     tip: snapshot.image_limited ? 'Images (limit reached)' : 'Images' });
+  if (snapshot.unique_ips !== undefined) parts.push({ className: 'ts-ips', value: snapshot.unique_ips,
+    emphasis: false, tip: 'Posters' });
   if (!snapshot.archived) parts.push({ className: 'ts-page', value: snapshot.page, emphasis: false, tip: 'Page' });
   node.replaceChildren();
   parts.forEach((part, index) => addPart(document, node, part, index > 0));

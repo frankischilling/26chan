@@ -411,6 +411,7 @@ body[data-native-thread-layout="centered"] .board .omitted { margin-left: 12.5%;
   .thread-stats { float: none; text-align: center; }
   .ts-replies::before { content: 'Replies: '; }
   .ts-images::before { content: 'Images: '; }
+  .ts-ips::before { content: 'Posters: '; }
   .ts-page::before { content: 'Page: '; }
 }
 .nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }

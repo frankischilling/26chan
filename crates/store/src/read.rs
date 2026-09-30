@@ -47,6 +47,7 @@ pub struct ThreadSnapshot {
     pub posts: Vec<Post>,
     pub replies: usize,
     pub images: usize,
+    pub unique_ips: Option<i32>,
     pub tail_size: usize,
     pub tail_id: Option<i64>,
 }
@@ -117,6 +118,11 @@ pub async fn thread_snapshot_selection(
         return Err(StoreError::Invalid("Incomplete thread snapshot."));
     }
     crate::post_media::load(&mut tx, &mut entries).await?;
+    let unique_ips = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
+        .bind(slug)
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
     tx.commit().await?;
     Ok(ThreadSnapshot {
         board,
@@ -124,6 +130,7 @@ pub async fn thread_snapshot_selection(
         posts: entries,
         replies,
         images,
+        unique_ips,
         tail_size,
         tail_id,
     })

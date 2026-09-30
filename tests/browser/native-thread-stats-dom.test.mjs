@@ -94,6 +94,22 @@ async function fixture(t, { useRealTransport = false } = {}) {
   return page;
 }
 
+test('validated poster counts appear and disappear with complete and unqualified snapshots', async t => {
+  const page = await fixture(t, { useRealTransport: true });
+  await page.evaluate(active => {
+    rawResponses.push(JSON.stringify({ ...active, unique_ips: 7 }));
+    document.dispatchEvent(new Event('boardThreadStateChanged'));
+  }, active);
+  await page.waitForFunction(() => document.querySelectorAll('.ts-ips').length === 2);
+  assert.deepEqual(await page.locator('.ts-ips').allTextContents(), ['7', '7']);
+  assert.equal(await page.locator('.ts-ips').first().getAttribute('data-tip'), 'Posters');
+  await page.evaluate(active => {
+    rawResponses.push(JSON.stringify(active));
+    document.dispatchEvent(new Event('boardThreadStateChanged'));
+  }, active);
+  await page.waitForFunction(() => document.querySelectorAll('.ts-ips').length === 0);
+});
+
 test('desktop and mobile placement render status, bounded counts, limit emphasis and no poster identity', async t => {
   const page = await fixture(t);
   const desktop = await page.evaluate(() => ({
@@ -256,12 +272,12 @@ test('default-on settings, disableAll, suspension, offline state and teardown ca
   assert.ok(before > initialLoads);
 });
 
-test('strict main-thread transport keeps extra identity fields and partial bodies out of the DOM', async t => {
+test('strict main-thread transport keeps invalid poster counts and partial bodies out of the DOM', async t => {
   const page = await fixture(t, { useRealTransport: true });
   const original = await page.locator('.thread-stats').first().textContent();
   assert.equal(original, 'Sticky / Closed / 12 / 5 / 3');
   await page.evaluate(active => {
-    rawResponses.push(JSON.stringify({ ...active, replies: 99, unique_ips: 11 }));
+    rawResponses.push(JSON.stringify({ ...active, replies: 99, unique_ips: 101 }));
     document.dispatchEvent(new Event('boardThreadStateChanged'));
   }, active);
   await page.waitForFunction(() => fetchCount >= 2);

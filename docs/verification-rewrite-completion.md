@@ -542,3 +542,99 @@ node node_modules/@playwright/test/cli.js test tests/browser/catalog-preferences
 ```
 
 Current-head hosted results remain required before merge.
+
+## PR 183 merge
+
+Head `53cd0ad6ed366c1af7751d32f5c2e7fb75c29368` passed all six hosted checks:
+Rust/browser, Windows visual, media/operations, the combined gate, dependency
+audit and monitoring rules. Build run 36659595126, audit run 36659595106 and
+monitoring run 36659595112 completed successfully. PR #183 merged at
+2026-09-30T02:48:30Z as `bc7bda92ff4a177ef58ba2c270db2fb6309b9081`.
+The fetched merge tree has no diff from the checked head. No protection bypass,
+baseline change or fabricated review was used. Production remains unqualified.
+
+## Private poster-count continuation
+
+Migration 0040 adds a separately owned private context table and a complete
+visible-post aggregate, documented in [the count policy](private-poster-counts.md).
+Two domain tests passed, preserving the existing public ID vector and adding
+independent full-HMAC/epoch vectors. The persisted counter integration passed
+full/tail/index/catalog output, canonical peers, shared-address counts,
+transaction-local isolation, missing capture, historical omission, rotation,
+deletion and archive cleanup. Seven actual runtime logins received SQLSTATE
+42501 for private fingerprint reads; public mutation, role assumption and
+trigger-function calls were also denied.
+
+The first local migration attempt rolled back on an EXECUTE grant after function
+ownership transfer. Moving the grant before transfer fixed the unpublished
+migration. A fresh bootstrap then revealed that psql ignored fixture input
+because its command used `-c`. The fixture now sets its role inside stdin.
+The fresh private-cluster check passed all migrations, retained historical rows
+and clocks in both directions, omitted historical counts and verified the narrow
+function owner. The cluster was stopped and removed by the owned test.
+
+Public all-target checks and Clippy with warnings denied passed. Fourteen stats
+parser/DOM tests passed after replacing formerly unsupported `unique_ips`
+negative fixtures with out-of-range counts and unknown identity fields. New
+cases verify qualified rendering and removal when a later snapshot omits it.
+All fifteen persisted Chromium cases passed across native statistics, poster IDs,
+posting preferences and Quick Reply. The count appears in both desktop rows and
+the one mobile placement; hidden synthetic nodes do not change it. Current-head
+hosted checks remain required before merging this continuation.
+
+Main build 36661531180 completed with passing Windows visuals and native
+media/operations, but its Linux application job failed in the inline-upload
+fixture. Playwright could not retrieve the queued response body at
+`quick-reply-upload.mjs:32` (`Network.getResponseBody`: no data for resource).
+The same merged tree passed all pre-merge checks; the later main run remains a
+recorded failure. The fixture now starts reading the receipt in its response
+callback, as its posting-response observer already does. This removes the extra
+wait for the file-input action before body collection. It preserves all status,
+receipt, persisted-post and capability assertions. The original browser-level
+cause is not established, and requalification is still required.
+
+The broader local run initially stopped because its ignored helper omitted the
+pinned Node path. After correcting that environment, it reached the real HTTPS
+proxy test and exposed nginx dropping its worker to `nobody` during root
+invocation. The fixture expects the invoking UID and keeps its socket directory
+private; the worker could not traverse it. The private generated nginx config
+now explicitly retains root only when the owned test itself runs as root.
+Non-root hosted invocation and the deployment config keep their existing
+behavior. Socket permissions and peer-UID assertions are unchanged.
+
+An added missing-peer case first expected an accepted but uncounted HTTP write.
+The handler correctly returned 503 before posting. The regression now requires
+that rejection despite spoofed forwarding headers and verifies the unchanged
+complete count. The owned failed fixture was identified by its exact generated
+board and synthetic rows, then removed in a guarded transaction. The counter
+test now runs cleanup after a spawned assertion failure as well as success.
+Malformed transaction contexts also require SQLSTATE 23514 and rollback.
+
+The attachment extension initially enabled ID policy before its ordinary
+approval probes, which correctly rejected their missing keys before the expected
+queue-state rejection. Completing the three approval controls first preserves
+their exact Conflict assertions; the subsequent keyed writes run with IDs
+enabled. The actual attachment integration then passed both modes.
+
+A later local posting-clock case failed its final comparison against a fresh
+wall-clock reading, after the delayed stream had already observed a later
+second. The regression now records that actual body-release timestamp and
+requires the saved request time to precede it. Its original pre-consumption
+range and whole-second checks remain. The release wait has a five-second
+deadline. This tests the intended boundary directly; no cause for the inconsistent
+later wall-clock observation is claimed.
+
+Another complete local run reached the upload browser and failed solely because
+Chromium enumerated the two remaining preference cookies in the opposite order.
+Their names and values matched exactly. The final assertion now sorts those
+name/value pairs before comparing the complete expected list. Header attributes,
+exact receipt counts and absence of consumed receipts remain separate checks;
+no cookie is ignored or newly allowed.
+
+The focused posting-clock and six-flow upload browser qualification passed with
+these final fixture corrections. The real HTTPS proxy and concurrent
+thread/board snapshot regressions also passed in the broader run. The latest
+four-case statistics browser run passed its added mobile count assertion;
+all fourteen parser/DOM cases passed again. Workspace Clippy with all targets,
+all features and warnings denied passed. The final full workspace run and
+current-head hosted checks still need their completion recorded.
