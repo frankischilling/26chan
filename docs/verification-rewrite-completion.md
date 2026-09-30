@@ -721,6 +721,21 @@ their independently checked PNG dimensions. The actual Chromium regression
 passed every released-image load and retained the healthy alternate-host and
 unlisted-path denials. The exact corrected head still requires hosted checks.
 
+All six checks passed on `c245dd8`: build 36676195333, monitoring
+36676195201 and advisories 36676195241. A later native-client review found that
+local quote previews filtered out saved flag classes and titles. The new real
+Chromium regression reproduced the loss in both the current module and the
+released bundle. The bounded local reader now preserves only finite flag tokens
+and their title; the existing strict recipe validator rejects malformed flags
+before constructing elements. Ordinary hover-tool titles are still omitted.
+
+All 45 quote-preview and filter-settlement cases passed with the regenerated
+244501-byte bundle. Country and board-flag copies retain their exact class,
+title and empty span, leave the original unchanged and need no remote preview.
+Control characters, children and unlisted flag classes are rejected before DOM
+construction. The source and thread-control bundle checks also passed. This
+follow-up changes the PR head, so its own hosted checks remain required.
+
 See [flag behavior and operation](post-flags.md) and [reference provenance](public-country-flags-reference.json).
 No production database, external post or worker connectivity claim is added by
 these local feature tests.

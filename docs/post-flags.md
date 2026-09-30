@@ -91,6 +91,9 @@ The owned browser test uses a real loopback socket: a script-free geographic
 post ignores spoofed headers and renders `Unknown`; Quick Reply selects an
 allowed flag, persists it and receives it through the actual updater. The test
 checks title, dimensions, unknown sprite positioning and JavaScript errors.
+Local quote previews retain both finite flag classes and saved titles in the
+source module and released bundle. All 45 preview/settlement cases passed,
+including malformed local flags rejected before DOM construction.
 Parser cases reject unknown classes, mixed classes, children, oversized titles,
 controls and active attributes. These checks establish the implemented slice;
 complete original-page and mobile visual parity remain unfinished.
