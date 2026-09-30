@@ -22,6 +22,7 @@ npm run test:backlinks
 npm run test:inline-quotes
 npm run test:images-core
 npm run test:display
+npm run test:post-tooltips
 npm run check:native-thread-controls
 npm run test:thread-updater-dom
 npm run test:expansion

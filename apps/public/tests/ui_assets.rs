@@ -526,6 +526,10 @@ async fn display_and_thread_controls_serve_exact_page_assets_without_worker_auth
             include_bytes!("../static/native-display.v1.js").as_slice(),
         ),
         (
+            "/static/native-post-tooltips.v1.js",
+            include_bytes!("../static/native-post-tooltips.v1.js").as_slice(),
+        ),
+        (
             "/static/native-thread-controls.v1.js",
             include_bytes!("../static/native-thread-controls.v1.js").as_slice(),
         ),

@@ -45,10 +45,20 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   }
   function restoreDate(element, entry) {
     if (entry.text.parentNode === element && entry.text.data === entry.display.text) entry.text.data = entry.original;
-    if (element.getAttribute('title') === entry.display.title) {
+    if (element.getAttribute('title') === (entry.titleHidden ? null : entry.display.title)) {
       if (entry.title === null) element.removeAttribute('title'); else element.setAttribute('title', entry.title);
     }
     entry.release(); dates.delete(element);
+  }
+  function suppressDateTitle(element) {
+    const entry = dates.get(element);
+    if (!entry || entry.titleHidden || element.getAttribute('title') !== entry.display.title) return null;
+    entry.titleHidden = true; element.removeAttribute('title');
+    return () => {
+      if (dates.get(element) !== entry || !entry.titleHidden) return;
+      entry.titleHidden = false;
+      if (element.getAttribute('title') === null) element.title = entry.display.title;
+    };
   }
   function restoreMenus() {
     for (const { original, hidden, menu } of menus.splice(0)) {
@@ -179,7 +189,7 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
   document.addEventListener('4chanSettingsSaved', refresh);
   refresh();
-  return { refresh, openEditor, destroy() {
+  return { refresh, openEditor, suppressDateTitle, destroy() {
     if (destroyed) return;
     hide(); destroyed = true;
     window.removeEventListener('storage', storage);

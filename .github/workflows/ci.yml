@@ -358,6 +358,9 @@ jobs:
       - name: Verify local dates and bounded board navigation
         shell: pwsh
         run: npm run test:display-core
+      - name: Verify bounded relative post dates
+        shell: pwsh
+        run: npm run test:post-tooltips-core
       - name: Verify bounded thread expansion
         shell: pwsh
         run: npm run test:expansion-core

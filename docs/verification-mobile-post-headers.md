@@ -68,6 +68,11 @@ certificate was reported as not yet valid. The unchanged focused proxy test
 passed afterward. The original cause remains unconfirmed; no clock, TLS
 verification, retry or deadline policy changed.
 
+The [presentation continuation](verification-public-presentation.md) later
+reproduced the TLS fixture failure and added an explicit bounded certificate
+window with positive and negative validity checks. It also records the third
+hosted run's resize synchronization correction and the new tooltip comparisons.
+
 ## Screenshot review
 
 Twelve mobile images changed: the six theme preference pages, the basic board,
@@ -102,6 +107,7 @@ waiting public write must still return `NotFound`. The focused test passed with
 those witnesses. No attachment authorization function or runtime limit changed.
 
 These are local and synthetic checks. The mobile property reference does not
-qualify original full-page pixels, original-server name serialization, the
-released custom tooltip callback or production deployment. Issues #5 and #6
+qualify original full-page pixels, original-server name serialization or
+production deployment. The released name and
+date tooltips now have the separate bounded comparisons linked above. Issues #5 and #6
 remain open. Exact-head hosted checks are required before merge.

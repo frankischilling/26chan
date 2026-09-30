@@ -88,6 +88,34 @@ test('display controls preserve original content, finite navigation and lifecycl
       }
     });
 
+    await t.test('a date tooltip suppresses only its owned title and cannot restore retired display state', async () => {
+      const { context, page, requests } = await setup();
+      try {
+        const result = await page.evaluate(() => {
+          const date = document.querySelector('#pi100 time');
+          const initial = date.getAttribute('title');
+          const restore = display.suppressDateTitle(date);
+          const hidden = date.getAttribute('title');
+          restore();
+          const restored = date.getAttribute('title');
+          const retired = display.suppressDateTitle(date);
+          config.localTime = false; display.refresh(); retired();
+          return { initial, hidden, restored, retiredTitle: date.getAttribute('title'), text: date.textContent };
+        });
+        assert.deepEqual(result, { initial: 'Timezone: UTC-7', hidden: null, restored: 'Timezone: UTC-7',
+          retiredTitle: null, text: '03/08/26(Sun)05:59:59' });
+        const replaced = await page.evaluate(() => {
+          config.localTime = true; display.refresh();
+          const date = document.querySelector('#pim100 .dateTime');
+          const restore = display.suppressDateTitle(date);
+          date.title = 'Owned outside replacement'; restore(); display.destroy();
+          return { title: date.title, links: [...date.children].map(link => link.textContent) };
+        });
+        assert.deepEqual(replaced, { title: 'Owned outside replacement', links: ['No.', '100'] });
+        assert.deepEqual(requests, []);
+      } finally { await context.close(); }
+    });
+
     await t.test('quote copies read server text and restore it when local time is disabled', async () => {
       const { context, page, requests } = await setup();
       try {

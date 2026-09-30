@@ -11,6 +11,7 @@ import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection 
 import { mountNativeQuickReply } from './native-quick-reply.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
+import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
 import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
@@ -352,11 +353,16 @@ function start(context) {
   const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
     settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
   });
+  const nativePostTooltips = catalog ? null : mountNativePostTooltips({ root: document.body,
+    context: { origin: location.origin, board, mediaOrigin: context.dataset.mediaOrigin },
+    settings: configuration, projection, display: nativeDisplay,
+  });
   const nativeStats = catalog ? null : mountNativeThreadStats({ board, thread: threadId,
     settings: configuration, mobile, readNeverMobile,
   });
   let nativeLayout = null, nativeNavigation = null;
   const themeChanged = () => {
+    nativePostTooltips?.clear();
     nativeQuotePreview?.clear();
     render();
     nativeNavigation?.themeChanged();

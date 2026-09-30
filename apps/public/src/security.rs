@@ -216,7 +216,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -231,6 +231,8 @@ fn headers(
             crate::ui_assets::NATIVE_IMAGES_PATH,
             state.origin,
             crate::ui_assets::NATIVE_DISPLAY_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_POST_TOOLTIPS_PATH,
             state.origin,
             crate::ui_assets::NATIVE_THREAD_CONTROLS_PATH,
             state.origin,
@@ -388,6 +390,7 @@ mod tests {
                     "native-embeds.v1.js",
                     "native-custom-css.v1.js",
                     "native-quick-reply.v1.js",
+                    "native-post-tooltips.v1.js",
                 ] {
                     assert_eq!(
                         directive("script-src")

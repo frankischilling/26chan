@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:post-tooltips-core": "node --test tests/browser/native-post-tooltips.test.mjs",
+    "test:post-tooltips": "npm run test:post-tooltips-core && playwright test tests/browser/native-post-tooltips.spec.js",
     "test:settings-transfer-core": "node --test tests/browser/native-settings-transfer.test.mjs",
     "test:catalog-preference-locks-core": "node --test tests/browser/catalog-preference-locks.test.mjs",
     "test:settings-transfer": "npm run test:settings-transfer-core && npm run test:catalog-preference-locks-core && playwright test tests/browser/native-settings-transfer.spec.js tests/browser/catalog-preference-locks.spec.js",

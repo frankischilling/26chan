@@ -20,7 +20,8 @@ Extension initialization and external requests are excluded from that run.
 
 These properties describe the header and its containing post. They do not
 qualify original full-page pixels, attachment layout, the released menu or
-tooltip UI, or original-server input rules. The production template is checked
+original-server input rules. [Tooltips](post-tooltips.md) have separate bounded
+comparisons. The production template is checked
 against the recorded properties in `tests/themes/mobile-post-headers.spec.js`.
 Preference and menu transitions use separate persisted-page tests.
 The mobile post rules apply only to board and thread pages; catalog pages keep
@@ -44,8 +45,10 @@ are tested against those vectors.
 This renderer explicitly HTML-escapes its stored name and subject before
 applying that condition. Its public JSON name remains raw text. The vectors
 do not establish how the original server serializes names or which inputs it
-accepts. Shortened native labels use an escaped full-text `title`; the released
-client's custom tooltip callback is not reproduced by that attribute.
+accepts. Shortened native labels retain an escaped full-text `title`.
+[Post tooltips](post-tooltips.md) add the released name-hover timing and style
+through a finite text renderer. Direct subjects retain the native title; the
+released callback's result for that shape is recorded separately.
 
 ## Ownership and bounds
 

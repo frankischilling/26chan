@@ -76,8 +76,14 @@ remain unfinished.
 
 [Post-number navigation](post-number-navigation.md) separates permalinks from
 quote actions and adds a script-free prefilled reply form. Its continuation
-also compares actual staff headers with 72 pinned public desktop cases;
-original mobile header and full-page comparisons remain unfinished.
+also compares actual staff headers with 72 pinned public desktop cases.
+The mobile continuation compares paired headers with 288 pinned public cases
+and adds [post tooltips](post-tooltips.md) with relative dates, inert full-name
+text, fixed statistics labels and six-theme style/placement checks. Complete
+original-page comparisons remain unfinished. Its
+[presentation verification](verification-public-presentation.md) records the
+resize, TLS fixture and connection-retirement corrections with current local
+results and their limits.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|

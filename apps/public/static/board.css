@@ -496,6 +496,11 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .post.highlight, .post.poster-id-highlight { background: var(--target, #f0c0b0); border-color: var(--target-edge, #d99f91); }
 .posteruid > .hand[role="button"] { cursor: pointer; }
 .poster-id-tooltip { position: fixed; z-index: 102; padding: 2px 4px; border: 1px solid var(--edge, #d9bfb7); background: var(--panel, #f0e0d6); color: var(--ink, #800000); font-size: 11px; pointer-events: none; }
+#tooltip { position: absolute; background-color: var(--post-tooltip-background, #181f24); font-size: 11px; line-height: 13px; padding: 3px 6px; z-index: 100000; word-wrap: break-word; white-space: pre-line; max-width: 400px; color: #fff; text-align: center; pointer-events: none; }
+.tip-top-left::before, .tip-top-right::before, .tip-top::before { content: ""; display: block; width: 0; height: 0; position: absolute; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #181f24; margin-left: -4px; bottom: -4px; }
+.tip-top::before { left: 50%; }
+.tip-top-right::before { left: 2px; margin-left: 0; }
+.tip-top-left::before { right: 2px; }
 .post.highlight-anti { background: #e8a690 !important; }
 .post.highlight-anti[data-quote-anti="burichan"] { background: #bfa6ba !important; border-width: 1px !important; }
 .post.highlight-anti[data-quote-anti="tomorrow"] { background: #111 !important; border-color: #111; }

@@ -2,6 +2,13 @@
 
 ## Active reference boundary
 
+The mobile-header continuation adds [post tooltips](post-tooltips.md), with
+released relative-date boundaries, full-name hover timing and 18 synthetic
+style/placement cases across six themes. Finite original-post admission and
+text-only rendering replace global callbacks and HTML insertion. The existing
+native title covers direct subjects; custom filename tips and complete
+original-page comparisons remain outside this checked scope.
+
 The September 15, 2026 continuation uses the original brief's permitted-public-
 reference requirement. The supplied old checkout's remote identifies it as
 leaked source. The historical audit below is retained as a record of earlier
