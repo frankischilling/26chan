@@ -78,8 +78,23 @@ npx playwright test --config playwright.themes.config.js tests/themes/post-heade
 The final persisted mobile-prefill regression passed after narrowing the reveal
 guard. [PR #186](https://github.com/frankischilling/26chan/pull/186) contains this
 batch. Its first hosted Windows run stopped at the reviewed board capture;
-the final-head qualification and matching-head merge remain pending. Local
+the next head passed Windows, media/operations, monitoring and dependency
+checks. Its Linux application job failed while the inline fixture created a
+reply, before that case's browser interaction. The combined gate also failed.
+The final-head qualification and matching-head merge remain pending. Local
 results above do not substitute for those checks.
+
+The failed request reused an HTTP socket and stopped immediately about 110
+seconds after server startup, consistent with the default retirement window.
+Retirement is the likely cause, but the exact race has not been reproduced.
+A disposable four-second-budget
+probe confirmed that separate Playwright API contexts share a connection;
+with `Connection: close`, real fixture posts used fresh sockets before and
+after retirement. The inline fixture now sends that header for setup, cleanup
+and its API snapshots, and asserts the corresponding response header.
+Browser connections, real posting/deletion, request deadlines, server limits
+and zero retries remain unchanged. All 36 inline scenarios passed again with
+these connection assertions, including the case that failed on the runner.
 
 The preceding staff-posting batch merged in
 [PR #185](https://github.com/frankischilling/26chan/pull/185) as

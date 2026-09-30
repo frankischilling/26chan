@@ -2,6 +2,10 @@ import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
+// API contexts share Playwright's keep-alive agent. Finish fixture exchanges on
+// their own connections so a later setup write cannot inherit a socket near
+// the public listener's retirement deadline. Browser requests keep their defaults.
+const fixtureHeaders = { Origin: origin, Connection: 'close' };
 const mobileAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorrow'];
 const absent = '9223372036854775807';
@@ -16,10 +20,11 @@ const test = base.extend({
     async function write(board, resto, com, { tracked = false, subject = '' } = {}) {
       const client = tracked ? context.request : request;
       const response = await client.post(`/${board}/post`, {
-        headers: { Origin: origin }, maxRedirects: 0,
+        headers: fixtureHeaders, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: subject } : {}), ...(tracked ? { track: '1' } : {}) },
       });
       expect(response.status(), `Owned inline fixture must persist through the real posting form${response.status() === 303 ? '' : `: ${await response.text()}`}`).toBe(303);
+      expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
       const ids = response.headers().location?.match(/\/thread\/([0-9]+)#p([0-9]+)$/);
       expect(ids, 'The real posting redirect supplies exact thread and post identities').not.toBeNull();
       last = ids[2];
@@ -40,9 +45,11 @@ const test = base.extend({
       });
     } finally {
       for (const { board, id } of threads.reverse()) {
-        expect((await request.post(`/${board}/delete`, {
-          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
-        })).status(), 'Cleanup removes only this case\'s owned threads').toBe(303);
+        const response = await request.post(`/${board}/delete`, {
+          headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(response.status(), 'Cleanup removes only this case\'s owned threads').toBe(303);
+        expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
       }
     }
   },
@@ -890,8 +897,9 @@ test.describe('explicitly augmented DOM and substituted response controls', () =
     test(`${defect} rejects the whole inline response before DOM/resource creation and permits a fresh retry`, async ({ page, request, owned }) => {
       const remote = post(await owned.createThread('test', 'Healthy inline response after rejection'));
       const source = await owned.reply(`${quoteText(remote)}\nResponse-validation source`);
-      const response = await request.get(remote.path);
+      const response = await request.get(remote.path, { headers: { Connection: 'close' } });
       expect(response.status()).toBe(200);
+      expect(response.headers().connection).toBe('close');
       const snapshot = await response.json(), marker = 'REJECTED_INLINE_PAYLOAD';
       let payload = marker;
       const probe = '/static/themes/fade.png?inline-resource=hostile';
