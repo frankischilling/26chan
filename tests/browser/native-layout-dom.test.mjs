@@ -140,6 +140,36 @@ test('dark theme overrides only the local theme link and restores the latest req
   assert.equal((await state(page)).href, '/static/theme.css?worksafe=false');
 });
 
+test('mobile dark classes and exact never-mobile state preserve the selected desktop stylesheet', async t => {
+  const { page } = await fixture(t, { darkTheme: true });
+  await page.waitForFunction(() => themeChanges.at(-1) === 'tomorrow');
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.waitForFunction(() => document.body.classList.contains('m-dark'));
+  assert.equal((await state(page)).href, '/static/theme.css?worksafe=true');
+  assert.equal(await page.locator('body').getAttribute('data-native-never-mobile'), 'false');
+  await page.evaluate(() => {
+    localStorage.setItem('4chan_never_show_mobile', 'true');
+    window.dispatchEvent(new StorageEvent('storage', { key: '4chan_never_show_mobile' }));
+  });
+  assert.equal(await page.locator('body').getAttribute('data-native-never-mobile'), 'true');
+  assert.equal(await page.locator('body').evaluate(node => node.classList.contains('m-dark')), false);
+  assert.equal((await state(page)).href, '/static/theme.css?worksafe=true&theme=tomorrow');
+  await page.evaluate(() => {
+    localStorage.setItem('4chan_never_show_mobile', 'TRUE');
+    window.dispatchEvent(new StorageEvent('storage', { key: '4chan_never_show_mobile' }));
+  });
+  assert.equal(await page.locator('body').getAttribute('data-native-never-mobile'), 'false');
+  assert.equal(await page.locator('body').evaluate(node => node.classList.contains('m-dark')), true);
+  await page.evaluate(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ darkTheme: true, disableAll: true }));
+    document.dispatchEvent(new CustomEvent('4chanSettingsSaved'));
+  });
+  assert.equal(await page.locator('body').evaluate(node => node.classList.contains('m-dark')), false);
+  assert.equal((await state(page)).href, '/static/theme.css?worksafe=true');
+  await page.evaluate(() => layoutController.destroy());
+  assert.equal(await page.locator('body').getAttribute('data-native-never-mobile'), null);
+});
+
 test('BFCache recomputes on persisted restore and teardown restores only owned state', async t => {
   const { page } = await fixture(t, { compactThreads: true, darkTheme: true }, { initialLayout: 'host-state' });
   await page.waitForFunction(() => themeChanges.at(-1) === 'tomorrow');

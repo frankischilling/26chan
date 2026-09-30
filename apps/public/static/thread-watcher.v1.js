@@ -603,7 +603,7 @@ function start(context) {
   }
   function label(section) {
     const teaser = section.querySelector('.teaser') || section.querySelector('template.catalogTeaser')?.content.querySelector('.teaser');
-    const subject = catalog ? teaser?.querySelector('b')?.textContent : projection.query(section, '.op .subject')?.textContent;
+    const subject = catalog ? teaser?.querySelector('b')?.textContent : projection.query(section, '.op > .postInfo .subject')?.textContent;
     return watchLabel(subject, textWithBreaks(catalog ? teaser : projection.query(section, '.op .postMessage')), sectionId(section));
   }
   async function toggleThread(section) {
@@ -866,9 +866,10 @@ function start(context) {
     for (const section of sections()) {
       for (const post of projection.queryAll(section, '.post[id]')) {
         const id = postId(post.id.slice(1));
-        const info = post.querySelector('.postInfo');
+        const mobileLayout = sourceMobileLayout(mobile.matches, readNeverMobile());
+        const info = post.querySelector(mobileLayout ? ':scope > .postInfoM' : ':scope > .postInfo');
         if (!id || !info) continue;
-        let trigger = info.querySelector('[data-post-menu]');
+        let trigger = post.querySelector(':scope > .postInfo > [data-post-menu],:scope > .postInfoM > [data-post-menu]');
         if (!trigger && !disabled) {
           trigger = button('', event => {
             event.stopPropagation();
@@ -890,8 +891,8 @@ function start(context) {
         if (!trigger) continue;
         trigger.dataset.family = themeFamily();
         trigger.hidden = disabled;
-        trigger.textContent = mobile.matches ? '...' : '\u25b6';
-        if (mobile.matches) {
+        trigger.textContent = mobileLayout ? '...' : '\u25b6';
+        if (mobileLayout) {
           if (info.firstElementChild !== trigger) info.prepend(trigger);
         } else {
           const boundary = nativeBacklinks?.menuBoundary(post, info);
@@ -1088,7 +1089,7 @@ function start(context) {
     void nativeFilters?.refresh();
   });
   window.addEventListener('storage', event => {
-    if (event.key === '4chan_never_show_mobile') { nativeDepager?.refresh(); nativeEmbeds?.refresh(); return; }
+    if (event.key === '4chan_never_show_mobile') { closePostMenu(); render(); return; }
     if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;
     refresh.cancel();
     load();

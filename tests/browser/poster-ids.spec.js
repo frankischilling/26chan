@@ -41,15 +41,15 @@ test('persisted IDs render, color, filter and update through actual public proje
     });
     await page.goto(`/${board}/thread/${remote}`);
     await page.locator(`#m${remote} .quotelink`).hover();
-    await expect(page.locator('#quote-preview .posteruid .hand')).toHaveText(id);
-    expect(await page.locator('#quote-preview .posteruid .hand').evaluate(element => element.style.backgroundColor)).toMatch(/^rgb\(/);
+    await expect(page.locator('#quote-preview .postInfo .posteruid .hand')).toHaveText(id);
+    expect(await page.locator('#quote-preview .postInfo .posteruid .hand').evaluate(element => element.style.backgroundColor)).toMatch(/^rgb\(/);
     await page.goto(`/${board}/thread/${thread}`);
-    await expect(page.locator(`#p${reply} .posteruid .hand`)).toHaveText(id);
+    await expect(page.locator(`#pi${reply} .posteruid .hand`)).toHaveText(id);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      expect(await page.locator(`#p${reply} .posteruid .hand`).evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
+      expect(await page.locator(`#p${reply} .posteruid .hand:visible`).evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
     }
-    const label = page.locator(`#p${thread} .posteruid .hand`);
+    const label = page.locator(`#p${thread} .posteruid .hand:visible`);
     await label.click();
     await expect(label).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator(`#p${reply}`)).toHaveClass(/poster-id-highlight/);
@@ -57,8 +57,8 @@ test('persisted IDs render, color, filter and update through actual public proje
     await expect(page.locator('#native-poster-id-tip')).toHaveText('2 posts by this ID');
     const added = await post(thread, 'Owned live reply');
     await page.locator('.threadNav.mobile a[data-cmd="update"]').first().click();
-    await expect(page.locator(`#p${added} .posteruid .hand`)).toHaveText(id);
-    await expect(page.locator(`#p${added} .posteruid .hand`)).toHaveCSS('border-radius', '6px');
+    await expect(page.locator(`#p${added} .posteruid .hand:visible`)).toHaveText(id);
+    await expect(page.locator(`#p${added} .posteruid .hand:visible`)).toHaveCSS('border-radius', '6px');
     await expect(page.locator(`#p${added}`)).toHaveClass(/poster-id-highlight/);
     await label.focus();
     await expect(page.locator('#native-poster-id-tip')).toHaveText('3 posts by this ID');
@@ -71,8 +71,8 @@ test('persisted IDs render, color, filter and update through actual public proje
     await page.reload();
     await expect(page.locator(`#p${reply}`)).toHaveClass(/post-hidden/);
     await expect(page.locator(`#p${added}`)).toHaveClass(/post-hidden/);
-    expect(await page.locator(`#p${thread} .posteruid .hand`).evaluate(element => element.style.backgroundColor)).toBe('');
-    await expect(page.locator(`#p${thread} .posteruid .hand`)).toBeVisible();
+    expect(await page.locator(`#p${thread} .posteruid .hand:visible`).evaluate(element => element.style.backgroundColor)).toBe('');
+    await expect(page.locator(`#p${thread} .posteruid .hand:visible`)).toBeVisible();
   } finally {
     sql(board, `DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=:'board');
       DELETE FROM content.posts WHERE board=:'board'; DELETE FROM content.threads WHERE board=:'board';

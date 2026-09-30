@@ -3,6 +3,8 @@ use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
 use board_domain::{Line, Token, parse_post_comment};
 use board_store::{Board, Post, Thread};
+#[path = "views/mobile_label.rs"]
+mod mobile_label;
 
 #[derive(Template)]
 #[template(path = "home.html")]
@@ -120,6 +122,14 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn mobile_name(&self) -> mobile_label::MobileLabel {
+        mobile_label::label(&self.post.name)
+    }
+
+    pub fn mobile_subject(&self) -> mobile_label::MobileLabel {
+        mobile_label::label(&self.post.subject)
+    }
+
     pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
         self.post
             .capcode

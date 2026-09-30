@@ -1493,20 +1493,56 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
     f.approve(&a).await;
     let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
     let mut lock = f.admin.begin().await.unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *lock)
+        .await
+        .unwrap();
     sqlx::query("UPDATE media.jobs SET created_at=clock_timestamp()-interval '2 hours'+interval '300 milliseconds' WHERE id=$1")
         .bind(&a.upload.id).execute(&mut *lock).await.unwrap();
+    let job_id = a.upload.id.clone();
     let pool = f.public.clone();
     let board = f.board.clone();
     let waiting = tokio::spawn(async move {
         create_post_with_attachment(&pool, &board, thread, &post(), Some(&a)).await
     });
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    // Use database witnesses: a scheduler delay alone proves neither the
+    // intended row-lock wait nor expiry on PostgreSQL's wall clock.
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let blocked: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))",
+            )
+            .bind(blocker)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+            let expired: bool = sqlx::query_scalar(
+                "SELECT created_at+interval '2 hours'<=clock_timestamp() FROM media.jobs WHERE id=$1",
+            )
+            .bind(&job_id)
+            .fetch_one(&mut *lock)
+            .await
+            .unwrap();
+            if blocked && expired {
+                break;
+            }
+            assert!(!waiting.is_finished(), "Attachment left the held job lock");
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("Attachment must reach the job lock and database capability expiry");
     assert!(
         !waiting.is_finished(),
         "Attachment must wait for the job lock"
     );
     lock.commit().await.unwrap();
-    assert!(matches!(waiting.await.unwrap(), Err(StoreError::NotFound)));
+    let result = waiting.await.unwrap();
+    assert!(
+        matches!(&result, Err(StoreError::NotFound)),
+        "Expired capability after job lock: {}",
+        result.map_or_else(|error| error.to_string(), |_| "accepted".into())
+    );
 
     // A staff mutation wins the board lock before a waiting attachment post.
     let a = f.reserve().await;

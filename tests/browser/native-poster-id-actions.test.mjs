@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium, expect } from '@playwright/test';
 
-const post = (no, id) => `<article class="postContainer"><div class="post reply" id="p${no}"><div class="postInfo"><span class="posteruid">(ID: <span class="hand">${id}</span>)</span></div><blockquote class="postMessage">Synthetic post</blockquote></div></article>`;
+const post = (no, id) => `<article class="postContainer" id="pc${no}"><div class="post reply" id="p${no}"><div class="postInfo" id="pi${no}"><span class="posteruid">(ID: <span class="hand">${id}</span>)</span></div><blockquote class="postMessage">Synthetic post</blockquote></div></article>`;
 
 const staffPost = (no, label = 'Mod', nameClass = 'capcodeMod', group = 'id_mod', title = 'Highlight posts by Moderators') =>
-  `<article class="postContainer"><div class="post reply" id="p${no}"><div class="postInfo"><span class="nameBlock ${nameClass}"><span class="name">Owned staff</span> <strong class="capcode hand ${group}" title="${title}">## ${label}</strong></span></div><blockquote class="postMessage">Synthetic staff post</blockquote></div></article>`;
+  `<article class="postContainer" id="pc${no}"><div class="post reply" id="p${no}"><div class="postInfo" id="pi${no}"><span class="nameBlock ${nameClass}"><span class="name">Owned staff</span> <strong class="capcode hand ${group}" title="${title}">## ${label}</strong></span></div><blockquote class="postMessage">Synthetic staff post</blockquote></div></article>`;
 
 async function fixture(thread, action) {
   const origin = 'https://id-actions.example';
@@ -23,7 +23,7 @@ async function fixture(thread, action) {
       if (url.href === `${origin}/static/board.css`) return route.fulfill({ contentType: 'text/css', body: styles });
       if (url.href === `${origin}/test/`) return route.fulfill({ contentType: 'text/html',
         headers: { 'content-security-policy': `default-src 'none'; script-src ${origin}/static/native-display.v1.js; style-src ${origin}/static/board.css; base-uri 'none'` },
-        body: `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/static/board.css"></head><body><main id="owned"><section class="thread" id="t1">${post(1, 'AAAAAAAA')}${post(2, 'AAAAAAAA')}${post(3, 'BBBBBBBB')}</section><div id="quote-preview"><div class="post" id="p99"><div class="postInfo"><span class="posteruid"><span class="hand" id="copy">AAAAAAAA</span></span></div></div></div></main></body></html>` });
+        body: `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/static/board.css"></head><body data-post-headers="true"><main id="owned"><section class="thread" id="t1">${post(1, 'AAAAAAAA')}${post(2, 'AAAAAAAA')}${post(3, 'BBBBBBBB')}${post(90, 'AAAAAAAA').replace('id="pc90"', 'id="pc91"')}</section><div id="quote-preview"><div class="post" id="p99"><div class="postInfo"><span class="posteruid"><span class="hand" id="copy">AAAAAAAA</span></span></div></div></div></main></body></html>` });
       unexpected.push(url.href); await route.abort();
     });
     await page.goto(`${origin}/test/`);
@@ -42,11 +42,13 @@ test('ID controls toggle matching posts, preserve quote highlights and handle ke
     const first = page.locator('#p1 .hand'), second = page.locator('#p2 .hand');
     await expect(first).toHaveAttribute('role', 'button');
     await expect(page.locator('#copy')).not.toHaveAttribute('role', 'button');
+    await expect(page.locator('#p90 .hand')).not.toHaveAttribute('role', 'button');
     await page.evaluate(() => document.getElementById('p1').classList.add('highlight'));
     await first.click();
     await expect(page.locator('#p1')).toHaveClass(/poster-id-highlight/);
     await expect(page.locator('#p2')).toHaveClass(/poster-id-highlight/);
     await expect(page.locator('#p3')).not.toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p90')).not.toHaveClass(/poster-id-highlight/);
     await expect(second).toHaveAttribute('aria-pressed', 'true');
     await second.press('Enter');
     await expect(page.locator('#p1')).not.toHaveClass(/poster-id-highlight/);
@@ -94,6 +96,52 @@ test('loaded-post tooltip excludes projections, updates counts and cancels acros
     assert.equal(await page.evaluate(() => root.querySelector('#p1').classList.contains('poster-id-highlight')), false);
     assert.equal(await page.evaluate(() => root.querySelector('#p1 .hand').hasAttribute('role')), false);
     await expect(tip).toHaveCount(0);
+  });
+});
+
+test('paired mobile and desktop ID controls count each original post once and share highlight state', async () => {
+  await fixture(true, async page => {
+    async function resize(width) {
+      await page.evaluate(() => { window.ownedResize = new Promise(resolve => window.addEventListener('resize', resolve, { once: true })); });
+      await page.setViewportSize({ width, height: 700 });
+      await page.evaluate(() => window.ownedResize);
+    }
+    await page.evaluate(() => {
+      for (const post of document.querySelectorAll('#t1 > .postContainer > .post')) {
+        const desktop = post.querySelector('.postInfo');
+        const mobile = desktop.cloneNode(true);
+        mobile.className = 'postInfoM mobile'; mobile.id = `pim${post.id.slice(1)}`;
+        for (const label of mobile.querySelectorAll('.hand')) {
+          for (const name of ['role', 'tabindex', 'aria-pressed', 'aria-describedby']) label.removeAttribute(name);
+        }
+        desktop.before(mobile);
+      }
+    });
+    const mobile = page.locator('#pim1 .hand'), desktop = page.locator('#pi1 .hand');
+    await expect(mobile).toHaveAttribute('role', 'button');
+    await expect(desktop).toHaveAttribute('role', 'button');
+    await expect(page.locator('#copy')).not.toHaveAttribute('role', 'button');
+    await resize(390);
+    await mobile.hover();
+    await expect(page.locator('#native-poster-id-tip')).toHaveText('2 posts by this ID');
+    await mobile.click();
+    for (const id of [1, 2]) {
+      await expect(page.locator(`#p${id}`)).toHaveClass(/poster-id-highlight/);
+      await expect(page.locator(`#pim${id} .hand`)).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator(`#pi${id} .hand`)).toHaveAttribute('aria-pressed', 'true');
+    }
+    await resize(1024);
+    await desktop.press('Enter');
+    await expect(page.locator('#p1')).not.toHaveClass(/poster-id-highlight/);
+    await expect(mobile).toHaveAttribute('aria-pressed', 'false');
+    await page.mouse.move(0, 0);
+    await desktop.hover();
+    await expect(page.locator('#native-poster-id-tip')).toHaveText('2 posts by this ID');
+    await page.evaluate(() => controller.destroy());
+    for (const label of [mobile, desktop]) {
+      await expect(label).not.toHaveAttribute('role', 'button');
+      await expect(label).not.toHaveAttribute('tabindex', '0');
+    }
   });
 });
 

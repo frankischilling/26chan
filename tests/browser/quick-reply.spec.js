@@ -42,7 +42,7 @@ test('the reply link prefills and submits a real quote without JavaScript on des
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`${origin}/test/thread/${id}`);
-      await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click();
+      await page.locator(`#${width === 390 ? 'pim' : 'pi'}${id} > .postNum > a[title="Reply to this post"]`).click();
       await expect(page).toHaveURL(`${origin}/test/thread/${id}?quote=${id}#reply`);
       await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);
       await expect(page.locator('#com')).toBeVisible();
@@ -79,7 +79,7 @@ test('disabling Quick Reply keeps the mobile reply form visible and rejects inva
     await page.goto(`/test/thread/${id}`);
     await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false })));
     await page.reload();
-    await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click();
+    await page.locator(`#pim${id} > .postNum > a[title="Reply to this post"]`).click();
     await expect(page.locator('#quickReply')).toHaveCount(0);
     await expect(page.locator('#com')).toBeVisible();
     await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);

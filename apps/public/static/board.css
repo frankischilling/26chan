@@ -126,6 +126,54 @@ table.postForm button { padding: 1px 6px; }
 .board .opContainer + .replyContainer .reply { margin-top: 2px; }
 .sideArrows { float: left; margin: 0 2px; }
 .board .postInfo { line-height: normal; }
+.postInfoM { display: none; }
+/* The released mobile header separates the name/subject from date and numbers. */
+@media (max-width: 480px) {
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) {
+    --capcode-mod: #800080;
+    --mobile-ink: #800000; --mobile-header: #ead6ca; --mobile-header-edge: #d9bfb7;
+    --mobile-reply: #f0e0d6; --mobile-op: #f5e9e1; --mobile-subject: #cc1105;
+    margin-left: 0; margin-right: 0; margin-top: 5px; padding: 0; width: 100%;
+    font: 10pt arial, helvetica, sans-serif; color: var(--mobile-ink);
+    background: #ffe url('/static/themes/fade.png') top center repeat-x;
+  }
+  body[data-post-headers="true"][data-worksafe="true"]:not([data-native-never-mobile="true"]) {
+    --mobile-ink: #000; --mobile-header: #c9cde8; --mobile-header-edge: #b7c5d9;
+    --mobile-reply: #d6daf0; --mobile-op: #eef2ff; --mobile-subject: #0f0c5d;
+    background: #eef2ff url('/static/themes/fade-blue.png') top center repeat-x;
+  }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .postInfo { display: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) table.postForm input[type=text],
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) table.postForm input[type=password],
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) table.postForm select,
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) table.postForm textarea { margin-right: 0; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .post .postInfoM {
+    box-sizing: content-box; display: block; clear: left; overflow: hidden; padding: 5px;
+    line-height: normal; color: var(--mobile-ink); background: var(--mobile-header); border-bottom: 1px solid var(--mobile-header-edge);
+  }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .postInfoM .nameBlock { float: left; clear: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .postInfoM .dateTime { float: right; text-align: right; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .postInfoM .name { color: #117743; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .postInfoM .postNum a { color: var(--mobile-ink) !important; text-decoration: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .opContainer { display: block; margin: 5px 0 0; overflow: hidden; background: var(--mobile-op); }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .replyContainer { margin: 5px 0 0; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .sideArrows { display: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .reply {
+    width: 100%; max-width: 100%; padding: 0; margin: 0; border: 0; background: var(--mobile-reply);
+  }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .opContainer + .replyContainer .reply { margin-top: 0; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .postInfoM .subject { display: block; margin-right: 0; color: var(--mobile-subject); }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .highlightPost.op { background: #f0d6d6 !important; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .highlightPost:not(.op) { border-color: var(--mobile-capcode-highlight-edge, var(--capcode-highlight-edge, #d69595)) !important; }
+  body[data-post-headers="true"].m-dark:not([data-native-never-mobile="true"]) {
+    --mobile-ink: #c5c8c6; --mobile-header: #212326; --mobile-header-edge: #2d2f33;
+    --mobile-reply: #282a2e; --mobile-op: #282a2e; background: #1d1f21; color: var(--mobile-ink);
+  }
+  body[data-post-headers="true"].m-dark:not([data-native-never-mobile="true"]) .postInfoM .dateTime,
+  body[data-post-headers="true"].m-dark:not([data-native-never-mobile="true"]) .postInfoM .dateTime a { color: #707070 !important; }
+  body[data-post-headers="true"].m-dark:not([data-native-never-mobile="true"]) .postInfoM .subject { color: #b294bb; }
+  body[data-post-headers="true"].m-dark:not([data-native-never-mobile="true"]) .board .highlightPost:not(.op) { background: #3a171c !important; }
+}
 .board .postMessage { margin: 1em 40px; line-height: normal; }
 .board .fileThumb { float: left; margin: 3px 20px 5px; }
 .board .fileThumb img { float: left; border: 0; }

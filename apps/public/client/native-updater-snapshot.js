@@ -9,10 +9,10 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes
 export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
-  'op', 'reply', 'postInfo', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted',
+  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
-  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title'],
+  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
@@ -72,7 +72,7 @@ export function postLinkUrl(raw, context) {
 export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limits = UPDATER_LIMITS) {
   budget.chars ??= 0;
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
-  const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'm', 'f', 'delete', 'report'].map(prefix => prefix + no));
+  const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'delete', 'report'].map(prefix => prefix + no));
   function visit(node, depth, form = null) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
@@ -101,6 +101,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'autocomplete') require(value === 'off');
       if (key === 'required') require(value === '');
       if (key.startsWith('data-')) {
+        if (key === 'data-utc') {
+          require(node.tag === 'span' && node.attrs.class === 'dateTime postNum' && /^-?(?:0|[1-9][0-9]{0,11})$/.test(value));
+          continue;
+        }
         require(node.tag === 'div' && node.attrs.class === 'file' && node.attrs['data-image-spoiler'] === 'true');
         if (key === 'data-image-filename') {
           require(value.length > 0 && value.length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
@@ -110,7 +114,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         } else require(value === 'true');
       }
     }
-    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag))
+    const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
+    if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
+      && new TextEncoder().encode(node.attrs.title).length <= 400 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
+    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel)
       || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
         && Object.keys(node.attrs).sort().join(',') === 'class,title'

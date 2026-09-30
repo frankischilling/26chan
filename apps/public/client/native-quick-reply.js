@@ -362,7 +362,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   }
   document.addEventListener('click', event => {
     if (disabled() || event.button !== 0 || event.metaKey || event.shiftKey || event.altKey) return;
-    const target = postNumberReply(event.target.closest?.('.postInfo > .postNum > a'), board);
+    const target = postNumberReply(event.target.closest?.('.postInfo > .postNum > a,.postInfoM > .postNum > a'), board);
     if (!target || (!source && !closed(target.thread))) return;
     event.preventDefault(); quote(target.thread, event.ctrlKey ? null : target.post, getSelection()?.toString() ?? '');
   });

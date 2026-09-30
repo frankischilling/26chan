@@ -18,11 +18,11 @@ compact mode off. A stored centered preference can therefore become effective
 on mobile even when both preferences are stored as true. Crossing the viewport
 boundary or changing the mobile opt-out recomputes the effective layout.
 
-The public dark-theme option selects Tomorrow. The local implementation keeps
-the ordinary server theme preference in its existing HttpOnly
-`board-theme[-ws]` cookie and applies Tomorrow as a finite stylesheet override
-while `darkTheme` is enabled. It does not copy the public mobile dark CSS or
-write a second theme preference.
+On desktop, dark mode selects Tomorrow through a finite stylesheet override.
+Mobile dark mode keeps the selected desktop stylesheet and applies the released
+`m-dark` class to the body. The ordinary server theme preference stays in its
+existing HttpOnly `board-theme[-ws]` cookie. Crossing the mobile boundary restores
+the ordinary stylesheet before applying mobile dark colors.
 
 `disableAll` suppresses all three options. With JavaScript disabled, none of
 the browser-local layout state is applied and the server-selected stylesheet is
@@ -32,7 +32,7 @@ left unchanged.
 
 `native-layout.v1.js` derives state from the settings reader and the existing
 mobile-layout inputs. It does not infer preference state from body classes.
-The module owns one body attribute:
+The module owns the layout attribute:
 
 ```text
 data-native-thread-layout="compact"
@@ -42,7 +42,12 @@ data-native-thread-layout="centered"
 The shared board stylesheet maps those finite values to the observed public
 rules. The runtime never accepts CSS text or selectors from storage.
 
-Dark mode operates only on the marked server theme stylesheet. The ordinary
+It also sets `data-native-never-mobile` to the effective opt-out and owns any
+`m-dark` class it adds. The stylesheet uses that opt-out to show the desktop
+header at narrow widths. An existing dark class is preserved, and teardown
+restores the prior opt-out only while the controller still owns its value.
+
+Desktop dark mode operates only on the marked server theme stylesheet. The ordinary
 stylesheet must be a same-origin `/static/theme.css` URL with no query other
 than an optional single `worksafe=true|false` value. The runtime derives a
 Tomorrow request by adding `theme=tomorrow`. Foreign origins, credentials,
@@ -77,8 +82,8 @@ instead of trusting DOM state.
 A persisted `pagehide` suspends refresh work without removing the current
 presentation. The matching persisted `pageshow` recomputes settings, viewport
 policy and theme state. A normal page exit destroys the controller. Teardown
-restores only the layout attribute and stylesheet `href` that the controller
-still owns, so another owner that replaced either value is left intact.
+restores the attributes, dark class and stylesheet `href` that the controller
+still owns, so another owner that replaced an attribute or URL is left intact.
 
 ## Shared integration contract
 

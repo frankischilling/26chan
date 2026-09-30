@@ -91,6 +91,14 @@ a bounded recipe from the existing post without copying form values or unchecked
 resource attributes. Preview construction removes duplicate IDs, forms, menus
 and controls; approved media URLs retain the existing media-origin restrictions.
 
+Paired mobile and desktop headers must describe the same post. The finite
+recipe binds mobile names, subjects, full-label titles, roles, identity fields,
+UTC time and number links to that desktop header. Copies keep the shortened
+mobile presentation and both inert links. Original-post actions require the
+matching post, container and header IDs, which copies do not retain. The
+[mobile reference](source-mobile-headers.md) records the released label helpers
+and header properties used for these checks.
+
 Settings changes, page exit, restoration from the back/forward cache and native
 updater additions share the existing page lifecycle. URL linkification applies
 to a preview through the existing linker. Catalog pages do not mount this feature.

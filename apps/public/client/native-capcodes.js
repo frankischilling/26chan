@@ -31,14 +31,21 @@ export function validateCapcodeTree(tree, no) {
   }
   collect(tree);
   const blocks = all.filter(node => classes(node).includes('nameBlock'));
-  require(blocks.length <= 1);
+  const mobile = all.find(node => node.tag === 'div' && node.attrs.id === `pim${no}`);
+  require(blocks.length <= (mobile ? 2 : 1));
   const permitted = new Set();
-  if (blocks.length) {
-    const block = blocks[0];
-    const header = all.find(node => node.tag === 'div' && node.attrs.id === `pi${no}`);
-    require(header?.children.includes(block) && block.tag === 'span' && block.children.length === 5);
+  for (const block of blocks) {
+    const isMobile = mobile?.children.includes(block);
+    if (isMobile && block.attrs.class === 'nameBlock') {
+      permitted.add(block); continue; // Full ordinary recipe is checked with the mobile header.
+    }
+    const header = isMobile ? mobile : all.find(node => node.tag === 'div' && node.attrs.id === `pi${no}`);
+    require(header?.children.includes(block) && block.tag === 'span'
+      && (isMobile ? block.children.length >= 6 && block.children.length <= 8 : block.children.length === 5));
     const [name, space1, badge, space2, icon] = block.children;
-    require(typeof name === 'object' && name.tag === 'span' && exact(name.attrs, { class: 'name' })
+    require(typeof name === 'object' && name.tag === 'span' && (isMobile
+      ? name.attrs.class === 'name' && Object.keys(name.attrs).every(key => ['class', 'title'].includes(key))
+      : exact(name.attrs, { class: 'name' }))
       && name.children.every(child => typeof child === 'string')
       && new TextEncoder().encode(name.children.join('')).length <= 100
       && space1 === ' ' && space2 === ' '

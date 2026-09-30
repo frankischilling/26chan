@@ -70,7 +70,7 @@ test('image settings keep reference defaults while normal and legacy files expan
   await expect(legacy.locator('.expanded-thumb')).toHaveCount(0);
 
   const quoted = await expand(page, 1000202);
-  await page.locator('#p1000202 .postNum > a[title="Reply to this post"]').click();
+  await page.locator('#pi1000202 > .postNum > a[title="Reply to this post"]').click();
   await expect(page.locator('#qrCom')).toHaveValue('>>1000202\n');
   await expect(page.locator('#quickReply .expanded-thumb, #quickReply img')).toHaveCount(0);
   await expect(quoted.image).toBeVisible();

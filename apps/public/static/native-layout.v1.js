@@ -141,8 +141,12 @@ export function mountNativeLayout({ root, settings, mobile, readNeverMobile = ()
     return { refresh() {}, destroy() {} };
   }
   const originalLayout = root.getAttribute(LAYOUT_ATTRIBUTE);
+  const originalNeverMobile = root.getAttribute('data-native-never-mobile');
+  const originalMobileDark = root.classList.contains('m-dark');
   const theme = createNativeThemeOverride({ link: themeStylesheet });
   let ownedLayout;
+  let ownedNeverMobile;
+  let ownedMobileDark = false;
   let suspended = false;
   let destroyed = false;
 
@@ -175,8 +179,16 @@ export function mountNativeLayout({ root, settings, mobile, readNeverMobile = ()
   function refresh() {
     if (destroyed || suspended) return;
     const config = configuration();
-    applyLayout(nativeThreadLayout(config, mobileLayout()));
-    theme.setDark(nativeDarkTheme(config));
+    const isMobile = mobileLayout(), dark = nativeDarkTheme(config);
+    applyLayout(nativeThreadLayout(config, isMobile));
+    ownedNeverMobile = mobile?.matches === true && !isMobile ? 'true' : 'false';
+    root.setAttribute('data-native-never-mobile', ownedNeverMobile);
+    if (isMobile && dark && !originalMobileDark) {
+      root.classList.add('m-dark'); ownedMobileDark = true;
+    } else if (ownedMobileDark) {
+      root.classList.remove('m-dark'); ownedMobileDark = false;
+    }
+    theme.setDark(dark && !isMobile);
   }
 
   const onStorage = event => {
@@ -199,6 +211,11 @@ export function mountNativeLayout({ root, settings, mobile, readNeverMobile = ()
     window.removeEventListener('pageshow', onPageShow);
     mobile?.removeEventListener?.('change', refresh);
     restoreLayout();
+    if (root.getAttribute('data-native-never-mobile') === ownedNeverMobile) {
+      if (originalNeverMobile === null) root.removeAttribute('data-native-never-mobile');
+      else root.setAttribute('data-native-never-mobile', originalNeverMobile);
+    }
+    if (ownedMobileDark) root.classList.remove('m-dark');
     theme.destroy();
   }
 

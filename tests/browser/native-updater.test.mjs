@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { useUpdaterTail } from '../../apps/public/client/native-updater-tail.js';
 import { parseUpdaterSnapshot, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
 import { NativeUpdaterTransport } from '../../apps/public/client/native-updater-transport.js';
+import { mobileHeaderLabel } from '../../apps/public/client/native-post-numbers.js';
 
 const context = { origin: 'https://board.example', board: 'demo', thread: '9007199254740992', mediaOrigin: 'https://media.example' };
 const html = (no, inside = 'Safe &lt;script&gt; &amp; text') => `<article class="postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}" id="pc${no}"><div class="post ${no === context.thread ? 'op' : 'reply'}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><span class="postNum"><a href="/demo/thread/${context.thread}#p${no}" title="Link to this post">No.</a><a href="/demo/thread/${context.thread}?quote=${no}#reply" title="Reply to this post">${no}</a></span></div><blockquote class="postMessage" id="m${no}">${inside}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><label for="delete${no}">Deletion password</label><input id="delete${no}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required><button>Delete post</button></form></details></div></article>`;
@@ -100,6 +101,100 @@ test('post numbers bind both links, labels and titles to their own post header',
   const moved = structuredClone(positive);
   moved.posts[1].html = moved.posts[1].html.replace(pair, '').replace('</blockquote>', pair + '</blockquote>');
   assert.equal(parse(moved).status, 'invalid-snapshot');
+});
+
+function pairedHeaderSnapshot(def = null, highlighted = false) {
+  const value = snapshot(), date = '09/08/26(Tue)08:00:00';
+  for (const post of value.posts) {
+    const op = post.no === context.thread, name = def ? badgeHtml(def) : '<span class="name">Anonymous</span>';
+    const subject = '<span class="subject">Owned mobile subject</span>';
+    const identity = def ? name.slice(0, -7) : `<span class="nameBlock">${name}`;
+    const mobile = `<div class="postInfoM mobile" id="pim${post.no}">${identity}<br>${op ? subject + ' ' : ''}</span>`
+      + `<span class="dateTime postNum" data-utc="1788868800">${date} <a href="/demo/thread/${context.thread}#p${post.no}" title="Link to this post">No.</a>`
+      + `<a href="/demo/thread/${context.thread}?quote=${post.no}#reply" title="Reply to this post">${post.no}</a></span></div>`;
+    post.html = post.html.replace('<span class="name">Anonymous</span>', `${op ? subject : ''}${name}<time datetime="2026-09-08T12:00:00Z">${date}</time>`)
+      .replace(`<div class="postInfo" id="pi${post.no}">`, `${mobile}<div class="postInfo" id="pi${post.no}">`);
+    if (highlighted) post.html = post.html.replace(`class="post ${op ? 'op' : 'reply'}"`, `class="post ${op ? 'op' : 'reply'} highlightPost"`);
+  }
+  return value;
+}
+
+test('paired mobile headers bind identity, subject, timestamp and both number targets to the desktop recipe', () => {
+  assert.equal(parse(pairedHeaderSnapshot()).status, 'ok');
+  for (const def of capcodes) assert.equal(parse(pairedHeaderSnapshot(def)).status, 'ok', def[0]);
+  assert.equal(parse(pairedHeaderSnapshot(capcodes[1], true)).status, 'ok');
+  const positive = pairedHeaderSnapshot(), no = positive.posts[1].no;
+  for (const [from, to] of [
+    [`id="pim${no}"`, `id="pim${context.thread}"`], ['class="postInfoM mobile"', 'class="postInfoM"'],
+    ['data-utc="1788868800"', 'data-utc="1788868801"'], ['data-utc="1788868800"', 'data-utc="01788868800"'],
+    ['08:00:00 <a', '08:00:01 <a'], ['>Anonymous</span><br>', '>Another name</span><br>'],
+    ['<br></span>', '<br><span class="subject">Forged reply subject</span></span>'],
+    [`?quote=${no}#reply`, `?quote=${context.thread}#reply`],
+    [`?quote=${no}#reply`, `#p${no}`],
+    ['class="dateTime postNum"', 'class="dateTime postNum" title="arbitrary"'],
+    ['class="nameBlock"', 'class="nameBlock capcodeAdmin"'],
+  ]) {
+    const value = structuredClone(positive);
+    value.posts[1].html = value.posts[1].html.replace(from, to);
+    assert.notEqual(value.posts[1].html, positive.posts[1].html, from);
+    assert.equal(parse(value).status, 'invalid-snapshot', to);
+  }
+  const forged = structuredClone(positive);
+  forged.posts[0].html = forged.posts[0].html.replace('Owned mobile subject', 'Mismatched mobile subject');
+  assert.equal(parse(forged).status, 'invalid-snapshot');
+  for (const inside of ['<span class="nameBlock">Outside header</span>',
+    '<span class="dateTime" data-utc="1788868800">Unowned time</span>', '<span class="mobile">Hidden content</span>']) {
+    const value = pairedHeaderSnapshot(); value.posts[1].html = value.posts[1].html.replace('</blockquote>', `${inside}</blockquote>`);
+    assert.equal(parse(value).status, 'invalid-snapshot', inside);
+  }
+  const badge = pairedHeaderSnapshot(capcodes[0]);
+  badge.posts[1].html = badge.posts[1].html.replace('## Mod', '## Admin');
+  assert.equal(parse(badge).status, 'invalid-snapshot');
+  const identity = pairedHeaderSnapshot();
+  const suffix = ' <span class="postertrip">!OwnedTrip</span> <span class="posteruid">(ID: <span class="hand">AAAAAAAA</span>)</span>'
+    + ' <span title="United Kingdom" class="flag flag-gb"></span>';
+  for (const post of identity.posts) post.html = post.html.replaceAll('<span class="name">Anonymous</span>', '<span class="name">Anonymous</span>' + suffix);
+  assert.equal(parse(identity).status, 'ok');
+  for (const [from, to] of [['!OwnedTrip', '!ForeignTrip'], ['AAAAAAAA', 'BBBBBBBB'], ['flag-gb', 'flag-us'], ['United Kingdom', 'Foreign title']]) {
+    const candidate = structuredClone(identity); candidate.posts[1].html = candidate.posts[1].html.replace(from, to);
+    assert.equal(parse(candidate).status, 'invalid-snapshot', to);
+  }
+});
+
+test('shortened mobile names and subjects retain only the exact escaped full-label title', () => {
+  const escape = text => text.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
+  for (const raw of ['A'.repeat(31), '<'.repeat(10), 'A'.repeat(29) + '😀', '&amp;lt;'.repeat(6), 'é'.repeat(50)]) {
+    const value = pairedHeaderSnapshot(), label = mobileHeaderLabel(raw);
+    assert.equal(label.shortened, true);
+    const mobileName = `<span class="name" title="${escape(raw)}">${escape(label.text)}</span>`;
+    const mobileSubject = `<span class="subject" title="${escape(raw)}">${escape(label.text)}</span>`;
+    for (const post of value.posts) {
+      post.html = post.html.replace('<span class="name">Anonymous</span>', mobileName)
+        .replace('<span class="name">Anonymous</span>', `<span class="name">${escape(raw)}</span>`);
+      if (post.no === context.thread) post.html = post.html.replace('<span class="subject">Owned mobile subject</span>', mobileSubject)
+        .replace('<span class="subject">Owned mobile subject</span>', `<span class="subject">${escape(raw)}</span>`);
+    }
+    assert.equal(parse(value).status, 'ok', raw);
+    for (const [from, to] of [
+      [mobileName, mobileName.replace(`title="${escape(raw)}"`, 'title="forged label"')],
+      [mobileName, mobileName.replace(` title="${escape(raw)}"`, '')],
+      [mobileName, mobileName.replace(escape(label.text), 'forged text')],
+      [mobileName, mobileName.replace('<span ', '<span onclick="bad()" ')],
+      [mobileName, mobileName.replace('</span>', '<b>forged</b></span>')],
+      [mobileSubject, mobileSubject.replace(`title="${escape(raw)}"`, 'title="forged subject"')],
+    ]) {
+      const candidate = structuredClone(value);
+      candidate.posts[0].html = candidate.posts[0].html.replace(from, to);
+      assert.notEqual(candidate.posts[0].html, value.posts[0].html, from);
+      assert.equal(parse(candidate).status, 'invalid-snapshot', to);
+    }
+    const copied = structuredClone(value);
+    copied.posts[1].html = copied.posts[1].html.replace('</blockquote>', mobileName + '</blockquote>');
+    assert.equal(parse(copied).status, 'invalid-snapshot');
+  }
+  const short = pairedHeaderSnapshot();
+  short.posts[1].html = short.posts[1].html.replace('<span class="name">Anonymous</span>', '<span class="name" title="Anonymous">Anonymous</span>');
+  assert.equal(parse(short).status, 'invalid-snapshot');
 });
 
 test('country and board flags use finite inert classes and bounded titles', () => {

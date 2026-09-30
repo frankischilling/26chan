@@ -16,7 +16,8 @@ Its `Parser.getLocaleDate` formats local time as `MM/DD/YY(Day)HH:mm:ss`.
 an editor, persistence and a temporary Show all control. These facts come from
 released client code; they do not depend on the excluded server checkout.
 
-The rewrite uses the existing HTML `datetime` value. It preserves that value and
+The desktop header uses its HTML `datetime` value; the mobile header uses its
+canonical `data-utc` seconds. The controller preserves those values and
 the server API's timestamp and `now` fields. Dates follow the browser's time zone,
 including daylight-saving transitions and fractional-hour offsets. The tooltip
 uses the offset at module initialization, as the public client does.
@@ -37,10 +38,12 @@ At most two existing board menus receive custom navigation. Show all restores th
 original menu for the current page without erasing the saved list. Disabling the
 extension restores the original navigation and dates.
 
-The date controller tracks at most 10,000 time elements and scans at most 40,000
+The date controller tracks at most 10,000 date elements and scans at most 40,000
 DOM elements per refresh. Mutation work is coalesced. The controller owns only
 the text and tooltip it changed, releases removed elements, and restores owned
-state on page suspension or destruction. A restored browser-history page
+state on page suspension or destruction. In the mobile header it changes only
+the date's first text node, keeping both post-number links. Changes to the
+timestamp or child ownership release that annotation. A restored browser-history page
 reattaches the controller.
 
 The shared quote projection retains the server text behind localized dates.
