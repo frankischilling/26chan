@@ -2,6 +2,7 @@ import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
 import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-capcodes.js';
 import { validatePostNumbers } from './native-post-numbers.js';
+import { validateFilePresentation } from './native-file-presentation.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
@@ -9,7 +10,7 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes
 export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
-  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted',
+  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'fileDeleted',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
@@ -72,7 +73,7 @@ export function postLinkUrl(raw, context) {
 export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limits = UPDATER_LIMITS) {
   budget.chars ??= 0;
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
-  const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'delete', 'report'].map(prefix => prefix + no));
+  const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report'].map(prefix => prefix + no));
   function visit(node, depth, form = null) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
@@ -153,6 +154,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   visit(tree, 0);
   validateCapcodeTree(tree, no);
   validatePostNumbers(tree, context, no);
+  validateFilePresentation(tree, context, no);
   require(tree.tag === 'article' && tree.attrs.id === `pc${no}`
     && tree.attrs.class === `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
   for (const prefix of ['pc', 'p', 'pi', 'm']) require(ids.has(prefix + no));

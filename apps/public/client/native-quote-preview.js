@@ -39,7 +39,7 @@ const localTags = {
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
-  'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted', 'postMessage',
+  'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'fileDeleted', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint']);
 const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink';
 
@@ -53,7 +53,7 @@ export function localQuoteTree(article, context, no, projection) {
     bytes += encoder.encode(value).length;
     if (bytes > PREVIEW_LIMITS.bytes) throw new RangeError('preview-size');
   };
-  const ids = new Set(['pc', 'p', 'pi', 'pim', 'm', 'f'].map(prefix => prefix + no));
+  const ids = new Set(['pc', 'p', 'pi', 'pim', 'm', 'f', 'fT'].map(prefix => prefix + no));
   function read(node, depth) {
     if (projection?.has(node)) return [];
     if (++nodes > PREVIEW_LIMITS.nodes || depth > PREVIEW_LIMITS.depth) throw new RangeError('preview-nodes');
@@ -69,7 +69,7 @@ export function localQuoteTree(article, context, no, projection) {
     for (const key of localTags[tag]) {
       if (key === 'title' && tag === 'span' && !Array.from(node.classList).some(isPostFlagToken)
         && !(['name', 'subject'].includes(node.className) && node.closest('.postInfoM'))) continue;
-      if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum,.postInfoM > span.dateTime.postNum')) continue;
+      if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum,.postInfoM > span.dateTime.postNum,.file > .fileText')) continue;
       if (tag === 'img' && ['class', 'srcset', 'title'].includes(key) && !node.classList.contains('identityIcon')) continue;
       const value = node.getAttribute(key);
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }

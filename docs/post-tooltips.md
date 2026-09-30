@@ -10,8 +10,9 @@ and extension v1191. They cover the date formatter's unit boundaries, timer
 cancellation and the full-label callback's handling of synthetic names and
 filenames. The direct subject shape produced by the released formatter returns
 no full-subject callback value; this implementation retains its escaped native
-`title` instead of inventing a callback result. The filename vectors describe
-the reference only; no custom filename tooltip is implemented here.
+`title` instead of inventing a callback result. [File presentation](file-presentation.md)
+adds the filename callback's visible behavior through bounded original-post
+captions and inert full-label text.
 
 [Style facts](public-tooltip-style-reference.json) record 18 synthetic cases
 across six pinned stylesheets, with left, center and right placement. They

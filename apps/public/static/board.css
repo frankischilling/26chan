@@ -83,7 +83,7 @@ footer { text-align: center; font-size: 11px; margin-top: 30px; }
   .postMessage { margin: 10px 5px; }
   input, select, textarea, button { font-size: 16px; }
 }
-.fileThumb img { max-width: 250px; max-height: 250px; width: auto; height: auto; }
+.fileThumb img { max-width: 250px; max-height: 250px; }
 .file p { overflow-wrap: anywhere; font-size: 0.85em; }
 /* Expanded posting fields use measured public desktop table geometry. */
 .postEditor { width: min(100%, 468px); margin: 18px auto; }
@@ -176,13 +176,21 @@ table.postForm button { padding: 1px 6px; }
 }
 .board .postMessage { margin: 1em 40px; line-height: normal; }
 .board .fileThumb { float: left; margin: 3px 20px 5px; }
-.board .fileThumb img { float: left; border: 0; }
-.board .file p { margin: 0; font-size: inherit; }
+.board .fileThumb img { float: left; border: 0; max-width: none; max-height: none; }
+.board .file p, .board .fileText { margin: 0; font-size: inherit; }
+.board .fileText { max-width: 600px; white-space: nowrap; }
+.board .mFileInfo { padding-top: 5px; text-align: center; color: #707070 !important; font-size: 9pt !important; text-decoration: none !important; }
+.board .mFileInfo.mobile { display: none; }
 .board .postActions { clear: left; }
 @media (max-width: 600px) {
   .board .reply { width: calc(100% - max(20px, 1.5em)); max-width: calc(100% - max(20px, 1.5em)); }
   .board .postMessage { margin: 10px 5px; }
-  .board .fileThumb, .board .fileThumb img { float: none; }
+}
+@media (max-width: 480px) {
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileText { display: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileThumb { margin-left: 5px; margin-right: 10px; text-decoration: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileThumb img { max-width: 125px; max-height: 125px; object-fit: scale-down; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .mFileInfo.mobile { display: block; }
 }
 
 /* Catalog menus use the measured public v705 colors and geometry. */
@@ -525,6 +533,7 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .nativeImageLoading > img:not(.expanded-thumb) { opacity: .75; }
 .board .file.image-expanded { display: table; }
 .board.noPictures .fileThumb img:not(.expanded-thumb) { opacity: 0; }
+.board.noPictures .mFileInfo { display: none !important; }
 .board.noPictures .fileThumb { border: 1px solid #800; }
 .board.noPictures[data-image-family="burichan"] .fileThumb { border-color: #34345c; }
 .board.noPictures[data-image-family="tomorrow"] .fileThumb { border-color: #c5c8c6; }

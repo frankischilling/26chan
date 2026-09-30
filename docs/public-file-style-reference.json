@@ -1,0 +1,906 @@
+{
+  "collection_date": "2026-09-30",
+  "browser": "151.0.7922.34",
+  "density": 1,
+  "styles": [
+    {
+      "url": "https://s.4cdn.org/css/yotsubanew.716.css",
+      "sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9"
+    },
+    {
+      "url": "https://s.4cdn.org/css/yotsubluenew.716.css",
+      "sha256": "fdb0bee8e347334ec2ed1daab6f5e3787d7724f79bb708b338fda2b85bac3720"
+    },
+    {
+      "url": "https://s.4cdn.org/css/futabanew.716.css",
+      "sha256": "71440a1eb2cf4400b7d0b1a5aefdfa64c9e53f7f8aa57bb46122ea11281e1949"
+    },
+    {
+      "url": "https://s.4cdn.org/css/burichannew.716.css",
+      "sha256": "17289883e6106e9b8afba10613d8e5ad4778d8416dba87f620856603e6538209"
+    },
+    {
+      "url": "https://s.4cdn.org/css/photon.716.css",
+      "sha256": "c0adf4a7f9790e00856ac2d7e0b064ceb30002d5952c4da40004fb0bfbdd5377"
+    },
+    {
+      "url": "https://s.4cdn.org/css/tomorrow.716.css",
+      "sha256": "3dd49edac8ebc8d0b6586539cfa3d1e8ab71d85eb41f3b3e66e4057fd8351660"
+    },
+    {
+      "url": "https://s.4cdn.org/css/yotsubamobile.716.css",
+      "sha256": "9b9c23b3321b03457d8bbef6de5bc43a9dddad46916a1b56c74d1976e4755b36"
+    },
+    {
+      "url": "https://s.4cdn.org/css/yotsubluemobile.716.css",
+      "sha256": "917ac6c89c84efedf2893c51f70344b182cd730a907993388745d8c43d1be8fa"
+    }
+  ],
+  "scope": "Pinned public stylesheets on synthetic released file DOM with a 250x150 thumbnail. Requests are denied. Properties qualify file layout, not original-page pixels or spoiler/deleted-file behavior.",
+  "cases": [
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "yotsuba",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "yotsuba-b",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "futaba",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "underline"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "burichan",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "underline"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "photon",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "tomorrow",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "yotsuba",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "yotsuba-b",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "futaba",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "burichan",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "photon",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubamobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "tomorrow",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "yotsuba",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "yotsuba-b",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "futaba",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "underline"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "burichan",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "underline"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "photon",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        1280,
+        900
+      ],
+      "theme": "tomorrow",
+      "values": {
+        "header": {
+          "display": "block",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 20px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "none",
+          "maxHeight": "none",
+          "objectFit": "fill",
+          "width": "250px",
+          "height": "150px"
+        },
+        "caption": {
+          "display": "none",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "yotsuba",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "yotsuba-b",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "futaba",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "burichan",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "photon",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    },
+    {
+      "family": "yotsubluemobile",
+      "viewport": [
+        390,
+        844
+      ],
+      "theme": "tomorrow",
+      "values": {
+        "header": {
+          "display": "none",
+          "whiteSpace": "nowrap",
+          "maxWidth": "600px"
+        },
+        "thumb": {
+          "float": "left",
+          "margin": "3px 10px 5px 5px",
+          "textDecorationLine": "none"
+        },
+        "image": {
+          "float": "left",
+          "maxWidth": "125px",
+          "maxHeight": "125px",
+          "objectFit": "scale-down",
+          "width": "125px",
+          "height": "125px"
+        },
+        "caption": {
+          "display": "block",
+          "paddingTop": "5px",
+          "textAlign": "center",
+          "color": "rgb(112, 112, 112)",
+          "fontSize": "12px",
+          "textDecorationLine": "none"
+        }
+      }
+    }
+  ]
+}

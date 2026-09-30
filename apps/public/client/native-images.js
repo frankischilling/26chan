@@ -170,7 +170,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (file.dataset.imageSpoiler !== 'true' || !available(file)) return null;
     const details = Array.from(file.children).find(element => element.localName === 'details');
     const link = details?.querySelector('a[href]'), source = link && imageTarget(link.getAttribute('href'), mediaOrigin);
-    const caption = file.querySelector(':scope > p > a[href]');
+    const caption = file.querySelector(':scope > .fileText > a[href],:scope > p > a[href]');
     if (!source || caption?.getAttribute('href') !== source.url) return null;
     const filename = file.dataset.imageFilename;
     if (!filename || filename.length > 255 || /[\u0000-\u001f\u007f-\u009f]/.test(filename)

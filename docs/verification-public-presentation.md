@@ -90,6 +90,46 @@ kept compilation outside the startup deadline. All 13 persisted-page cases and
 38 property cases then passed, with the original timeouts and zero retries.
 Fresh exact-head hosted checks remain required before merge.
 
+## File presentation continuation
+
+The same PR now includes [file headers and mobile captions](file-presentation.md).
+The isolated public-client replay passed all 40 filename/size vectors. The eight
+pinned stylesheet replays passed 24 property cases, and production pages matched
+all 24 without changing the accepted reference values to fit the implementation.
+The initial style fixture lacked link destinations; adding its released `href`
+shape restored the proper link-state measurement before acceptance.
+
+Local commands completed so far:
+
+- `cargo test -p board-public --lib --test ui_assets --locked`: 89 library and
+  eight asset cases passed, none ignored.
+- `cargo clippy -p board-public --all-targets --locked -- -D warnings` and
+  `cargo fmt --all -- --check`: passed.
+- All `tests/browser/*.test.mjs` and `apps/public/client/*.test.js` through
+  `node --test`: 399 cases passed, none skipped.
+- `npm run test:media-visual`: 59 cases passed, including full-label filtering,
+  inert filename tips, actual quote preparation, image controls and live updater
+  reconstruction. The three file-presentation cases then passed together,
+  including the added 480-pixel boundary, exact mobile opt-out and cross-tab
+  picture-preference regression.
+- `npm run test:themes`: all 212 cases passed, including the 24 independently
+  collected file-style comparisons across six themes and both mobile families.
+- Generated filter, image, thread-control and backlink checks passed. The parser
+  is 255,009 bytes, below its unchanged 262,144-byte limit.
+
+The final parser review tightened new file headers to exact class tokens and
+matching configured-origin file/thumbnail routes. Regressions reject a foreign
+file link and another file's thumbnail before construction. All 399 JavaScript
+cases, eight fixed-asset checks and the 13 combined file, image and updater
+browser cases passed after this change.
+
+The first six board/thread/archive comparisons failed on the intended new
+file headers and mobile thumbnail flow. All six received images were inspected;
+only those six baselines were updated. The eight catalog comparisons passed
+without updates. Hosted checks on the new head are still pending at this
+checkpoint. No media processor, service authority or
+database migration changed in this continuation.
+
 This evidence covers the stated public presentation and local test properties.
 Complete original-page comparisons, catalog normalization in #82, server-link
 normalization in #165 and the remaining compatibility inventory in #6 stay

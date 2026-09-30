@@ -80,6 +80,12 @@ the optional thread-scoped label, ID filters and default-on IDColor behavior.
 
 ## Reference inventory
 
+[File presentation](file-presentation.md) adds independently replayed public
+client filename/size vectors and desktop/mobile file-style comparisons. The
+Rust header, mobile caption, tooltip, filters, menus and native projections share
+the approved-media boundary. Original downloads, spoiler/deleted-file layout,
+animated media and complete original-page matching remain separate requirements.
+
 [Post-number navigation](post-number-navigation.md) follows the released
 formatter's separate permalink and reply links. A bounded same-origin GET
 prefills the ordinary form when JavaScript is unavailable. The

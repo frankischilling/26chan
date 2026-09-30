@@ -23,18 +23,18 @@ export function mobileHeaderLabel(text) {
 // in the tree does not grant an action, navigation target or DOM attribute.
 export function validatePostNumbers(tree, { board, thread }, no) {
   const marked = [], all = [];
-  function collect(node) {
+  function collect(node, parent) {
     if (typeof node === 'string') return;
     all.push(node);
     if ((node.attrs.class || '').split(' ').includes('postNum')
-      || (node.tag === 'a' && Object.hasOwn(node.attrs, 'title'))
+      || (node.tag === 'a' && Object.hasOwn(node.attrs, 'title') && parent?.attrs.class !== 'fileText')
       || (node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title'))
       || (node.attrs.href?.startsWith('/') && node.attrs.href.includes('?quote='))) marked.push(node);
-    node.children.forEach(collect);
+    node.children.forEach(child => collect(child, node));
   }
   collect(tree);
   if (!marked.length) {
-    require(!all.some(node => (node.attrs.class || '').split(' ').some(token => ['postInfoM', 'mobile', 'dateTime'].includes(token))));
+    require(!all.some(node => node.attrs.class !== 'mFileInfo mobile' && (node.attrs.class || '').split(' ').some(token => ['postInfoM', 'mobile', 'dateTime'].includes(token))));
     return;
   }
   const blocks = all.filter(node => node.attrs.class === 'postNum' || node.attrs.class === 'dateTime postNum');
@@ -43,7 +43,7 @@ export function validatePostNumbers(tree, { board, thread }, no) {
   const mobile = all.filter(node => (node.attrs.class || '').split(' ').includes('postInfoM'));
   require(mobile.length <= 1 && blocks.length === 1 + mobile.length
     && tree.children.includes(post) && post?.children.includes(header));
-  require(all.filter(node => (node.attrs.class || '').split(' ').some(token => ['postInfoM', 'mobile', 'dateTime'].includes(token))
+  require(all.filter(node => node.attrs.class !== 'mFileInfo mobile' && (node.attrs.class || '').split(' ').some(token => ['postInfoM', 'mobile', 'dateTime'].includes(token))
     || node.attrs.id === `pim${no}`).every(node => node === mobile[0] || node === blocks.find(block => block.attrs.class === 'dateTime postNum')));
   const permitted = new Set();
   if (mobile.length) for (const label of validateMobileHeader(mobile[0], header, post, no, thread, all)) permitted.add(label);

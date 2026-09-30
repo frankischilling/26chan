@@ -77,7 +77,7 @@ test('noncanonical and credential-bearing file links cannot become menu navigati
   await page.goto('/img/thread/1000201');
   for (const href of ['javascript:void(0)', 'https://synthetic:synthetic@example.invalid/img/1000201.png',
     'https://example.invalid/wrong/1000201.png', 'https://example.invalid/img/1000201.png?token=synthetic']) {
-    await page.locator(`#p${id} .file > p > a`).evaluate((link, href) => { link.href = href; }, href);
+    await page.locator(`#p${id} .file > .fileText > a`).evaluate((link, href) => { link.href = href; }, href);
     await trigger(page).click();
     await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: 'Search image on Google', exact: true })).toHaveCount(0);

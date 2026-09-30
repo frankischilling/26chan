@@ -19,7 +19,7 @@ for (const [name, viewport] of [
       const images = page.locator(kind === 'catalog' ? '.catalogThumb img[src^="http://localhost:3004/"]' : '.fileThumb img');
       await expect(images).toHaveCount(4);
       const expected = kind === 'catalog' ? [[150, 90], [60, 150], [50, 50], [150, 90]]
-        : [[250, 150], [100, 250], [48, 32], [250, 150]];
+        : name === 'mobile' ? [[125, 125], [100, 125], [48, 32], [125, 125]] : [[250, 150], [100, 250], [48, 32], [250, 150]];
       for (let index = 0; index < 4; index++) {
         const img = images.nth(index);
         await img.scrollIntoViewIfNeeded();
@@ -28,8 +28,7 @@ for (const [name, viewport] of [
         expect([box.width, box.height]).toEqual(expected[index]);
         expect(await img.getAttribute('src')).toBe(`http://localhost:3004/img/${1000201 + index}${index === 3 ? '.png' : 's.jpg'}`);
         if (kind !== 'catalog') {
-          // Keep desktop reference flow without squeezing narrow-screen comments.
-          const float = name === 'desktop' ? 'left' : 'none';
+          const float = 'left';
           await expect(img).toHaveCSS('float', float);
           await expect(page.locator('.fileThumb').nth(index)).toHaveCSS('float', float);
         }
@@ -56,7 +55,9 @@ for (const [name, viewport] of [
           await expect(page.locator('.meta').nth(index)).toHaveText('R: 0');
         }
       } else {
-        await expect(page.locator('#f1000201 p a')).toHaveText(`<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`);
+        const filename = `<b>fold & "roof"</b>-${'paper'.repeat(20)}.png`;
+        await expect(page.locator('#fT1000201 a')).toHaveText(filename.slice(0, 35) + '(...).png');
+        await expect(page.locator('#fT1000201 a')).toHaveAttribute('title', filename);
         await expect(page.locator('.file b, .file script')).toHaveCount(0);
         await expect(page.locator('#p1000205 img, #p1000206 img, #p1000206 .file a')).toHaveCount(0);
         await expect(page.locator('#p1000206 .fileDeleted')).toHaveText('File deleted.');

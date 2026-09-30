@@ -723,7 +723,7 @@ function start(context) {
     return link;
   }
   function postFileMenu(menu) {
-    const source = projection.query(menu.post, '.file > p > a[href]');
+    const source = projection.query(menu.post, '.file > .fileText > a[href],.file > p > a[href]');
     if (!source) return;
     let file;
     try { file = new URL(source.href); } catch { return; }

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:files-core": "npm run check:native-filter && node --test tests/browser/native-file-presentation.test.mjs",
     "test:post-tooltips-core": "node --test tests/browser/native-post-tooltips.test.mjs",
     "test:post-tooltips": "npm run test:post-tooltips-core && playwright test tests/browser/native-post-tooltips.spec.js",
     "test:settings-transfer-core": "node --test tests/browser/native-settings-transfer.test.mjs",

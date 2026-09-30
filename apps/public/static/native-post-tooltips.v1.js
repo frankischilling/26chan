@@ -39,13 +39,22 @@ export function mountNativePostTooltips({ root, context, settings, projection, d
       return null;
     }
     const date = target.closest('.postInfoM > .dateTime.postNum[data-utc]');
-    const label = date ?? (target.matches('.postInfoM > .nameBlock > .name[title]') ? target : null);
+    const filename = target.matches('.file > .fileThumb > .mFileInfo.mobile') && !projection?.within(target) ? target : null;
+    const label = date ?? filename ?? (target.matches('.postInfoM > .nameBlock > .name[title]') ? target : null);
     if (!label || !label.getClientRects().length || label.closest('[hidden],.filter-hidden,.reply-hidden,.thread-hidden')) return null;
     const post = label.closest('.post[id]'), article = post?.parentElement;
     if (!post || article?.id !== `pc${post.id.slice(1)}` || !article.matches('.postContainer')
       || !post.closest('.board > .thread[id]')) return null;
     const no = post.id.slice(1), thread = post.closest('.thread').id.slice(1);
     try { localQuoteTree(article, { ...context, thread }, no, projection); } catch { return null; }
+    if (filename) {
+      const file = label.parentElement.parentElement, caption = file.querySelector(':scope > .fileText > a');
+      const full = caption?.getAttribute('title') ?? caption?.textContent;
+      const image = label.parentElement.querySelector('img:not(.expanded-thumb)');
+      return file.id === `f${no}` && image?.alt === full && typeof full === 'string' && full.length > 0
+        && new TextEncoder().encode(full).length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(full)
+        ? { label, text: full, delay: 300, kind: 'file' } : null;
+    }
     if (date) {
       if (!/^(0|[1-9][0-9]{0,12})$/.test(date.dataset.utc)) return null;
       const timestamp = Number(date.dataset.utc), text = relativePostAge(timestamp);

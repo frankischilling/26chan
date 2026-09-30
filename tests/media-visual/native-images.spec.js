@@ -125,7 +125,7 @@ test('noPictures preserves thumbnail geometry and fitted expansions remain visib
   await thumbnail.scrollIntoViewIfNeeded();
   await waitForImage(thumbnail);
   const before = await thumbnail.boundingBox();
-  expect([before.width, before.height]).toEqual([250, 150]);
+  expect([before.width, before.height]).toEqual([125, 125]);
   await expect(thumbnail).toHaveCSS('opacity', '0');
 
   const { image } = await expand(page, 1000201);
@@ -223,7 +223,7 @@ test('spoiler media stays unfetched by default and revealSpoilers alone creates 
     if (url.origin === mediaOrigin && url.pathname.includes('1000205')) requests.push(url.pathname);
   });
   await openThread(page);
-  await expect(page.locator('#f1000205 > p > a')).toHaveText('Spoiler Image');
+  await expect(page.locator('#f1000205 > .fileText > a')).toHaveText('Spoiler Image');
   await expect(page.locator('#f1000205 > a.fileThumb')).toHaveCount(0);
   await page.locator('#f1000205 details').scrollIntoViewIfNeeded();
   await waitForImage(page.locator('#f1000204 .fileThumb img'));
@@ -239,7 +239,7 @@ test('spoiler media stays unfetched by default and revealSpoilers alone creates 
   const file = page.locator('#f1000205');
   await expect(file).toHaveClass(/\bnativeSpoilerRevealed\b/);
   await expect(file.locator('details')).toBeHidden();
-  await expect(file.locator(':scope > p > a:visible')).toHaveText(await file.getAttribute('data-image-filename'));
+  await expect(file.locator(':scope > .fileText > a:visible')).toHaveText(await file.getAttribute('data-image-filename'));
   const thumbnail = file.locator(':scope > a.fileThumb > img');
   await expect(thumbnail).toHaveAttribute('src', `${mediaOrigin}/img/1000205s.jpg`);
   await thumbnail.scrollIntoViewIfNeeded();
@@ -248,7 +248,7 @@ test('spoiler media stays unfetched by default and revealSpoilers alone creates 
   expect(requests).not.toContain('/img/1000205.png');
   await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ revealSpoilers: false })));
   await page.reload();
-  await expect(page.locator('#f1000205 > p > a')).toHaveText('Spoiler Image');
+  await expect(page.locator('#f1000205 > .fileText > a')).toHaveText('Spoiler Image');
   await expect(page.locator('#f1000205 > a.fileThumb')).toHaveCount(0);
 });
 
