@@ -542,3 +542,200 @@ node node_modules/@playwright/test/cli.js test tests/browser/catalog-preferences
 ```
 
 Current-head hosted results remain required before merge.
+
+## PR 183 merge
+
+Head `53cd0ad6ed366c1af7751d32f5c2e7fb75c29368` passed all six hosted checks:
+Rust/browser, Windows visual, media/operations, the combined gate, dependency
+audit and monitoring rules. Build run 36659595126, audit run 36659595106 and
+monitoring run 36659595112 completed successfully. PR #183 merged at
+2026-09-30T02:48:30Z as `bc7bda92ff4a177ef58ba2c270db2fb6309b9081`.
+The fetched merge tree has no diff from the checked head. No protection bypass,
+baseline change or fabricated review was used. Production remains unqualified.
+
+## Private poster-count continuation
+
+Migration 0040 adds a separately owned private context table and a complete
+visible-post aggregate, documented in [the count policy](private-poster-counts.md).
+Two domain tests passed, preserving the existing public ID vector and adding
+independent full-HMAC/epoch vectors. The persisted counter integration passed
+full/tail/index/catalog output, canonical peers, shared-address counts,
+transaction-local isolation, missing capture, historical omission, rotation,
+deletion and archive cleanup. Seven actual runtime logins received SQLSTATE
+42501 for private fingerprint reads; public mutation, role assumption and
+trigger-function calls were also denied.
+
+The first local migration attempt rolled back on an EXECUTE grant after function
+ownership transfer. Moving the grant before transfer fixed the unpublished
+migration. A fresh bootstrap then revealed that psql ignored fixture input
+because its command used `-c`. The fixture now sets its role inside stdin.
+The fresh private-cluster check passed all migrations, retained historical rows
+and clocks in both directions, omitted historical counts and verified the narrow
+function owner. The cluster was stopped and removed by the owned test.
+
+Public all-target checks and Clippy with warnings denied passed. Fourteen stats
+parser/DOM tests passed after replacing formerly unsupported `unique_ips`
+negative fixtures with out-of-range counts and unknown identity fields. New
+cases verify qualified rendering and removal when a later snapshot omits it.
+All fifteen persisted Chromium cases passed across native statistics, poster IDs,
+posting preferences and Quick Reply. The count appears in both desktop rows and
+the one mobile placement; hidden synthetic nodes do not change it. Current-head
+hosted checks remain required before merging this continuation.
+
+Main build 36661531180 completed with passing Windows visuals and native
+media/operations, but its Linux application job failed in the inline-upload
+fixture. Playwright could not retrieve the queued response body at
+`quick-reply-upload.mjs:32` (`Network.getResponseBody`: no data for resource).
+The same merged tree passed all pre-merge checks; the later main run remains a
+recorded failure. The fixture now starts reading the receipt in its response
+callback, as its posting-response observer already does. This removes the extra
+wait for the file-input action before body collection. It preserves all status,
+receipt, persisted-post and capability assertions. The original browser-level
+cause is not established, and requalification is still required.
+
+The broader local run initially stopped because its ignored helper omitted the
+pinned Node path. After correcting that environment, it reached the real HTTPS
+proxy test and exposed nginx dropping its worker to `nobody` during root
+invocation. The fixture expects the invoking UID and keeps its socket directory
+private; the worker could not traverse it. The private generated nginx config
+now explicitly retains root only when the owned test itself runs as root.
+Non-root hosted invocation and the deployment config keep their existing
+behavior. Socket permissions and peer-UID assertions are unchanged.
+
+An added missing-peer case first expected an accepted but uncounted HTTP write.
+The handler correctly returned 503 before posting. The regression now requires
+that rejection despite spoofed forwarding headers and verifies the unchanged
+complete count. The owned failed fixture was identified by its exact generated
+board and synthetic rows, then removed in a guarded transaction. The counter
+test now runs cleanup after a spawned assertion failure as well as success.
+Malformed transaction contexts also require SQLSTATE 23514 and rollback.
+
+The attachment extension initially enabled ID policy before its ordinary
+approval probes, which correctly rejected their missing keys before the expected
+queue-state rejection. Completing the three approval controls first preserves
+their exact Conflict assertions; the subsequent keyed writes run with IDs
+enabled. The actual attachment integration then passed both modes.
+
+A later local posting-clock case failed its final comparison against a fresh
+wall-clock reading, after the delayed stream had already observed a later
+second. The regression now records that actual body-release timestamp and
+requires the saved request time to precede it. Its original pre-consumption
+range and whole-second checks remain. The release wait has a five-second
+deadline. This tests the intended boundary directly; no cause for the inconsistent
+later wall-clock observation is claimed.
+
+Another complete local run reached the upload browser and failed solely because
+Chromium enumerated the two remaining preference cookies in the opposite order.
+Their names and values matched exactly. The final assertion now sorts those
+name/value pairs before comparing the complete expected list. Header attributes,
+exact receipt counts and absence of consumed receipts remain separate checks;
+no cookie is ignored or newly allowed.
+
+The focused posting-clock and six-flow upload browser qualification passed with
+these final fixture corrections. The real HTTPS proxy and concurrent
+thread/board snapshot regressions also passed in the broader run. The latest
+four-case statistics browser run passed its added mobile count assertion;
+all fourteen parser/DOM cases passed again. Workspace Clippy with all targets,
+all features and warnings denied passed. The full workspace test command then
+finished with 532 passing tests, zero failures and zero ignored tests. Exact-head
+build 36666926031, monitoring 36666925937 and manually dispatched advisory run
+36666989377 all passed on `d77e4b5`, including the combined gate. These results
+qualify the count checkpoint; the expanded flag continuation needs its own
+current-head checks before merging.
+
+## Country and board flag continuation
+
+Migration 0041 adds disabled-by-default board switches and nullable saved post
+labels. The same board-locked transaction handles text and approved attachments.
+Country data comes from an operator-owned offline database and verified peers;
+allowed board choices use the pinned public dictionary. Selecting a board flag
+omits geographic capture as the explicit E-015 policy. The pinned API and released
+client establish the public fields and spans, not private server geography.
+
+Producer vectors and actual-role HTTP tests passed, including IPv4/IPv6/mapped
+peers, GB versus registered-country disagreement, unknowns, header spoofing,
+missing sources/peers, invalid choices, full/tail/index/catalog JSON, both
+listeners, HTML/native projections, policy changes and flag-column mutation
+denial. The real loopback Chromium flow passed script-free geographic posting
+and Quick Reply selection through the actual updater. Both attachment modes
+passed with flags, tripcodes, poster IDs and counts. Twenty-nine combined updater
+and Quick Reply parser/transport cases passed, including new finite flag spans.
+
+Fresh bootstrap applied all migrations and retained historical content and
+clocks while checking the narrow owners. Its historical comparison now projects
+out only the four new nullable flag columns, checks them separately for null and
+compares every preexisting post field in both directions. The owned cluster was
+stopped and removed. Application all-target checks passed.
+
+The first compile identified missing country settings in test router states;
+those fixtures now explicitly disable the source. The first Clippy run rejected
+the enlarged legacy submission enum and two nested display branches. Boxing the
+posting variant and using let-chains fixed them; no lint was suppressed. Workspace
+Clippy then passed with all targets, all features and warnings denied. The full
+workspace test rerun initially stopped in the existing controlled TLS dispatch
+expiry case: the child unexpectedly reported success after expiry was set.
+The fixture now asserts the database expiry precondition before releasing the
+response and includes the assigned deadline and observed database clock in a
+failure message. Its one-second expiry setting, success/failure assertions,
+healthy transport and publication checks are unchanged. The focused approval
+suite then passed; this does not establish the original failure's cause or claim
+a production fix. Subsequent full workspace runs passed the expiry case.
+
+A subsequent local full run passed the lease case but failed the exact native
+board-fragment comparison. Some edited Windows working templates still used
+CRLF, while the committed files and imported fragment used LF. Normalizing the
+working copies to the committed LF format made the unchanged comparison pass.
+No committed template content or comparison assertion changed.
+
+Build 36671291200 on `d070b8d` passed Windows visuals and media/operations;
+monitoring 36671291253 and advisory run 36671291208 also passed. Its application
+job failed the asset/CSP regression because the test's complete approved-image
+list lacked the two newly pinned flag sprites. The regression now includes their
+explicit paths and verifies hashes, sizes, MIME, GET/HEAD behavior, write denial
+and absence from the API listener. The complete fixed-source CSP assertion and
+the rejection of broad image-source authority remain.
+
+The local full run then reached the flag browser and failed Playwright's late
+receipt-body read with `Network.getResponseBody`. The response callback now
+collects the body immediately and retains the HTTP 200, persisted choice, title,
+dimension, updater and error assertions. The focused flag browser and all eight
+asset-route tests passed afterward, followed by workspace Clippy with warnings
+denied. Neither failure was turned into a retry or accepted baseline. The final
+full workspace run passed 536 tests, zero failed and zero ignored, with every
+feature enabled and the lockfile enforced. Expanded current-head hosted checks
+still need to pass before merging.
+
+The long-lived owned local database had applied migration 0041 from an early
+CRLF working copy. Its recorded checksum exactly matched those bytes; the
+published migration has unchanged LF bytes. After verifying the owned cluster,
+role, schema and both checksums, only that disposable fixture's checksum row was
+aligned with the published bytes. No schema, content or timestamps changed.
+The actual migration command then passed. The published migration was not
+edited; fresh bootstrap and hosted migration checks use its canonical bytes.
+
+Build 36673928293 on `f296f89` passed Rust/database coverage and then stopped
+at the browser's separate complete CSP source list, which also lacked the two
+flag sprites. Windows visuals, media/operations, monitoring 36673928177 and
+advisories 36673928191 passed. That browser list now includes both sprites with
+their independently checked PNG dimensions. The actual Chromium regression
+passed every released-image load and retained the healthy alternate-host and
+unlisted-path denials. The exact corrected head still requires hosted checks.
+
+All six checks passed on `c245dd8`: build 36676195333, monitoring
+36676195201 and advisories 36676195241. A later native-client review found that
+local quote previews filtered out saved flag classes and titles. The new real
+Chromium regression reproduced the loss in both the current module and the
+released bundle. The bounded local reader now preserves only finite flag tokens
+and their title; the existing strict recipe validator rejects malformed flags
+before constructing elements. Ordinary hover-tool titles are still omitted.
+
+All 45 quote-preview and filter-settlement cases passed with the regenerated
+244501-byte bundle. Country and board-flag copies retain their exact class,
+title and empty span, leave the original unchanged and need no remote preview.
+Control characters, children and unlisted flag classes are rejected before DOM
+construction. The source and thread-control bundle checks also passed. This
+follow-up changes the PR head, so its own hosted checks remain required.
+
+See [flag behavior and operation](post-flags.md) and [reference provenance](public-country-flags-reference.json).
+No production database, external post or worker connectivity claim is added by
+these local feature tests.

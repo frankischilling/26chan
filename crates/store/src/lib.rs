@@ -52,6 +52,8 @@ pub struct Board {
     pub op_markup: bool,
     pub forced_anon: bool,
     pub user_ids: bool,
+    pub country_flags: bool,
+    pub board_flags: Vec<String>,
     pub text_only: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,
@@ -68,6 +70,13 @@ pub struct Board {
 }
 
 impl Board {
+    pub fn flag_options(&self) -> Vec<(&'static str, &'static str)> {
+        board_domain::country::BOARD_FLAGS
+            .iter()
+            .copied()
+            .filter(|(code, _)| self.board_flags.iter().any(|enabled| enabled == code))
+            .collect()
+    }
     pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
         if self.text_only && parent != 0 && attached {
             return Err(StoreError::Invalid("You cannot upload files on this board"));
@@ -115,6 +124,10 @@ pub struct Post {
     pub name: String,
     pub trip: Option<String>,
     pub poster_id: Option<String>,
+    pub country: Option<String>,
+    pub country_name: Option<String>,
+    pub board_flag: Option<String>,
+    pub flag_name: Option<String>,
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,

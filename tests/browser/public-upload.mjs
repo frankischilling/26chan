@@ -272,7 +272,10 @@ try {
   const placeholderBox = await placeholder.boundingBox();
   assert.deepEqual([placeholderBox.width, placeholderBox.height], [155, 53]);
   assert.equal(deletedRequests.length, 0, 'a deleted catalog file loads only the fixed UI asset');
-  assert.deepEqual((await context.cookies()).map(cookie => ({ name: cookie.name, value: cookie.value })), [
+  const remainingCookies = (await context.cookies())
+    .map(cookie => ({ name: cookie.name, value: cookie.value }))
+    .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  assert.deepEqual(remainingCookies, [
     { name: '4chan_name', value: 'Synthetic%20browser' },
     ...(javascript ? [{ name: 'options', value: 'nonoko' }] : []),
   ]);

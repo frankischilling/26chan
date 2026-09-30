@@ -171,6 +171,16 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       const name = field('name', 'Name'); name.value = source.elements.name?.value ?? ''; name.autocomplete = 'off';
     }
     const options = field('email', 'Options'); options.id = 'qrEmail'; options.value = source.elements.email?.value ?? '';
+    const sourceFlag = source.elements.namedItem('flag');
+    if (sourceFlag?.tagName === 'SELECT') {
+      const row = node('div'), flag = node('select'); flag.name = 'flag'; flag.id = 'qrFlag';
+      flag.className = 'flagSelector'; flag.setAttribute('aria-label', 'Flag');
+      for (const original of sourceFlag.options) {
+        const option = node('option', original.textContent); option.value = original.value;
+        flag.append(option);
+      }
+      flag.value = sourceFlag.value; row.append(flag); fields.append(row);
+    }
     comment = field('com', 'Comment', 'textarea'); comment.rows = 4;
     const password = field('pwd', 'Deletion password', 'password'); password.minLength = 8; password.maxLength = 128;
     password.required = true; password.autocomplete = 'new-password'; password.value = source.elements.pwd?.value ?? '';

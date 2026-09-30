@@ -58,6 +58,17 @@ Unicode encoding and remaining parser edge cases need permitted evidence.
 [Posting preferences](post-preferences.md) also restore the remembered display
 name and Options field, with private identity suffixes excluded from storage.
 
+[PR #183](https://github.com/frankischilling/26chan/pull/183) merged this batch
+on September 30 after all six exact-head hosted checks passed. Its merge tree
+matches the checked head. The next continuation adds
+[private poster counts](private-poster-counts.md), including optional API fields,
+native statistics and active-context cleanup. It also adds [country and board
+flags](post-flags.md), saved through text and attachment posting and rendered
+in public JSON, pages and bounded native projections. Its verification record
+tracks local results separately from PR #184's hosted checks. Capcodes, original
+private geolocation/capture rules and complete local appearance/behavior matching
+remain unfinished.
+
 | Work item | Current state | Acceptance needed |
 |---|---|---|
 | Approved design brief | User clarified on September 13, 2026: recreate the old 4chan frontend 1:1, rather than redesign it; no separate attachment is required | Match the reference layout, typography, colors, assets, controls and states on desktop and mobile using source permitted by the rewrite prompt; record differences and verify visual and behavioral parity |

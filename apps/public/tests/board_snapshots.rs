@@ -66,6 +66,8 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
             .execute(&owner)
             .await
             .unwrap();
+            sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) VALUES($1,$1,decode(repeat('11',32),'hex'),decode(repeat('aa',32),'hex')) ON CONFLICT(post_id) DO NOTHING")
+                .bind(id).execute(&owner).await.unwrap();
             let path = format!("/{slug}/{suffix}");
             let before = get(app, &path).await;
 
@@ -112,6 +114,8 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
                     .unwrap();
                 sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','A committed reply')")
                 .bind(&slug).bind(id).execute(&mut *writer).await.unwrap();
+                sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) SELECT id,thread_id,decode(repeat('22',32),'hex'),decode(repeat('aa',32),'hex') FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2")
+                    .bind(&slug).bind(id).execute(&mut *writer).await.unwrap();
                 if delete {
                     sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
                         .bind(id)
@@ -128,6 +132,18 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
             };
             let (during, ()) = tokio::join!(get(app, &path), commit);
             let after = get(app, &path).await;
+            if !delete && ["catalog.json", "1.json"].contains(&suffix) {
+                let opening = |raw: &[u8]| {
+                    let value: serde_json::Value = serde_json::from_slice(raw).unwrap();
+                    if suffix == "catalog.json" {
+                        value[0]["threads"][0]["unique_ips"].clone()
+                    } else {
+                        value["threads"][0]["posts"][0]["unique_ips"].clone()
+                    }
+                };
+                assert_eq!(opening(&before), 1);
+                assert_eq!(opening(&after), 2);
+            }
             assert_ne!(before, after, "the committed control must change {suffix}");
             if during != before && during != after {
                 inconsistent.push(format!("{suffix} delete={delete}"));

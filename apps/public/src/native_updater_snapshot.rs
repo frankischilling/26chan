@@ -103,6 +103,7 @@ fn encode(
         images,
         tail_size,
         tail_id,
+        ..
     } = snapshot;
     if posts.is_empty()
         || posts.len() > MAX_POSTS
@@ -389,6 +390,8 @@ mod tests {
             op_markup: false,
             forced_anon: false,
             user_ids: false,
+            country_flags: false,
+            board_flags: vec![],
             text_only: false,
             reply_limit: 1000,
             bump_limit: 300,
@@ -430,6 +433,10 @@ mod tests {
                 name: "<img src=x onerror=alert(1)>".into(),
                 trip: None,
                 poster_id: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                flag_name: None,
                 subject: "<script>subject</script>".into(),
                 comment: "<script>alert(1)</script>\n>>9223372036854775806".into(),
                 created_at: now,
@@ -443,6 +450,7 @@ mod tests {
             posts,
             replies: 1,
             images: 0,
+            unique_ips: None,
             tail_size: 0,
             tail_id: None,
         }

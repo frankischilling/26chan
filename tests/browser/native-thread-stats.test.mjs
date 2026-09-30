@@ -57,12 +57,15 @@ test('thread stats context and URL accept only canonical same-origin board/threa
   ]) assert.throws(() => threadStatsContext(invalid), /invalid-thread-stats-context/);
 });
 
-test('parser requires the exact typed v1 object and never accepts an inferred poster identity', () => {
+test('parser requires the exact typed v1 object and validates optional poster counts', () => {
   assert.deepEqual(parseThreadStats(JSON.stringify(snapshot), context), snapshot);
+  const counted = { ...snapshot, unique_ips: 7 };
+  assert.deepEqual(parseThreadStats(JSON.stringify(counted), context), counted);
   const archived = { ...snapshot, archived: true, closed: true, page: null };
   assert.deepEqual(parseThreadStats(JSON.stringify(archived), context), archived);
   const invalid = [
-    { ...snapshot, unique_ips: 7 },
+    ...[0, -1, 14, 1.5, '7', null].map(unique_ips => ({ ...snapshot, unique_ips })),
+    { ...archived, unique_ips: 1 },
     { ...snapshot, posters: 7 },
     { ...snapshot, thread: 123 },
     { ...snapshot, board: 'other' },
@@ -124,10 +127,11 @@ test('transport rejects redirects, foreign URLs, MIME mismatches, oversized and 
     response(new Uint8Array(THREAD_STATS_LIMITS.bytes + 1)),
     response(new Uint8Array([0xc3, 0x28])),
     response('{"version":1'),
-    response(JSON.stringify({ ...snapshot, unique_ips: 3 })),
+    response(JSON.stringify({ ...snapshot, unique_ips: 0 })),
+    response(JSON.stringify({ ...snapshot, posters: 3 })),
   ];
   const expected = ['invalid-response', 'invalid-response', 'invalid-response', 'response-limit',
-    'response-limit', 'invalid-encoding', 'invalid-snapshot', 'invalid-snapshot'];
+    'response-limit', 'invalid-encoding', 'invalid-snapshot', 'invalid-snapshot', 'invalid-snapshot'];
   for (let i = 0; i < cases.length; i++) {
     const transport = new NativeThreadStatsTransport({ ...context, fetcher: async () => cases[i] });
     assert.equal((await transport.load()).status, expected[i]);

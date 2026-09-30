@@ -104,6 +104,10 @@ pub async fn boards(
             value["require_subject"] = json!(1);
         }
         if board.user_ids { value["user_ids"] = json!(1); }
+        if board.country_flags { value["country_flags"] = json!(1); }
+        if !board.board_flags.is_empty() {
+            value["board_flags"] = json!(board.flag_options().into_iter().collect::<std::collections::BTreeMap<_, _>>());
+        }
         if board.forced_anon {
             value["forced_anon"] = json!(1);
         }
@@ -126,6 +130,7 @@ fn post_json(
     board: &Board,
     replies: usize,
     images: usize,
+    unique_ips: Option<i32>,
 ) -> Result<Value, AppError> {
     let post = PostView::new(post);
     let comment = Comment {
@@ -142,6 +147,14 @@ fn post_json(
     if let Some(trip) = &post.post.trip {
         value["trip"] = json!(trip);
     }
+    if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
+        value["country"] = json!(code);
+        value["country_name"] = json!(name);
+    }
+    if let (Some(code), Some(name)) = (&post.post.board_flag, &post.post.flag_name) {
+        value["board_flag"] = json!(code);
+        value["flag_name"] = json!(name);
+    }
     if !comment.is_empty() {
         value["com"] = json!(comment);
     }
@@ -151,6 +164,9 @@ fn post_json(
     if op {
         value["replies"] = json!(replies);
         value["images"] = json!(images);
+        if let Some(count) = unique_ips {
+            value["unique_ips"] = json!(count);
+        }
         value["semantic_url"] = json!(semantic_url(&post.post.subject));
         if thread.sticky {
             value["sticky"] = json!(1);
@@ -259,12 +275,13 @@ pub async fn thread_selection(
         posts,
         replies,
         images,
+        unique_ips,
         tail_size,
         tail_id,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
     let mut posts: Vec<Value> = posts
         .into_iter()
-        .map(|post| post_json(post, &thread, &board, replies, images))
+        .map(|post| post_json(post, &thread, &board, replies, images, unique_ips))
         .collect::<Result<_, _>>()?;
     if tail {
         let original = &posts[0];
@@ -272,7 +289,7 @@ pub async fn thread_selection(
             "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
             "imagelimit": i32::from(board_domain::image_limit::json_limited(thread.sticky, thread.permaage, thread.undead, images as u64, board.image_limit as u32)),
             "tail_size": tail_size, "tail_id": tail_id});
-        for key in ["sticky", "closed", "archived"] {
+        for key in ["sticky", "closed", "archived", "unique_ips"] {
             if let Some(value) = original.get(key) {
                 op[key] = value.clone();
             }
@@ -312,7 +329,16 @@ fn preview_thread(
         .map_err(|_| AppError(StatusCode::SERVICE_UNAVAILABLE, "Invalid image count."))?;
     posts
         .into_iter()
-        .map(|post| post_json(post, &preview.thread, board, replies, images))
+        .map(|post| {
+            post_json(
+                post,
+                &preview.thread,
+                board,
+                replies,
+                images,
+                preview.unique_ips,
+            )
+        })
         .collect()
 }
 

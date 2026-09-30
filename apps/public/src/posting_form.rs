@@ -41,6 +41,7 @@ impl IntoResponse for Rejection {
 }
 
 const TEXT_FIELDS: &[&str] = &[
+    "flag",
     "name",
     "sub",
     "com",

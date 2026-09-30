@@ -194,9 +194,11 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 .await
                 .expect("dispatch command must reach authenticated transport")
                 .unwrap();
-            if case == "expired" {
-                super::expire(admin, &job.id).await;
-            }
+            let expired_at = if case == "expired" {
+                Some(super::expire(admin, &job.id).await)
+            } else {
+                None
+            };
             if case == "replaced" {
                 sqlx::query("UPDATE media.jobs SET lease_token=replace(gen_random_uuid()::text,'-','') WHERE id=$1")
                     .bind(&job.id).execute(admin).await.unwrap();
@@ -204,10 +206,15 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             release.send(()).unwrap();
             let result = task.await.unwrap();
             server.await.unwrap();
+            let observed_at: sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc> =
+                sqlx::query_scalar("SELECT clock_timestamp()")
+                    .fetch_one(admin)
+                    .await
+                    .unwrap();
             assert_eq!(
                 result.status.success(),
                 case == "valid",
-                "case {case}: {}",
+                "case {case}: {}; expired_at={expired_at:?}; observed_database_clock={observed_at}",
                 String::from_utf8_lossy(&result.stderr)
             );
             if case == "valid" {

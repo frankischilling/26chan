@@ -3,6 +3,10 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use std::net::IpAddr;
 
 pub struct PosterIdKey([u8; 32]);
+pub struct PosterCountContext {
+    pub fingerprint: String,
+    pub epoch: String,
+}
 impl PosterIdKey {
     pub fn parse(value: &str) -> Result<Self, crate::ValidationError> {
         if value.len() != 64 || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -28,13 +32,38 @@ impl PosterIdKey {
         thread: i64,
         peer: IpAddr,
     ) -> Result<String, crate::ValidationError> {
+        let digest = self.digest(b"26chan-poster-id-v1\0", board, thread, peer)?;
+        Ok(STANDARD.encode(&digest[..6]))
+    }
+    pub fn count_context(
+        &self,
+        board: &str,
+        thread: i64,
+        peer: IpAddr,
+    ) -> Result<PosterCountContext, crate::ValidationError> {
+        let fingerprint = self.digest(b"26chan-poster-count-v1\0", board, thread, peer)?;
+        let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &self.0);
+        let epoch = ring::hmac::sign(&signing, b"26chan-poster-count-epoch-v1\0");
+        let hex = |bytes: &[u8]| bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        Ok(PosterCountContext {
+            fingerprint: hex(&fingerprint),
+            epoch: hex(epoch.as_ref()),
+        })
+    }
+    fn digest(
+        &self,
+        prefix: &[u8],
+        board: &str,
+        thread: i64,
+        peer: IpAddr,
+    ) -> Result<[u8; 32], crate::ValidationError> {
         crate::BoardSlug::parse(board)?;
         if thread <= 0 {
             return Err(crate::ValidationError("Invalid poster ID thread."));
         }
         let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &self.0);
         let mut context = ring::hmac::Context::with_key(&signing);
-        context.update(b"26chan-poster-id-v1\0");
+        context.update(prefix);
         context.update(board.as_bytes());
         context.update(&[0]);
         context.update(&thread.to_be_bytes());
@@ -48,13 +77,47 @@ impl PosterIdKey {
                 context.update(&peer.octets());
             }
         }
-        Ok(STANDARD.encode(&context.sign().as_ref()[..6]))
+        Ok(context.sign().as_ref().try_into().expect("SHA-256 length"))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn count_contexts_keep_full_digests_and_detect_key_epochs() {
+        let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();
+        let peer = "192.0.2.10".parse().unwrap();
+        let context = key.count_context("test", 42, peer).unwrap();
+        // Independent Python stdlib HMAC-SHA256 vectors.
+        assert_eq!(
+            context.fingerprint,
+            "6f6608a2a7d49a95f44671ad22606c41df1638486a5f29e962f2205af6f42ae2"
+        );
+        assert_eq!(
+            context.epoch,
+            "69ff6a15e216180257a02b59d8684ab380ef8a652d54ce385be9ddf055ba1fb5"
+        );
+        let mapped = key
+            .count_context("test", 42, "::ffff:192.0.2.10".parse().unwrap())
+            .unwrap();
+        assert_eq!(mapped.fingerprint, context.fingerprint);
+        for changed in [
+            key.count_context("other", 42, peer).unwrap(),
+            key.count_context("test", 43, peer).unwrap(),
+            key.count_context("test", 42, "192.0.2.11".parse().unwrap())
+                .unwrap(),
+        ] {
+            assert_ne!(changed.fingerprint, context.fingerprint);
+            assert_eq!(changed.epoch, context.epoch);
+        }
+        let rotated = PosterIdKey::parse(&"2".repeat(64))
+            .unwrap()
+            .count_context("test", 42, peer)
+            .unwrap();
+        assert_ne!(rotated.epoch, context.epoch);
+        assert_ne!(rotated.fingerprint, context.fingerprint);
+    }
     #[test]
     fn labels_are_canonical_thread_scoped_and_keyed() {
         let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();

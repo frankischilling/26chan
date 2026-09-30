@@ -29,11 +29,45 @@ REVOKE ALL ON DATABASE bootstrap_test FROM PUBLIC;
 GRANT CONNECT ON DATABASE bootstrap_test TO board_migrator,board_public;
 SQL
 for migration in migrations/*.sql; do
+  if [[ $migration = migrations/0040_poster_counts.sql ]]; then
+    "${db[@]}" -d bootstrap_test <<'SQL'
+SET ROLE board_migrator;
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
+VALUES('countold','Owned count upgrade','Synthetic history',1000,100,100,100,10);
+INSERT INTO content.threads(id,board,created_at,modified_at)
+VALUES(8800001,'countold','2026-01-01Z','2026-01-02Z');
+INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at)
+VALUES(8800001,'countold',8800001,'Historical name','Historical subject','Synthetic history','2026-01-01Z');
+CREATE TABLE public.owned_count_posts_before AS SELECT * FROM content.posts;
+CREATE TABLE public.owned_count_threads_before AS SELECT * FROM content.threads;
+SQL
+  fi
   "${db[@]}" -d bootstrap_test --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
 done
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$
 BEGIN
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name'] FROM content.posts p)
+     OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
+     OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
+     OR content.unique_posters('countold',8800001) IS NOT NULL THEN
+    RAISE EXCEPTION 'Poster count upgrade changed history or invented identity';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_poster_count_owner'
+      AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+     OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_poster_count_owner')
+     OR has_schema_privilege('board_poster_count_owner','content','CREATE')
+     OR has_schema_privilege('board_poster_count_owner','staff_identity','USAGE')
+     OR has_schema_privilege('board_poster_count_owner','deployment','USAGE')
+     OR has_table_privilege('board_poster_count_owner','post_secrets.poster_contexts','UPDATE,TRUNCATE,TRIGGER')
+     OR has_table_privilege('board_public','post_secrets.poster_contexts','SELECT,INSERT,UPDATE,DELETE')
+     OR NOT has_function_privilege('board_public','content.unique_posters(text,bigint)','EXECUTE')
+     OR has_function_privilege('board_public','content.record_poster_context()','EXECUTE') THEN
+    RAISE EXCEPTION 'Poster count function owner exceeds required authority';
+  END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_media_retention_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
      OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_media_retention_owner')
@@ -129,4 +163,4 @@ SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
 cleanup
 trap - EXIT
-printf 'Fresh role bootstrap passed: all migrations applied as owner; reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
+printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; poster-count owner, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'

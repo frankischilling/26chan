@@ -26,10 +26,11 @@ try {
     await page.locator('.open-qr-link').click();
     qr = page.locator('#quickReply');
     await expect(qr.locator('#qrFile')).toBeVisible();
-    const queued = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/upload`));
+    const queued = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/upload`))
+      .then(async response => ({ status: response.status(), receipt: await response.json() }));
     await qr.locator('#qrFile').setInputFiles(source);
-    const queuedResponse = await queued; assert.equal(queuedResponse.status(), 200);
-    const receipt = await queuedResponse.json();
+    const queuedResponse = await queued; assert.equal(queuedResponse.status, 200);
+    const receipt = queuedResponse.receipt;
     assert.equal(receipt.resto, thread); assert.equal(receipt.state, 'queued');
     uploadId = receipt.upload_id; capability = receipt.upload_capability;
     assert.match(uploadId, /^[0-9a-f]{32}$/); assert.match(capability, /^[0-9a-f]{64}$/);

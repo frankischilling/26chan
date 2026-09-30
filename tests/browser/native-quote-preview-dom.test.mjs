@@ -222,6 +222,47 @@ test('isolated DOM quote preview contracts', async t => {
       } finally { await context.close(); }
     });
 
+    for (const currentSource of [false, true]) {
+      for (const [classes, title] of [['flag flag-gb', 'United Kingdom'], ['bfl bfl-pr', 'Pirate']]) {
+        await t.test(`${currentSource ? 'source' : 'release'} local previews retain ${classes} and reject malformed flag recipes`, async () => {
+          const { page, context, requests } = await setup({ currentSource });
+          try {
+            const result = await page.evaluate(({ classes, title }) => {
+              const target = document.getElementById('p101'), info = document.getElementById('pi101');
+              target.style.top = '1300px';
+              const flag = document.createElement('span'); flag.className = classes; flag.title = title; info.append(flag);
+              const original = flag.outerHTML;
+              window.over();
+              const copy = document.querySelector('#quote-preview .' + classes.split(' ')[0]);
+              const value = { shown: !!copy, className: copy?.className, title: copy?.title,
+                children: copy?.childNodes.length, original: flag.outerHTML === original,
+                pending: window.pending.length };
+              window.out();
+              const create = document.createElement.bind(document), built = [];
+              document.createElement = (tag, ...rest) => { built.push(tag); return create(tag, ...rest); };
+              value.invalid = [];
+              for (const mutate of [
+                () => { flag.title = 'bad\u0001title'; },
+                () => { flag.title = title; flag.append(document.createTextNode('unexpected child')); },
+                () => { flag.textContent = ''; flag.className = classes.split(' ')[0] + ' flag-unlisted'; },
+              ]) {
+                mutate(); built.length = 0; window.over();
+                value.invalid.push({ popup: !!document.getElementById('quote-preview'), built: [...built] });
+                window.out();
+              }
+              document.createElement = create;
+              return value;
+            }, { classes, title });
+            assert.deepEqual(result, { shown: true, className: classes, title, children: 0,
+              original: true, pending: 0,
+              invalid: Array.from({ length: 3 }, () => ({ popup: false, built: [] })) });
+            assert.deepEqual(requests.filter(request => ![`${origin}/favicon.ico`, `${origin}/static/themes/fade.png`].includes(request.url)), [],
+              'Local flags must not cause a remote preview or image request');
+          } finally { await context.close(); }
+        });
+      }
+    }
+
     await t.test('offscreen and hidden local copies remove credentials, IDs, active resources and controls before construction', async () => {
       const { page, context } = await setup();
       try {

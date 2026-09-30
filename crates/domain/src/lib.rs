@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod country;
 pub mod identity;
 pub mod poster_id;
 pub mod word_break;

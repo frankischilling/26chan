@@ -23,6 +23,21 @@ pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
+        "/static/flags/flags.css",
+        "text/css",
+        include_bytes!("../static/flags/flags.css"),
+    ),
+    (
+        "/static/flags/flags.8.png",
+        "image/png",
+        include_bytes!("../static/flags/flags.8.png"),
+    ),
+    (
+        "/static/flags/board-flags.2.png",
+        "image/png",
+        include_bytes!("../static/flags/board-flags.2.png"),
+    ),
+    (
         "/static/navigation/futaba/arrow_up.png",
         "image/png",
         include_bytes!("../static/navigation/futaba/arrow_up.png"),

@@ -516,6 +516,7 @@ async fn exercise(f: &Fixture) {
     image_admission_flags(f).await;
     comment_spacing(f).await;
     tripcodes(f).await;
+    poster_counts(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
     source_op_markup_attachment(f).await;
@@ -525,6 +526,106 @@ async fn exercise(f: &Fixture) {
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn poster_counts(f: &Fixture) {
+    // Approval probes use the fixture's ordinary posting context. Finish those
+    // controls before enabling the ID policy for the keyed attachment writes.
+    let mut uploads = Vec::new();
+    for _ in 0..3 {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        uploads.push(upload);
+    }
+    sqlx::query("UPDATE content.boards SET user_ids=true,country_flags=true,board_flags=ARRAY['AC'] WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let key = board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap();
+    let countries = board_domain::country::CountryDatabase::from_bytes(
+        include_bytes!("../../domain/tests/fixtures/GeoIP2-Country-Test.mmdb").to_vec(),
+    )
+    .unwrap();
+    let mut thread = 0;
+    for ((peer, expected), upload) in [
+        ("192.0.2.10", 1),
+        ("::ffff:192.0.2.10", 1),
+        ("192.0.2.11", 2),
+    ]
+    .into_iter()
+    .zip(uploads)
+    {
+        let mut draft = post();
+        draft.name = "User#password".into();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let flag = if peer.starts_with("::ffff:") {
+            "AC"
+        } else {
+            "0"
+        };
+        let id = board_store::create_post_with_metadata(
+            &f.public,
+            &f.board,
+            thread,
+            &draft,
+            Some(&upload),
+            board_store::PostingContext {
+                request_start: chrono::Utc::now(),
+                peer: Some(peer.parse().unwrap()),
+                op_password_proof: None,
+            },
+            board_store::PostMetadata {
+                country_database: Some(&countries),
+                flag,
+                keys: board_store::PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&key),
+                },
+            },
+        )
+        .await
+        .unwrap();
+        if thread == 0 {
+            thread = id;
+        }
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.trip.as_deref(), Some("!ozOtJW9BFA"));
+        if flag == "AC" {
+            assert_eq!(saved.board_flag.as_deref(), Some("AC"));
+            assert_eq!(saved.flag_name.as_deref(), Some("Anarcho-Capitalist"));
+            assert!(saved.country.is_none());
+        } else {
+            assert_eq!(saved.country.as_deref(), Some("XX"));
+            assert_eq!(saved.country_name.as_deref(), Some("Unknown"));
+            assert!(saved.board_flag.is_none());
+        }
+        assert_eq!(
+            saved.poster_id.as_deref(),
+            Some(
+                key.label(&f.board, thread, peer.parse().unwrap())
+                    .unwrap()
+                    .as_str()
+            )
+        );
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+        let count: Option<i32> = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
+            .bind(&f.board)
+            .bind(thread)
+            .fetch_one(&f.public)
+            .await
+            .unwrap();
+        assert_eq!(count, Some(expected));
+    }
+    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}' WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
 }
 
 async fn tripcodes(f: &Fixture) {

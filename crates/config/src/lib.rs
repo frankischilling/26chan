@@ -123,6 +123,7 @@ pub struct Settings {
     pub public_proxy: Option<PublicProxy>,
     pub poster_id_key: Option<std::sync::Arc<board_domain::poster_id::PosterIdKey>>,
     pub tripcode_key: Option<std::sync::Arc<board_domain::identity::SecureKey>>,
+    pub country_database: Option<std::sync::Arc<board_domain::country::CountryDatabase>>,
 }
 
 #[derive(Clone)]
@@ -261,6 +262,13 @@ impl Settings {
         };
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
+        let country_database = match env::var_os("COUNTRY_DATABASE") {
+            None => None,
+            Some(path) => Some(std::sync::Arc::new(
+                board_domain::country::CountryDatabase::load(std::path::Path::new(&path))
+                    .map_err(|error| ConfigError(error.0))?,
+            )),
+        };
         let parsed = Url::parse(&database_url).map_err(|_| ConfigError("Invalid database URL."))?;
         if !matches!(parsed.scheme(), "postgres" | "postgresql")
             || parsed.username() != "board_public"
@@ -304,6 +312,7 @@ impl Settings {
             public_proxy,
             tripcode_key,
             poster_id_key,
+            country_database,
         })
     }
 }

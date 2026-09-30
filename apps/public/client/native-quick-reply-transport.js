@@ -216,7 +216,7 @@ export async function sendQuickReply({ board, thread, fields, signal, origin = l
   if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin || base.username || base.password) throw new Error('Invalid posting origin.');
   const form = new FormData();
   let bytes = 0;
-  for (const name of ['name', 'email', 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler']) {
+  for (const name of ['name', 'email', 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag']) {
     const value = fields[name] ?? '';
     if (typeof value !== 'string') throw new Error('Invalid posting form.');
     bytes += new TextEncoder().encode(value).length;

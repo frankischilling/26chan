@@ -114,6 +114,39 @@ pub async fn create_post_with_identity_keys(
     context: PostingContext,
     keys: PostIdentityKeys<'_>,
 ) -> Result<i64, StoreError> {
+    create_post_with_metadata(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context,
+        PostMetadata {
+            keys,
+            country_database: None,
+            flag: "",
+        },
+    )
+    .await
+}
+
+pub struct PostMetadata<'a> {
+    pub keys: PostIdentityKeys<'a>,
+    pub country_database: Option<&'a board_domain::country::CountryDatabase>,
+    /// Public choice, validated against the locked operator-owned board policy.
+    pub flag: &'a str,
+}
+
+pub async fn create_post_with_metadata(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    let keys = metadata.keys;
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let posted_at = context
@@ -127,6 +160,36 @@ pub async fn create_post_with_identity_keys(
         .await?
         .ok_or(StoreError::NotFound)?;
     board.check_attachment_allowed(parent, attachment.is_some())?;
+    let flag = if metadata.flag == "0" {
+        ""
+    } else {
+        metadata.flag
+    };
+    if !flag.is_empty()
+        && (!board.board_flags.iter().any(|enabled| enabled == flag)
+            || board_domain::country::board_flag(flag).is_none())
+    {
+        return Err(StoreError::Invalid("Invalid board flag."));
+    }
+    let country = if board.country_flags && flag.is_empty() {
+        let database = metadata
+            .country_database
+            .ok_or(StoreError::Invalid("Country flags are unavailable."))?;
+        let peer = context.peer.ok_or(StoreError::Invalid(
+            "Posting transport identity is unavailable.",
+        ))?;
+        Some(
+            database
+                .lookup(peer)
+                .map_err(|error| StoreError::Invalid(error.0))?,
+        )
+    } else {
+        None
+    };
+    sqlx::query("SELECT set_config('board.country', $1, true),set_config('board.country_name', $2, true),set_config('board.flag', $3, true)")
+        .bind(country.as_ref().map_or("", |value| value.code.as_str()))
+        .bind(country.as_ref().map_or("", |value| value.name.as_str()))
+        .bind(flag).execute(&mut *tx).await?;
     let peer = context.peer.map(|peer| peer.to_canonical().to_string());
     let own_reply = if parent > 0 {
         if let Some(peer) = &peer {
@@ -266,6 +329,16 @@ pub async fn create_post_with_identity_keys(
         .bind(poster_id.as_deref().unwrap_or(""))
         .execute(&mut *tx)
         .await?;
+    let count_context = keys
+        .poster_id
+        .zip(context.peer)
+        .map(|(key, peer)| key.count_context(slug, thread_id, peer))
+        .transpose()
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    sqlx::query("SELECT set_config('board.poster_fingerprint', $1, true),set_config('board.poster_epoch', $2, true)")
+        .bind(count_context.as_ref().map_or("", |value| value.fingerprint.as_str()))
+        .bind(count_context.as_ref().map_or("", |value| value.epoch.as_str()))
+        .execute(&mut *tx).await?;
     let identity = board_domain::identity::prepare(post_name, keys.tripcode)
         .map_err(|error| StoreError::Invalid(error.0))?;
     sqlx::query("SELECT set_config('board.post_trip', $1, true)")

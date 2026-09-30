@@ -69,9 +69,10 @@ scan to 40,000 elements and 10,000 labels. Disabling the feature or removing its
 root restores only the styles it still owns, preserving later changes by other
 features. No extra HTTP request is needed to color a label.
 
-The unique-poster counter remains unavailable. It must not be inferred from
-these truncated labels or rendered posts. Country flags and privileged capcodes
-remain separate unfinished compatibility requirements.
+[Private poster counts](private-poster-counts.md) use full, separately scoped
+fingerprints rather than truncated labels or rendered posts. Privileged
+capcodes remain unfinished. [Country and board flags](post-flags.md)
+now have their own saved metadata, policy and qualification.
 
 [Native ID controls](native-poster-id-controls.md) add click and keyboard
 highlighting plus delayed loaded-post counts, with explicit ownership and

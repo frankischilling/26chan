@@ -119,6 +119,20 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn flag(&self) -> Option<(String, &str)> {
+        if let (Some(code), Some(name)) = (&self.post.board_flag, &self.post.flag_name)
+            && board_domain::country::board_flag(code).is_some()
+        {
+            return Some((format!("bfl bfl-{}", code.to_ascii_lowercase()), name));
+        }
+        if let (Some(code), Some(name)) = (&self.post.country, &self.post.country_name)
+            && board_domain::country::country_code(code)
+        {
+            return Some((format!("flag flag-{}", code.to_ascii_lowercase()), name));
+        }
+        None
+    }
+
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
         crate::catalog::teaser::prepare(&self.lines, &board.slug, board.into())
     }

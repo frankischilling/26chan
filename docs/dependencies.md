@@ -1,5 +1,18 @@
 # Dependency and update inventory
 
+Country labels add pinned [maxminddb 0.30.3](https://docs.rs/maxminddb/0.30.3/maxminddb/)
+and locked ipnetwork 0.21.1. No existing registry versions change. The direct
+declaration disables default features; `mmap`, `simdutf8` and
+`unsafe-str-decode` are disabled. The reader handles an operator-supplied,
+bounded country database loaded once at startup, never upload bytes. Runtime
+lookups use verified peers, safe string decoding and a fixed display projection.
+Maintain the data source separately under its supplier's terms; application
+patches and data updates need requalification. See [flag operation and checks](post-flags.md).
+The dependency's decoder still contains internal unsafe indexed reads behind
+its bounds checks. Disabling optional unsafe string decoding does not make the
+dependency entirely safe Rust or prove it sound. First-party crates keep their
+unsafe-code prohibition, and the database remains trusted operator input.
+
 Single-frame GIF input adds pinned [gif 0.14.2](https://docs.rs/gif/0.14.2/gif/)
 and locked [weezl 0.1.12](https://docs.rs/weezl/0.1.12/weezl/) to the disposable
 guest. The direct declaration disables default features and enables `std`.

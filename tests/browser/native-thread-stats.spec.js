@@ -46,10 +46,10 @@ test('real thread stats use the typed coherent endpoint and ignore synthetic DOM
   const snapshot = await response.json();
   expect(Object.keys(snapshot).sort()).toEqual([
     'archived', 'board', 'bump_limited', 'closed', 'image_limited', 'images',
-    'page', 'replies', 'sticky', 'thread', 'version',
+    'page', 'replies', 'sticky', 'thread', 'unique_ips', 'version',
   ].sort());
   expect(snapshot).toMatchObject({ version: 1, board: 'demo', thread: owned.id, replies: 2, images: 0,
-    archived: false, sticky: false, closed: false });
+    archived: false, sticky: false, closed: false, unique_ips: 1 });
   expect(snapshot.page).toBeGreaterThanOrEqual(1);
   expect(snapshot.page).toBeLessThanOrEqual(1000);
   expect(typeof snapshot.bump_limited).toBe('boolean');
@@ -61,8 +61,9 @@ test('real thread stats use the typed coherent endpoint and ignore synthetic DOM
     await expect(node.locator('.ts-replies')).toHaveText('2');
     await expect(node.locator('.ts-images')).toHaveText('0');
     await expect(node.locator('.ts-page')).toHaveText(String(snapshot.page));
+    await expect(node.locator('.ts-ips')).toHaveText('1');
   }
-  await expect(page.locator('.ts-ips,[data-tip="Posters"]')).toHaveCount(0);
+  await expect(page.locator('.ts-ips')).toHaveCount(2);
 
   const refresh = page.waitForResponse(value => new URL(value.url()).pathname === owned.stats);
   await page.evaluate(() => {
@@ -84,6 +85,7 @@ test('stats default on, follow cross-tab settings, and switch between desktop an
 
   await page.setViewportSize({ width: 390, height: 800 });
   await expect(page.locator('.thread-stats')).toHaveCount(1);
+  await expect(page.locator('.thread-stats .ts-ips')).toHaveText('1');
   await expect(page.locator('.threadNav.mobile[data-watch-position="bottom-mobile"] + .thread-stats')).toHaveCount(1);
 
   await page.setViewportSize({ width: 1024, height: 768 });

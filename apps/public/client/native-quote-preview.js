@@ -1,5 +1,6 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
+import { isPostFlagToken } from './native-post-flags.js';
 import { PREVIEW_LIMITS, previewContext, updaterContext, validatePostTree, postLinkUrl, postMediaUrl } from './native-updater-snapshot.js';
 import { NativeQuotePreviewTransport, checkedQuotePreview } from './native-quote-preview-transport.js';
 
@@ -32,7 +33,7 @@ export function quotePreviewPosition(link, size, viewport, mobile = false) {
 }
 
 const localTags = {
-  article: ['class', 'id'], div: ['class', 'id'], span: ['class', 'tabindex', 'aria-label'],
+  article: ['class', 'id'], div: ['class', 'id'], span: ['class', 'tabindex', 'aria-label', 'title'],
   time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], img: ['src', 'alt', 'width', 'height', 'loading'],
 };
@@ -65,10 +66,11 @@ export function localQuoteTree(article, context, no, projection) {
     charge(tag + ' '.repeat(12));
     const attrs = {};
     for (const key of localTags[tag]) {
+      if (key === 'title' && !Array.from(node.classList).some(isPostFlagToken)) continue;
       const value = node.getAttribute(key);
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }
     }
-    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value)).join(' ');
+    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value)).join(' ');
     if (!attrs.class) delete attrs.class;
     if (!ids.has(attrs.id)) delete attrs.id;
     if (tag === 'img') {

@@ -4,7 +4,7 @@ Thread statistics display the status, reply and image counts, reached limits and
 
 The native client displays the fields in the same order: `Sticky` when applicable, then `Archived` or `Closed`, then replies, images, and the page number for a live thread. A count whose limit has been reached uses an `em` element and the corresponding public tooltip. Archived threads omit the page field and stop the page refresh timer. Desktop thread pages place copies in both desktop thread navigation rows. Mobile layout places one copy after the last mobile thread navigation row.
 
-Poster counts are intentionally absent. The local application does not expose a trusted unique-poster counter with the same semantics as the public `unique_ips` field. The client does not infer poster identity from names, IDs, IP-like values, rendered posts, hidden nodes, or cloned DOM. If a coherent poster counter is added later, it needs its own explicit server contract before the UI can display it.
+The optional `Posters` counter appears between images and page number when the server supplies a complete [private poster count](private-poster-counts.md). Historical, mixed-key and archived threads omit it. The client does not infer identity from names, truncated IDs, rendered posts, hidden nodes or cloned DOM.
 
 ## Stats response
 
@@ -32,7 +32,7 @@ The response is an exact version 1 JSON object:
 }
 ```
 
-`board` must match the requested lowercase board slug and `thread` must be its canonical positive decimal string. `replies` is an integer from 0 through 1000. `images` is an integer from 0 through `replies`. Status and limit fields are booleans. A live thread has a one-based integer `page` from 1 through 1000. An archived thread has `page: null`. A missing live thread returns HTTP 404.
+`board` must match the requested lowercase board slug and `thread` must be its canonical positive decimal string. `replies` is an integer from 0 through 1000. `images` is an integer from 0 through `replies`. Optional `unique_ips` is an integer from 1 through `replies + 1` and is allowed only on live threads; unavailable counts are absent, never null. Status and limit fields are booleans. A live thread has a one-based integer `page` from 1 through 1000. An archived thread has `page: null`. A missing live thread returns HTTP 404.
 
 The server computes the counts, thread flags, limit state, and page from one coherent database view. Reply and image counts exclude the opening post, matching the public ThreadStats counters. `bump_limited` uses the board bump policy. `image_limited` uses the public JSON image-limit policy, including its undead-thread behavior. The page rank uses the live board order of sticky threads first, then `bumped_at` descending, then thread ID descending, grouped by the board's `threads_per_page` value.
 
@@ -58,7 +58,7 @@ The module listens to the existing `boardThreadStateChanged` event, which the up
 
 ## Verification
 
-`tests/browser/native-thread-stats.test.mjs` covers canonical context validation, the exact response schema, rejection of poster-like extra fields, streamed byte limits, redirects, content type, single-flight admission, deadlines, and cancellation. `tests/browser/native-thread-stats-dom.test.mjs` covers desktop and mobile placement, status and limit emphasis, default-on settings, cross-lifecycle cleanup, archived polling shutdown, and preservation of the last good DOM after extra identity fields or partial JSON. `tests/browser/native-thread-stats.spec.js` exercises the real endpoint and page wiring, verifies that synthetic hidden DOM cannot alter counts, checks cross-tab settings and responsive placement, and verifies the thread remains usable with JavaScript disabled.
+`tests/browser/native-thread-stats.test.mjs` covers canonical context validation, the exact response schema including the optional count, rejection of unknown identity fields, streamed byte limits, redirects, content type, single-flight admission, deadlines, and cancellation. `tests/browser/native-thread-stats-dom.test.mjs` covers desktop and mobile placement, count removal, status and limit emphasis, default-on settings, cross-lifecycle cleanup, archived polling shutdown, and preservation of the last good DOM after invalid fields or partial JSON. `tests/browser/native-thread-stats.spec.js` exercises the real endpoint and page wiring, verifies that synthetic hidden DOM cannot alter counts, checks cross-tab settings and responsive placement, and verifies the thread remains usable with JavaScript disabled.
 
 The database integration checks IDs above JavaScript's safe-integer range,
 deleted replies, transaction visibility, sticky and undead policies, archives and

@@ -337,6 +337,8 @@ pub async fn quote(
 #[serde(deny_unknown_fields)]
 pub struct PostForm {
     #[serde(default)]
+    flag: String,
+    #[serde(default)]
     name: String,
     #[serde(default)]
     sub: String,
@@ -526,16 +528,20 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_identity_keys(
+    let id = board_store::create_post_with_metadata(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
         context,
-        board_store::PostIdentityKeys {
-            tripcode: state.tripcode_key.as_deref(),
-            poster_id: state.poster_id_key.as_deref(),
+        board_store::PostMetadata {
+            country_database: state.country_database.as_deref(),
+            flag: &form.flag,
+            keys: board_store::PostIdentityKeys {
+                tripcode: state.tripcode_key.as_deref(),
+                poster_id: state.poster_id_key.as_deref(),
+            },
         },
     )
     .await?;

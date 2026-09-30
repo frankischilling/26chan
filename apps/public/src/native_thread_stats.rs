@@ -13,6 +13,8 @@ struct Statistics {
     thread: String,
     replies: i64,
     images: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unique_ips: Option<i32>,
     sticky: bool,
     closed: bool,
     archived: bool,
@@ -45,6 +47,7 @@ pub(crate) async fn get(
         thread: source.id.to_string(),
         replies: source.replies,
         images: source.images,
+        unique_ips: source.unique_ips,
         sticky: source.sticky,
         closed: source.closed,
         archived: source.archived,

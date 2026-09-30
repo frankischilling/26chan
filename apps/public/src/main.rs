@@ -33,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             limits: settings.request_limits,
             proxy_uid: settings.public_proxy.as_ref().map(|proxy| proxy.uid()),
             tripcode_key: settings.tripcode_key.clone(),
+            country_database: settings.country_database.clone(),
             poster_id_key: settings.poster_id_key.clone(),
         },
     );

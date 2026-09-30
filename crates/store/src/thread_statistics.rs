@@ -6,6 +6,7 @@ pub struct ThreadStatistics {
     pub id: i64,
     pub replies: i64,
     pub images: i64,
+    pub unique_ips: Option<i32>,
     pub sticky: bool,
     pub closed: bool,
     pub archived: bool,
@@ -30,7 +31,7 @@ pub async fn thread_statistics(
     let result: ThreadStatistics = sqlx::query_as(
         "SELECT t.board,t.id,t.sticky,t.closed,t.permaage,t.undead,
                 (t.archived_at IS NOT NULL) AS archived,b.bump_limit,b.image_limit,
-                counts.replies,counts.images,
+                counts.replies,counts.images,content.unique_posters(t.board,t.id) AS unique_ips,
                 CASE WHEN t.archived_at IS NOT NULL THEN NULL ELSE
                   1 + (SELECT count(*) FROM content.visible_threads earlier
                     WHERE earlier.board=t.board AND NOT earlier.deleted AND earlier.archived_at IS NULL
@@ -47,6 +48,9 @@ pub async fn thread_statistics(
     ).bind(board).bind(id).fetch_optional(pool).await?.ok_or(StoreError::NotFound)?;
     if !(0..=1000).contains(&result.replies)
         || !(0..=result.replies).contains(&result.images)
+        || result.unique_ips.is_some_and(|count| {
+            i64::from(count) < 1 || i64::from(count) > result.replies + 1 || result.archived
+        })
         || result.bump_limit < 0
         || result.image_limit < 0
         || (!result.archived && !result.page.is_some_and(|page| (1..=1000).contains(&page)))
