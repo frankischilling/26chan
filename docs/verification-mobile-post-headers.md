@@ -41,6 +41,7 @@ fonts and zero-pixel comparison settings. Browser retries remain disabled.
 | `node node_modules/@playwright/test/cli.js test --config playwright.staff.config.js tests/browser/staff.spec.js` | The Linux WebAuthn, moderation, recovery and logout test passed |
 | Corrected filter asset checks and complete JavaScript suite | All three assets matched their pinned sources; all 394 tests passed again |
 | `node node_modules/@playwright/test/cli.js test tests/browser/native-reply-hiding.spec.js tests/browser/native-page-filters.spec.js` | All 25 Linux tests passed, including mobile View placement and desktop/mobile board stubs |
+| Corrected word-break, catalog-teaser, text-catalog and catalog-preview cases | All five Linux tests passed; JavaScript-disabled and Quick Reply word-break paths remain covered |
 
 The [first hosted run](https://github.com/frankischilling/26chan/actions/runs/36740994438)
 passed the full Rust workspace phase: 544 tests across 154 result groups, with
@@ -53,6 +54,14 @@ manual hiding to remain independent. Board-thread filter stubs are checked at
 desktop and mobile widths. The 394 JavaScript and 25 filter/hiding tests passed
 after this correction. Fresh exact-head hosted qualification is pending at this
 checkpoint; final results are recorded on the pull request before merge.
+
+The [second hosted run](https://github.com/frankischilling/26chan/actions/runs/36746795945)
+passed the full 544-test Rust phase and the corrected filter/hiding cases. Its
+later word-break browser case switched to 390px, then tried to click the hidden
+desktop reply link. The trace records that click without a completion event;
+the unchanged case reproduced locally. The selector now chooses the visible
+original header. Posting, stored formatting, API, catalog and Quick Reply
+assertions remain intact, as do the 30-second case limit and zero retries.
 
 An earlier local complete Rust run failed when a newly generated TLS
 certificate was reported as not yet valid. The unchanged focused proxy test
