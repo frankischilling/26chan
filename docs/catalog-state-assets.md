@@ -4,7 +4,8 @@
 catalog cards and controls. The public v1025 client names `filedeleted-res.gif`,
 `nofile.png` and `spoiler.png`. Public catalog CSS v705 names `sticky.gif` and
 `closed.gif`, with `@2x` variants at two device pixels per CSS pixel.
-[The asset manifest](public-catalog-assets.json) records the seven public URLs,
+[The asset manifest](public-catalog-assets.json) records the original seven public URLs
+and the later high-density deleted-file icon, with
 collection times, byte counts, SHA-256 hashes and dimensions. These are unchanged
 public static images, not project-created artwork or files from the excluded
 source checkout. No user posts, uploads, private source or production data were
@@ -20,24 +21,27 @@ closed indicators are 16×16 background icons over the thumbnail, using their
 state. The enclosing thumbnail link still opens the thread and retains its
 keyboard focus indicator.
 
-Seven literal GET/HEAD routes compile the release-owned bytes into the public
-application. There is no filesystem lookup, upload endpoint, configurable asset
+The initial slice added seven literal GET/HEAD routes that compile the
+release-owned bytes into the public application. Later fixed UI assets use the
+same route boundary. There is no filesystem lookup, upload endpoint, configurable asset
 URL, runtime download or privileged image parser. Responses use the matching
 PNG/GIF MIME, `nosniff`, and `public, max-age=0, must-revalidate`, without setting
 cookies. Unknown paths return 404 and writes return 405.
 
-The public image CSP names those seven exact paths plus the two existing theme
-gradients. It does not allow all same-origin images or the upstream static host.
+The public image CSP names the reviewed UI paths, including the theme gradients.
+It does not allow all same-origin images or the upstream static host.
 When development media is enabled, the separate configured media origin remains
-an additional source. Public scripts remain disabled. A spoiler or deleted file
+an additional source. Catalog controls use fixed local scripts. A spoiler or deleted file
 loads its UI image without requesting hidden or removed attachment bytes.
 Serving these fixed reviewed GIFs does not enable GIF uploads or original-file
 publication. Media decoding, storage grants and production disablement are
 unchanged.
 
-The board/thread spoiler details and deleted-file text are unchanged. Catalog
-reveal preferences, board-specific spoiler selection, menus, watchers, original
-teaser preprocessing and full page geometry remain incomplete under #6. An
+Board/thread presentation now uses the
+[fixed spoiler and deleted-file icons](file-presentation.md). Later catalog
+slices added reveal preferences, menus, watchers and bounded teaser preparation.
+Board-specific spoiler selection, remaining teaser normalization in #82 and
+full original-page geometry remain incomplete under #6. An
 unconfigured media origin still produces the explicit local "Image unavailable"
 state. No whole-site or all-browser parity is claimed.
 

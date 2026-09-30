@@ -188,3 +188,48 @@ passed on Windows against a fresh migrated and seeded owned PostgreSQL cluster:
 The public binary was prebuilt before the unchanged startup deadline.
 New-head hosted checks remain required before merge. No timeout, retry count,
 containment check, service authority or database migration was relaxed.
+
+## Persisted upload qualification
+
+Hosted run 36786313433 on `3251c06` passed Windows visuals and monitoring,
+then failed both persisted and native upload qualification. The Rust browser
+log identifies `public-upload.mjs:254`: the old assertion required zero file
+images after deletion, while the referenced deleted-file icon now remains.
+The native supervisor originally reported only its child-process failure.
+The assertions now require the fixed icon and its exact density source while
+continuing to forbid attachment thumbnails. The Quick Reply upload script also
+checks the fixed spoiler thumbnail, an explicit file click and the deleted icon
+instead of the earlier disclosure structure. Receipt replay, deleted API fields,
+reader revocation, no implicit spoiler fetch and storage cleanup remain tested.
+
+The native browser supervisor now reports only the fixed script name and numeric
+failure location. It does not emit captured response text or one-use capability
+values. Four subprocess tests cover bounded locations, missing/invalid module
+locations, successful output and invalid diagnostic script names. The media CI
+job runs these tests before native qualification; its permissions are unchanged.
+
+On September 30, a fresh owned Linux workspace and PostgreSQL 16 cluster passed:
+
+- `python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v`:
+  all four tests passed.
+- `cargo test -p board-public --features browser-tests --test upload_browser --locked`:
+  passed its six real browser flows, with synthetic approved pixels and zero
+  ignored cases, in 40.62 seconds. This test does not run a guest.
+- `bash scripts/test-media-intake.sh`: passed actual authenticated Firecracker
+  processing, seven nonroot public browser workflows, rejected JPEG/GIF inputs,
+  stream/resource deadlines, reader revocation and owned cleanup.
+- `bash scripts/test-media-intake.sh --interrupt`: passed cancellation and cleanup.
+- JavaScript syntax checks and `git diff --check`: passed.
+
+The native harness used Node 24.14.0, Chromium 151.0.7922.34, Rust 1.94.0,
+Firecracker 1.16.1, WSL2 kernel `5.15.153.1-microsoft-standard-WSL2` and systemd
+255. Its allowed-context controls were healthy. Two initial environment attempts
+stopped at private-directory traversal: PostgreSQL could not read bootstrap SQL
+under the operator home, and the browser could not reach the Node executable.
+A fresh workspace under `/tmp` and a traversable executable directory corrected
+those paths. Secret files and service isolation were unchanged. These are local
+development measurements, not production-host qualification.
+
+Fresh exact-head hosted checks remain required before PR #187 merges. This
+correction changes test expectations, failure diagnostics and stale scope notes;
+it adds no application or media authority.

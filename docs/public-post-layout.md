@@ -35,18 +35,20 @@ Neither check is an original rendered-page comparison or independent audit.
 Board and thread posts now use the measured desktop flow. Reply arrows are
 decorative and hidden from accessibility APIs. The OP attachment precedes the
 post header; reply and catalog attachment order is preserved. A shared Askama
-macro retains escaping, file-deleted markers, spoiler links without image
-requests, normalized/legacy thumbnails, lazy loading and separate-origin links.
+macro retains escaping, normalized/legacy thumbnails, lazy loading and
+separate-origin links. The later [file presentation](file-presentation.md)
+continuation adds fixed spoiler and deleted-file icons without requesting the
+attachment in those states.
 It renders at exactly one of the two mutually exclusive call sites per post.
 Posting, deletion/report forms and media authority are unchanged.
 
-At widths up to 600 pixels, images remain stacked and comments use the existing
-smaller margins. Reply width reserves space for arrows according to font size.
-These are explicit local adaptations, not measured original mobile behavior.
-Long filenames still wrap instead of using the public stylesheet's nowrap
-limit. Action forms clear floated images so they remain usable. Forms, catalog
-geometry, original client scripts and complete page geometry remain outside
-this change and unresolved under #6; production qualification remains under #5.
+The initial mobile layout stacked images below 600 pixels and wrapped long
+filenames. The later file continuation replaces those choices with independently
+measured filename cutoffs, nowrap headers and floated 125-pixel thumbnails at the
+480-pixel mobile boundary. Reply width reserves space for arrows according to
+font size, and action forms clear floats. Those later measurements are scoped
+to the recorded properties. Complete original-page geometry remains unresolved
+under #6; production qualification remains under #5.
 
 ## Review and regression history
 

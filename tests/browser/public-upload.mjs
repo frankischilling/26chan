@@ -251,7 +251,9 @@ try {
     await page.keyboard.press('Escape'); await page.setViewportSize({ width: 1280, height: 900 });
   }
   await screenshot('file-deleted');
-  assert.equal(await page.locator('.fileThumb img').count(), 0);
+  await expect(page.locator(`#p${post.no} .fileThumb img`)).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
+  await expect(page.locator(`#p${post.no} .fileThumb img`)).toHaveAttribute('srcset', '/static/catalog/filedeleted-res@2x.gif 2x');
+  assert.equal(await page.locator('.fileThumb img:not(.fileDeletedRes)').count(), 0);
   const removed = await page.request.get(mediaUrl.href, { headers: { 'If-None-Match': etag } });
   assert.equal(removed.status(), 404, 'deletion must override an old successful validator');
   assert.equal((await page.request.get(thumbnailUrl.href, { headers: { 'If-None-Match': thumbnail.headers().etag } })).status(), 404);
