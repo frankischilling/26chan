@@ -49,10 +49,21 @@ test('persisted IDs render, color, filter and update through actual public proje
       await page.setViewportSize({ width, height: 900 });
       expect(await page.locator(`#p${reply} .posteruid .hand`).evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
     }
+    const label = page.locator(`#p${thread} .posteruid .hand`);
+    await label.click();
+    await expect(label).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator(`#p${reply}`)).toHaveClass(/poster-id-highlight/);
+    await label.focus();
+    await expect(page.locator('#native-poster-id-tip')).toHaveText('2 posts by this ID');
     const added = await post(thread, 'Owned live reply');
     await page.locator('.threadNav.mobile a[data-cmd="update"]').first().click();
     await expect(page.locator(`#p${added} .posteruid .hand`)).toHaveText(id);
     await expect(page.locator(`#p${added} .posteruid .hand`)).toHaveCSS('border-radius', '6px');
+    await expect(page.locator(`#p${added}`)).toHaveClass(/poster-id-highlight/);
+    await label.focus();
+    await expect(page.locator('#native-poster-id-tip')).toHaveText('3 posts by this ID');
+    await label.press('Enter');
+    await expect(page.locator(`#p${reply}`)).not.toHaveClass(/poster-id-highlight/);
     await page.evaluate(id => {
       localStorage.setItem('4chan-settings', JSON.stringify({ filter: true, threadStats: false, IDColor: false }));
       localStorage.setItem('4chan-filters', JSON.stringify([{ type: 4, pattern: id, boards: '', active: true, auto: false, hide: true }]));

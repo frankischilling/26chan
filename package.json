@@ -23,7 +23,7 @@
     "test:stats": "npm run test:stats-core && playwright test tests/browser/native-thread-stats.spec.js",
     "test:expansion-core": "npm run check:native-thread-controls && node --test tests/browser/native-thread-expansion.test.mjs",
     "test:expansion": "npm run test:expansion-core && playwright test tests/browser/native-thread-expansion.spec.js",
-    "test:display-core": "node --test tests/browser/native-display.test.mjs tests/browser/native-poster-ids.test.mjs",
+    "test:display-core": "node --test tests/browser/native-display.test.mjs tests/browser/native-poster-ids.test.mjs tests/browser/native-poster-id-actions.test.mjs",
     "test:display": "npm run test:display-core && playwright test tests/browser/native-display.spec.js tests/browser/legacy-actions.spec.js",
     "test:linkification": "npm run check:native-filter && npm run test:linkification-core && playwright test tests/browser/native-linkification.spec.js",
     "test:linkification-core": "node --test tests/browser/native-linkification.test.mjs tests/browser/native-linkification-dom.test.mjs",

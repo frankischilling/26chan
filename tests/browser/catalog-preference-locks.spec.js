@@ -51,6 +51,25 @@ test('held shared lock keeps controls immediate and commits only the latest loca
   } finally { await other.close(); }
 });
 
+test('reset updates the catalog before its held-lock preference removal commits', async ({ page, context }) => {
+  await prepare(page);
+  await page.locator('#order-ctrl').selectOption('r');
+  await page.locator('#size-ctrl').selectOption('large');
+  await page.locator('#teaser-ctrl').selectOption('off');
+  const saved = { orderby: 'r', large: true, extended: false };
+  await expect.poll(() => stored(page)).toEqual(saved);
+  const other = await context.newPage();
+  await holdLock(other);
+  try {
+    await page.getByRole('link', { name: 'Reset', exact: true }).click();
+    await expect(page.locator('#threads')).toHaveClass('catalog extended-small');
+    expect(await stored(page)).toEqual(saved);
+    await releaseLock(other);
+    await expect.poll(() => stored(page)).toBeNull();
+    await expect(page.locator('#catalog-preference-status')).toBeHidden();
+  } finally { await other.close(); }
+});
+
 test('cross-tab restore cancels a queued save without replacing local display; restore event applies in place', async ({ page, context }) => {
   await prepare(page);
   await page.locator('#qf-box').fill('owned search');

@@ -17,7 +17,7 @@ test('catalog preferences save on changes and restore in a fresh tab without sto
   await expect(page.locator('#threads')).toHaveClass('catalog large');
   await page.locator('#qf-box').fill('private search [.*] <script>');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  expect(await stored(page)).toEqual(saved);
+  await expect.poll(() => stored(page)).toEqual(saved);
   const fresh = await context.newPage();
   let freshNavigations = 0;
   fresh.on('request', request => { if (request.isNavigationRequest() && request.frame() === fresh.mainFrame()) freshNavigations += 1; });
@@ -30,7 +30,7 @@ test('catalog preferences save on changes and restore in a fresh tab without sto
   await expect(fresh.locator('#threads')).toHaveClass('catalog large');
   await fresh.getByRole('link', { name: 'Reset', exact: true }).click();
   await expect(fresh.locator('#threads')).toHaveClass('catalog extended-small');
-  expect(await stored(fresh)).toBeNull();
+  await expect.poll(() => stored(fresh)).toBeNull();
   await fresh.goto(catalog);
   await expect(fresh).toHaveURL(new URL(catalog, fresh.url()).href);
   await expect(fresh.locator('#order-ctrl')).toHaveValue('alt');

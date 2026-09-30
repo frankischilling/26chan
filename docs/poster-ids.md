@@ -73,6 +73,10 @@ The unique-poster counter remains unavailable. It must not be inferred from
 these truncated labels or rendered posts. Country flags and privileged capcodes
 remain separate unfinished compatibility requirements.
 
+[Native ID controls](native-poster-id-controls.md) add click and keyboard
+highlighting plus delayed loaded-post counts, with explicit ownership and
+projection rules. These counts do not replace `unique_ips`.
+
 ## Verification
 
 `cargo test -p board-domain --lib poster_id --locked` checks key validation,

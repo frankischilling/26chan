@@ -254,3 +254,142 @@ export function mountNativePosterIds({ root, settings }) {
   watch(); refresh();
   return { refresh, destroy };
 }
+
+// Core v1128 toggles ID highlights; extension v1191 counts loaded ID headers.
+export function mountNativePosterIdActions({ root, settings, thread = false }) {
+  const document = root?.ownerDocument, window = document?.defaultView;
+  if (!document || !window || typeof settings !== 'function') return { refresh() {}, destroy() {} };
+  const attributes = new Map(), highlighted = new Set();
+  let labels = new Map(), selected = null, hovered = null, tooltip = null, timer = null, complete = true;
+  let destroyed = false, suspended = false, queued = false;
+  function own(element, name, value) {
+    let entries = attributes.get(element);
+    if (!entries) { entries = new Map(); attributes.set(element, entries); }
+    let entry = entries.get(name);
+    if (entry && element.getAttribute(name) !== entry.applied) return;
+    if (!entry) { entry = { previous: element.getAttribute(name), applied: value }; entries.set(name, entry); }
+    entry.applied = value;
+    if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+  }
+  function restore(element, name) {
+    const entries = attributes.get(element), entry = entries?.get(name);
+    if (!entry) return;
+    if (element.getAttribute(name) === entry.applied) {
+      if (entry.previous === null) element.removeAttribute(name);
+      else element.setAttribute(name, entry.previous);
+    }
+    entries.delete(name);
+    if (!entries.size) attributes.delete(element);
+  }
+  function restoreAll(element) {
+    for (const name of [...(attributes.get(element)?.keys() || [])]) restore(element, name);
+  }
+  function hideTip() {
+    window.clearTimeout(timer); timer = null;
+    if (hovered) restore(hovered, 'aria-describedby');
+    hovered = null; tooltip?.remove(); tooltip = null;
+  }
+  function tipAllowed(record) {
+    return complete && record && settings().disableAll !== true && (thread || record.section.classList.contains('tExpanded'));
+  }
+  function showTip() {
+    timer = null;
+    const record = labels.get(hovered);
+    if (!tipAllowed(record) || !hovered.isConnected) { hideTip(); return; }
+    let count = 0;
+    for (const candidate of labels.values()) if (candidate.id === record.id) ++count;
+    if (!tooltip) {
+      if (document.getElementById('native-poster-id-tip')) { hideTip(); return; }
+      tooltip = document.createElement('span'); tooltip.id = 'native-poster-id-tip';
+      tooltip.className = 'poster-id-tooltip'; tooltip.setAttribute('role', 'tooltip'); root.append(tooltip);
+      const described = hovered.getAttribute('aria-describedby');
+      own(hovered, 'aria-describedby', `${described ? `${described} ` : ''}${tooltip.id}`);
+    }
+    const text = `${count} post${count === 1 ? '' : 's'} by this ID`;
+    if (tooltip.textContent !== text) tooltip.textContent = text;
+    const box = hovered.getBoundingClientRect(), tip = tooltip.getBoundingClientRect();
+    tooltip.style.left = `${Math.max(0, Math.min(box.left, window.innerWidth - tip.width))}px`;
+    tooltip.style.top = `${Math.max(0, Math.min(box.bottom + 4, window.innerHeight - tip.height))}px`;
+  }
+  function refresh() {
+    if (destroyed || suspended) return;
+    if (!root.isConnected) { destroy(); return; }
+    const found = new Map(), posts = new Set(), walk = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT);
+    let element, nodes = 0;
+    complete = true;
+    while ((element = walk.nextNode())) {
+      if (++nodes > 40000 || found.size >= 10000) { complete = false; break; }
+      if (!element.matches('.posteruid > .hand') || !/^[+/0-9A-Za-z]{8}$/.test(element.textContent)) continue;
+      const info = element.closest('.postInfo'), post = info?.parentElement, section = post?.closest('.thread');
+      if (!post?.matches('.post') || !/^p[1-9][0-9]{0,18}$/.test(post.id)
+        || !post.parentElement?.matches('.postContainer') || !/^t[1-9][0-9]{0,18}$/.test(section?.id || '')
+        || posts.has(post.id)) continue;
+      posts.add(post.id); found.set(element, { id: element.textContent, post, section });
+      own(element, 'role', 'button'); own(element, 'tabindex', '0');
+      own(element, 'title', 'Highlight posts by this ID');
+      own(element, 'aria-pressed', String(element.textContent === selected));
+    }
+    for (const element of [...attributes.keys()]) if (!found.has(element)) restoreAll(element);
+    labels = found;
+    const matching = new Set([...labels.values()].filter(record => record.id === selected).map(record => record.post));
+    for (const post of highlighted) if (!matching.has(post)) { post.classList.remove('poster-id-highlight'); highlighted.delete(post); }
+    for (const post of matching) if (!post.classList.contains('poster-id-highlight')) {
+      post.classList.add('poster-id-highlight'); highlighted.add(post);
+    }
+    if (hovered && !tipAllowed(labels.get(hovered))) hideTip();
+    else if (tooltip) showTip();
+  }
+  function target(event) { return event.target?.closest?.('.posteruid > .hand'); }
+  function activate(event) {
+    const label = target(event) || event.target?.closest?.('.posteruid')?.querySelector(':scope > .hand');
+    const record = labels.get(label);
+    if (!record || suspended || destroyed) return;
+    if (event.type === 'keydown' && (!['Enter', ' '].includes(event.key) || event.repeat)) return;
+    if (event.type === 'click' && event.button !== 0) return;
+    event.preventDefault(); selected = selected === record.id ? null : record.id; refresh();
+  }
+  function over(event) {
+    const label = target(event);
+    if (suspended || destroyed || event.pointerType === 'touch' || !tipAllowed(labels.get(label)) || hovered === label) return;
+    hideTip(); hovered = label; timer = window.setTimeout(showTip, 500);
+  }
+  function out(event) {
+    if (target(event) === hovered && !hovered?.contains(event.relatedTarget)) hideTip();
+  }
+  function schedule() {
+    if (queued || destroyed || suspended) return;
+    queued = true; window.queueMicrotask(() => { queued = false; refresh(); });
+  }
+  const observer = new window.MutationObserver(schedule);
+  function watch() {
+    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true,
+      attributes: true, attributeFilter: ['class'] });
+  }
+  function hide(event) {
+    if (!event.persisted) { destroy(); return; }
+    suspended = true; observer.disconnect(); hideTip();
+  }
+  function show(event) { if (event.persisted && !destroyed) { suspended = false; watch(); refresh(); } }
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true; observer.disconnect(); hideTip();
+    for (const element of [...attributes.keys()]) restoreAll(element);
+    for (const post of highlighted) post.classList.remove('poster-id-highlight');
+    highlighted.clear(); labels.clear();
+    root.removeEventListener('click', activate); root.removeEventListener('keydown', activate);
+    root.removeEventListener('pointerover', over); root.removeEventListener('pointerout', out);
+    root.removeEventListener('focusin', over); root.removeEventListener('focusout', out);
+    window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);
+    window.removeEventListener('scroll', hideTip); window.removeEventListener('resize', hideTip);
+    document.removeEventListener('4chanSettingsSaved', schedule);
+    document.removeEventListener('4chanPreferencesRestored', schedule);
+  }
+  root.addEventListener('click', activate); root.addEventListener('keydown', activate);
+  root.addEventListener('pointerover', over); root.addEventListener('pointerout', out);
+  root.addEventListener('focusin', over); root.addEventListener('focusout', out);
+  window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
+  window.addEventListener('scroll', hideTip, { passive: true }); window.addEventListener('resize', hideTip);
+  document.addEventListener('4chanSettingsSaved', schedule); document.addEventListener('4chanPreferencesRestored', schedule);
+  watch(); refresh();
+  return { refresh, destroy };
+}

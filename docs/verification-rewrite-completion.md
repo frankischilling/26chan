@@ -397,7 +397,7 @@ posting tests and eleven Linux browser cases passed. Published `9cae33b` also
 completed all six hosted checks successfully in runs 36648832468, 36648832591
 and 36648832457. That result applies to `9cae33b`, not the additions below.
 
-The same broad PR now adds [poster IDs](poster-ids.md): a separate public key,
+The same broad PR now adds [poster IDs](poster-ids.md): a separate private deployment key,
 thread-scoped saved labels, API switches and fields, escaped HTML/staff headers,
 bounded updater/preview recipes, ID filters and default-on colors. Migration
 0039 preserves historical content and clocks, defaults ID boards to disabled,
@@ -492,3 +492,53 @@ manual updates, ID filters and disabling color without removing the label.
 Current-head hosted checks remain required before merge. Original server
 hashing and complete page parity remain unqualified. Production uploads stay
 disabled.
+
+## ID interactions and continuation CI failures
+
+The same integration adds the released public core's ID click selection and
+the extension's delayed loaded-post count. [The control notes](native-poster-id-controls.md)
+record keyboard access, quote-highlight ownership, projection exclusions,
+bounded scans and cleanup. No new dependency or script route is introduced.
+
+`npm run test:display-core` passed all thirteen cases on Windows, including
+three actual-Chromium ID interaction cases. The combined twelve persisted
+Linux browser cases passed again with click selection, keyboard clearing,
+loaded-post counts and automatic highlighting of an actual updater reply.
+The first BFCache test tried to focus a label that remained focused after the
+simulated restoration; explicitly leaving and reentering focus exercises the
+new focus event. The focused three-case run and the combined suite then passed.
+
+Continuation build 36657100871 completed on `556f0ce` with passing native
+media/operations, audit and monitoring results. Linux passed the Rust and
+database suites, then stopped with 55 passing browser cases and one failure:
+the catalog Reset test read storage before its asynchronous Web Lock mutation
+committed. Its UI assertion already passed. The test now polls for the exact
+saved and cleared states; a held-lock reset case verifies immediate UI changes,
+unchanged storage while locked and removal after release.
+
+The Windows job recorded `net::ERR_NO_BUFFER_SPACE` for the catalog preference
+script and failed the resulting live/server thumbnail dimension comparison.
+Artifact 11072899087 was downloaded and its two failure screenshots inspected.
+They confirm small live thumbnails beside large server thumbnails. This is
+specific missing-script evidence; no cause for every older #139/#142 failure
+is claimed. A rerun request while Linux was active was rejected by GitHub.
+No rerun started from that request.
+
+`pwsh -NoProfile -File scripts/windows-visual-resources.ps1 -Phase local-control`
+returned TCP-state, memory and selected process aggregates on the local Windows
+host. New CI snapshots and a bounded theme-failure collector gather those
+counts without endpoints, command lines or private browser state. They do not
+change resource limits, network settings, retries, assertions or baselines.
+The ignored owned failure probe returned the intended exit 1 and printed the
+bounded host aggregates through the actual browser failure collector. Its
+snapshot contained counts and memory only. It is not a committed failing test.
+All 150 Windows theme cases passed in the ordinary run with the new controls,
+diagnostics and existing zero-pixel comparisons. Formatting and diff checks
+passed. Both catalog preference files passed all nine Linux browser cases,
+including the held-lock reset control:
+
+```sh
+node node_modules/@playwright/test/cli.js test tests/browser/catalog-preferences.spec.js tests/browser/catalog-preference-locks.spec.js
+```
+
+Current-head hosted results remain required before merge.

@@ -340,7 +340,9 @@ jobs:
         run: cargo test -p board-public --bin board-public --test startup --locked
       - name: Verify source linkification spans and finite browser DOM
         shell: pwsh
-        run: npm run test:linkification-core
+        run: |
+          ./scripts/windows-visual-resources.ps1 -Phase before-browser
+          npm run test:linkification-core
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core
@@ -396,7 +398,11 @@ jobs:
         run: npm run test:media-visual
       - name: Run referenced theme preferences and desktop/mobile visuals
         shell: pwsh
-        run: npm run test:themes
+        env:
+          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
+        run: |
+          ./scripts/windows-visual-resources.ps1 -Phase before-themes
+          npm run test:themes
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
@@ -410,3 +416,7 @@ jobs:
           retention-days: 3
           compression-level: 0
           include-hidden-files: false
+      - name: Record final Windows visual resource aggregates
+        if: always()
+        shell: pwsh
+        run: ./scripts/windows-visual-resources.ps1 -Phase after-visual
