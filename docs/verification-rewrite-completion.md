@@ -679,8 +679,39 @@ response and includes the assigned deadline and observed database clock in a
 failure message. Its one-second expiry setting, success/failure assertions,
 healthy transport and publication checks are unchanged. The focused approval
 suite then passed; this does not establish the original failure's cause or claim
-a production fix. The full workspace rerun and expanded current-head hosted
-checks remain in progress.
+a production fix. Subsequent full workspace runs passed the expiry case.
+
+A subsequent local full run passed the lease case but failed the exact native
+board-fragment comparison. Some edited Windows working templates still used
+CRLF, while the committed files and imported fragment used LF. Normalizing the
+working copies to the committed LF format made the unchanged comparison pass.
+No committed template content or comparison assertion changed.
+
+Build 36671291200 on `d070b8d` passed Windows visuals and media/operations;
+monitoring 36671291253 and advisory run 36671291208 also passed. Its application
+job failed the asset/CSP regression because the test's complete approved-image
+list lacked the two newly pinned flag sprites. The regression now includes their
+explicit paths and verifies hashes, sizes, MIME, GET/HEAD behavior, write denial
+and absence from the API listener. The complete fixed-source CSP assertion and
+the rejection of broad image-source authority remain.
+
+The local full run then reached the flag browser and failed Playwright's late
+receipt-body read with `Network.getResponseBody`. The response callback now
+collects the body immediately and retains the HTTP 200, persisted choice, title,
+dimension, updater and error assertions. The focused flag browser and all eight
+asset-route tests passed afterward, followed by workspace Clippy with warnings
+denied. Neither failure was turned into a retry or accepted baseline. The final
+full workspace run passed 536 tests, zero failed and zero ignored, with every
+feature enabled and the lockfile enforced. Expanded current-head hosted checks
+still need to pass before merging.
+
+The long-lived owned local database had applied migration 0041 from an early
+CRLF working copy. Its recorded checksum exactly matched those bytes; the
+published migration has unchanged LF bytes. After verifying the owned cluster,
+role, schema and both checksums, only that disposable fixture's checksum row was
+aligned with the published bytes. No schema, content or timestamps changed.
+The actual migration command then passed. The published migration was not
+edited; fresh bootstrap and hosted migration checks use its canonical bytes.
 
 See [flag behavior and operation](post-flags.md) and [reference provenance](public-country-flags-reference.json).
 No production database, external post or worker connectivity claim is added by

@@ -62,9 +62,12 @@ name and Options field, with private identity suffixes excluded from storage.
 on September 30 after all six exact-head hosted checks passed. Its merge tree
 matches the checked head. The next continuation adds
 [private poster counts](private-poster-counts.md), including optional API fields,
-native statistics and active-context cleanup. Its verification record tracks
-local results separately from the next PR's hosted checks. Country flags,
-capcodes and complete local appearance/behavior matching remain unfinished.
+native statistics and active-context cleanup. It also adds [country and board
+flags](post-flags.md), saved through text and attachment posting and rendered
+in public JSON, pages and bounded native projections. Its verification record
+tracks local results separately from PR #184's hosted checks. Capcodes, original
+private geolocation/capture rules and complete local appearance/behavior matching
+remain unfinished.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|

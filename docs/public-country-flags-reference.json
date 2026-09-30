@@ -160,5 +160,26 @@
     "Original private geolocation provider and algorithm.",
     "Original geographic capture and retention rules when a board flag is selected.",
     "Complete rendered-page and mobile flag visual parity."
+  ],
+  "local_base": "/static/flags/",
+  "assets": [
+    {
+      "name": "flags.css",
+      "mime": "text/css",
+      "bytes": 13533,
+      "sha256": "ad7ae35164ba7ad7f9e41462caecba6a45d4febfad8964847ed205f6cbb60394"
+    },
+    {
+      "name": "flags.8.png",
+      "mime": "image/png",
+      "bytes": 81692,
+      "sha256": "93f6f7e925589fc8b1c4559e5bfa20f5feba51cdc236a3bdf5d71c09cb7f5084"
+    },
+    {
+      "name": "board-flags.2.png",
+      "mime": "image/png",
+      "bytes": 4294,
+      "sha256": "9113004702a9760757de6ef36aadbe4b4ff3caa62c91e4377ddce6c952703296"
+    }
   ]
 }

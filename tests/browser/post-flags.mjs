@@ -32,9 +32,11 @@ try {
   await live.locator('#quickReply #qrFlag').selectOption('UN');
   await live.locator('#qrCom').fill('Owned selected board flag');
   await live.locator('#quickReply input[name=pwd]').fill('owned-flags-browser-password');
-  const posted = live.waitForResponse(response => new URL(response.url()).pathname === `/${board}/imgboard.php`);
+  const posted = live.waitForResponse(response => new URL(response.url()).pathname === `/${board}/imgboard.php`)
+    .then(async response => ({ status: response.status(), receipt: await response.json() }));
   await live.locator('#quickReply input[type=submit]').click();
-  const receipt = await (await posted).json(); assert.ok(receipt.pid);
+  const result = await posted; assert.equal(result.status, 200);
+  const receipt = result.receipt; assert.ok(receipt.pid);
   const flag = live.locator(`#pi${receipt.pid} .bfl-un`); await flag.waitFor();
   assert.equal(await flag.getAttribute('title'), 'United Nations');
   assert.equal(await flag.evaluate(node => getComputedStyle(node).width), '16px');
