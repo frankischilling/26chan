@@ -1,5 +1,6 @@
 import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
+import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-capcodes.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
@@ -11,10 +12,10 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title'],
-  time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
-  label: ['for'], button: [], img: ['src', 'alt', 'width', 'height', 'loading'],
+  label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 function require(value) { if (!value) throw new TypeError('invalid-snapshot'); }
 function exactKeys(value, keys) {
@@ -82,10 +83,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       // that size. Preserve those valid links within the aggregate wire budget.
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
       charge(value);
-      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token)));
+      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token)));
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(postLinkUrl(value, context));
-      if (key === 'src') require(postMediaUrl(value, context));
+      if (key === 'src') require(postMediaUrl(value, context) || postIdentityUrl(value));
       if (key === 'action') require([`/${context.board}/delete`, `/${context.board}/report`].includes(value));
       if (key === 'method') require(value === 'post');
       if (key === 'target') require(value === '_blank');
@@ -108,7 +109,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         } else require(value === 'true');
       }
     }
-    if (Object.hasOwn(node.attrs, 'title') || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
+    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img'].includes(node.tag))
+      || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
         && Object.keys(node.attrs).sort().join(',') === 'class,title'
         && node.children.length === 0 && typeof node.attrs.title === 'string'
@@ -141,6 +143,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     for (const child of node.children) visit(child, depth + 1, form);
   }
   visit(tree, 0);
+  validateCapcodeTree(tree, no);
   require(tree.tag === 'article' && tree.attrs.id === `pc${no}`
     && tree.attrs.class === `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
   for (const prefix of ['pc', 'p', 'pi', 'm']) require(ids.has(prefix + no));

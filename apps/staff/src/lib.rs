@@ -124,13 +124,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
+        .route("/post", get(handlers::posting).post(handlers::post_message))
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))
         .route("/login/start", post(handlers::login_start))
         .route("/login/finish", post(handlers::login_finish))
         .route("/logout", post(handlers::logout))
         .route("/moderate", post(handlers::moderate))
-        .layer(DefaultBodyLimit::max(32768))
+        .layer(DefaultBodyLimit::max(262144))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             handlers::request_limits,

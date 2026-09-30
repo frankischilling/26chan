@@ -7,6 +7,8 @@ import { FILTER_LIMITS } from '../../apps/public/client/native-filter-limits.js'
 import { parseQuotePreviewSnapshot } from '../../apps/public/client/native-updater-snapshot.js';
 
 const origin = 'https://board.example', mediaOrigin = 'https://media.example';
+const identityAssets = JSON.parse(await readFile(new URL('../../docs/public-capcode-reference.json', import.meta.url), 'utf8'));
+const identityImages = new Map(identityAssets.assets.map(asset => [`${identityAssets.local_base}${asset.name}`, asset]));
 function post(no, inside, thread = '100') {
   const type = no === thread ? 'op' : 'reply';
   return `<article class="postContainer ${type}Container" id="pc${no}"><div class="post ${type}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><a class="postNum" href="/demo/thread/${thread}#p${no}">No.${no}</a></div><blockquote class="postMessage" id="m${no}">${inside}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><input type="password" name="password" id="delete${no}" autocomplete="off" required><button>Delete</button></form></details></div></article>`;
@@ -32,8 +34,8 @@ test('isolated DOM quote preview contracts', async t => {
   const browser = await chromium.launch({ headless: true });
   try {
     async function setup({ mobile = false, width = 1000, height = 700, remote = false, handler,
-      currentSource = false, touch = false, storageSettings = false, inlineFirst = false } = {}) {
-      const context = await browser.newContext({ viewport: { width, height },
+      currentSource = false, touch = false, storageSettings = false, inlineFirst = false, density = 1 } = {}) {
+      const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: density,
         ...(touch ? { isMobile: true, hasTouch: true,
           userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
         } : {}),
@@ -70,6 +72,11 @@ test('isolated DOM quote preview contracts', async t => {
         }
         if (url.origin === origin && url.pathname === '/demo/thread/100') {
           await route.fulfill({ contentType: 'text/html', body: fixture }); return;
+        }
+        if (url.origin === origin && identityImages.has(url.pathname)) {
+          requests.push({ url: url.href, kind: 'identity' });
+          await route.fulfill({ contentType: 'image/gif', body: await readFile(new URL(`../../apps/public${url.pathname}`, import.meta.url)) });
+          return;
         }
         requests.push({ url: url.href });
         if (url.origin === 'https://tracker.example') await route.fulfill({ contentType: 'text/plain', body: 'healthy fixture control' });
@@ -221,6 +228,54 @@ test('isolated DOM quote preview contracts', async t => {
           optionOff: false, disableAll: false, liveDisabled: false, requests: 0 });
       } finally { await context.close(); }
     });
+
+    const staffBadges = [
+      ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
+      ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators', 'adminicon', 'This user is a board Administrator.'],
+      ['Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers', 'developericon', 'This user is a board Developer.'],
+      ['Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers', 'managericon', 'This user is a board Manager.'],
+      ['Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder', 'foundericon', "This user is the board's Founder."],
+    ];
+    for (const currentSource of [false, true]) {
+      for (const [label, nameClass, group, title, icon, iconTitle] of staffBadges) {
+        await t.test(`${currentSource ? 'source' : 'release'} local ${label} previews retain their fixed badge and density asset`, async () => {
+          const { page, context, requests } = await setup({ currentSource, density: 2 });
+          try {
+            await page.evaluate(({ label, nameClass, group, title, icon, iconTitle }) => {
+              const info = document.getElementById('pi101'); document.getElementById('p101').style.top = '1300px';
+              const block = document.createElement('span'); block.className = `nameBlock ${nameClass}`;
+              const name = document.createElement('span'); name.className = 'name'; name.textContent = 'Owned <staff>';
+              const badge = document.createElement('strong'); badge.className = `capcode hand ${group}`;
+              badge.title = title; badge.textContent = `## ${label}`;
+              // Controls attached to the original must not enter the inert copy.
+              badge.setAttribute('role', 'button'); badge.tabIndex = 0; badge.setAttribute('aria-pressed', 'true');
+              const image = document.createElement('img'); image.className = 'identityIcon';
+              image.src = `/static/identity/${icon}.gif`;
+              if (icon !== 'foundericon') image.srcset = `/static/identity/${icon}@2x.gif 2x`;
+              image.alt = image.title = iconTitle; image.width = image.height = 16;
+              block.append(name, ' ', badge, ' ', image); info.querySelector('.name').replaceWith(block);
+              window.over();
+            }, { label, nameClass, group, title, icon, iconTitle });
+            await page.waitForFunction(() => document.querySelector('#quote-preview .identityIcon')?.naturalWidth === 16);
+            const expectedPath = `/static/identity/${icon}${icon === 'foundericon' ? '' : '@2x'}.gif`;
+            const result = await page.evaluate(() => {
+              const preview = document.getElementById('quote-preview'), badge = preview.querySelector('.capcode');
+              const image = preview.querySelector('.identityIcon');
+              return { name: preview.querySelector('.name').textContent, label: badge.textContent, title: badge.title,
+                controls: [...badge.attributes].map(attr => attr.name).sort(), width: image.width, height: image.height,
+                currentSrc: image.currentSrc, alt: image.alt, pending: window.pending.length,
+                originalPressed: document.querySelector('#pi101 .capcode').getAttribute('aria-pressed') };
+            });
+            assert.deepEqual(result, { name: 'Owned <staff>', label: `## ${label}`, title,
+              controls: ['class', 'title'], width: 16, height: 16, currentSrc: origin + expectedPath,
+              alt: iconTitle, pending: 0, originalPressed: 'true' });
+            assert.ok(requests.some(request => request.kind === 'identity' && request.url === origin + expectedPath));
+            assert.deepEqual(requests.filter(request => request.kind !== 'identity'
+              && ![`${origin}/favicon.ico`, `${origin}/static/themes/fade.png`].includes(request.url)), []);
+          } finally { await context.close(); }
+        });
+      }
+    }
 
     for (const currentSource of [false, true]) {
       for (const [classes, title] of [['flag flag-gb', 'United Kingdom'], ['bfl bfl-pr', 'Pirate']]) {

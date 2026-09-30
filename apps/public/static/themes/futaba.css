@@ -8,6 +8,7 @@
 
 /* Pinned public watcher images; only release-owned URLs are permitted. */
 :root {
+  --capcode-highlight-edge: var(--reply-edge);
   --watcher-icon-family: futaba;
   --watcher-header-line-height: 1;
   --thread-nav-margin: 10px;

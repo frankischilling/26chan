@@ -87,5 +87,26 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     if cross {
         return Err(AppError::Forbidden);
     }
+    let posting: bool = match expected {
+        "board_auth" => {
+            sqlx::query("SELECT public_capcode FROM staff_identity.accounts LIMIT 0")
+                .execute(pool)
+                .await?;
+            sqlx::query_scalar("SELECT has_function_privilege(current_user,'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content' AND p.proname='consume_staff_post_authority' AND has_function_privilege(current_user,p.oid,'EXECUTE'))").fetch_one(pool).await?
+        }
+        "board_staff" => {
+            sqlx::query("SELECT capcode FROM content.posts LIMIT 0")
+                .execute(pool)
+                .await?;
+            sqlx::query("SELECT id FROM content.visible_threads LIMIT 0")
+                .execute(pool)
+                .await?;
+            sqlx::query_scalar("SELECT has_function_privilege(current_user,'content.consume_staff_post_authority(bytea,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='staff_identity' AND p.proname='issue_post_authority' AND has_function_privilege(current_user,p.oid,'EXECUTE'))").fetch_one(pool).await?
+        }
+        _ => false,
+    };
+    if !posting {
+        return Err(AppError::Forbidden);
+    }
     Ok(())
 }

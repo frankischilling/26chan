@@ -5,6 +5,7 @@ use url::Url;
 #[derive(Clone)]
 pub struct Config {
     pub origin: String,
+    pub public_origin: String,
     pub media_origin: String,
     pub bind: SocketAddr,
     pub production: bool,
@@ -86,9 +87,14 @@ impl Config {
             "MONITOR_DATABASE_URL",
             "INTAKE_DATABASE_URL",
             "PUBLIC_INTAKE_TOKEN",
+            "TRIPCODE_KEY",
+            "POSTER_ID_KEY",
+            "COUNTRY_DATABASE",
         ] {
             if std::env::var_os(key).is_some_and(|s| !s.is_empty()) {
-                return Err("Staff runtime received an unrelated database credential");
+                return Err(
+                    "Staff runtime received an unrelated database credential or identity source",
+                );
             }
         }
         let production = match std::env::var("STAFF_MODE").as_deref() {
@@ -141,6 +147,7 @@ impl Config {
         }
         Ok(Self {
             origin,
+            public_origin: origins[0].as_string(),
             media_origin: origins[2].as_string(),
             bind,
             production,

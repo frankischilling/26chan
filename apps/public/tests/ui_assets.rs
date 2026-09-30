@@ -72,11 +72,12 @@ async fn catalog_script_is_release_owned_and_not_an_image_source() {
 
 #[tokio::test]
 async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
-    let manifests: [serde_json::Value; 4] = [
+    let manifests: [serde_json::Value; 5] = [
         serde_json::from_str(include_str!(
             "../../../docs/public-country-flags-reference.json"
         ))
         .unwrap(),
+        serde_json::from_str(include_str!("../../../docs/public-capcode-reference.json")).unwrap(),
         serde_json::from_str(include_str!("../../../docs/public-catalog-assets.json")).unwrap(),
         serde_json::from_str(include_str!("../../../docs/public-watcher-assets.json")).unwrap(),
         serde_json::from_str(include_str!("../../../docs/public-updater-assets.json")).unwrap(),
@@ -106,7 +107,7 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
         let mut sources =
             format!("img-src {origin}/static/themes/fade.png {origin}/static/themes/fade-blue.png");
         for (path, asset) in &assets {
-            if path.starts_with("/static/flags/")
+            if (path.starts_with("/static/flags/") || path.starts_with("/static/identity/"))
                 && asset["mime"].as_str().unwrap().starts_with("image/")
             {
                 sources.push_str(&format!(" {origin}{path}"));
@@ -122,6 +123,7 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
         }
         for (path, asset) in &assets {
             if !path.starts_with("/static/flags/")
+                && !path.starts_with("/static/identity/")
                 && asset["mime"].as_str().unwrap().starts_with("image/")
             {
                 sources.push_str(&format!(" {origin}{path}"));

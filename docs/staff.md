@@ -1,6 +1,6 @@
 # Staff authentication and moderation
 
-The separate `board-staff` application enrolls and authenticates passkeys, displays reports, and applies audited moderation. Accounts and roles are provisioned with the offline `staff-operator` CLI. There is no password, recovery-code login, public bootstrap route, or runtime test authentication switch.
+The separate `board-staff` application enrolls and authenticates passkeys, displays reports, creates [staff-badged text posts](staff-capcodes.md), and applies audited moderation. Accounts and roles are provisioned with the offline `staff-operator` CLI. There is no password, recovery-code login, public bootstrap route, or runtime test authentication switch.
 
 ## Local operation
 
@@ -23,7 +23,7 @@ target/debug/staff-operator.exe recover alice .local/alice-recovery/invitation.t
 target/debug/staff-operator.exe revoke alice
 ```
 
-Use a private channel to deliver enrollment material. Recovery deletes prior credentials, sessions, outstanding ceremonies and invitations before committing the replacement invitation. Revocation disables the account and deletes the same records. Role changes revoke sessions. Online staff cannot change their own roles.
+Use a private channel to deliver enrollment material. Recovery deletes prior credentials, sessions, outstanding ceremonies and invitations before committing the replacement invitation. Revocation disables the account and deletes the same records. Role changes clear the assigned public badge and revoke sessions. The operatorâ€™s `capcode` command assigns an allowed badge and also revokes sessions. Online staff cannot change their own roles.
 
 Start the staff runtime in a fresh shell containing only its two runtime database credentials:
 

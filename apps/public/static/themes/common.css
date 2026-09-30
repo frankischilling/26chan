@@ -27,6 +27,12 @@ hr, .thread, .boardDirectory article { border-color: var(--edge); }
 .subject { color: var(--subject); }
 .name { color: var(--name); }
 .postertrip { color: var(--name); }
+.identityIcon { margin-bottom: -3px; width: 16px; height: 16px; }
+.nameBlock.capcodeAdmin .name, .nameBlock.capcodeAdmin .capcode { color: #f00 !important; }
+.nameBlock.capcodeMod .name, .nameBlock.capcodeMod .capcode { color: var(--capcode-mod, #800080) !important; }
+.nameBlock.capcodeDeveloper .name, .nameBlock.capcodeDeveloper .capcode { color: #0000f0 !important; }
+.nameBlock.capcodeManager .name, .nameBlock.capcodeManager .capcode { color: #ff0080 !important; }
+.highlightPost:not(.op) { background: var(--capcode-highlight, #f0d6d6) !important; border-color: var(--capcode-highlight-edge, #d69595) !important; }
 .quote { color: var(--quote); }
 .quotelink { color: var(--quote-link); }
 .quotelink:hover { color: var(--quote-hover); }

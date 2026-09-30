@@ -4,12 +4,12 @@ import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 const binary = process.platform === 'win32' ? '.exe' : '';
-function run(name, args, input) {
+function run(name, args, input, expected = 0) {
   const result = spawnSync(path.resolve(`target/debug/${name}${binary}`), args, {
     encoding: 'utf8', timeout: 15_000, input,
     env: { MIGRATION_DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PATH: process.env.PATH, SystemRoot: process.env.SystemRoot },
   });
-  expect(result.status, `Synthetic helper ${name} failed`).toBe(0);
+  expect(result.status, `Synthetic helper ${name} returned an unexpected status`).toBe(expected);
   return result.stdout.trim();
 }
 function fixture(command, board, input) { const value = run('examples/browser-fixture', [command, board], input); return value ? JSON.parse(value) : null; }
@@ -82,6 +82,33 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(expiration.expired).toBe(1);
     const expiredChallenge = await page.evaluate(async body => (await fetch('/login/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, currentAssertion);
     expect(expiredChallenge).toBe(401);
+    const staffThreadUrl = `http://127.0.0.1:3000/${board}/thread/${data.thread}`;
+    run('staff-operator', ['capcode', board, 'founder'], undefined, 1);
+    expect(fixture('inspect', board).sessions).toBe(1);
+    expect((await page.request.get('/reports')).status()).toBe(200);
+    const beforeStaffPost = await page.request.get(staffThreadUrl + '.json');
+    await page.goto(`/post?board=${board}&thread=${data.thread}`);
+    await expect(page.getByLabel('Highlight administrator post')).toHaveCount(0);
+    await page.getByLabel('Name', { exact: true }).fill('Owned <staff>');
+    await page.getByLabel('Comment', { exact: true }).fill('Script-free staff notice <script>harmless</script>');
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
+    await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
+    const moderatorPost = new URL(page.url()).searchParams.get('posted');
+    await expect(page.getByRole('link', { name: 'Open public post' })).toHaveAttribute('href', `${staffThreadUrl}#p${moderatorPost}`);
+    const changedStaffPost = await page.request.get(staffThreadUrl + '.json', { headers: { 'If-None-Match': beforeStaffPost.headers().etag } });
+    expect(changedStaffPost.status()).toBe(200);
+    const persistedModerator = (await changedStaffPost.json()).posts.find(post => String(post.no) === moderatorPost);
+    expect(persistedModerator.capcode).toBe('mod'); expect(persistedModerator.name).toBe('Owned <staff>');
+    expect(persistedModerator.com).not.toContain('<script>'); expect(persistedModerator.id).toBeUndefined();
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+    const publicStaffPage = await context.newPage(), publicStaffErrors = [];
+    publicStaffPage.on('pageerror', error => publicStaffErrors.push(error.message));
+    await publicStaffPage.goto(staffThreadUrl);
+    const moderatorIcon = publicStaffPage.locator(`#p${moderatorPost} .identityIcon`);
+    await expect.poll(() => moderatorIcon.evaluate(image => image.complete && image.naturalWidth)).toBe(16);
+    await expect(publicStaffPage.locator(`#p${moderatorPost} .capcode`)).toHaveText('## Mod');
+    await page.goto('/reports');
     const report = page.locator(`#report-${data.report}`);
     await expect(report).toContainText('Review <b>text</b>');
     expect(await report.locator('b').count()).toBe(0);
@@ -156,6 +183,33 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     run('staff-operator', ['role', board, 'admin']);
     expect((await page.request.get('/reports')).status()).toBe(401);
     await login();
+    run('staff-operator', ['capcode', board, 'manager']);
+    expect((await page.request.get('/reports')).status()).toBe(401);
+    await login(); await page.goto(`/post?board=${board}&thread=${data.thread}`);
+    await expect(page.getByLabel('Highlight administrator post')).toHaveCount(0);
+    run('staff-operator', ['capcode', board, 'admin']);
+    expect((await page.request.get('/reports')).status()).toBe(401);
+    await login(); await page.goto(`/post?board=${board}&thread=${data.thread}`);
+    await page.getByLabel('Name', { exact: true }).fill('Owned administrator');
+    await page.getByLabel('Comment', { exact: true }).fill(`Administrator reply >>${moderatorPost}`);
+    await page.getByLabel('Highlight administrator post').check();
+    await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
+    await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
+    const adminPost = new URL(page.url()).searchParams.get('posted');
+    await publicStaffPage.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
+    await expect(publicStaffPage.locator(`#p${adminPost}`)).toHaveClass(/highlightPost/);
+    await expect(publicStaffPage.locator(`#p${adminPost} .capcode`)).toHaveText('## Admin');
+    await expect.poll(() => publicStaffPage.locator(`#p${adminPost} .identityIcon`).evaluate(image => image.complete && image.naturalWidth)).toBe(16);
+    await publicStaffPage.locator(`#p${moderatorPost}`).evaluate(post => { post.hidden = true; });
+    await publicStaffPage.locator(`#m${adminPost} a.quotelink`).hover();
+    await expect(publicStaffPage.locator('#quote-preview .capcode')).toHaveText('## Mod');
+    await expect.poll(() => publicStaffPage.locator('#quote-preview .identityIcon').evaluate(image => image.complete && image.naturalWidth)).toBe(16);
+    await expect(publicStaffPage.locator('#quote-preview')).not.toHaveText(/Post with staff badge/);
+    expect(publicStaffErrors).toEqual([]);
+    await publicStaffPage.close();
+    const persistedAdmin = (await (await page.request.get(staffThreadUrl + '.json')).json()).posts.find(post => String(post.no) === adminPost);
+    expect(persistedAdmin.capcode).toBe('admin_highlight');
+    await page.goto('/reports');
     // Both controls are ordinary CSRF-protected forms, including without JS.
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
     await report.getByRole('button', { name: 'Enable permaage', exact: true }).click();
@@ -232,7 +286,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect((await page.request.get(publicUrl, { headers: { 'If-None-Match': oldEtag } })).status()).toBe(404);
     const persisted = fixture('inspect', board);
     expect(persisted.states).toEqual([[false, false, true]]);
-    expect(persisted.audit).toEqual(['close', 'reopen', 'sticky', 'unsticky', 'permasage', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
+    expect(persisted.audit).toEqual(['staff-post', 'close', 'reopen', 'sticky', 'unsticky', 'permasage', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);

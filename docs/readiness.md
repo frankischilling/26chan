@@ -60,12 +60,16 @@ name and Options field, with private identity suffixes excluded from storage.
 
 [PR #183](https://github.com/frankischilling/26chan/pull/183) merged this batch
 on September 30 after all six exact-head hosted checks passed. Its merge tree
-matches the checked head. The next continuation adds
+matches the checked head. [PR #184](https://github.com/frankischilling/26chan/pull/184)
+merged its counts and flag continuation after all six checks passed on `687c785`;
+its merge tree also matches that checked head. The continuation adds
 [private poster counts](private-poster-counts.md), including optional API fields,
 native statistics and active-context cleanup. It also adds [country and board
 flags](post-flags.md), saved through text and attachment posting and rendered
 in public JSON, pages and bounded native projections. Its verification record
-tracks local results separately from PR #184's hosted checks. Capcodes, original
+tracks local results separately from hosted checks. [Staff text badges](staff-capcodes.md)
+now have a separate authenticated posting flow and local qualification; their
+current-head hosted checks remain required. Staff attachment badges, original
 private geolocation/capture rules and complete local appearance/behavior matching
 remain unfinished.
 

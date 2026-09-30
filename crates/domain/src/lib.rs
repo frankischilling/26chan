@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod capcode;
 pub mod country;
 pub mod identity;
 pub mod poster_id;

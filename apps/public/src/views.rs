@@ -119,6 +119,12 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
+        self.post
+            .capcode
+            .as_deref()
+            .and_then(board_domain::capcode::Capcode::parse)
+    }
     pub fn flag(&self) -> Option<(String, &str)> {
         if let (Some(code), Some(name)) = (&self.post.board_flag, &self.post.flag_name)
             && board_domain::country::board_flag(code).is_some()

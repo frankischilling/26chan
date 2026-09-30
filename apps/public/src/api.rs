@@ -147,6 +147,9 @@ fn post_json(
     if let Some(trip) = &post.post.trip {
         value["trip"] = json!(trip);
     }
+    if let Some(capcode) = &post.post.capcode {
+        value["capcode"] = json!(capcode);
+    }
     if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
         value["country"] = json!(code);
         value["country_name"] = json!(name);

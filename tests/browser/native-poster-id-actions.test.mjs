@@ -5,6 +5,9 @@ import { chromium, expect } from '@playwright/test';
 
 const post = (no, id) => `<article class="postContainer"><div class="post reply" id="p${no}"><div class="postInfo"><span class="posteruid">(ID: <span class="hand">${id}</span>)</span></div><blockquote class="postMessage">Synthetic post</blockquote></div></article>`;
 
+const staffPost = (no, label = 'Mod', nameClass = 'capcodeMod', group = 'id_mod', title = 'Highlight posts by Moderators') =>
+  `<article class="postContainer"><div class="post reply" id="p${no}"><div class="postInfo"><span class="nameBlock ${nameClass}"><span class="name">Owned staff</span> <strong class="capcode hand ${group}" title="${title}">## ${label}</strong></span></div><blockquote class="postMessage">Synthetic staff post</blockquote></div></article>`;
+
 async function fixture(thread, action) {
   const origin = 'https://id-actions.example';
   const source = await readFile(new URL('../../apps/public/static/native-display.v1.js', import.meta.url), 'utf8');
@@ -111,5 +114,44 @@ test('index tooltips require an expanded thread and omit incomplete bounded coun
     });
     await page.mouse.move(0, 0); await first.hover(); await page.clock.runFor(550); await expect(tip).toHaveCount(0);
     await first.click(); await expect(page.locator('#p1')).toHaveClass(/poster-id-highlight/);
+  });
+});
+
+test('staff labels highlight their finite groups without ID tooltips or preview controls', async () => {
+  await fixture(true, async page => {
+    await page.evaluate(html => document.getElementById('t1').insertAdjacentHTML('beforeend', html),
+      staffPost(900) + staffPost(901) + staffPost(902, 'Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators')
+      + staffPost(903, 'Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder')
+      + staffPost(904, 'Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers')
+      + staffPost(905, 'Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers'));
+    const first = page.locator('#p900 .capcode'), admin = page.locator('#p902 .capcode');
+    await expect(first).toHaveAttribute('role', 'button'); await expect(first).toHaveAttribute('tabindex', '0');
+    await first.click();
+    await expect(page.locator('#p900')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p901')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p1')).not.toHaveClass(/poster-id-highlight/);
+    await first.press('Enter'); await expect(page.locator('#p900')).not.toHaveClass(/poster-id-highlight/);
+    await admin.press(' ');
+    await expect(page.locator('#p902')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p903')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p904')).not.toHaveClass(/poster-id-highlight/);
+    await page.evaluate(() => document.getElementById('p902').classList.add('highlightPost'));
+    await admin.hover(); await page.waitForTimeout(600);
+    await expect(page.locator('#native-poster-id-tip')).toHaveCount(0);
+    await expect(admin).toHaveAttribute('title', 'Highlight posts by Administrators');
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+    await expect(page.locator('#p903')).toHaveClass(/poster-id-highlight/);
+    await page.locator('#p904 .capcode').click();
+    await expect(page.locator('#p904')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p902')).not.toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p902')).toHaveClass(/highlightPost/);
+    await page.locator('#p905 .capcode').click();
+    await expect(page.locator('#p905')).toHaveClass(/poster-id-highlight/);
+    await page.evaluate(() => controller.destroy());
+    await expect(first).not.toHaveAttribute('role', 'button');
+    await expect(first).toHaveAttribute('title', 'Highlight posts by Moderators');
+    await expect(page.locator('#p905')).not.toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p902')).toHaveClass(/highlightPost/);
   });
 });

@@ -1,5 +1,6 @@
 .prettyprint { background-color: rgba(150, 150, 150, .2); border-color: rgba(130, 130, 130, .1); }
 :root {
+  --capcode-mod: #ff6600;
   --settings-edge: rgba(0, 0, 0, 0.2);
   --paper: #eeeeee; --ink: #333333; --panel: #dddddd; --edge: #cccccc;
   --link: #ff6600; --hover: #ff3300; --quote-link: #ff6600;

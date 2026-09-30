@@ -589,6 +589,8 @@ dependencies = [
  "board-http",
  "board-media",
  "board-observe",
+ "board-public",
+ "board-store",
  "chrono",
  "http-body-util",
  "openssl",
