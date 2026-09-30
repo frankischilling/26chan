@@ -49,14 +49,20 @@ limit. Quick Reply is 24,377 bytes within its 32,768-byte limit. Their source
 guards retain fixed imports, approved source files and pinned dependencies.
 
 The broad Windows theme suite passed 156 of 158 scenarios before baseline
-review. The remaining two style-preference scenarios passed with the seven
-reviewed captures: four serif screenshots remove post-number underlines to
-match the pinned desktop CSS, and three desktop sans-serif screenshots change
-a few pixels in the adjacent Reply link. Splitting the number anchors advances
-that link by 1/64 pixel; restoring the single anchor reproduces the three old
-screenshots byte for byte. All seven diff images and captures were reviewed
-before copying those baselines. Browser pins, zero retries and zero-pixel
-tolerances are unchanged.
+review. The remaining two style-preference scenarios passed after review.
+All 57 media scenarios, ten error-state scenarios, three board/catalog scenarios
+and six archive scenarios also passed.
+
+Ten captures were reviewed individually. Four serif screenshots remove
+post-number underlines to match the pinned desktop CSS. The other six
+theme/board/archive captures change a few pixels in the adjacent Reply,
+backlink or View thread text. Splitting the number anchors advances those
+elements by 1/64 pixel; restoring the single anchor reproduces all six old
+screenshots byte for byte. The first hosted Windows run found the board
+capture's 15-pixel mismatch; its diff image matched the local reproduction.
+The archive review found two further 11-pixel mismatches. Each diff and actual
+image was inspected before copying its baseline. Browser pins, zero retries
+and zero-pixel tolerances are unchanged.
 
 ```sh
 cargo test -p board-public --all-features --test post_number_links --locked --offline
@@ -70,8 +76,10 @@ npx playwright test --config playwright.themes.config.js tests/themes/post-heade
 ## Remaining qualification and hosted state
 
 The final persisted mobile-prefill regression passed after narrowing the reveal
-guard. Hosted qualification and the matching-head merge have not yet been
-recorded for this branch. Local results above do not substitute for those checks.
+guard. [PR #186](https://github.com/frankischilling/26chan/pull/186) contains this
+batch. Its first hosted Windows run stopped at the reviewed board capture;
+the final-head qualification and matching-head merge remain pending. Local
+results above do not substitute for those checks.
 
 The preceding staff-posting batch merged in
 [PR #185](https://github.com/frankischilling/26chan/pull/185) as
