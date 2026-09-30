@@ -62,7 +62,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
       const checked = optionChecked?.(key, initial);
       input.checked = (typeof checked === 'boolean' ? checked
-        : (['threadHiding', 'threadUpdater', 'threadExpansion', 'threadStats', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime'].includes(key) ? initial[key] !== false : initial[key] === true))
+        : (['threadHiding', 'threadUpdater', 'threadExpansion', 'threadStats', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime', 'IDColor'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
@@ -181,6 +181,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       if (typeof openCustomCSS === 'function') {
         customCSS.parentElement.parentElement.append(' [', link('custom-css-edit', 'Edit', source => openCustomCSS(source)), ']');
       }
+      option(imageCategory, 'IDColor', 'Color user IDs', 'Assign colors to user IDs on boards that use them');
       option(imageCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
       option(imageCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
       const global = node('ul');

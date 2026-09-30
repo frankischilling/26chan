@@ -22,7 +22,7 @@ The rewrite has a finite `catalog-settings` format: `orderby` is one of `alt`, `
 
 The public payload also has a `catalogFilters` field. The rewrite has no current `catalog-filters` consumer or validator; catalog filtering uses the validated `4chan-filters` format instead. Generated exports therefore omit `catalogFilters`, and incoming payloads that contain it are rejected with an explicit message. No conversion between the two formats is guessed.
 
-The v1191 defaults include `IDColor`, `forceHTTPS`, and `unmuteWebm`. They are preserved as boolean compatibility values, but this version does not activate those features. The review marks them as inactive compatibility values. In particular, a transferred `forceHTTPS` value does not relax the rewrite's HTTPS policy.
+The v1191 defaults include `forceHTTPS` and `unmuteWebm`. They are preserved as boolean compatibility values, but this version does not activate those features. `IDColor` is active for [poster IDs](poster-ids.md). The review marks them as inactive compatibility values. In particular, a transferred `forceHTTPS` value does not relax the rewrite's HTTPS policy.
 
 Quick Reply accepts both the rewrite's finite `{left, top}` coordinates and the public client's bounded CSS-coordinate form, such as `right: 20px; top: 10%;`. The latter passes through the same coordinate parser as movable navigation. Only numeric pixel or percentage offsets are used; arbitrary CSS is rejected. Opening the panel converts offsets for the current viewport and keeps the panel within its edges.
 

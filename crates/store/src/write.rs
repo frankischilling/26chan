@@ -84,6 +84,36 @@ pub async fn create_post_with_context_and_key(
     context: PostingContext,
     tripcode_key: Option<&board_domain::identity::SecureKey>,
 ) -> Result<i64, StoreError> {
+    create_post_with_identity_keys(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context,
+        PostIdentityKeys {
+            tripcode: tripcode_key,
+            poster_id: None,
+        },
+    )
+    .await
+}
+
+/// Deployment keys stay outside request fields and transport identity.
+pub struct PostIdentityKeys<'a> {
+    pub tripcode: Option<&'a board_domain::identity::SecureKey>,
+    pub poster_id: Option<&'a board_domain::poster_id::PosterIdKey>,
+}
+
+pub async fn create_post_with_identity_keys(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+    keys: PostIdentityKeys<'_>,
+) -> Result<i64, StoreError> {
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let posted_at = context
@@ -218,7 +248,25 @@ pub async fn create_post_with_context_and_key(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let identity = board_domain::identity::prepare(post_name, tripcode_key)
+    let poster_id = if board.user_ids {
+        let key = keys
+            .poster_id
+            .ok_or(StoreError::Invalid("Poster IDs are unavailable."))?;
+        let peer = context
+            .peer
+            .ok_or(StoreError::Invalid("Poster identity is unavailable."))?;
+        Some(
+            key.label(slug, thread_id, peer)
+                .map_err(|error| StoreError::Invalid(error.0))?,
+        )
+    } else {
+        None
+    };
+    sqlx::query("SELECT set_config('board.poster_id', $1, true)")
+        .bind(poster_id.as_deref().unwrap_or(""))
+        .execute(&mut *tx)
+        .await?;
+    let identity = board_domain::identity::prepare(post_name, keys.tripcode)
         .map_err(|error| StoreError::Invalid(error.0))?;
     sqlx::query("SELECT set_config('board.post_trip', $1, true)")
         .bind(identity.trip.as_deref().unwrap_or(""))

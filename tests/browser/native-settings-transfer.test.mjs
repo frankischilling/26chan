@@ -74,11 +74,11 @@ test('public v1191 default settings export preserves inactive compatibility bool
   const transfer = buildSettingsTransfer(key => key === '4chan-settings' ? publicDefaultSettingsRaw : null);
   assert.equal(transfer.status, 'ok');
   assert.equal(transfer.payload.settings, publicDefaultSettingsRaw);
-  assert.deepEqual(transfer.inactiveCompatibility.sort(), ['IDColor', 'forceHTTPS', 'unmuteWebm']);
+  assert.deepEqual(transfer.inactiveCompatibility.sort(), ['forceHTTPS', 'unmuteWebm']);
   const parsed = parseSettingsTransferHash(`#cfg=${transfer.encoded}`);
   assert.equal(parsed.status, 'ok');
   assert.deepEqual(parsed.review.settings.filter(setting => setting.inactiveCompatibility).map(setting => setting.key).sort(),
-    ['IDColor', 'forceHTTPS', 'unmuteWebm']);
+    ['forceHTTPS', 'unmuteWebm']);
 });
 
 test('source Quick Reply coordinates restore within the current viewport without interpreting arbitrary CSS', () => {
@@ -267,7 +267,7 @@ test('export dialog is inert, readonly and canonical while hostile filter text r
   const url = await field.inputValue();
   assert.ok(url.startsWith(`${origin}/demo/#cfg=`));
   assert.equal(await dialog.locator('img, script').count(), 0);
-  assert.match(await dialog.locator('.settingsTransferCompatibility').textContent(), /IDColor, forceHTTPS, unmuteWebm/);
+  assert.match(await dialog.locator('.settingsTransferCompatibility').textContent(), /forceHTTPS, unmuteWebm/);
   assert.equal(await dialog.getByRole('link', { name: 'Restore Settings', exact: true }).getAttribute('href'), url);
   assert.deepEqual(requests, []);
   const decoded = parseSettingsTransferHash(new URL(url).hash);

@@ -140,6 +140,7 @@ jobs:
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked
           python3 -m unittest discover -s tests/media -p test_runner.py
+          python3 -m unittest discover -s tests/media -p test_identity_environment.py
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/debug"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
@@ -223,6 +224,8 @@ jobs:
         run: sudo bash scripts/test-forced-anonymous-migration.sh
       - name: Upgrade tripcodes while preserving historical content and runtime grants
         run: sudo bash scripts/test-tripcode-migration.sh
+      - name: Upgrade existing content with scoped poster IDs
+        run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
         run: sudo bash scripts/test-word-break-migration.sh
       - name: Upgrade existing content for attachment-only posts

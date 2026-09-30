@@ -10,7 +10,7 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeQuickReply } from './native-quick-reply.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
-import { mountNativeDisplay } from './native-display.v1.js';
+import { mountNativeDisplay, mountNativePosterIds } from './native-display.v1.js';
 import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
@@ -344,6 +344,7 @@ function start(context) {
         : !sourceMobileLayout(mobile.matches, readNeverMobile())) : undefined,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
+  const nativePosterIds = catalog ? null : mountNativePosterIds({ root: document.body, settings: configuration });
   const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
     settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
   });
@@ -910,6 +911,7 @@ function start(context) {
     nativeEmbeds?.refresh();
     nativeCustomCSS?.refresh();
     nativeDisplay?.refresh();
+    nativePosterIds?.refresh();
     nativeLayout?.refresh();
     nativeNavigation?.refresh();
     nativeExpansion?.refresh();

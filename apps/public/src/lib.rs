@@ -12,6 +12,7 @@ mod native_board_snapshot;
 mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
+mod post_preferences;
 mod post_receipts;
 mod posting_form;
 mod posting_response;
@@ -38,6 +39,7 @@ pub struct AppState {
     limits: Arc<security::Limits>,
     media: Option<intake::IntakeClient>,
     proxy_uid: Option<u32>,
+    poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
 }
 
@@ -47,6 +49,7 @@ pub struct PublicRouterOptions {
     pub media: Option<board_config::PublicMediaSettings>,
     pub limits: board_config::PublicRequestLimits,
     pub proxy_uid: Option<u32>,
+    pub poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     pub tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
 }
 
@@ -110,6 +113,7 @@ pub fn observed_routers_with_proxy(
             media,
             limits,
             proxy_uid,
+            poster_id_key: None,
             tripcode_key: None,
         },
     )
@@ -185,6 +189,7 @@ fn routers_with_proxy(
             media,
             limits,
             proxy_uid,
+            poster_id_key: None,
             tripcode_key: None,
         },
     )
@@ -198,6 +203,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         limits,
         proxy_uid,
         tripcode_key,
+        poster_id_key,
     } = options;
     assert!(
         !production || media.is_none(),
@@ -205,6 +211,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
     );
     let state = AppState {
         tripcode_key,
+        poster_id_key,
         pool,
         origin,
         production,

@@ -32,6 +32,11 @@ Initially closed thread pages [omit ordinary posting forms](native-posting-visib
 while retaining the quote alert. Quick Reply cannot create a posting editor
 without a server-rendered source form.
 
+[Remembered display preferences](post-preferences.md) restore Name and Options
+into the ordinary form before Quick Reply copies its current fields. They leave
+drafts intact. Tripcode suffixes and deletion passwords are excluded from
+storage under E-013 and E-011.
+
 On media-enabled board and thread pages, Quick Reply also exposes the source
 file control as `#qrFile`, with the source's accepted image types and spoiler
 checkbox. The pinned public v1191 extension asset uses the same visible file
@@ -185,8 +190,7 @@ post and deletion workflows with the response-body capture fix, including the
 subsequent tripcode integration. These checkpoints do not replace CI for the
 final PR head.
 
-Cooldown/automatic posting, identity-cookie
-remembering, Pass/captcha, drawing and full rendered-source
+Cooldown/automatic posting, Pass/captcha, drawing and full rendered-source
 comparison remain unfinished. The help lists the source's Global and built-in
 Quick Reply shortcut groups; exact help geometry remains unqualified. These are
 known source features, not evidence of unknown original behavior. Deployment

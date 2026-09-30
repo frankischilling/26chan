@@ -205,6 +205,7 @@ mod tests {
                 )),
                 media: None,
                 proxy_uid: None,
+                poster_id_key: None,
                 tripcode_key: None,
             };
             assert_eq!(
@@ -229,6 +230,7 @@ mod tests {
             )),
             media: None,
             proxy_uid: None,
+            poster_id_key: None,
             tripcode_key: None,
         };
         let accepted = format!("https://example.test/{}", "\u{0800}".repeat(70_000));

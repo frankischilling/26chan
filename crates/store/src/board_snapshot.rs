@@ -21,6 +21,7 @@ pub struct CatalogReply {
     pub id: i64,
     pub name: String,
     pub trip: Option<String>,
+    pub poster_id: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -74,7 +75,7 @@ pub async fn board_snapshot(
     // The count and this bounded batch share the same repeatable-read snapshot.
     let mut catalog_replies: BTreeMap<i64, CatalogReply> = if replies == Some(0) {
         let latest: Vec<i64> = counts.iter().filter_map(|entry| entry.2).collect();
-        sqlx::query_as::<_, CatalogReply>("SELECT thread_id,id,name,trip,created_at FROM content.posts WHERE board=$1 AND id=ANY($2) AND NOT deleted")
+        sqlx::query_as::<_, CatalogReply>("SELECT thread_id,id,name,trip,poster_id,created_at FROM content.posts WHERE board=$1 AND id=ANY($2) AND NOT deleted")
             .bind(slug).bind(latest).fetch_all(&mut *tx).await?
             .into_iter().map(|reply| (reply.thread_id, reply)).collect()
     } else {

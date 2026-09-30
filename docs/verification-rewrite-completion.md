@@ -331,6 +331,50 @@ while it was shutting down; the next launch succeeded after both Windows and
 Linux listener inventories showed the port was free. Complete hosted CI for
 the final published commit remains required before merge.
 
+## Remembered posting preferences
+
+[Posting preferences](post-preferences.md) add bounded display-name and Options
+restoration to the same integration branch. The new code passed:
+
+```sh
+cargo test -p board-public --lib post_preferences --locked
+cargo test -p board-public --test post_preferences --test posting_json --test post_identities --all-features --locked --offline -- --nocapture
+cargo clippy -p board-public --all-targets --all-features --locked --offline -- -D warnings
+node --test tests/browser/native-quick-reply.test.mjs tests/browser/native-post-preferences.test.mjs
+python scripts/check-media-parser-dependencies.py
+```
+
+The runs passed three new Rust unit tests, four persisted tests across the
+three integration files and 18 combined JavaScript cases. The production
+fixture first failed with the correct missing-transport-identity denial. Its
+owned connection identity now supplies the real posting context. Two older
+JSON assertions initially assumed every cookie was a short-lived receipt;
+they now retain the exact receipt scopes and separately assert both display
+cookies and the total count. All four persisted tests then passed together.
+
+The Windows browser command is:
+
+```sh
+node node_modules/@playwright/test/cli.js test tests/browser/post-preferences.spec.js tests/browser/post-tracking-cookie-policy.spec.js tests/browser/quick-reply.spec.js
+```
+
+All eleven cases passed in one unretried Windows run, including full-Chromium
+cookie rejection with healthy controls and a restart after rejection. Teardown
+waited until the owned test server was stopped manually. Its exact executable
+path was checked before stopping it; the runner then returned zero. Subsequent
+process inspection found no surviving server, Cargo, browser runner or Python
+supervisor, and no owned cookie-policy profile remained. The seven existing
+Quick Reply cases retain navigation, update, notification and draft assertions.
+
+The page bundle was built and checked at 23,013 bytes before the workspace
+permission profile changed. A subsequent check was denied while esbuild read
+ancestor directories. An explicit empty TypeScript configuration did not fix
+that denial and was removed. WSL execution, process inspection and GitHub CLI
+account access were also denied by the managed profile; `.git` is now read-only.
+The preference source remains uncommitted. Published `9cae33b` and its hosted
+runs were started before that change; their current results are unverified.
+These access limits do not establish passing CI or authorize a merge bypass.
+
 ## Remaining acceptance work
 
 The catalog and server-link review retained #82 and #165 where public evidence
@@ -343,3 +387,67 @@ deployed identities and network/storage rules, hardware-authenticator and
 operator qualification, recovery evidence and independent review remain launch
 requirements in #5 and [readiness](readiness.md). Production uploads remain
 disabled. This integration is a development checkpoint, not a production release.
+
+## Resumed access and poster IDs
+
+The September 29 continuation restored access to the Git worktree, GitHub CLI,
+WSL and deterministic asset builder. The earlier uncommitted posting-preference
+changes were preserved and checked again. The 18 JavaScript cases, four persisted
+posting tests and eleven Linux browser cases passed. Published `9cae33b` also
+completed all six hosted checks successfully in runs 36648832468, 36648832591
+and 36648832457. That result applies to `9cae33b`, not the additions below.
+
+The same broad PR now adds [poster IDs](poster-ids.md): a separate public key,
+thread-scoped saved labels, API switches and fields, escaped HTML/staff headers,
+bounded updater/preview recipes, ID filters and default-on colors. Migration
+0039 preserves historical content and clocks, defaults ID boards to disabled,
+constrains labels and denies direct public mutation. No dependency version,
+screenshot baseline, pixel tolerance, media decoding boundary or production
+enablement changed.
+
+Executed checks on the continuation:
+
+```sh
+cargo fmt --all -- --check
+cargo check -p board-public --all-targets --all-features --locked --offline
+cargo test -p board-domain --lib poster_id --locked --offline
+cargo test -p board-public --test startup --locked --offline
+cargo test -p board-public --test poster_ids --test post_preferences --test post_identities --all-features --locked --offline -- --nocapture
+cargo clippy -p board-public --all-targets --all-features --locked --offline -- -D warnings
+BOARD_TEST_PORT=55439 bash scripts/test-poster-id-migration.sh
+node --test tests/browser/native-poster-ids.test.mjs
+node --test tests/browser/native-display.test.mjs tests/browser/native-settings-transfer.test.mjs
+node scripts/build-native-filter.mjs --check
+node scripts/build-native-quick-reply.mjs --check
+python scripts/check-media-parser-dependencies.py
+```
+
+The domain vector test, ten public startup tests, three persisted identity and
+preference tests, two ID-color tests and 24 existing display/settings cases
+passed. Focused public Clippy passed with warnings denied. The disposable
+migration passed historical-content, timestamp, default, label, transaction
+and actual runtime permission checks, then removed its database. Both generated
+bundles matched their sources; the media dependency guard passed.
+
+The first color test used incorrect hand-calculated expected bytes. An independent
+polynomial calculation confirmed `AAAAAAAA` as RGB `(65,62,240)` and `12345678`
+as `(145,14,0)`, each with white text; the corrected fixed-vector tests pass.
+The first persistence request included an unrecognized `id` field and received
+the intended HTTP 422 form rejection before reaching the new handler. Ordinary
+requests omit that field, retain spoofed-address headers as negative controls
+and pass. The first migration-shell invocation encountered Windows line endings;
+normalizing its new shell file to the repository's LF convention resolved it.
+
+Review found that the scoped attachment owner needed `SELECT(user_ids)` for
+the new trigger. Migration 0039 grants only that public setting. Its fresh
+disposable migration exercise passed again with the grant. The unpublished
+development copy had already been applied with Windows line endings; the
+owned development database was corrected only after its exact previous
+checksum was verified, applying the narrow grant and recording the canonical
+LF file. No published migration or deployed database was rewritten. A separate
+runner regression passed its healthy job-dispatch control and four identity-key
+environment denials before any configuration read or job execution.
+
+Persisted browser, updated staff and final hosted checks remain pending until
+their actual results are recorded. Original server hashing and complete page
+parity remain unqualified. Production uploads stay disabled.

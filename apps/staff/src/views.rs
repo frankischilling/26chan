@@ -38,6 +38,7 @@ mod tests {
             reason: "<b>untrusted report</b>".into(),
             name: "<em>name</em>".into(),
             trip: Some("<em>untrusted trip</em>".into()),
+            poster_id: Some("<b>untrusted ID</b>".into()),
             subject: "<i>subject</i>".into(),
             comment_format: 0,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
@@ -64,6 +65,7 @@ mod tests {
         assert!(!html.contains("<i>"));
         assert!(html.contains("class=\"postertrip\""));
         assert!(html.contains("untrusted trip"));
+        assert!(html.contains("untrusted ID"));
         assert!(
             html.contains("&#60;b&#62;comment&#60;/b&#62;")
                 || html.contains("&lt;b&gt;comment&lt;/b&gt;")
@@ -87,6 +89,7 @@ mod tests {
                 reason: "Owned preview".into(),
                 name: "Anonymous".into(),
                 trip: None,
+                poster_id: None,
                 subject: String::new(),
                 comment_format: format,
                 comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b]"
@@ -130,6 +133,7 @@ mod tests {
                 reason: "Synthetic full preview".into(),
                 name: "Anonymous".into(),
                 trip: None,
+                poster_id: None,
                 subject: String::new(),
                 comment: comment.clone(),
                 comment_format: format,

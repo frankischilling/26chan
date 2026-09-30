@@ -227,7 +227,7 @@ def main():
         parser.error('run only as an operator on an owned disposable Linux host')
     if os.environ.get('APP_ENV') == 'production':
         parser.error('this qualification runner is disabled in production')
-    if any(name.endswith(('DATABASE_URL', 'TOKEN', 'SECRET', 'PASSWORD', 'ACCESS_KEY'))
+    if any(name.endswith(('DATABASE_URL', 'TOKEN', 'SECRET', 'PASSWORD', '_KEY'))
            for name in os.environ):
         parser.error('remove credential-bearing environment variables')
     try:

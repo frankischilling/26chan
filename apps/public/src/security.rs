@@ -358,6 +358,7 @@ mod tests {
                 limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
                 media: None,
                 proxy_uid: None,
+                poster_id_key: None,
                 tripcode_key: None,
             };
             for page in [
@@ -461,6 +462,7 @@ mod tests {
                 limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
                 media: None,
                 proxy_uid: None,
+                poster_id_key: None,
                 tripcode_key: None,
             };
             for page in [
@@ -504,6 +506,7 @@ mod tests {
             limits: Arc::new(Limits::new(settings)),
             media: None,
             proxy_uid: Some(33),
+            poster_id_key: None,
             tripcode_key: None,
         };
         let app = Router::new()
@@ -577,6 +580,7 @@ mod tests {
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
             proxy_uid: None,
+            poster_id_key: None,
             tripcode_key: None,
         };
         let app =
@@ -666,6 +670,7 @@ mod tests {
             limits: limits.clone(),
             media: None,
             proxy_uid: None,
+            poster_id_key: None,
             tripcode_key: None,
         };
         let dropped = Arc::new(AtomicBool::new(false));

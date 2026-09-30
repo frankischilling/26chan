@@ -37,7 +37,7 @@ const localTags = {
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], img: ['src', 'alt', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
-  'postInfo', 'subject', 'name', 'postertrip', 'postNum', 'file', 'fileThumb', 'fileDeleted', 'postMessage',
+  'postInfo', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint']);
 const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink';
 

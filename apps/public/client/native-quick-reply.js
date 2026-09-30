@@ -3,10 +3,12 @@ import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, qu
   uploadQuickReplyFile } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
+import { restorePostPreferences } from './native-post-preferences.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
   if (!/^[a-z0-9]{1,10}$/.test(board)) return null;
+  restorePostPreferences(source);
   const uploadSource = document.querySelector(`form.postForm[action="/${board}/upload"]`);
   const uploadSourceInput = uploadSource?.querySelector('input[type=file][name=upfile]');
   const approvedThread = source?.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;

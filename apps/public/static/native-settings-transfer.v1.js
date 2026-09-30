@@ -23,7 +23,6 @@ export const SETTINGS_TRANSFER_STORAGE_KEYS = Object.freeze([
 ]);
 
 export const SETTINGS_TRANSFER_INACTIVE_COMPATIBILITY_KEYS = Object.freeze([
-  'IDColor',
   'forceHTTPS',
   'unmuteWebm',
 ]);

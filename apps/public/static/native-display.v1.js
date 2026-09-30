@@ -174,3 +174,83 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
     document.removeEventListener('4chanSettingsSaved', refresh);
   } };
 }
+
+// Public v1191 IDColor uses the signed 31-based string hash's high three bytes.
+export function posterIdColor(id) {
+  if (typeof id !== 'string' || !/^[+/0-9A-Za-z]{8}$/.test(id)) return null;
+  let hash = 0;
+  for (const character of id) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) | 0;
+  const red = (hash >>> 24) & 255, green = (hash >>> 16) & 255, blue = (hash >>> 8) & 255;
+  return { background: `rgb(${red}, ${green}, ${blue})`,
+    color: .299 * red + .587 * green + .114 * blue > 125 ? 'black' : 'white' };
+}
+
+export function mountNativePosterIds({ root, settings }) {
+  const document = root?.ownerDocument, window = document?.defaultView;
+  if (!document || !window || typeof settings !== 'function') return { refresh() {}, destroy() {} };
+  const owned = new Map();
+  const properties = ['background-color', 'color', 'padding', 'border-radius', 'font-size'];
+  let destroyed = false, suspended = false, queued = false;
+  function restore(element, entry) {
+    for (const [property, previous, priority, applied] of entry) {
+      if (element.style.getPropertyValue(property) !== applied) continue;
+      if (previous) element.style.setProperty(property, previous, priority);
+      else element.style.removeProperty(property);
+    }
+    owned.delete(element);
+  }
+  function clear() { for (const [element, entry] of owned) restore(element, entry); }
+  function refresh() {
+    if (destroyed || suspended) return;
+    if (!root.isConnected) { destroy(); return; }
+    const config = settings();
+    if (config.disableAll === true || config.IDColor === false) { clear(); return; }
+    // A finite walk bounds work before collecting a possibly hostile NodeList.
+    const walk = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT);
+    const found = new Set();
+    let element, nodes = 0;
+    while ((element = walk.nextNode())) {
+      if (++nodes > 40000 || found.size >= 10000) break;
+      if (!element.matches('.posteruid > .hand')) continue;
+      const color = posterIdColor(element.textContent);
+      if (!color) continue;
+      found.add(element);
+      const previousEntry = owned.get(element);
+      if (previousEntry?.label === element.textContent) continue;
+      if (previousEntry) restore(element, previousEntry);
+      const values = [color.background, color.color, '0px 5px', '6px', '0.8em'];
+      const entry = properties.map((property, index) => {
+        const previous = element.style.getPropertyValue(property), priority = element.style.getPropertyPriority(property);
+        element.style.setProperty(property, values[index]);
+        return [property, previous, priority, element.style.getPropertyValue(property)];
+      });
+      entry.label = element.textContent;
+      owned.set(element, entry);
+    }
+    for (const [element, entry] of owned) if (!found.has(element)) restore(element, entry);
+  }
+  function schedule() {
+    if (queued || destroyed || suspended) return;
+    queued = true;
+    window.queueMicrotask(() => { queued = false; refresh(); });
+  }
+  const observer = new window.MutationObserver(schedule);
+  function watch() { observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true }); }
+  function hide(event) {
+    if (!event.persisted) { destroy(); return; }
+    suspended = true; observer.disconnect();
+  }
+  function show(event) { if (event.persisted && !destroyed) { suspended = false; watch(); refresh(); } }
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true; observer.disconnect(); clear();
+    window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);
+    document.removeEventListener('4chanSettingsSaved', schedule);
+    document.removeEventListener('4chanPreferencesRestored', schedule);
+  }
+  window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
+  document.addEventListener('4chanSettingsSaved', schedule);
+  document.addEventListener('4chanPreferencesRestored', schedule);
+  watch(); refresh();
+  return { refresh, destroy };
+}

@@ -96,6 +96,7 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
             media: None,
             limits: board_config::PublicRequestLimits::default(),
             proxy_uid: None,
+            poster_id_key: None,
             tripcode_key: Some(std::sync::Arc::new(
                 board_domain::identity::SecureKey::parse(&"1".repeat(64)).unwrap(),
             )),

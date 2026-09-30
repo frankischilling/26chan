@@ -28,6 +28,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-quick-reply-transport.js',
   'apps/public/client/native-post-form.js',
   'apps/public/client/native-quick-reply-position.js',
+  'apps/public/client/native-post-preferences.js',
   'apps/public/static/watcher-position.v1.js',
 ].includes(path), `Unexpected Quick Reply source: ${path}`);
 const bytes = result.outputFiles[0].contents;

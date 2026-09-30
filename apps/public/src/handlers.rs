@@ -526,14 +526,17 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_context_and_key(
+    let id = board_store::create_post_with_identity_keys(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
         context,
-        state.tripcode_key.as_deref(),
+        board_store::PostIdentityKeys {
+            tripcode: state.tripcode_key.as_deref(),
+            poster_id: state.poster_id_key.as_deref(),
+        },
     )
     .await?;
     let thread = if form.resto == 0 { id } else { form.resto };
@@ -543,6 +546,17 @@ async fn submit_post(
         format!("/{board}/thread/{thread}#p{id}")
     };
     let mut response = format.success(form.resto, id, &location);
+    crate::post_preferences::append(
+        response.headers_mut(),
+        &headers,
+        if settings.forced_anon {
+            None
+        } else {
+            Some(&post.name)
+        },
+        if options.anonymous { "" } else { &form.email },
+        state.production,
+    );
     crate::post_receipts::Receipt {
         board: &board,
         thread,
