@@ -4,6 +4,8 @@
 use board_public::catalog;
 #[path = "visual/catalog_limits.rs"]
 mod catalog_limits;
+#[path = "visual/headers.rs"]
+mod headers;
 #[path = "visual/media.rs"]
 mod media;
 #[path = "../src/views.rs"]
@@ -144,6 +146,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         thread.reply_count = 3;
     }
     BoardPage {
+        quote: String::new(),
         catalog_hidden: Vec::new(),
         board,
         threads: vec![ThreadView {
@@ -187,6 +190,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        quote: String::new(),
         catalog_hidden: Vec::new(),
         board: Board {
             slug: "empty".into(),
@@ -293,6 +297,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        quote: String::new(),
         catalog_hidden: Vec::new(),
         parent: thread.id,
         board,
@@ -368,6 +373,7 @@ async fn main() {
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
+        .route("/headers/", get(|| async { Html(headers::page()) }))
         .route("/markup/", get(|| async { Html(render_page(false, true, false, false)) }))
         .route("/forced-anonymous/", get(|| async { Html(render_page(false, false, false, true)) }))
         .route("/text-only/", get(|| async { Html(render_page(false, false, true, false)) }))

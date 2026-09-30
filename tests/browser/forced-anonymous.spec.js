@@ -28,7 +28,7 @@ for (const javaScriptEnabled of [false, true]) {
       const op = /#p(\d+)$/.exec(page.url())[1];
       await expect(page.locator(`#pi${op} .name`)).toHaveText('Anonymous');
       if (javaScriptEnabled) {
-        await page.locator(`#p${op} .postInfo > .postNum`).click();
+        await page.locator(`#p${op} .postInfo > .postNum > a[title="Reply to this post"]`).click();
         await expect(page.locator('#qr-name')).toHaveCount(0);
         await expect(page.locator('#quickReply input[name=name]')).toHaveAttribute('type', 'hidden');
         await page.locator('#qrCom').fill('Owned anonymous reply'); await page.locator('#qr-pwd').fill(password);

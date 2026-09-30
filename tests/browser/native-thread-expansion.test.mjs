@@ -11,7 +11,7 @@ const context = { origin, board, thread, mediaOrigin: '' };
 const post = (no, parent = thread, text = 'Owned &lt;script&gt;literal&lt;/script&gt;') => {
   const type = no === parent ? 'op' : 'reply';
   return `<article class="postContainer ${type}Container" id="pc${no}"><div class="post ${type}" id="p${no}">`
-    + `<div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><a class="postNum" href="/demo/thread/${parent}#p${no}">No.${no}</a></div>`
+    + `<div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><span class="postNum"><a href="/demo/thread/${parent}#p${no}" title="Link to this post">No.</a><a href="/demo/thread/${parent}?quote=${no}#reply" title="Reply to this post">${no}</a></span></div>`
     + `<blockquote class="postMessage" id="m${no}">${text}</blockquote><details class="postActions"><summary>Delete or report</summary>`
     + `<form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><label for="delete${no}">Deletion password</label>`
     + `<input type="password" name="password" id="delete${no}" autocomplete="off" required><button>Delete post</button></form></details></div></article>`;

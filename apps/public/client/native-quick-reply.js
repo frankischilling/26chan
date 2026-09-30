@@ -4,6 +4,7 @@ import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, qu
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
 import { restorePostPreferences } from './native-post-preferences.js';
+import { postNumberReply } from './native-post-numbers.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
@@ -360,12 +361,10 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     link.addEventListener('click', event => { if (!disabled()) { event.preventDefault(); open(thread); } }); entry.append('[', link, ']'); if (nav) nav.prepend(entry); else source.before(entry);
   }
   document.addEventListener('click', event => {
-    if (disabled() || event.button !== 0) return;
-    const link = event.target.closest?.('.postInfo > .postNum'); if (!link) return;
-    const target = link.closest('.thread'), id = postId(target?.id.slice(1)), post = postId(link.closest('.postInfo')?.id.slice(2));
-    if (id && post) {
-      event.preventDefault(); quote(id, event.ctrlKey ? null : post, getSelection()?.toString() ?? '');
-    }
+    if (disabled() || event.button !== 0 || event.metaKey || event.shiftKey || event.altKey) return;
+    const target = postNumberReply(event.target.closest?.('.postInfo > .postNum > a'), board);
+    if (!target || (!source && !closed(target.thread))) return;
+    event.preventDefault(); quote(target.thread, event.ctrlKey ? null : target.post, getSelection()?.toString() ?? '');
   });
   window.addEventListener('pagehide', close); window.addEventListener('resize', () => { place(position); sync(); });
   document.addEventListener('4chanThreadUpdated', sync);

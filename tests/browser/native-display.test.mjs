@@ -35,7 +35,7 @@ test('display controls preserve original content, finite navigation and lifecycl
     + '<main class="board"><article class="postContainer opContainer" id="pc100"><div class="post op" id="p100">'
     + '<div class="postInfo" id="pi100"><span class="name">Anonymous</span> '
     + '<time datetime="2026-03-08T09:59:59Z">03/08/26(Sun)05:59:59</time>'
-    + '<a class="postNum" href="/test/thread/100#p100">No.100</a></div>'
+    + '<span class="postNum"><a href="/test/thread/100#p100" title="Link to this post">No.</a><a href="/test/thread/100?quote=100#reply" title="Reply to this post">100</a></span></div>'
     + '<blockquote class="postMessage" id="m100">Owned original comment</blockquote></div></article></main></body></html>';
   const browser = await chromium.launch({ headless: true });
   try {

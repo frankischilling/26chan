@@ -7,7 +7,7 @@ const origin = 'https://board.example', mediaOrigin = 'https://media.example';
 const quote = (no, id = '', route = `/demo/post/${no}`) => `<a${id ? ` id="${id}"` : ''} class="quotelink" href="${route}">&gt;&gt;${no}</a>`;
 function post(no, message, thread = '100') {
   const type = no === thread ? 'op' : 'reply';
-  return `<article class="postContainer ${type}Container" id="pc${no}"><div class="post ${type}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><a class="postNum" href="/demo/thread/${thread}#p${no}">No.${no}</a></div><blockquote class="postMessage" id="m${no}">${message}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><input type="password" name="password" id="delete${no}" autocomplete="off" required><button>Delete</button></form></details></div></article>`;
+  return `<article class="postContainer ${type}Container" id="pc${no}"><div class="post ${type}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><span class="postNum"><a href="/demo/thread/${thread}#p${no}" title="Link to this post">No.</a><a href="/demo/thread/${thread}?quote=${no}#reply" title="Reply to this post">${no}</a></span></div><blockquote class="postMessage" id="m${no}">${message}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><input type="password" name="password" id="delete${no}" autocomplete="off" required><button>Delete</button></form></details></div></article>`;
 }
 const envelope = (no = '120', message = `Remote <s>secret</s> ${quote('121')}`, board = 'demo', thread = '100') => ({
   version: 1, board, thread, post: { no, file_deleted: false, html: post(no, message, thread) },
@@ -503,7 +503,8 @@ test('isolated current-source inline quote DOM contracts', async t => {
         const result = await page.evaluate(async () => {
           const quotes = await import('/apps/public/client/native-quote-preview.js');
           const message = document.getElementById('m101'), fragment = document.createDocumentFragment();
-          for (let index = 0; index < 16374; index++) fragment.append(document.createElement('wbr'));
+          // The split post-number recipe adds three nodes to this fixture.
+          for (let index = 0; index < 16371; index++) fragment.append(document.createElement('wbr'));
           message.replaceChildren(fragment);
           const input = { origin: location.origin, mediaOrigin: 'https://media.example', board: 'demo', thread: '100' };
           const plan = quotes.prepareQuotePost(quotes.localQuoteTree(document.getElementById('pc101'), input, '101', projection), input, '101');

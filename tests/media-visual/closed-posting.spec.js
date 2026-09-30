@@ -15,7 +15,7 @@ for (const javaScriptEnabled of [false, true]) {
         if (javaScriptEnabled) {
           await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true })));
           await page.reload();
-          for (const action of [() => page.locator('#pi1000201 > .postNum').click(), () => page.keyboard.press('q')]) {
+          for (const action of [() => page.locator('#pi1000201 > .postNum > a[title="Reply to this post"]').click(), () => page.keyboard.press('q')]) {
             const before = page.url();
             const warning = page.waitForEvent('dialog').then(async dialog => {
               expect(dialog.type()).toBe('alert'); expect(dialog.message()).toBe('This thread is closed'); await dialog.accept();

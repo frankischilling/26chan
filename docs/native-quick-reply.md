@@ -1,6 +1,6 @@
 # Native Quick Reply
 
-Quick Reply opens from a post number, the desktop thread's Post a Reply link,
+Quick Reply opens from the digits of a post number, the desktop thread's Post a Reply link,
 or the optional Q shortcut. The quickReply preference defaults to true;
 persistentQR defaults to false. Posting uses the real
 [multipart JSON handler](posting-multipart.md), not a navigation substitute.
@@ -9,7 +9,17 @@ and attachment authority.
 
 ## Source and implemented scope
 
-The supplied, pinned old source was inspected as text. In `js/extension.js`,
+The permitted public v1191 formatter separates the `No.` permalink from the
+digits' reply action. The rewrite follows that split and preserves normal
+permalink navigation. Its reply URL opens a server-rendered, prefilled form
+when JavaScript or Quick Reply is disabled. This bounded GET form replaces the
+released client's `javascript:quote(...)` and `#q` navigation under the fixed
+script policy. See [post-number navigation](post-number-navigation.md) for the
+reference, validation and script-free posting checks.
+
+The historical supplied-source audit below is retained as text, not accepted
+compatibility evidence under the [active boundary](compatibility.md#active-reference-boundary).
+In `js/extension.js`,
 QR.addReplyLink (3793), quotePost/addQuote (4000/4010), show (4050),
 onKeyDown (4337), close (4396), submit (4531) and the updater's lastReplyId
 check (6567) establish the implemented lifecycle. The defaults are at

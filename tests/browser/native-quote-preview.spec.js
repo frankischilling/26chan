@@ -92,7 +92,7 @@ async function expectPreview(page, target, text) {
   await expect(preview).toBeVisible();
   await expect(preview.locator('.postMessage')).toHaveCount(1);
   await expect(preview.locator('.postMessage')).toContainText(text);
-  await expect(preview.locator('.postNum')).toHaveAttribute('href', `${target.url}#p${target.id}`);
+  await expect(preview.locator('.postNum > a[title="Link to this post"]')).toHaveAttribute('href', `${target.url}#p${target.id}`);
   await expect(preview.locator('[id], form, input, button, details, script, iframe, object, embed')).toHaveCount(0);
   expect(await page.locator('[id]').evaluateAll(nodes => {
     const ids = nodes.map(node => node.id);

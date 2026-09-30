@@ -3,7 +3,7 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_ha
 use askama::Template;
 use axum::{
     Form,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, Uri},
     response::{Html, IntoResponse, Redirect, Response},
 };
@@ -237,6 +237,7 @@ async fn board_page(
     crate::output::html(
         state,
         &BoardPage {
+            quote: String::new(),
             catalog_hidden: hidden_views,
             board,
             threads: views,
@@ -265,6 +266,7 @@ pub async fn thread(
     State(state): State<AppState>,
     Path((board, key)): Path<(String, String)>,
     headers: HeaderMap,
+    uri: Uri,
 ) -> Result<Response, AppError> {
     if let Some(id) = key.strip_suffix(".json") {
         let tail = id.ends_with("-tail");
@@ -294,10 +296,34 @@ pub async fn thread(
         .filter(|post| post.id != thread.id)
         .map(|post| post.id)
         .max();
+    #[derive(Deserialize)]
+    struct ReplyQuery {
+        quote: Option<String>,
+    }
+    let query = Query::<ReplyQuery>::try_from_uri(&uri)
+        .map_err(|_| AppError(StatusCode::BAD_REQUEST, "Invalid reply target."))?;
+    let quote = match query.quote.as_deref() {
+        None => String::new(),
+        Some(raw) => {
+            let no = raw
+                .parse::<i64>()
+                .ok()
+                .filter(|no| *no > 0 && no.to_string() == raw)
+                .ok_or(AppError(StatusCode::BAD_REQUEST, "Invalid reply target."))?;
+            if !posts.iter().any(|post| post.id == no) {
+                return Err(AppError(StatusCode::NOT_FOUND, "Post not found."));
+            }
+            if thread.closed || thread.archived_at.is_some() {
+                return Err(AppError(StatusCode::BAD_REQUEST, "This thread is closed."));
+            }
+            format!(">>{no}\n")
+        }
+    };
     let posts = posts.into_iter().map(PostView::new).collect();
     crate::output::html(
         &state,
         &BoardPage {
+            quote,
             catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {

@@ -1,6 +1,7 @@
 import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
 import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-capcodes.js';
+import { validatePostNumbers } from './native-post-numbers.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
@@ -12,7 +13,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title'],
-  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
   label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
@@ -62,7 +63,7 @@ export function postMediaUrl(raw, context) {
   return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|s\.jpg)$/.test(raw.slice(prefix.length));
 }
 export function postLinkUrl(raw, context) {
-  if (raw.startsWith('/')) return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18})?)$/.test(raw);
+  if (raw.startsWith('/')) return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18}|\?quote=[1-9][0-9]{0,18}#reply)?)$/.test(raw);
   const url = new URL(raw);
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !/[\u0000-\u0020\u007f]/.test(raw);
 }
@@ -109,7 +110,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         } else require(value === 'true');
       }
     }
-    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img'].includes(node.tag))
+    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag))
       || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
         && Object.keys(node.attrs).sort().join(',') === 'class,title'
@@ -144,6 +145,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   }
   visit(tree, 0);
   validateCapcodeTree(tree, no);
+  validatePostNumbers(tree, context, no);
   require(tree.tag === 'article' && tree.attrs.id === `pc${no}`
     && tree.attrs.class === `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
   for (const prefix of ['pc', 'p', 'pi', 'm']) require(ids.has(prefix + no));

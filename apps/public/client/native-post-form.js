@@ -11,7 +11,13 @@ export function mountNativePostForm({ source, thread, openQuickReply }) {
     for (const link of links) link.setAttribute('aria-expanded', String(!table.classList.contains('hideMobile')));
   }
   function show(event) {
-    event?.preventDefault(); source.classList.add('postFormOpen'); desktop.hidden = true; sync();
+    event?.preventDefault(); source.classList.add('postFormOpen'); desktop.hidden = true;
+    const quote = new URLSearchParams(location.search).get('quote');
+    if (mobile.matches && /^[1-9][0-9]{0,18}$/.test(quote ?? '') && source.elements.com?.value === `>>${quote}\n`) {
+      table.classList.remove('hideMobile');
+      top.classList.remove('hidden'); top.classList.add('shown'); top.textContent = 'Close Post Form';
+    }
+    sync();
   }
   desktop.firstElementChild.addEventListener('click', show);
   for (const link of links) {
