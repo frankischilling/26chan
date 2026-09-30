@@ -104,6 +104,10 @@ pub async fn boards(
             value["require_subject"] = json!(1);
         }
         if board.user_ids { value["user_ids"] = json!(1); }
+        if board.country_flags { value["country_flags"] = json!(1); }
+        if !board.board_flags.is_empty() {
+            value["board_flags"] = json!(board.flag_options().into_iter().collect::<std::collections::BTreeMap<_, _>>());
+        }
         if board.forced_anon {
             value["forced_anon"] = json!(1);
         }
@@ -142,6 +146,14 @@ fn post_json(
     }
     if let Some(trip) = &post.post.trip {
         value["trip"] = json!(trip);
+    }
+    if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
+        value["country"] = json!(code);
+        value["country_name"] = json!(name);
+    }
+    if let (Some(code), Some(name)) = (&post.post.board_flag, &post.post.flag_name) {
+        value["board_flag"] = json!(code);
+        value["flag_name"] = json!(name);
     }
     if !comment.is_empty() {
         value["com"] = json!(comment);

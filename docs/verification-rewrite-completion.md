@@ -636,5 +636,52 @@ these final fixture corrections. The real HTTPS proxy and concurrent
 thread/board snapshot regressions also passed in the broader run. The latest
 four-case statistics browser run passed its added mobile count assertion;
 all fourteen parser/DOM cases passed again. Workspace Clippy with all targets,
-all features and warnings denied passed. The final full workspace run and
-current-head hosted checks still need their completion recorded.
+all features and warnings denied passed. The full workspace test command then
+finished with 532 passing tests, zero failures and zero ignored tests. Exact-head
+build 36666926031, monitoring 36666925937 and manually dispatched advisory run
+36666989377 all passed on `d77e4b5`, including the combined gate. These results
+qualify the count checkpoint; the expanded flag continuation needs its own
+current-head checks before merging.
+
+## Country and board flag continuation
+
+Migration 0041 adds disabled-by-default board switches and nullable saved post
+labels. The same board-locked transaction handles text and approved attachments.
+Country data comes from an operator-owned offline database and verified peers;
+allowed board choices use the pinned public dictionary. Selecting a board flag
+omits geographic capture as the explicit E-015 policy. The pinned API and released
+client establish the public fields and spans, not private server geography.
+
+Producer vectors and actual-role HTTP tests passed, including IPv4/IPv6/mapped
+peers, GB versus registered-country disagreement, unknowns, header spoofing,
+missing sources/peers, invalid choices, full/tail/index/catalog JSON, both
+listeners, HTML/native projections, policy changes and flag-column mutation
+denial. The real loopback Chromium flow passed script-free geographic posting
+and Quick Reply selection through the actual updater. Both attachment modes
+passed with flags, tripcodes, poster IDs and counts. Twenty-nine combined updater
+and Quick Reply parser/transport cases passed, including new finite flag spans.
+
+Fresh bootstrap applied all migrations and retained historical content and
+clocks while checking the narrow owners. Its historical comparison now projects
+out only the four new nullable flag columns, checks them separately for null and
+compares every preexisting post field in both directions. The owned cluster was
+stopped and removed. Application all-target checks passed.
+
+The first compile identified missing country settings in test router states;
+those fixtures now explicitly disable the source. The first Clippy run rejected
+the enlarged legacy submission enum and two nested display branches. Boxing the
+posting variant and using let-chains fixed them; no lint was suppressed. Workspace
+Clippy then passed with all targets, all features and warnings denied. The full
+workspace test rerun initially stopped in the existing controlled TLS dispatch
+expiry case: the child unexpectedly reported success after expiry was set.
+The fixture now asserts the database expiry precondition before releasing the
+response and includes the assigned deadline and observed database clock in a
+failure message. Its one-second expiry setting, success/failure assertions,
+healthy transport and publication checks are unchanged. The focused approval
+suite then passed; this does not establish the original failure's cause or claim
+a production fix. The full workspace rerun and expanded current-head hosted
+checks remain in progress.
+
+See [flag behavior and operation](post-flags.md) and [reference provenance](public-country-flags-reference.json).
+No production database, external post or worker connectivity claim is added by
+these local feature tests.

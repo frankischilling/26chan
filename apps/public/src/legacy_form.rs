@@ -17,7 +17,7 @@ use std::{collections::BTreeSet, fmt};
 const INVALID: &str = "Invalid posting or deletion form.";
 
 enum Submission {
-    Post(PostForm),
+    Post(Box<PostForm>),
     Delete(DeleteForm),
 }
 
@@ -124,7 +124,7 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
             .expect("literal internal request");
         Form::<PostForm>::from_request(request, state)
             .await
-            .map(|Form(form)| Self(Submission::Post(form)))
+            .map(|Form(form)| Self(Submission::Post(Box::new(form))))
             .map_err(Rejection::Form)
     }
 }
@@ -151,7 +151,7 @@ pub(crate) async fn submit(
                 Extension(start),
                 Extension(peer),
                 headers,
-                Ok(PostingForm(form)),
+                Ok(PostingForm(*form)),
             )
             .await
         }

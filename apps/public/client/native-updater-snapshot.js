@@ -1,4 +1,5 @@
 import { defaultTreeAdapter, parseFragment } from 'parse5';
+import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
@@ -9,7 +10,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'op', 'reply', 'postInfo', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
-  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label'],
+  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title'],
   time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
@@ -81,7 +82,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       // that size. Preserve those valid links within the aggregate wire budget.
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
       charge(value);
-      if (key === 'class') require(value.split(' ').every(token => classes.has(token)));
+      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token)));
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(postLinkUrl(value, context));
       if (key === 'src') require(postMediaUrl(value, context));
@@ -106,6 +107,14 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
           require(/^[1-9][0-9]{0,3}$/.test(value) && Number(value) <= 1024);
         } else require(value === 'true');
       }
+    }
+    if (Object.hasOwn(node.attrs, 'title') || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
+      require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
+        && Object.keys(node.attrs).sort().join(',') === 'class,title'
+        && node.children.length === 0 && typeof node.attrs.title === 'string'
+        && new TextEncoder().encode(node.attrs.title).length >= 1
+        && new TextEncoder().encode(node.attrs.title).length <= 100
+        && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     }
     if (node.tag === 'form') {
       require(form === null && node.attrs.method === 'post' && ['delete', 'report'].some(action => node.attrs.action === `/${context.board}/${action}`));

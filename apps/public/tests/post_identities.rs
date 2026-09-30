@@ -91,6 +91,7 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
     let (app, api) = board_public::routers_with_options(
         public.clone(),
         board_public::PublicRouterOptions {
+            country_database: None,
             origin: ORIGIN.into(),
             production: false,
             media: None,

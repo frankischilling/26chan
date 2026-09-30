@@ -537,12 +537,16 @@ async fn poster_counts(f: &Fixture) {
         f.approve(&upload).await;
         uploads.push(upload);
     }
-    sqlx::query("UPDATE content.boards SET user_ids=true WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET user_ids=true,country_flags=true,board_flags=ARRAY['AC'] WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
         .unwrap();
     let key = board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap();
+    let countries = board_domain::country::CountryDatabase::from_bytes(
+        include_bytes!("../../domain/tests/fixtures/GeoIP2-Country-Test.mmdb").to_vec(),
+    )
+    .unwrap();
     let mut thread = 0;
     for ((peer, expected), upload) in [
         ("192.0.2.10", 1),
@@ -557,7 +561,12 @@ async fn poster_counts(f: &Fixture) {
         if f.attachment_only {
             draft.comment.clear();
         }
-        let id = board_store::create_post_with_identity_keys(
+        let flag = if peer.starts_with("::ffff:") {
+            "AC"
+        } else {
+            "0"
+        };
+        let id = board_store::create_post_with_metadata(
             &f.public,
             &f.board,
             thread,
@@ -568,9 +577,13 @@ async fn poster_counts(f: &Fixture) {
                 peer: Some(peer.parse().unwrap()),
                 op_password_proof: None,
             },
-            board_store::PostIdentityKeys {
-                tripcode: None,
-                poster_id: Some(&key),
+            board_store::PostMetadata {
+                country_database: Some(&countries),
+                flag,
+                keys: board_store::PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&key),
+                },
             },
         )
         .await
@@ -582,6 +595,15 @@ async fn poster_counts(f: &Fixture) {
             .await
             .unwrap();
         assert_eq!(saved.trip.as_deref(), Some("!ozOtJW9BFA"));
+        if flag == "AC" {
+            assert_eq!(saved.board_flag.as_deref(), Some("AC"));
+            assert_eq!(saved.flag_name.as_deref(), Some("Anarcho-Capitalist"));
+            assert!(saved.country.is_none());
+        } else {
+            assert_eq!(saved.country.as_deref(), Some("XX"));
+            assert_eq!(saved.country_name.as_deref(), Some("Unknown"));
+            assert!(saved.board_flag.is_none());
+        }
         assert_eq!(
             saved.poster_id.as_deref(),
             Some(
@@ -599,7 +621,7 @@ async fn poster_counts(f: &Fixture) {
             .unwrap();
         assert_eq!(count, Some(expected));
     }
-    sqlx::query("UPDATE content.boards SET user_ids=false WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}' WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await

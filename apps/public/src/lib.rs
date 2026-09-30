@@ -41,6 +41,7 @@ pub struct AppState {
     proxy_uid: Option<u32>,
     poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
+    country_database: Option<Arc<board_domain::country::CountryDatabase>>,
 }
 
 pub struct PublicRouterOptions {
@@ -51,6 +52,7 @@ pub struct PublicRouterOptions {
     pub proxy_uid: Option<u32>,
     pub poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     pub tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
+    pub country_database: Option<Arc<board_domain::country::CountryDatabase>>,
 }
 
 pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
@@ -115,6 +117,7 @@ pub fn observed_routers_with_proxy(
             proxy_uid,
             poster_id_key: None,
             tripcode_key: None,
+            country_database: None,
         },
     )
 }
@@ -191,6 +194,7 @@ fn routers_with_proxy(
             proxy_uid,
             poster_id_key: None,
             tripcode_key: None,
+            country_database: None,
         },
     )
 }
@@ -203,6 +207,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         limits,
         proxy_uid,
         tripcode_key,
+        country_database,
         poster_id_key,
     } = options;
     assert!(
@@ -211,6 +216,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
     );
     let state = AppState {
         tripcode_key,
+        country_database,
         poster_id_key,
         pool,
         origin,

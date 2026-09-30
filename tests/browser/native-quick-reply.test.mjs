@@ -50,11 +50,12 @@ test('posting responses never round IDs or admit alternate targets and fields', 
 });
 test('posting targets one fixed path with source multipart fields and no redirects', async () => {
   let count = 0;
-  const result = await sendQuickReply({ origin: 'https://board.example', board: 'demo', thread: '10', fields: { com: 'text', pwd: 'owned-password' },
+  const result = await sendQuickReply({ origin: 'https://board.example', board: 'demo', thread: '10', fields: { com: 'text', pwd: 'owned-password', flag: 'UN' },
     fetcher: async (url, options) => {
       count++; assert.equal(url, 'https://board.example/demo/imgboard.php'); assert.equal(options.method, 'POST');
       assert.equal(options.redirect, 'error'); assert.equal(options.credentials, 'same-origin'); assert.equal(options.headers.Accept, 'application/json');
       assert.equal(options.body.get('pwd'), 'owned-password'); assert.equal(options.body.get('resto'), '10'); assert.equal(options.body.get('mode'), 'regist');
+      assert.equal(options.body.get('flag'), 'UN'); assert.equal(options.body.get('country'), null);
       return new Response('{"tid":10,"pid":11}', { headers: { 'content-type': 'application/json' } });
     } });
   assert.deepEqual(result, { thread: '10', post: '11' }); assert.equal(count, 1);

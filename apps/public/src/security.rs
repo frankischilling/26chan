@@ -360,6 +360,7 @@ mod tests {
                 proxy_uid: None,
                 poster_id_key: None,
                 tripcode_key: None,
+                country_database: None,
             };
             for page in [
                 None,
@@ -464,6 +465,7 @@ mod tests {
                 proxy_uid: None,
                 poster_id_key: None,
                 tripcode_key: None,
+                country_database: None,
             };
             for page in [
                 None,
@@ -508,6 +510,7 @@ mod tests {
             proxy_uid: Some(33),
             poster_id_key: None,
             tripcode_key: None,
+            country_database: None,
         };
         let app = Router::new()
             .route(
@@ -582,6 +585,7 @@ mod tests {
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
+            country_database: None,
         };
         let app =
             Router::new()
@@ -672,6 +676,7 @@ mod tests {
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
+            country_database: None,
         };
         let dropped = Arc::new(AtomicBool::new(false));
         let witness = dropped.clone();

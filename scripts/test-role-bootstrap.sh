@@ -47,10 +47,11 @@ done
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$
 BEGIN
-  IF EXISTS (SELECT * FROM content.posts EXCEPT SELECT * FROM public.owned_count_posts_before)
-     OR EXISTS (SELECT * FROM public.owned_count_posts_before EXCEPT SELECT * FROM content.posts)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name'] FROM content.posts p)
      OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
      OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE EXCEPTION 'Poster count upgrade changed history or invented identity';

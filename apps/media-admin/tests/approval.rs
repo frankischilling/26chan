@@ -32,14 +32,22 @@ async fn lease(queue: &MediaQueue, ids: &Mutex<Vec<String>>) -> board_store::med
     claimed
 }
 
-async fn expire(admin: &sqlx::PgPool, id: &str) {
-    sqlx::query(
-        "UPDATE media.jobs SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",
+async fn expire(
+    admin: &sqlx::PgPool,
+    id: &str,
+) -> sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc> {
+    let (expires_at, expired): (sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>, bool) = sqlx::query_as(
+        "UPDATE media.jobs SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1 RETURNING expires_at,expires_at<clock_timestamp()",
     )
     .bind(id)
-    .execute(admin)
+    .fetch_one(admin)
     .await
     .unwrap();
+    assert!(
+        expired,
+        "The controlled lease must be expired before release."
+    );
+    expires_at
 }
 
 #[tokio::test]

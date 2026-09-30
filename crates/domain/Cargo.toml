@@ -9,6 +9,7 @@ thiserror.workspace = true
 url.workspace = true
 ring = "=0.17.14"
 base64 = "=0.22.1"
+maxminddb = { version = "=0.30.3", default-features = false }
 
 [dev-dependencies]
 proptest.workspace = true

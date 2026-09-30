@@ -11,6 +11,7 @@ use tower::ServiceExt;
 
 fn options(key: Option<&str>) -> board_public::PublicRouterOptions {
     board_public::PublicRouterOptions {
+        country_database: None,
         origin: "https://boards.example.com".into(),
         production: true,
         media: None,

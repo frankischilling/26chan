@@ -1,0 +1,164 @@
+{
+  "collected_date": "2026-09-30",
+  "scope": "Permitted public read-only API documentation, released client assets and structural flag-select metadata. No external posting experiments, user posts or media retained.",
+  "api_revision": "2bd670d507ba2daa37a3961a661e088cf6f89d57",
+  "api": [
+    "https://github.com/4chan/4chan-API/blob/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Threads.md",
+    "https://github.com/4chan/4chan-API/blob/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Boards.md"
+  ],
+  "client": "Extension v1191, pinned in public-watcher-assets.json. Board-flag display takes precedence over country display. Country classes are lowercase and names appear as span titles.",
+  "sources": [
+    {
+      "url": "https://s.4cdn.org/css/flags.690.css",
+      "sha256": "16ee235d15ad21b8e588bd7d68a626e0aa0ae99ab4aec1492e110d1b01111055",
+      "bytes": 12465
+    },
+    {
+      "url": "https://s.4cdn.org/image/flags/pol/flags.2.css",
+      "sha256": "da45280dbce885abc0bc05ea1f065cd28a0e42ae4c5e78ade187c51735c8fd79",
+      "bytes": 1383
+    },
+    {
+      "url": "https://s.4cdn.org/image/flags.8.png",
+      "sha256": "93f6f7e925589fc8b1c4559e5bfa20f5feba51cdc236a3bdf5d71c09cb7f5084",
+      "bytes": 81692
+    },
+    {
+      "url": "https://s.4cdn.org/image/flags/pol/flags.png?2",
+      "sha256": "9113004702a9760757de6ef36aadbe4b4ff3caa62c91e4377ddce6c952703296",
+      "bytes": 4294
+    },
+    {
+      "url": "https://a.4cdn.org/boards.json",
+      "sha256": "42304628008c8cbab1ab6f4298719cf1a265da9ea3cb1022be979ea3d3b25435",
+      "bytes": 35514
+    }
+  ],
+  "form_observation": {
+    "retained": "Only the flag select element, outside version control. No page body or user content retained.",
+    "default_value": "0",
+    "class": "flagSelector",
+    "options": [
+      {
+        "code": "0",
+        "name": "Geographic Location"
+      },
+      {
+        "code": "AC",
+        "name": "Anarcho-Capitalist"
+      },
+      {
+        "code": "AN",
+        "name": "Anarchist"
+      },
+      {
+        "code": "BL",
+        "name": "Black Nationalist"
+      },
+      {
+        "code": "CF",
+        "name": "Confederate"
+      },
+      {
+        "code": "CM",
+        "name": "Communist"
+      },
+      {
+        "code": "CT",
+        "name": "Catalonia"
+      },
+      {
+        "code": "DM",
+        "name": "Democrat"
+      },
+      {
+        "code": "EU",
+        "name": "European"
+      },
+      {
+        "code": "FC",
+        "name": "Fascist"
+      },
+      {
+        "code": "GN",
+        "name": "Gadsden"
+      },
+      {
+        "code": "GY",
+        "name": "Gay"
+      },
+      {
+        "code": "JH",
+        "name": "Jihadi"
+      },
+      {
+        "code": "KN",
+        "name": "Kekistani"
+      },
+      {
+        "code": "MF",
+        "name": "Muslim"
+      },
+      {
+        "code": "NB",
+        "name": "National Bolshevik"
+      },
+      {
+        "code": "NT",
+        "name": "NATO"
+      },
+      {
+        "code": "NZ",
+        "name": "Nazi"
+      },
+      {
+        "code": "PC",
+        "name": "Hippie"
+      },
+      {
+        "code": "PR",
+        "name": "Pirate"
+      },
+      {
+        "code": "RE",
+        "name": "Republican"
+      },
+      {
+        "code": "MZ",
+        "name": "Task Force Z"
+      },
+      {
+        "code": "TM",
+        "name": "Templar"
+      },
+      {
+        "code": "TR",
+        "name": "Tree Hugger"
+      },
+      {
+        "code": "UN",
+        "name": "United Nations"
+      },
+      {
+        "code": "WP",
+        "name": "White Supremacist"
+      }
+    ],
+    "name": "flag",
+    "select_sha256": "5c1e64a171d10c48fb122dab04f4df85bf76f3b87b746e9e25573326355378ff",
+    "default_label": "Geographic Location",
+    "url": "https://boards.4chan.org/pol/"
+  },
+  "local_assets": {
+    "country_sprite": "apps/public/static/flags/flags.8.png",
+    "board_sprite": "apps/public/static/flags/board-flags.2.png",
+    "stylesheet_sha256": "ad7ae35164ba7ad7f9e41462caecba6a45d4febfad8964847ed205f6cbb60394",
+    "rewrite": "Fixed sprite URLs point to same-origin release assets and line endings are normalized to LF. Source style rules are otherwise retained.",
+    "stylesheet": "apps/public/static/flags/flags.css"
+  },
+  "unknowns": [
+    "Original private geolocation provider and algorithm.",
+    "Original geographic capture and retention rules when a board flag is selected.",
+    "Complete rendered-page and mobile flag visual parity."
+  ]
+}

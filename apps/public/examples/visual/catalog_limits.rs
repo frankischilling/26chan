@@ -86,6 +86,10 @@ fn render(
                 name: "Anonymous".into(),
                 trip: None,
                 poster_id: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                flag_name: None,
                 subject: if text_only && index == 4 {
                     "<script>literal & subject</script>".into()
                 } else {

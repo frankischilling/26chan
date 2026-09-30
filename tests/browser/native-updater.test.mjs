@@ -15,6 +15,22 @@ function snapshot(inside) {
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
 
+test('country and board flags use finite inert classes and bounded titles', () => {
+  for (const [name, css] of [['United Kingdom', 'flag flag-gb'], ['Unknown', 'flag flag-xx'],
+    ['Anarcho-Capitalist', 'bfl bfl-ac'], ['United Nations', 'bfl bfl-un']]) {
+    assert.equal(parse(snapshot(`<span title="${name}" class="${css}"></span>`)).status, 'ok');
+  }
+  for (const invalid of ['<span title="bad" class="flag flag-zz"></span>',
+    '<span title="bad" class="bfl bfl-zz"></span>', '<span class="flag flag-gb"></span>',
+    '<span title="bad" class="flag flag-gb">child</span>', '<span title="bad" class="quote"></span>',
+    '<span title="bad" class="flag bfl-gb"></span>', '<div title="bad" class="flag flag-gb"></div>',
+    '<span title="bad" class="flag flag-gb" style="display:none"></span>',
+    `<span title="${'é'.repeat(51)}" class="flag flag-gb"></span>`,
+    '<span title="bad&#10;title" class="flag flag-gb"></span>']) {
+    assert.equal(parse(snapshot(invalid)).status, 'invalid-snapshot', invalid);
+  }
+});
+
 test('owned rendering produces only data with exact adjacent large IDs and decoded text', () => {
   const result = parse(snapshot()); assert.equal(result.status, 'ok');
   assert.deepEqual(result.snapshot.posts.map(p => p.no), ['9007199254740992', '9007199254740993']);
