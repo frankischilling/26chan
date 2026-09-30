@@ -2,6 +2,94 @@ import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-quick-reply-password';
 
+test('post permalinks stay navigable while digits quote original and live-updated posts', async ({ page, request }) => {
+  const created = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned post-number thread', password } });
+  expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
+  try {
+    await page.goto(`/test/thread/${id}`);
+    const numbers = page.locator(`#pi${id} > .postNum`);
+    await expect(numbers.locator('a')).toHaveCount(2);
+    await expect(numbers.getByTitle('Link to this post', { exact: true })).toHaveText('No.');
+    await numbers.getByTitle('Link to this post', { exact: true }).click();
+    await expect(page).toHaveURL(`${origin}/test/thread/${id}#p${id}`);
+    await expect(page.locator('#quickReply')).toHaveCount(0);
+    await numbers.getByTitle('Reply to this post', { exact: true }).click();
+    await expect(page.locator('#qrCom')).toHaveValue(`>>${id}\n`);
+    await expect(page).toHaveURL(`${origin}/test/thread/${id}#p${id}`);
+    await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
+    const response = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { resto: id, com: 'Owned live post-number reply', password } });
+    expect(response.status()).toBe(303); const reply = /#p(\d+)$/.exec(response.headers().location)[1];
+    await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
+    await expect(page.locator(`#m${reply}`)).toHaveText('Owned live post-number reply');
+    await page.locator(`#pi${reply} > .postNum > a[title="Reply to this post"]`).click();
+    await expect(page.locator('#qrCom')).toHaveValue(`>>${reply}\n`);
+    await expect(page.locator('#qrResto')).toHaveValue(id);
+  } finally {
+    expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { no: id, password } })).status()).toBe(303);
+  }
+});
+
+test('the reply link prefills and submits a real quote without JavaScript on desktop and mobile', async ({ browser, request }) => {
+  const created = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned script-free quote thread', password } });
+  expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    const page = await context.newPage();
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${origin}/test/thread/${id}`);
+      await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click();
+      await expect(page).toHaveURL(`${origin}/test/thread/${id}?quote=${id}#reply`);
+      await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);
+      await expect(page.locator('#com')).toBeVisible();
+      await page.locator('#com').fill(`>>${id}\nOwned script-free quote at ${width}`);
+      await page.locator('#password').fill(password);
+      await page.locator('form.postEditor button[type="submit"]').click();
+      await expect(page).toHaveURL(new RegExp(`/test/thread/${id}#p[1-9][0-9]*$`));
+      await expect(page.locator('.postMessage').filter({ hasText: `Owned script-free quote at ${width}` })).toHaveCount(1);
+    }
+    const data = await (await request.get(`/test/thread/${id}.json`)).json();
+    expect(data.posts).toHaveLength(3);
+  } finally {
+    await context.close();
+    expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { no: id, password } })).status()).toBe(303);
+  }
+});
+
+test('disabling Quick Reply keeps the mobile reply form visible and rejects invalid quote targets', async ({ page, request }) => {
+  const create = text => request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: text, password } });
+  const created = await create('Owned disabled Quick Reply thread'), other = await create('Owned other quote thread');
+  expect(created.status()).toBe(303); expect(other.status()).toBe(303);
+  const id = /#p(\d+)$/.exec(created.headers().location)[1], foreign = /#p(\d+)$/.exec(other.headers().location)[1];
+  try {
+    const before = await (await request.get(`/test/thread/${id}.json`)).text();
+    for (const quote of ['', '0', '01', '-1', '%2B1', '9223372036854775808', '%3Cscript%3E']) {
+      expect((await request.get(`/test/thread/${id}?quote=${quote}`)).status()).toBe(400);
+    }
+    expect((await request.get(`/test/thread/${id}?quote=${id}&quote=${id}`)).status()).toBe(400);
+    expect((await request.get(`/test/thread/${id}?quote=${foreign}`)).status()).toBe(404);
+    expect(await (await request.get(`/test/thread/${id}.json`)).text()).toBe(before);
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto(`/test/thread/${id}`);
+    await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false })));
+    await page.reload();
+    await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click();
+    await expect(page.locator('#quickReply')).toHaveCount(0);
+    await expect(page.locator('#com')).toBeVisible();
+    await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally {
+    for (const no of [id, foreign]) expect((await request.post('/test/delete', { headers: { Origin: origin },
+      maxRedirects: 0, form: { no, password } })).status()).toBe(303);
+  }
+});
+
 async function observePostingBody(page) {
   await page.evaluate(origin => {
     const original = window.fetch;
@@ -177,7 +265,7 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await expect(page.locator(`#m${result.pid} .quote`)).toHaveText(`>${selected}`);
     await expect(page.locator(`#m${result.pid} .quotelink`)).toHaveCount(0);
     await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: false }))); await page.reload();
-    await page.locator(`#pi${id} > .postNum`).click({ modifiers: ['Control'] });
+    await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click({ modifiers: ['Control'] });
     await expect(page.locator('#qrCom')).toHaveValue(''); expect(context.pages()).toHaveLength(1);
     await page.locator('#qrCom').fill('Posted after Ctrl-click'); await page.locator('#qr-pwd').fill(password);
     await page.locator('#quickReply input[type=submit]').click();

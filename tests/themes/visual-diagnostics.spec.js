@@ -37,7 +37,7 @@ test('navigation waits for delayed catalog and board scripts before exposing the
   await watcherNavigation;
   await watcher.dispose();
   await expect(page.locator('.postMenuBtn').first()).toBeVisible();
-  await page.locator('.postInfo > .postNum').first().click();
+  await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
   await expect(page.locator('#quickReply')).toBeVisible();
 });
 
@@ -90,7 +90,7 @@ test('synthetic visual state excludes form, cookie and storage contents', async 
     localStorage.setItem('owned-private', 'STORAGE_SENTINEL');
     history.replaceState(null, '', '?private=QUERY_SENTINEL#FRAGMENT_SENTINEL');
   });
-  await page.locator('.postInfo > .postNum').first().click();
+  await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
   await expect(page.locator('#quickReply')).toBeVisible();
   const state = await readVisualState(page), serialized = JSON.stringify(state);
   expect(state.quickReply).toBe(true); expect(state.nativeForm).toBe(true);

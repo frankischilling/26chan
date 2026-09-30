@@ -21,6 +21,7 @@ const output = Object.values(result.metafile.outputs)[0];
 assert.deepEqual(output.imports.map(item => [item.path, item.kind, item.external]), [
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
+  ['../static/thread-watcher-core.v1.js', 'import-statement', true],
 ]);
 assert.deepEqual(output.exports, ['mountNativeQuickReply']);
 for (const path of Object.keys(result.metafile.inputs)) assert.ok([
@@ -29,6 +30,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-post-form.js',
   'apps/public/client/native-quick-reply-position.js',
   'apps/public/client/native-post-preferences.js',
+  'apps/public/client/native-post-numbers.js',
   'apps/public/static/watcher-position.v1.js',
 ].includes(path), `Unexpected Quick Reply source: ${path}`);
 const bytes = result.outputFiles[0].contents;

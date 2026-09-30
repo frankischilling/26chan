@@ -17,7 +17,7 @@ function post(no, thread, image = false) {
     : '';
   return `<article class="postContainer ${kind}Container" id="pc${no}"><div class="post ${kind}" id="p${no}">`
     + `<div class="postInfo" id="pi${no}"><span class="name">Anonymous</span>`
-    + `<a class="postNum" href="/${board}/thread/${thread}#p${no}">No.${no}</a></div>${file}`
+    + `<span class="postNum"><a href="/${board}/thread/${thread}#p${no}" title="Link to this post">No.</a><a href="/${board}/thread/${thread}?quote=${no}#reply" title="Reply to this post">${no}</a></span></div>${file}`
     + `<blockquote class="postMessage" id="m${no}">Owned page ${no} &lt;script&gt;literal&lt;/script&gt;</blockquote>`
     + '</div></article>';
 }

@@ -28,7 +28,7 @@ try {
   const live = await active.newPage(); live.setDefaultTimeout(10000);
   live.on('pageerror', error => errors.push(error.message));
   await live.goto(`${origin}/${board}/thread/${thread}`);
-  await live.locator('.postNum').first().click();
+  await live.locator('.postNum > a[title="Reply to this post"]').first().click();
   await live.locator('#quickReply #qrFlag').selectOption('UN');
   await live.locator('#qrCom').fill('Owned selected board flag');
   await live.locator('#quickReply input[name=pwd]').fill('owned-flags-browser-password');

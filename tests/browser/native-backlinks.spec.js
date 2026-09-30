@@ -403,7 +403,7 @@ test.describe('unmodified persisted backlink graph', () => {
       await expect(forward(plain, source, owned.id)).toHaveText(`>>${owned.id}`);
       await forward(plain, source, owned.id).click();
       await expect(plain).toHaveURL(`${origin}${owned.url}#p${owned.id}`);
-      await expect(plain.locator(`#p${owned.id} .postNum`)).toHaveAttribute('href', `${owned.url}#p${owned.id}`);
+      await expect(plain.locator(`#p${owned.id} .postNum > a[title="Link to this post"]`)).toHaveAttribute('href', `${owned.url}#p${owned.id}`);
     } finally { await context.close(); }
   });
 });

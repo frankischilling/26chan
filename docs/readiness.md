@@ -68,10 +68,16 @@ native statistics and active-context cleanup. It also adds [country and board
 flags](post-flags.md), saved through text and attachment posting and rendered
 in public JSON, pages and bounded native projections. Its verification record
 tracks local results separately from hosted checks. [Staff text badges](staff-capcodes.md)
-now have a separate authenticated posting flow and local qualification; their
-current-head hosted checks remain required. Staff attachment badges, original
+have a separate authenticated posting flow, local qualification and six passing
+exact-head checks in merged [PR #185](https://github.com/frankischilling/26chan/pull/185).
+Its post-merge main build and monitoring also passed. Staff attachment badges, original
 private geolocation/capture rules and complete local appearance/behavior matching
 remain unfinished.
+
+[Post-number navigation](post-number-navigation.md) separates permalinks from
+quote actions and adds a script-free prefilled reply form. Its continuation
+also compares actual staff headers with 72 pinned public desktop cases;
+original mobile header and full-page comparisons remain unfinished.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|

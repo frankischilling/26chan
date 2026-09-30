@@ -183,6 +183,7 @@ impl Fixture {
             }]
         };
         views::BoardPage {
+            quote: String::new(),
             catalog_hidden: Vec::new(),
             board,
             threads,

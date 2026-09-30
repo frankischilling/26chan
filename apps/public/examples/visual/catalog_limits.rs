@@ -107,6 +107,7 @@ fn render(
     })
     .collect();
     views::BoardPage {
+        quote: String::new(),
         catalog_hidden: Vec::new(),
         board,
         threads,

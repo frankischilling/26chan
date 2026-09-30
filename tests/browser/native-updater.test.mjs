@@ -8,7 +8,7 @@ import { parseUpdaterSnapshot, updaterUrl, UPDATER_LIMITS } from '../../apps/pub
 import { NativeUpdaterTransport } from '../../apps/public/client/native-updater-transport.js';
 
 const context = { origin: 'https://board.example', board: 'demo', thread: '9007199254740992', mediaOrigin: 'https://media.example' };
-const html = (no, inside = 'Safe &lt;script&gt; &amp; text') => `<article class="postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}" id="pc${no}"><div class="post ${no === context.thread ? 'op' : 'reply'}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><a class="postNum" href="/demo/thread/${context.thread}#p${no}">No.${no}</a></div><blockquote class="postMessage" id="m${no}">${inside}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><label for="delete${no}">Deletion password</label><input id="delete${no}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required><button>Delete post</button></form></details></div></article>`;
+const html = (no, inside = 'Safe &lt;script&gt; &amp; text') => `<article class="postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}" id="pc${no}"><div class="post ${no === context.thread ? 'op' : 'reply'}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><span class="postNum"><a href="/demo/thread/${context.thread}#p${no}" title="Link to this post">No.</a><a href="/demo/thread/${context.thread}?quote=${no}#reply" title="Reply to this post">${no}</a></span></div><blockquote class="postMessage" id="m${no}">${inside}</blockquote><details class="postActions"><summary>Delete or report</summary><form method="post" action="/demo/delete"><input type="hidden" name="no" value="${no}"><label for="delete${no}">Deletion password</label><input id="delete${no}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required><button>Delete post</button></form></details></div></article>`;
 function snapshot(inside) {
   return { version: 2, tail_size: 0, tail_id: null, board: 'demo', thread: context.thread, closed: false, archived: false, sticky: false,
     replies: 1, images: 0, posts: [context.thread, '9007199254740993'].map(no => ({ no, file_deleted: false, html: html(no, inside) })) };
@@ -50,7 +50,7 @@ test('staff badges admit only complete pinned header recipes and fixed icon fetc
     ['class="identityIcon"', 'class="identityIcon" loading="lazy"'],
     ['This user is a board Moderator.', 'This user is an Administrator.'],
     ['</strong>', '<span>extra</span></strong>'],
-    ['</span><a class="postNum"', '<span class="posteruid">forged ID</span></span><a class="postNum"'],
+    ['</span><span class="postNum"', '<span class="posteruid">forged ID</span></span><span class="postNum"'],
   ]) {
     const value = structuredClone(positive); value.posts[1].html = value.posts[1].html.replace(from, to);
     assert.notEqual(value.posts[1].html, positive.posts[1].html, `Mutation must apply: ${from}`);
@@ -65,6 +65,41 @@ test('staff badges admit only complete pinned header recipes and fixed icon fetc
   const duplicated = capcodeSnapshot();
   duplicated.posts[1].html = duplicated.posts[1].html.replace(badgeHtml(capcodes[0]), badgeHtml(capcodes[0]).repeat(2));
   assert.equal(parse(duplicated).status, 'invalid-snapshot');
+});
+
+test('post numbers bind both links, labels and titles to their own post header', () => {
+  const positive = snapshot(), no = positive.posts[1].no;
+  const permalink = `/demo/thread/${context.thread}#p${no}`;
+  const reply = `/demo/thread/${context.thread}?quote=${no}#reply`;
+  assert.equal(parse(positive).status, 'ok');
+  assert.equal(parse(snapshot('<a href="https://example.org/?quote=ordinary" rel="nofollow noreferrer noopener">ordinary URL</a>')).status, 'ok');
+  const closed = structuredClone(positive);
+  closed.posts[1].html = closed.posts[1].html.replace(reply, permalink);
+  assert.equal(parse(closed).status, 'ok');
+  for (const [from, to] of [
+    [permalink, `/other/thread/${context.thread}#p${no}`],
+    [permalink, `/demo/thread/${no}#p${no}`],
+    [reply, `/demo/thread/${context.thread}?quote=${context.thread}#reply`],
+    [reply, `${reply}&extra=true`], [reply, `https://board.example${reply}`],
+    ['title="Link to this post"', 'title="Reply to this post"'],
+    ['title="Reply to this post"', 'title="arbitrary title"'],
+    ['>No.</a>', '>No.0</a>'], [`>${no}</a>`, `><span>${no}</span></a>`],
+    ['class="postNum"', 'class="postNum quote"'],
+    ['title="Reply to this post"', 'title="Reply to this post" target="_blank"'],
+  ]) {
+    const value = structuredClone(positive);
+    value.posts[1].html = value.posts[1].html.replace(from, to);
+    assert.notEqual(value.posts[1].html, positive.posts[1].html, from);
+    assert.equal(parse(value).status, 'invalid-snapshot', to);
+  }
+  const pair = positive.posts[1].html.match(/<span class="postNum">.*?<\/span>/)[0];
+  for (const forged of [pair, `<a href="${reply}">reply</a>`,
+    `<a href="${permalink}" title="Link to this post">link</a>`]) {
+    assert.equal(parse(snapshot(forged)).status, 'invalid-snapshot');
+  }
+  const moved = structuredClone(positive);
+  moved.posts[1].html = moved.posts[1].html.replace(pair, '').replace('</blockquote>', pair + '</blockquote>');
+  assert.equal(parse(moved).status, 'invalid-snapshot');
 });
 
 test('country and board flags use finite inert classes and bounded titles', () => {

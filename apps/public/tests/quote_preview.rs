@@ -271,7 +271,17 @@ mod database {
         // not expose a stale cached post once archive visibility expires.
         sqlx::query("UPDATE content.threads SET archived_at=now(),archive_expires_at=now()+interval '1 hour',closed=true WHERE id=$1")
             .bind(thread).execute(&owner).await.unwrap();
-        assert_eq!(json(request(&web, "GET", &path, None).await).await, before);
+        let archived_reply = request(&web, "GET", &path, Some(&etag)).await;
+        assert_eq!(archived_reply.status(), 200);
+        assert_ne!(archived_reply.headers()["etag"], etag);
+        let mut expected = before;
+        let fragment = expected["post"]["html"].as_str().unwrap();
+        let quote_url = format!("/{slug}/thread/{thread}?quote={reply}#reply");
+        assert!(fragment.contains(&quote_url));
+        expected["post"]["html"] = fragment
+            .replace(&quote_url, &format!("/{slug}/thread/{thread}#p{reply}"))
+            .into();
+        assert_eq!(json(archived_reply).await, expected);
         let archived_op = json(request(&web, "GET", &op_path, Some(&op_etag)).await).await;
         assert!(
             archived_op["post"]["html"]

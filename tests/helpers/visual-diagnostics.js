@@ -93,7 +93,7 @@ export const test = base.extend({
         window.ownedVisualEvents.push({
           type, tag: target instanceof Element ? target.tagName : '',
           id: /^[a-zA-Z0-9_-]{1,64}$/.test(id) ? id : '', prevented: event.defaultPrevented,
-          quote: target instanceof Element && !!target.closest('.postInfo > .postNum'),
+          quote: target instanceof Element && !!target.closest('.postInfo > .postNum > a[title="Reply to this post"]'),
           quickReply: !!document.getElementById('quickReply'),
         });
         if (window.ownedVisualEvents.length > 8) window.ownedVisualEvents.shift();

@@ -1,0 +1,5586 @@
+{
+  "scope": "Computed desktop header and staff-badge properties from the inspected released formatter, six pinned desktop styles, and synthetic OP/reply inputs. This does not qualify full-page pixels, mobile headers, private staff authorization or original-server formatting.",
+  "browser": "151.0.7922.34",
+  "viewport": [
+    1280,
+    900
+  ],
+  "density": 1,
+  "client": {
+    "url": "https://s.4cdn.org/js/extension.min.1191.js",
+    "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+    "formatter_bytes": 6986
+  },
+  "styles": [
+    {
+      "url": "https://s.4cdn.org/css/yotsubanew.716.css",
+      "sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9"
+    },
+    {
+      "url": "https://s.4cdn.org/css/yotsubluenew.716.css",
+      "sha256": "fdb0bee8e347334ec2ed1daab6f5e3787d7724f79bb708b338fda2b85bac3720"
+    },
+    {
+      "url": "https://s.4cdn.org/css/futabanew.716.css",
+      "sha256": "71440a1eb2cf4400b7d0b1a5aefdfa64c9e53f7f8aa57bb46122ea11281e1949"
+    },
+    {
+      "url": "https://s.4cdn.org/css/burichannew.716.css",
+      "sha256": "17289883e6106e9b8afba10613d8e5ad4778d8416dba87f620856603e6538209"
+    },
+    {
+      "url": "https://s.4cdn.org/css/photon.716.css",
+      "sha256": "c0adf4a7f9790e00856ac2d7e0b064ceb30002d5952c4da40004fb0bfbdd5377"
+    },
+    {
+      "url": "https://s.4cdn.org/css/tomorrow.716.css",
+      "sha256": "3dd49edac8ebc8d0b6586539cfa3d1e8ab71d85eb41f3b3e66e4057fd8351660"
+    }
+  ],
+  "cases": [
+    {
+      "theme": "yotsuba",
+      "capcode": "mod",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "mod",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "admin",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "admin",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "admin_highlight",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "admin_highlight",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(240, 214, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "manager",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "manager",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "developer",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "developer",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "founder",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "capcode": "founder",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "mod",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "mod",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "admin",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "admin",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "admin_highlight",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "admin_highlight",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(193, 198, 226)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "manager",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "manager",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "developer",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "developer",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "founder",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "capcode": "founder",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px 1px 1px 0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "mod",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "mod",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "admin",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "admin",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "admin_highlight",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "admin_highlight",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(240, 214, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "manager",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "manager",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "developer",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "developer",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "founder",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "futaba",
+      "capcode": "founder",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(240, 224, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          },
+          {
+            "color": "rgb(128, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(255, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "mod",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "mod",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(128, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "admin",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "admin",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "admin_highlight",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "admin_highlight",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(193, 198, 226)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "manager",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "manager",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "developer",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "developer",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "founder",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "burichan",
+      "capcode": "founder",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "name": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)"
+        },
+        "post": {
+          "fontSize": "16px",
+          "fontFamily": "\"times new roman\", serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "padding": "2px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgb(214, 218, 240)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          },
+          {
+            "color": "rgb(0, 0, 0)",
+            "decoration": "none",
+            "hover": "rgb(221, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "mod",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 102, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 102, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "mod",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 102, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 102, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(221, 221, 221)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "admin",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "admin",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(221, 221, 221)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "admin_highlight",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "admin_highlight",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(240, 214, 214)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "manager",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "manager",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(221, 221, 221)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "developer",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "developer",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(221, 221, 221)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "founder",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "photon",
+      "capcode": "founder",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(51, 51, 51)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(221, 221, 221)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          },
+          {
+            "color": "rgb(51, 51, 51)",
+            "decoration": "none",
+            "hover": "rgb(255, 51, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "mod",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(129, 162, 190)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(129, 162, 190)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "mod",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(129, 162, 190)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(129, 162, 190)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(40, 42, 46)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "admin",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "admin",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(40, 42, 46)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "admin_highlight",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "admin_highlight",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(58, 23, 28)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "manager",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "manager",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 128)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(40, 42, 46)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "developer",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "developer",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 240)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(40, 42, 46)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "founder",
+      "kind": "op",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "0px",
+          "borderWidth": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "capcode": "founder",
+      "kind": "reply",
+      "values": {
+        "header": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "name": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "badge": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "normal",
+          "color": "rgb(255, 0, 0)"
+        },
+        "icon": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "width": "16px",
+          "height": "16px",
+          "marginBottom": "-3px"
+        },
+        "number": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)"
+        },
+        "post": {
+          "fontSize": "13.3333px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "color": "rgb(197, 200, 198)",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "backgroundColor": "rgb(40, 42, 46)"
+        },
+        "labels": [
+          {
+            "text": "No.",
+            "title": "Link to this post"
+          },
+          {
+            "text": "$post",
+            "title": "Reply to this post"
+          }
+        ],
+        "links": [
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          },
+          {
+            "color": "rgb(197, 200, 198)",
+            "decoration": "none",
+            "hover": "rgb(95, 137, 172)"
+          }
+        ]
+      }
+    }
+  ]
+}

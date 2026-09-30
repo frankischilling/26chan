@@ -8,7 +8,7 @@ test('desktop reveal is one-way, preserves drafts and the source reply hash open
   await expect(page.locator('#postForm')).toBeVisible();
   await expect(page.locator('#togglePostFormLink')).toBeHidden();
   await page.locator('#com').fill('Ordinary retained draft');
-  await page.locator('.postInfo > .postNum').first().click();
+  await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
   await page.locator('#qrCom').fill('Separate Quick Reply draft');
   await page.locator('#qrCom').press('Escape');
   await expect(page.locator('#com')).toHaveValue('Ordinary retained draft');

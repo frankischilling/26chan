@@ -18,7 +18,7 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.locator(`#m${op} .mu-r`)).toHaveCSS('color', 'rgb(196, 30, 58)');
       const comment = '[i]<img src=x onerror=bad()>[/i] [green]green[/green] [blue]blue[/blue]';
       if (javaScriptEnabled) {
-        await page.locator(`#p${op} .postInfo > .postNum`).click();
+        await page.locator(`#p${op} .postInfo > .postNum > a[title="Reply to this post"]`).click();
         await page.locator('#qrCom').fill(comment);
         await page.locator('#qr-pwd').fill(password);
         const before = page.url();

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
 const origin = 'https://update.example';
-const post = id => `<article class="postContainer ${id === '100' ? 'op' : 'reply'}Container" id="pc${id}"><div class="post ${id === '100' ? 'op' : 'reply'}" id="p${id}"><div class="postInfo" id="pi${id}"><span class="name">Anonymous</span><time datetime="2026-01-01T00:00:00Z">Owned date</time><a class="postNum" href="/test/thread/100#p${id}">No.${id}</a></div><blockquote class="postMessage" id="m${id}">Owned ${id}</blockquote></div></article>`;
+const post = id => `<article class="postContainer ${id === '100' ? 'op' : 'reply'}Container" id="pc${id}"><div class="post ${id === '100' ? 'op' : 'reply'}" id="p${id}"><div class="postInfo" id="pi${id}"><span class="name">Anonymous</span><time datetime="2026-01-01T00:00:00Z">Owned date</time><span class="postNum"><a href="/test/thread/100#p${id}" title="Link to this post">No.</a><a href="/test/thread/100?quote=${id}#reply" title="Reply to this post">${id}</a></span></div><blockquote class="postMessage" id="m${id}">Owned ${id}</blockquote></div></article>`;
 const snapshot = { version: 2, board: 'test', thread: '100', replies: 2, images: 0,
   closed: true, sticky: true, archived: false, tail_size: 1, tail_id: null,
   posts: ['100', '101', '102'].map(no => ({ no, html: post(no), file_deleted: false })) };

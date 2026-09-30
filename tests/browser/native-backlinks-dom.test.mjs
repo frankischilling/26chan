@@ -11,7 +11,7 @@ function quote(no, href = `/demo/post/${no}`, text = `>>${no}`) {
 }
 function post(no, content = '', thread = '100') {
   const kind = no === thread ? 'op' : 'reply';
-  return `<article class="postContainer ${kind}Container" id="pc${no}"><div class="post ${kind}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><a class="postNum" href="/demo/thread/${thread}#p${no}">No.${no}</a></div><blockquote class="postMessage" id="m${no}">${content}</blockquote></div></article>`;
+  return `<article class="postContainer ${kind}Container" id="pc${no}"><div class="post ${kind}" id="p${no}"><div class="postInfo" id="pi${no}"><span class="name">Anonymous</span><span class="postNum"><a href="/demo/thread/${thread}#p${no}" title="Link to this post">No.</a><a href="/demo/thread/${thread}?quote=${no}#reply" title="Reply to this post">${no}</a></span></div><blockquote class="postMessage" id="m${no}">${content}</blockquote></div></article>`;
 }
 const section = (thread, posts) => `<section class="thread" id="t${thread}">${posts}</section>`;
 

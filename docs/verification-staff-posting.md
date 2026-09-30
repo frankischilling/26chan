@@ -99,5 +99,10 @@ The preceding private-count and flag batch merged as
 `4cd3dc81eefbd621c1a03ea3f2406de489d776c5`. Its tree matches the checked
 `687c78528e3c51c42ada5012d30af72f31ece08e` head. All six checks passed: build
 36679040274, monitoring 36679040256 and advisories 36679040262.
-This record covers local qualification before publication of the staff
-continuation. Hosted checks must pass on its published head before merge.
+[PR #185](https://github.com/frankischilling/26chan/pull/185) merged on September
+30 at `52d8bc875878bf28cf0512f7e737ed53e520b0f2`. Its tree matches the locally
+qualified `55f494efba0d66a4ee8d5a3b72766bc08b533834` head. All six hosted checks
+passed on that head: build 36689085872, monitoring 36689085824 and advisories
+36689085951. The build includes Linux Rust/browser, Windows visual and native
+media/operation qualification. Post-merge main build 36693019999 passed all
+four jobs on the merge commit, and monitoring 36693019847 passed separately.

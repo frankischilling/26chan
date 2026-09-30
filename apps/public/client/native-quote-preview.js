@@ -35,7 +35,7 @@ export function quotePreviewPosition(link, size, viewport, mobile = false) {
 
 const localTags = {
   article: ['class', 'id'], div: ['class', 'id'], span: ['class', 'tabindex', 'aria-label', 'title'],
-  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
@@ -68,6 +68,7 @@ export function localQuoteTree(article, context, no, projection) {
     const attrs = {};
     for (const key of localTags[tag]) {
       if (key === 'title' && tag === 'span' && !Array.from(node.classList).some(isPostFlagToken)) continue;
+      if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum')) continue;
       if (tag === 'img' && ['class', 'srcset', 'title'].includes(key) && !node.classList.contains('identityIcon')) continue;
       const value = node.getAttribute(key);
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }
