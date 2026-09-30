@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:generated": "npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply",
     "test:files-core": "npm run check:native-filter && node --test tests/browser/native-file-presentation.test.mjs",
     "test:post-tooltips-core": "node --test tests/browser/native-post-tooltips.test.mjs",
     "test:post-tooltips": "npm run test:post-tooltips-core && playwright test tests/browser/native-post-tooltips.spec.js",

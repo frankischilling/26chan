@@ -233,3 +233,35 @@ development measurements, not production-host qualification.
 Fresh exact-head hosted checks remain required before PR #187 merges. This
 correction changes test expectations, failure diagnostics and stale scope notes;
 it adds no application or media authority.
+
+## Quick Reply bundle correction
+
+Hosted [run 36788485655](https://github.com/frankischilling/26chan/actions/runs/36788485655)
+on `f3d5986` passed the full Rust test stage, Windows visuals and
+media/operations; its monitoring run also passed. The Rust/browser job then
+stopped at the Quick Reply generated-source check. The shared post-number
+validator had gained attachment-header handling, but its Quick Reply bundle
+had not been regenerated. The earlier four bundle checks did not cover it.
+
+The regenerated Quick Reply asset is 24,483 bytes, below its unchanged
+32,768-byte limit. All five generated-source checks now pass: filter, images,
+thread controls, backlinks and Quick Reply. The stale-bundle assertion remains
+enforced. `npm run check:generated` now groups all five checks, and the normal
+Linux verification script runs it before Rust validation. A stale asset therefore
+fails before the long Rust and browser sequence. Fresh hosted checks on this
+corrected head remain required for merge.
+
+The local rerun embedded the regenerated asset in a rebuilt public server. All
+18 Quick Reply/preference core tests and 13 persisted browser tests passed. The
+persisted upload case passed all six browser flows with zero ignored cases in
+80.60 seconds. Actual authenticated Firecracker processing then passed all seven
+nonroot browser upload workflows, malformed JPEG/GIF rejection, resource and
+streaming deadlines, reader revocation, private-file cleanup and service shutdown.
+The earlier interrupted-cleanup result remains recorded above.
+
+The Linux copy initially contained Windows esbuild binaries. Installing the
+pinned dependencies in that owned workspace corrected the platform mismatch;
+its first nonroot install also required ownership of the copied `node_modules`.
+The application and test deadlines were unchanged. The four other generated
+bundles already matched; the correction changes only the generated Quick Reply
+asset, the grouped verification command and this record.

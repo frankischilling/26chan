@@ -11,6 +11,7 @@ npm ci --ignore-scripts
 if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium
 fi
+npm run check:generated
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
