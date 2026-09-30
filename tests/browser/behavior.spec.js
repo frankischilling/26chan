@@ -7,7 +7,9 @@ const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-as
 const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watcher-assets.json', import.meta.url), 'utf8'));
 const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updater-assets.json', import.meta.url), 'utf8'));
 const navigationAssets = JSON.parse(await readFile(new URL('../../docs/public-navigation-assets.json', import.meta.url), 'utf8'));
+const flagAssets = JSON.parse(await readFile(new URL('../../docs/public-country-flags-reference.json', import.meta.url), 'utf8'));
 const releaseImages = [
+  ...flagAssets.assets.filter(asset => asset.mime.startsWith('image/')).map(asset => ({ ...asset, path: `${flagAssets.local_base}${asset.name}` })),
   ...navigationAssets.files.map(asset => ({ path: asset.path.replace('apps/public', ''), dimensions: [asset.width, asset.height] })),
   ...[uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
     manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` }))),
