@@ -28,6 +28,7 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .postInfo { line-height: 1.6; overflow-wrap: anywhere; }
 .subject { color: #cc1105; font-weight: bold; margin-right: 5px; }
 .name { color: #117743; font-weight: bold; }
+.postertrip { color: #117743; font-weight: normal; }
 .postNum { color: inherit; }
 .postMessage { margin: 12px 20px; overflow-wrap: anywhere; line-height: 1.35; }
 .quote { color: #789922; }

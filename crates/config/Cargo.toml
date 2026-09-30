@@ -5,6 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+board-domain = { path = "../domain" }
 url.workspace = true
 thiserror.workspace = true
 psl = "2.1"

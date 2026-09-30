@@ -179,3 +179,13 @@ This adds a direct dependency on the already locked crate; no registry version
 changes. Nginx is an operator-patched system dependency and is installed from the
 configured Ubuntu repositories for the owned HTTPS qualification. See
 [public proxy identity](public-proxy.md).
+
+Posting identities add direct use of already locked ring 0.17.14 and base64
+0.22.1, without new registry packages or versions. Ring's HMAC-SHA256 uses
+its existing unsafe/native cryptographic implementation, already present
+through Rustls. The public runtime's trusted code therefore includes that
+implementation. The first-party legacy pseudonym hash uses safe Rust and
+bounded standard DES tables; it is excluded from authentication and deletion
+authority. Independent libxcrypt and Python HMAC vectors check the algorithms.
+The [identity notes](post-identities.md) describe the secret-dependent security
+replacement and the original behavior that remains unqualified.

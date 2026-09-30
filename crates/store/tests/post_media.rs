@@ -515,6 +515,7 @@ async fn exercise(f: &Fixture) {
     posting_times(f).await;
     image_admission_flags(f).await;
     comment_spacing(f).await;
+    tripcodes(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
     source_op_markup_attachment(f).await;
@@ -524,6 +525,47 @@ async fn exercise(f: &Fixture) {
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn tripcodes(f: &Fixture) {
+    let upload = f.reserve().await;
+    f.approve(&upload).await;
+    let mut draft = post();
+    draft.name = "User#password".into();
+    if f.attachment_only {
+        draft.comment.clear();
+    }
+    let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(saved.name, "User");
+    assert_eq!(saved.trip.as_deref(), Some("!ozOtJW9BFA"));
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    let upload = f.reserve().await;
+    f.approve(&upload).await;
+    sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    draft.name = "User##owned-private-secret".into();
+    let id = create_post_with_attachment(&f.public, &f.board, id, &draft, Some(&upload))
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(saved.name, "Anonymous");
+    assert_eq!(saved.trip, None);
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
 }
 
 async fn source_op_markup_attachment(f: &Fixture) {

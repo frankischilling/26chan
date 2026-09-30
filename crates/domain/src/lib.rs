@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod identity;
 pub mod word_break;
 
 pub mod bump;

@@ -427,6 +427,7 @@ mod tests {
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "<img src=x onerror=alert(1)>".into(),
+                trip: None,
                 subject: "<script>subject</script>".into(),
                 comment: "<script>alert(1)</script>\n>>9223372036854775806".into(),
                 created_at: now,

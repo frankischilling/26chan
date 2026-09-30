@@ -135,6 +135,9 @@ fn post_json(
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
         "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name });
+    if let Some(trip) = &post.post.trip {
+        value["trip"] = json!(trip);
+    }
     if !comment.is_empty() {
         value["com"] = json!(comment);
     }

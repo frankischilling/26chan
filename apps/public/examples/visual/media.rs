@@ -136,6 +136,7 @@ impl Fixture {
             board: board.slug.clone(),
             thread_id: if catalog { file.post_id } else { thread.id },
             name: "Anonymous".into(),
+            trip: None,
             subject: ["Landscape fold", "Portrait fold", "Small fold", "Legacy full-image preview", "Spoiler fold", "Removed file"][index].into(),
             comment: "Synthetic paper fold.\n>the original bytes stay unchanged\n[spoiler]A hidden crease.[/spoiler]".into(),
             created_at: thread.created_at,

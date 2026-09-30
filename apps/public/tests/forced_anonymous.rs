@@ -198,11 +198,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 let saved = board_store::find_post(&public, &slug, id).await.unwrap();
                 assert_eq!(
                     saved.name,
-                    if enabled {
-                        "Anonymous"
-                    } else {
-                        "Owned <name>#trip"
-                    }
+                    if enabled { "Anonymous" } else { "Owned <name>" }
+                );
+                assert_eq!(
+                    saved.trip.as_deref(),
+                    if enabled { None } else { Some("!hEpdoZ.tHU") }
                 );
                 assert_eq!(saved.subject, if enabled { "" } else { "Owned subject" });
             }
@@ -213,11 +213,13 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .unwrap();
                 assert_eq!(
                     json["posts"][0]["name"],
-                    if enabled {
-                        "Anonymous"
-                    } else {
-                        "Owned <name>#trip"
-                    }
+                    if enabled { "Anonymous" } else { "Owned <name>" }
+                );
+                assert_eq!(
+                    json["posts"][0]
+                        .get("trip")
+                        .and_then(serde_json::Value::as_str),
+                    if enabled { None } else { Some("!hEpdoZ.tHU") }
                 );
                 assert_eq!(json["posts"][0].get("sub").is_some(), !enabled);
             }

@@ -179,9 +179,11 @@ both pass with the lifecycle fixes. A separate disable/re-enable fixture now
 dispatches the same settings event in both directions. No retries or screenshot
 tolerances changed. The local WSL host has `/dev/kvm`, but does not
 currently have the owned Firecracker qualification configs or Linux candidate
-binaries, so the extended real-guest inline case remains a hosted qualification
-for the current PR head. CI outcomes must be recorded on the tested PR head
-before merge.
+binaries. Hosted media/operations run 36643399587 passed the real-guest inline
+case on df2d20e. The local persisted supervisor then passed all six upload,
+post and deletion workflows with the response-body capture fix, including the
+subsequent tripcode integration. These checkpoints do not replace CI for the
+final PR head.
 
 Cooldown/automatic posting, identity-cookie
 remembering, Pass/captcha, drawing and full rendered-source

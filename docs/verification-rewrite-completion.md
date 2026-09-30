@@ -252,6 +252,85 @@ and a missing subject on the image OP, were corrected before those results.
 The server's required-subject policy was unchanged. Client attachment controls
 and the final combined hosted checks remain under implementation and review.
 
+## September 29 browser and identity review
+
+The Windows artifacts from run 36576233777 differ in exactly 40 pixels in the
+synthetic thumbnail's diagonal, for both failing themes. The interactive
+catalog comparison now selects pixelated rendering only for its synthetic
+thumbnails. It retains exact pixel equality; ordinary theme screenshots keep
+the default raster. All six local theme comparisons passed. On `df2d20e`,
+Windows visual, audit, monitoring and media/operations CI passed in run
+36643399587. The Linux job passed its Rust/database suite and later failed
+only two browser CSP expectations. The image expectation omitted the sixteen
+navigation arrows, and the script expectation listed Quick Reply in an older
+position. Both assertions now enumerate the implemented fixed allowlists,
+with their healthy alternate-origin and inline-script denial controls retained.
+The two corrected browser cases passed together against the owned database.
+
+Quick Reply's persisted upload fixture initially lost a posting response body
+before reading it. The harness now begins reading from the response promise
+before awaiting click completion. Its independent assertions still require no
+navigation, a visible persistent editor, consumed upload authority, a real
+text follow-up, replay denial and file-only deletion. The complete fixture
+passed all six native/Quick Reply workflows in one run, including inline
+selection. The synthetic client suite separately passed 23 browser cases and
+11 transport cases. These results do not substitute for the real-guest media
+qualification, which passed on the published `df2d20e` checkpoint.
+
+[Posting identities](post-identities.md) add normal and deployment-keyed secure
+trips to this same PR. The following review commands passed:
+
+```sh
+cargo test -p board-domain identity --locked
+cargo test -p board-store --test post_identities --all-features --locked
+cargo test -p board-public --test post_identities --test forced_anonymous --test posting_json --test startup --test quote_preview --test updater_snapshot --all-features --locked -- --nocapture
+cargo test -p board-staff --lib --all-features --locked
+cargo test -p board-store --test post_media --all-features --locked -- --nocapture
+cargo test -p board-public --test upload_browser --all-features --locked -- --nocapture
+node node_modules/@playwright/test/cli.js test tests/browser/post-identities.spec.js
+cargo check -p board-public -p board-staff --all-targets --all-features --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+BOARD_TEST_PORT=55439 bash scripts/test-tripcode-migration.sh
+node --test tests/browser/native-quote-preview.test.mjs tests/browser/native-quote-preview-dom.test.mjs tests/browser/native-filter-settlement.test.mjs
+npm run check:native-filter
+python scripts/check-media-parser-dependencies.py
+```
+
+The domain run passed five tests, including 27 independent legacy vectors and
+96 bounded Unicode property cases. Store connection reuse/rollback passed one
+case, the public run passed 18 cases, staff rendering/configuration passed
+seven, and preview/settlement checks passed 41. The migration exercise passed
+retained-history, constraint, privilege and transaction-isolation checks in an
+owned temporary database, then removed that database. The rebuilt parser
+bundle is 242,873 bytes, below its unchanged 256 KiB limit.
+
+The review reproduced and fixed fixture/integration mistakes: cleanup
+initially attempted to delete a referenced board before its posts and threads;
+the remote recipe validator initially omitted `postertrip`; and the combined
+attachment run initially omitted its staff test environment. The attachment
+fixture now reads media from its actual media query and creates the
+forced-anonymous attachment as a reply, which respects the existing
+required-subject policy. Its complete test passed. The browser trip filter
+assertion now checks the post element, as the native filter does, and retains
+the independent hidden-message assertion; the persisted case passed, followed
+by the same case with all six theme color/weight checks. The
+complete upload-browser supervisor passed its six workflows after these
+identity additions. Windows staff
+compilation was unavailable because Perl was missing. The same source passed
+on Linux after moving the OpenSSL build to an ordinary Linux filesystem and
+repeating a build whose generated Makefile timestamp was ahead of the local
+clock. Browser startup also reached the existing 120-second deadline during a
+cold build; the follow-up prebuilds the server without changing test timeouts.
+The local Windows esbuild install is checked on Windows, while Linux browser
+runs invoke the pinned installed Playwright CLI directly.
+
+All 150 Windows theme cases passed on the identity source, including exact
+pixel comparisons and the existing desktop/mobile screenshots. No baseline
+or tolerance changed. The first launch collided with a Linux test listener
+while it was shutting down; the next launch succeeded after both Windows and
+Linux listener inventories showed the port was free. Complete hosted CI for
+the final published commit remains required before merge.
+
 ## Remaining acceptance work
 
 The catalog and server-link review retained #82 and #165 where public evidence
@@ -259,7 +338,7 @@ does not establish the missing server rules. Historical Windows failures in #139
 and #142 retain their diagnostics; repeated passing runs have not established a
 cause for them.
 
-Full original-reference parity remains tracked in #6. Production processing,
+Full original-reference parity remains tracked in #6. Production hosting does not block local rewrite completion. Production processing,
 deployed identities and network/storage rules, hardware-authenticator and
 operator qualification, recovery evidence and independent review remain launch
 requirements in #5 and [readiness](readiness.md). Production uploads remain

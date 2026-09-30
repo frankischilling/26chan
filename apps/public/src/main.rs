@@ -23,14 +23,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(media) = &settings.media {
         board_public::media_ready(media).await?;
     }
-    let (metrics, app, api_app) = board_public::observed_routers_with_proxy(
+    let (metrics, app, api_app) = board_public::observed_routers_with_options(
         pool.clone(),
-        settings.public_origin.as_string(),
-        settings.production,
         settings.api.is_some(),
-        settings.media.clone(),
-        settings.request_limits,
-        settings.public_proxy.as_ref().map(|proxy| proxy.uid()),
+        board_public::PublicRouterOptions {
+            origin: settings.public_origin.as_string(),
+            production: settings.production,
+            media: settings.media.clone(),
+            limits: settings.request_limits,
+            proxy_uid: settings.public_proxy.as_ref().map(|proxy| proxy.uid()),
+            tripcode_key: settings.tripcode_key.clone(),
+        },
     );
     if let Some(proxy) = &settings.public_proxy {
         tracing::info!(socket = %proxy.socket().display(), proxy_uid = proxy.uid(), "verified public proxy listener started");

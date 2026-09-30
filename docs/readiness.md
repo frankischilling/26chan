@@ -1,6 +1,16 @@
 # Readiness and remaining work
 
-The working board includes development attachments, private isolated media processing, a separate staff application, archives, six referenced theme palettes and cross-board quotes. The overall rewrite is incomplete and must not be publicly launched as production-ready. `scripts/check-launch-readiness.sh` intentionally fails and lists the missing prerequisites. It is not a mock containment test.
+Rewrite completion means local behavior and appearance matching the reference,
+as clarified by the user on September 29, 2026. Production hosting is a separate
+launch requirement and does not block local rewrite completion. Local parity
+remains incomplete where the compatibility inventory below records missing
+features or reference comparisons.
+
+The working board includes development attachments, private isolated media
+processing, a separate staff application, archives, six referenced theme
+palettes and cross-board quotes. `scripts/check-launch-readiness.sh` checks
+production launch requirements and intentionally fails while they remain
+unqualified. Its result does not decide local rewrite parity.
 
 The September 15, 2026 inventory reconciles earlier checkpoint descriptions with
 merged work. The [active reference boundary](compatibility.md#active-reference-boundary)
@@ -38,6 +48,12 @@ current password authority after its lock wait, and migration 0037 serializes
 operator credential changes with public mutations. The verification record
 includes reproduced failures, passing regressions and the separate clocks used
 by application requests and database changes.
+
+The same batch adds [posting identities](post-identities.md), including normal
+tripcodes, deployment-keyed secure trips, persisted API fields, escaped staff
+previews and native trip filters. Forced-anonymous boards discard both name
+and trip. The secure hash is a documented security replacement; original
+Unicode encoding and remaining parser edge cases need permitted evidence.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|

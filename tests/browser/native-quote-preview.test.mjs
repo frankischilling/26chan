@@ -85,6 +85,21 @@ test('Preview v1 binds resolved board/thread/post and validates the entire envel
   }
 });
 
+test('preview recipes retain escaped tripcode headers without granting attributes or executable markup', () => {
+  const value = snapshot();
+  value.post.html = value.post.html.replace('<span class="name">Anonymous</span>',
+    '<span class="name">Owned &lt;name&gt;</span> <span class="postertrip">!ozOtJW9BFA</span>');
+  const result = parse(value);
+  assert.equal(result.status, 'ok');
+  assert.ok(JSON.stringify(result).includes('postertrip'));
+  assert.ok(JSON.stringify(result).includes('!ozOtJW9BFA'));
+  for (const span of ['<span class="postertrip" onclick="bad()">!trip</span>',
+    '<span class="postertrip" style="background:url(/tracker)">!trip</span>']) {
+    const hostile = snapshot(); hostile.post.html = hostile.post.html.replace('<span class="name">Anonymous</span>', span);
+    assert.equal(parse(hostile).status, 'invalid-preview');
+  }
+});
+
 test('hostile HTML, media, credentials and oversized recipes cannot cross the parser boundary', () => {
   for (const hostile of ['<script>alert(1)</script>', '<style>body{display:none}</style>', '<iframe src="/staff"></iframe>',
     '<svg><image href="https://tracker.example/x"/></svg>', '<math><mi>x</mi></math>', '<template><img src="/tracker"></template>',

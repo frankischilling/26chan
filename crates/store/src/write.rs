@@ -72,6 +72,18 @@ pub async fn create_post_with_context(
     attachment: Option<&post_media::NewAttachment>,
     context: PostingContext,
 ) -> Result<i64, StoreError> {
+    create_post_with_context_and_key(pool, slug, parent, post, attachment, context, None).await
+}
+
+pub async fn create_post_with_context_and_key(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+    tripcode_key: Option<&board_domain::identity::SecureKey>,
+) -> Result<i64, StoreError> {
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let posted_at = context
@@ -206,11 +218,13 @@ pub async fn create_post_with_context(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let name = if post_name.trim().is_empty() {
-        "Anonymous"
-    } else {
-        post_name.trim()
-    };
+    let identity = board_domain::identity::prepare(post_name, tripcode_key)
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    sqlx::query("SELECT set_config('board.post_trip', $1, true)")
+        .bind(identity.trip.as_deref().unwrap_or(""))
+        .execute(&mut *tx)
+        .await?;
+    let name = identity.name.as_str();
     // Cosmetic source eligibility is supplied by this server-owned context.
     // SET LOCAL cannot leak to a later request on the pooled connection. The
     // trigger independently locks and checks the operator's board setting.

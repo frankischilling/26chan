@@ -34,6 +34,7 @@ npm run test:custom-css
 npm run test:settings-transfer
 npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
 npm run test:quick-reply
+npx playwright test tests/browser/post-identities.spec.js
 npm run test:behavior
 npx playwright test tests/browser/catalog-teasers.spec.js
 npx playwright test tests/browser/text-catalog.spec.js

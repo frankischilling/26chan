@@ -10,6 +10,36 @@ fn media_cannot_be_enabled_even_without_database_configuration() {
 }
 
 #[test]
+fn invalid_tripcode_keys_fail_before_binding_without_echoing_secrets() {
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    for key in [
+        "".to_owned(),
+        "owned-invalid-secret".into(),
+        "0".repeat(64),
+        "g".repeat(64),
+    ] {
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_board-public"));
+        command
+            .env_clear()
+            .env("TRIPCODE_KEY", &key)
+            .env(
+                "DATABASE_URL",
+                "postgres://board_public:unused@127.0.0.1:1/absent",
+            )
+            .env("BIND_ADDR", occupied.local_addr().unwrap().to_string());
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", root);
+        }
+        let output = command.output().unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("TRIPCODE_KEY"), "{error}");
+        assert!(!error.contains("owned-invalid-secret"));
+        assert!(!error.contains("AddrInUse"));
+    }
+}
+
+#[test]
 fn invalid_request_budgets_fail_before_binding_or_database_access() {
     let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let command = || {

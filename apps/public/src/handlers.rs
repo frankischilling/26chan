@@ -526,13 +526,14 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_context(
+    let id = board_store::create_post_with_context_and_key(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
         context,
+        state.tripcode_key.as_deref(),
     )
     .await?;
     let thread = if form.resto == 0 { id } else { form.resto };

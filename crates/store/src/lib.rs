@@ -112,6 +112,7 @@ pub struct Post {
     pub board: String,
     pub thread_id: i64,
     pub name: String,
+    pub trip: Option<String>,
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,
