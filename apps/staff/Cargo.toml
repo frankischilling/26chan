@@ -9,6 +9,7 @@ database-tests = []
 
 [dependencies]
 board-domain = { path = "../../crates/domain" }
+board-store = { path = "../../crates/store" }
 board-config = { path = "../../crates/config" }
 board-http = { path = "../../crates/http" }
 board-observe = { path = "../../crates/observe" }
@@ -29,6 +30,7 @@ base64 = "0.22"
 openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
+board-public = { path = "../public" }
 board-media = { path = "../../crates/media" }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"

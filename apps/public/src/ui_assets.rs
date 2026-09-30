@@ -38,6 +38,51 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("../static/flags/board-flags.2.png"),
     ),
     (
+        "/static/identity/modicon.gif",
+        "image/gif",
+        include_bytes!("../static/identity/modicon.gif"),
+    ),
+    (
+        "/static/identity/modicon@2x.gif",
+        "image/gif",
+        include_bytes!("../static/identity/modicon@2x.gif"),
+    ),
+    (
+        "/static/identity/adminicon.gif",
+        "image/gif",
+        include_bytes!("../static/identity/adminicon.gif"),
+    ),
+    (
+        "/static/identity/adminicon@2x.gif",
+        "image/gif",
+        include_bytes!("../static/identity/adminicon@2x.gif"),
+    ),
+    (
+        "/static/identity/managericon.gif",
+        "image/gif",
+        include_bytes!("../static/identity/managericon.gif"),
+    ),
+    (
+        "/static/identity/managericon@2x.gif",
+        "image/gif",
+        include_bytes!("../static/identity/managericon@2x.gif"),
+    ),
+    (
+        "/static/identity/developericon.gif",
+        "image/gif",
+        include_bytes!("../static/identity/developericon.gif"),
+    ),
+    (
+        "/static/identity/developericon@2x.gif",
+        "image/gif",
+        include_bytes!("../static/identity/developericon@2x.gif"),
+    ),
+    (
+        "/static/identity/foundericon.gif",
+        "image/gif",
+        include_bytes!("../static/identity/foundericon.gif"),
+    ),
+    (
         "/static/navigation/futaba/arrow_up.png",
         "image/png",
         include_bytes!("../static/navigation/futaba/arrow_up.png"),

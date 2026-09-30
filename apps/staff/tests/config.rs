@@ -15,11 +15,14 @@ fn staff_media_preview_rejects_port_only_cookie_separation() {
 }
 
 #[test]
-fn staff_rejects_inherited_media_reader_credentials() {
+fn staff_rejects_inherited_unrelated_credentials_and_identity_sources() {
     for credential in [
         "MEDIA_READ_DATABASE_URL",
         "MONITOR_DATABASE_URL",
         "INTAKE_DATABASE_URL",
+        "TRIPCODE_KEY",
+        "POSTER_ID_KEY",
+        "COUNTRY_DATABASE",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
             .env_clear()

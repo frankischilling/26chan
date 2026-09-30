@@ -1,8 +1,8 @@
 use crate::{AppError, AppState, auth, store, views};
 use askama::Template;
 use axum::{
-    Form, Json,
-    extract::{Request, State},
+    Extension, Form, Json,
+    extract::{Query, Request, State},
     http::{HeaderMap, HeaderValue},
     middleware::Next,
     response::{Html, IntoResponse, Redirect, Response},
@@ -12,8 +12,13 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use webauthn_rs::prelude::*;
 type Shared = State<Arc<AppState>>;
+#[derive(Clone, Copy)]
+pub struct StaffRequestStart(pub chrono::DateTime<chrono::Utc>);
 
-pub async fn request_limits(State(state): Shared, request: Request, next: Next) -> Response {
+pub async fn request_limits(State(state): Shared, mut request: Request, next: Next) -> Response {
+    request
+        .extensions_mut()
+        .insert(StaffRequestStart(chrono::Utc::now()));
     let Ok(permit) = state.limits.permits.clone().try_acquire_owned() else {
         return AppError::Capacity.into_response();
     };
@@ -79,6 +84,8 @@ pub async fn javascript() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
+    auth::check_identity(&state.auth, "board_auth").await?;
+    auth::check_identity(&state.staff, "board_staff").await?;
     sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
         .execute(&state.auth)
         .await?;
@@ -375,6 +382,136 @@ pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<Stri
         .render()
         .map_err(|_| AppError::Internal)?,
     ))
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostingQuery {
+    #[serde(default)]
+    pub board: String,
+    #[serde(default)]
+    pub thread: i64,
+    pub posted: Option<i64>,
+}
+
+pub async fn posting(
+    State(state): Shared,
+    headers: HeaderMap,
+    Query(query): Query<PostingQuery>,
+) -> Result<Html<String>, AppError> {
+    let session = auth::session(&state, &headers).await?;
+    let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
+    auth::csrf(&session, &csrf)?;
+    if query.thread < 0
+        || query.posted.is_some_and(|id| id <= 0)
+        || (!query.board.is_empty() && board_domain::BoardSlug::parse(&query.board).is_err())
+    {
+        return Err(AppError::Invalid);
+    }
+    let boards: Vec<(String, String)> =
+        sqlx::query_as("SELECT slug,title FROM content.boards ORDER BY slug LIMIT 1000")
+            .fetch_all(&state.staff)
+            .await?;
+    if let Some(id) = query.posted {
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.thread_id=$2 AND p.id=$3 AND p.capcode IS NOT NULL AND NOT p.deleted)")
+            .bind(&query.board).bind(query.thread).bind(id).fetch_one(&state.staff).await?;
+        if !exists {
+            return Err(AppError::NotFound);
+        }
+    }
+    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+        .bind(session.account_id).fetch_one(&state.auth).await?;
+    Ok(Html(
+        views::Posting {
+            public_origin: state.config.public_origin.clone(),
+            boards,
+            query,
+            csrf,
+            recent: session.recent,
+            admin: label == "admin",
+        }
+        .render()
+        .map_err(|_| AppError::Internal)?,
+    ))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMessage {
+    pub csrf: String,
+    pub board: String,
+    #[serde(default)]
+    pub thread: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub comment: String,
+    #[serde(default)]
+    pub sage: bool,
+    #[serde(default)]
+    pub highlight: bool,
+}
+
+pub async fn post_message(
+    State(state): Shared,
+    headers: HeaderMap,
+    Extension(start): Extension<StaffRequestStart>,
+    Form(input): Form<StaffMessage>,
+) -> Result<Redirect, AppError> {
+    let request_start = start.0;
+    auth::origin(&headers, &state.config.origin)?;
+    let session = auth::session(&state, &headers).await?;
+    auth::csrf(&session, &input.csrf)?;
+    if !session.recent {
+        return Err(AppError::Recent);
+    }
+    if input.thread < 0 || board_domain::BoardSlug::parse(&input.board).is_err() {
+        return Err(AppError::Invalid);
+    }
+    let token = auth::cookie(&headers, state.config.cookie_name())?;
+    let session_hash = auth::hash(&token);
+    let csrf_hash = auth::hash(&input.csrf);
+    let ticket_hash: [u8; 32] = auth::hash(&auth::token())
+        .try_into()
+        .map_err(|_| AppError::Internal)?;
+    let id = board_store::create_staff_post(
+        &state.staff,
+        &input.board,
+        input.thread,
+        &board_store::NewPost {
+            name: input.name,
+            subject: input.subject,
+            comment: input.comment,
+            deletion_hash: String::new(),
+            sage: input.sage,
+        },
+        request_start,
+        board_store::StaffPostAuthority {
+            auth_pool: &state.auth,
+            session_hash: &session_hash,
+            csrf_hash: &csrf_hash,
+            ticket_hash: &ticket_hash,
+            idle_seconds: state.config.idle_timeout.as_secs() as i32,
+            highlight: input.highlight,
+        },
+    )
+    .await
+    .map_err(|error| match error {
+        board_store::StoreError::AuthorizationChanged => AppError::Unauthorized,
+        board_store::StoreError::Invalid(_) | board_store::StoreError::Conflict(_) => {
+            AppError::Invalid
+        }
+        board_store::StoreError::NotFound => AppError::NotFound,
+        board_store::StoreError::Database(error) => AppError::Database(error),
+        _ => AppError::Internal,
+    })?;
+    let thread = if input.thread == 0 { id } else { input.thread };
+    Ok(Redirect::to(&format!(
+        "/post?board={}&thread={thread}&posted={id}",
+        input.board
+    )))
 }
 #[derive(Deserialize)]
 pub struct Mutation {

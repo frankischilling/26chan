@@ -1,0 +1,354 @@
+{
+  "collection_date": "2026-09-30",
+  "local_base": "/static/identity/",
+  "assets": [
+    {
+      "name": "modicon.gif",
+      "url": "https://s.4cdn.org/image/modicon.gif",
+      "mime": "image/gif",
+      "bytes": 94,
+      "sha256": "3b76dead6493a72406398dbb411ce542293e22f323e8d86bbb09b8fafd0a18a8",
+      "dimensions": [
+        16,
+        16
+      ],
+      "collected_utc": "2026-09-30T06:12:22.500335+00:00"
+    },
+    {
+      "name": "modicon@2x.gif",
+      "url": "https://s.4cdn.org/image/modicon@2x.gif",
+      "mime": "image/gif",
+      "bytes": 173,
+      "sha256": "e288a3748c7a5d4b022f710d221f192648cd222b159946c02ecb92eaa5f2b1cc",
+      "dimensions": [
+        32,
+        32
+      ],
+      "collected_utc": "2026-09-30T06:12:22.523335+00:00"
+    },
+    {
+      "name": "adminicon.gif",
+      "url": "https://s.4cdn.org/image/adminicon.gif",
+      "mime": "image/gif",
+      "bytes": 94,
+      "sha256": "bc53ab6296ff18d7e78bc321641f0a1fc8476f28aaec87a2a10ecb92fc3b63ab",
+      "dimensions": [
+        16,
+        16
+      ],
+      "collected_utc": "2026-09-30T06:12:22.548335+00:00"
+    },
+    {
+      "name": "adminicon@2x.gif",
+      "url": "https://s.4cdn.org/image/adminicon@2x.gif",
+      "mime": "image/gif",
+      "bytes": 173,
+      "sha256": "2600864a6ace08c1b24bee7b17b7ab5b2d822fdcf3ea8f68db31792b00605feb",
+      "dimensions": [
+        32,
+        32
+      ],
+      "collected_utc": "2026-09-30T06:12:22.589334+00:00"
+    },
+    {
+      "name": "managericon.gif",
+      "url": "https://s.4cdn.org/image/managericon.gif",
+      "mime": "image/gif",
+      "bytes": 94,
+      "sha256": "80fd15556108858459074f8151cce484b426d9a48f08e259caa603ea451c33f2",
+      "dimensions": [
+        16,
+        16
+      ],
+      "collected_utc": "2026-09-30T06:12:22.639334+00:00"
+    },
+    {
+      "name": "managericon@2x.gif",
+      "url": "https://s.4cdn.org/image/managericon@2x.gif",
+      "mime": "image/gif",
+      "bytes": 173,
+      "sha256": "787586cce8103588efeaddead3c49bcf8ed267deffbe0219550567dfd241fb69",
+      "dimensions": [
+        32,
+        32
+      ],
+      "collected_utc": "2026-09-30T06:12:22.673335+00:00"
+    },
+    {
+      "name": "developericon.gif",
+      "url": "https://s.4cdn.org/image/developericon.gif",
+      "mime": "image/gif",
+      "bytes": 94,
+      "sha256": "d689afebb94992f7107cbc8a99f92ea92d770e10eda8f021bcdc9f2b6c4e8f50",
+      "dimensions": [
+        16,
+        16
+      ],
+      "collected_utc": "2026-09-30T06:12:22.717335+00:00"
+    },
+    {
+      "name": "developericon@2x.gif",
+      "url": "https://s.4cdn.org/image/developericon@2x.gif",
+      "mime": "image/gif",
+      "bytes": 173,
+      "sha256": "6b69737230abdf3ac7dfa649fec8e79986f95cda34bb2eaba306e234f04e06cc",
+      "dimensions": [
+        32,
+        32
+      ],
+      "collected_utc": "2026-09-30T06:12:22.749334+00:00"
+    },
+    {
+      "name": "foundericon.gif",
+      "url": "https://s.4cdn.org/image/foundericon.gif",
+      "mime": "image/gif",
+      "bytes": 94,
+      "sha256": "041c5b828d8676d83d36badd4b8e30ac5eb18bae8de157baad392379f64b5baa",
+      "dimensions": [
+        16,
+        16
+      ],
+      "collected_utc": "2026-09-30T06:12:22.768334+00:00"
+    }
+  ],
+  "styles": [
+    {
+      "url": "https://s.4cdn.org/css/yotsubanew.716.css",
+      "sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+      "rules": [
+        {
+          "selector": ".identityIcon",
+          "declarations": "margin-bottom: -3px;\r\n\theight: 16px;\r\n\twidth: 16px;"
+        },
+        {
+          "selector": ".highlightPost:not(.op)",
+          "declarations": "background: #f0d6d6 !important;\r\n\tborder-color: #d69595 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeAdmin span.name, span.capcodeAdmin a span.name, span.capcodeAdmin span.postertrip, span.capcodeAdmin strong.capcode",
+          "declarations": "color: #F00 !important;"
+        },
+        {
+          "selector": "span.capcodeFounder span.name, span.capcodeFounder span.name a, span.capcodeFounder span.postertrip, span.capcodeFounder strong.capcode",
+          "declarations": "color: #117743 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeMod span.name, span.capcodeMod a span.name, span.capcodeMod span.postertrip, span.capcodeMod strong.capcode",
+          "declarations": "color: #800080 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeDeveloper span.name, span.capcodeDeveloper a span.name, span.capcodeDeveloper span.postertrip, span.capcodeDeveloper strong.capcode",
+          "declarations": "color: #0000F0 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeManager span.name, span.capcodeManager a span.name, span.capcodeManager span.postertrip, span.capcodeManager strong.capcode",
+          "declarations": "color: #FF0080 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode",
+          "declarations": "color: #007FFF !important;"
+        }
+      ]
+    },
+    {
+      "url": "https://s.4cdn.org/css/yotsubluenew.716.css",
+      "sha256": "fdb0bee8e347334ec2ed1daab6f5e3787d7724f79bb708b338fda2b85bac3720",
+      "rules": [
+        {
+          "selector": ".identityIcon",
+          "declarations": "margin-bottom: -3px;\n\theight: 16px;\n\twidth: 16px;"
+        },
+        {
+          "selector": ".highlightPost:not(.op)",
+          "declarations": "background: #c1c6e2 !important;\n\tborder-color: #7b82ac !important;"
+        },
+        {
+          "selector": ".useremail:not(:hover) .name:not(.capcode), .useremail:not(:hover) .postertrip:not(.capcode)",
+          "declarations": "color: #34345C!important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeAdmin span.name, span.capcodeAdmin a span.name, span.capcodeAdmin span.postertrip, span.capcodeAdmin strong.capcode",
+          "declarations": "color: #F00 !important;"
+        },
+        {
+          "selector": "span.capcodeFounder span.name, span.capcodeFounder span.name a, span.capcodeFounder span.postertrip, span.capcodeFounder strong.capcode",
+          "declarations": "color: #117743 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeMod span.name, span.capcodeMod a span.name, span.capcodeMod span.postertrip, span.capcodeMod strong.capcode",
+          "declarations": "color: #800080 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeDeveloper span.name, span.capcodeDeveloper a span.name, span.capcodeDeveloper span.postertrip, span.capcodeDeveloper strong.capcode",
+          "declarations": "color: #0000F0 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeManager span.name, span.capcodeManager a span.name, span.capcodeManager span.postertrip, span.capcodeManager strong.capcode",
+          "declarations": "color: #FF0080 !important;"
+        },
+        {
+          "selector": ".nameBlock.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode",
+          "declarations": "color: #007FFF !important;"
+        }
+      ]
+    },
+    {
+      "url": "https://s.4cdn.org/css/futabanew.716.css",
+      "sha256": "71440a1eb2cf4400b7d0b1a5aefdfa64c9e53f7f8aa57bb46122ea11281e1949",
+      "rules": [
+        {
+          "selector": ".identityIcon",
+          "declarations": "margin-bottom: -3px;\n\theight: 16px;\n\twidth: 16px;"
+        },
+        {
+          "selector": ".highlightPost:not(.op)",
+          "declarations": "background: #f0d6d6 !important;"
+        },
+        {
+          "selector": "span.capcodeAdmin span.name, span.capcodeAdmin span.name a, span.capcodeAdmin span.postertrip, span.capcodeAdmin strong.capcode",
+          "declarations": "color: #F00 !important;"
+        },
+        {
+          "selector": "span.capcodeFounder span.name, span.capcodeFounder span.name a, span.capcodeFounder span.postertrip, span.capcodeFounder strong.capcode",
+          "declarations": "color: #117743 !important;"
+        },
+        {
+          "selector": "span.capcodeMod span.name, span.capcodeMod span.name a, span.capcodeMod span.postertrip, span.capcodeMod strong.capcode",
+          "declarations": "color: #800080 !important;"
+        },
+        {
+          "selector": "span.capcodeDeveloper span.name, span.capcodeDeveloper span.name a, span.capcodeDeveloper span.postertrip, span.capcodeDeveloper strong.capcode",
+          "declarations": "color: #0000F0 !important;"
+        },
+        {
+          "selector": "span.capcodeManager span.name, span.capcodeManager span.name a, span.capcodeManager span.postertrip, span.capcodeManager strong.capcode",
+          "declarations": "color: #FF0080 !important;"
+        },
+        {
+          "selector": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode",
+          "declarations": "color: #007FFF !important;"
+        }
+      ]
+    },
+    {
+      "url": "https://s.4cdn.org/css/burichannew.716.css",
+      "sha256": "17289883e6106e9b8afba10613d8e5ad4778d8416dba87f620856603e6538209",
+      "rules": [
+        {
+          "selector": ".identityIcon",
+          "declarations": "margin-bottom: -3px;\n\theight: 16px;\n\twidth: 16px;"
+        },
+        {
+          "selector": ".highlightPost:not(.op)",
+          "declarations": "background: #c1c6e2 !important;"
+        },
+        {
+          "selector": "span.capcodeAdmin span.name, span.capcodeAdmin span.name a, span.capcodeAdmin span.postertrip, span.capcodeAdmin strong.capcode",
+          "declarations": "color: #F00 !important;"
+        },
+        {
+          "selector": "span.capcodeFounder span.name, span.capcodeFounder span.name a, span.capcodeFounder span.postertrip, span.capcodeFounder strong.capcode",
+          "declarations": "color: #117743 !important;"
+        },
+        {
+          "selector": "span.capcodeMod span.name, span.capcodeMod span.name a, span.capcodeMod span.postertrip, span.capcodeMod strong.capcode",
+          "declarations": "color: #800080 !important;"
+        },
+        {
+          "selector": "span.capcodeDeveloper span.name, span.capcodeDeveloper span.name a, span.capcodeDeveloper span.postertrip, span.capcodeDeveloper strong.capcode",
+          "declarations": "color: #0000F0 !important;"
+        },
+        {
+          "selector": "span.capcodeManager span.name, span.capcodeManager span.name a, span.capcodeManager span.postertrip, span.capcodeManager strong.capcode",
+          "declarations": "color: #FF0080 !important;"
+        },
+        {
+          "selector": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode",
+          "declarations": "color: #007FFF !important;"
+        }
+      ]
+    },
+    {
+      "url": "https://s.4cdn.org/css/photon.716.css",
+      "sha256": "c0adf4a7f9790e00856ac2d7e0b064ceb30002d5952c4da40004fb0bfbdd5377",
+      "rules": [
+        {
+          "selector": ".identityIcon",
+          "declarations": "margin-bottom: -3px;\n\theight: 16px;\n\twidth: 16px;"
+        },
+        {
+          "selector": ".highlightPost:not(.op)",
+          "declarations": "background: #f0d6d6 !important;\n\tborder-color: #d69595 !important;"
+        },
+        {
+          "selector": "span.capcodeAdmin span.name, span.capcodeAdmin span.name a, span.capcodeAdmin span.postertrip, span.capcodeAdmin strong.capcode",
+          "declarations": "color: #F00 !important;"
+        },
+        {
+          "selector": "span.capcodeFounder span.name, span.capcodeFounder span.name a, span.capcodeFounder span.postertrip, span.capcodeFounder strong.capcode",
+          "declarations": "color: #117743 !important;"
+        },
+        {
+          "selector": "span.capcodeMod span.name, span.capcodeMod span.name a, span.capcodeMod span.postertrip, span.capcodeMod strong.capcode",
+          "declarations": "color: #FF6600 !important;"
+        },
+        {
+          "selector": "span.capcodeDeveloper span.name, span.capcodeDeveloper span.name a, span.capcodeDeveloper span.postertrip, span.capcodeDeveloper strong.capcode",
+          "declarations": "color: #0000F0 !important;"
+        },
+        {
+          "selector": "span.capcodeManager span.name, span.capcodeManager span.name a, span.capcodeManager span.postertrip, span.capcodeManager strong.capcode",
+          "declarations": "color: #FF0080 !important;"
+        },
+        {
+          "selector": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode",
+          "declarations": "color: #007FFF !important;"
+        }
+      ]
+    },
+    {
+      "url": "https://s.4cdn.org/css/tomorrow.716.css",
+      "sha256": "3dd49edac8ebc8d0b6586539cfa3d1e8ab71d85eb41f3b3e66e4057fd8351660",
+      "rules": [
+        {
+          "selector": ".identityIcon",
+          "declarations": "margin-bottom: -3px;\n\theight: 16px;\n\twidth: 16px;"
+        },
+        {
+          "selector": ".highlightPost:not(.op)",
+          "declarations": "background: #3A171C !important;\n\tborder-color: #3A171C !important;"
+        },
+        {
+          "selector": "span.capcodeAdmin span.name, span.capcodeAdmin span.name a, span.capcodeAdmin span.postertrip, span.capcodeAdmin strong.capcode",
+          "declarations": "color: #F00 !important;"
+        },
+        {
+          "selector": "span.capcodeFounder span.name, span.capcodeFounder span.name a, span.capcodeFounder span.postertrip, span.capcodeFounder strong.capcode",
+          "declarations": "color: #117743 !important;"
+        },
+        {
+          "selector": "span.capcodeMod span.name, span.capcodeMod span.name a, span.capcodeMod span.postertrip, span.capcodeMod strong.capcode",
+          "declarations": "color: #81a2be !important;"
+        },
+        {
+          "selector": "span.capcodeDeveloper span.name, span.capcodeDeveloper span.name a, span.capcodeDeveloper span.postertrip, span.capcodeDeveloper strong.capcode",
+          "declarations": "color: #0000F0 !important;"
+        },
+        {
+          "selector": "span.capcodeManager span.name, span.capcodeManager span.name a, span.capcodeManager span.postertrip, span.capcodeManager strong.capcode",
+          "declarations": "color: #FF0080 !important;"
+        },
+        {
+          "selector": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode",
+          "declarations": "color: #007FFF !important;"
+        }
+      ]
+    }
+  ],
+  "unknowns": [
+    "The released client names foundericon@2x.gif, but that public URL returned HTTP 404 during collection. No substitute image is invented."
+  ],
+  "api_document": "https://github.com/4chan/4chan-API/blob/2bd670d507ba2daa37a3961a661e088cf6f89d57/pages/Threads.md",
+  "client_reference": "public-watcher-assets.json",
+  "scope": "Finite API labels and released-client badge, icon, highlight and name classes. Private staff posting and authority rules are unspecified."
+}

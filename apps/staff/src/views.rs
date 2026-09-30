@@ -6,9 +6,40 @@ use board_domain::word_break::WordPart;
 #[derive(Template)]
 #[template(path = "login.html")]
 pub struct Login;
+#[derive(Template)]
+#[template(path = "posting.html")]
+pub struct Posting {
+    pub public_origin: String,
+    pub boards: Vec<(String, String)>,
+    pub query: crate::handlers::PostingQuery,
+    pub csrf: String,
+    pub recent: bool,
+    pub admin: bool,
+}
 pub struct Preview {
     pub report: Report,
     pub lines: Vec<Line>,
+}
+impl Preview {
+    pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
+        self.report
+            .capcode
+            .as_deref()
+            .and_then(board_domain::capcode::Capcode::parse)
+    }
+    pub fn flag(&self) -> Option<(&'static str, &str)> {
+        if let (Some(code), Some(name)) = (&self.report.board_flag, &self.report.flag_name)
+            && board_domain::country::board_flag(code).is_some()
+        {
+            return Some(("Board flag", name));
+        }
+        if let (Some(code), Some(name)) = (&self.report.country, &self.report.country_name)
+            && board_domain::country::country_code(code)
+        {
+            return Some(("Country", name));
+        }
+        None
+    }
 }
 impl From<Report> for Preview {
     fn from(report: Report) -> Self {
@@ -39,6 +70,11 @@ mod tests {
             name: "<em>name</em>".into(),
             trip: Some("<em>untrusted trip</em>".into()),
             poster_id: Some("<b>untrusted ID</b>".into()),
+            capcode: None,
+            country: None,
+            country_name: None,
+            board_flag: None,
+            flag_name: None,
             subject: "<i>subject</i>".into(),
             comment_format: 0,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
@@ -90,6 +126,11 @@ mod tests {
                 name: "Anonymous".into(),
                 trip: None,
                 poster_id: None,
+                capcode: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                flag_name: None,
                 subject: String::new(),
                 comment_format: format,
                 comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b]"
@@ -134,6 +175,11 @@ mod tests {
                 name: "Anonymous".into(),
                 trip: None,
                 poster_id: None,
+                capcode: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                flag_name: None,
                 subject: String::new(),
                 comment: comment.clone(),
                 comment_format: format,

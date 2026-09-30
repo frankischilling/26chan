@@ -1,6 +1,7 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { isPostFlagToken } from './native-post-flags.js';
+import { isCapcodeToken, postIdentityUrl } from './native-capcodes.js';
 import { PREVIEW_LIMITS, previewContext, updaterContext, validatePostTree, postLinkUrl, postMediaUrl } from './native-updater-snapshot.js';
 import { NativeQuotePreviewTransport, checkedQuotePreview } from './native-quote-preview-transport.js';
 
@@ -34,8 +35,8 @@ export function quotePreviewPosition(link, size, viewport, mobile = false) {
 
 const localTags = {
   article: ['class', 'id'], div: ['class', 'id'], span: ['class', 'tabindex', 'aria-label', 'title'],
-  time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
-  br: [], wbr: [], s: [], pre: ['class'], p: ['class'], img: ['src', 'alt', 'width', 'height', 'loading'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel'], blockquote: ['class', 'id'],
+  br: [], wbr: [], s: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
   'postInfo', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted', 'postMessage',
@@ -66,16 +67,18 @@ export function localQuoteTree(article, context, no, projection) {
     charge(tag + ' '.repeat(12));
     const attrs = {};
     for (const key of localTags[tag]) {
-      if (key === 'title' && !Array.from(node.classList).some(isPostFlagToken)) continue;
+      if (key === 'title' && tag === 'span' && !Array.from(node.classList).some(isPostFlagToken)) continue;
+      if (tag === 'img' && ['class', 'srcset', 'title'].includes(key) && !node.classList.contains('identityIcon')) continue;
       const value = node.getAttribute(key);
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }
     }
-    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value)).join(' ');
+    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value) || isCapcodeToken(value)).join(' ');
     if (!attrs.class) delete attrs.class;
     if (!ids.has(attrs.id)) delete attrs.id;
     if (tag === 'img') {
-      if (!attrs.src || !postMediaUrl(attrs.src, context)) return [];
-      attrs.alt ??= ''; attrs.loading = 'lazy';
+      if (!attrs.src || (!postMediaUrl(attrs.src, context) && !postIdentityUrl(attrs.src))) return [];
+      attrs.alt ??= '';
+      if (!postIdentityUrl(attrs.src)) attrs.loading = 'lazy';
       for (const key of ['width', 'height']) if (!/^[1-9][0-9]{0,3}$/.test(attrs[key] ?? '')) delete attrs[key];
     }
     if (Array.from(node.childNodes).filter(child => !projection?.has(child)).length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('preview-nodes');

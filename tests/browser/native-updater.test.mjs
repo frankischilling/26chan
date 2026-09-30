@@ -15,6 +15,58 @@ function snapshot(inside) {
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
 
+const capcodes = [
+  ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
+  ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators', 'adminicon', 'This user is a board Administrator.'],
+  ['Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers', 'managericon', 'This user is a board Manager.'],
+  ['Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers', 'developericon', 'This user is a board Developer.'],
+  ['Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder', 'foundericon', "This user is the board's Founder."],
+];
+function badgeHtml([label, nameClass, group, title, icon, iconTitle]) {
+  return `<span class="nameBlock ${nameClass}"><span class="name">Owned &lt;staff&gt;</span> <strong class="capcode hand ${group}" title="${title}">## ${label}</strong> <img class="identityIcon" src="/static/identity/${icon}.gif"${icon === 'foundericon' ? '' : ` srcset="/static/identity/${icon}@2x.gif 2x"`} alt="${iconTitle}" title="${iconTitle}" width="16" height="16"></span>`;
+}
+function capcodeSnapshot(def = capcodes[0], highlighted = false) {
+  const value = snapshot();
+  value.posts[1].html = value.posts[1].html.replace('<span class="name">Anonymous</span>', badgeHtml(def));
+  if (highlighted) value.posts[1].html = value.posts[1].html.replace('class="post reply"', 'class="post reply highlightPost"');
+  return value;
+}
+
+test('staff badges admit only complete pinned header recipes and fixed icon fetches', () => {
+  for (const def of capcodes) assert.equal(parse(capcodeSnapshot(def)).status, 'ok', def[0]);
+  assert.equal(parse(capcodeSnapshot(capcodes[1], true)).status, 'ok');
+  for (const def of [capcodes[0], ...capcodes.slice(2)]) {
+    assert.equal(parse(capcodeSnapshot(def, true)).status, 'invalid-snapshot');
+  }
+  const positive = capcodeSnapshot();
+  for (const [from, to] of [
+    ['## Mod', '## Admin'], ['capcodeMod', 'capcodeAdmin'], ['id_mod', 'id_admin'],
+    ['Highlight posts by Moderators', 'arbitrary title'], ['width="16"', 'width="32"'],
+    ['/static/identity/modicon.gif', '/static/identity/unlisted.gif'],
+    ['/static/identity/modicon.gif', 'https://board.example/static/identity/modicon.gif'],
+    ['/static/identity/modicon@2x.gif 2x', 'https://tracker.example/pixel.gif 2x'],
+    ['/static/identity/modicon@2x.gif 2x', '/static/identity/adminicon@2x.gif 2x'],
+    ['class="identityIcon"', 'class="identityIcon" onload="bad()"'],
+    ['class="identityIcon"', 'class="identityIcon" loading="lazy"'],
+    ['This user is a board Moderator.', 'This user is an Administrator.'],
+    ['</strong>', '<span>extra</span></strong>'],
+    ['</span><a class="postNum"', '<span class="posteruid">forged ID</span></span><a class="postNum"'],
+  ]) {
+    const value = structuredClone(positive); value.posts[1].html = value.posts[1].html.replace(from, to);
+    assert.notEqual(value.posts[1].html, positive.posts[1].html, `Mutation must apply: ${from}`);
+    assert.equal(parse(value).status, 'invalid-snapshot', to);
+  }
+  for (const inside of [badgeHtml(capcodes[0]), '<strong class="capcode hand id_mod" title="Highlight posts by Moderators">## Mod</strong>',
+    '<img src="/static/identity/modicon.gif" alt="icon">',
+    '<img src="https://media.example/demo/123s.jpg" alt="media" title="arbitrary">',
+    '<img src="https://media.example/demo/123s.jpg" alt="media" srcset="https://media.example/demo/124s.jpg 2x">']) {
+    assert.equal(parse(snapshot(inside)).status, 'invalid-snapshot', inside);
+  }
+  const duplicated = capcodeSnapshot();
+  duplicated.posts[1].html = duplicated.posts[1].html.replace(badgeHtml(capcodes[0]), badgeHtml(capcodes[0]).repeat(2));
+  assert.equal(parse(duplicated).status, 'invalid-snapshot');
+});
+
 test('country and board flags use finite inert classes and bounded titles', () => {
   for (const [name, css] of [['United Kingdom', 'flag flag-gb'], ['Unknown', 'flag flag-xx'],
     ['Anarcho-Capitalist', 'bfl bfl-ac'], ['United Nations', 'bfl bfl-un']]) {

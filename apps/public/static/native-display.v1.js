@@ -290,7 +290,7 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
     hovered = null; tooltip?.remove(); tooltip = null;
   }
   function tipAllowed(record) {
-    return complete && record && settings().disableAll !== true && (thread || record.section.classList.contains('tExpanded'));
+    return complete && record?.kind === 'id' && settings().disableAll !== true && (thread || record.section.classList.contains('tExpanded'));
   }
   function showTip() {
     timer = null;
@@ -319,15 +319,27 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
     complete = true;
     while ((element = walk.nextNode())) {
       if (++nodes > 40000 || found.size >= 10000) { complete = false; break; }
-      if (!element.matches('.posteruid > .hand') || !/^[+/0-9A-Za-z]{8}$/.test(element.textContent)) continue;
+      const badge = element.matches('strong.capcode.hand') && [
+        ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators'],
+        ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators'],
+        ['Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder'],
+        ['Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers'],
+        ['Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers'],
+      ].find(([label, nameClass, group, title]) => element.textContent === `## ${label}`
+        && element.className === `capcode hand ${group}` && element.title === title
+        && element.parentElement?.className === `nameBlock ${nameClass}`
+        && element.parentElement.parentElement?.classList.contains('postInfo'));
+      const ordinary = element.matches('.posteruid > .hand') && /^[+/0-9A-Za-z]{8}$/.test(element.textContent);
+      if (!badge && !ordinary) continue;
       const info = element.closest('.postInfo'), post = info?.parentElement, section = post?.closest('.thread');
       if (!post?.matches('.post') || !/^p[1-9][0-9]{0,18}$/.test(post.id)
         || !post.parentElement?.matches('.postContainer') || !/^t[1-9][0-9]{0,18}$/.test(section?.id || '')
         || posts.has(post.id)) continue;
-      posts.add(post.id); found.set(element, { id: element.textContent, post, section });
+      const id = badge ? `capcode:${badge[2]}` : element.textContent;
+      posts.add(post.id); found.set(element, { id, kind: badge ? 'capcode' : 'id', post, section });
       own(element, 'role', 'button'); own(element, 'tabindex', '0');
-      own(element, 'title', 'Highlight posts by this ID');
-      own(element, 'aria-pressed', String(element.textContent === selected));
+      if (ordinary) own(element, 'title', 'Highlight posts by this ID');
+      own(element, 'aria-pressed', String(id === selected));
     }
     for (const element of [...attributes.keys()]) if (!found.has(element)) restoreAll(element);
     labels = found;
@@ -339,7 +351,7 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
     if (hovered && !tipAllowed(labels.get(hovered))) hideTip();
     else if (tooltip) showTip();
   }
-  function target(event) { return event.target?.closest?.('.posteruid > .hand'); }
+  function target(event) { return event.target?.closest?.('.posteruid > .hand,strong.capcode.hand'); }
   function activate(event) {
     const label = target(event) || event.target?.closest?.('.posteruid')?.querySelector(':scope > .hand');
     const record = labels.get(label);

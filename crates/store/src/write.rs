@@ -146,6 +146,80 @@ pub async fn create_post_with_metadata(
     context: PostingContext,
     metadata: PostMetadata<'_>,
 ) -> Result<i64, StoreError> {
+    create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context,
+        PostWriteOptions {
+            metadata,
+            staff: None,
+        },
+    )
+    .await
+}
+
+/// Server-owned WebAuthn session proof. Request bodies cannot supply this value.
+pub struct StaffPostAuthority<'a> {
+    pub auth_pool: &'a PgPool,
+    pub session_hash: &'a [u8],
+    pub csrf_hash: &'a [u8],
+    pub ticket_hash: &'a [u8; 32],
+    pub idle_seconds: i32,
+    pub highlight: bool,
+}
+
+pub async fn create_staff_post(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    request_start: DateTime<Utc>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        None,
+        PostingContext {
+            request_start,
+            peer: None,
+            op_password_proof: None,
+        },
+        PostWriteOptions {
+            metadata: PostMetadata {
+                keys: PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: None,
+                },
+                country_database: None,
+                flag: "",
+            },
+            staff: Some(authority),
+        },
+    )
+    .await
+}
+
+struct PostWriteOptions<'a> {
+    metadata: PostMetadata<'a>,
+    staff: Option<StaffPostAuthority<'a>>,
+}
+
+async fn create_post_in_context(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+    options: PostWriteOptions<'_>,
+) -> Result<i64, StoreError> {
+    let PostWriteOptions { metadata, staff } = options;
     let keys = metadata.keys;
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
@@ -154,6 +228,14 @@ pub async fn create_post_with_metadata(
         .with_nanosecond(0)
         .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
     let mut tx = pool.begin().await?;
+    if staff.is_some() {
+        let role: String = sqlx::query_scalar("SELECT current_user::text")
+            .fetch_one(&mut *tx)
+            .await?;
+        if role != "board_staff" {
+            return Err(StoreError::UnsafeRole);
+        }
+    }
     let board: Board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
         .fetch_optional(&mut *tx)
@@ -171,7 +253,7 @@ pub async fn create_post_with_metadata(
     {
         return Err(StoreError::Invalid("Invalid board flag."));
     }
-    let country = if board.country_flags && flag.is_empty() {
+    let country = if staff.is_none() && board.country_flags && flag.is_empty() {
         let database = metadata
             .country_database
             .ok_or(StoreError::Invalid("Country flags are unavailable."))?;
@@ -201,7 +283,7 @@ pub async fn create_post_with_metadata(
     } else {
         false
     };
-    let password_matches = if board.op_markup && parent > 0 {
+    let password_matches = if staff.is_none() && board.op_markup && parent > 0 {
         if let Some(proof) = context.op_password_proof {
             let hash: Option<String> = sqlx::query_scalar(crate::read::OP_DELETION_HASH)
                 .bind(slug)
@@ -311,7 +393,7 @@ pub async fn create_post_with_metadata(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let poster_id = if board.user_ids {
+    let poster_id = if staff.is_none() && board.user_ids {
         let key = keys
             .poster_id
             .ok_or(StoreError::Invalid("Poster IDs are unavailable."))?;
@@ -339,8 +421,23 @@ pub async fn create_post_with_metadata(
         .bind(count_context.as_ref().map_or("", |value| value.fingerprint.as_str()))
         .bind(count_context.as_ref().map_or("", |value| value.epoch.as_str()))
         .execute(&mut *tx).await?;
-    let identity = board_domain::identity::prepare(post_name, keys.tripcode)
-        .map_err(|error| StoreError::Invalid(error.0))?;
+    let identity = if staff.is_some() {
+        // Staff badges replace trips. Never publish a suffix entered using the
+        // public form's private trip-password syntax.
+        let display = post_name.split('#').next().unwrap_or("").trim();
+        board_domain::identity::Identity {
+            name: if display.is_empty() {
+                "Anonymous"
+            } else {
+                display
+            }
+            .into(),
+            trip: None,
+        }
+    } else {
+        board_domain::identity::prepare(post_name, keys.tripcode)
+            .map_err(|error| StoreError::Invalid(error.0))?
+    };
     sqlx::query("SELECT set_config('board.post_trip', $1, true)")
         .bind(identity.trip.as_deref().unwrap_or(""))
         .execute(&mut *tx)
@@ -353,6 +450,35 @@ pub async fn create_post_with_metadata(
         .bind(if op_markup { "true" } else { "false" })
         .execute(&mut *tx)
         .await?;
+    if let Some(authority) = &staff {
+        sqlx::query(
+            "SELECT staff_identity.issue_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+        )
+        .bind(authority.ticket_hash.as_slice())
+        .bind(authority.session_hash)
+        .bind(authority.csrf_hash)
+        .bind(authority.idle_seconds)
+        .bind(authority.highlight)
+        .bind(id)
+        .bind(slug)
+        .bind(thread_id)
+        .bind(name)
+        .bind(&subject)
+        .bind(comment.as_str())
+        .bind(posted_at)
+        .execute(authority.auth_pool)
+        .await
+        .map_err(staff_post_error)?;
+        let ticket = authority
+            .ticket_hash
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true)")
+            .bind(ticket)
+            .execute(&mut *tx)
+            .await?;
+    }
     if let Some(attachment) = attachment {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)
@@ -369,13 +495,15 @@ pub async fn create_post_with_metadata(
             .await
             .map_err(post_media::scoped_error)?;
     } else {
-        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&subject).bind(comment.as_str()).bind(posted_at).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&subject).bind(comment.as_str()).bind(posted_at).execute(&mut *tx).await.map_err(staff_post_error)?;
     }
-    sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
-        .bind(id)
-        .bind(&post.deletion_hash)
-        .execute(&mut *tx)
-        .await?;
+    if staff.is_none() {
+        sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
+            .bind(id)
+            .bind(&post.deletion_hash)
+            .execute(&mut *tx)
+            .await?;
+    }
     if parent == 0 {
         if let Some(peer) = peer {
             sqlx::query(
@@ -395,6 +523,19 @@ pub async fn create_post_with_metadata(
     }
     tx.commit().await?;
     Ok(id)
+}
+
+fn staff_post_error(error: sqlx::Error) -> StoreError {
+    if error
+        .as_database_error()
+        .and_then(|error| error.code())
+        .as_deref()
+        == Some("28000")
+    {
+        StoreError::AuthorizationChanged
+    } else {
+        StoreError::Database(error)
+    }
 }
 
 /// Trusted store operation for callers that already own deletion authority.

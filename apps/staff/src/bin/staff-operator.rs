@@ -107,18 +107,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args.is_empty()
         || !matches!(
             args[0].as_str(),
-            "provision" | "recover" | "revoke" | "role"
+            "provision" | "recover" | "revoke" | "role" | "capcode"
         )
     {
         eprintln!(
-            "Usage: staff-operator provision NAME moderator|admin NEW_PRIVATE_DIR/invitation.txt | recover NAME NEW_PRIVATE_DIR/invitation.txt | revoke NAME | role NAME moderator|admin"
+            "Usage: staff-operator provision NAME moderator|admin NEW_PRIVATE_DIR/invitation.txt | recover NAME NEW_PRIVATE_DIR/invitation.txt | revoke NAME | role NAME moderator|admin | capcode NAME default|mod|admin|manager|developer|founder"
         );
         return Err("Invalid arguments".into());
     }
     let command = &args[0];
     let expected = match command.as_str() {
         "provision" => 4,
-        "recover" | "role" => 3,
+        "recover" | "role" | "capcode" => 3,
         _ => 2,
     };
     if args.len() != expected || !name_valid(&args[1]) {
@@ -128,6 +128,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         && !matches!(args[2].as_str(), "moderator" | "admin")
     {
         return Err("Invalid role".into());
+    }
+    if command == "capcode"
+        && !matches!(
+            args[2].as_str(),
+            "default" | "mod" | "admin" | "manager" | "developer" | "founder"
+        )
+    {
+        return Err("Invalid public badge".into());
     }
     let pool = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL")?).await?;
     let user: String = sqlx::query_scalar("SELECT current_user::text")
@@ -156,11 +164,24 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             .await?;
     }
     if command == "role" {
-        sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1")
+        sqlx::query("UPDATE staff_identity.accounts SET role=$2,public_capcode=NULL WHERE id=$1")
             .bind(id)
             .bind(&args[2])
             .execute(&mut *tx)
             .await?;
+        sqlx::query("DELETE FROM staff_identity.sessions WHERE account_id=$1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    if command == "capcode" {
+        sqlx::query(
+            "UPDATE staff_identity.accounts SET public_capcode=nullif($2,'default') WHERE id=$1",
+        )
+        .bind(id)
+        .bind(&args[2])
+        .execute(&mut *tx)
+        .await?;
         sqlx::query("DELETE FROM staff_identity.sessions WHERE account_id=$1")
             .bind(id)
             .execute(&mut *tx)

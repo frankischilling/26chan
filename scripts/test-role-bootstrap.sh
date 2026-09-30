@@ -47,14 +47,47 @@ done
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$
 BEGIN
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name'] FROM content.posts p)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode'] FROM content.posts p)
      OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
      OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE EXCEPTION 'Poster count upgrade changed history or invented identity';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_staff_post_owner'
+      AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+     OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_staff_post_owner')
+     OR has_schema_privilege('board_staff_post_owner','content','CREATE')
+     OR has_schema_privilege('board_staff_post_owner','staff_identity','CREATE')
+     OR has_schema_privilege('board_staff_post_owner','deployment','USAGE')
+     OR has_schema_privilege('board_staff_post_owner','media','USAGE')
+     OR has_table_privilege('board_staff_post_owner','content.posts','INSERT,UPDATE,DELETE')
+     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','SELECT,INSERT,UPDATE')
+     OR has_column_privilege('board_staff_post_owner','staff_identity.accounts','role','UPDATE')
+     OR has_column_privilege('board_staff_post_owner','staff_identity.accounts','public_capcode','UPDATE')
+     OR has_column_privilege('board_staff_post_owner','staff_identity.sessions','csrf_hash','UPDATE')
+     OR has_column_privilege('board_staff_post_owner','staff_identity.sessions','expires_at','UPDATE')
+     OR has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents','capcode','UPDATE')
+     OR NOT has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents','token_hash','UPDATE') THEN
+    RAISE EXCEPTION 'Staff posting function owner exceeds required authority';
+  END IF;
+  IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
+       'board_media_read','board_media_intake','board_monitor']) runtime(name)
+       WHERE has_any_column_privilege(name,'post_secrets.staff_post_intents','SELECT,INSERT,UPDATE')
+          OR has_table_privilege(name,'post_secrets.staff_post_intents','DELETE,TRUNCATE,TRIGGER')
+          OR (name<>'board_auth' AND has_function_privilege(name,
+              'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE'))
+          OR (name<>'board_staff' AND has_function_privilege(name,
+              'content.consume_staff_post_authority(bytea,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE')))
+     OR NOT has_function_privilege('board_auth',
+          'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE')
+     OR NOT has_function_privilege('board_staff',
+          'content.consume_staff_post_authority(bytea,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE')
+     OR has_column_privilege('board_staff','content.posts','capcode','INSERT,UPDATE')
+     OR has_column_privilege('board_auth','staff_identity.accounts','public_capcode','UPDATE') THEN
+    RAISE EXCEPTION 'Staff posting runtime grants differ';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_poster_count_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
@@ -163,4 +196,4 @@ SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
 cleanup
 trap - EXIT
-printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; poster-count owner, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
+printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; staff-post and poster-count owners, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
