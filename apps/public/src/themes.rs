@@ -178,6 +178,20 @@ impl DefaultStyle {
     }
 }
 
+#[derive(Deserialize)]
+enum OverrideStyle {
+    #[serde(rename = "tomorrow")]
+    Tomorrow,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StylesheetQuery {
+    #[serde(default)]
+    worksafe: bool,
+    theme: Option<OverrideStyle>,
+}
+
 async fn page(
     State(settings): State<Settings>,
     Query(default): Query<DefaultStyle>,
@@ -285,10 +299,20 @@ fn destination(path: &str) -> String {
 
 async fn stylesheet(
     State(settings): State<Settings>,
-    Query(default): Query<DefaultStyle>,
+    Query(query): Query<StylesheetQuery>,
     headers: HeaderMap,
 ) -> Response {
-    let theme = settings.selection(&headers, default.theme());
+    let theme = if query.theme.is_some() {
+        Theme::Tomorrow
+    } else {
+        settings.selection(
+            &headers,
+            DefaultStyle {
+                worksafe: query.worksafe,
+            }
+            .theme(),
+        )
+    };
     let mut writer = settings.limits.response_writer(usize::MAX);
     if std::fmt::Write::write_fmt(
         &mut writer,

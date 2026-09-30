@@ -6,7 +6,7 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes
 export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
-  'op', 'reply', 'postInfo', 'subject', 'name', 'postNum', 'file', 'fileThumb', 'fileDeleted',
+  'op', 'reply', 'postInfo', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileThumb', 'fileDeleted',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
   article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label'],
@@ -214,5 +214,59 @@ export function parseUpdaterSnapshot(raw, inputContext) {
       return { no: post.no, file_deleted: post.file_deleted, tree };
     });
     return { status: 'ok', snapshot: { ...snapshot, posts } };
+  } catch { return { status: 'invalid-snapshot' }; }
+}
+
+export function boardPageContext({ origin, board, page, mediaOrigin = '' }) {
+  const context = updaterContext({ origin, board, thread: '1', mediaOrigin });
+  require(Number.isInteger(page) && page >= 0 && page <= 999);
+  return { origin: context.origin, board: context.board, page, mediaOrigin: context.mediaOrigin };
+}
+
+export function validateBoardPageSnapshot(snapshot, input, parsed = true) {
+  const context = boardPageContext(input);
+  exactKeys(snapshot, ['version', 'board', 'page', 'next_page', 'threads']);
+  require(snapshot.version === 1 && snapshot.board === context.board && snapshot.page === context.page
+    && (snapshot.next_page === null || (context.page < 999 && snapshot.next_page === context.page + 1))
+    && Array.isArray(snapshot.threads) && snapshot.threads.length <= 20
+    && (snapshot.threads.length > 0 || snapshot.next_page === null));
+  const ids = new Set(), threads = new Set(), budget = { nodes: 0 };
+  for (const thread of snapshot.threads) {
+    exactKeys(thread, ['thread', 'closed', 'sticky', 'archived', 'replies', 'images', 'omitted', 'posts']);
+    require(typeof thread.thread === 'string' && postId(thread.thread) === thread.thread && !threads.has(thread.thread));
+    threads.add(thread.thread);
+    require(typeof thread.closed === 'boolean' && typeof thread.sticky === 'boolean' && thread.archived === false
+      && Number.isInteger(thread.replies) && thread.replies >= 0 && thread.replies <= 1000
+      && Number.isInteger(thread.images) && thread.images >= 0 && thread.images <= thread.replies
+      && Array.isArray(thread.posts) && thread.posts.length === Math.min(4, thread.replies + 1)
+      && thread.omitted === thread.replies - (thread.posts.length - 1));
+    const postContext = updaterContext({ ...context, thread: thread.thread });
+    let previous = 0n;
+    for (const [index, post] of thread.posts.entries()) {
+      exactKeys(post, ['no', 'file_deleted', parsed ? 'tree' : 'html']);
+      require(typeof post.no === 'string' && postId(post.no) === post.no && !ids.has(post.no)
+        && BigInt(post.no) > previous && (index !== 0 || post.no === thread.thread)
+        && typeof post.file_deleted === 'boolean');
+      ids.add(post.no); previous = BigInt(post.no);
+      if (parsed) validatePostTree(post.tree, postContext, post.no, budget);
+      else require(typeof post.html === 'string');
+    }
+  }
+  return snapshot;
+}
+
+export function parseBoardPageSnapshot(raw, input) {
+  try {
+    const context = boardPageContext(input);
+    require(typeof raw === 'string' && raw.length <= UPDATER_LIMITS.bytes
+      && new TextEncoder().encode(raw).length <= UPDATER_LIMITS.bytes);
+    const snapshot = JSON.parse(raw);
+    validateBoardPageSnapshot(snapshot, context, false);
+    const budget = { nodes: 0 };
+    const threads = snapshot.threads.map(thread => ({ ...thread, posts: thread.posts.map(post => ({
+      no: post.no, file_deleted: post.file_deleted,
+      tree: parsePostRecipe(post.html, { ...context, thread: thread.thread }, post.no, budget, UPDATER_LIMITS),
+    })) }));
+    return { status: 'ok', snapshot: { ...snapshot, threads } };
   } catch { return { status: 'invalid-snapshot' }; }
 }

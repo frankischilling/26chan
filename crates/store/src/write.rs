@@ -72,6 +72,48 @@ pub async fn create_post_with_context(
     attachment: Option<&post_media::NewAttachment>,
     context: PostingContext,
 ) -> Result<i64, StoreError> {
+    create_post_with_context_and_key(pool, slug, parent, post, attachment, context, None).await
+}
+
+pub async fn create_post_with_context_and_key(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+    tripcode_key: Option<&board_domain::identity::SecureKey>,
+) -> Result<i64, StoreError> {
+    create_post_with_identity_keys(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context,
+        PostIdentityKeys {
+            tripcode: tripcode_key,
+            poster_id: None,
+        },
+    )
+    .await
+}
+
+/// Deployment keys stay outside request fields and transport identity.
+pub struct PostIdentityKeys<'a> {
+    pub tripcode: Option<&'a board_domain::identity::SecureKey>,
+    pub poster_id: Option<&'a board_domain::poster_id::PosterIdKey>,
+}
+
+pub async fn create_post_with_identity_keys(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: PostingContext,
+    keys: PostIdentityKeys<'_>,
+) -> Result<i64, StoreError> {
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let posted_at = context
@@ -206,11 +248,31 @@ pub async fn create_post_with_context(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let name = if post_name.trim().is_empty() {
-        "Anonymous"
+    let poster_id = if board.user_ids {
+        let key = keys
+            .poster_id
+            .ok_or(StoreError::Invalid("Poster IDs are unavailable."))?;
+        let peer = context
+            .peer
+            .ok_or(StoreError::Invalid("Poster identity is unavailable."))?;
+        Some(
+            key.label(slug, thread_id, peer)
+                .map_err(|error| StoreError::Invalid(error.0))?,
+        )
     } else {
-        post_name.trim()
+        None
     };
+    sqlx::query("SELECT set_config('board.poster_id', $1, true)")
+        .bind(poster_id.as_deref().unwrap_or(""))
+        .execute(&mut *tx)
+        .await?;
+    let identity = board_domain::identity::prepare(post_name, keys.tripcode)
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    sqlx::query("SELECT set_config('board.post_trip', $1, true)")
+        .bind(identity.trip.as_deref().unwrap_or(""))
+        .execute(&mut *tx)
+        .await?;
+    let name = identity.name.as_str();
     // Cosmetic source eligibility is supplied by this server-owned context.
     // SET LOCAL cannot leak to a later request on the pooled connection. The
     // trigger independently locks and checks the operator's board setting.
@@ -262,45 +324,96 @@ pub async fn create_post_with_context(
     Ok(id)
 }
 
-/// Caller must verify the deletion password before entering this operation.
-/// The board/post relationship is checked again under the mutation lock.
+/// Trusted store operation for callers that already own deletion authority.
+/// Public password requests must use `delete_with_password_proof` instead.
 pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), StoreError> {
     let mut tx = pool.begin().await?;
+    lock_deletion_board(&mut tx, slug).await?;
+    delete_post_in(&mut tx, slug, id).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// The proof is the SHA-256 of the stored hash actually verified by the server.
+/// Never deserialize this argument from a request. Expensive password work stays
+/// outside database locks; current authority is checked inside the mutation.
+pub async fn delete_with_password_proof(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    proof: [u8; 32],
+    file_only: bool,
+) -> Result<(), StoreError> {
+    let mut tx = pool.begin().await?;
+    lock_deletion_board(&mut tx, slug).await?;
+    let current: Option<String> = sqlx::query_scalar(crate::read::DELETION_HASH)
+        .bind(slug)
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    if current.is_none_or(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) != proof) {
+        return Err(StoreError::AuthorizationChanged);
+    }
+    if file_only {
+        post_media::delete_attachment(&mut *tx, slug, id).await?;
+    } else {
+        delete_post_in(&mut tx, slug, id).await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+async fn lock_deletion_board(
+    connection: &mut sqlx::PgConnection,
+    slug: &str,
+) -> Result<(), StoreError> {
+    // The next statement must see credential changes committed during this wait,
+    // even when the pool's default isolation level is more restrictive.
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *connection)
+        .await?;
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut *connection)
         .await?
         .ok_or(StoreError::NotFound)?;
-    let post: Post = sqlx::query_as(
-        "SELECT * FROM content.posts p WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads t WHERE t.board=p.board AND t.id=p.thread_id) FOR UPDATE",
+    Ok(())
+}
+
+async fn delete_post_in(
+    connection: &mut sqlx::PgConnection,
+    slug: &str,
+    id: i64,
+) -> Result<(), StoreError> {
+    let thread_id: i64 = sqlx::query_scalar(
+        "SELECT thread_id FROM content.posts p WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads t WHERE t.board=p.board AND t.id=p.thread_id) FOR UPDATE",
     )
     .bind(slug)
     .bind(id)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut *connection)
     .await?
     .ok_or(StoreError::NotFound)?;
-    if id == post.thread_id {
-        sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(slug).bind(id).execute(&mut *tx).await?;
+    if id == thread_id {
+        sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(slug).bind(id).execute(&mut *connection).await?;
         sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND thread_id=$2")
             .bind(slug)
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut *connection)
             .await?;
     } else {
         sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND id=$2")
             .bind(slug)
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut *connection)
             .await?;
         sqlx::query(
             "UPDATE content.threads SET modified_at=clock_timestamp() WHERE board=$1 AND id=$2",
         )
         .bind(slug)
-        .bind(post.thread_id)
-        .execute(&mut *tx)
+        .bind(thread_id)
+        .execute(&mut *connection)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }
 

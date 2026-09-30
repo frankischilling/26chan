@@ -1,6 +1,6 @@
 # Local isolated media execution
 
-This profile runs one job in Firecracker 1.16.1 with its matching jailer. A small Rust init program starts the PNG/JPEG decoder as guest UID/GID 1000, without capabilities, environment variables or inherited application descriptors. The guest has one read-only input disk and one fixed writable output disk. It has no network interface, vsock, Firecracker API socket or host directory share. [JPEG policy and verification](jpeg-media.md) distinguish local decoder checks from native qualification.
+This profile runs one job in Firecracker 1.16.1 with its matching jailer. A small Rust init program starts the PNG/JPEG/single-frame GIF decoder as guest UID/GID 1000, without capabilities, environment variables or inherited application descriptors. The guest has one read-only input disk and one fixed writable output disk. It has no network interface, vsock, Firecracker API socket or host directory share. [JPEG policy](jpeg-media.md) and [GIF policy](gif-media.md) distinguish local decoder checks from native qualification.
 
 The Python runner is an operator deployment utility for an owned disposable Linux host. Neither web application calls it. The [authenticated development dispatcher](media-dispatch.md) connects a separate coordinator and nonroot TLS gateway to the fixed root broker, which invokes this runner. The runner itself has no database connection or network listener. Public media enablement remains rejected. The [execution verification](verification-firecracker.md), [dispatch verification](verification-media-dispatch.md) and [job recovery record](media-recovery.md) distinguish executed tests from remaining qualification work.
 
@@ -59,7 +59,7 @@ For a single operator job, create a private directory for the stopped disk and a
 
 The service-side `verify-cgroups.py` helper checks the generated service's actual controller membership and effective memory, CPU and task limits before executing jailer. On cgroup v1 it also sets and verifies a 256 MiB combined resident-plus-swap cap and swappiness zero. That is not an absolute prohibition on swapping under global host reclaim. Cgroup v2 requires a separate zero-swap limit. Missing or ineffective controls reject execution. Production must review host swap/data-remanence policy along with current kernel and hardware mitigations. Do not infer those properties from an accepted systemd setting.
 
-The local decoder accepts still PNGs up to 1,024 pixels per dimension, including RGB, RGBA and grayscale conversions. Other formats, larger source images, animation, thumbnail policy and original downloads remain compatibility work. These local limits are not advertised as the finished public attachment contract.
+The local decoder accepts still PNGs, the documented JPEG modes, and single-frame full-canvas GIFs up to 1,024 pixels per dimension. Other formats, larger source images, animation, partial-frame composition and original downloads remain compatibility work. These local limits are not advertised as the finished public attachment contract.
 
 ## Failure and maintenance
 

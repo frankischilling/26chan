@@ -10,12 +10,14 @@ pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
 mod read;
+mod thread_statistics;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
+pub use thread_statistics::{ThreadStatistics, thread_statistics};
 pub use write::*;
 
 #[derive(Debug, thiserror::Error)]
@@ -28,6 +30,8 @@ pub enum StoreError {
     Invalid(&'static str),
     #[error("{0}")]
     Conflict(&'static str),
+    #[error("Authorization is no longer valid.")]
+    AuthorizationChanged,
     #[error("Database unavailable.")]
     Database(#[from] sqlx::Error),
     #[error("Unsafe database role.")]
@@ -47,6 +51,7 @@ pub struct Board {
     pub require_subject: bool,
     pub op_markup: bool,
     pub forced_anon: bool,
+    pub user_ids: bool,
     pub text_only: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,
@@ -108,6 +113,8 @@ pub struct Post {
     pub board: String,
     pub thread_id: i64,
     pub name: String,
+    pub trip: Option<String>,
+    pub poster_id: Option<String>,
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,

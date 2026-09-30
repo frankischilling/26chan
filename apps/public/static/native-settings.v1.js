@@ -1,7 +1,8 @@
-// Release-owned settings controls. Stored strings never become HTML or CSS.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, optionChecked, hasMobileLayout = () => false }) {
+// Release-owned settings controls. Stored strings never become HTML.
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, optionChecked, hasMobileLayout = () => false }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
+  let pendingSave = null;
   let opener = null;
   function node(tag, text, className) {
     const element = document.createElement(tag);
@@ -23,6 +24,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     return element;
   }
   function close() {
+    pendingSave?.abort();
+    pendingSave = null;
     if (!active) return;
     active.close();
     active.remove();
@@ -59,7 +62,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
       const checked = optionChecked?.(key, initial);
       input.checked = (typeof checked === 'boolean' ? checked
-        : (['threadHiding', 'threadUpdater', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion'].includes(key) ? initial[key] !== false : initial[key] === true))
+        : (['threadHiding', 'threadUpdater', 'threadExpansion', 'threadStats', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime', 'IDColor'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
       fields.set(key, { input, initial: input.checked });
       caption.append(input, document.createTextNode(` ${label}`));
@@ -134,6 +137,17 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       navigationExpand.setAttribute('aria-label', 'Navigation');
       navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
       navigationHeading.append(navigationExpand);
+      option(navigationCategory, 'dropDownNav', 'Use persistent drop-down navigation bar', 'Keep board navigation at the top of the window');
+      option(navigationCategory, 'classicNav', 'Use traditional board list', 'Show board links instead of the selection menu', 'settings-sub');
+      option(navigationCategory, 'autoHideNav', 'Auto-hide on scroll', 'Hide persistent navigation while scrolling down', 'settings-sub');
+      option(navigationCategory, 'topPageNav', 'Page navigation at top of page', 'Hold Shift and drag to move the page switcher');
+      option(navigationCategory, 'stickyNav', 'Navigation arrows', 'Show Top and Bottom arrows; hold Shift and drag to move');
+      option(navigationCategory, 'alwaysDepage', 'Always use infinite scroll', 'Load later index pages as you approach the bottom');
+      const customMenu = option(navigationCategory, 'customMenu', 'Custom board list', 'Only show selected boards in the board navigation');
+      customMenu.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
+      option(navigationCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
+      option(navigationCategory, 'threadExpansion', 'Thread expansion', 'Expand omitted replies on board indexes');
+      option(category, 'threadStats', 'Thread statistics', 'Display reply and image counts; italics indicate a reached bump or image limit');
       option(navigationCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
       option(navigationCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
       option(navigationCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
@@ -160,6 +174,16 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(imageCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
       option(imageCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
       option(imageCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
+      option(imageCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed', undefined, true);
+      option(imageCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed', undefined, true);
+      option(imageCategory, 'darkTheme', 'Use a dark theme', 'Use the Tomorrow theme while browsing');
+      const customCSS = option(imageCategory, 'customCSS', 'Custom CSS', 'Use saved colors, typography and spacing for posts');
+      if (typeof openCustomCSS === 'function') {
+        customCSS.parentElement.parentElement.append(' [', link('custom-css-edit', 'Edit', source => openCustomCSS(source)), ']');
+      }
+      option(imageCategory, 'IDColor', 'Color user IDs', 'Assign colors to user IDs on boards that use them');
+      option(imageCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
+      option(imageCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
       form.append(filterHeading, filterCategory, navigationHeading, navigationCategory, heading, category, imageHeading, imageCategory, global);
@@ -167,6 +191,12 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     const message = node('p', '', 'settingsMessage');
     message.setAttribute('role', 'status');
     const actions = node('div', undefined, 'center');
+    let exportButton;
+    if (typeof openExport === 'function') {
+      exportButton = button('Export Settings', event => { if (!pendingSave) openExport(event.currentTarget); });
+      exportButton.id = 'settings-export';
+      actions.append(exportButton);
+    }
     const submit = node('button', 'Save Settings');
     submit.type = 'submit';
     submit.id = catalog ? 'theme-save' : 'settings-save';
@@ -176,12 +206,16 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       event.preventDefault();
       if (submit.disabled) return;
       submit.disabled = true;
+      if (exportButton) exportButton.disabled = true;
+      const controller = new AbortController();
+      pendingSave = controller;
       const changes = {};
       for (const [key, field] of fields) {
         if (catalog || field.input.checked !== field.initial) changes[key] = field.input.checked;
       }
       try {
-        const result = await save(changes);
+        const result = await save(changes, controller.signal);
+        if (controller.signal.aborted || active !== dialog || !dialog.isConnected) return;
         if (result === false) {
           message.textContent = 'Settings could not be saved. Try again.';
           return;
@@ -192,8 +226,12 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
         // stays on this page so unavailable storage cannot discard the changes.
         if (!catalog && result.persisted) location.assign(location.pathname + location.search);
       } catch {
-        message.textContent = 'Settings could not be saved. Try again.';
-      } finally { submit.disabled = false; }
+        if (!controller.signal.aborted && active === dialog) message.textContent = 'Settings could not be saved. Try again.';
+      } finally {
+        if (pendingSave === controller) pendingSave = null;
+        submit.disabled = false;
+        if (exportButton) exportButton.disabled = false;
+      }
     });
     content.append(form);
     if (!catalog) dialog.append(content);
@@ -226,7 +264,9 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
   navigationLinks.id = 'navtopright';
   navigationLinks.append(desktop, mobile);
   navigation?.append(navigationLinks);
+  window.addEventListener('pagehide', close);
   return {
+    open,
     setWatcherEnabled(enabled, visible) {
       watcher.hidden = !enabled;
       watcher.setAttribute('aria-expanded', String(visible));

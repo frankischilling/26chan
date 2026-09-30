@@ -416,8 +416,17 @@ async fn exercise(f: &Fixture, runtime: &mut PgConnection) {
             store.begin_upload(&r.id, &r.capability).await.unwrap();
         }
         let mut lock = f.admin.begin().await.unwrap();
-        sqlx::query("UPDATE media.jobs SET expires_at = clock_timestamp() + interval '350 milliseconds' WHERE id = $1")
-            .bind(&r.id).execute(&mut *lock).await.unwrap();
+        let locked: String =
+            sqlx::query_scalar("SELECT id FROM media.jobs WHERE id = $1 FOR UPDATE")
+                .bind(&r.id)
+                .fetch_one(&mut *lock)
+                .await
+                .unwrap();
+        assert_eq!(locked, r.id);
+        let held_xid: String = sqlx::query_scalar("SELECT txid_current()::text")
+            .fetch_one(&mut *lock)
+            .await
+            .unwrap();
         let worker = store.clone();
         let id = r.id.clone();
         let capability = r.capability.clone();
@@ -428,13 +437,51 @@ async fn exercise(f: &Fixture, runtime: &mut PgConnection) {
                 worker.begin_upload(&id, &capability).await
             }
         });
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let blocked: bool = sqlx::query_scalar(
+                    "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'transactionid' AND transactionid = $1::xid AND NOT granted)",
+                )
+                .bind(&held_xid)
+                .fetch_one(&f.admin)
+                .await
+                .unwrap();
+                if blocked {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("Mutation must reach PostgreSQL and wait for the held job row");
         assert!(
             !pending.is_finished(),
             "Mutation must wait for the held job row"
         );
+        sqlx::query(
+            "UPDATE media.jobs SET expires_at = clock_timestamp() - interval '1 second' WHERE id = $1",
+        )
+        .bind(&r.id)
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+        let expired_before_commit: bool = sqlx::query_scalar(
+            "SELECT expires_at <= clock_timestamp() FROM media.jobs WHERE id = $1",
+        )
+        .bind(&r.id)
+        .fetch_one(&mut *lock)
+        .await
+        .unwrap();
+        assert!(
+            expired_before_commit,
+            "Held transaction must make the job expired before releasing the blocked mutation"
+        );
         lock.commit().await.unwrap();
-        assert!(matches!(pending.await.unwrap(), Err(StoreError::NotFound)));
+        let outcome = pending.await.unwrap();
+        assert!(
+            matches!(outcome, Err(StoreError::NotFound)),
+            "Mutation admitted or failed unexpectedly after expiry (database_expired_before_commit={expired_before_commit}): {outcome:?}"
+        );
         assert!(matches!(
             store.status(&r.id, &r.capability).await,
             Err(StoreError::NotFound)

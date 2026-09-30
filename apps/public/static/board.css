@@ -28,6 +28,7 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .postInfo { line-height: 1.6; overflow-wrap: anywhere; }
 .subject { color: #cc1105; font-weight: bold; margin-right: 5px; }
 .name { color: #117743; font-weight: bold; }
+.postertrip { color: #117743; font-weight: normal; }
 .postNum { color: inherit; }
 .postMessage { margin: 12px 20px; overflow-wrap: anywhere; line-height: 1.35; }
 .quote { color: #789922; }
@@ -366,12 +367,52 @@ dialog.filterHelp { width: 400px; }
 #quickReply input[type=text], #quickReply input[type=password], #quickReply textarea { box-sizing: content-box; border: 1px solid var(--field-edge, #aaa); font: 10pt Arial, Helvetica, sans-serif; width: 296px; max-width: calc(100% - 6px); padding: 2px; margin: 0 0 1px; }
 #quickReply textarea { display: block; resize: vertical; }
 #quickReply input[type=submit] { width: 75px; margin: 0; float: right; }
+#qrFile { width: 130px; margin-right: 5px; }
+#qrSpoiler { display: inline-block; white-space: nowrap; }
+.qr-file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-height: 27px; }
+.qr-file-status { flex-basis: 100%; min-height: 1.2em; overflow-wrap: anywhere; }
+.qr-file-row button { padding: 1px 4px; font-size: 9pt; }
 #qrForm > div:last-child { display: flow-root; }
 #qrError { box-sizing: border-box; width: 302px; max-width: 100%; font: 12px monospace; background: #e62020; color: white; padding: 3px 5px; clear: both; overflow-wrap: anywhere; }
 #qrError[hidden], .open-qr-wrap[hidden] { display: none; }
 .open-qr-wrap { margin-bottom: 5px; }
 @media (max-width: 480px) { #quickReply { position: absolute; } #quickReply input[type=text], #quickReply input[type=password], #quickReply textarea { font-size: 16px; } }
 .nativeUpdater[hidden] { display: none !important; }
+.board .thread.tCollapsed > .rExpanded, .nativeExpansionOriginal[hidden] { display: none !important; }
+.nativeThreadExpand { vertical-align: middle; margin-right: 4px; }
+.nativeExpansionStatus:empty { display: none; }
+.nativeDepagerControls button { font: inherit; color: var(--link); background: transparent; border: 0; padding: 0 3px; }
+.nativeDepagerControls [hidden], .nativeDepagerControls[hidden] { display: none; }
+.nativeDepagerStatus:empty { display: none; }
+.depageNumber { display: block; text-align: right; font-weight: bold; padding: 4px; }
+.nativePersistentNavigation { position: fixed; top: 0; left: 0; width: 100%; min-height: 36px; max-height: 50vh; overflow: auto; padding: 5px 8px; background: var(--paper); color: var(--ink); border-bottom: 2px solid var(--edge); z-index: 1000; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; transition: top .2s ease-in-out; }
+.nativePersistentNavigation label, .nativePersistentNavigation select { max-width: min(320px, 70vw); }
+.nativePersistentNavigation .nativeBoardLinks { max-width: 80%; overflow-wrap: anywhere; }
+.nativePersistentNavigation button { border: 0; background: transparent; color: var(--link); padding: 0 3px; font: inherit; }
+.nativeNavigationStatus { font-size: .85em; }
+.nativeNavigationStatus:empty { display: none; }
+body.hasDropDownNav { margin-top: var(--native-navigation-height, 45px); }
+body.hasDropDownNav > nav.boardList { display: none !important; }
+.nativeNavigationDock { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); padding: 3px; z-index: 40; max-width: calc(100vw - 12px); }
+.topPageNav { position: absolute; }
+.topPageNav > div { padding: 3px; cursor: move; }
+#stickyNav { position: fixed; }
+#stickyNav > div { cursor: move; touch-action: none; }
+#stickyNav button { width: 18px; height: 18px; padding: 0; border: 0; background: transparent; color: var(--link); }
+#stickyNav img { width: 18px; height: 18px; vertical-align: middle; }
+body[data-native-thread-layout="compact"] .board .thread { max-width: 75%; }
+body[data-native-thread-layout="centered"] .board .opContainer { display: block; }
+body[data-native-thread-layout="centered"] .board .postContainer { margin: auto; width: 75%; }
+body[data-native-thread-layout="centered"] .board .sideArrows { display: none; }
+body[data-native-thread-layout="centered"] .board .omitted { margin-left: 12.5%; display: block; }
+@media (prefers-reduced-motion: reduce) { .nativePersistentNavigation { transition: none; } }
+.thread-stats { float: right; margin-right: 5px; cursor: default; }
+@media (max-width: 480px) {
+  .thread-stats { float: none; text-align: center; }
+  .ts-replies::before { content: 'Replies: '; }
+  .ts-images::before { content: 'Images: '; }
+  .ts-page::before { content: 'Page: '; }
+}
 .nativeUpdaterStatus:not(:empty) { margin-left: 0.4em; }
 .nativeUpdaterStatus.tu-error { color: #d00; }
 .newPostsMarker:not(#quote-preview) { box-shadow: 0 3px red; }
@@ -402,7 +443,9 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 #quote-preview .postActions, #quote-preview form, #quote-preview input, #quote-preview button, #quote-preview .postMenuBtn { display: none; }
 #quote-preview.reveal-spoilers s, #quote-preview.reveal-spoilers .spoiler { background: #aaa; color: inherit; text-decoration: none; }
 #quote-preview.reveal-spoilers s a { background: transparent; text-decoration: underline; }
-.post.highlight { background: var(--target, #f0c0b0); border-color: var(--target-edge, #d99f91); }
+.post.highlight, .post.poster-id-highlight { background: var(--target, #f0c0b0); border-color: var(--target-edge, #d99f91); }
+.posteruid > .hand[role="button"] { cursor: pointer; }
+.poster-id-tooltip { position: fixed; z-index: 102; padding: 2px 4px; border: 1px solid var(--edge, #d9bfb7); background: var(--panel, #f0e0d6); color: var(--ink, #800000); font-size: 11px; pointer-events: none; }
 .post.highlight-anti { background: #e8a690 !important; }
 .post.highlight-anti[data-quote-anti="burichan"] { background: #bfa6ba !important; border-width: 1px !important; }
 .post.highlight-anti[data-quote-anti="tomorrow"] { background: #111 !important; border-color: #111; }
@@ -434,3 +477,21 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 #image-hover { position: fixed; top: 0; right: 0; max-width: 100%; max-height: 100%; pointer-events: none; z-index: 9002; }
 #image-hover.nativeImageBackground { background-color: var(--paper, inherit); }
 .nativeImageFeedback { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 30px); padding: 6px 10px; border: 1px solid var(--edge); background: var(--panel); color: var(--ink); z-index: 9999; }
+
+.nativeMediaEmbed { width: min(640px, calc(100vw - 60px)); max-width: 100%; margin: 6px 0; }
+.nativeEmbedFrame { box-sizing: border-box; display: block; width: 100%; max-width: 100%; border: 0; }
+.nativeMediaEmbedYouTube .nativeEmbedFrame { height: auto; min-height: 200px; aspect-ratio: 16 / 9; }
+.nativeMediaEmbedSoundCloud { width: min(500px, calc(100vw - 60px)); }
+.nativeMediaEmbedSoundCloud .nativeEmbedFrame { height: 166px; }
+.nativeCustomCSS .nativeSettingsBody { width: 600px; }
+.nativeCustomCSS form { padding: 8px; }
+.nativeCustomCSS label { display: block; margin-bottom: 4px; }
+.nativeCustomCSS textarea { box-sizing: border-box; display: block; width: 100%; min-height: 12em; resize: vertical; font: 13px/1.4 monospace; }
+.nativeCustomCSS .center button + button { margin-left: 8px; }
+.nativeSettingsTransfer .nativeSettingsBody { width: 600px; }
+.nativeSettingsTransfer .nativeSettingsBody > p,
+.nativeSettingsTransfer .nativeSettingsBody > ul,
+.nativeSettingsTransfer .nativeSettingsBody > details { margin: 8px; }
+.nativeSettingsTransfer .export-field { box-sizing: border-box; width: 100%; }
+.nativeSettingsTransfer pre { max-height: 16em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nativeSettings .center > button + button { margin-left: 8px; }

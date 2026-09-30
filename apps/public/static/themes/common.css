@@ -26,6 +26,7 @@ a:hover { color: var(--hover); }
 hr, .thread, .boardDirectory article { border-color: var(--edge); }
 .subject { color: var(--subject); }
 .name { color: var(--name); }
+.postertrip { color: var(--name); }
 .quote { color: var(--quote); }
 .quotelink { color: var(--quote-link); }
 .quotelink:hover { color: var(--quote-hover); }

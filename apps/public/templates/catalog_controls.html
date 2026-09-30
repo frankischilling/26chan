@@ -13,6 +13,7 @@
 <span class="catalogControl"><label for="qf-box">Search:</label><input id="qf-box" type="search" name="q" value="{{ catalog_options.q }}" aria-describedby="catalog-search-help"></span>
 <span class="catalogControl"{% if board.text_only %} hidden{% endif %}><label for="theme-nospoiler">Spoilers:</label><select id="theme-nospoiler" name="spoilers"><option value="off"{% if !catalog_options.reveal_spoilers() %} selected{% endif %}>Hidden</option><option value="on"{% if catalog_options.reveal_spoilers() %} selected{% endif %}>Reveal</option></select></span>
 <span class="catalogControl"><button type="submit">Apply</button> <a id="catalog-reset" href="/{{ board.slug }}/catalog">Reset</a></span>
+<small id="catalog-preference-status" role="status" hidden></small>
 </form>
 <span id="catalog-search-help" hidden>Search accepts up to 128 characters.</span>
-<script src="/static/catalog-preferences.v1.js" defer></script>
+<script type="module" src="/static/catalog-preferences.v1.js"></script>

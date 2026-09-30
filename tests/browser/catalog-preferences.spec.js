@@ -17,7 +17,7 @@ test('catalog preferences save on changes and restore in a fresh tab without sto
   await expect(page.locator('#threads')).toHaveClass('catalog large');
   await page.locator('#qf-box').fill('private search [.*] <script>');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  expect(await stored(page)).toEqual(saved);
+  await expect.poll(() => stored(page)).toEqual(saved);
   const fresh = await context.newPage();
   let freshNavigations = 0;
   fresh.on('request', request => { if (request.isNavigationRequest() && request.frame() === fresh.mainFrame()) freshNavigations += 1; });
@@ -30,7 +30,7 @@ test('catalog preferences save on changes and restore in a fresh tab without sto
   await expect(fresh.locator('#threads')).toHaveClass('catalog large');
   await fresh.getByRole('link', { name: 'Reset', exact: true }).click();
   await expect(fresh.locator('#threads')).toHaveClass('catalog extended-small');
-  expect(await stored(fresh)).toBeNull();
+  await expect.poll(() => stored(fresh)).toBeNull();
   await fresh.goto(catalog);
   await expect(fresh).toHaveURL(new URL(catalog, fresh.url()).href);
   await expect(fresh.locator('#order-ctrl')).toHaveValue('alt');
@@ -113,6 +113,15 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/native-filter.v1.js',
     'http://127.0.0.1:3000/static/native-backlinks.v1.js',
     'http://127.0.0.1:3000/static/native-images.v1.js',
+    'http://127.0.0.1:3000/static/native-display.v1.js',
+    'http://127.0.0.1:3000/static/native-thread-controls.v1.js',
+    'http://127.0.0.1:3000/static/native-thread-stats.v1.js',
+    'http://127.0.0.1:3000/static/native-navigation.v1.js',
+    'http://127.0.0.1:3000/static/native-layout.v1.js',
+    'http://127.0.0.1:3000/static/native-embeds.v1.js',
+    'http://127.0.0.1:3000/static/native-custom-css.v1.js',
+    'http://127.0.0.1:3000/static/native-settings-transfer.v1.js',
+    'http://127.0.0.1:3000/static/native-quick-reply.v1.js',
   ];
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
     'http://127.0.0.1:3000/static/catalog-preferences.v1.js', ...pageScripts,

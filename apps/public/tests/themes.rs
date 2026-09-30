@@ -184,6 +184,82 @@ fn request(theme: &str, origin: Option<&str>, fetch: Option<&str>) -> Request<Bo
 }
 
 #[tokio::test]
+async fn temporary_dark_stylesheet_selects_only_tomorrow_without_changing_manual_theme_cookies() {
+    for production in [false, true] {
+        let app = app(production);
+        let prefix = if production { "__Host-" } else { "" };
+        let cookies = format!("{prefix}board-theme=photon; {prefix}board-theme-ws=burichan");
+        let mut dark_css = None;
+        for path in [
+            "/static/theme.css?theme=tomorrow",
+            "/static/theme.css?worksafe=true&theme=tomorrow",
+            "/static/theme.css?worksafe=false&theme=tomorrow",
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(path)
+                        .header("cookie", &cookies)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                response.headers()["content-type"],
+                "text/css; charset=utf-8"
+            );
+            assert!(!response.headers().contains_key("set-cookie"));
+            let css = body(response).await;
+            assert!(css.contains("--watcher-icon-family: tomorrow"));
+            if let Some(expected) = &dark_css {
+                assert_eq!(&css, expected);
+            } else {
+                dark_css = Some(css);
+            }
+        }
+        for (worksafe, expected) in [(false, "photon"), (true, "burichan")] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(format!("/settings/theme?worksafe={worksafe}"))
+                        .header("cookie", &cookies)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert!(!response.headers().contains_key("set-cookie"));
+            assert!(
+                body(response)
+                    .await
+                    .contains(&format!("value=\"{expected}\" selected"))
+            );
+        }
+        for path in [
+            "/static/theme.css?theme=photon",
+            "/static/theme.css?theme=tomorrow&theme=tomorrow",
+            "/static/theme.css?theme=tomorrow&source=https://other.example/",
+            "/static/theme.css?worksafe=1&theme=tomorrow",
+            "/settings/theme?theme=tomorrow",
+            "/static/theme.css?theme=%3Cstyle%3E",
+        ] {
+            assert_eq!(
+                app.clone()
+                    .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::BAD_REQUEST,
+                "{path}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn persisted_styles_are_private_finite_and_have_no_database_dependency() {
     for production in [false, true] {
         let app = app(production);

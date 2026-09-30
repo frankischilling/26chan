@@ -121,6 +121,8 @@ pub struct Settings {
     pub media: Option<PublicMediaSettings>,
     pub request_limits: PublicRequestLimits,
     pub public_proxy: Option<PublicProxy>,
+    pub poster_id_key: Option<std::sync::Arc<board_domain::poster_id::PosterIdKey>>,
+    pub tripcode_key: Option<std::sync::Arc<board_domain::identity::SecureKey>>,
 }
 
 #[derive(Clone)]
@@ -241,6 +243,22 @@ impl Settings {
         let media = PublicMediaSettings::from_env(media_enabled == "true", &origins)?;
         let request_limits = PublicRequestLimits::from_env()?;
         let public_proxy = PublicProxy::from_env(production)?;
+        let poster_id_key = match env::var("POSTER_ID_KEY") {
+            Err(env::VarError::NotPresent) => None,
+            Err(_) => return Err(ConfigError("Invalid POSTER_ID_KEY.")),
+            Ok(value) => Some(std::sync::Arc::new(
+                board_domain::poster_id::PosterIdKey::parse(&value)
+                    .map_err(|error| ConfigError(error.0))?,
+            )),
+        };
+        let tripcode_key = match env::var("TRIPCODE_KEY") {
+            Err(env::VarError::NotPresent) => None,
+            Err(_) => return Err(ConfigError("Invalid TRIPCODE_KEY.")),
+            Ok(value) => Some(std::sync::Arc::new(
+                board_domain::identity::SecureKey::parse(&value)
+                    .map_err(|error| ConfigError(error.0))?,
+            )),
+        };
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
         let parsed = Url::parse(&database_url).map_err(|_| ConfigError("Invalid database URL."))?;
@@ -284,6 +302,8 @@ impl Settings {
             media,
             request_limits,
             public_proxy,
+            tripcode_key,
+            poster_id_key,
         })
     }
 }

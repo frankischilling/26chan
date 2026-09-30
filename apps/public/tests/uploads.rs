@@ -208,12 +208,31 @@ async fn exercise(
         )
         .await
         .unwrap();
-    assert!(
-        response.headers()["content-security-policy"]
-            .to_str()
-            .unwrap()
-            .contains("img-src http://localhost:3002 http://127.0.0.1:3000/static/themes/fade.png http://127.0.0.1:3000/static/themes/fade-blue.png http://127.0.0.1:3000/static/catalog/filedeleted-res.gif")
-    );
+    let image_sources: Vec<_> = response.headers()["content-security-policy"]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .find_map(|directive| directive.trim().strip_prefix("img-src "))
+        .unwrap()
+        .split_ascii_whitespace()
+        .collect();
+    for source in [
+        "http://localhost:3002",
+        "http://127.0.0.1:3000/static/themes/fade.png",
+        "http://127.0.0.1:3000/static/themes/fade-blue.png",
+        "http://127.0.0.1:3000/static/catalog/filedeleted-res.gif",
+    ] {
+        assert!(
+            image_sources.contains(&source),
+            "Missing image source {source}"
+        );
+    }
+    for source in ["'self'", "*", "data:", "blob:", "http://127.0.0.1:3000"] {
+        assert!(
+            !image_sources.contains(&source),
+            "Broad image source {source}"
+        );
+    }
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));
     assert!(page.contains("rows=\"4\" aria-describedby=\"postHelp\""));
@@ -239,6 +258,13 @@ async fn exercise(
         .unwrap();
     assert_eq!(response.headers()["cache-control"], "private, no-store");
     assert!(!response.headers().contains_key("location"));
+    assert!(
+        response.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .split(';')
+            .any(|directive| directive.trim() == "frame-src 'none'")
+    );
     let page = html(response, StatusCode::OK).await;
     assert!(
         !page.contains(&"a".repeat(64)),
@@ -486,13 +512,32 @@ async fn exercise(
     assert_eq!(
         app.clone()
             .oneshot(post_request(
-                &format!("/{board}/delete"),
-                format!("no={thread}&password=synthetic-password-123&file_only=true")
+                &format!("/{board}/imgboard.php"),
+                format!("mode=usrdel&{thread}=delete&pwd=wrong-password&onlyimgdel=on")
             ))
             .await
             .unwrap()
             .status(),
-        StatusCode::SEE_OTHER
+        StatusCode::FORBIDDEN
+    );
+    reader.get(&asset.id).await.unwrap();
+    let deleted = app
+        .clone()
+        .oneshot(multipart_post_request(
+            &format!("/{board}/imgboard.php"),
+            &[
+                ("mode", "usrdel".into()),
+                (&thread.to_string(), "delete".into()),
+                ("pwd", "synthetic-password-123".into()),
+                ("onlyimgdel", "on".into()),
+            ],
+        ))
+        .await
+        .unwrap();
+    assert!(
+        html(deleted, StatusCode::OK)
+            .await
+            .contains("Updating index")
     );
     assert!(matches!(
         reader.get(&asset.id).await,
@@ -1220,6 +1265,13 @@ async fn image_reply_contract(
         "An image OP does not use a reply image slot"
     );
     assert_eq!(full["posts"][0]["imagelimit"], 1);
+    let stats_path = format!("/_watch/{board}/thread/{thread}/stats");
+    let (stats, _) = json(app, &stats_path).await;
+    assert_eq!(
+        stats["images"], 7,
+        "Statistics exclude the opening post's image"
+    );
+    assert_eq!(stats["image_limited"], true);
     for (index, p) in full["posts"].as_array().unwrap().iter().enumerate() {
         if index % 2 == 0 || index == 1 {
             assert!(p.get("com").is_none());
@@ -1279,6 +1331,9 @@ async fn image_reply_contract(
     );
     let (after, _) = json(app, &path).await;
     assert_eq!(after["posts"][0]["images"], 6);
+    let (stats, _) = json(app, &stats_path).await;
+    assert_eq!(stats["images"], 6);
+    assert_eq!(stats["image_limited"], false);
     assert!(after["posts"][0].get("imagelimit").is_none());
     assert_eq!(after["posts"][1]["filedeleted"], 1);
     for key in ["tim", "filename", "md5", "ext", "tn_w", "tn_h", "spoiler"] {
@@ -1319,6 +1374,9 @@ async fn image_reply_contract(
         .unwrap();
     assert_eq!(op["replies"], 6);
     assert_eq!(op["images"], 5);
+    let (stats, _) = json(app, &stats_path).await;
+    assert_eq!(stats["replies"], 6);
+    assert_eq!(stats["images"], 5);
     let filter = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("q", &format!("<b>{board}</b>.png"))
         .finish();

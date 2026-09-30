@@ -1,6 +1,16 @@
 # Readiness and remaining work
 
-The working board includes development attachments, private isolated media processing, a separate staff application, archives, six referenced theme palettes and cross-board quotes. The overall rewrite is incomplete and must not be publicly launched as production-ready. `scripts/check-launch-readiness.sh` intentionally fails and lists the missing prerequisites. It is not a mock containment test.
+Rewrite completion means local behavior and appearance matching the reference,
+as clarified by the user on September 29, 2026. Production hosting is a separate
+launch requirement and does not block local rewrite completion. Local parity
+remains incomplete where the compatibility inventory below records missing
+features or reference comparisons.
+
+The working board includes development attachments, private isolated media
+processing, a separate staff application, archives, six referenced theme
+palettes and cross-board quotes. `scripts/check-launch-readiness.sh` checks
+production launch requirements and intentionally fails while they remain
+unqualified. Its result does not decide local rewrite parity.
 
 The September 15, 2026 inventory reconciles earlier checkpoint descriptions with
 merged work. The [active reference boundary](compatibility.md#active-reference-boundary)
@@ -14,6 +24,39 @@ approved media. [Its reference and limits](native-image-controls.md) are tracked
 in #180. Catalog release-script tests and Windows script-transport diagnostics
 also improve the evidence for #82, #139 and #142; those issues remain open where
 reference rules or the original failure cause are still unconfirmed.
+
+The September 28 batch adds [legacy deletion and report routes](legacy-actions.md),
+[local dates and custom navigation](native-display.md), and
+[single-frame GIF input](gif-media.md). Its
+[combined verification record](verification-rewrite-completion.md) distinguishes
+completed local checks from pending browser, native and hosted qualification.
+The same PR also adds [index expansion](native-thread-expansion.md) and
+[thread statistics](native-thread-stats.md), followed by
+[incremental pages](native-depager.md), [navigation controls](native-navigation.md)
+and [layout/theme preferences](native-layout.md). [Click-to-load provider players](native-embeds.md)
+and [bounded Custom CSS](native-custom-css.md) add the corresponding public
+settings with documented security restrictions. Animation, remaining
+original-server rules and the production requirements below remain open.
+[Settings transfer](native-settings-transfer.md) adds explicit review and restore
+of supported local preferences. [Catalog preference locking](catalog-preference-locks.md)
+prevents an older queued catalog change from overwriting a completed restore.
+
+The September 29 review fixes invalid index statistics requests, stale mobile
+provider controls and password revocation during a queued deletion. The
+[deletion transaction](legacy-actions.md#request-and-authorization-rules) checks
+current password authority after its lock wait, and migration 0037 serializes
+operator credential changes with public mutations. The verification record
+includes reproduced failures, passing regressions and the separate clocks used
+by application requests and database changes.
+
+The same batch adds [posting identities](post-identities.md), including normal
+tripcodes, deployment-keyed secure trips, persisted API fields, escaped staff
+previews and native trip filters. Forced-anonymous boards discard both name
+and trip. [Poster IDs](poster-ids.md) add optional thread-scoped labels, public
+JSON fields, escaped staff previews and default-on ID colors. The secure hash is a documented security replacement; original
+Unicode encoding and remaining parser edge cases need permitted evidence.
+[Posting preferences](post-preferences.md) also restore the remembered display
+name and Options field, with private identity suffixes excluded from storage.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|

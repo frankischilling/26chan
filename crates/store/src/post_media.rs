@@ -76,11 +76,17 @@ pub async fn cancel_upload(
 }
 
 /// Caller verifies the post's deletion password or the staff session first.
-pub async fn delete_attachment(pool: &PgPool, board: &str, post_id: i64) -> Result<(), StoreError> {
+/// Public password deletion uses `delete_with_password_proof` so verification
+/// and removal share a transaction after acquiring the mutation lock.
+pub async fn delete_attachment<'e>(
+    executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
+    board: &str,
+    post_id: i64,
+) -> Result<(), StoreError> {
     sqlx::query("SELECT content.delete_post_attachment($1, $2)")
         .bind(board)
         .bind(post_id)
-        .execute(pool)
+        .execute(executor)
         .await
         .map_err(scoped_error)?;
     Ok(())

@@ -8,7 +8,7 @@
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
 {% block body_attributes %}{% if board.text_only %} class="text_only"{% endif %}{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
-{% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
+{% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block content %}
@@ -25,8 +25,8 @@
 <form action="/{{ board.slug }}/upload" method="post" enctype="multipart/form-data" class="postForm">
 <h2>Post with an image</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="image/png,image/jpeg" required>
-<p>Upload a PNG or JPEG first, then complete your post after isolated processing. Maximum upload: 8 MiB.</p>
+<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="image/png,image/jpeg,image/gif" required>
+<p>Upload a PNG, JPEG, or single-frame GIF first, then complete your post after isolated processing. Maximum upload: 8 MiB.</p>
 <button type="submit">Upload file</button>
 </form>
 {% endif %}

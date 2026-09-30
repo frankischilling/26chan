@@ -3,6 +3,7 @@
 export function createCommentProjection() {
   const roots = new WeakMap();
   const annotations = new WeakMap();
+  const textSources = new WeakMap();
   const has = node => !!node && roots.has(node);
   function owner(node) {
     for (let current = node; current; current = current.parentNode) {
@@ -96,6 +97,12 @@ export function createCommentProjection() {
     return [...change.addedNodes, ...change.removedNodes].some(node => !has(node));
   }
   return { has, owner, within, query, queryAll, html, text, clone, originalMutation, attributes,
+    sourceText(node) { return textSources.get(node)?.() ?? node.data; },
+    trackText(node, read) {
+      if (!node || node.nodeType !== 3 || textSources.has(node) || typeof read !== 'function') throw new TypeError('text-owner');
+      textSources.set(node, read);
+      return () => { if (textSources.get(node) === read) textSources.delete(node); };
+    },
     trackAttributes(node, read) {
       if (annotations.has(node) || typeof read !== 'function') throw new TypeError('annotation-owner');
       annotations.set(node, read);

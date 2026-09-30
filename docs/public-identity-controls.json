@@ -1,0 +1,9 @@
+{
+  "scope": "Released public ID click controls; no post content or private server source.",
+  "url": "https://s.4cdn.org/js/core.min.1128.js",
+  "sha256": "688d4a950499d3eef915549d5db28c1410cf08e067c9cd6598d62d42e595f1ea",
+  "bytes": 28416,
+  "collected_utc": "2026-09-30T01:52:45Z",
+  "functions": ["enableClickableIds", "idClick"],
+  "related_extension": "public-watcher-assets.json"
+}

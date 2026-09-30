@@ -22,7 +22,19 @@ for (const theme of Object.keys(reference.themes)) {
         await live.locator('#teaser-ctrl').selectOption(teaser);
         await server.goto(`/img/catalog?order=alt&size=${size}&teaser=${teaser}`);
         for (const page of [live, server]) {
-          await page.locator('#threads img').evaluateAll(nodes => Promise.all(nodes.map(image => image.decode())));
+          await page.locator('#threads img').evaluateAll(nodes => Promise.all(nodes.map(async image => {
+            await image.decode();
+            // The synthetic fold has a hard diagonal. Hosted Windows Chromium has
+            // produced two anti-aliased downscale rasters for an in-place
+            // large-to-small resize versus a fresh small page. Normal theme
+            // snapshots retain default image rendering; this parity oracle keeps
+            // exact pixels while making only the synthetic thumbnail raster stable.
+            image.style.imageRendering = 'pixelated';
+          })));
+          const rendering = await page.locator('#threads img').evaluateAll(nodes =>
+            nodes.map(image => getComputedStyle(image).imageRendering));
+          expect(rendering.length).toBeGreaterThan(0);
+          expect(rendering.every(value => value === 'pixelated')).toBe(true);
         }
         const attrs = page => page.locator('#threads img').evaluateAll(nodes => nodes.map(image => [image.getAttribute('src'), image.width, image.height]));
         expect(await attrs(live)).toEqual(await attrs(server));

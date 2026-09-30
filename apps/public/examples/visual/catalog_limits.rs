@@ -55,6 +55,8 @@ fn render(
                 thread_id: id,
                 id: id + visible as i64,
                 name: "Synthetic reply author".into(),
+                trip: None,
+                poster_id: None,
                 created_at: time("2026-09-08T12:05:00Z"),
             }),
             tail_size: 0,
@@ -82,6 +84,8 @@ fn render(
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "Anonymous".into(),
+                trip: None,
+                poster_id: None,
                 subject: if text_only && index == 4 {
                     "<script>literal & subject</script>".into()
                 } else {

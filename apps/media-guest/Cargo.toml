@@ -6,6 +6,7 @@ publish.workspace = true
 
 [dependencies]
 png = "=0.18.1"
+gif = { version = "=0.14.2", default-features = false, features = ["std"] }
 zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
 
 [dev-dependencies]

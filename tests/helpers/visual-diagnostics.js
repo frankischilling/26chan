@@ -1,5 +1,8 @@
 import { test as base, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 export { expect };
 
@@ -101,6 +104,14 @@ export const test = base.extend({
       const pages = await Promise.all(context.pages().slice(0, 4)
         .map(page => readVisualState(page).catch(() => ({ unavailable: true }))));
       console.log('Synthetic visual failure state:', JSON.stringify({ errors, scripts, failedScripts, pages }));
+      if (process.platform === 'win32' && process.env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1') {
+        try {
+          const script = fileURLToPath(new URL('../../scripts/windows-visual-resources.ps1', import.meta.url));
+          const result = await promisify(execFile)('pwsh', ['-NoProfile', '-File', script, '-Phase', 'failure'],
+            { timeout: 10_000, maxBuffer: 8192, windowsHide: true });
+          console.log('Synthetic visual host resources:', JSON.stringify(JSON.parse(result.stdout)));
+        } catch { console.log('Synthetic visual host resources: unavailable'); }
+      }
     }
   }, { auto: true }],
 });

@@ -60,98 +60,113 @@ const TEXT_FIELDS: &[&str] = &[
 ];
 const INVALID: &str = "Invalid posting form.";
 const FILE_INTAKE: &str = "Upload files through the isolated upload form before posting.";
+pub(crate) const MAX_FORM_FIELDS: usize = 20;
 
 impl<S: Send + Sync> FromRequest<S> for PostingForm {
     type Rejection = Rejection;
 
     async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
-        let multipart = request
-            .headers()
-            .get(CONTENT_TYPE)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.split(';').next())
-            .is_some_and(|value| value.trim().eq_ignore_ascii_case("multipart/form-data"));
-        if !multipart {
-            return Form::<PostForm>::from_request(request, state)
-                .await
-                .map(|Form(form)| Self(form))
-                .map_err(Rejection::Form);
-        }
-        // Multipart retains the route's 262,144-byte streaming body limit.
-        // It never hands a file to a decoder or to the content store.
-        let mut multipart = Multipart::from_request(request, state)
-            .await
-            .map_err(|error| Rejection::Multipart(error.status(), INVALID))?;
-        let mut names = BTreeSet::new();
-        let mut encoded = String::new();
-        while let Some(mut field) = multipart
-            .next_field()
-            .await
-            .map_err(|error| Rejection::Multipart(error.status(), INVALID))?
-        {
-            let name = field.name().unwrap_or("").to_owned();
-            if (!TEXT_FIELDS.contains(&name.as_str()) && name != "upfile")
-                || !names.insert(name.clone())
-            {
-                return Err(Rejection::Multipart(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    INVALID,
-                ));
-            }
-            if name == "upfile" {
-                // Browsers submit an empty file part when no file was selected.
-                if field.file_name().is_some_and(|name| !name.is_empty()) {
-                    return Err(Rejection::Multipart(
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                        FILE_INTAKE,
-                    ));
-                }
-                while let Some(chunk) = field
-                    .chunk()
-                    .await
-                    .map_err(|error| Rejection::Multipart(error.status(), INVALID))?
-                {
-                    if !chunk.is_empty() {
-                        return Err(Rejection::Multipart(
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            FILE_INTAKE,
-                        ));
-                    }
-                }
-                continue;
-            }
-            if field.file_name().is_some() {
-                return Err(Rejection::Multipart(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    INVALID,
-                ));
-            }
-            let bytes = field
-                .bytes()
-                .await
-                .map_err(|error| Rejection::Multipart(error.status(), INVALID))?;
-            let value = std::str::from_utf8(&bytes)
-                .map_err(|_| Rejection::Multipart(StatusCode::UNPROCESSABLE_ENTITY, INVALID))?;
-            if !encoded.is_empty() {
-                encoded.push('&');
-            }
-            url::form_urlencoded::Serializer::new(&mut encoded).append_pair(&name, value);
-        }
-        // A bounded internal conversion shares the exact typed URL-form parser,
-        // including duplicate aliases and deny_unknown_fields. Percent encoding
-        // expands each input byte by at most three; no raw request is replayed.
-        if encoded.len() > 3 * 262_144 {
-            return Err(Rejection::Multipart(StatusCode::PAYLOAD_TOO_LARGE, INVALID));
-        }
-        let request = Request::post("/")
-            .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-            .body(Body::from(encoded))
-            .expect("literal internal request");
+        let request = normalize_multipart(request, state, false).await?;
         Form::<PostForm>::from_request(request, state)
             .await
             .map(|Form(form)| Self(form))
             .map_err(Rejection::Form)
     }
+}
+
+/// Normalize bounded text fields without admitting a file to the public process.
+/// The legacy endpoint also accepts the public client's numeric deletion field.
+pub(crate) async fn normalize_multipart<S: Send + Sync>(
+    request: Request,
+    state: &S,
+    legacy: bool,
+) -> Result<Request, Rejection> {
+    let multipart = request
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("multipart/form-data"));
+    if !multipart {
+        return Ok(request);
+    }
+    // Multipart retains the route's 262,144-byte streaming body limit.
+    // It never hands a file to a decoder or to the content store.
+    let mut multipart = Multipart::from_request(request, state)
+        .await
+        .map_err(|error| Rejection::Multipart(error.status(), INVALID))?;
+    let mut names = BTreeSet::new();
+    let mut encoded = String::new();
+    while let Some(mut field) = multipart
+        .next_field()
+        .await
+        .map_err(|error| Rejection::Multipart(error.status(), INVALID))?
+    {
+        let name = field.name().unwrap_or("").to_owned();
+        let deletion_field = legacy
+            && (name == "onlyimgdel"
+                || (!name.is_empty()
+                    && name.len() <= 19
+                    && name.bytes().all(|byte| byte.is_ascii_digit())));
+        if (!TEXT_FIELDS.contains(&name.as_str()) && name != "upfile" && !deletion_field)
+            || !names.insert(name.clone())
+            || names.len() > MAX_FORM_FIELDS
+        {
+            return Err(Rejection::Multipart(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                INVALID,
+            ));
+        }
+        if name == "upfile" {
+            // Browsers submit an empty file part when no file was selected.
+            if field.file_name().is_some_and(|name| !name.is_empty()) {
+                return Err(Rejection::Multipart(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    FILE_INTAKE,
+                ));
+            }
+            while let Some(chunk) = field
+                .chunk()
+                .await
+                .map_err(|error| Rejection::Multipart(error.status(), INVALID))?
+            {
+                if !chunk.is_empty() {
+                    return Err(Rejection::Multipart(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        FILE_INTAKE,
+                    ));
+                }
+            }
+            continue;
+        }
+        if field.file_name().is_some() {
+            return Err(Rejection::Multipart(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                INVALID,
+            ));
+        }
+        let bytes = field
+            .bytes()
+            .await
+            .map_err(|error| Rejection::Multipart(error.status(), INVALID))?;
+        let value = std::str::from_utf8(&bytes)
+            .map_err(|_| Rejection::Multipart(StatusCode::UNPROCESSABLE_ENTITY, INVALID))?;
+        if !encoded.is_empty() {
+            encoded.push('&');
+        }
+        url::form_urlencoded::Serializer::new(&mut encoded).append_pair(&name, value);
+    }
+    // A bounded internal conversion shares the exact typed URL-form parser,
+    // including duplicate aliases and deny_unknown_fields. Percent encoding
+    // expands each input byte by at most three; no raw request is replayed.
+    if encoded.len() > 3 * 262_144 {
+        return Err(Rejection::Multipart(StatusCode::PAYLOAD_TOO_LARGE, INVALID));
+    }
+    let request = Request::post("/")
+        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .body(Body::from(encoded))
+        .expect("literal internal request");
+    Ok(request)
 }
 
 pub fn checkbox<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {

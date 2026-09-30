@@ -6,6 +6,16 @@
     "visual_reference":  "Partial public theme/style, desktop post-layout, posting-field and catalog-card references collected September 13, 2026; see public-theme-reference.json, public-post-layout-reference.json, public-form-reference.json and public-catalog-reference.json. Computed CSS facts use synthetic DOM; full original rendered-page and mobile-client snapshots remain uncollected.",
     "behavioral_references": [
         {
+            "name": "Official tripcode FAQ",
+            "url": "https://4chan.org/faq",
+            "collected_utc": "2026-09-29T23:24:35Z",
+            "bytes": 78050,
+            "sha256": "85256d4e97488f565e9ec63472c4e8f06a0afa0d332d3ea71cd18f29f6dbced8",
+            "sections": ["#trip", "#sectrip"],
+            "provenance": "Official public FAQ response retained outside version control. Its hash also matches the pinned September posting-options response. No live posting experiment or user fixture.",
+            "scope": "Name and password separation, normal tripcode example, name-independent pseudonyms, double-hash syntax and server secret for secure trips. Original secure secret, Unicode encoding and remaining parser edge cases are not specified."
+        },
+        {
             "name": "Official quoting FAQ",
             "url": "https://4chan.org/faq#quote",
             "collected_utc": "2026-09-13T04:45:24.6059157Z",

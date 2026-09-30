@@ -2,6 +2,7 @@
 
 use std::io::{self, Cursor};
 
+mod gif;
 mod jpeg;
 
 /// Format selection and every complex parser stay inside the disposable guest.
@@ -14,6 +15,8 @@ pub fn decode_image(input: &[u8]) -> io::Result<Vec<u8>> {
         decode_png(input)
     } else if input.starts_with(b"\xff\xd8\xff") {
         jpeg::decode(input)
+    } else if input.starts_with(b"GIF87a") || input.starts_with(b"GIF89a") {
+        gif::decode(input)
     } else {
         Err(io::Error::other("unsupported image format"))
     }

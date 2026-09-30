@@ -6,8 +6,12 @@ import { saveWatcherSettings } from './helpers/watcher-settings.js';
 const uiAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-assets.json', import.meta.url), 'utf8'));
 const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watcher-assets.json', import.meta.url), 'utf8'));
 const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updater-assets.json', import.meta.url), 'utf8'));
-const releaseImages = [uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
-  manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` })));
+const navigationAssets = JSON.parse(await readFile(new URL('../../docs/public-navigation-assets.json', import.meta.url), 'utf8'));
+const releaseImages = [
+  ...navigationAssets.files.map(asset => ({ path: asset.path.replace('apps/public', ''), dimensions: [asset.width, asset.height] })),
+  ...[uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
+    manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` }))),
+];
 
 const apiOrigin = 'http://127.0.0.1:3003';
 

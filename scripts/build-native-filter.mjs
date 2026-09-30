@@ -34,9 +34,18 @@ assert.equal(result.outputFiles.length, 1, 'The worker must be one fixed release
 const outputs = Object.values(result.metafile.outputs);
 assert.equal(outputs.length, 1);
 assert.deepEqual(outputs[0].imports, [], 'No imports or external resources may remain in the worker');
-assert.deepEqual([...outputs[0].exports].sort(), ['BLACKLIST_LIMITS', 'FILTER_LIMITS', 'NativeCatalogTransport', 'NativeFilterMatcher', 'NativeQuotePreviewTransport', 'NativeWatchLock', 'autoWatchBoards', 'catalogApiUrl', 'checkedQuotePreview', 'collectAutoWatches', 'localQuoteTree', 'markNativeTrackedQuotes', 'mobileQuoteDevice', 'mountNativeFilters', 'mountNativeReplyHiding', 'mountNativeThreadHiding', 'mountNativeThreadUpdater', 'mountNativeKeybinds', 'mountNativeQuickReply', 'mountNativeLinkification', 'mountNativeQuotePreview', 'prepareQuotePost', 'quoteTarget', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters', 'runNativeFilterJob', 'writeBlacklist'].sort());
+assert.deepEqual([...outputs[0].exports].sort(), [
+  'BLACKLIST_LIMITS', 'FILTER_LIMITS', 'NativeCatalogTransport', 'NativeFilterMatcher', 'NativeQuotePreviewTransport',
+  'NativeUpdaterTransport', 'UPDATER_LIMITS', 'updaterContext', 'validatePostTree', 'validateSnapshotMetadata',
+  'NativeWatchLock', 'autoWatchBoards', 'catalogApiUrl', 'checkedQuotePreview', 'collectAutoWatches', 'localQuoteTree',
+  'markNativeTrackedQuotes', 'mobileQuoteDevice', 'mountNativeFilters', 'mountNativeReplyHiding', 'mountNativeThreadHiding',
+  'mountNativeKeybinds', 'mountNativeLinkification', 'mountNativeQuotePreview',
+  'prepareQuotePost', 'quoteTarget', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters',
+  'runNativeFilterJob', 'writeBlacklist', 'filterColor',
+  'boardPageContext', 'validateBoardPageSnapshot',
+].sort());
 for (const path of Object.keys(result.metafile.inputs)) {
-  assert.ok(path === 'apps/public/static/thread-watcher-core.v1.js'
+  assert.ok(['apps/public/static/thread-watcher-core.v1.js', 'apps/public/static/watcher-position.v1.js'].includes(path)
     || ['apps/public/client/', 'node_modules/parse5/', 'node_modules/entities/'].some(prefix => path.startsWith(prefix)), `Unexpected worker source: ${path}`);
 }
 const bytes = result.outputFiles[0].contents;

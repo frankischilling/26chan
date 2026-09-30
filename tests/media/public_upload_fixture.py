@@ -57,7 +57,7 @@ class PublicUpload:
                 f'APP_ENV=development\nMEDIA_ENABLED=true\nPUBLIC_MEDIA_PROFILE=isolated-development\n'
                 f'DATABASE_URL="{credential}"\nBIND_ADDR=127.0.0.1:{self.port}\nPUBLIC_ORIGIN={self.origin}\n'
                 f'STAFF_ORIGIN=http://localhost:3001\nMEDIA_ORIGIN=http://127.0.0.1:{f.http_port}\n'
-                # Five workflows share one loopback peer; retain enforcement
+                # These workflows share one loopback peer; retain enforcement
                 # with the same bounded test rate as the persisted browser suite.
                 f'PUBLIC_WRITES_PER_MINUTE=60\n'
                 f'PUBLIC_INTAKE_ADDR=127.0.0.1:{f.intake_port}\nPUBLIC_INTAKE_TOKEN={f.service_token}\n')
@@ -76,7 +76,7 @@ class PublicUpload:
         result = subprocess.run(['systemd-analyze', 'verify', '/run/systemd/system/' + self.unit.name],
                                 env=SAFE, capture_output=True, timeout=15)
         assert result.returncode == 0, 'public development unit verification failed'
-        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ('{self.board}','Upload qualification','Synthetic PNG and JPEG',2000,100,100,100,10,3);")
+        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3);")
         self.created = True
         systemctl('start', self.unit.name)
         wait_until(self.ready)
@@ -102,10 +102,12 @@ class PublicUpload:
         cases = [('png', red_png(), False)]
         cases.extend((name + '.jpg', (REPO / 'tests/media/fixtures/jpeg' / (name + '.jpg')).read_bytes(), False)
                      for name in ('baseline', 'progressive'))
+        cases.append(('static.gif', (REPO / 'tests/media/fixtures/gif/static.gif').read_bytes(), False))
         cases.append(('tracking.png', red_png(), True))
         for suffix, data, javascript in cases:
             self.upload_one(suffix, data, javascript)
         self.upload_one('quick-reply.png', red_png(), True, quick_reply=True)
+        self.upload_one('quick-reply-inline.png', red_png(), True, quick_reply='inline')
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False):
         f = self.f
@@ -120,14 +122,14 @@ class PublicUpload:
         environment = {**SAFE, 'HOME': browser_user.pw_dir}
         node = os.environ['PUBLIC_UPLOAD_NODE']
         assert os.path.isabs(node) and os.path.isfile(node)
-        # Preserve text-plus-image coverage and also qualify image-only PNG/JPEG
+        # Preserve text-plus-image coverage and also qualify image-only PNG/JPEG/GIF
         # through the actual isolated pipeline, not merely synthetic approvals.
         flags = [] if suffix in ('baseline.jpg', 'tracking.png') else ['--attachment-only']
         if javascript:
             flags.append('--javascript')
         script = 'public-upload.mjs'
         if quick_reply:
-            script, flags = 'quick-reply-upload.mjs', []
+            script, flags = 'quick-reply-upload.mjs', (['--inline'] if quick_reply == 'inline' else [])
         process = f.launch([node, REPO / 'tests/browser' / script, self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
@@ -165,7 +167,7 @@ class PublicUpload:
             self.f.stop(self.unit)
         if self.created:
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|tracking\.png|quick-reply\.png)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

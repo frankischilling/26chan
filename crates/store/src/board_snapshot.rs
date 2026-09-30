@@ -20,6 +20,8 @@ pub struct CatalogReply {
     pub thread_id: i64,
     pub id: i64,
     pub name: String,
+    pub trip: Option<String>,
+    pub poster_id: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -60,9 +62,12 @@ pub async fn board_snapshot(
         BoardSelection::Page(_) => return Err(StoreError::PageNotFound),
         BoardSelection::All => (0, maximum, false),
     };
-    let threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
-        .bind(slug).bind(offset).bind(limit).fetch_all(&mut *tx).await?;
-    let has_next = later_page && threads.len() == limit as usize;
+    // One extra metadata row distinguishes a full final page from a page with
+    // a real successor. Discard it before loading any post bodies or media.
+    let mut threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
+        .bind(slug).bind(offset).bind(limit + i64::from(later_page)).fetch_all(&mut *tx).await?;
+    let has_next = later_page && threads.len() > limit as usize;
+    threads.truncate(limit as usize);
     let ids: Vec<i64> = threads.iter().map(|thread| thread.id).collect();
     let counts: Vec<(i64, i64, Option<i64>)> = sqlx::query_as("SELECT thread_id,count(*),max(id) FILTER (WHERE id<>thread_id) FROM content.posts WHERE board=$1 AND thread_id=ANY($2) AND NOT deleted GROUP BY thread_id")
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
@@ -70,7 +75,7 @@ pub async fn board_snapshot(
     // The count and this bounded batch share the same repeatable-read snapshot.
     let mut catalog_replies: BTreeMap<i64, CatalogReply> = if replies == Some(0) {
         let latest: Vec<i64> = counts.iter().filter_map(|entry| entry.2).collect();
-        sqlx::query_as::<_, CatalogReply>("SELECT thread_id,id,name,created_at FROM content.posts WHERE board=$1 AND id=ANY($2) AND NOT deleted")
+        sqlx::query_as::<_, CatalogReply>("SELECT thread_id,id,name,trip,poster_id,created_at FROM content.posts WHERE board=$1 AND id=ANY($2) AND NOT deleted")
             .bind(slug).bind(latest).fetch_all(&mut *tx).await?
             .into_iter().map(|reply| (reply.thread_id, reply)).collect()
     } else {

@@ -6,9 +6,31 @@ Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boar
 
 Development is ongoing. The explicit isolated development profile supports public uploads, processing status, persisted attachments, thumbnails and file deletion. Production uploads remain disabled pending qualification. A separate WebAuthn staff application handles report review and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
-A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG and [JPEG decoders](docs/jpeg-media.md) inside a per-job guest and validates bounded output. All published files are normalized PNGs; original uploads are never downloadable. [Publication commands](docs/media-approval.md) provide durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. [HTTP intake](docs/media-intake.md) connects uploads to authenticated dispatch. Native JPEG verification and production host/storage qualification remain unfinished.
+A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG, [JPEG](docs/jpeg-media.md) and [single-frame GIF](docs/gif-media.md) decoders inside a per-job guest and validates bounded output. All published files are normalized PNGs; original uploads are never downloadable. [Publication commands](docs/media-approval.md) provide durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. [HTTP intake](docs/media-intake.md) connects uploads to authenticated dispatch. Production host and storage qualification remain unfinished.
 
 [Native image controls](docs/native-image-controls.md) add inline expansion, screen fitting, hover previews and image display preferences to approved attachments. They share the existing settings and quote ownership rules, with finite full-image loading and an explicit media-origin boundary.
+
+[Local dates and custom board navigation](docs/native-display.md) use the same
+settings and preserve server output when disabled. The
+[legacy action route](docs/legacy-actions.md) supports password deletion and a
+script-free report form alongside posting.
+
+[Index expansion](docs/native-thread-expansion.md) loads omitted replies without
+replacing existing posts or drafts. [Thread statistics](docs/native-thread-stats.md)
+show counts and page position from one database snapshot.
+
+[Incremental page loading](docs/native-depager.md) keeps existing threads and
+drafts while fetching later index pages. [Navigation controls](docs/native-navigation.md)
+and [layout preferences](docs/native-layout.md) provide movable page navigation,
+board selection, compact or centered threads, and an optional Tomorrow theme.
+
+[Provider embeds](docs/native-embeds.md) load YouTube or SoundCloud players only
+after an explicit click. [Custom CSS](docs/native-custom-css.md) supports saved
+post colors, typography and spacing through a bounded editor. Provider frames
+have fixed destinations; saved styles cannot import resources or cover controls.
+[Settings export and restore](docs/native-settings-transfer.md) moves supported
+preferences, filters and post styles through a saved link. Restoring requires
+confirmation and checks for intervening changes in other tabs.
 
 ## Getting started
 
@@ -79,6 +101,7 @@ cargo test --workspace --all-features --locked
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run test:images-core
+npm run test:display
 npm run test:behavior
 npm run test:staff
 sudo bash scripts/test-comment-migration.sh

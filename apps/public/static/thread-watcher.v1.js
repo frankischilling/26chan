@@ -4,11 +4,20 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
 import { PostTracking } from './post-tracking.v1.js';
 import { installSettings } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
-import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeThreadUpdater, mountNativeKeybinds, mountNativeQuickReply, markNativeTrackedQuotes,
+import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
   localQuoteTree, prepareQuotePost, mobileQuoteDevice, NativeQuotePreviewTransport, checkedQuotePreview } from './native-filter.v1.js';
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
+import { mountNativeQuickReply } from './native-quick-reply.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
+import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
+import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
+import { mountNativeThreadStats } from './native-thread-stats.v1.js';
+import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
+import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './native-layout.v1.js';
+import { mountNativeEmbeds } from './native-embeds.v1.js';
+import { mountNativeCustomCSS } from './native-custom-css.v1.js';
+import { mountNativeSettingsTransfer, checkTransferValues, SETTINGS_TRANSFER_STORAGE_KEYS, SETTINGS_TRANSFER_LIMITS } from './native-settings-transfer.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -23,6 +32,7 @@ function start(context) {
   const timestampKey = '4chan-tw-timestamp';
   const blacklistKey = '4chan-watch-bl';
   const filterKey = '4chan-filters';
+  const cssKey = '4chan-css';
   const lockName = 'paperboard-thread-watcher';
   const hasLocks = typeof navigator.locks?.request === 'function';
   let persistent = hasLocks;
@@ -34,8 +44,8 @@ function start(context) {
         if (entered || signal.aborted || error?.name !== 'SecurityError') throw error;
         // Browser policy can expose Web Locks while denying their use. Every
         // participant must become volatile before any unlocked callback runs.
-        configuration(); filterCache = read(filterKey);
-        persistent = false; volatileSettings = true; volatileFilters = true;
+        configuration(); filterCache = read(filterKey); cssCache = read(cssKey);
+        persistent = false; volatileSettings = true; volatileFilters = true; volatileCSS = true;
         tracking.persistent = false;
         mutationLock.acquire = null;
         return action();
@@ -47,6 +57,8 @@ function start(context) {
   let volatileSettings = false;
   let volatileFilters = false;
   let filterCache = null;
+  let volatileCSS = false;
+  let cssCache = null;
   let timestampCache = null;
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
@@ -64,6 +76,7 @@ function start(context) {
 
   function read(key) {
     if (key === filterKey && volatileFilters) return filterCache;
+    if (key === cssKey && volatileCSS) return cssCache;
     if (key === timestampKey && !persistent) return timestampCache;
     try {
       const value = localStorage.getItem(key);
@@ -157,8 +170,10 @@ function start(context) {
   const close = button('Close', () => { refresh.cancel(); collapsed = true; render(); });
   close.id = 'twClose';
   panel.classList.add(catalog ? 'watcherCatalog' : 'watcherExtension');
-  const iconFamily = getComputedStyle(document.documentElement).getPropertyValue('--watcher-icon-family').trim();
-  const family = ['futaba', 'burichan', 'tomorrow', 'photon'].includes(iconFamily) ? iconFamily : 'futaba';
+  function themeFamily() {
+    const value = getComputedStyle(document.documentElement).getPropertyValue('--watcher-icon-family').trim().replace(/['"]/g, '');
+    return ['futaba', 'burichan', 'tomorrow', 'photon'].includes(value) ? value : 'futaba';
+  }
   const highDensity = matchMedia('(min-resolution: 2dppx)');
   function icon(control, name, description) {
     control.setAttribute('aria-label', description);
@@ -176,14 +191,14 @@ function start(context) {
         image.draggable = false;
         control.append(image);
       }
-      const path = `/static/watcher/${family}/${name}${highDensity.matches ? '@2x' : ''}.${name === 'post_expand_rotate' ? 'gif' : 'png'}`;
+      const path = `/static/watcher/${themeFamily()}/${name}${highDensity.matches ? '@2x' : ''}.${name === 'post_expand_rotate' ? 'gif' : 'png'}`;
       if (image.getAttribute('src') !== path) image.src = path;
     }
   }
   refreshButton.textContent = close.textContent = '';
   refreshButton.classList.add('watcherIcon');
   close.classList.add('watcherIcon');
-  highDensity.addEventListener('change', () => render());
+  highDensity.addEventListener('change', () => { render(); nativeNavigation?.themeChanged(); });
   heading.append(close, title, refreshButton);
   for (const control of document.querySelectorAll('[data-thread-refresh]')) {
     control.addEventListener('click', event => {
@@ -271,7 +286,7 @@ function start(context) {
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
   });
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
-    mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family,
+    mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
@@ -313,17 +328,134 @@ function start(context) {
     watch: () => { if (enabled && threadId) void toggleThread(document.getElementById(`t${threadId}`)); },
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });
+  let nativeEmbeds = null, nativeCustomCSS = null, settingsTransfer = null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     hasMobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
+    openCustomMenu: opener => nativeDisplay?.openEditor(opener),
+    openCustomCSS: document.querySelector('.board') ? opener => nativeCustomCSS?.open(opener) : undefined,
+    openExport: opener => settingsTransfer?.openExport(opener),
     optionChecked: (key, initial) => key === 'linkify'
       ? (initial.disableAll === true ? initial.linkify === true
         : (mobile.matches && readNeverMobile() !== 'true') || initial.linkify === true)
-      : undefined,
+      : key === 'embedYouTube' ? (typeof initial.embedYouTube === 'boolean' ? initial.embedYouTube
+        : !sourceMobileLayout(mobile.matches, readNeverMobile())) : undefined,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
+  const nativePosterIds = catalog ? null : mountNativePosterIds({ root: document.body, settings: configuration });
+  const nativePosterIdActions = catalog ? null : mountNativePosterIdActions({ root: document.body,
+    settings: configuration, thread: Boolean(threadId) });
+  const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
+    settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
+  });
+  const nativeStats = catalog ? null : mountNativeThreadStats({ board, thread: threadId,
+    settings: configuration, mobile, readNeverMobile,
+  });
+  let nativeLayout = null, nativeNavigation = null;
+  const themeChanged = () => {
+    nativeQuotePreview?.clear();
+    render();
+    nativeNavigation?.themeChanged();
+  };
+  document.addEventListener(THEME_READY_EVENT, themeChanged);
+  nativeLayout = catalog ? null : mountNativeLayout({ root: document.body, settings: configuration,
+    mobile, readNeverMobile, themeStylesheet: document.querySelector('link[data-native-theme-stylesheet]'),
+  });
+  nativeNavigation = catalog ? null : mountNativeNavigation({ root: document.body, board, thread: threadId, catalog,
+    settings: configuration, mobile, readNeverMobile,
+    openSettings: opener => settingsNavigation.open(opener), openCustomMenu: opener => nativeDisplay?.openEditor(opener),
+    decorateButton: (control, name, description) => {
+      control.title = description; control.setAttribute('aria-label', description);
+      let image = control.querySelector('img');
+      if (!image) { image = document.createElement('img'); image.alt = ''; image.width = image.height = 18; control.append(image); }
+      image.src = `/static/navigation/${themeFamily()}/${name}${highDensity.matches ? '@2x' : ''}.png`;
+    },
+    savePosition: (key, position, expected, signal) => locked(() => {
+      const current = configuration();
+      if (!['TN-position', 'SN-position'].includes(key) || current.disableAll === true
+        || current[key === 'TN-position' ? 'topPageNav' : 'stickyNav'] !== true
+        || (typeof current[key] === 'string' ? current[key] : null) !== expected) return false;
+      return writeSettings({ ...current, [key]: position });
+    }, signal),
+  });
+  document.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey
+      || configuration().darkTheme !== true) return;
+    const link = event.target.closest?.('a');
+    if (!link || link.target || link.hasAttribute('download')) return;
+    const href = link.getAttribute('href');
+    if (!/^\/settings\/theme(?:\?worksafe=(?:true|false))?$/.test(href ?? '')) return;
+    event.preventDefault();
+    void saveSettings({ darkTheme: false }).then(result => {
+      if (result !== false) { nativeLayout?.refresh(); window.location.assign(href); }
+      else notice.textContent = 'The style preference could not be updated. Try again.';
+    }).catch(() => { notice.textContent = 'The style preference could not be updated. Try again.'; });
+  });
+  const nativeExpansion = catalog ? null : mountNativeThreadExpansion({ root: document.querySelector('.board'),
+    board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, decorateButton: icon,
+    applied: async (_snapshot, signal) => {
+      render(); await new Promise(resolve => queueMicrotask(resolve));
+      if (signal.aborted) return;
+      if (nativeFilters && !await nativeFilters.refreshSettled(signal) && !signal.aborted) throw new Error('Expansion filters did not settle.');
+    },
+  });
+  const nativeDepager = setupDepager();
+  nativeEmbeds = catalog ? null : mountNativeEmbeds({ root: document.querySelector('.board'),
+    settings: configuration, hasMobileLayout: () => sourceMobileLayout(mobile.matches, readNeverMobile()), projection,
+  });
+  nativeCustomCSS = catalog ? null : mountNativeCustomCSS({ root: document.querySelector('.board'),
+    settings: configuration, readCSS: () => read(cssKey), saveCSS: saveCustomCSS,
+  });
+  settingsTransfer = mountNativeSettingsTransfer({ root: document.body,
+    readItem: readTransferItem, restore: restorePreferences,
+  });
+  function setupDepager() {
+    const page = navigationPage(window.location.pathname, board), pages = document.querySelector('nav.pages');
+    const root = document.querySelector('.board');
+    if (catalog || threadId || page === null || !pages || !root) return null;
+    const next = navigationPage(pages.querySelector('[rel="next"]')?.getAttribute('href'), board);
+    const mobileLayout = () => sourceMobileLayout(mobile.matches, readNeverMobile());
+    const controls = node('span', undefined, 'nativeDepagerControls');
+    const more = button(mobileLayout() ? 'Load More' : 'All', () => {
+      if (!controller) return;
+      if (!mobileLayout()) {
+        overrideAuto = !controller.stats().auto;
+        controller.refresh();
+        if (!overrideAuto) return;
+      }
+      void controller.loadMore();
+    });
+    more.id = 'depage'; more.setAttribute('aria-label', 'Load more threads');
+    const cancel = button('Cancel loading', () => controller?.cancel()); cancel.id = 'depage-cancel'; cancel.hidden = true;
+    const status = node('span', '', 'nativeDepagerStatus'); status.id = 'depage-status'; status.setAttribute('role', 'status');
+    controls.append(' [', more, '] ', cancel, status); pages.append(controls);
+    let controller = null, overrideAuto = null, lastAlways = configuration().alwaysDepage === true;
+    controller = mountNativeDepager({ root, board, page, nextPage: next, mediaOrigin: context.dataset.mediaOrigin,
+      settings: () => {
+        const config = configuration(), always = config.alwaysDepage === true;
+        if (lastAlways !== always) { overrideAuto = null; lastAlways = always; }
+        return { ...config, alwaysDepage: overrideAuto ?? always };
+      },
+      createTransport: config => new NativeBoardPageTransport(config),
+      stateChanged: state => {
+        const loading = state.state === 'loading' || state.state === 'applying';
+        controls.hidden = state.state === 'disabled' || (state.complete && next === null);
+        more.textContent = mobileLayout() ? 'Load More' : 'All';
+        more.disabled = loading || (state.complete && (mobileLayout() || !state.auto));
+        more.setAttribute('aria-pressed', String(state.auto)); cancel.hidden = !loading;
+        status.textContent = { loading: ' Loading next page...', applying: ' Applying page filters...', error: ' Page unavailable. Retry or use Next.',
+          limit: ' Page limit reached. Use the ordinary page links to continue.', complete: ' Done.', paused: ' Loading paused.' }[state.state] ?? '';
+      },
+      applied: async (_page, signal) => {
+        render(); await new Promise(resolve => queueMicrotask(resolve));
+        if (signal.aborted) return;
+        if (nativeFilters && !await nativeFilters.refreshSettled(signal) && !signal.aborted) throw new Error('Page filters did not settle.');
+      },
+    });
+    return controller;
+  }
   const placement = mountWatcherPosition({ panel, heading, catalog, mobile, read: configuration,
     save: (position, expected, expectedFixed) => locked(() => {
       const settings = configuration();
@@ -357,8 +489,86 @@ function start(context) {
       return { status: 'ok', persisted: persistent };
     }, signal);
   }
-  async function saveSettings(changes) {
+  function saveCustomCSS(raw, expected, signal) {
+    if (typeof raw !== 'string' || raw.length > 16384 || new TextEncoder().encode(raw).byteLength > 16384) {
+      return Promise.resolve({ status: 'invalid' });
+    }
+    return locked(() => {
+      if (signal.aborted || read(cssKey) !== expected) return { status: 'conflict' };
+      if (persistent) {
+        try {
+          if (raw === '') localStorage.removeItem(cssKey);
+          else localStorage.setItem(cssKey, raw);
+        }
+        catch { persistent = false; }
+      }
+      if (!persistent) { volatileCSS = true; cssCache = raw === '' ? null : raw; }
+      return { status: 'ok', persisted: persistent };
+    }, signal);
+  }
+  function readTransferItem(key) {
+    if (!SETTINGS_TRANSFER_STORAGE_KEYS.includes(key)) throw new TypeError('Unsupported preference key');
+    if (key === settingsKey && volatileSettings) return JSON.stringify(settingsCache);
+    if (key === filterKey && volatileFilters) return filterCache;
+    if (key === cssKey && volatileCSS) return cssCache;
+    return localStorage.getItem(key);
+  }
+  async function restorePreferences(values, expected, signal) {
+    const checked = checkTransferValues(values);
+    if (checked.status !== 'ok' || !expected || typeof expected !== 'object' || Array.isArray(expected)) {
+      return Promise.resolve({ status: 'invalid' });
+    }
+    const next = Object.freeze({ ...checked.values });
+    const keys = Object.keys(next);
+    const expectedKeys = Object.keys(expected);
+    if (expectedKeys.length !== keys.length || keys.some(key => !Object.hasOwn(expected, key)
+      || (expected[key] !== null && (typeof expected[key] !== 'string' || expected[key].length > SETTINGS_TRANSFER_LIMITS.existingValueChars)))) {
+      return Promise.resolve({ status: 'invalid' });
+    }
+    const previous = Object.freeze({ ...expected });
+    if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
+    if (Object.hasOwn(next, filterKey)) {
+      // Use the editor's disposable-worker syntax check. An empty post batch
+      // compiles active patterns without running them against post text.
+      const parsed = readNativeFilters(next[filterKey]);
+      const validation = await matcher.match(parsed.filters, board, [], { mode: 'page', signal });
+      if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
+      if (validation.status !== 'ok') return { status: 'invalid' };
+    }
+    return locked(() => {
+      if (signal?.aborted) return { status: 'conflict' };
+      if (!hasLocks || !persistent || volatileSettings || volatileFilters || volatileCSS) return { status: 'unavailable' };
+      try {
+        if (keys.some(key => localStorage.getItem(key) !== previous[key])) return { status: 'conflict' };
+      } catch { return { status: 'unavailable' }; }
+      // Write enabling preferences last. Web Storage has no multi-key transaction;
+      // cooperating writers share this lock, and failed writes are rolled back.
+      const ordered = [...keys.filter(key => key !== settingsKey), settingsKey];
+      const written = [];
+      try {
+        for (const key of ordered) {
+          localStorage.setItem(key, next[key]);
+          written.push(key);
+        }
+      } catch {
+        for (const key of written.reverse()) {
+          try {
+            // Never undo a value replaced by a nonparticipating writer.
+            if (localStorage.getItem(key) !== next[key]) continue;
+            if (previous[key] === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, previous[key]);
+          } catch { /* Report incomplete recovery below. */ }
+        }
+        let partial = true;
+        try { partial = keys.some(key => localStorage.getItem(key) !== previous[key]); } catch { /* Storage is unavailable. */ }
+        return { status: 'storage-error', partial };
+      }
+      return { status: 'ok', persisted: true };
+    }, signal);
+  }
+  async function saveSettings(changes, signal) {
     const applied = await locked(() => {
+      if (signal?.aborted) return false;
       const settings = { ...configuration(), ...changes };
       if (catalog && changes.threadWatcher === true) settings.disableAll = false;
       if (!writeSettings(settings)) return false;
@@ -367,9 +577,9 @@ function start(context) {
       collapsed = mobile.matches;
       render();
       return true;
-    });
-    if (applied === false || !mutationLock.active) return false;
-    if (enabled) { await acknowledgeCurrent(); if (!mutationLock.active) return false; navigateReadPosition(); }
+    }, signal);
+    if (applied === false || signal?.aborted || !mutationLock.active) return false;
+    if (enabled) { await acknowledgeCurrent(signal); if (signal?.aborted || !mutationLock.active) return false; navigateReadPosition(); }
     void nativeFilters?.refresh();
     return { persisted: !volatileSettings };
   }
@@ -666,7 +876,6 @@ function start(context) {
           }, 'postMenuBtn');
           trigger.dataset.postMenu = id;
           trigger.dataset.cmd = 'post-menu';
-          trigger.dataset.family = family;
           trigger.title = 'Post menu';
           trigger.setAttribute('aria-label', `Post menu for post ${id}`);
           trigger.setAttribute('aria-haspopup', 'menu');
@@ -679,6 +888,7 @@ function start(context) {
           });
         }
         if (!trigger) continue;
+        trigger.dataset.family = themeFamily();
         trigger.hidden = disabled;
         trigger.textContent = mobile.matches ? '...' : '\u25b6';
         if (mobile.matches) {
@@ -700,6 +910,15 @@ function start(context) {
     nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
+    nativeEmbeds?.refresh();
+    nativeCustomCSS?.refresh();
+    nativeDisplay?.refresh();
+    nativePosterIds?.refresh();
+    nativePosterIdActions?.refresh();
+    nativeLayout?.refresh();
+    nativeNavigation?.refresh();
+    nativeExpansion?.refresh();
+    nativeDepager?.refresh();
     nativeUpdater?.sync();
     nativeQuickReply?.sync();
     nativeReplies?.refresh();
@@ -859,7 +1078,17 @@ function start(context) {
     if (post) { post.classList.add('watcherReadTarget'); post.scrollIntoView({ block: 'nearest' }); }
     history.replaceState(null, '', location.pathname + location.search);
   }
+  document.addEventListener('4chanPreferencesRestored', () => {
+    if (!mutationLock.active) return;
+    refresh.cancel();
+    const settings = configuration();
+    enabled = settings.threadWatcher === true && settings.disableAll !== true;
+    collapsed = mobile.matches;
+    render();
+    void nativeFilters?.refresh();
+  });
   window.addEventListener('storage', event => {
+    if (event.key === '4chan_never_show_mobile') { nativeDepager?.refresh(); nativeEmbeds?.refresh(); return; }
     if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;
     refresh.cancel();
     load();

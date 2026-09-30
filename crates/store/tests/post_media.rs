@@ -390,20 +390,31 @@ async fn exercise(f: &Fixture) {
         f.insert(thread, remaining).await,
         Err(StoreError::Conflict(_))
     ));
-    sqlx::query("UPDATE content.threads SET sticky=false,permaage=false,undead=false WHERE id=$1")
+    // A request timestamp can be ahead of the database clock. Deletion uses
+    // database time while HTTP validation retains its separate change clock.
+    sqlx::query("UPDATE content.threads SET sticky=false,permaage=false,undead=false,modified_at=clock_timestamp()+interval '1 day' WHERE id=$1")
         .bind(thread)
         .execute(&f.admin)
         .await
         .unwrap();
     let revision = board_store::thread(&f.public, &f.board, thread)
         .await
-        .unwrap()
-        .modified_at;
+        .unwrap();
     assert!(matches!(
         delete_attachment(&f.public, "wrong", id).await,
         Err(StoreError::NotFound)
     ));
+    let before_delete: chrono::DateTime<chrono::Utc> =
+        sqlx::query_scalar("SELECT clock_timestamp()")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
     delete_attachment(&f.public, &f.board, id).await.unwrap();
+    let after_delete: chrono::DateTime<chrono::Utc> =
+        sqlx::query_scalar("SELECT clock_timestamp()")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
     assert!(
         attachment(&f.public, id)
             .await
@@ -419,13 +430,12 @@ async fn exercise(f: &Fixture) {
         f.reader.get_post(&f.board, saved.tim, false).await,
         Err(StoreError::NotFound)
     ));
-    assert!(
-        board_store::thread(&f.public, &f.board, thread)
-            .await
-            .unwrap()
-            .modified_at
-            > revision
-    );
+    let after = board_store::thread(&f.public, &f.board, thread)
+        .await
+        .unwrap();
+    assert!(after.http_modified_at > revision.http_modified_at);
+    assert!((before_delete..=after_delete).contains(&after.modified_at));
+    assert!(after.modified_at < revision.modified_at);
     assert!(matches!(
         delete_attachment(&f.public, &f.board, id).await,
         Err(StoreError::NotFound)
@@ -505,6 +515,7 @@ async fn exercise(f: &Fixture) {
     posting_times(f).await;
     image_admission_flags(f).await;
     comment_spacing(f).await;
+    tripcodes(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
     source_op_markup_attachment(f).await;
@@ -514,6 +525,47 @@ async fn exercise(f: &Fixture) {
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn tripcodes(f: &Fixture) {
+    let upload = f.reserve().await;
+    f.approve(&upload).await;
+    let mut draft = post();
+    draft.name = "User#password".into();
+    if f.attachment_only {
+        draft.comment.clear();
+    }
+    let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(saved.name, "User");
+    assert_eq!(saved.trip.as_deref(), Some("!ozOtJW9BFA"));
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    let upload = f.reserve().await;
+    f.approve(&upload).await;
+    sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    draft.name = "User##owned-private-secret".into();
+    let id = create_post_with_attachment(&f.public, &f.board, id, &draft, Some(&upload))
+        .await
+        .unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!(saved.name, "Anonymous");
+    assert_eq!(saved.trip, None);
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
 }
 
 async fn source_op_markup_attachment(f: &Fixture) {
@@ -1189,8 +1241,11 @@ async fn posting_times(f: &Fixture) {
         );
         tx.rollback().await.unwrap();
     }
-    let before = Utc::now().timestamp();
     let mut tx = f.public.begin().await.unwrap();
+    let before: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
     let new_id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await
@@ -1215,7 +1270,11 @@ async fn posting_times(f: &Fixture) {
             .await
             .unwrap();
     assert_eq!(saved.nanosecond(), 0);
-    assert!((before..=Utc::now().timestamp()).contains(&saved.timestamp()));
+    let after: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert!((before.timestamp()..=after.timestamp()).contains(&saved.timestamp()));
     tx.rollback().await.unwrap();
     sqlx::query(
         "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",

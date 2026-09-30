@@ -205,6 +205,8 @@ mod tests {
                 )),
                 media: None,
                 proxy_uid: None,
+                poster_id_key: None,
+                tripcode_key: None,
             };
             assert_eq!(
                 get(State(state), RawQuery(Some(query)), HeaderMap::new())
@@ -228,6 +230,8 @@ mod tests {
             )),
             media: None,
             proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
         };
         let accepted = format!("https://example.test/{}", "\u{0800}".repeat(70_000));
         assert!(accepted.len() > MAX_URL_UTF16);

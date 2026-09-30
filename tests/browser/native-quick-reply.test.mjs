@@ -1,6 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commentLengthWarning, quoteInsertion, postingResult, sendQuickReply } from '../../apps/public/client/native-quick-reply-transport.js';
+import {
+  QUICK_REPLY_UPLOAD_LIMITS,
+  cancelQuickReplyUpload,
+  checkQuickReplyUpload,
+  commentLengthWarning,
+  parseQuickReplyUpload,
+  quoteInsertion,
+  postingResult,
+  sendQuickReply,
+  uploadQuickReplyFile,
+} from '../../apps/public/client/native-quick-reply-transport.js';
+
+const upload = {
+  upload_id: '1'.repeat(32),
+  upload_capability: '2'.repeat(64),
+  resto: '10',
+  state: 'queued',
+};
+
+function uploadResponse(value, { status = 200, contentType = 'application/json' } = {}) {
+  return new Response(JSON.stringify(value), { status, headers: { 'content-type': contentType } });
+}
 
 test('the source comment advisory counts UTF-8 bytes against the configured character limit', () => {
   assert.equal(commentLengthWarning('abcd', '4'), '');
@@ -64,4 +85,142 @@ test('invalid fields fail before fetch and canceled streams release their reader
   assert.equal(canceled, true);
   const controller = new AbortController(); controller.abort();
   await assert.rejects(sendQuickReply({ ...common, signal: controller.signal }), /Check the thread/); assert.equal(calls, 0);
+});
+
+test('inline upload receipts are exact, canonical and bound to the selected thread', () => {
+  assert.deepEqual(parseQuickReplyUpload(JSON.stringify(upload), '10'), upload);
+  assert.deepEqual(parseQuickReplyUpload(JSON.stringify({ ...upload, state: 'approved' }), '10'), { ...upload, state: 'approved' });
+  for (const value of [
+    { ...upload, resto: '11' },
+    { ...upload, resto: 10 },
+    { ...upload, upload_id: 'A'.repeat(32) },
+    { ...upload, upload_capability: '2'.repeat(63) },
+    { ...upload, state: 'published' },
+    { ...upload, extra: true },
+    { error: '<b>not a receipt</b>' },
+  ]) assert.throws(() => parseQuickReplyUpload(JSON.stringify(value), '10'), /Invalid upload response/);
+  assert.throws(() => parseQuickReplyUpload('x'.repeat(QUICK_REPLY_UPLOAD_LIMITS.responseBytes + 1), '10'), /Invalid upload response/);
+});
+
+test('inline selection streams one bounded file to the fixed board upload endpoint without retries', async () => {
+  const calls = [];
+  const file = new File([new Uint8Array([1, 2, 3])], 'fold.png', { type: 'image/png' });
+  const result = await uploadQuickReplyFile({
+    origin: 'https://board.example', board: 'demo', thread: '10', file,
+    fetcher: async (url, options) => {
+      calls.push({ url, options });
+      assert.equal(url, 'https://board.example/demo/upload');
+      assert.equal(options.method, 'POST');
+      assert.equal(options.redirect, 'error');
+      assert.equal(options.credentials, 'same-origin');
+      assert.equal(options.headers.Accept, 'application/json');
+      assert.deepEqual([...options.body.keys()], ['resto', 'upfile']);
+      assert.equal(options.body.get('resto'), '10');
+      const bodyFile = options.body.get('upfile');
+      assert.equal(bodyFile.name, file.name);
+      assert.equal(bodyFile.type, file.type);
+      assert.equal(bodyFile.size, file.size);
+      assert.deepEqual(new Uint8Array(await bodyFile.arrayBuffer()), new Uint8Array([1, 2, 3]));
+      return uploadResponse(upload);
+    },
+  });
+  assert.deepEqual(result, upload); assert.equal(calls.length, 1);
+
+  let oversizedCalls = 0;
+  const oversized = new File([new Uint8Array(QUICK_REPLY_UPLOAD_LIMITS.bytes + 1)], 'large.png', { type: 'image/png' });
+  await assert.rejects(uploadQuickReplyFile({
+    origin: 'https://board.example', board: 'demo', thread: '10', file: oversized,
+    fetcher: async () => { oversizedCalls++; return uploadResponse(upload); },
+  }), /8 MiB/);
+  assert.equal(oversizedCalls, 0);
+});
+
+test('status and cancel retain the exact capability, use fixed current-board paths and never retry malformed responses', async () => {
+  let statusCalls = 0;
+  const approved = await checkQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
+    fetcher: async (url, options) => {
+      statusCalls++;
+      assert.equal(url, 'https://board.example/demo/upload/status');
+      assert.equal(options.method, 'POST'); assert.equal(options.redirect, 'error'); assert.equal(options.credentials, 'same-origin');
+      assert.equal(options.headers.Accept, 'application/json');
+      assert.equal(new URLSearchParams(options.body).get('upload_id'), upload.upload_id);
+      assert.equal(new URLSearchParams(options.body).get('upload_capability'), upload.upload_capability);
+      assert.equal(new URLSearchParams(options.body).get('resto'), '10');
+      return uploadResponse({ ...upload, state: 'approved' });
+    },
+  });
+  assert.equal(approved.state, 'approved'); assert.equal(statusCalls, 1);
+
+  let cancelCalls = 0;
+  assert.deepEqual(await cancelQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: approved,
+    fetcher: async (url, options) => {
+      cancelCalls++;
+      assert.equal(url, 'https://board.example/demo/upload/cancel');
+      assert.equal(options.method, 'POST'); assert.equal(options.headers.Accept, 'application/json');
+      return uploadResponse({ cancelled: true });
+    },
+  }), { cancelled: true });
+  assert.equal(cancelCalls, 1);
+
+  let malformedCalls = 0;
+  await assert.rejects(checkQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
+    fetcher: async () => { malformedCalls++; return new Response('<html>no</html>', { status: 503, headers: { 'content-type': 'text/html' } }); },
+  }), /Upload status unavailable/);
+  assert.equal(malformedCalls, 1);
+
+  for (const changed of [
+    { ...upload, upload_id: '3'.repeat(32), state: 'approved' },
+    { ...upload, upload_capability: '4'.repeat(64), state: 'approved' },
+  ]) {
+    await assert.rejects(checkQuickReplyUpload({
+      origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
+      fetcher: async () => uploadResponse(changed),
+    }), /Upload status unavailable/);
+  }
+});
+
+test('only exact server JSON errors reach callers; transport exception text stays private', async () => {
+  await assert.rejects(checkQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
+    fetcher: async () => { throw new Error('sensitive transport detail'); },
+  }), error => error.message === 'Upload status unavailable. Try again.');
+  await assert.rejects(cancelQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
+    fetcher: async () => uploadResponse({ error: 'Upload is already in use.' }, { status: 409 }),
+  }), error => error.message === 'Upload is already in use.');
+});
+
+test('upload deadlines and caller cancellation settle even when fetch or response readers ignore abort', async () => {
+  const file = new File([new Uint8Array([1])], 'held.png', { type: 'image/png' });
+  const controller = new AbortController();
+  const heldFetch = uploadQuickReplyFile({
+    origin: 'https://board.example', board: 'demo', thread: '10', file, signal: controller.signal,
+    fetcher: () => new Promise(() => {}),
+  });
+  controller.abort();
+  await assert.rejects(heldFetch, /Upload failed/);
+
+  const statusController = new AbortController();
+  const heldReader = {
+    read: () => new Promise(() => {}),
+    cancel: () => new Promise(() => {}),
+  };
+  const heldStatus = checkQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload, signal: statusController.signal,
+    fetcher: async () => ({
+      ok: true, status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: { getReader: () => heldReader, cancel: () => Promise.resolve() },
+    }),
+  });
+  statusController.abort();
+  await assert.rejects(heldStatus, /Upload status unavailable/);
+
+  assert.equal((await checkQuickReplyUpload({
+    origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
+    fetcher: async () => uploadResponse({ ...upload, state: 'approved' }),
+  })).state, 'approved');
 });

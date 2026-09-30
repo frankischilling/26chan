@@ -191,10 +191,14 @@ pub async fn post_snapshot(pool: &PgPool, slug: &str, id: i64) -> Result<PostSna
     })
 }
 
+// Fetch only the bounded hash, with its board/post visibility check in the same
+// statement. The mutation path repeats this read after acquiring its board lock.
+pub(crate) const DELETION_HASH: &str = "SELECT d.password_hash FROM post_secrets.deletion d JOIN content.posts p ON p.id=d.post_id JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted";
+
 pub async fn deletion_hash(pool: &PgPool, slug: &str, id: i64) -> Result<String, StoreError> {
-    let post = find_post(pool, slug, id).await?;
-    sqlx::query_scalar("SELECT password_hash FROM post_secrets.deletion WHERE post_id=$1")
-        .bind(post.id)
+    sqlx::query_scalar(DELETION_HASH)
+        .bind(slug)
+        .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or(StoreError::NotFound)

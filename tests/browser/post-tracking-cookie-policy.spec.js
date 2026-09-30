@@ -32,7 +32,7 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
         const blocked = [];
         cdp.on('Network.responseReceivedExtraInfo', event => {
           for (const cookie of event.blockedCookies) {
-            if (/^(board-posted-[0-9]+|4chan_awt)=/.test(cookie.cookieLine)) blocked.push(cookie);
+            if (/^(board-posted-[0-9]+|4chan_awt|4chan_name|options)=/.test(cookie.cookieLine)) blocked.push(cookie);
           }
         });
         await cdp.send('Network.enable');
@@ -44,6 +44,7 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
           await page.locator('#togglePostFormLink a').click();
           await page.locator('#com').fill(`Owned cookie policy ${cookies}, parent ${parent}`);
           await page.locator('#password').fill(password);
+          await page.locator('#name').fill('Owned cookie name#password');
           await page.locator('#email').fill(option);
           if (parent === '0') await page.locator('#sub').fill('Owned network cookie policy');
           const pending = page.waitForResponse(response => response.request().method() === 'POST'
@@ -58,10 +59,12 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
           }
           return (await response.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie').map(header => header.value);
         };
-        const opHeaders = await post('0');
+        const opHeaders = await post('0', 'sage');
         await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
         const thread = page.url().match(/thread\/(\d+)/)[1];
-        expect(opHeaders).toHaveLength(2);
+        expect(opHeaders).toHaveLength(4);
+        expect(opHeaders.some(line => line.startsWith('4chan_name=Owned%20cookie%20name;'))).toBe(true);
+        expect(opHeaders.some(line => line.startsWith('options=sage;'))).toBe(true);
         expect(opHeaders.some(line => line.startsWith(`board-posted-${thread}=${thread}.1;`))).toBe(true);
         expect(opHeaders.some(line => line.startsWith(`4chan_awt=${thread};`))).toBe(true);
         const assertReceipts = async (headers, postId) => {
@@ -69,6 +72,9 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
             await expect.poll(() => page.evaluate(({ thread, postId }) =>
               JSON.parse(localStorage.getItem(`4chan-track-test-${thread}`))?.[`>>${postId}`], { thread, postId })).toBe(1);
             await expect(page.locator(`#watch-${thread}-test`)).toBeVisible();
+            await expect(page.locator('#name')).toHaveValue('Owned cookie name');
+            expect((await context.cookies()).some(cookie => cookie.name === '4chan_name'
+              && cookie.value === 'Owned%20cookie%20name')).toBe(true);
             expect(blocked).toEqual([]);
           } else {
             for (const line of headers) {
@@ -77,6 +83,7 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
             }
             await expect(page.locator(`#watch-${thread}-test`)).toHaveCount(0);
             expect(await page.evaluate(() => document.cookie)).toBe('');
+            await expect(page.locator('#name')).toHaveValue('');
           }
           expect((await context.cookies()).filter(cookie => receiptName(cookie.name))).toEqual([]);
         };
@@ -87,10 +94,12 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
         await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
         const replyHeaders = await post(thread, 'nonoko');
         await expect(page).toHaveURL(`${origin}/test/`);
-        expect(replyHeaders).toHaveLength(1);
-        const reply = replyHeaders[0].match(/^board-posted-(\d+)=/)?.[1];
+        expect(replyHeaders).toHaveLength(3);
+        const replyReceipt = replyHeaders.find(line => line.startsWith('board-posted-'));
+        const reply = replyReceipt?.match(/^board-posted-(\d+)=/)?.[1];
         expect(reply).toBeTruthy();
-        expect(replyHeaders[0].startsWith(`board-posted-${reply}=${thread}.0;`)).toBe(true);
+        expect(replyReceipt.startsWith(`board-posted-${reply}=${thread}.0;`)).toBe(true);
+        expect(replyHeaders.some(line => line.startsWith('options=nonoko;'))).toBe(true);
         await assertReceipts(replyHeaders, reply);
         const jsonResponse = await request.get(`/test/thread/${thread}.json`);
         expect(jsonResponse.status()).toBe(200);
@@ -111,6 +120,8 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
           expect(await restoredPage.evaluate(thread => localStorage.getItem(`4chan-track-test-${thread}`), thread)).toBe(null);
           await expect(restoredPage.locator(`#watch-${thread}-test`)).toHaveCount(0);
           expect((await context.cookies()).filter(cookie => receiptName(cookie.name))).toEqual([]);
+          await expect(restoredPage.locator('#name')).toHaveValue('');
+          await expect(restoredPage.locator('#email')).toHaveValue('');
           await expect(restoredPage.locator(`#m${reply}`)).toHaveText(`Owned cookie policy 2, parent ${thread}`);
         }
       } finally {

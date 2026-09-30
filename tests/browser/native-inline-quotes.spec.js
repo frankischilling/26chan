@@ -62,10 +62,12 @@ const rule = (pattern, changes = {}) => ({ type: 2, pattern, boards: 'demo', act
   auto: false, hide: false, color: '#ff0000', ...changes });
 
 async function initialize(page, url, settings = enabled, rules) {
+  // These cases assert all fetches made by quote loading, including after a
+  // navigation. Thread statistics have their own enabled-feature coverage.
   await page.addInitScript(({ settings, rules }) => {
     if (localStorage.getItem('4chan-settings') === null) localStorage.setItem('4chan-settings', JSON.stringify(settings));
     if (rules !== undefined && localStorage.getItem('4chan-filters') === null) localStorage.setItem('4chan-filters', JSON.stringify(rules));
-  }, { settings, rules });
+  }, { settings: { threadStats: false, ...settings }, rules });
   await page.goto(new URL(url, origin).href);
   await expect(page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')).toBeVisible();
 }

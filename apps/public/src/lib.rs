@@ -6,8 +6,13 @@ pub mod catalog;
 mod derefer;
 mod handlers;
 mod intake;
+mod legacy_form;
+mod legacy_report;
+mod native_board_snapshot;
+mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
+mod post_preferences;
 mod post_receipts;
 mod posting_form;
 mod posting_response;
@@ -34,6 +39,18 @@ pub struct AppState {
     limits: Arc<security::Limits>,
     media: Option<intake::IntakeClient>,
     proxy_uid: Option<u32>,
+    poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
+    tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
+}
+
+pub struct PublicRouterOptions {
+    pub origin: String,
+    pub production: bool,
+    pub media: Option<board_config::PublicMediaSettings>,
+    pub limits: board_config::PublicRequestLimits,
+    pub proxy_uid: Option<u32>,
+    pub poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
+    pub tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
 }
 
 pub fn router(pool: PgPool, origin: String, production: bool) -> Router {
@@ -87,6 +104,26 @@ pub fn observed_routers_with_proxy(
     limits: board_config::PublicRequestLimits,
     proxy_uid: Option<u32>,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_options(
+        pool,
+        api_enabled,
+        PublicRouterOptions {
+            origin,
+            production,
+            media,
+            limits,
+            proxy_uid,
+            poster_id_key: None,
+            tripcode_key: None,
+        },
+    )
+}
+
+pub fn observed_routers_with_options(
+    pool: PgPool,
+    api_enabled: bool,
+    options: PublicRouterOptions,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -97,7 +134,7 @@ pub fn observed_routers_with_proxy(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_proxy(pool, origin, production, media, limits, proxy_uid);
+    let (public, api) = routers_with_options(pool, options);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -144,11 +181,37 @@ fn routers_with_proxy(
     limits: board_config::PublicRequestLimits,
     proxy_uid: Option<u32>,
 ) -> (Router, Router) {
+    routers_with_options(
+        pool,
+        PublicRouterOptions {
+            origin,
+            production,
+            media,
+            limits,
+            proxy_uid,
+            poster_id_key: None,
+            tripcode_key: None,
+        },
+    )
+}
+
+pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Router, Router) {
+    let PublicRouterOptions {
+        origin,
+        production,
+        media,
+        limits,
+        proxy_uid,
+        tripcode_key,
+        poster_id_key,
+    } = options;
     assert!(
         !production || media.is_none(),
         "Production media is not qualified"
     );
     let state = AppState {
+        tripcode_key,
+        poster_id_key,
         pool,
         origin,
         production,
@@ -171,6 +234,15 @@ fn routers_with_proxy(
         .route("/boards.json", get(api::boards))
         .route("/_watch/{board}/thread/{key}", get(api::watcher_thread))
         .route(
+            "/_watch/{board}/page/{key}",
+            get(native_board_snapshot::get),
+        )
+        .route("/_watch/boards", get(native_board_snapshot::directory))
+        .route(
+            "/_watch/{board}/thread/{key}/stats",
+            get(native_thread_stats::get),
+        )
+        .route(
             "/_watch/{board}/post/{key}",
             get(native_updater_snapshot::get_preview),
         )
@@ -188,7 +260,10 @@ fn routers_with_proxy(
         .route("/{board}/thread/{key}", get(handlers::thread))
         .route("/{board}/post/{id}", get(handlers::quote))
         .route("/{board}/post", post(handlers::post))
-        .route("/{board}/imgboard.php", post(handlers::post))
+        .route(
+            "/{board}/imgboard.php",
+            get(legacy_report::get).post(legacy_form::submit),
+        )
         .route("/{board}/delete", post(handlers::delete))
         .route("/{board}/report", post(handlers::report));
     if state.media.is_some() {

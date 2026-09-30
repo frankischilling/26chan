@@ -99,6 +99,19 @@ async fn exercise(multipart: bool) {
         .iter()
         .map(|c| c.to_str().unwrap())
         .collect();
+    assert_eq!(cookies.len(), 4);
+    let preferences: Vec<_> = cookies
+        .iter()
+        .copied()
+        .filter(|cookie| cookie.starts_with("4chan_name=") || cookie.starts_with("options="))
+        .collect();
+    assert_eq!(
+        preferences,
+        [
+            "4chan_name=Anonymous; Path=/; Max-Age=31536000; SameSite=Strict",
+            "options=sageNONOKOSaGe; Path=/; Max-Age=31536000; SameSite=Strict",
+        ]
+    );
     assert!(
         cookies
             .iter()
@@ -112,9 +125,11 @@ async fn exercise(multipart: bool) {
     assert!(
         cookies
             .iter()
+            .filter(|cookie| cookie.starts_with("4chan_awt=") || cookie.starts_with("board-posted-"))
             .all(|c| c.contains(&format!("Path=/{board}/; SameSite=Strict"))
                 && !c.contains("Domain="))
     );
+    assert!(cookies.iter().all(|cookie| !cookie.contains("Domain=")));
     assert_eq!(
         board_store::find_post(&public, &board, thread)
             .await

@@ -270,6 +270,109 @@ test('cross-tab disable and pagehide release expanded images while a persisted p
   await expand(page, 1000201);
 });
 
+test('loaded theme changes refresh existing media and navigation without replacing an expanded image', async ({ context, page }) => {
+  await context.addCookies([
+    { name: 'board-theme', value: 'photon', url: origin, httpOnly: true, sameSite: 'Lax' },
+    { name: 'board-theme-ws', value: 'photon', url: origin, httpOnly: true, sameSite: 'Lax' },
+  ]);
+  await openThread(page, { darkTheme: false, threadWatcher: true, stickyNav: true, noPictures: true, threadStats: false });
+  const board = page.locator('.board');
+  const themeLink = page.locator('link[data-native-theme-stylesheet]');
+  const ordinaryHref = await themeLink.getAttribute('href');
+  const ordinaryURL = new URL(ordinaryHref, origin).href;
+  const family = () => page.evaluate(() => getComputedStyle(document.documentElement)
+    .getPropertyValue('--watcher-icon-family').trim());
+  const expectFamily = async value => {
+    await expect.poll(family).toBe(value);
+    await expect(board).toHaveAttribute('data-image-family', value);
+    await expect(board).toHaveClass(/\bnoPictures\b/);
+    await expect(page.locator('#twPrune img')).toHaveAttribute('src', `/static/watcher/${value}/refresh.png`);
+    await expect(page.locator('#stickyNav button').first().locator('img')).toHaveAttribute('src', `/static/navigation/${value}/arrow_up.png`);
+    await expect(page.locator('#p1000201 [data-post-menu]')).toHaveAttribute('data-family', value);
+  };
+  await expectFamily('photon');
+  const { image } = await expand(page, 1000201);
+  await image.evaluate(element => { window.ownedExpandedImage = element; });
+
+  let release, reached, finished, releaseRestore = () => {};
+  const pending = new Promise(resolve => { reached = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const done = new Promise(resolve => { finished = resolve; });
+  const stylesheet = '**/static/theme.css?*theme=tomorrow';
+  await page.route(stylesheet, async route => {
+    try {
+      const response = await route.fetch();
+      reached();
+      await gate;
+      await route.fulfill({ response }).catch(() => {});
+    } finally { finished(); }
+  });
+  const other = await context.newPage();
+  try {
+    await other.goto('/readyz');
+    await other.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      localStorage.setItem('4chan-settings', JSON.stringify({ ...settings, darkTheme: true }));
+    });
+    await pending;
+    await expect(page.locator('link[data-native-theme-stylesheet]')).toHaveAttribute('href', /(?:\?|&)theme=tomorrow$/);
+    await expectFamily('photon');
+    release();
+    await done;
+    await expectFamily('tomorrow');
+    await expect(image).toBeVisible();
+    expect(await image.evaluate(element => element === window.ownedExpandedImage)).toBe(true);
+
+    let restoreReached, restoreFinished;
+    const restorePending = new Promise(resolve => { restoreReached = resolve; });
+    const restoreGate = new Promise(resolve => { releaseRestore = resolve; });
+    const restoreDone = new Promise(resolve => { restoreFinished = resolve; });
+    await page.route(ordinaryURL, async route => {
+      try {
+        const response = await route.fetch();
+        restoreReached();
+        await restoreGate;
+        await route.fulfill({ response }).catch(() => {});
+      } finally { restoreFinished(); }
+    });
+    await other.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      localStorage.setItem('4chan-settings', JSON.stringify({ ...settings, darkTheme: false }));
+    });
+    await restorePending;
+    await expect(themeLink).toHaveAttribute('href', ordinaryHref);
+    await expectFamily('tomorrow');
+
+    const reenabled = page.waitForResponse(response => response.url().includes('/static/theme.css?')
+      && response.url().includes('theme=tomorrow'));
+    await other.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      localStorage.setItem('4chan-settings', JSON.stringify({ ...settings, darkTheme: true }));
+    });
+    await reenabled;
+    releaseRestore();
+    await restoreDone;
+    await page.unroute(ordinaryURL);
+    await expect(themeLink).toHaveAttribute('href', /(?:\?|&)theme=tomorrow$/);
+    await expectFamily('tomorrow');
+    expect(await image.evaluate(element => element === window.ownedExpandedImage)).toBe(true);
+
+    await other.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      localStorage.setItem('4chan-settings', JSON.stringify({ ...settings, darkTheme: false }));
+    });
+    await expectFamily('photon');
+    await expect(image).toBeVisible();
+    expect(await image.evaluate(element => element === window.ownedExpandedImage)).toBe(true);
+  } finally {
+    release();
+    releaseRestore();
+    await page.unroute(stylesheet);
+    await page.unroute(ordinaryURL);
+    await other.close();
+  }
+});
+
 test('updater-added media expands and hidden or deleted live posts invalidate owned full-image DOM', async ({ browser, page }) => {
   const snapshot = await updaterSnapshot(browser);
   await openThread(page);

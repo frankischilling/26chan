@@ -110,7 +110,7 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
         .env("MEDIA_ORIGIN", &media_origin)
         .env("PUBLIC_INTAKE_ADDR", intake_address.to_string())
         .env("PUBLIC_INTAKE_TOKEN", "a".repeat(64))
-        // Five browser workflows share one socket peer. Default and configured
+        // Six browser workflows share one socket peer. Default and configured
         // rate enforcement remain exercised separately in http_limits.rs.
         .env("PUBLIC_WRITES_PER_MINUTE", "60")
         .stdin(Stdio::null())
@@ -141,7 +141,8 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
                 exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::Native { attachment_only, javascript }).await;
             }
         }
-        exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::QuickReply).await;
+        exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::QuickReply { inline: false }).await;
+        exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::QuickReply { inline: true }).await;
     }).await;
     public.kill().await.unwrap();
     public.wait().await.unwrap();
@@ -188,7 +189,9 @@ enum UploadBrowser {
         attachment_only: bool,
         javascript: bool,
     },
-    QuickReply,
+    QuickReply {
+        inline: bool,
+    },
 }
 
 async fn exercise(
@@ -223,7 +226,10 @@ async fn exercise(
                 javascript.then_some("--javascript"),
             ],
         ),
-        UploadBrowser::QuickReply => ("quick-reply-upload.mjs", [None, None]),
+        UploadBrowser::QuickReply { inline } => (
+            "quick-reply-upload.mjs",
+            [inline.then_some("--inline"), None],
+        ),
     };
     let mut browser = node
         .arg(

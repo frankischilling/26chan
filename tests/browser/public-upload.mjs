@@ -48,7 +48,7 @@ try {
   await page.goto(new URL(`/${board}/`, origin).href);
   if (javascript) await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
-  await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg');
+  await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg,image/gif');
   await page.getByLabel('File', { exact: true }).setInputFiles(source);
   await page.getByRole('button', { name: 'Upload file', exact: true }).click();
   assert.equal(new URL(page.url()).pathname, `/${board}/upload`);
@@ -102,8 +102,15 @@ try {
   const threadUrl = page.url();
   assert.match(new URL(threadUrl).pathname, new RegExp(`^/${board}/thread/[0-9]+$`));
   const thread = new URL(threadUrl).pathname.split('/').at(-1);
-  const receiptHeaders = (await postedResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+  const cookieHeaders = (await postedResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+  const receiptHeaders = cookieHeaders.filter(header => /^(?:board-posted-[0-9]+|4chan_awt)=/.test(header.value));
+  const preferences = cookieHeaders.filter(header => header.value.startsWith('4chan_name='));
+  assert.deepEqual(preferences.map(header => header.value), [
+    '4chan_name=Synthetic%20browser; Path=/; Max-Age=31536000; SameSite=Strict',
+  ]);
+  assert.equal(cookieHeaders.length, receiptHeaders.length + preferences.length);
   if (javascript) {
+    assert.equal(receiptHeaders.length, 2);
     assert.ok(receiptHeaders.some(header => header.value.startsWith(`board-posted-${thread}=${thread}.1;`)));
     assert.ok(receiptHeaders.some(header => header.value.startsWith(`4chan_awt=${thread};`)));
     await expect(page.locator(`#watch-${thread}-${board}`)).toBeVisible();
@@ -201,6 +208,9 @@ try {
     assert.equal(replies.length, 2);
     const reply = String(replies.at(-1).no);
     const cookies = (await replyResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+    assert.equal(cookies.length, 3);
+    assert.ok(cookies.some(header => header.value === '4chan_name=Synthetic%20browser; Path=/; Max-Age=31536000; SameSite=Strict'));
+    assert.ok(cookies.some(header => header.value === 'options=nonoko; Path=/; Max-Age=31536000; SameSite=Strict'));
     assert.ok(cookies.some(header => header.value.startsWith(`board-posted-${reply}=${thread}.0;`)));
     assert.ok(!cookies.some(header => header.value.startsWith('4chan_awt=')));
     await expect.poll(() => page.evaluate(({ board, thread, reply }) =>
@@ -262,7 +272,10 @@ try {
   const placeholderBox = await placeholder.boundingBox();
   assert.deepEqual([placeholderBox.width, placeholderBox.height], [155, 53]);
   assert.equal(deletedRequests.length, 0, 'a deleted catalog file loads only the fixed UI asset');
-  assert.equal((await context.cookies()).length, 0);
+  assert.deepEqual((await context.cookies()).map(cookie => ({ name: cookie.name, value: cookie.value })), [
+    { name: '4chan_name', value: 'Synthetic%20browser' },
+    ...(javascript ? [{ name: 'options', value: 'nonoko' }] : []),
+  ]);
   console.log(`PASS ${javascript ? 'JavaScript' : 'no-JavaScript'} upload, isolated approval, persisted posting, image rendering and file-only deletion${javascript ? ', automatic watching and own-reply tracking' : ''}`);
 } finally {
   if (browser) await browser.close();

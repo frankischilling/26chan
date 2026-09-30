@@ -32,7 +32,7 @@ struct Snapshot {
 }
 
 #[derive(Serialize)]
-struct RenderedPost {
+pub(crate) struct RenderedPost {
     no: String,
     file_deleted: bool,
     html: String,
@@ -143,14 +143,37 @@ fn encode(
         omitted,
         image_replies: images as i64,
     };
+    let rendered = render_posts(&view, &board, media_origin, limit)?;
+    let result = Snapshot {
+        version: 2,
+        board: board.slug,
+        thread: view.thread.id.to_string(),
+        closed: view.thread.closed,
+        archived: view.thread.archived_at.is_some(),
+        sticky: view.thread.sticky,
+        replies,
+        images,
+        posts: rendered,
+        tail_size,
+        tail_id: tail_id.map(|id| id.to_string()),
+    };
+    crate::output::json(output, &result).map_err(|_| unavailable())
+}
+
+pub(crate) fn render_posts(
+    view: &ThreadView,
+    board: &board_store::Board,
+    media_origin: &str,
+    limit: usize,
+) -> Result<Vec<RenderedPost>, AppError> {
     let mut rendered = Vec::with_capacity(view.posts.len());
     let mut remaining = limit;
     for item in &view.posts {
         let mut output = LimitedOutput::new(remaining);
         PostFragment {
             item,
-            view: &view,
-            board: &board,
+            view,
+            board,
             media_origin,
             catalog: false,
         }
@@ -167,20 +190,13 @@ fn encode(
             html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
         });
     }
-    let result = Snapshot {
-        version: 2,
-        board: board.slug,
-        thread: view.thread.id.to_string(),
-        closed: view.thread.closed,
-        archived: view.thread.archived_at.is_some(),
-        sticky: view.thread.sticky,
-        replies,
-        images,
-        posts: rendered,
-        tail_size,
-        tail_id: tail_id.map(|id| id.to_string()),
-    };
-    crate::output::json(output, &result).map_err(|_| unavailable())
+    Ok(rendered)
+}
+
+impl RenderedPost {
+    pub(crate) fn html_len(&self) -> usize {
+        self.html.len()
+    }
 }
 
 fn encode_preview(
@@ -372,6 +388,7 @@ mod tests {
             require_subject: false,
             op_markup: false,
             forced_anon: false,
+            user_ids: false,
             text_only: false,
             reply_limit: 1000,
             bump_limit: 300,
@@ -411,6 +428,8 @@ mod tests {
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "<img src=x onerror=alert(1)>".into(),
+                trip: None,
+                poster_id: None,
                 subject: "<script>subject</script>".into(),
                 comment: "<script>alert(1)</script>\n>>9223372036854775806".into(),
                 created_at: now,

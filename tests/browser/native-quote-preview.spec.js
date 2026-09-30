@@ -49,7 +49,9 @@ async function initialize(page, url, settings = { quotePreview: true }) {
   await page.addInitScript(settings => {
     // The settings UI reloads after saving. Preserve that real saved value.
     if (localStorage.getItem('4chan-settings') === null) {
-      localStorage.setItem('4chan-settings', JSON.stringify(settings));
+      // This suite's fetch assertions isolate quote traffic. Statistics have
+      // separate default-on, cross-tab and request-boundary qualification.
+      localStorage.setItem('4chan-settings', JSON.stringify({ threadStats: false, ...settings }));
     }
   }, settings);
   await page.goto(url);

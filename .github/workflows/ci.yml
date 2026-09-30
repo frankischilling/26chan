@@ -140,6 +140,7 @@ jobs:
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked
           python3 -m unittest discover -s tests/media -p test_runner.py
+          python3 -m unittest discover -s tests/media -p test_identity_environment.py
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/debug"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
@@ -221,6 +222,10 @@ jobs:
         run: sudo bash scripts/test-op-markup-migration.sh
       - name: Upgrade forced-anonymous policy while preserving historical identities
         run: sudo bash scripts/test-forced-anonymous-migration.sh
+      - name: Upgrade tripcodes while preserving historical content and runtime grants
+        run: sudo bash scripts/test-tripcode-migration.sh
+      - name: Upgrade existing content with scoped poster IDs
+        run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
         run: sudo bash scripts/test-word-break-migration.sh
       - name: Upgrade existing content for attachment-only posts
@@ -335,7 +340,9 @@ jobs:
         run: cargo test -p board-public --bin board-public --test startup --locked
       - name: Verify source linkification spans and finite browser DOM
         shell: pwsh
-        run: npm run test:linkification-core
+        run: |
+          ./scripts/windows-visual-resources.ps1 -Phase before-browser
+          npm run test:linkification-core
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core
@@ -348,6 +355,36 @@ jobs:
       - name: Verify bounded image loading and display preferences
         shell: pwsh
         run: npm run test:images-core
+      - name: Verify local dates and bounded board navigation
+        shell: pwsh
+        run: npm run test:display-core
+      - name: Verify bounded thread expansion
+        shell: pwsh
+        run: npm run test:expansion-core
+      - name: Verify typed thread statistics and lifecycle
+        shell: pwsh
+        run: npm run test:stats-core
+      - name: Verify atomic updater page integration
+        shell: pwsh
+        run: npm run test:thread-updater-dom
+      - name: Verify navigation bounds and native layout transitions
+        shell: pwsh
+        run: |
+          npm run test:navigation-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:layout-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:depager-core
+      - name: Verify bounded provider embeds and local styles
+        shell: pwsh
+        run: |
+          npm run test:embeds-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:custom-css-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:settings-transfer-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:catalog-preference-locks-core
       - name: Run deterministic visual fixture without a database service
         shell: pwsh
         run: |
@@ -361,7 +398,11 @@ jobs:
         run: npm run test:media-visual
       - name: Run referenced theme preferences and desktop/mobile visuals
         shell: pwsh
-        run: npm run test:themes
+        env:
+          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
+        run: |
+          ./scripts/windows-visual-resources.ps1 -Phase before-themes
+          npm run test:themes
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
@@ -375,3 +416,7 @@ jobs:
           retention-days: 3
           compression-level: 0
           include-hidden-files: false
+      - name: Record final Windows visual resource aggregates
+        if: always()
+        shell: pwsh
+        run: ./scripts/windows-visual-resources.ps1 -Phase after-visual

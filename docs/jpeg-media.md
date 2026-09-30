@@ -40,7 +40,7 @@ management. Some camera images can therefore appear rotated or have different
 colors. JPEG quality loss already present in the source is not recoverable.
 
 These are explicit normalization/containment exceptions under E-001 and E-008,
-not proof of original-site image processing parity. GIF, WebM, PDF and SWF input
+not proof of original-site image processing parity. Animated GIF, WebM, PDF and SWF input
 remain unsupported. The legacy-looking thumbnail URL still serves truthful
 `image/png`, not JPEG bytes. The strict size/dimension/scan limits can reject
 otherwise viewable files. Production uploads remain disabled under issue #5;

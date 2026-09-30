@@ -14,8 +14,9 @@ use sha2::{Digest, Sha256};
 
 // The stored hash is not allowed to choose an unbounded verification workload.
 // Public posting creates exactly this Argon2id profile; other encodings cannot
-// prove OP ownership. Keep this work inside the shared hash semaphore.
-fn same_op_password(password: &str, encoded: &str) -> bool {
+// authorize deletion or prove OP ownership. Keep this work inside the shared
+// hash semaphore.
+fn verify_deletion_password(password: &str, encoded: &str) -> bool {
     if encoded.len() > 256 {
         return false;
     }
@@ -55,6 +56,9 @@ impl From<StoreError> for AppError {
             }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
+            StoreError::AuthorizationChanged => {
+                Self(StatusCode::FORBIDDEN, "Deletion password is invalid.")
+            }
             _ => {
                 tracing::warn!(
                     event = "database_operation_failed",
@@ -491,7 +495,7 @@ async fn submit_post(
         let _permit = permit;
         let proof = op_hash
             .as_deref()
-            .filter(|hash| same_op_password(&form.password, hash))
+            .filter(|hash| verify_deletion_password(&form.password, hash))
             .map(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())));
         Argon2::default()
             .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
@@ -522,13 +526,17 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_context(
+    let id = board_store::create_post_with_identity_keys(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
         context,
+        board_store::PostIdentityKeys {
+            tripcode: state.tripcode_key.as_deref(),
+            poster_id: state.poster_id_key.as_deref(),
+        },
     )
     .await?;
     let thread = if form.resto == 0 { id } else { form.resto };
@@ -538,6 +546,17 @@ async fn submit_post(
         format!("/{board}/thread/{thread}#p{id}")
     };
     let mut response = format.success(form.resto, id, &location);
+    crate::post_preferences::append(
+        response.headers_mut(),
+        &headers,
+        if settings.forced_anon {
+            None
+        } else {
+            Some(&post.name)
+        },
+        if options.anonymous { "" } else { &form.email },
+        state.production,
+    );
     crate::post_receipts::Receipt {
         board: &board,
         thread,
@@ -553,10 +572,10 @@ async fn submit_post(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteForm {
-    no: i64,
-    password: String,
+    pub(crate) no: i64,
+    pub(crate) password: String,
     #[serde(default)]
-    file_only: bool,
+    pub(crate) file_only: bool,
 }
 pub async fn delete(
     State(state): State<AppState>,
@@ -581,27 +600,21 @@ pub async fn delete(
                 "Password processing is busy. Try again.",
             )
         })?;
-    let valid = tokio::task::spawn_blocking(move || {
+    let proof = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        PasswordHash::new(&hash).is_ok_and(|hash| {
-            Argon2::default()
-                .verify_password(form.password.as_bytes(), &hash)
-                .is_ok()
-        })
+        verify_deletion_password(&form.password, &hash)
+            .then(|| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())))
     })
     .await
-    .unwrap_or(false);
-    if !valid {
+    .unwrap_or(None);
+    let Some(proof) = proof else {
         return Err(AppError(
             StatusCode::FORBIDDEN,
             "Deletion password is invalid.",
         ));
-    }
-    if form.file_only {
-        board_store::post_media::delete_attachment(&state.pool, &board, form.no).await?;
-    } else {
-        board_store::delete_post(&state.pool, &board, form.no).await?;
-    }
+    };
+    board_store::delete_with_password_proof(&state.pool, &board, form.no, proof, form.file_only)
+        .await?;
     Ok(Redirect::to(&format!("/{board}/")))
 }
 
@@ -636,20 +649,20 @@ mod op_password_tests {
             .hash_password(b"owned-op-password", &SaltString::generate(&mut OsRng))
             .unwrap()
             .to_string();
-        assert!(same_op_password("owned-op-password", &hash));
-        assert!(!same_op_password("different-password", &hash));
-        assert!(!same_op_password(
+        assert!(verify_deletion_password("owned-op-password", &hash));
+        assert!(!verify_deletion_password("different-password", &hash));
+        assert!(!verify_deletion_password(
             "owned-op-password",
             &hash.replace("m=19456", "m=4294967295")
         ));
-        assert!(!same_op_password(
+        assert!(!verify_deletion_password(
             "owned-op-password",
             &hash.replace("t=2", "t=4294967295")
         ));
-        assert!(!same_op_password(
+        assert!(!verify_deletion_password(
             "owned-op-password",
             &hash.replace("argon2id", "argon2i")
         ));
-        assert!(!same_op_password("owned-op-password", "missing"));
+        assert!(!verify_deletion_password("owned-op-password", "missing"));
     }
 }

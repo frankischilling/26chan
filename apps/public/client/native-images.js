@@ -32,7 +32,12 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   }
   const document = root.ownerDocument, window = document.defaultView;
   const previousFamily = root.getAttribute('data-image-family');
-  root.dataset.imageFamily = ['burichan', 'tomorrow', 'photon'].includes(family) ? family : 'futaba';
+  function currentFamily() {
+    let value;
+    try { value = typeof family === 'function' ? family() : family; } catch { /* Use the finite default. */ }
+    return ['burichan', 'tomorrow', 'photon'].includes(value) ? value : 'futaba';
+  }
+  root.dataset.imageFamily = currentFamily();
   const expanded = new Map(), revealed = new Map();
   const owner = { kind: 'native-images' };
   let hover = null, feedback = null, feedbackTimer, suspended = false, disposed = false, queued = false;
@@ -209,6 +214,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   function refresh() {
     queued = false;
     const config = configuration(), active = enabled();
+    root.dataset.imageFamily = currentFamily();
     setClass(root, 'noPictures', active && config.noPictures === true);
     for (const [anchor, entry] of expanded) {
       if (!valid(entry) || config.imageExpansion === false) contract(anchor);

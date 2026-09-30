@@ -103,6 +103,7 @@ pub async fn boards(
         if board.require_subject || board.text_only {
             value["require_subject"] = json!(1);
         }
+        if board.user_ids { value["user_ids"] = json!(1); }
         if board.forced_anon {
             value["forced_anon"] = json!(1);
         }
@@ -135,6 +136,12 @@ fn post_json(
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
         "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name });
+    if let Some(id) = &post.post.poster_id {
+        value["id"] = json!(id);
+    }
+    if let Some(trip) = &post.post.trip {
+        value["trip"] = json!(trip);
+    }
     if !comment.is_empty() {
         value["com"] = json!(comment);
     }

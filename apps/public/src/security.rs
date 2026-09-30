@@ -50,6 +50,13 @@ pub(crate) struct RequestStart(pub chrono::DateTime<chrono::Utc>);
 #[derive(Clone, Copy)]
 pub(crate) struct RequestPeer(pub Option<IpAddr>);
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InteractivePage {
+    Board,
+    Catalog,
+    Upload,
+}
+
 pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
     // Replace even a pre-existing extension; headers/form fields have no clock authority.
     request
@@ -96,10 +103,16 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
     };
     let upload_page = *request.method() == Method::POST
         && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
-    let page = ((board_page && matches!(*request.method(), Method::GET | Method::HEAD))
-        || upload_page)
-        .then_some(parts.last() == Some(&"catalog"));
-    let posting = (page == Some(false)
+    let page = if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
+        Some(if parts.last() == Some(&"catalog") {
+            InteractivePage::Catalog
+        } else {
+            InteractivePage::Board
+        })
+    } else {
+        upload_page.then_some(InteractivePage::Upload)
+    };
+    let posting = (matches!(page, Some(InteractivePage::Board | InteractivePage::Upload))
         && parts[0].len() <= 10
         && parts[0]
             .bytes()
@@ -171,7 +184,7 @@ async fn protect_inner(state: &AppState, request: Request, next: Next) -> Respon
 fn headers(
     mut response: Response,
     state: &AppState,
-    page: Option<bool>,
+    page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
     let interactive = page.is_some()
@@ -189,7 +202,7 @@ fn headers(
             state.origin,
             crate::ui_assets::WATCHER_CORE_PATH
         );
-        if page == Some(true) {
+        if page == Some(InteractivePage::Catalog) {
             format!(
                 "{}{} {watcher}",
                 state.origin,
@@ -203,7 +216,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{} {}{}",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -215,13 +228,39 @@ fn headers(
             state.origin,
             crate::ui_assets::NATIVE_BACKLINKS_PATH,
             state.origin,
-            crate::ui_assets::NATIVE_IMAGES_PATH
+            crate::ui_assets::NATIVE_IMAGES_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_DISPLAY_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_THREAD_CONTROLS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_THREAD_STATS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_NAVIGATION_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_LAYOUT_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_EMBEDS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_CUSTOM_CSS_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_SETTINGS_TRANSFER_PATH,
+            state.origin
         )
     } else {
         script
     };
     let connect = if interactive {
         match posting {
+            Some(posting) if page == Some(InteractivePage::Board) && state.media.is_some() => {
+                // Only this board's bounded public upload workflow is available
+                // to Quick Reply. Intake credentials and endpoints stay private.
+                let base = posting.strip_suffix("imgboard.php").unwrap_or(posting);
+                format!(
+                    "{}/_watch/ {posting} {base}upload {base}upload/",
+                    state.origin
+                )
+            }
             Some(posting) => format!("{}/_watch/ {posting}", state.origin),
             None => format!("{}/_watch/", state.origin),
         }
@@ -237,6 +276,11 @@ fn headers(
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
     } else {
         "'none'".into()
+    };
+    let frames = if interactive && page == Some(InteractivePage::Board) {
+        "https://www.youtube-nocookie.com/embed/ https://w.soundcloud.com/player/"
+    } else {
+        "'none'"
     };
     let script_resource = response
         .headers()
@@ -261,7 +305,7 @@ fn headers(
         "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
     } else {
         format!(
-            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; frame-src {frames}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
         )
     };
     headers.insert(
@@ -314,8 +358,15 @@ mod tests {
                 limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
                 media: None,
                 proxy_uid: None,
+                poster_id_key: None,
+                tripcode_key: None,
             };
-            for page in [None, Some(false), Some(true)] {
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+            ] {
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,
@@ -332,6 +383,33 @@ mod tests {
                         .unwrap()
                 };
                 let backlink = format!("{origin}/static/native-backlinks.v1.js");
+                for path in [
+                    "native-embeds.v1.js",
+                    "native-custom-css.v1.js",
+                    "native-quick-reply.v1.js",
+                ] {
+                    assert_eq!(
+                        directive("script-src")
+                            .split_whitespace()
+                            .any(|value| value == format!("{origin}/static/{path}")),
+                        page.is_some()
+                    );
+                }
+                assert_eq!(directive("style-src"), "style-src 'self'");
+                assert_eq!(
+                    directive("frame-src"),
+                    if page == Some(InteractivePage::Board) {
+                        "frame-src https://www.youtube-nocookie.com/embed/ https://w.soundcloud.com/player/"
+                    } else {
+                        "frame-src 'none'"
+                    }
+                );
+                assert_eq!(
+                    directive("script-src")
+                        .split_whitespace()
+                        .any(|value| value == format!("{origin}/static/native-display.v1.js")),
+                    page.is_some()
+                );
                 assert_eq!(
                     directive("script-src")
                         .split_whitespace()
@@ -384,8 +462,15 @@ mod tests {
                 limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
                 media: None,
                 proxy_uid: None,
+                poster_id_key: None,
+                tripcode_key: None,
             };
-            for page in [None, Some(false), Some(true)] {
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+            ] {
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,
@@ -421,6 +506,8 @@ mod tests {
             limits: Arc::new(Limits::new(settings)),
             media: None,
             proxy_uid: Some(33),
+            poster_id_key: None,
+            tripcode_key: None,
         };
         let app = Router::new()
             .route(
@@ -493,6 +580,8 @@ mod tests {
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
             proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
         };
         let app =
             Router::new()
@@ -581,6 +670,8 @@ mod tests {
             limits: limits.clone(),
             media: None,
             proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
         };
         let dropped = Arc::new(AtomicBool::new(false));
         let witness = dropped.clone();

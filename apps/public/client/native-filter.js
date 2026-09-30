@@ -1,16 +1,17 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { nativeCommentText, nativeWatchLabel } from './native-filter-html.js';
-import { parseUpdaterSnapshot, parseQuotePreviewSnapshot } from './native-updater-snapshot.js';
-export { mountNativeThreadUpdater } from './native-thread-updater.js';
+import { parseUpdaterSnapshot, parseQuotePreviewSnapshot, parseBoardPageSnapshot } from './native-updater-snapshot.js';
+export { boardPageContext, validateBoardPageSnapshot } from './native-updater-snapshot.js';
+export { NativeUpdaterTransport } from './native-updater-transport.js';
+export { UPDATER_LIMITS, updaterContext, validatePostTree, validateSnapshotMetadata } from './native-updater-snapshot.js';
 export { FILTER_LIMITS };
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
-export { readFilterRules } from './native-filter-rules.js';
+export { readFilterRules, filterColor } from './native-filter-rules.js';
 export { mountNativeFilters } from './native-page-filters.js';
 export { mountNativeReplyHiding } from './native-reply-hiding.js';
 export { mountNativeThreadHiding } from './native-thread-hiding.js';
 export { mountNativeKeybinds } from './native-keybinds.js';
-export { mountNativeQuickReply } from './native-quick-reply.js';
 export { mountNativeLinkification } from './native-linkification.js';
 export { mountNativeQuotePreview, quoteTarget, localQuoteTree, prepareQuotePost, mobileQuoteDevice } from './native-quote-preview.js';
 export { NativeQuotePreviewTransport, checkedQuotePreview } from './native-quote-preview-transport.js';
@@ -262,7 +263,8 @@ export class NativeFilterMatcher {
 if (typeof WorkerGlobalScope !== 'undefined' && globalThis instanceof WorkerGlobalScope) {
   globalThis.addEventListener('message', event => {
     const job = event.data;
-    globalThis.postMessage(job?.kind === 'updater-snapshot' ? parseUpdaterSnapshot(job.raw, job.context)
+    globalThis.postMessage(job?.kind === 'board-page-snapshot' ? parseBoardPageSnapshot(job.raw, job.context)
+      : job?.kind === 'updater-snapshot' ? parseUpdaterSnapshot(job.raw, job.context)
       : job?.kind === 'quote-preview' ? parseQuotePreviewSnapshot(job.raw, job.context) : runNativeFilterJob(job));
   });
 }

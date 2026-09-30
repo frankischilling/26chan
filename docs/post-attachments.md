@@ -4,13 +4,36 @@ The development attachment workflow for [issue #48](https://github.com/frankisch
 
 ## Browser workflow and configuration
 
-The development form accepts PNG and JPEG input. Format selection and decoding happen only inside the guest; filenames and browser content types do not authorize publication. Both formats become normalized PNG full images and thumbnails. [JPEG limits and exceptions](jpeg-media.md) include discarded metadata and unimplemented EXIF orientation/color-profile handling.
+The development form accepts PNG, JPEG and [single-frame GIF](gif-media.md) input. Format selection and decoding happen only inside the guest; filenames and browser content types do not authorize publication. Accepted formats become normalized PNG full images and thumbnails. Animated GIFs are rejected. [JPEG limits and exceptions](jpeg-media.md) include discarded metadata and unimplemented EXIF orientation/color-profile handling.
 
 The image form sends `resto` followed by one `upfile` multipart field to `/{board}/upload`. The public process streams at most 8 MiB through an authenticated connection to the intake service. It neither decodes the file nor reads quarantine storage. The route allows 16 KiB of multipart overhead, admits four uploads, and retains the public request's ten-second deadline. A one-slot channel forwards copied chunks of at most 16 KiB. The fixed-endpoint client caps response headers at 16 KiB and JSON bodies at 4 KiB; invalid responses and redirects fail closed.
 
 The private, no-store response holds the upload capability in hidden form fields. Status checks and cancellation use POST, never secret-bearing URLs. No cookie or server-side draft is created. The user enters their comment and deletion password only after approval, then submits the normal post handler. A consumed, revoked or two-hour-old capability cannot open another ready-to-post form. Posting repeats authorization inside its transaction.
 
-This two-step flow is a security-driven compatibility exception: processing must finish before the application commits an attachment, and credentials/drafts are not retained while the worker runs. It requires an extra status check and keeping the page open. There is no claim that it matches an observed original posting form. Core posting does not require site JavaScript.
+This two-step HTML flow is a security-driven compatibility exception: processing must finish before the application commits an attachment. It requires an extra status check and keeping the page open. The server retains no draft or deletion password during processing. Core posting does not require site JavaScript.
+
+The same upload, status and cancellation routes support native clients through
+one exact `Accept: application/json` header. Their form fields and authorization
+are unchanged. Upload and status responses contain `upload_id`,
+`upload_capability`, a decimal-string `resto`, and `state`. State is `queued`,
+`processing`, `approved`, `failed` or `incomplete`. Initial upload success is
+`queued`; only a published job with approved output produces `approved`.
+Cancellation returns HTTP 200 with `{"cancelled":true}`. Rejected requests retain
+their actual HTTP error status and a fixed message in `error`.
+
+These JSON responses use the shared output budget with a 1,024-byte ceiling,
+`Cache-Control: private, no-store` and `Vary: Accept`. Capabilities remain in POST
+bodies and private responses. The response excludes filenames, raw input,
+private intake credentials and output-selection authority. Wildcards, multiple
+media types and quality parameters retain the HTML representation. Request
+admission failures outside the route can return plain text, which clients must
+treat as an error without reflecting it into HTML.
+
+Only media-enabled board and thread pages permit native fetches to that board's
+`/upload` and `/upload/` paths. Catalog and upload-confirmation pages gain no
+upload fetch authority. Status checks consume the normal request budget. An
+`approved` status is a snapshot: the posting transaction still checks current
+capability authority, expiry, approval and single use before committing.
 
 Unexpected trailing multipart fields are rejected after the bounded stream completes. The public caller revokes attachment authority on transport/parser failure when it can still finish its handler. An outer deadline or disconnect can interrupt that cleanup; unused reservations retain their bounded expiry and cleanup policy. A canceled running job may finish, but its revoked capability cannot attach the output. Unused approvals become eligible for physical cleanup one day after approval, provided no usable attachment receipt remains.
 
@@ -41,7 +64,7 @@ All attachment creation takes the board, thread and job locks in that order. The
 
 ## Deletion and reads
 
-`delete_attachment` requires its caller to verify the post deletion password or staff authorization first, like the existing whole-post deletion store method. Its SQL function can set a file's tombstone but cannot restore it. It updates the thread modification time in the same transaction. The public file-only checkbox uses the existing deletion-password check. Staff `/moderate` accepts `remove-file` only with a live session, permitted role, recent authentication, exact Origin/Fetch Metadata and session CSRF. Deletion and the audit append share one transaction; a repeated removal returns 404 and adds no duplicate audit row. Post text remains intact.
+`delete_attachment` requires its caller to verify the post deletion password or staff authorization first. Public file-only requests use the [transactional password proof](legacy-actions.md#request-and-authorization-rules), which rechecks current authority after acquiring the mutation lock. The SQL function sets a file's tombstone and updates the thread modification time in that transaction; it cannot restore a deleted file. Staff `/moderate` accepts `remove-file` only with a live session, permitted role, recent authentication, exact Origin/Fetch Metadata and session CSRF. Deletion and the audit append share one transaction; a repeated removal returns 404 and adds no duplicate audit row. Post text remains intact.
 
 Migration 0017 adds `content.staff_post_media`, a staff-only display view. It retains filename, dimensions, spoiler status and media number after removal without exposing job IDs, capabilities, leases or publication authority. Availability still follows the public reader's removal/archive rules. Removed or expired media gets no image or download link, including in staff review. The queue reads reports and attachments in one bounded database snapshot. Nonspoiler thumbnails use the configured media origin; spoiler links require an explicit click. Images and links suppress referrers, and links open without an opener. Staff and media hostnames must differ even in development because cookies are not port-scoped. See [staff operation and verification](staff.md).
 
@@ -74,6 +97,16 @@ Migration 0014 preserves older approvals with NULL normalized manifests. Their e
 The migration also allocates a unique JavaScript-safe positive `tim` from a restricted, transactional monotonic millisecond counter. New IDs are allocated when the post attaches, not when upload begins. Existing attachments receive numbers during migration; these do not claim to preserve original upload timestamps. Counter values and attachments must be restored together. Migration 0015 changes positive image limits to count image replies, excluding the OP; zero still disables all attachment posting. No original files, JPEG encoder or alternate legacy formats are introduced. Per-board/OP/reply thumbnail-size parity remains unverified.
 
 ## Migration and checks
+
+`cargo test -p board-public --test native_uploads --test uploads --all-features --locked`
+checks both representations against real intake and PostgreSQL with their
+restricted runtime roles. The native case covers opaque streaming, all five
+status values, malformed/wrong/expired capabilities, cancellation, an approved
+attachment-only post, spoiler metadata and denied capability reuse. It also
+checks HTML negotiation and the board/catalog CSP boundary. Approval in this
+test comes from a synthetic coordinator fixture; guest execution remains a
+separate qualification. Both tests and all 84 public-library tests passed locally
+on September 29, 2026.
 
 Fresh installations use `deploy/roles.sql`. Existing development installations need `deploy/attachment-role.sql` applied once by their database bootstrap administrator before migration 0012. Do not pass bootstrap credentials to a runtime. Migration 0012 adds a zero-default board policy, attachment table, two restricted functions and two reader views. Migration 0013 adds capability checks and cancellation with no direct handle access for public credentials. Cancellation requires Read Committed and shares the posting job lock, so it cannot race a successful consumption and also succeed. Existing text data and media approvals are retained. Older public binaries continue text-only operation; image boards remain a qualification profile until the whole read/write contract is complete.
 
