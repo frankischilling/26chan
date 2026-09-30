@@ -713,6 +713,14 @@ aligned with the published bytes. No schema, content or timestamps changed.
 The actual migration command then passed. The published migration was not
 edited; fresh bootstrap and hosted migration checks use its canonical bytes.
 
+Build 36673928293 on `f296f89` passed Rust/database coverage and then stopped
+at the browser's separate complete CSP source list, which also lacked the two
+flag sprites. Windows visuals, media/operations, monitoring 36673928177 and
+advisories 36673928191 passed. That browser list now includes both sprites with
+their independently checked PNG dimensions. The actual Chromium regression
+passed every released-image load and retained the healthy alternate-host and
+unlisted-path denials. The exact corrected head still requires hosted checks.
+
 See [flag behavior and operation](post-flags.md) and [reference provenance](public-country-flags-reference.json).
 No production database, external post or worker connectivity claim is added by
 these local feature tests.
