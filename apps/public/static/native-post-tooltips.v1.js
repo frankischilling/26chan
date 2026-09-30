@@ -39,7 +39,8 @@ export function mountNativePostTooltips({ root, context, settings, projection, d
       return null;
     }
     const date = target.closest('.postInfoM > .dateTime.postNum[data-utc]');
-    const filename = target.matches('.file > .fileThumb > .mFileInfo.mobile') && !projection?.within(target) ? target : null;
+    const owner = projection?.owner(target);
+    const filename = target.matches('.file > .fileThumb > .mFileInfo.mobile') && (!owner || owner.kind === 'native-images') ? target : null;
     const label = date ?? filename ?? (target.matches('.postInfoM > .nameBlock > .name[title]') ? target : null);
     if (!label || !label.getClientRects().length || label.closest('[hidden],.filter-hidden,.reply-hidden,.thread-hidden')) return null;
     const post = label.closest('.post[id]'), article = post?.parentElement;
@@ -49,9 +50,16 @@ export function mountNativePostTooltips({ root, context, settings, projection, d
     try { localQuoteTree(article, { ...context, thread }, no, projection); } catch { return null; }
     if (filename) {
       const file = label.parentElement.parentElement, caption = file.querySelector(':scope > .fileText > a');
-      const full = caption?.getAttribute('title') ?? caption?.textContent;
+      const full = caption?.parentElement.title || caption?.getAttribute('title') || caption?.textContent;
       const image = label.parentElement.querySelector('img:not(.expanded-thumb)');
-      return file.id === `f${no}` && image?.alt === full && typeof full === 'string' && full.length > 0
+      const placeholder = file.querySelector(':scope > a.fileThumb.imgspoiler');
+      const spoiler = label.parentElement === placeholder && image?.getAttribute('src') === '/static/catalog/spoiler.png';
+      const revealed = owner?.kind === 'native-images' && placeholder?.hidden
+        && label.parentElement.getAttribute('href') === placeholder.getAttribute('href')
+        && label.textContent === placeholder.querySelector('.mFileInfo')?.textContent
+        && [placeholder.getAttribute('href'), placeholder.getAttribute('href')?.replace(/\.png$/, 's.jpg')].includes(image?.getAttribute('src'));
+      return file.id === `f${no}` && (!placeholder || file.dataset.imageFilename === full)
+        && (spoiler || image?.alt === full && (!owner || revealed)) && typeof full === 'string' && full.length > 0
         && new TextEncoder().encode(full).length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(full)
         ? { label, text: full, delay: 300, kind: 'file' } : null;
     }

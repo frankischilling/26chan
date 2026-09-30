@@ -28,12 +28,13 @@ height/background controls are desktop options.
 Hiding thumbnails makes them transparent and adds the reference's theme-colored
 border. It preserves their place in the page and keeps expanded images visible.
 It does **not** prevent thumbnail requests and is not a network-privacy setting.
-An unrevealed spoiler shows `Spoiler Image` in place of its filename. Spoiler
-reveal restores the original filename and creates a lazy thumbnail from the
+An unrevealed spoiler shows the fixed public spoiler thumbnail and `Spoiler
+Image` in place of its filename, without fetching the attachment. Spoiler
+reveal restores the shortened filename and creates a lazy thumbnail from the
 attachment's approved metadata; turning it off restores the label and original
-spoiler details. Filename filters still use the stored original name in either
-state. Deleted attachments have
-neither metadata nor a loadable image control. Ordinary file links remain usable
+placeholder. Filename filters still use the stored original name in either
+state. Deleted attachments use the fixed public icon and have neither metadata
+nor a loadable attachment control. Ordinary file links remain usable
 when JavaScript or the extension is disabled.
 
 The controller also handles inserted posts and removes images when their source
@@ -51,7 +52,9 @@ The source thumbnail must belong to the same approved file. Spoiler metadata
 contains bounded dimensions and the original filename, not another URL to trust.
 Filenames retain the store's 255-byte UTF-8 limit and exclusion of control
 characters. Temporary filename labels are projection-owned, so quote copies
-keep the original spoiler label.
+keep the original spoiler label and fixed thumbnail. The
+[file-state comparison](file-presentation.md) covers their generic public
+presentation on OPs and replies, including both deleted-icon densities.
 
 The released client polls image completion without a deadline and can keep
 multiple images open. This implementation admits at most eight expanded images

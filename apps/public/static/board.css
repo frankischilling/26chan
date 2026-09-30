@@ -177,6 +177,9 @@ table.postForm button { padding: 1px 6px; }
 .board .postMessage { margin: 1em 40px; line-height: normal; }
 .board .fileThumb { float: left; margin: 3px 20px 5px; }
 .board .fileThumb img { float: left; border: 0; max-width: none; max-height: none; }
+.board span.fileThumb { margin-left: 0 !important; margin-right: 5px !important; }
+.board .reply span.fileThumb, .board .reply span.fileThumb img { float: none !important; margin-top: 0 !important; margin-bottom: 0 !important; }
+.board .fileDeletedRes { width: 127px; height: 13px; }
 .board .file p, .board .fileText { margin: 0; font-size: inherit; }
 .board .fileText { max-width: 600px; white-space: nowrap; }
 .board .mFileInfo { padding-top: 5px; text-align: center; color: #707070 !important; font-size: 9pt !important; text-decoration: none !important; }
@@ -188,7 +191,7 @@ table.postForm button { padding: 1px 6px; }
 }
 @media (max-width: 480px) {
   body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileText { display: none; }
-  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileThumb { margin-left: 5px; margin-right: 10px; text-decoration: none; }
+  body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileThumb { margin-left: 5px !important; margin-right: 10px !important; text-decoration: none; }
   body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .fileThumb img { max-width: 125px; max-height: 125px; object-fit: scale-down; }
   body[data-post-headers="true"]:not([data-native-never-mobile="true"]) .board .mFileInfo.mobile { display: block; }
 }

@@ -33,3 +33,20 @@ test('real updater grammar binds file header, caption, original filename and med
   const parsed = parse(original).snapshot.posts[0].tree;
   assert.doesNotThrow(() => validateFilePresentation(parsed, context, '1'));
 });
+
+test('fixed spoiler and deleted assets require their complete original file recipe', () => {
+  const wrap = file => original.slice(0, original.indexOf('<div id="f1"')) + file + original.slice(original.indexOf('<blockquote'));
+  const spoiler = '<div class="file" id="f1"><div class="fileText" id="fT1" title="Owned.png">File: <a href="https://media.test/demo/1.png" rel="noopener noreferrer">Spoiler Image</a> (2 KB, 600x360)</div><a class="fileThumb imgspoiler" href="https://media.test/demo/1.png" rel="noopener noreferrer"><img src="/static/catalog/spoiler.png" alt="2 KB" width="100" height="100" loading="lazy"><div class="mFileInfo mobile">2 KB PNG</div></a></div>';
+  const deleted = '<div class="file" id="f1"><span class="fileThumb"><img class="fileDeletedRes" src="/static/catalog/filedeleted-res.gif" srcset="/static/catalog/filedeleted-res@2x.gif 2x" alt="File deleted." width="127" height="13" loading="lazy"></span></div>';
+  for (const file of [spoiler, deleted]) assert.equal(parse(wrap(file)).status, 'ok');
+  for (const changed of [
+    spoiler.replace('title="Owned.png"', ''), spoiler.replace('width="100"', 'width="101"'),
+    spoiler.replace('alt="2 KB"', 'alt="Owned.png"'), spoiler.replace('/static/catalog/spoiler.png', 'https://media.test/demo/1s.jpg'),
+    spoiler.replace('class="fileThumb imgspoiler"', 'class="fileThumb"'),
+    spoiler.replace('class="file" id="f1"', 'class="file" id="f1" data-image-spoiler="true" data-image-filename="Another.png"'),
+    deleted.replace('/static/catalog/filedeleted-res@2x.gif 2x', 'https://other.test/file.gif 2x'),
+    deleted.replace('class="fileDeletedRes"', 'class="fileDeletedRes op"'), deleted.replace('width="127"', 'width="128"'),
+    deleted.replace('File deleted.', 'Owned.png'), deleted.replace('class="fileThumb"', 'class="postNum"'),
+    '<img src="/static/catalog/spoiler.png" alt="2 KB" width="100" height="100">',
+  ]) assert.equal(parse(wrap(changed)).status, 'invalid-snapshot', changed);
+});

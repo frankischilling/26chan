@@ -16,7 +16,9 @@ compact caption.
 Hovering an original mobile caption shows its complete filename after 300 ms.
 The tooltip uses text nodes. Filename text cannot invoke callback names or
 create HTML, and copied quote captions cannot become original-post actions.
-The existing tooltip lifecycle clears timers and descriptions when the post
+Revealed spoiler captions also retain the filename tooltip through their
+registered image controller. Quote copies cannot gain that ownership. The
+existing tooltip lifecycle clears timers and descriptions when the post
 changes, leaves the page, becomes hidden, or loses its validated recipe.
 
 Filename filters read the full title, rather than the shortened link. Menus,
@@ -24,6 +26,20 @@ spoiler reveal, local/remote quote copies and live updater posts use the same
 file header. The finite parser binds its post ID, caption, filename, thumbnail
 dimensions and media targets before construction. The generated parser remains
 inside its 262,144-byte release ceiling.
+
+Unrevealed spoilers show the unchanged public 100-by-100 `spoiler.png` asset,
+with a `fileThumb imgspoiler` link, mobile size caption and full filename title
+on the file header. This loads no attachment media. A direct click opens the
+approved file; enabling reveal replaces the placeholder with an approved lazy
+thumbnail and the shortened filename. The revealed thumbnail fits a 250-pixel
+OP or 125-pixel reply box. Turning reveal off restores the original placeholder.
+Expansion and hover do not fetch an unrevealed spoiler implicitly.
+
+Deleted files use a non-link `span.fileThumb` and the unchanged public deleted
+icon. Its 127-by-13 CSS dimensions follow the released client. A finite `srcset`
+selects the 254-by-26 asset at density 2. Deleted posts expose no filename, file
+link or attachment request. Both states survive updater reconstruction and
+ID-free quote preparation without acquiring arbitrary asset paths or callbacks.
 
 ## Evidence and limits
 
@@ -41,12 +57,20 @@ qualify file presentation, not original full-page pixels or server filename
 acceptance. The script's initial synthetic anchors lacked `href`, which omitted
 link-state styling; the collected facts were corrected before acceptance.
 
+The [file-state reference](public-file-states-reference.json) adds 20 released
+formatter cases and 192 style cases: spoiler/deleted files, OPs/replies, six
+themes, both mobile families, desktop/mobile viewports and densities 1 and 2.
+The source formatter supplies the synthetic file DOM for style collection.
+Only the three unchanged, hash-checked public placeholder assets are embedded;
+all external requests are denied. Production-template comparisons use the same
+properties, and density tests check the actual selected deleted-icon URL.
+
 The existing media policy still publishes normalized PNGs and retains uploaded
 filenames as display metadata. The mobile format caption describes those PNG
 bytes, even when the display filename has another extension. Original downloads,
-animated media and full original-page matching remain unfinished. Spoilers keep
-the existing script-free disclosure form, and deleted files keep the existing
-text state. Those two presentations are outside this reference comparison.
+animated media and full original-page matching remain unfinished. Board-specific
+custom spoiler selection and original server filename acceptance remain
+unqualified. The generic placeholder comparison does not establish those rules.
 
 The Windows board, thread and archived-page captures changed on desktop and
 mobile. All six received images were inspected before their individual baseline
@@ -55,6 +79,7 @@ updates. Catalog captures were unchanged.
 ```powershell
 node scripts/verify-public-file-reference.mjs .local/references/extension.1191.js
 node scripts/verify-public-file-style-reference.mjs .local/references
+node scripts/verify-public-file-states.mjs .local/references
 npm run test:files-core
 cargo test -p board-public --lib --test ui_assets --locked
 cargo clippy -p board-public --all-targets --locked -- -D warnings

@@ -1,4 +1,5 @@
 // Finite staff badge recipes from the pinned public API and released client.
+import { postFileAssetUrl } from './native-file-presentation.js';
 const definitions = [
   ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
   ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators', 'adminicon', 'This user is a board Administrator.'],
@@ -25,7 +26,7 @@ export function validateCapcodeTree(tree, no) {
     if (typeof node === 'string') return;
     all.push(node);
     if (classes(node).some(isCapcodeToken) || node.tag === 'strong'
-      || Object.hasOwn(node.attrs, 'srcset') || (node.tag === 'img' && Object.hasOwn(node.attrs, 'title'))
+      || (Object.hasOwn(node.attrs, 'srcset') && !postFileAssetUrl(node.attrs.src)) || (node.tag === 'img' && Object.hasOwn(node.attrs, 'title'))
       || postIdentityUrl(node.attrs.src)) marked.push(node);
     node.children.forEach(collect);
   }

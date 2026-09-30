@@ -1,9 +1,10 @@
 {
-  "scope": "Catalog UI images named by public catalog client v1025 and CSS v705. Generic spoiler only; no production post content or leaked source. Image copies are unchanged public static assets, not project-created artwork.",
+  "scope": "Fixed public UI images named by catalog client v1025/CSS v705 and extension v1191. Post file states reuse the generic spoiler and deleted icons. No production post content or leaked source. Copies are unchanged public static assets, not project-created artwork.",
   "source_base": "https://s.4cdn.org/image/",
   "local_base": "/static/catalog/",
   "assets": [
     {"name":"filedeleted-res.gif","mime":"image/gif","bytes":317,"sha256":"c58c7aad311b3b953fb564c9909f6870948238810edb87cbfb4c094bb813d4a9","collected_utc":"2026-09-13T07:12:57.4775653Z","dimensions":[127,13]},
+    {"name":"filedeleted-res@2x.gif","mime":"image/gif","bytes":684,"sha256":"9e3932b868806db54b7caf66731f57c465beeaffa2128251114708ab9c68c79b","collected_utc":"2026-09-30T22:04:19.1487405Z","dimensions":[254,26],"source":"Named by Parser.init in pinned public extension v1191; reused by post deleted-file presentation."},
     {"name":"nofile.png","mime":"image/png","bytes":221,"sha256":"af97c45de5cbe77568f82a04ced5e66726228d1176060757bdb876ec3155e93b","collected_utc":"2026-09-13T07:12:57.5442676Z","dimensions":[77,13]},
     {"name":"spoiler.png","mime":"image/png","bytes":1115,"sha256":"19dd0d717884c377a11e2d3d709317fb761c3074399b66c15275d1c76730730c","collected_utc":"2026-09-13T07:12:57.5697710Z","dimensions":[100,100]},
     {"name":"sticky.gif","mime":"image/gif","bytes":552,"sha256":"d1acdb0c52f79ac791cb6286c97358a03a4453f879ce5f64fe7a0752b4350a04","collected_utc":"2026-09-13T07:12:57.5912825Z","dimensions":[16,16]},

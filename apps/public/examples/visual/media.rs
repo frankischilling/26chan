@@ -103,6 +103,7 @@ impl Fixture {
 
     fn page(&self, kind: &str, options: catalog::Options) -> String {
         let catalog = kind == "catalog";
+        let separate_threads = catalog || kind == "file-states";
         let archived = kind == "archived";
         let closed = kind == "closed" || kind == "closed-board";
         let board = board_store::Board {
@@ -134,7 +135,7 @@ impl Fixture {
             comment_format: 0,
             id: file.post_id,
             board: board.slug.clone(),
-            thread_id: if catalog { file.post_id } else { thread.id },
+            thread_id: if separate_threads { file.post_id } else { thread.id },
             name: "Anonymous".into(),
             trip: None,
             poster_id: None, capcode: None,
@@ -148,7 +149,7 @@ impl Fixture {
             deleted: false,
             attachment: Some(file.clone()),
         })).collect();
-        let threads = if catalog {
+        let threads = if separate_threads {
             posts
                 .into_iter()
                 .map(|post| views::ThreadView {
@@ -211,6 +212,7 @@ impl Fixture {
             ("/img/archived/1000201", "archived"),
             ("/img/closed/1000201", "closed"),
             ("/img/closed-board", "closed-board"),
+            ("/img/file-states", "file-states"),
         ] {
             let fixture = self.clone();
             app = app.route(

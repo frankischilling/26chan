@@ -174,6 +174,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("../static/catalog/filedeleted-res.gif"),
     ),
     (
+        "/static/catalog/filedeleted-res@2x.gif",
+        "image/gif",
+        include_bytes!("../static/catalog/filedeleted-res@2x.gif"),
+    ),
+    (
         "/static/catalog/nofile.png",
         "image/png",
         include_bytes!("../static/catalog/nofile.png"),

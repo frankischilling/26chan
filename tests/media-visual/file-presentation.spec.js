@@ -90,3 +90,55 @@ test('the 480px boundary, exact mobile opt-out and picture preference preserve t
     await expect(image).toHaveAttribute('src', 'http://localhost:3004/img/1000201s.jpg');
   } finally { await other.close(); }
 });
+
+test('spoiler filename tips and reveal preserve fixed original quote recipes and release owned captions', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => { if (request.url().startsWith('http://localhost:3004/img/1000205')) requests.push(request.url()); });
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto(path);
+  const file = page.locator('#f1000205'), placeholder = file.locator(':scope > .imgspoiler');
+  const caption = placeholder.locator('.mFileInfo');
+  await expect(file.locator('.fileText')).toHaveAttribute('title', 'hidden-fold.png');
+  await expect(placeholder.locator('img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
+  await page.evaluate(() => { window.fileScroll = new Promise(resolve => window.addEventListener('scroll', () => resolve(), { once: true })); });
+  await placeholder.scrollIntoViewIfNeeded(); await page.evaluate(() => window.fileScroll); expect(requests).toEqual([]);
+  expect(await page.evaluate(async () => {
+    const { localQuoteTree } = await import('/static/native-filter.v1.js');
+    try {
+      localQuoteTree(document.getElementById('pc1000205'), { origin: location.origin, mediaOrigin: 'http://localhost:3004', board: 'img', thread: '1000201' }, '1000205');
+      return 'valid';
+    } catch (error) { return error.message; }
+  })).toBe('valid');
+  await page.clock.install(); await caption.dispatchEvent('mouseover'); await page.clock.fastForward(300);
+  await expect(page.locator('#tooltip')).toHaveText('hidden-fold.png');
+  await page.evaluate(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ revealSpoilers: true, inlineQuotes: true, quotePreview: false }));
+    document.dispatchEvent(new Event('4chanSettingsSaved'));
+  });
+  await expect(placeholder).toBeHidden(); await expect(page.locator('#tooltip')).toHaveCount(0);
+  const revealed = file.locator(':scope > .fileThumb:not(.imgspoiler)');
+  await expect(revealed).toBeVisible(); await expect(revealed.locator('img')).toHaveAttribute('src', 'http://localhost:3004/img/1000205s.jpg');
+  expect(await revealed.locator('img').evaluate(node => [node.width, node.height])).toEqual([125, 75]);
+  await revealed.scrollIntoViewIfNeeded(); await expect.poll(() => revealed.locator('img').evaluate(node => node.complete && node.naturalWidth > 0)).toBe(true);
+  await revealed.locator('.mFileInfo').dispatchEvent('mouseover'); await page.clock.fastForward(300);
+  await expect(page.locator('#tooltip')).toHaveText('hidden-fold.png');
+  await page.evaluate(() => {
+    const quote = document.createElement('a'); quote.className = 'quotelink';
+    quote.href = '/img/thread/1000201#p1000205'; quote.textContent = '>>1000205';
+    document.getElementById('m1000203').append(quote);
+  });
+  const quote = page.locator('#m1000203 > .quotelink'); await quote.click();
+  const copy = page.locator('#m1000203 .inlined'); await expect(copy).toBeVisible();
+  await expect(copy.locator('.imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
+  await expect(copy.locator('img[src^="http://localhost:3004/"],[id]')).toHaveCount(0);
+  await expect(page.locator('#tooltip')).toHaveCount(0);
+  await copy.locator('.mFileInfo').dispatchEvent('mouseover'); await page.clock.fastForward(300);
+  await expect(page.locator('#tooltip')).toHaveCount(0);
+  await quote.click(); await expect(copy).toHaveCount(0);
+  await page.evaluate(() => {
+    localStorage.removeItem('4chan-settings'); document.dispatchEvent(new Event('4chanSettingsSaved'));
+  });
+  await expect(revealed).toHaveCount(0); await expect(placeholder).toBeVisible();
+  await expect(page.locator('#tooltip')).toHaveCount(0);
+  expect(requests.some(url => url.endsWith('1000205.png'))).toBe(false);
+  expect(requests.some(url => url.endsWith('1000205s.jpg'))).toBe(true);
+});

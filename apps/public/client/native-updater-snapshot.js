@@ -2,7 +2,7 @@ import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
 import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-capcodes.js';
 import { validatePostNumbers } from './native-post-numbers.js';
-import { validateFilePresentation } from './native-file-presentation.js';
+import { postFileAssetUrl, validateFilePresentation } from './native-file-presentation.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
@@ -10,10 +10,10 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes
 export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
-  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'fileDeleted',
+  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes',
   'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
 const attributes = {
-  article: ['class', 'id'], div: ['class', 'id', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  article: ['class', 'id'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
@@ -88,7 +88,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token)));
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(postLinkUrl(value, context));
-      if (key === 'src') require(postMediaUrl(value, context) || postIdentityUrl(value));
+      if (key === 'src') require(postMediaUrl(value, context) || postIdentityUrl(value) || postFileAssetUrl(value));
       if (key === 'action') require([`/${context.board}/delete`, `/${context.board}/report`].includes(value));
       if (key === 'method') require(value === 'post');
       if (key === 'target') require(value === '_blank');
@@ -116,9 +116,12 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       }
     }
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
+    const fileTitle = node.tag === 'div' && node.attrs.class === 'fileText' && Object.hasOwn(node.attrs, 'title');
+    if (fileTitle) require(Object.keys(node.attrs).sort().join(',') === 'class,id,title'
+      && new TextEncoder().encode(node.attrs.title).length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
       && new TextEncoder().encode(node.attrs.title).length <= 400 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
-    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel)
+    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle)
       || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
         && Object.keys(node.attrs).sort().join(',') === 'class,title'

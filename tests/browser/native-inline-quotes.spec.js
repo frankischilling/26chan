@@ -877,7 +877,7 @@ test.describe('explicitly augmented DOM and substituted response controls', () =
     }, target);
     await originalQuote(page, source, target).click();
     const panel = await expectInline(page.locator(`#m${source}`), target, 'Augmented filename target');
-    await expect(panel.locator('.file > .fileText > a')).toHaveText('owned-inline-file.png');
+    await expect(panel.locator('.file > p > a')).toHaveText('owned-inline-file.png');
     const other = await context.newPage();
     try {
       await other.goto(owned.url);

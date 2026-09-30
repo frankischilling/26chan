@@ -536,14 +536,19 @@ mod tests {
                 assert!(html.contains(&expected));
                 assert_eq!(value["post"]["file_deleted"], deleted);
                 assert_eq!(html.contains("File deleted."), deleted);
+                assert_eq!(html.contains("<img "), deleted || !origin.is_empty());
                 assert_eq!(
-                    html.contains("<img "),
-                    !spoiler && !deleted && !origin.is_empty()
-                );
-                assert_eq!(
-                    html.contains("Spoiler image"),
+                    html.contains("/static/catalog/spoiler.png"),
                     spoiler && !deleted && !origin.is_empty()
                 );
+                assert_eq!(
+                    html.contains("/static/catalog/filedeleted-res.gif"),
+                    deleted
+                );
+                if spoiler || deleted {
+                    assert!(!html.contains(&format!("src=\"{origin}/test/{}.png", i64::MAX)));
+                    assert!(!html.contains(&format!("src=\"{origin}/test/{}s.jpg", i64::MAX)));
+                }
                 assert!(!html.contains("private-asset-id"));
                 assert!(!html.contains("not-a-public-hash-field"));
             }
@@ -653,13 +658,10 @@ mod tests {
             let html = value["posts"][1]["html"].as_str().unwrap();
             assert_eq!(html.contains("File deleted."), deleted);
             assert_eq!(
-                html.contains("Spoiler image"),
+                html.contains("/static/catalog/spoiler.png"),
                 spoiler && !deleted && !origin.is_empty()
             );
-            assert_eq!(
-                html.contains("<img "),
-                !spoiler && !deleted && !origin.is_empty()
-            );
+            assert_eq!(html.contains("<img "), deleted || !origin.is_empty());
             assert_eq!(
                 html.contains("https://media.example/test/9223372036854775807.png"),
                 !deleted && !origin.is_empty()

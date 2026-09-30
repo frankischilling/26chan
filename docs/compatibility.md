@@ -6,8 +6,10 @@ The mobile-header continuation adds [post tooltips](post-tooltips.md), with
 released relative-date boundaries, full-name hover timing and 18 synthetic
 style/placement cases across six themes. Finite original-post admission and
 text-only rendering replace global callbacks and HTML insertion. The existing
-native title covers direct subjects; custom filename tips and complete
-original-page comparisons remain outside this checked scope.
+native title covers direct subjects. [File presentation](file-presentation.md)
+adds filename tips, generic spoiler/deleted-file states, 40 filename/size vectors,
+20 released state cases and 216 style comparisons. Complete original-page
+comparisons remain outside this checked scope.
 
 The September 15, 2026 continuation uses the original brief's permitted-public-
 reference requirement. The supplied old checkout's remote identifies it as
@@ -83,8 +85,10 @@ the optional thread-scoped label, ID filters and default-on IDColor behavior.
 [File presentation](file-presentation.md) adds independently replayed public
 client filename/size vectors and desktop/mobile file-style comparisons. The
 Rust header, mobile caption, tooltip, filters, menus and native projections share
-the approved-media boundary. Original downloads, spoiler/deleted-file layout,
-animated media and complete original-page matching remain separate requirements.
+the approved-media boundary. Generic spoiler/deleted-file presentation now has
+20 formatter cases and 192 style comparisons, including both deleted-icon
+densities. Original downloads, board-specific custom spoilers, animated media
+and complete original-page matching remain separate requirements.
 
 [Post-number navigation](post-number-navigation.md) follows the released
 formatter's separate permalink and reply links. A bounded same-origin GET

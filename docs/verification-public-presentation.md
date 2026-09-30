@@ -134,3 +134,57 @@ This evidence covers the stated public presentation and local test properties.
 Complete original-page comparisons, catalog normalization in #82, server-link
 normalization in #165 and the remaining compatibility inventory in #6 stay
 open. Production deployment remains separately tracked in #5.
+
+## Spoiler and deleted-file continuation
+
+The same PR replaces the earlier disclosure/text presentation with the released
+generic spoiler thumbnail and deleted-file icon. The new
+[reference record](public-file-states-reference.json) contains 20 formatter cases
+and 192 independent style comparisons. They cover OPs/replies, six themes, both
+mobile families, desktop/mobile viewports and densities 1 and 2. The script uses
+the released formatter's synthetic DOM and hash-checked fixed assets; it denies
+external requests. All 192 production-template comparisons passed, including
+the actual density-dependent deleted-icon selection.
+
+The parser accepts the fixed images only inside their complete file recipes.
+It rejects foreign `srcset` URLs, mismatched names, misplaced placeholders and
+incorrect dimensions. Spoiler reveal keeps the original placeholder recipe in
+quote copies while its registered image controller owns the visible thumbnail,
+shortened label and mobile caption. Turning reveal off restores the original
+presentation. Full media is still fetched only through explicit navigation or
+the existing approved-media controls.
+
+All 400 JavaScript tests passed after the final parser changes. Public Clippy
+and formatting passed. The public library and asset suites passed 89 and eight
+cases. Their first run retained two old expectations that assumed spoilers and
+deleted files had no image element; the replacements check the fixed source and
+retain the assertion that neither state exposes an attachment image request.
+The old browser expectations for absent spoiler thumbnails received the same
+correction while preserving menu URLs, metadata and no-fetch assertions.
+
+The exact hover-delay regression initially ran before the preceding scroll
+event was delivered. It now witnesses that event before starting the unchanged
+300 ms timer. The completed case exercises the actual mounted inline controller:
+its copy retains the fixed spoiler thumbnail, has no IDs or revealed media, and
+cannot start a filename tooltip. Reveal, concealment and pending cleanup pass.
+
+All six new board/thread/archive images were inspected before their individual
+baseline updates. The eight catalog comparisons again passed without updates.
+The full media rerun passed all 61 cases. The full theme rerun passed all 404
+cases, including the original 24 file-style comparisons and the added 192
+file-state comparisons. The parser is 256,868 bytes and image controls are
+10,276 bytes, below their unchanged 262,144-byte and 16,384-byte ceilings.
+Filter, image, thread-control and backlink generated-source checks passed.
+
+Hosted [run 36783046269](https://github.com/frankischilling/26chan/actions/runs/36783046269)
+on `00fe375` passed all 545 Rust tests across 154 result groups, none ignored,
+plus Windows visuals, media/operations
+and monitoring, then failed a persisted inline-quote assertion. Its synthetic
+fixture deliberately builds the legacy paragraph-based attachment, but the
+continuation had changed its selector to `fileText`. The selector now matches
+that fixture again; the parser still supports it. The focused persisted rerun
+passed on Windows against a fresh migrated and seeded owned PostgreSQL cluster:
+`npx playwright test tests/browser/native-inline-quotes.spec.js --grep 'unowned inline-shaped text'`.
+The public binary was prebuilt before the unchanged startup deadline.
+New-head hosted checks remain required before merge. No timeout, retry count,
+containment check, service authority or database migration was relaxed.

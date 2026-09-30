@@ -243,7 +243,7 @@ try {
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
   assert.ok(Number.isSafeInteger(post.no) && post.no > 0);
-  await expect(page.locator(`#p${post.no}`).getByText('File deleted.', { exact: true })).toBeVisible();
+  await expect(page.locator(`#p${post.no}`).getByRole('img', { name: 'File deleted.', exact: true })).toBeVisible();
   if (javascript) {
     await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toHaveCount(0);
