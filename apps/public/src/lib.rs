@@ -17,6 +17,7 @@ mod post_receipts;
 mod posting_form;
 mod posting_response;
 mod rss;
+mod search;
 mod security;
 pub mod themes;
 pub mod transport;
@@ -233,6 +234,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
             state.limits.clone(),
         ))
         .merge(ui_assets::routes())
+        .merge(search::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))

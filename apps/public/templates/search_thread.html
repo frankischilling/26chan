@@ -1,0 +1,6 @@
+{% import "formatting.html" as formatting %}
+{% import "attachments.html" as attachments %}
+<section class="thread searchThread" id="t{{ view.thread.id }}" data-board="{{ board.slug }}" aria-label="/{{ board.slug }}/ thread {{ view.thread.id }}">
+<div class="boardBlock"><a href="/{{ board.slug }}/">/{{ board.slug }}/</a></div>
+{% for item in view.posts %}{% include "post_content.html" %}{% endfor %}
+</section><hr>

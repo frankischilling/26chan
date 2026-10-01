@@ -56,6 +56,7 @@ enum InteractivePage {
     Catalog,
     Upload,
     Archive,
+    Search,
 }
 
 pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
@@ -93,6 +94,7 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
         .trim_start_matches('/')
         .split('/')
         .collect();
+    let search_page = matches!(parts.as_slice(), ["globalsearch.php"]);
     let board_page = match parts.as_slice() {
         [board, ""] => !board.is_empty(),
         [board, page] => {
@@ -106,7 +108,9 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
     };
     let upload_page = *request.method() == Method::POST
         && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
-    let page = if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
+    let page = if search_page && matches!(*request.method(), Method::GET | Method::HEAD) {
+        Some(InteractivePage::Search)
+    } else if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
         Some(if parts.last() == Some(&"archive") {
             InteractivePage::Archive
         } else if parts.last() == Some(&"catalog") {
@@ -207,7 +211,9 @@ fn headers(
             state.origin,
             crate::ui_assets::WATCHER_CORE_PATH
         );
-        if page == Some(InteractivePage::Archive) {
+        if page == Some(InteractivePage::Search) {
+            format!("{}{}", state.origin, crate::search::SCRIPT_PATH)
+        } else if page == Some(InteractivePage::Archive) {
             format!("{}{}", state.origin, crate::ui_assets::PAGE_CHROME_PATH)
         } else if page == Some(InteractivePage::Catalog) {
             format!(
@@ -225,7 +231,12 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let script = if interactive && page != Some(InteractivePage::Archive) {
+    let full_board_page = interactive
+        && matches!(
+            page,
+            Some(InteractivePage::Board | InteractivePage::Catalog | InteractivePage::Upload)
+        );
+    let script = if full_board_page {
         format!(
             "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
@@ -265,7 +276,7 @@ fn headers(
     } else {
         script
     };
-    let script = if interactive && page != Some(InteractivePage::Archive) {
+    let script = if full_board_page {
         format!(
             "{script} {}{}",
             state.origin,
@@ -274,7 +285,9 @@ fn headers(
     } else {
         script
     };
-    let connect = if interactive && page != Some(InteractivePage::Archive) {
+    let connect = if interactive && page == Some(InteractivePage::Search) {
+        format!("{}/search/api", state.origin)
+    } else if full_board_page {
         match posting {
             Some(posting) if page == Some(InteractivePage::Board) && state.media.is_some() => {
                 // Only this board's bounded public upload workflow is available
@@ -291,7 +304,7 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let worker = if interactive && page != Some(InteractivePage::Archive) {
+    let worker = if full_board_page {
         format!(
             "{}{} {}{}",
             state.origin,
@@ -302,7 +315,7 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let sound = if interactive && page != Some(InteractivePage::Archive) {
+    let sound = if full_board_page {
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
     } else {
         "'none'".into()
@@ -398,8 +411,14 @@ mod tests {
                 Some(InteractivePage::Catalog),
                 Some(InteractivePage::Upload),
                 Some(InteractivePage::Archive),
+                Some(InteractivePage::Search),
             ] {
-                let full = page.is_some() && page != Some(InteractivePage::Archive);
+                let full = matches!(
+                    page,
+                    Some(
+                        InteractivePage::Board | InteractivePage::Catalog | InteractivePage::Upload
+                    )
+                );
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,
@@ -468,7 +487,15 @@ mod tests {
                     directive("script-src")
                         .split_whitespace()
                         .any(|value| value == format!("{origin}/static/page-chrome.v1.js")),
-                    page.is_some()
+                    matches!(
+                        page,
+                        Some(
+                            InteractivePage::Board
+                                | InteractivePage::Catalog
+                                | InteractivePage::Upload
+                                | InteractivePage::Archive
+                        )
+                    )
                 );
                 if full {
                     assert_eq!(
@@ -489,6 +516,17 @@ mod tests {
                     for name in ["worker-src", "connect-src", "media-src", "frame-src"] {
                         assert_eq!(directive(name), format!("{name} 'none'"));
                     }
+                } else if page == Some(InteractivePage::Search) {
+                    assert_eq!(
+                        directive("script-src"),
+                        format!("script-src {origin}{}", crate::search::SCRIPT_PATH)
+                    );
+                    assert_eq!(
+                        directive("connect-src"),
+                        format!("connect-src {origin}/search/api")
+                    );
+                    assert_eq!(directive("worker-src"), "worker-src 'none'");
+                    assert_eq!(directive("media-src"), "media-src 'none'");
                 } else {
                     assert_eq!(directive("script-src"), "script-src 'none'");
                     assert_eq!(directive("worker-src"), "worker-src 'none'");

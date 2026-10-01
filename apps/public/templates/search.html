@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Search 4chan{% endblock %}
+{% block body_attributes %} class="publicPageChrome is_search" data-post-headers="true"{% endblock %}
+{% block content %}
+<div class="boardBanner"><div class="boardTitle">4chan Search</div></div>
+<hr class="desktop">
+<form action="#" id="g-search-form">
+<input placeholder="Search" class="g-search-ctrl" id="js-sf-qf" type="text" autocomplete="off" aria-label="Search">
+<select class="g-search-ctrl" id="js-sf-bf" aria-label="Board"><option value="">All Boards</option>{% for board in boards %}<option value="{{ board.slug }}">/{{ board.slug }}/ - {{ board.title }}</option>{% endfor %}</select>
+<button class="g-search-ctrl" id="js-sf-btn" type="submit">Search</button>
+</form>
+<hr>
+<div id="delform"><div class="board" id="js-sf-results" aria-live="polite"></div></div>
+<hr>
+{% endblock %}
+{% block page_footer %}<script type="module" src="/static/global-search.v1.js"></script>{% endblock %}
