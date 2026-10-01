@@ -164,6 +164,56 @@ for (const [path, links] of [[catalog, '#threads .catalogThumb'], ['/settingstex
     await expect(page.locator(links).first()).toHaveAttribute('target', '_blank');
   });
 }
+for (const [path, linkSelector] of [[catalog, '.catalogThumb'], ['/settingstext/catalog', '.txt-sub a']]) {
+  for (const rejected of ['http://[', 'https://foreign.invalid/owned']) {
+    test(`${path} resolves inert canonical links and skips missing or rejected href ${rejected}`, async ({ page }) => {
+      await prepare(page, { theme: { newtab: true } });
+      if (path !== catalog) await page.goto(path);
+      const evidence = await page.evaluate(async ({ linkSelector, rejected }) => {
+        const form = document.getElementById('ctrl').cloneNode(true);
+        const container = document.getElementById('threads');
+        const hidden = document.getElementById('catalogFiltered');
+        const cards = [...container.querySelectorAll('.thread')];
+        if (cards.length < 3) throw new Error('Owned fixture requires three cards.');
+        const [missing, invalid, canonical] = cards.slice(0, 3);
+        const missingLink = missing.querySelector(linkSelector), invalidLink = invalid.querySelector(linkSelector);
+        missingLink.removeAttribute('href'); invalidLink.setAttribute('href', rejected);
+        for (const link of [missingLink, invalidLink]) { link.target = '_self'; link.rel = 'author'; }
+        const canonicalLink = canonical.querySelector(linkSelector);
+        canonicalLink.removeAttribute('target'); canonicalLink.removeAttribute('rel');
+        if (canonical.localName === 'tr') {
+          const table = document.createElement('table'), rows = document.createElement('tbody');
+          rows.append(canonical); table.append(rows); hidden.content.replaceChildren(table);
+        } else hidden.content.replaceChildren(canonical);
+        const evidence = { missing: missing.id, invalid: invalid.id, canonical: canonical.id,
+          href: canonicalLink.getAttribute('href'), base: canonicalLink.ownerDocument.baseURI };
+        document.body.replaceChildren(form, container, hidden);
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script'); script.type = 'module';
+          script.src = '/static/catalog-preferences.v1.js?owned-inert-links=1';
+          script.onload = resolve; script.onerror = reject; document.body.append(script);
+        });
+        return evidence;
+      }, { linkSelector, rejected });
+      expect(evidence.base).toBe('about:blank');
+      expect(evidence.href).toMatch(/^\/[a-z0-9]+\/thread\/[0-9]+$/);
+      expect(await page.evaluate(({ id, selector }) => {
+        const link = document.getElementById('catalogFiltered').content.querySelector(`#${id} ${selector}`);
+        return { target: link.getAttribute('target'), rel: link.getAttribute('rel') };
+      }, { id: evidence.canonical, selector: linkSelector })).toEqual({ target: '_blank', rel: 'noopener noreferrer' });
+      await page.locator('#qf-ctrl').click(); await expect(page.locator('#qf-box')).toBeVisible();
+      await page.locator('#qf-box').press('Enter');
+      const canonical = page.locator(`#${evidence.canonical} ${linkSelector}`);
+      await expect(canonical).toHaveAttribute('target', '_blank');
+      await expect(canonical).toHaveAttribute('rel', 'noopener noreferrer');
+      for (const id of [evidence.missing, evidence.invalid]) {
+        const link = page.locator(`#${id} ${linkSelector}`);
+        await expect(link).toHaveAttribute('target', '_self'); await expect(link).toHaveAttribute('rel', 'author');
+      }
+      expect(JSON.parse(await page.evaluate(() => localStorage.getItem('catalog-theme')))).toEqual({ newtab: true });
+    });
+  }
+}
 test('the GET spoiler control and Reset preserve other catalog theme fields under the shared lock', async ({ page, context }) => {
   await prepare(page); const before = (await stored(page)).theme;
   const other = await context.newPage(); await hold(other);

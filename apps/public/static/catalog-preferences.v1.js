@@ -683,7 +683,10 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
     for (const entry of entries) {
       const link = entry.node.querySelector(textOnly ? '.txt-sub a' : '.catalogThumb');
       if (!(link instanceof HTMLAnchorElement)) continue;
-      const target = new URL(link.href);
+      const href = link.getAttribute('href');
+      if (href === null) continue;
+      let target;
+      try { target = new URL(href, location.href); } catch { continue; }
       if (target.origin !== location.origin || target.pathname !== `/${board}/thread/${entry.id}` || target.search || target.hash) continue;
       if (theme.newtab === true) { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
       else { link.removeAttribute('target'); link.removeAttribute('rel'); }

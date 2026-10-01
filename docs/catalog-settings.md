@@ -248,3 +248,45 @@ Settings command is:
 ```text
 npx playwright test --config playwright.themes.config.js tests/themes/catalog-settings-lifecycle.spec.js tests/themes/catalog-settings.spec.js tests/themes/visual-diagnostics.spec.js
 ```
+
+## Relative links in inert cards
+
+PR #188's fourth head passed the complete Windows visual check, monitoring and
+media/operations qualification. The Linux browser job, 110222732882, failed
+three catalog Search integration cases and passed 55 others in that group.
+Their retained traces identify the same `Invalid URL` exception in the new
+initial theme-link update. The unchanged behavior/live-search files reproduce
+all three failures on Windows, with 19 of 22 cases passing.
+
+The initial update used a thumbnail's resolved `href` without a URL base.
+Cards inside an inert template belong to a document with `about:blank` as its
+base, so their relative links are still relative. The shared-operator and
+image-admission fixtures also contain links without `href` attributes. That
+exception stopped Search initialization before its event handlers were ready.
+
+The link update now reads the literal attribute, skips missing values and
+resolves against the real page URL inside a guarded parse. Same-origin,
+canonical board/thread, query and fragment checks still decide which links may
+change. Invalid or foreign links keep their attributes. Four owned image/text
+cases check the inert document base, admitted targets and relationship flags,
+missing and malformed/foreign links, healthy Search and unchanged storage.
+The original integration cases retain their sorting, debounce, shared grammar,
+no-navigation and inert-image request assertions.
+
+Windows now passes all 22 original behavior/live-search cases and all 22
+Settings lifecycle cases. The first four new fixture assertions incorrectly
+looked for inert cards through ordinary page locators; those cards intentionally
+remain inside the template until Search is applied. The cases now inspect the
+inert attributes first, then use the real Search control and require the same
+card to become visible with its admitted attributes. No application change was
+made to expose a card early for those assertions.
+
+The final immutable Linux launcher passes the same 22 original integration
+cases and 22 lifecycle cases, including all four new inert-link cases. Both
+platforms pass all nine public asset/CSP cases. The Linux launcher then passes
+formatting and exits 0. The focused browser commands are:
+
+```text
+npx playwright test --config playwright.config.js tests/browser/behavior.spec.js tests/browser/catalog-live-search.spec.js
+npx playwright test --config playwright.themes.config.js tests/themes/catalog-settings-lifecycle.spec.js
+```
