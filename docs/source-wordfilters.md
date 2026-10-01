@@ -125,9 +125,10 @@ PRNG. Posting integration must retain the chosen result once and roll back
 the post on failure.
 
 On October 1, the source fixture comparison, all domain tests, formatting and
-domain Clippy passed on the isolated checkout. Four new tests cover the
+domain Clippy passed on the isolated checkout. Five new tests cover the
 extracted transformations, all random pairs, input/output bounds and entropy
-failure/rejection limits. Initial checks on `regex` 1.12.4 passed; the module
+failure/rejection limits, plus 128 bounded arbitrary-Unicode cases across all
+five built-in profiles. Initial checks on `regex` 1.12.4 passed; the module
 was then pinned to the current 1.13.1 release and the complete domain command
 and Clippy passed again. The [upstream changelog](https://github.com/rust-lang/regex/blob/1.13.1/CHANGELOG.md)
 records the release. No runtime filter implementation is counted as complete

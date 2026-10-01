@@ -1,5 +1,24 @@
 # Dependency and update inventory
 
+The wordfilter core adds pinned [regex 1.13.1](https://docs.rs/regex/1.13.1/regex/)
+with default features disabled and `std`/`unicode` enabled. It reuses locked
+regex-automata 0.4.18, regex-syntax 0.8.11, aho-corasick and memchr; existing
+registry versions and checksums do not change. The inspected crate declares
+Rust 1.65 as its minimum, compatible with the workspace's Rust 1.94. Only two
+fixed, anchored, single-character Unicode classes are compiled, with explicit
+compiled/cache limits. This module does not accept operator or user regexes.
+The Rust scanner and literal substitutions bound field bytes and output.
+
+Downloaded upstream source was inspected on October 1, 2026. Regex-syntax
+forbids unsafe code, but regex-automata contains unsafe lazy-initialization,
+pool and other internals. Disabling optional performance features does not
+establish that all unsafe paths are absent or sound. This text-matching stack
+belongs to the runtime trust base once posting integration uses the domain
+module. No media decoder or native tool is added to a credential-bearing
+process. Requalify transformations, bounds and the application after updates;
+the [wordfilter record](source-wordfilters.md) states the current incomplete
+integration scope.
+
 Country labels add pinned [maxminddb 0.30.3](https://docs.rs/maxminddb/0.30.3/maxminddb/)
 and locked ipnetwork 0.21.1. No existing registry versions change. The direct
 declaration disables default features; `mmap`, `simdutf8` and

@@ -371,6 +371,24 @@ const CONSOLES: &[(&str, &str)] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 128, max_shrink_iters: 256, ..ProptestConfig::default() })]
+        #[test]
+        fn arbitrary_unicode_fields_preserve_valid_boundaries(
+            chars in prop::collection::vec(any::<char>(), 0..512),
+            first in 0u8..6,
+            second in 0u8..6,
+        ) {
+            let input: String = chars.into_iter().collect();
+            let rolls = LeetRolls::from_choices(first, second).unwrap();
+            for profile in [Profile::Global, Profile::Basic, Profile::Asp, Profile::Video, Profile::Test] {
+                let result = apply(&input, Field::Comment, profile, Some(rolls)).unwrap();
+                prop_assert!(result.len() <= MAX_OUTPUT_BYTES);
+            }
+        }
+    }
 
     #[test]
     fn all_extracted_pure_profiles_match() {
