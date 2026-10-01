@@ -74,6 +74,30 @@ node scripts/verify-public-page-dark-reference.mjs <reference-directory>
 
 ## Local behavior and authority
 
+The [viewport record](public-viewport-reference.json) separately covers the
+document background and one opaque pixel below a short owned body. Its 336 cases
+include six themes, board/catalog pages, both safety values, four responsive
+widths and two densities, plus narrow-width mobile opt-out and index dark-class
+states. Whole pinned Core and extension releases run their navigation and CSS
+entry points; only the two pinned public gradient PNGs can load. The catalog
+theme class follows the pinned catalog client. Windows and Linux source replays
+match the saved record without rewriting it.
+
+The application keeps the document background transparent on public board pages
+so the body's background paints the viewport. The initial 24-pair probe finds
+twenty bottom-pixel mismatches, including mobile dark pages that expose a light
+background below the footer. The frozen regression then fails with expected
+`[29,31,33,255]` and actual `[255,255,238,255]`. After the correction, all 336
+application cases match the recorded root properties and pixel on Windows and
+Linux. This
+qualifies viewport paint below the body; it does not compare complete page
+pixels, body height, content placement, original startup or catalog dark mode.
+
+```text
+node scripts/verify-public-viewport-reference.mjs <reference-directory>
+npx playwright test --config playwright.themes.config.js tests/themes/public-viewport.spec.js
+```
+
 Directory rendering is capped at 100 boards and retains the current board when
 it lies beyond that set. Template escaping applies to titles and descriptions.
 HTML board, catalog, thread and archive readers load that directory within the
@@ -192,6 +216,34 @@ public and store packages; Linux passes the full workspace equivalent. The
 broader Windows workspace attempt stops while building the staff application's
 vendored OpenSSL because Perl is unavailable. That attempt is not counted as a
 passing workspace check.
+
+The second hosted Linux run passes the snapshot tests, then fails the text-only
+test because it requires the entire body class to equal `text_only`. The public
+navigation adds other body classes. The correction reads class tokens and still
+checks text-only policy both on and off, upload-button visibility, required
+subjects and locked admission. The broader Linux public all-feature Rust suite
+passes after that correction, including its real upload-browser case. The first
+viewport regression setup inherits script-free visual configuration; explicitly
+enabling JavaScript resolves setup before the measured root/pixel failure is
+recorded.
+
+The first complete Windows run after the viewport correction passes 1,170 of
+1,173 cases; the other three still expect an opaque root background. Preference
+and stylesheet-failure checks now require a transparent root and check the
+body's displayed color. All seven focused preference/diagnostic cases pass.
+The Tomorrow mobile expected/actual/diff images are inspected individually:
+only exposed background bands above content and below the footer change from
+the old dark root to the recorded mobile body blue. That one frozen image is
+accepted; no other baseline is refreshed for this correction. The latest review
+hash for every one of the 55 changed Windows baselines is verified.
+
+The first affected media group passes 67 of 68 cases; the hover geometry case
+still reads its expected visible color from the now-transparent root. It now
+reads the body color while retaining the opaque-background, exact preview-color
+and geometry assertions. All 68 media cases pass after the correction. Windows
+also reruns all three board/catalog, six archive and ten empty/error-state cases
+successfully. Screenshot tolerance and retries remain zero. The next hosted
+Windows run must pass the complete 1,173-case theme group on the final commit.
 
 Hosted qualification runs on the pull request; all required checks
 must pass on its final commit before merging. This record does not claim complete

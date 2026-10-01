@@ -20,7 +20,8 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
       await page.getByLabel('Style', { exact: true }).selectOption(id);
       await page.getByRole('button', { name: 'Apply style', exact: true }).click();
       await expect(page).toHaveURL('http://127.0.0.1:3000/demo/');
-      await expect(page.locator('html')).toHaveCSS('background-color', paper);
+      await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(page.locator('body')).toHaveCSS('background-color', device === 'mobile' ? 'rgb(238, 242, 255)' : paper);
       await expect(page.locator('html')).toHaveCSS('color', ink);
       await expect(page.locator('.reply')).toHaveCSS('background-color', device === 'mobile' ? 'rgb(214, 218, 240)' : panel);
       await expect(page.locator('.subject').first()).toHaveCSS('color', device === 'mobile' ? 'rgb(15, 12, 93)' : subject);
@@ -44,7 +45,8 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
       expect(cookies[0]).toMatchObject({ name: 'board-theme-ws', value: id, path: '/', httpOnly: true, sameSite: 'Lax' });
       expect(await context.cookies('http://localhost:3004')).toEqual([]);
       await page.reload();
-      await expect(page.locator('html')).toHaveCSS('background-color', paper);
+      await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(page.locator('body')).toHaveCSS('background-color', device === 'mobile' ? 'rgb(238, 242, 255)' : paper);
       await page.getByRole('link', { name: 'Style', exact: true }).click();
       await expect(page.getByLabel('Style', { exact: true })).toHaveValue(id);
       await page.getByRole('link', { name: 'Return without changing style' }).click();
@@ -60,7 +62,8 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
     await page.getByLabel('Style', { exact: true }).selectOption('photon');
     await page.getByRole('button', { name: 'Apply style', exact: true }).click();
     await page.goto('/demo/');
-    await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(29, 31, 33)');
+    await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(page.locator('body')).toHaveCSS('background-color', device === 'mobile' ? 'rgb(238, 242, 255)' : 'rgb(29, 31, 33)');
     await page.getByRole('link', { name: 'Style', exact: true }).click();
     await expect(page.getByLabel('Style', { exact: true })).toHaveValue('tomorrow');
     await page.goto('/settings/theme?worksafe=false');
