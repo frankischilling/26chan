@@ -386,6 +386,7 @@ async fn main() {
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
         .route("/controlui/catalog", get(|| async { Html(catalog_controls::page()) }))
         .route("/text-catalog/catalog", get(|| async { Html(catalog_limits::text_page()) }))
+        .route("/settingstext/catalog", get(|| async { Html(catalog_limits::settings_text_page()) }))
         .route("/preview-pages/catalog", get(|| async { Html(catalog_limits::preview_pages()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {

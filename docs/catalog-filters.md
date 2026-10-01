@@ -130,3 +130,37 @@ headers. No screenshot baseline, pixel tolerance, retry or timeout is changed.
 No migration, dependency, staff permission, media-processing authority or
 credential policy changes in this slice. Hosted checks remain required before
 the next integration merges.
+
+## Palette style isolation
+
+PR #188's third Linux browser job, 110212114414, reached the native page-filter
+suite and passed 15 of 16 cases. In the remaining custom-color case, a palette
+swatch intercepted the real Select Color button. The retained trace image shows
+the swatch row covering the custom-color controls. The same unchanged case
+fails locally on Windows with the same intercepted button.
+
+The catalog added fixed positioning for `#colorpicker`, an identifier also used
+by the native page-filter palette. That catalog rule and its table-cell rule
+now require the catalog palette parent. Catalog geometry stays scoped to the
+catalog dialog; the native grid remains in its dialog's normal flow. Validation
+and saved color values are unchanged. The existing six-theme desktop/mobile
+native-dialog case now also enters a custom color, clicks Select Color, checks
+the selected color and verifies focus returns to its trigger. It uses ordinary
+pointer clicks, without forced clicks, added retries or increased timeouts.
+
+The first local reproduction attempt could not start the server while the
+preceding owned Linux fixture was releasing its listener; no test assertions
+ran. After both local listener checks were clear, the unchanged case produced
+the overlap described above. This startup refusal did not justify changing the
+runner's existing-server guard.
+
+Windows and Linux now pass all 16 PostgreSQL-backed native page-filter cases
+and all 70 catalog filter/reference/lifecycle cases, including the original
+custom-color failure and the added twelve themed pointer interactions. Both
+platforms pass the final nine public asset/CSP cases and formatting. The exact
+browser commands are:
+
+```text
+npx playwright test tests/browser/native-page-filters.spec.js
+npx playwright test --config playwright.themes.config.js tests/themes/catalog-filters.spec.js tests/themes/catalog-filter-lifecycle.spec.js
+```

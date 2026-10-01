@@ -3,19 +3,29 @@ use askama::Template;
 use board_store::{Post, Thread};
 
 pub fn page(disabled_images: bool) -> String {
-    render(disabled_images, None, false, false)
+    render(disabled_images, None, false, false, "limits")
 }
 
 pub fn text_page() -> String {
-    render(true, None, true, false)
+    render(true, None, true, false, "text-catalog")
+}
+
+pub fn settings_text_page() -> String {
+    render(true, None, true, false, "settingstext")
 }
 
 pub fn preview_pages() -> String {
-    render(false, None, false, true)
+    render(false, None, false, true, "preview-pages")
 }
 
 pub fn flagged_page(sticky: bool, permaage: bool, undead: bool) -> String {
-    render(false, Some((sticky, permaage, undead)), false, false)
+    render(
+        false,
+        Some((sticky, permaage, undead)),
+        false,
+        false,
+        "limits",
+    )
 }
 
 fn render(
@@ -23,15 +33,12 @@ fn render(
     flags: Option<(bool, bool, bool)>,
     text_only: bool,
     preview_pages: bool,
+    slug: &str,
 ) -> String {
     let mut board = board();
-    board.slug = "limits".into();
+    board.slug = slug.into();
     board.text_only = text_only;
-    if text_only {
-        board.slug = "text-catalog".into();
-    }
     if preview_pages {
-        board.slug = "preview-pages".into();
         board.threads_per_page = 2;
     }
     board.title = "Catalog limits".into();

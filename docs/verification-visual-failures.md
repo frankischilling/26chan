@@ -69,3 +69,12 @@ fix. Future synthetic failures include bounded stylesheet response/failure
 paths and computed page/hover colors. A stylesheet failure test checks the
 recorded path/error code and exclusion of URL query/fragment sentinels. The
 earlier Quick Reply and catalog interaction investigations remain open.
+
+PR #188's third Windows job, 110212114460, passed all 68 media cases and
+590 of 591 theme cases. The catalog Settings lifecycle failure image lacks
+both the Settings links and the saved new-tab target, while the saved spoiler
+flag is applied. It does not identify a startup or transport cause. These
+synthetic lifecycle cases now use the same bounded script, stylesheet and
+page-state observer. The [catalog Settings record](catalog-settings.md#initial-catalog-flags-without-settings)
+describes the separate deterministic watcher-script failure and initial-flag
+fix. The observer adds evidence without retries or relaxed assertions.

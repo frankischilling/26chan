@@ -294,7 +294,7 @@ test('custom colors reject declarations and inherited values; stored patterns re
   expect(requests).toEqual([]);
 });
 
-test('filter dialogs and nested help remain operable in six themes on desktop and mobile', async ({ page, context, fixture }) => {
+test('filter dialogs, custom colors and nested help remain operable in six themes on desktop and mobile', async ({ page, context, fixture }) => {
   await prepare(page, fixture, [rule('needle')]);
   for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
     await context.addCookies([{ name: 'board-theme-ws', value: theme, url: origin, httpOnly: true, sameSite: 'Lax' }]);
@@ -305,6 +305,12 @@ test('filter dialogs and nested help remain operable in six themes on desktop an
       const bounds = await page.locator('#filtersMenu > .extPanel').boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      await page.locator('.fColor').click();
+      await page.locator('#palette-custom-input').fill('#0047ab');
+      await page.locator('#palette-custom-ok').click();
+      await expect(page.locator('#filter-palette')).toHaveCount(0);
+      await expect(page.locator('.fColor')).toHaveCSS('background-color', 'rgb(0, 71, 171)');
+      await expect(page.locator('.fColor')).toBeFocused();
       await page.getByRole('button', { name: 'Filter help', exact: true }).click();
       await expect(page.locator('#filtersHelp')).toBeVisible();
       await page.keyboard.press('Escape');

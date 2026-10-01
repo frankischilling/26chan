@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
 const catalog = '/settingsui/catalog', themeKey = 'catalog-theme', settingsKey = '4chan-settings';
@@ -135,6 +135,35 @@ test('unsafe stored CSS stays inert while valid flags work; unsafe edited CSS ca
   expect(await stored(page)).toEqual(before); await expect(page.locator('#theme')).toBeVisible();
   expect(await page.evaluate(() => document.adoptedStyleSheets.length)).toBe(0);
 });
+
+for (const [path, links] of [[catalog, '#threads .catalogThumb'], ['/settingstext/catalog', '#threads .txt-sub a']]) {
+  test(`${path} applies stored new-tab flags before the Settings entry point is available`, async ({ page, visualDiagnostics }) => {
+    const theme = { newtab: true, nospoiler: true, css: '.teaser { background-image: url(https://example.invalid/owned); }' };
+    await page.addInitScript(theme => {
+      localStorage.setItem('catalog-theme', JSON.stringify(theme));
+      localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true }));
+    }, theme);
+    await page.route('**/static/thread-watcher.v1.js', route => route.abort('connectionfailed'));
+    await page.goto(path); await expect(page.locator('#qf-ctrl')).toBeVisible();
+    await expect(page.locator('#settingsWindowLink')).toHaveCount(0);
+    expect(visualDiagnostics.failedScripts).toEqual([{ path: '/static/thread-watcher.v1.js', error: 'net::ERR_CONNECTION_FAILED' }]);
+    await expect(page.locator(links).first()).toHaveAttribute('target', '_blank');
+    for (const link of await page.locator(links).all()) {
+      await expect(link).toHaveAttribute('target', '_blank');
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+    await expect(page.locator('body')).toHaveClass(/reveal-img-spoilers/);
+    expect(await page.evaluate(() => document.adoptedStyleSheets.length)).toBe(0);
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('catalog-theme')))).toEqual(theme);
+    // An explicit fresh navigation, after restoring the owned script, must also
+    // restore the actual Settings UI without any automatic transport retry.
+    await page.unroute('**/static/thread-watcher.v1.js'); await page.reload();
+    await page.locator('#settingsWindowLink').click(); await expect(page.locator('#theme')).toBeVisible();
+    await expect(page.locator('#theme-newtab')).toBeChecked();
+    await expect(page.locator('#theme-msg')).toContainText('could not be applied');
+    await expect(page.locator(links).first()).toHaveAttribute('target', '_blank');
+  });
+}
 test('the GET spoiler control and Reset preserve other catalog theme fields under the shared lock', async ({ page, context }) => {
   await prepare(page); const before = (await stored(page)).theme;
   const other = await context.newPage(); await hold(other);

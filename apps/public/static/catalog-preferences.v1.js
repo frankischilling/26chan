@@ -689,6 +689,7 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
       else { link.removeAttribute('target'); link.removeAttribute('rel'); }
     }
   };
+  if (entries !== null) updateThemeLinks(themePreferences());
   document.addEventListener('4chanCatalogThemeApplied', event => {
     if (!event.detail || typeof event.detail.initial !== 'boolean' || typeof event.detail.persistent !== 'boolean') return;
     const parsed = readCatalogTheme(event.detail.raw);

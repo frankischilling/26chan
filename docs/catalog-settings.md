@@ -193,3 +193,58 @@ assertion changed to address that launcher error.
 ```text
 npx playwright test tests/browser/native-quote-preview.spec.js tests/browser/native-backlinks.spec.js
 ```
+
+## Initial catalog flags without Settings
+
+The third PR #188 Windows job, 110212114460, passed all 68 media cases and
+590 of 591 theme cases. The unsafe-stored-CSS case found the saved spoiler
+flag applied but the catalog link's new-tab target absent. The retained image
+also lacked the Settings links. That image does not establish why Settings
+failed to mount, and the previous test did not retain startup diagnostics.
+
+An owned reproduction aborts only the watcher script on image and text
+catalogs. Both cases failed on the preceding implementation: the catalog read
+the saved spoiler flag itself, while new-tab links depended on a Settings
+event. The initial catalog read now applies admitted new-tab flags directly
+to its existing canonical thread links. It retains `noopener noreferrer`,
+performs no additional render and does not write storage. Settings events
+still apply later changes.
+
+The two cases require the deliberately absent Settings entry point, the exact
+failed script path, every card's target and relationship attributes, the
+spoiler flag, inert rejected CSS and unchanged stored preferences. After an
+explicit new navigation with the script restored, they require the real
+Settings controls and rejected-CSS review message. The lifecycle suite now
+retains the existing bounded synthetic startup diagnostics on failure. This
+fixes the reproduced initial-flag dependency; the original hosted startup
+cause remains unproved.
+
+The first combined local run passed 51 of 52 cases. Both initial-flag checks
+passed; the text recovery step failed because its existing visual-only
+`text-catalog` fixture has a hyphenated slug, which the native watcher correctly
+rejects. The recovery case now uses the same text data at an additional owned
+`settingstext` route with an admitted board slug. Existing text screenshots and
+their fixture route remain unchanged; the production slug check is unchanged.
+
+All 52 selected Windows cases pass, including the seven unchanged text-catalog
+screenshot/live-row cases. Linux passes the 45 Settings lifecycle, Settings and
+diagnostic cases, then fails the seven text screenshot cases because no Linux
+captures are stored. That combined command exits 1 before its Rust checks; the
+generated local captures are not accepted or committed. The text recovery case
+itself passes on both platforms. Linux qualification of these flag changes uses
+the 45 cases with stored reference/property assertions; Windows retains the
+separate text screenshot checks.
+
+```text
+npx playwright test --config playwright.themes.config.js tests/themes/catalog-settings-lifecycle.spec.js tests/themes/catalog-settings.spec.js tests/themes/text-catalog.spec.js tests/themes/visual-diagnostics.spec.js
+```
+
+The final immutable Linux launcher passes all 45 Settings/diagnostic cases,
+all 16 native page-filter cases, all 70 catalog-filter cases and all nine public
+asset/CSP cases, then exits 0 after formatting. Windows also passes its final
+nine asset/CSP cases and public all-target/all-feature Clippy. The Linux
+Settings command is:
+
+```text
+npx playwright test --config playwright.themes.config.js tests/themes/catalog-settings-lifecycle.spec.js tests/themes/catalog-settings.spec.js tests/themes/visual-diagnostics.spec.js
+```
