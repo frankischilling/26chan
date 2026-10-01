@@ -1,5 +1,6 @@
 import { readWatcherPosition, writeWatcherPosition, dragWatcherPosition } from './watcher-position.v1.js';
 import { customBoards } from './native-display.v1.js';
+import { publicBoardPath } from './page-chrome.v1.js';
 
 export const NAVIGATION_LIMITS = Object.freeze({ boards: 100, bytes: 32768, reads: 4096, requestMs: 5000 });
 const slug = value => typeof value === 'string' && /^[a-z0-9]{1,10}$/.test(value);
@@ -27,6 +28,22 @@ export function parseNavigationDirectory(raw) {
     seen.add(entry.board);
   }
   return value.boards;
+}
+
+function serverNavigationDirectory(root, window) {
+  if (root !== window.document.body || !root.classList.contains('publicPageChrome')) return null;
+  const select = root.querySelector('#boardSelectMobile');
+  if (!(select instanceof window.HTMLSelectElement) || !select.options.length || select.options.length > NAVIGATION_LIMITS.boards) return null;
+  try {
+    const options = [...select.options];
+    const boards = options.map(option => {
+      const prefix = `/${option.value}/ - `;
+      if (!option.textContent.startsWith(prefix)) throw new TypeError('navigation-label');
+      return { board: option.value, title: option.textContent.slice(prefix.length) };
+    });
+    return { boards: parseNavigationDirectory(JSON.stringify({ version: 1, boards })),
+      nws: new Set(options.filter(option => option.classList.contains('nwsb')).map(option => option.value)) };
+  } catch { return null; }
 }
 
 function cancelBody(body) { try { body?.cancel()?.catch(() => {}); } catch { /* Already closed. */ } }
@@ -175,12 +192,13 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
   const document = root?.ownerDocument, window = document?.defaultView;
   if (!root || !window || !slug(board) || typeof settings !== 'function') return null;
   navigationMounts.get(root)?.destroy();
-  const positions = new Map(); let bar = null, top = null, arrows = null, directory = null, pending = null;
+  const serverDirectory = serverNavigationDirectory(root, window);
+  const positions = new Map(); let bar = null, top = null, arrows = null, directory = serverDirectory?.boards ?? null, pending = null;
   let signature = null, suspended = false, destroyed = false, hideTimer = null, previousScroll = window.scrollY;
   let autoHideActive = false, controller = null;
   let ownsDropDownClass = false;
   let resizeObserver = null, ownedOffset = null, priorOffset = null;
-  const disabled = () => suspended || destroyed || settings().disableAll === true;
+  const disabled = () => suspended || destroyed || !root.isConnected || root.ownerDocument !== document || settings().disableAll === true;
   const mobileLayout = () => mobile?.matches === true && readNeverMobile() !== 'true';
   const element = (tag, text, className) => {
     const result = document.createElement(tag); if (text !== undefined) result.textContent = text;
@@ -213,12 +231,13 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
   function updateBoards() {
     if (!bar) return;
     const config = settings(), list = bar.querySelector('.nativeBoardLinks'), select = bar.querySelector('select');
-    const entries = boardLinks(config);
+    const entries = list ? boardLinks(config) : directory ?? [{ board, title: `/${board}/` }];
     if (list) {
       list.replaceChildren(document.createTextNode('[ '));
       entries.forEach((entry, index) => {
         if (index) list.append(' / ');
-        const anchor = link(entry.board, `/${entry.board}/`); anchor.title = entry.title; list.append(anchor);
+        const custom = config.customMenu === true && customBoards(config.customMenuList)?.length;
+        const anchor = link(entry.board, publicBoardPath(entry.board, catalog && !custom)); anchor.title = entry.title; list.append(anchor);
       });
       list.append(' ]');
     }
@@ -226,10 +245,20 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
       select.replaceChildren();
       for (const entry of entries) {
         const option = element('option', `/${entry.board}/ - ${entry.title}`); option.value = entry.board;
+        if (serverDirectory?.nws.has(entry.board)) option.className = 'nwsb';
         option.selected = entry.board === board; select.append(option);
       }
       if (!entries.some(entry => entry.board === board)) {
         const current = element('option', `/${board}/`); current.value = board; current.selected = true; select.prepend(current);
+      }
+      const custom = bar.querySelector('.nativeCustomBoardLinks');
+      custom.replaceChildren();
+      const chosen = config.customMenu === true ? customBoards(config.customMenuList) : null;
+      custom.hidden = !chosen?.length;
+      if (chosen?.length) {
+        custom.append('[ ');
+        chosen.forEach((board, index) => { if (index) custom.append(' / '); custom.append(link(board, publicBoardPath(board))); });
+        custom.append(' ]');
       }
     }
   }
@@ -248,8 +277,12 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
     if (classic) bar.append(element('span', undefined, 'nativeBoardLinks'));
     else {
       const label = element('label', 'Board '), select = element('select'); select.setAttribute('aria-label', 'Board');
-      select.addEventListener('change', () => { if (slug(select.value)) window.location.assign(`/${select.value}/`); });
-      label.append(select); bar.append(label);
+      select.addEventListener('change', () => {
+        if (disabled() || !bar?.isConnected || !bar.contains(select)) return;
+        if (select.value !== board && !directory?.some(entry => entry.board === select.value)) return;
+        const path = publicBoardPath(select.value, catalog); if (path) window.location.assign(path);
+      });
+      label.append(select); bar.append(label, element('span', undefined, 'nativeCustomBoardLinks'));
     }
     bar.append(' ', link('All boards', '/'), ' ', button('Settings', event => openSettings?.(event.currentTarget)),
       ' ', button('Edit boards', event => openCustomMenu?.(event.currentTarget)), ' ',

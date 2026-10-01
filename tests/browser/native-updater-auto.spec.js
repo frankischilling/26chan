@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -34,7 +35,7 @@ test('A and mirrored controls append persisted replies on schedule, preserve dra
   const title = await page.title();
   await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Retained draft'); await page.keyboard.press('a');
   await expect(auto(page)).not.toBeChecked();
-  await page.locator('h1').click(); await page.keyboard.press('a');
+  await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('a');
   for (const input of await page.locator('input[data-cmd="auto"]').all()) await expect(input).toBeChecked();
   await expect(status(page)).toHaveText('10');
   const next = await owned.reply('Automatically appended reply');
@@ -85,7 +86,7 @@ test('Auto persists for the current tab and thread, stops explicitly, and always
   await page.reload(); await expect(auto(page)).toBeChecked();
   await auto(page).uncheck(); await page.reload(); await expect(auto(page)).not.toBeChecked();
   expect(await page.evaluate(id => sessionStorage.getItem(`4chan-auto-${id}`), owned.id)).toBeNull();
-  await other.getByRole('link', { name: 'Settings', exact: true }).click();
+  await watcherSettingsOpener(other).click();
   await expect(other.locator('#setting-threadUpdater')).toBeChecked();
   await expect(other.locator('#setting-alwaysAutoUpdate')).not.toBeChecked();
   await other.locator('#setting-alwaysAutoUpdate').check();

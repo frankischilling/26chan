@@ -1,14 +1,22 @@
 import { test, expect } from '@playwright/test';
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 
 async function openSettings(page) {
-  const custom = page.locator('.customBoardList');
-  if (await custom.count()) await custom.getByRole('link', { name: 'Settings', exact: true }).click();
-  else await page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible').click();
+  await watcherSettingsOpener(page).click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
   await dialog.locator('#settings-expand-all').click();
   return dialog;
+}
+
+const customMenu = page => page.locator('#boardNavDesktop .customBoardList');
+async function expectCustomMenus(page, visible = true) {
+  await expect(page.locator('.customBoardList')).toHaveCount(2);
+  for (const parent of ['#boardNavDesktop', '#boardNavDesktopFoot']) {
+    if (visible) await expect(page.locator(`${parent} .customBoardList`)).toBeVisible();
+    else await expect(page.locator(`${parent} .customBoardList`)).toBeHidden();
+  }
 }
 
 test('custom navigation persists, synchronizes across tabs and remains editable on mobile', async ({ page, context }) => {
@@ -20,25 +28,29 @@ test('custom navigation persists, synchronizes across tabs and remains editable 
   await editor.getByRole('button', { name: 'Save board list', exact: true }).click();
   await expect(editor).toHaveCount(0);
   await settings.getByRole('button', { name: 'Close settings' }).click();
-  await expect(page.getByRole('navigation', { name: 'Custom board navigation' })).toBeVisible();
+  await expectCustomMenus(page);
   await expect(page.locator('.customBoardList a').first()).toHaveAttribute('href', '/demo/');
   await page.reload();
-  await expect(page.locator('.customBoardList')).toBeVisible();
+  await expectCustomMenus(page);
   const other = await context.newPage();
   try {
     await other.goto('/test/');
-    await expect(other.locator('.customBoardList')).toBeVisible();
-    await page.locator('.customBoardList').getByRole('link', { name: 'Edit', exact: true }).click();
+    await expectCustomMenus(other);
+    await customMenu(page).getByRole('link', { name: 'Edit', exact: true }).click();
     await editor.getByLabel('Boards', { exact: true }).fill('test demo');
     await editor.getByRole('button', { name: 'Save board list' }).click();
     await expect(other.locator('.customBoardList a').first()).toHaveAttribute('href', '/test/');
-    await page.getByRole('link', { name: 'Show all boards' }).click();
+    await customMenu(page).getByRole('link', { name: 'Show all boards' }).click();
     await expect(page.locator('.customBoardList')).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Board navigation', exact: true })).toBeVisible();
-    await expect(other.locator('.customBoardList')).toBeVisible();
+    await expectCustomMenus(other);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await expect(page.locator('.customBoardList')).toBeVisible();
+    await expectCustomMenus(page, false);
+    await expect(page.locator('#boardNavMobile')).toBeVisible();
+    await expect(page.locator('#boardSelectMobile')).toHaveValue('test');
+    const directory = await (await context.request.get('/_watch/boards')).json();
+    expect(await page.locator('#boardSelectMobile option').evaluateAll(nodes => nodes.map(node => node.value))).toEqual(directory.boards.map(board => board.board));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     settings = await openSettings(page);
     await settings.getByLabel('Custom board list', { exact: true }).uncheck();
@@ -103,9 +115,9 @@ test('denied preference storage keeps an editable custom menu in the current tab
   await editor.getByRole('button', { name: 'Save board list' }).click();
   await expect(editor).toHaveCount(0);
   await settings.getByRole('button', { name: 'Close settings' }).click();
-  await expect(page.locator('.customBoardList')).toBeVisible();
+  await expectCustomMenus(page);
   await expect(page.locator('.watcherNotice')).toContainText('Changes stay in this tab');
-  await page.locator('.customBoardList').getByRole('link', { name: 'Edit', exact: true }).click();
+  await customMenu(page).getByRole('link', { name: 'Edit', exact: true }).click();
   await expect(editor.getByLabel('Boards', { exact: true })).toHaveValue('demo test');
   await editor.getByRole('button', { name: 'Cancel' }).click();
 });

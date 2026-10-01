@@ -89,7 +89,7 @@ test('stylesheet transport failures retain only a bounded path and network error
     { path: '/static/theme.css', error: 'net::ERR_CONNECTION_FAILED' },
   ]);
   const state = await readVisualState(page);
-  expect(state.background).toEqual({ root: 'rgb(255, 255, 238)', body: 'rgba(0, 0, 0, 0)', hover: null, paper: null });
+  expect(state.background).toEqual({ root: 'rgba(0, 0, 0, 0)', body: 'rgb(255, 255, 238)', hover: null, paper: null });
   const serialized = JSON.stringify({ state, failedStylesheets: visualDiagnostics.failedStylesheets });
   expect(serialized).not.toContain('QUERY_SENTINEL');
   expect(serialized).not.toContain('FRAGMENT_SENTINEL');

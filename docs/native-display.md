@@ -35,7 +35,12 @@ parity remain outside this slice.
 The list accepts at most 1,024 UTF-8 bytes and 64 entries, each at most ten ASCII
 letters or digits. Stored text never becomes HTML, script, CSS or a foreign URL.
 At most two existing board menus receive custom navigation. Show all restores the
-original menu for the current page without erasing the saved list. Disabling the
+original menus for the current page without erasing the saved list. Ordinary
+mobile and persistent drop-down selectors retain the full directory. Custom
+links open indexes even on catalog pages. The
+[whole released menu replay](public-page-menu-reference.json) checks twelve
+owned index/catalog and desktop/mobile/classic/drop-down cases. Complete menu
+styling and editor placement remain unqualified. Disabling the
 extension restores the original navigation and dates.
 
 The date controller tracks at most 10,000 date elements and scans at most 40,000

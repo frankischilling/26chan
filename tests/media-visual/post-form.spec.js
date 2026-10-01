@@ -32,7 +32,7 @@ test('mobile top and bottom toggle the ordinary board form without clearing it',
 
 test('mobile thread entry uses enabled Quick Reply without quoting, or toggles the native form', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/img/thread/1000201');
-  await page.locator('h1').evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
+  await page.getByRole('heading', { level: 1 }).evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
   await page.locator('#mpostform a').click(); await expect(page.locator('#quickReply')).toBeVisible();
   await expect(page.locator('#qrCom')).toHaveValue(''); await expect(page.locator('#postForm')).toBeHidden();
   await page.locator('#qrCom').fill('Mobile QR draft'); await page.locator('.postFormBottom a').click();

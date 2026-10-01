@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
 import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
@@ -45,7 +46,7 @@ async function updaterSnapshot(browser) {
 test('image settings keep reference defaults while normal and legacy files expand, collapse and quote safely', async ({ page }, info) => {
   await openThread(page);
 
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   await expect(page.locator('#setting-imageExpansion')).toBeChecked();
   for (const key of ['fitToScreenExpansion', 'imageHover', 'imageHoverBg', 'revealSpoilers', 'noPictures']) {
     await expect(page.locator(`#setting-${key}`)).not.toBeChecked();
@@ -78,7 +79,7 @@ test('image settings keep reference defaults while normal and legacy files expan
 
 test('Images & Media settings save through the UI and restore behavior after navigation', async ({ page }) => {
   await openThread(page);
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   const category = page.locator('#settings-images');
   if (await category.isHidden()) await page.getByRole('button', { name: 'Images & Media', exact: true }).click();
   await page.locator('#setting-imageExpansion').uncheck();
@@ -107,7 +108,7 @@ test('Images & Media settings save through the UI and restore behavior after nav
   expect(controllerPrevented).toBe(false);
   await expect(anchor.locator('.expanded-thumb')).toHaveCount(0);
 
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   if (await category.isHidden()) await page.getByRole('button', { name: 'Images & Media', exact: true }).click();
   await expect(page.locator('#setting-imageExpansion')).not.toBeChecked();
   await expect(page.locator('#setting-revealSpoilers')).toBeChecked();
@@ -153,7 +154,7 @@ test('hover follows viewport geometry and its background setting uses the visibl
     const ratio = Math.min(1, (innerWidth - node.getBoundingClientRect().right - 20) / 600,
       document.documentElement.clientHeight / 360);
     return { width: 600 * ratio, height: 360 * ratio,
-      background: getComputedStyle(document.documentElement).backgroundColor };
+      background: getComputedStyle(document.body).backgroundColor };
   });
   await thumbnail.hover();
   const preview = page.locator('#image-hover');
@@ -177,7 +178,8 @@ test('hover retains the base page background when the optional theme stylesheet 
   expect(themeFailures).toBe(1);
   expect(visualDiagnostics.failedStylesheets).toEqual([{ path: '/static/theme.css', error: 'net::ERR_FAILED' }]);
   expect(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--paper').trim())).toBe('');
-  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 238)');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 238)');
   const thumbnail = page.locator('#f1000201 > a.fileThumb > img');
   await thumbnail.scrollIntoViewIfNeeded();
   await waitForImage(thumbnail);
@@ -200,7 +202,8 @@ for (const [theme, background] of Object.entries({
     })));
     await page.setViewportSize({ width: 640, height: 480 });
     await openThread(page, { imageHover: true, imageHoverBg: true });
-    await expect(page.locator('html')).toHaveCSS('background-color', background);
+    await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(page.locator('body')).toHaveCSS('background-color', background);
     const thumbnail = page.locator('#f1000201 > a.fileThumb > img');
     await thumbnail.scrollIntoViewIfNeeded();
     await waitForImage(thumbnail);

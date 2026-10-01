@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -27,7 +28,7 @@ const catalogFilters = JSON.stringify({ 7: { active: 1, pattern: '<img src=/sett
 const cfg = payload => `#cfg=${encodeURIComponent(JSON.stringify(payload))}`;
 
 async function openSettings(page) {
-  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await watcherSettingsOpener(page).first().click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
   await expect(dialog).toBeVisible();
   return dialog;

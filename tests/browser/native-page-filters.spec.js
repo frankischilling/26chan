@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -32,7 +33,7 @@ async function prepare(page, fixture, rules, settings = { filter: true }) {
   await page.reload();
 }
 async function editor(page) {
-  await page.locator(page.viewportSize().width <= 480 ? '#settingsWindowLinkMobile' : '#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   const category = page.getByRole('button', { name: 'Filters & Post Hiding', exact: true });
   if (await category.getAttribute('aria-expanded') === 'false') await category.click();
   await page.locator('#filters-edit').click();

@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 
 export function watcherSettingsOpener(page) {
-  return page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')
+  return page.locator('#settingsWindowLink[data-native-settings-ready]:visible, #settingsWindowLinkMobile[data-native-settings-ready]:visible')
     .or(page.getByRole('navigation', { name: 'Persistent board navigation', exact: true }).getByRole('button', { name: 'Settings', exact: true }))
     .or(page.getByRole('navigation', { name: 'Custom board navigation', exact: true }).getByRole('link', { name: 'Settings', exact: true }))
     .first();

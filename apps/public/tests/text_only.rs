@@ -175,7 +175,17 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .split_once('>')
                 .unwrap()
                 .0;
-            assert_eq!(body_attributes.contains(" class=\"text_only\""), enabled);
+            let classes: Vec<_> = body_attributes
+                .split_once(" class=\"")
+                .unwrap()
+                .1
+                .split_once('"')
+                .unwrap()
+                .0
+                .split_ascii_whitespace()
+                .collect();
+            assert!(classes.contains(&"publicPageChrome"));
+            assert_eq!(classes.contains(&"text_only"), enabled);
             assert_eq!(html.contains("Upload file</button>"), !enabled);
             if path.ends_with('/') {
                 assert_eq!(

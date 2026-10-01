@@ -113,9 +113,11 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
     if (!boards?.length || showAllKey === key) { restoreMenus(); menuKey = key; return; }
     if (menuKey === key && menus.length && menus.every(entry => entry.menu.isConnected)) return;
     restoreMenus(); menuKey = key;
-    const originals = document.querySelectorAll('nav.boardList:not(.customBoardList)');
+    const originals = document.querySelectorAll('[data-public-board-list], nav.boardList:not(.customBoardList)');
     for (const original of Array.from(originals).slice(0, DISPLAY_LIMITS.menus)) {
-      const menu = node('nav', undefined, 'boardList customBoardList');
+      const publicList = original.hasAttribute('data-public-board-list');
+      const menu = node(publicList ? 'span' : 'nav', undefined, 'boardList customBoardList');
+      if (publicList) menu.setAttribute('role', 'navigation');
       menu.setAttribute('aria-label', 'Custom board navigation'); menu.append('[ ');
       boards.forEach((board, index) => {
         if (index) menu.append(' / ');
@@ -126,7 +128,8 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
       const edit = link('Edit', 'Edit Menu', openEditor); edit.setAttribute('aria-haspopup', 'dialog');
       const settingsLink = link('Settings', 'Settings', source => openSettings?.(source));
       settingsLink.setAttribute('aria-haspopup', 'dialog');
-      menu.append(' ] [ ', all, ' ] [ ', edit, ' ] [ ', settingsLink, ' ]');
+      menu.append(' ] [ ', all, ' ] [ ', edit, ' ]');
+      if (!publicList) menu.append(' [ ', settingsLink, ' ]');
       menus.push({ original, hidden: original.hidden, menu });
       original.hidden = true; original.before(menu);
     }

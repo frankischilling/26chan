@@ -1,0 +1,641 @@
+{
+  "collection_date": "2026-10-01",
+  "browser": "151.0.7922.34",
+  "sources": [
+    {
+      "name": "core.min.1128.js",
+      "bytes": 28416,
+      "sha256": "688d4a950499d3eef915549d5db28c1410cf08e067c9cd6598d62d42e595f1ea"
+    },
+    {
+      "name": "extension.1191.js",
+      "bytes": 182061,
+      "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37"
+    }
+  ],
+  "scope": "Whole unchanged Core v1128 and extension v1191 loaded after DOMContentLoaded on owned navigation markup. Original buildMobileNav, cloneTopNav, Main.initPersistentNav, CustomMenu.apply/initCtrl/reset entry points invoked. Only the hostname mapping is replaced. No Main.run, public posts/media, complete menu styling, editor placement or original-page startup qualification.",
+  "cases": [
+    {
+      "mode": "index",
+      "name": "desktop",
+      "dropDownNav": false,
+      "classicNav": false,
+      "mobile": false,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "index",
+      "name": "desktop-classic",
+      "dropDownNav": true,
+      "classicNav": true,
+      "mobile": false,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "index",
+      "name": "desktop-drop-down",
+      "dropDownNav": true,
+      "classicNav": false,
+      "mobile": false,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardSelect",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        false,
+        false
+      ],
+      "showAll": 0,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "index",
+      "name": "mobile",
+      "dropDownNav": false,
+      "classicNav": false,
+      "mobile": true,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "index",
+      "name": "mobile-drop-down",
+      "dropDownNav": true,
+      "classicNav": false,
+      "mobile": true,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "index",
+      "name": "mobile-classic-preference",
+      "dropDownNav": true,
+      "classicNav": true,
+      "mobile": true,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "catalog",
+      "name": "desktop",
+      "dropDownNav": false,
+      "classicNav": false,
+      "mobile": false,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "catalog",
+      "name": "desktop-classic",
+      "dropDownNav": true,
+      "classicNav": true,
+      "mobile": false,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "catalog",
+      "name": "desktop-drop-down",
+      "dropDownNav": true,
+      "classicNav": false,
+      "mobile": false,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardSelect",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        false,
+        false
+      ],
+      "showAll": 0,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "catalog",
+      "name": "mobile",
+      "dropDownNav": false,
+      "classicNav": false,
+      "mobile": true,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "catalog",
+      "name": "mobile-drop-down",
+      "dropDownNav": true,
+      "classicNav": false,
+      "mobile": true,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    },
+    {
+      "mode": "catalog",
+      "name": "mobile-classic-preference",
+      "dropDownNav": true,
+      "classicNav": true,
+      "mobile": true,
+      "options": [
+        {
+          "value": "demo",
+          "label": "/demo/ - Owned demo",
+          "class": ""
+        },
+        {
+          "value": "f",
+          "label": "/f/ - Owned f",
+          "class": ""
+        },
+        {
+          "value": "zed",
+          "label": "/zed/ - Owned zed",
+          "class": "nwsb"
+        }
+      ],
+      "selected": "demo",
+      "menus": [
+        {
+          "parent": "boardNavDesktop",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        },
+        {
+          "parent": "boardNavDesktopFoot",
+          "links": [
+            "/demo/",
+            "/f/"
+          ]
+        }
+      ],
+      "hiddenLists": [
+        true,
+        true
+      ],
+      "showAll": 2,
+      "afterReset": {
+        "menus": 0,
+        "hiddenLists": [
+          false,
+          false
+        ]
+      }
+    }
+  ]
+}

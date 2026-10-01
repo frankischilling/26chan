@@ -53,14 +53,14 @@ test('directory transport bounds authority, deadlines and empty-chunk stream wor
 
 test('navigation controls own only their layout, local links and finite saved positions', async t => {
   const files = {};
-  for (const name of ['native-navigation.v1.js', 'native-display.v1.js', 'watcher-position.v1.js']) {
+  for (const name of ['native-navigation.v1.js', 'native-display.v1.js', 'watcher-position.v1.js', 'page-chrome.v1.js']) {
     files[`/static/${name}`] = await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8');
   }
   const css = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8');
   const fade = await readFile(new URL('../../apps/public/static/themes/fade.png', import.meta.url));
   const browser = await chromium.launch({ headless: true });
   try {
-    async function setup(config = {}) {
+    async function setup(config = {}, catalog = false, server = false) {
       const context = await browser.newContext({ viewport: { width: 1000, height: 700 } });
       const page = await context.newPage(), requests = [], errors = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -69,19 +69,19 @@ test('navigation controls own only their layout, local links and finite saved po
         if (url.origin === origin && url.pathname === '/static/themes/fade.png') return route.fulfill({ contentType: 'image/png', body: fade });
         if (files[url.pathname]) return route.fulfill({ contentType: 'text/javascript', body: files[url.pathname] });
         if (url.pathname === '/_watch/boards') { requests.push(url.pathname); return route.fulfill({ contentType: 'application/json', body: JSON.stringify(directory) }); }
-        if (url.pathname === '/test/1') return route.fulfill({ contentType: 'text/html', body:
-          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><nav class="boardList">[ <a href="/">All boards</a> ]</nav><main><textarea id="draft">Owned draft</textarea><div style="height:3000px">Owned scroll area</div><nav class="pages"><a href="/test/0" rel="prev">Previous</a><a href="/test/2" rel="next">Next</a></nav></main></body></html>` });
+        if (url.pathname === (catalog ? '/test/catalog' : '/test/1')) return route.fulfill({ contentType: 'text/html', body:
+          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body${server ? ' class="publicPageChrome"' : ''}><nav class="boardList">[ <a href="/">All boards</a> ]</nav>${server ? '<select id="boardSelectMobile"><option value="demo" class="nwsb">/demo/ - Demo &lt;b&gt;board&lt;/b&gt;</option><option value="test" selected>/test/ - Owned Test</option></select>' : ''}<main><textarea id="draft">Owned draft</textarea><div style="height:3000px">Owned scroll area</div><nav class="pages"><a href="/test/0" rel="prev">Previous</a><a href="/test/2" rel="next">Next</a></nav></main></body></html>` });
         if (url.pathname.endsWith('favicon.ico')) return route.fulfill({ status: 204 });
         requests.push(url.href); return route.abort();
       });
-      await page.goto(`${origin}/test/1`);
-      await page.evaluate(async config => {
+      await page.goto(`${origin}/test/${catalog ? 'catalog' : '1'}`);
+      await page.evaluate(async ({ config, catalog }) => {
         window.config = config; window.saved = []; window.heldSaves = []; window.holdSave = false;
         window.original = document.querySelector('nav.boardList'); window.draft = document.querySelector('#draft');
         window.settingsOpened = window.editorOpened = 0;
         const { mountNativeNavigation } = await import('/static/native-navigation.v1.js');
         window.mountNavigation = () => mountNativeNavigation({
-          root: document.body, board: 'test', thread: null, settings: () => config,
+          root: document.body, board: 'test', thread: null, catalog, settings: () => config,
           mobile: matchMedia('(max-width:480px)'), readNeverMobile: () => config.neverMobile,
           openSettings: () => settingsOpened++, openCustomMenu: () => editorOpened++,
           savePosition: async (key, value, expected, signal) => {
@@ -91,7 +91,7 @@ test('navigation controls own only their layout, local links and finite saved po
           },
         });
         window.navigation = mountNavigation();
-      }, config);
+      }, { config, catalog });
       return { context, page, requests, errors };
     }
 
@@ -130,6 +130,51 @@ test('navigation controls own only their layout, local links and finite saved po
         assert.equal(await page.evaluate(() => document.body.style.getPropertyValue('--native-navigation-height')), '');
         assert.deepEqual(requests, ['/_watch/boards']); assert.deepEqual(errors, []);
       } finally { await context.close(); }
+    });
+
+    await t.test('a catalog custom menu keeps the full drop-down directory and separate index links', async () => {
+      const { context, page, requests, errors } = await setup({ dropDownNav: true, customMenu: true, customMenuList: 'test' }, true);
+      try {
+        await page.waitForFunction(() => [...document.querySelectorAll('.nativePersistentNavigation option')].some(option => option.textContent.includes('Owned Test')));
+        assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(nodes => nodes.map(node => node.value)), ['demo', 'test']);
+        assert.deepEqual(await page.locator('.nativeCustomBoardLinks a').evaluateAll(nodes => nodes.map(node => node.getAttribute('href'))), ['/test/']);
+        assert.equal(await page.getByLabel('Board', { exact: true }).inputValue(), 'test');
+        assert.deepEqual(requests, ['/_watch/boards']); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('the bounded server directory retains safety classes and needs no fetch', async () => {
+      const { context, page, requests, errors } = await setup({ dropDownNav: true, customMenu: true, customMenuList: 'test' }, true, true);
+      try {
+        assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(option => ({ value: option.value, label: option.textContent, class: option.className }))),
+          [{ value: 'demo', label: '/demo/ - Demo <b>board</b>', class: 'nwsb' }, { value: 'test', label: '/test/ - Owned Test', class: '' }]);
+        assert.equal(await page.locator('.nativePersistentNavigation b').count(), 0);
+        await page.evaluate(() => {
+          const injected = document.createElement('option'); injected.value = 'later'; injected.textContent = '/later/ - Injected after mount';
+          document.getElementById('boardSelectMobile').append(injected); config.customMenuList = 'demo'; navigation.refresh();
+        });
+        assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(option => option.value)), ['demo', 'test']);
+        assert.deepEqual(await page.locator('.nativeCustomBoardLinks a').evaluateAll(links => links.map(link => link.getAttribute('href'))), ['/demo/']);
+        assert.deepEqual(requests, []); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('removed and suspended drop-down selectors cannot navigate through stale events', async () => {
+      for (const suspended of [false, true]) {
+        const { context, page, requests, errors } = await setup({ dropDownNav: true });
+        try {
+          await page.waitForFunction(() => document.querySelectorAll('.nativePersistentNavigation option').length === 2);
+          await page.evaluate(suspended => {
+            const stale = document.querySelector('.nativePersistentNavigation select');
+            if (suspended) dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+            else { config.dropDownNav = false; navigation.refresh(); }
+            stale.value = 'demo'; stale.dispatchEvent(new Event('change'));
+          }, suspended);
+          await page.waitForLoadState('networkidle');
+          assert.equal(page.url(), `${origin}/test/1`);
+          assert.deepEqual(requests, ['/_watch/boards']); assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+      }
     });
 
     await t.test('auto-hide follows scroll direction, respects focus and cannot outlive its setting', async () => {

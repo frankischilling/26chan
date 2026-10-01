@@ -117,7 +117,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true, keyBinds: true, threadWatcher: true })));
     await page.goto(`/test/thread/${id}`); const url = page.url();
     await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Unsubmitted native draft');
-    await page.locator('h1').click(); await page.keyboard.press('q');
+    await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q');
     await expect(page.locator('#quickReply')).toBeVisible();
     await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('');
     await page.locator('#quickReply input[type=submit]').click();
@@ -147,7 +147,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await page.unroute('**/test/imgboard.php');
     await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
     await context.clearCookies(); await page.reload();
-    await page.locator('h1').click(); await page.keyboard.press('q'); await page.locator('#qrCom').fill('Second owned reply'); await page.locator('#qr-pwd').fill(password);
+    await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q'); await page.locator('#qrCom').fill('Second owned reply'); await page.locator('#qr-pwd').fill(password);
     await page.locator('#quickReply input[type=submit]').click();
     await expect(page.locator('.postMessage').filter({ hasText: 'Second owned reply' })).toBeVisible();
   } finally {
@@ -165,7 +165,7 @@ test('posting CSP permits only the current board handler and preserves healthy d
   const result = await page.evaluate(() => fetch('/demo/imgboard.php', { method: 'POST', headers: { Accept: 'application/json' }, body: new URLSearchParams({ pwd: 'owned-password', com: '' }) }).then(async response => ({ status: response.status, value: await response.json() })));
   expect(result.status).toBe(200); expect(result.value.error).toBe('Error: New threads require a subject or comment.');
   await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false, keyBinds: true })));
-  await page.reload(); await page.locator('h1').click(); await page.keyboard.press('q'); await expect(page.locator('#quickReply')).toHaveCount(0);
+  await page.reload(); await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q'); await expect(page.locator('#quickReply')).toHaveCount(0);
 });
 
 for (const additional of [false, true]) {

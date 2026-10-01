@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -27,7 +28,7 @@ const test = base.extend({
 });
 
 async function openSettings(page) {
-  await page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible').first().click();
+  await watcherSettingsOpener(page).click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
   await expect(dialog).toBeVisible();
   const expand = dialog.locator('#settings-expand-all');

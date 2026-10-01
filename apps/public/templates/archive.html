@@ -1,11 +1,14 @@
 {% extends "base.html" %}
-{% block body_attributes %}{% if board.text_only %} class="text_only"{% endif %}{% endblock %}
+{% import "page_navigation.html" as page_navigation %}
+{% block body_attributes %} data-worksafe="{{ board.worksafe }}" data-page-catalog="false" class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block title %}/{{ board.slug }}/ - Archive{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
+{% block board_navigation %}{% call page_navigation::desktop(navigation(), false, board.worksafe, false) %}{% endcall %}{% call page_navigation::mobile(navigation(), board) %}{% endcall %}{% endblock %}
+{% block page_footer %}{% call page_navigation::desktop(navigation(), false, board.worksafe, true) %}{% endcall %}<div id="absbot" class="absBotText"><div id="footer-links"><a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a> • <a href="/">All boards</a></div></div><div id="bottom"></div><script type="module" src="/static/page-chrome.v1.js"></script>{% endblock %}
 {% block content %}
-<header class="boardHeader"><h1>/{{ board.slug }}/ - Archive</h1><p>{{ board.title }}</p></header>
+<div class="boardBanner"><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">/{{ board.slug }}/ - Archive</div><div class="boardSubtitle">{{ board.title }}</div></div>
 <nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a> / <a href="/{{ board.slug }}/archive">Archive</a> ]</nav>
 <p>Archived threads are read-only and remain available for a limited time.</p>
 <ul class="archiveEntries">

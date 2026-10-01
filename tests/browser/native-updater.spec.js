@@ -63,7 +63,7 @@ test('R inserts only new replies once and obeys the editable-field and settings 
   const reply = await owned.reply('Reply fetched by R');
   await page.locator('#togglePostFormLink a').click(); await page.locator('#com').focus(); await page.keyboard.press('r');
   await expect(page.locator(`#p${reply}`)).toHaveCount(0);
-  await page.locator('h1').click(); await page.keyboard.press('r');
+  await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('r');
   await expect(status(page)).toHaveText('1 new post');
   await page.waitForTimeout(1100); await update(page);
   await expect(status(page)).toHaveText('No new posts');

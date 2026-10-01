@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
 import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
@@ -37,7 +38,7 @@ async function prepare(page, { theme = initial, settings = { disableAll: true },
 }
 const stored = page => page.evaluate(() => window.ownedStoredSettings());
 async function edit(page) {
-  await page.locator('#settingsWindowLink').click(); await expect(page.locator('#theme')).toBeVisible();
+  await watcherSettingsOpener(page).click(); await expect(page.locator('#theme')).toBeVisible();
   await page.locator('#theme-nobinds').check(); await page.locator('#theme-css').fill('.teaser { color: #ff0000; }');
 }
 async function hold(other) {
@@ -94,7 +95,7 @@ for (const [label, retire] of [
       if (label === 'BFCache suspension') {
         await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
         await expect(page.locator('#threads .teaser').first()).toHaveCSS('color', 'rgb(0, 128, 0)');
-        await page.locator('#settingsWindowLink').click(); await expect(page.locator('#theme')).toBeVisible();
+        await watcherSettingsOpener(page).click(); await expect(page.locator('#theme')).toBeVisible();
       }
     } finally { await other.close(); }
   });
@@ -105,7 +106,7 @@ for (const failure of ['no Web Locks', 'denied Web Locks', 'denied storage acces
     await page.locator('#theme-save').click(); await expect(page.locator('#theme-msg')).toContainText('only in this tab');
     expect(await stored(page)).toEqual(before);
     await expect(page.locator('#threads .teaser').first()).toHaveCSS('color', 'rgb(255, 0, 0)');
-    await page.locator('#theme-close').click(); await page.locator('#settingsWindowLink').click();
+    await page.locator('#theme-close').click(); await watcherSettingsOpener(page).click();
     await expect(page.locator('#theme-nobinds')).toBeChecked(); await expect(page.locator('#theme-css')).toHaveValue('.teaser { color: #ff0000; }');
   });
 }
@@ -129,7 +130,7 @@ test('unsafe stored CSS stays inert while valid flags work; unsafe edited CSS ca
   const theme = { nospoiler: true, newtab: true, css: '.teaser { background-image: url(https://example.invalid/owned); } body { display: none; }' };
   await prepare(page, { theme }); await expect(page.locator('body')).toHaveClass(/reveal-img-spoilers/);
   await expect(page.locator('#threads .catalogThumb').first()).toHaveAttribute('target', '_blank');
-  await page.locator('#settingsWindowLink').click(); await expect(page.locator('#theme-msg')).toContainText('could not be applied');
+  await watcherSettingsOpener(page).click(); await expect(page.locator('#theme-msg')).toContainText('could not be applied');
   await expect(page.locator('#theme-css')).toHaveValue(theme.css); const before = await stored(page);
   await page.locator('#theme-save').click(); await expect(page.locator('#theme-msg')).toHaveText('CSS functions are not allowed.');
   expect(await stored(page)).toEqual(before); await expect(page.locator('#theme')).toBeVisible();
@@ -145,7 +146,8 @@ for (const [path, links] of [[catalog, '#threads .catalogThumb'], ['/settingstex
     }, theme);
     await page.route('**/static/thread-watcher.v1.js', route => route.abort('connectionfailed'));
     await page.goto(path); await expect(page.locator('#qf-ctrl')).toBeVisible();
-    await expect(page.locator('#settingsWindowLink')).toHaveCount(0);
+    await expect(page.locator('#settingsWindowLink')).not.toHaveAttribute('data-native-settings-ready', '');
+    await expect(page.locator('#settingsWindowLink')).toHaveAttribute('href', /\/settings\/theme\?worksafe=true$/);
     expect(visualDiagnostics.failedScripts).toEqual([{ path: '/static/thread-watcher.v1.js', error: 'net::ERR_CONNECTION_FAILED' }]);
     await expect(page.locator(links).first()).toHaveAttribute('target', '_blank');
     for (const link of await page.locator(links).all()) {
@@ -158,7 +160,8 @@ for (const [path, links] of [[catalog, '#threads .catalogThumb'], ['/settingstex
     // An explicit fresh navigation, after restoring the owned script, must also
     // restore the actual Settings UI without any automatic transport retry.
     await page.unroute('**/static/thread-watcher.v1.js'); await page.reload();
-    await page.locator('#settingsWindowLink').click(); await expect(page.locator('#theme')).toBeVisible();
+    await expect(page.locator('#settingsWindowLink')).toHaveAttribute('data-native-settings-ready', '');
+    await watcherSettingsOpener(page).click(); await expect(page.locator('#theme')).toBeVisible();
     await expect(page.locator('#theme-newtab')).toBeChecked();
     await expect(page.locator('#theme-msg')).toContainText('could not be applied');
     await expect(page.locator(links).first()).toHaveAttribute('target', '_blank');
@@ -243,7 +246,8 @@ test('catalog watcher and drop-down options apply and clear the actual mounted c
   const boardList = page.getByRole('dialog', { name: 'Custom Board List', exact: true }); await expect(boardList).toBeVisible();
   await boardList.getByLabel('Boards', { exact: true }).fill('settingsui demo');
   await boardList.getByRole('button', { name: 'Save board list', exact: true }).click(); await expect(boardList).toHaveCount(0);
-  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(['settingsui', 'demo']);
+  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(['demo', 'f', 'settingsui', 'zed']);
+  expect(await bar.locator('.nativeCustomBoardLinks a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(['/settingsui/', '/demo/']);
   expect(JSON.parse((await stored(page)).settings).customMenuList).toBe('settingsui demo');
   await bar.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('#theme-tw').uncheck(); await page.locator('#theme-ddn').uncheck(); await page.locator('#theme-save').click();

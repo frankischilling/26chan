@@ -1,0 +1,875 @@
+[
+  {
+    "url": "https://boards.4chan.org/g/",
+    "collected_at": "2026-10-01T03:59:08.897Z",
+    "bytes": 184892,
+    "sha256": "cc88795693b8c045629a5524e1aecb4b31ce6e684c21b44d195d74c5a1711564",
+    "scope": "Ephemeral static navigation, banner-title and footer inspection. No response body, posts, media URLs, scripts, inline handlers or disclaimer text retained.",
+    "absent": [
+      "boardNavDesktopFoot"
+    ],
+    "roots": [
+      {
+        "tag": "div",
+        "id": "boardNavDesktop",
+        "class": "desktop",
+        "children": [
+          {
+            "tag": "span",
+            "class": "boardList",
+            "children": [
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              }
+            ]
+          },
+          {
+            "tag": "span",
+            "id": "navtopright",
+            "children": [
+              {
+                "tag": "a",
+                "id": "settingsWindowLink",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": "boardNavMobile",
+        "class": "mobile",
+        "children": [
+          {
+            "tag": "div",
+            "class": "boardSelect",
+            "children": [
+              {
+                "tag": "strong",
+                "children": []
+              },
+              {
+                "tag": "select",
+                "id": "boardSelectMobile",
+                "children": []
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "class": "pageJump",
+            "children": [
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "id": "settingsWindowLinkMobile",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": "footer-links",
+        "children": [
+          {
+            "tag": "a",
+            "children": []
+          },
+          {
+            "tag": "a",
+            "children": []
+          },
+          {
+            "tag": "a",
+            "children": []
+          },
+          {
+            "tag": "a",
+            "children": []
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "class": "boardBanner",
+        "children": [
+          {
+            "tag": "div",
+            "id": "bannerCnt",
+            "class": "title desktop",
+            "children": []
+          },
+          {
+            "tag": "div",
+            "class": "boardTitle",
+            "children": []
+          }
+        ]
+      }
+    ],
+    "stylesheets": [
+      "https://s.4cdn.org/css/yotsubluenew.716.css",
+      "https://s.4cdn.org/css/yotsubluemobile.716.css",
+      "https://s.4cdn.org/css/xa24extra.css",
+      "https://s.4cdn.org/js/prettify/prettify.716.css"
+    ]
+  },
+  {
+    "url": "https://boards.4chan.org/g/catalog",
+    "collected_at": "2026-10-01T03:59:08.565Z",
+    "bytes": 122456,
+    "sha256": "fba6d93200fb0016f383ec0bb0d7227c9bdd4ba9a995aa6a493a5bd7ef636095",
+    "scope": "Ephemeral static navigation, banner-title and footer inspection. No response body, posts, media URLs, scripts, inline handlers or disclaimer text retained.",
+    "absent": [
+      "boardNavDesktopFoot"
+    ],
+    "roots": [
+      {
+        "tag": "div",
+        "id": "boardNavDesktop",
+        "class": "desktop",
+        "children": [
+          {
+            "tag": "span",
+            "class": "boardList",
+            "children": [
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              }
+            ]
+          },
+          {
+            "tag": "span",
+            "id": "navtopright",
+            "children": [
+              {
+                "tag": "a",
+                "id": "settingsWindowLink",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": "boardNavMobile",
+        "class": "mobile",
+        "children": [
+          {
+            "tag": "div",
+            "class": "boardSelect",
+            "children": [
+              {
+                "tag": "strong",
+                "children": []
+              },
+              {
+                "tag": "select",
+                "id": "boardSelectMobile",
+                "children": []
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "class": "pageJump",
+            "children": [
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "id": "settingsWindowLinkMobile",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              },
+              {
+                "tag": "a",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": "footer-links",
+        "children": [
+          {
+            "tag": "a",
+            "children": []
+          },
+          {
+            "tag": "a",
+            "children": []
+          },
+          {
+            "tag": "a",
+            "children": []
+          },
+          {
+            "tag": "a",
+            "children": []
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "class": "boardBanner",
+        "children": [
+          {
+            "tag": "div",
+            "id": "bannerCnt",
+            "class": "title desktop",
+            "children": []
+          },
+          {
+            "tag": "div",
+            "class": "boardTitle",
+            "children": []
+          }
+        ]
+      }
+    ],
+    "stylesheets": [
+      "https://s.4cdn.org/css/catalog_mobile.705.css"
+    ]
+  }
+]

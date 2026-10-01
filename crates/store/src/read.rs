@@ -25,6 +25,26 @@ pub async fn boards(pool: &PgPool) -> Result<Vec<Board>, StoreError> {
             .await?,
     )
 }
+
+/// Public page content and its bounded navigation directory share one snapshot.
+pub struct PageSnapshot<T> {
+    pub snapshot: T,
+    pub navigation_boards: Vec<Board>,
+}
+
+pub(crate) async fn snapshot_navigation(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    include_navigation: bool,
+) -> Result<Vec<Board>, StoreError> {
+    if !include_navigation {
+        return Ok(Vec::new());
+    }
+    Ok(
+        sqlx::query_as("SELECT * FROM content.boards ORDER BY slug LIMIT 100")
+            .fetch_all(&mut **tx)
+            .await?,
+    )
+}
 pub async fn board(pool: &PgPool, slug: &str) -> Result<Board, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
@@ -69,6 +89,27 @@ pub async fn thread_snapshot_selection(
     id: i64,
     tail: bool,
 ) -> Result<ThreadSnapshot, StoreError> {
+    Ok(read_thread_snapshot(pool, slug, id, tail, false)
+        .await?
+        .snapshot)
+}
+
+/// Include navigation in the same transaction as the full HTML thread.
+pub async fn thread_page_snapshot(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+) -> Result<PageSnapshot<ThreadSnapshot>, StoreError> {
+    read_thread_snapshot(pool, slug, id, false, true).await
+}
+
+async fn read_thread_snapshot(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    tail: bool,
+    include_navigation: bool,
+) -> Result<PageSnapshot<ThreadSnapshot>, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
@@ -123,16 +164,20 @@ pub async fn thread_snapshot_selection(
         .bind(id)
         .fetch_one(&mut *tx)
         .await?;
+    let navigation_boards = snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;
-    Ok(ThreadSnapshot {
-        board,
-        thread: metadata,
-        posts: entries,
-        replies,
-        images,
-        unique_ips,
-        tail_size,
-        tail_id,
+    Ok(PageSnapshot {
+        snapshot: ThreadSnapshot {
+            board,
+            thread: metadata,
+            posts: entries,
+            replies,
+            images,
+            unique_ips,
+            tail_size,
+            tail_id,
+        },
+        navigation_boards,
     })
 }
 pub async fn threads(

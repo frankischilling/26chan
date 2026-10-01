@@ -1,0 +1,13 @@
+{% macro desktop(boards, catalog, worksafe, footer) %}
+<div id="{% if footer %}boardNavDesktopFoot{% else %}boardNavDesktop{% endif %}" class="desktop" role="navigation" aria-label="{% if footer %}Bottom board navigation{% else %}Board navigation{% endif %}">
+<span class="boardList" data-public-board-list>[ {% for entry in boards %}{% if !loop.first %} / {% endif %}<span{% if !entry.worksafe %} class="nwsb"{% endif %}><a href="/{{ entry.slug }}/{% if catalog && entry.slug != "f" %}catalog{% endif %}" title="{{ entry.title }}">{{ entry.slug }}</a></span>{% endfor %} ]</span>
+<span id="{% if footer %}navbotright{% else %}navtopright{% endif %}">[<a id="settingsWindowLink{% if footer %}Bot{% endif %}" href="/settings/theme?worksafe={{ worksafe }}">Settings</a>] [<a href="#boardNavMobile" data-page-mobile="enable">Mobile</a>] [<a href="/">Home</a>]</span>
+</div>
+{% endmacro %}
+
+{% macro mobile(boards, board) %}
+<div id="boardNavMobile" class="mobile" role="navigation" aria-label="Mobile board navigation">
+<div class="boardSelect"><strong>Board</strong> <select id="boardSelectMobile" aria-label="Board">{% for entry in boards %}<option value="{{ entry.slug }}"{% if !entry.worksafe %} class="nwsb"{% endif %}{% if entry.slug == board.slug %} selected{% endif %}>/{{ entry.slug }}/ - {{ entry.title }}</option>{% endfor %}</select></div>
+<div class="pageJump"><a href="#bottom" aria-label="Bottom">▼</a><a id="settingsWindowLinkMobile" href="/settings/theme?worksafe={{ board.worksafe }}">Settings</a><a href="#boardNavDesktop" data-page-mobile="disable">Desktop</a><a href="/">Home</a></div>
+</div>
+{% endmacro %}

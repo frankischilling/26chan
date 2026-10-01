@@ -8,22 +8,35 @@ use std::time::Duration;
 use tower::ServiceExt;
 
 async fn get(app: &axum::Router, path: &str) -> Vec<u8> {
+    let (status, body) = get_response(app, path).await;
+    assert_eq!(status, 200, "{path}");
+    body
+}
+
+async fn get_response(app: &axum::Router, path: &str) -> (u16, Vec<u8>) {
     let response = app
         .clone()
         .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
         .await
         .unwrap();
-    assert_eq!(response.status(), 200, "{path}");
-    response
+    let status = response.status().as_u16();
+    let body = response
         .into_body()
         .collect()
         .await
         .unwrap()
         .to_bytes()
-        .to_vec()
+        .to_vec();
+    (status, body)
 }
 
-async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id: i64) {
+async fn coherent_during_commit(
+    owner: PgPool,
+    public: PgPool,
+    slug: String,
+    other_slug: String,
+    id: i64,
+) {
     let (web, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
     let reader: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
         .fetch_one(&public)
@@ -31,18 +44,23 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
         .unwrap();
     let mut inconsistent = Vec::new();
     for delete in [false, true] {
-        for (app, suffix) in [
-            (&web, "catalog.json"),
-            (&web, "threads.json"),
-            (&web, "1.json"),
-            (&api, "catalog.json"),
-            (&api, "threads.json"),
-            (&api, "1.json"),
-            (&web, ""),
-            (&web, "catalog"),
-            (&web, "catalog?order=absdate"),
-            (&web, "catalog?order=date"),
-            (&web, "catalog?order=r&q=commit"),
+        for (app, suffix, archived) in [
+            (&web, "catalog.json".to_owned(), false),
+            (&web, "threads.json".to_owned(), false),
+            (&web, "1.json".to_owned(), false),
+            (&api, "catalog.json".to_owned(), false),
+            (&api, "threads.json".to_owned(), false),
+            (&api, "1.json".to_owned(), false),
+            (&web, String::new(), false),
+            (&web, "catalog".to_owned(), false),
+            (&web, "catalog?order=absdate".to_owned(), false),
+            (&web, "catalog?order=date".to_owned(), false),
+            (&web, "catalog?order=r&q=commit".to_owned(), false),
+            (&web, format!("thread/{id}"), false),
+            (&web, format!("thread/{id}"), true),
+            (&web, "archive".to_owned(), true),
+            (&web, "archive.json".to_owned(), true),
+            (&api, "archive.json".to_owned(), true),
         ] {
             sqlx::query(
                 "UPDATE content.boards SET title='Before commit',bump_limit=50 WHERE slug=$1",
@@ -51,8 +69,10 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
             .execute(&owner)
             .await
             .unwrap();
-            sqlx::query("UPDATE content.threads SET deleted=false,sticky=false,closed=false,reply_count=0,modified_at='2026-01-01T00:00:00Z' WHERE id=$1")
-            .bind(id).execute(&owner).await.unwrap();
+            sqlx::query("UPDATE content.boards SET title='Other before commit',worksafe=false WHERE slug=$1")
+                .bind(&other_slug).execute(&owner).await.unwrap();
+            sqlx::query("UPDATE content.threads SET deleted=false,sticky=false,closed=false,reply_count=0,modified_at='2026-01-01T00:00:00Z',archived_at=CASE WHEN $2 THEN '2026-01-01T00:00:00Z'::timestamptz END,archive_expires_at=CASE WHEN $2 THEN '2099-01-01T00:00:00Z'::timestamptz END WHERE id=$1")
+            .bind(id).bind(archived).execute(&owner).await.unwrap();
             sqlx::query("DELETE FROM content.posts WHERE board=$1 AND id<>$2")
                 .bind(&slug)
                 .bind(id)
@@ -69,13 +89,24 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
             sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) VALUES($1,$1,decode(repeat('11',32),'hex'),decode(repeat('aa',32),'hex')) ON CONFLICT(post_id) DO NOTHING")
                 .bind(id).execute(&owner).await.unwrap();
             let path = format!("/{slug}/{suffix}");
-            let before = get(app, &path).await;
+            let before = get_response(app, &path).await;
+            assert_eq!(before.0, 200, "{path}");
+            if !suffix.ends_with(".json") {
+                assert!(String::from_utf8_lossy(&before.1).contains("Other before commit"));
+            }
 
             let mut writer = owner.begin().await.unwrap();
             sqlx::query("LOCK TABLE content.posts IN ACCESS EXCLUSIVE MODE")
                 .execute(&mut *writer)
                 .await
                 .unwrap();
+            sqlx::query(
+                "UPDATE content.boards SET title='Other after commit',worksafe=true WHERE slug=$1",
+            )
+            .bind(&other_slug)
+            .execute(&mut *writer)
+            .await
+            .unwrap();
             let writer_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *writer)
                 .await
@@ -105,8 +136,12 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
                 .execute(&mut *writer)
                 .await
                 .unwrap();
-                sqlx::query("UPDATE content.threads SET sticky=true,closed=true,reply_count=1,modified_at='2026-01-02T00:00:00Z' WHERE id=$1")
-                .bind(id).execute(&mut *writer).await.unwrap();
+                sqlx::query("UPDATE content.threads SET sticky=$2,closed=true,reply_count=1,modified_at='2026-01-02T00:00:00Z' WHERE id=$1")
+                .bind(id).bind(!archived).execute(&mut *writer).await.unwrap();
+                if suffix.starts_with("archive") {
+                    sqlx::query("UPDATE content.threads SET archived_at=NULL,archive_expires_at=NULL WHERE id=$1")
+                        .bind(id).execute(&mut *writer).await.unwrap();
+                }
                 sqlx::query("UPDATE content.posts SET comment='After commit' WHERE id=$1")
                     .bind(id)
                     .execute(&mut *writer)
@@ -130,9 +165,21 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
                 }
                 writer.commit().await.unwrap();
             };
-            let (during, ()) = tokio::join!(get(app, &path), commit);
-            let after = get(app, &path).await;
-            if !delete && ["catalog.json", "1.json"].contains(&suffix) {
+            let (during, ()) = tokio::join!(get_response(app, &path), commit);
+            let after = get_response(app, &path).await;
+            assert_eq!(
+                after.0,
+                if delete && suffix.starts_with("thread/") {
+                    404
+                } else {
+                    200
+                },
+                "{path}"
+            );
+            if after.0 == 200 && !suffix.ends_with(".json") {
+                assert!(String::from_utf8_lossy(&after.1).contains("Other after commit"));
+            }
+            if !delete && ["catalog.json", "1.json"].contains(&suffix.as_str()) {
                 let opening = |raw: &[u8]| {
                     let value: serde_json::Value = serde_json::from_slice(raw).unwrap();
                     if suffix == "catalog.json" {
@@ -141,12 +188,12 @@ async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, id:
                         value["threads"][0]["posts"][0]["unique_ips"].clone()
                     }
                 };
-                assert_eq!(opening(&before), 1);
-                assert_eq!(opening(&after), 2);
+                assert_eq!(opening(&before.1), 1);
+                assert_eq!(opening(&after.1), 2);
             }
             assert_ne!(before, after, "the committed control must change {suffix}");
             if during != before && during != after {
-                inconsistent.push(format!("{suffix} delete={delete}"));
+                inconsistent.push(format!("{suffix} archived={archived} delete={delete}"));
             }
         }
     }
@@ -185,7 +232,7 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
         .execute(owner)
         .await
         .unwrap();
-    sqlx::query("UPDATE content.threads SET deleted=false,reply_count=9 WHERE id=$1")
+    sqlx::query("UPDATE content.threads SET deleted=false,reply_count=9,sticky=true,closed=true,archived_at=NULL,archive_expires_at=NULL WHERE id=$1")
         .bind(id)
         .execute(owner)
         .await
@@ -414,21 +461,28 @@ async fn board_representations_use_one_snapshot_during_a_committed_change() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Before commit','Owned snapshot fixture',1000,100,50,10,10)")
-        .bind(&slug).execute(&owner).await.unwrap();
+    // Sort the second owned board early enough to exercise the bounded directory.
+    let other_slug = format!("0{}z", &slug[..8]);
+    let mut fixture = owner.begin().await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES($1,'Before commit','Owned snapshot fixture',1000,100,50,10,10,86400)")
+        .bind(&slug).execute(&mut *fixture).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Other before commit','Owned navigation snapshot fixture',1000,100,50,10,10)")
+        .bind(&other_slug).execute(&mut *fixture).await.unwrap();
     let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
         .bind(&slug)
-        .fetch_one(&owner)
+        .fetch_one(&mut *fixture)
         .await
         .unwrap();
     sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Snapshot','Before commit')")
-        .bind(id).bind(&slug).execute(&owner).await.unwrap();
+        .bind(id).bind(&slug).execute(&mut *fixture).await.unwrap();
+    fixture.commit().await.unwrap();
 
     // Capture assertion failures so the owned board and connections are cleaned.
     let result = tokio::spawn(coherent_during_commit(
         owner.clone(),
         public.clone(),
         slug.clone(),
+        other_slug.clone(),
         id,
     ))
     .await;
@@ -443,8 +497,8 @@ async fn board_representations_use_one_snapshot_during_a_committed_change() {
         .execute(&owner)
         .await
         .unwrap();
-    sqlx::query("DELETE FROM content.boards WHERE slug=$1")
-        .bind(&slug)
+    sqlx::query("DELETE FROM content.boards WHERE slug=ANY($1)")
+        .bind([&slug, &other_slug])
         .execute(&owner)
         .await
         .unwrap();

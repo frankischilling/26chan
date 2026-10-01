@@ -145,10 +145,14 @@ pub async fn page(
         "catalog.json" => api::catalog(&state, &board, &headers).await,
         "archive.json" => api::archive(&state, &board, &headers).await,
         "archive" => {
-            let snapshot = board_store::archive_snapshot(&state.pool, &board).await?;
+            let board_store::PageSnapshot {
+                snapshot,
+                navigation_boards,
+            } = board_store::archive_page_snapshot(&state.pool, &board).await?;
             crate::output::html(
                 &state,
                 &ArchivePage {
+                    navigation_boards,
                     board: snapshot.board,
                     entries: snapshot.entries,
                 },
@@ -191,7 +195,10 @@ async fn board_page(
     } else {
         board_store::BoardSelection::Page(page)
     };
-    let mut snapshot = board_store::board_snapshot(
+    let board_store::PageSnapshot {
+        mut snapshot,
+        navigation_boards,
+    } = board_store::board_page_snapshot(
         &state.pool,
         slug,
         selection,
@@ -237,6 +244,7 @@ async fn board_page(
     crate::output::html(
         state,
         &BoardPage {
+            navigation_boards,
             quote: String::new(),
             catalog_hidden: hidden_views,
             board,
@@ -283,6 +291,10 @@ pub async fn thread(
     let id = key
         .parse()
         .map_err(|_| AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
+    let board_store::PageSnapshot {
+        snapshot,
+        navigation_boards,
+    } = board_store::thread_page_snapshot(&state.pool, &board, id).await?;
     let board_store::ThreadSnapshot {
         board,
         thread,
@@ -290,7 +302,7 @@ pub async fn thread(
         tail_size,
         images,
         ..
-    } = board_store::thread_snapshot(&state.pool, &board, id).await?;
+    } = snapshot;
     let latest_reply_id = posts
         .iter()
         .filter(|post| post.id != thread.id)
@@ -323,6 +335,7 @@ pub async fn thread(
     crate::output::html(
         &state,
         &BoardPage {
+            navigation_boards,
             quote,
             catalog_hidden: Vec::new(),
             board,

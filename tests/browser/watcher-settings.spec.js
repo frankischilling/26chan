@@ -110,7 +110,9 @@ test('no-JavaScript pages retain their working style preference link without ine
   try {
     const page = await context.newPage();
     await page.goto('http://127.0.0.1:3000/test/');
-    await expect(page.locator('#settingsWindowLink, #settingsWindowLinkMobile, #thread-watcher-enable')).toHaveCount(0);
+    await expect(page.locator('[data-native-settings-ready], #thread-watcher-enable')).toHaveCount(0);
+    await expect(page.locator('#settingsWindowLink, #settingsWindowLinkBot, #settingsWindowLinkMobile')).toHaveCount(3);
+    await expect(page.locator('#settingsWindowLink')).toHaveAttribute('href', '/settings/theme?worksafe=true');
     await page.getByRole('link', { name: 'Style', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Style preference', exact: true })).toBeVisible();
     await expect(page.locator('#theme-choice')).toBeVisible();
