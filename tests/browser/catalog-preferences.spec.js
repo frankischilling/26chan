@@ -125,6 +125,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/native-custom-css.v1.js',
     'http://127.0.0.1:3000/static/native-settings-transfer.v1.js',
     'http://127.0.0.1:3000/static/native-quick-reply.v1.js',
+    'http://127.0.0.1:3000/static/page-chrome.v1.js',
   ];
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
     'http://127.0.0.1:3000/static/catalog-preferences.v1.js',
@@ -147,7 +148,12 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   const index = await page.goto('/test/');
   expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual(pageScripts);
-  await expect(page.locator('script')).toHaveCount(1);
+  expect(await page.locator('script').evaluateAll(nodes => nodes.map(node => ({
+    src: node.getAttribute('src'), type: node.type,
+  })))).toEqual([
+    { src: '/static/thread-watcher.v1.js', type: 'module' },
+    { src: '/static/page-chrome.v1.js', type: 'module' },
+  ]);
   await expect(page.locator('#settingsWindowLink')).toBeVisible();
   await expect(page.locator('#thread-watcher-enable')).toHaveCount(0);
   const invalid = await page.goto(`${catalog}?order=invalid`);

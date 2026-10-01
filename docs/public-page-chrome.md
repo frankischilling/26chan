@@ -245,6 +245,24 @@ also reruns all three board/catalog, six archive and ten empty/error-state cases
 successfully. Screenshot tolerance and retries remain zero. The next hosted
 Windows run must pass the complete 1,173-case theme group on the final commit.
 
+The third hosted run passes the workspace Rust tests, then fails the catalog
+browser CSP check because its exact script list omits the new fixed navigation
+module. The list now includes only that module. A local Linux rerun passes the
+policy and denied-script controls, then finds the older one-script element
+count. The assertion now requires the exact two module paths and types, with no
+inline script element. The broader behavior suite must pass after these changes.
+
+That hosted Windows run passes 1,172 of 1,173 theme cases. The remaining case
+fails at navigation with `net::ERR_NO_BUFFER_SPACE`, before comparing the owned
+catalog state. The saved failure screenshot is a blank page. Before themes,
+the host reports 718 TIME_WAIT sockets and about 13.3 GiB of free memory; after
+the group it reports 796 and about 13.4 GiB. These samples do not establish the
+resources at the failing navigation or its cause. The catalog-control fixture
+now uses the existing bounded visual diagnostics, including failure-time host
+aggregates when CI enables them. No retry, pixel tolerance, baseline or test
+selection is changed. This failure remains recorded; a fresh complete hosted
+run is required.
+
 Hosted qualification runs on the pull request; all required checks
 must pass on its final commit before merging. This record does not claim complete
 page or rewrite parity.
