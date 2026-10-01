@@ -1,3 +1,4 @@
+import { fillCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { request as httpRequest } from 'node:http';
@@ -182,13 +183,13 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     const lastAReply = await post(a, '', true);
     await page.goto(`${origin}/test/catalog`);
     const controls = page.getByRole('form', { name: 'Catalog controls' });
-    await controls.getByLabel('Search:', { exact: true }).fill(marker);
+    await controls.getByLabel('Search', { exact: true }).fill(marker);
     for (const [order, expected] of [['alt',[b,c,a]], ['absdate',[a,b,c]], ['date',[c,b,a]], ['r',[a,b,c]]]) {
       await controls.getByLabel('Sort by:', { exact: true }).selectOption(order);
       await controls.getByRole('button', { name: 'Apply', exact: true }).click();
       const actual = await page.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
       expect(actual).toEqual(expected);
-      await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue(marker);
+      await expect(controls.getByLabel('Search', { exact: true })).toHaveValue(marker);
       await page.reload();
       await expect(controls.getByLabel('Sort by:', { exact: true })).toHaveValue(order);
     }
@@ -197,18 +198,18 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     await controls.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect(page.locator('#threads')).toHaveClass('catalog large');
     await expect(page.locator('.teaser')).toHaveCount(0);
-    await controls.getByLabel('Search:', { exact: true }).fill(`${marker} Alpha [.*]`);
+    await controls.getByLabel('Search', { exact: true }).fill(`${marker} Alpha [.*]`);
     await controls.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect(page.locator('.catalog .thread')).toHaveCount(1);
     await expect(page.locator('.catalog .thread')).toHaveAttribute('id', `thread-${a}`);
-    await controls.getByLabel('Search:', { exact: true }).fill('(?=unsupported)<script>');
+    await controls.getByLabel('Search', { exact: true }).fill('(?=unsupported)<script>');
     await controls.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect(page.locator('.empty')).toContainText('No matching threads.');
     await expect(page.locator('#ctrl script')).toHaveCount(0);
-    await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue('(?=unsupported)<script>');
+    await expect(controls.getByLabel('Search', { exact: true })).toHaveValue('(?=unsupported)<script>');
     await controls.getByRole('link', { name: 'Reset', exact: true }).click();
     await expect(page).toHaveURL(`${origin}/test/catalog`);
-    await expect(controls.getByLabel('Search:', { exact: true })).toHaveValue('');
+    await expect(controls.getByLabel('Search', { exact: true })).toHaveValue('');
     await expect(page.locator('#threads')).toHaveClass('catalog extended-small');
     const liveContext = await browser.newContext();
     try {
@@ -219,7 +220,7 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
       await live.evaluate(() => { window.originalCards = Array.from(document.querySelectorAll('.catalog .thread')); });
       const ids = () => live.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
       expect(await ids()).toEqual([a]);
-      await live.locator('#qf-box').fill(marker);
+      await fillCatalogSearch(live, marker);
       await expect.poll(() => new URL(live.url()).searchParams.get('q')).toBe(marker);
       expect(await ids()).toEqual([b,c,a]);
       for (const [order, expected] of [['date',[c,b,a]], ['absdate',[a,b,c]], ['r',[a,b,c]], ['alt',[b,c,a]]]) {

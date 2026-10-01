@@ -60,6 +60,7 @@
 {% else %}<p class="empty">{% if catalog && !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. {% if catalog %}<a href="/{{ board.slug }}/#reply">Start the first thread</a>.{% else %}Start the first thread above.{% endif %}{% endif %}</p>{% endfor %}
 {% endif %}
 </div>
+{% if catalog %}<span id="search-label-bottom">Search: <span id="search-term-bottom"></span></span>{% endif %}
 {% if posting_allowed() %}<div class="mobile postFormBottom" hidden><a class="mobilePostFormToggle button" href="#mpostform" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>{% endif %}
 {% if parent > 0 %}
 <div id="bottom">

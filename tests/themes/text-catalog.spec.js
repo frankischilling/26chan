@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from '../browser/catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon'];
@@ -73,11 +74,11 @@ test.describe('live text rows', () => {
     await pinned.locator('.postMenuBtn').click();
     await page.getByRole('menuitem', { name: 'Unhide thread', exact: true }).click();
     await expect(rows).toHaveCount(6);
-    await page.locator('#qf-box').fill('Synthetic counter fixture');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(page, 'Synthetic counter fixture');
+    await applyCatalogSearch(page);
     await expect(rows).toHaveCount(6);
-    await page.locator('#qf-box').fill('^absent-text-catalog$');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(page, '^absent-text-catalog$');
+    await applyCatalogSearch(page);
     await expect(rows).toHaveCount(0);
     await expect(page.locator('#threads > .empty')).toContainText('No matching threads.');
     await page.getByRole('link', { name: 'Show all threads', exact: true }).click();

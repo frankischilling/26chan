@@ -1,3 +1,4 @@
+import { fillCatalogSearch } from '../browser/catalog-actions.js';
 import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
@@ -51,7 +52,7 @@ test('stored reveal does not fetch hidden or filtered spoiler thumbnails until s
   await page.goto('/img/catalog?q=^NO_MATCH_EXPECTED$');
   await expect(page.locator('#threads > .thread')).toHaveCount(0);
   expect(requested).not.toContain(data.source);
-  await page.locator('#qf-box').fill('');
+  await fillCatalogSearch(page, '');
   await expect(page.locator(`#thread-${data.id}`)).toBeVisible();
   await page.locator(`#thread-${data.id} img`).scrollIntoViewIfNeeded();
   await expect.poll(() => requested.includes(data.source)).toBe(true);

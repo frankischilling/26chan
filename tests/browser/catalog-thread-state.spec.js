@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 const a = '9007199254740993';
@@ -57,8 +58,8 @@ test('search can surface hidden threads while the hidden view takes precedence o
   await page.locator(`#thumb-${a}`).click({ modifiers: ['Shift'] });
   expect(await ids(page)).toEqual([d, c, b]);
   await expect(page.locator('#hidden-count')).toHaveText('1');
-  await page.locator('#qf-box').fill('Alpha');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'Alpha');
+  await applyCatalogSearch(page);
   expect(await ids(page)).toEqual([a]);
   await expect(page.locator('#hidden-label')).toBeHidden();
   await page.locator('#qf-box').press('Escape');
@@ -66,8 +67,8 @@ test('search can surface hidden threads while the hidden view takes precedence o
   await page.locator('#filters-clear-hidden').click();
   expect(await ids(page)).toEqual([a]);
   await expect(page.locator('#filters-clear-hidden')).toHaveText('Back');
-  await page.locator('#qf-box').fill('Bravo');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'Bravo');
+  await applyCatalogSearch(page);
   expect(await ids(page)).toEqual([a]);
   await action(page, a, 'Unhide thread');
   expect(await ids(page)).toEqual([b]);
@@ -131,8 +132,8 @@ test('hiding every card remains reversible and search-menu unhide performs its l
   await page.getByRole('link', { name: 'Show hidden threads', exact: true }).click();
   expect(await ids(page)).toEqual([d, c, b, a]);
   await page.locator('#filters-clear-hidden-bottom').click();
-  await page.locator('#qf-box').fill('Alpha');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'Alpha');
+  await applyCatalogSearch(page);
   expect(await ids(page)).toEqual([a]);
   await action(page, a, 'Unhide thread');
   expect(await ids(page)).toEqual([a]);

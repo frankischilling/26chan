@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 const catalog = '/test/catalog';
@@ -15,8 +16,8 @@ test('catalog preferences save on changes and restore in a fresh tab without sto
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   await page.locator('#teaser-ctrl').selectOption('off');
   await expect(page.locator('#threads')).toHaveClass('catalog large');
-  await page.locator('#qf-box').fill('private search [.*] <script>');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'private search [.*] <script>');
+  await applyCatalogSearch(page);
   await expect.poll(() => stored(page)).toEqual(saved);
   const fresh = await context.newPage();
   let freshNavigations = 0;

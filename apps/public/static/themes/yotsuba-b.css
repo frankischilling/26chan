@@ -1,4 +1,6 @@
 :root {
+  --catalog-field-focus: #9988ee;
+  --catalog-button-color: #34345c; --catalog-button-edge: #b7c5d9; --catalog-button-paper: #d6daf0; --catalog-button-image: url('/static/watcher/buttonfade-blue.png');
   --capcode-highlight: #c1c6e2; --capcode-highlight-edge: #7b82ac;
   --paper: #eef2ff; --ink: #000000; --panel: #d6daf0; --edge: #b7c5d9;
   --link: #34345c; --hover: #dd0000; --quote-link: #dd0000;

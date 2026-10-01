@@ -1,16 +1,19 @@
 # Live catalog search
 
-Search now updates the catalog after 250 ms of input inactivity without a
-document request. Apply runs it immediately; Escape clears it; Reset clears
-search and display preferences in place. Composition waits until the input is
-committed. The ordinary GET form remains available without JavaScript or when
-the enhancement lacks complete metadata.
+The current [Search controls](catalog-search-controls.md) follow the pinned
+public client's opening/closing, keyup, session and mobile label rules. Search
+updates after 250 ms without a document request; Enter uses the same debounce.
+Escape closes the field and restores the catalog. Reset clears search and display
+preferences in place. The ordinary GET form remains available without JavaScript
+or complete metadata. Older synthetic fixtures without the new controls retain
+their input/composition enhancement and immediate Apply behavior.
 
 The pinned v1025 client establishes the debounce, operator rules, session keys
-and `#s=` restoration behavior. The local always-visible controls, input event
-handling, explicit query precedence and canonical URL updates are extensions,
-not evidence of full control-layout parity. Generated teaser preprocessing,
-filter menus and hidden/pinned-thread behavior remain unfinished.
+and `#s=` restoration behavior. The later whole-client replay now checks the
+Search controls independently. Explicit query precedence and canonical local
+URL updates remain extensions. Teasers, thread menus, hidden/pinned state and
+previews have since been implemented in their stated scopes. Unknown server-side
+normalization and complete original-page comparisons remain open.
 
 ## Complete public snapshot
 
@@ -39,7 +42,8 @@ sticky priority and exact integer ranks.
 Search uses only `sessionStorage` keys `4chan-catalog-search` and
 `4chan-catalog-search-board`; it is not written to persistent display preferences.
 A fresh independent tab starts without a search. A bare catalog visit restores
-a valid same-board search and clears a different board's saved search. Other
+a valid same-board search and clears a different board's saved search. Closing
+Search removes the query while retaining the board key. Other
 fragments suppress session restoration. A bounded `#s=` fragment accepts URL
 decoding and plus-as-space. Malformed or excessive fragments are ignored safely.
 

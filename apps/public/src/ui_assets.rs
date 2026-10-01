@@ -209,6 +209,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("../static/catalog/closed@2x.gif"),
     ),
     (
+        "/static/catalog/buttonfade-dark.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttonfade-dark.png"),
+    ),
+    (
         "/static/watcher/futaba/watch_thread_off.png",
         "image/png",
         include_bytes!("../static/watcher/futaba/watch_thread_off.png"),

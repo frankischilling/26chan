@@ -1,0 +1,2618 @@
+{
+  "scope": "Full pinned public catalog client executes on two owned synthetic cards and static selector shape. All external browser requests denied. This is a control reference, not an original full-page snapshot.",
+  "client": {
+    "url": "https://s.4cdn.org/js/catalog.min.1025.js",
+    "bytes": 51921,
+    "sha256": "ce645b150e747f9ad1682dc005daf30d7bc1a9f2cd473b4f1e55f99adf76fa9f"
+  },
+  "dom_observation": {
+    "url": "https://boards.4chan.org/g/catalog",
+    "collected_utc": "2026-09-30T23:09:46.177Z",
+    "bytes": 120825,
+    "sha256": "678b99af5cd8a099f06c0d62906267dd816355916bffa5b701a3cecf218feade",
+    "retained": "Static tags/classes/IDs only. No post text, values, filenames, links, embedded catalog data or response retained."
+  },
+  "environment": {
+    "chromium": "151.0.7922.34",
+    "density": 1,
+    "viewports": [
+      [
+        1280,
+        900
+      ],
+      [
+        390,
+        900
+      ]
+    ],
+    "clock": "2026-09-08T12:00:00Z",
+    "paused_at": "2026-09-08T13:00:00Z",
+    "network": "Every nonfixture request aborted.",
+    "focus": "Recorded only while the Search field is shown; hidden-input blur timing belongs to the browser."
+  },
+  "styles": [
+    {
+      "path": "css/catalog_yotsuba_new.705.css",
+      "bytes": 28015,
+      "sha256": "1c277be1b3963220228d8981abc26328d2c444b82292f9d23ee2e44e93588410",
+      "downloaded_utc": "2026-09-13T06:20:14.5904824Z"
+    },
+    {
+      "path": "css/catalog_yotsuba_b_new.705.css",
+      "bytes": 28098,
+      "sha256": "7d2731cec02c89685d2fd3a3230b0837dbc8dcfb7c5992dfae747d1613dc7d0c",
+      "downloaded_utc": "2026-09-13T06:20:14.6512871Z"
+    },
+    {
+      "path": "css/catalog_futaba_new.705.css",
+      "bytes": 27482,
+      "sha256": "b1ac2ceab0d075a7089a8ccf5ecea53909aa12697e189202ee3ee8e445eff77b",
+      "downloaded_utc": "2026-09-13T06:20:14.6768221Z"
+    },
+    {
+      "path": "css/catalog_burichan_new.705.css",
+      "bytes": 27257,
+      "sha256": "df8300559e21147bebaa130f45b2175e1d2ffe1dcc0f9e8dbefa2faa73361c9f",
+      "downloaded_utc": "2026-09-13T06:20:14.7013541Z"
+    },
+    {
+      "path": "css/catalog_tomorrow.705.css",
+      "bytes": 27725,
+      "sha256": "581df4378f0b915bf950a838b28e3e0d103cae9844d5f3b20d1544796d071dc1",
+      "downloaded_utc": "2026-09-13T06:20:14.7249174Z"
+    },
+    {
+      "path": "css/catalog_photon.705.css",
+      "bytes": 27510,
+      "sha256": "ad0f3c28ac04f7059cac7c2e6ccf32808c361a61462fc5db4399d945bb4d625d",
+      "downloaded_utc": "2026-09-13T06:20:14.7454892Z"
+    },
+    {
+      "path": "css/catalog_mobile.705.css",
+      "bytes": 7492,
+      "sha256": "df6577e72e1fa6837da522fe9da2cb56152203e9fb5b8ccaef242e4219a7a4f2",
+      "downloaded_utc": "2026-09-13T06:15:54Z"
+    }
+  ],
+  "controlsAssets": [
+    {
+      "url": "https://s.4cdn.org/image/buttonfade.png",
+      "path": "apps/public/static/watcher/buttonfade.png",
+      "bytes": 113,
+      "sha256": "9ee7e6f152b09e958ffd72a72b9b8a1ba4f6db0bf3c68f0dbe4326432fa79cae",
+      "dimensions": [
+        1,
+        32
+      ],
+      "collected_utc": "2026-09-30T23:37:46.691Z"
+    },
+    {
+      "url": "https://s.4cdn.org/image/buttonfade-blue.png",
+      "path": "apps/public/static/watcher/buttonfade-blue.png",
+      "bytes": 113,
+      "sha256": "5a08b65825b6090fced4c652510ccee11c08a1dcfc1c2434c4dbfb0d5f413b3d",
+      "dimensions": [
+        1,
+        32
+      ],
+      "collected_utc": "2026-09-30T23:37:46.712Z"
+    },
+    {
+      "url": "https://s.4cdn.org/image/buttonfade-dark.png",
+      "path": "apps/public/static/catalog/buttonfade-dark.png",
+      "bytes": 105,
+      "sha256": "396468a066547506b4fb938ab88df37936b7ba627ea1523e463cd3ffa9c04f14",
+      "dimensions": [
+        1,
+        32
+      ],
+      "collected_utc": "2026-09-30T23:37:46.725Z"
+    }
+  ],
+  "behavior": [
+    {
+      "label": "initial",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "opened",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "debounce-249",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "debounce-250",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "escape",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "crane",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "reopened",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "close-button",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "boat",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "shortcut-open",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "shortcut-clears-active-input",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "cleared-input-applied",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "pending-close",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "boat",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "pending-close-250",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "boat",
+      "focus": null,
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "same-board-session",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "different-board-session",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "fragment-search",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "Owned boat",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "Owned boat",
+        "Owned boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "Owned boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "input-without-keyup",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "composition-keyup",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "boat",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "composition-end-without-keyup",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "boat",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "enter-immediate",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "enter-250",
+      "width": 1280,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "inline"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "control-shortcut",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "alt-shortcut",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "shift-shortcut",
+      "width": 1280,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "initial",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "opened",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "debounce-249",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "debounce-250",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "escape",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "crane",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "reopened",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "close-button",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "boat",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "shortcut-open",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "shortcut-clears-active-input",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "cleared-input-applied",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "pending-close",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "boat",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": "demo"
+      }
+    },
+    {
+      "label": "pending-close-250",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "boat",
+      "focus": null,
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "same-board-session",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "different-board-session",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "fragment-search",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "Owned boat",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "Owned boat",
+        "Owned boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "Owned boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "input-without-keyup",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "composition-keyup",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "boat",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "composition-end-without-keyup",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "boat",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "enter-immediate",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "boat",
+        "boat"
+      ],
+      "cards": [
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": "boat",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "enter-250",
+      "width": 390,
+      "display": "inline",
+      "active": true,
+      "value": "crane",
+      "focus": "qf-box",
+      "labels": [
+        "inline",
+        "none"
+      ],
+      "terms": [
+        "crane",
+        "crane"
+      ],
+      "cards": [
+        "thread-1000001"
+      ],
+      "stored": {
+        "query": "crane",
+        "board": "demo"
+      }
+    },
+    {
+      "label": "control-shortcut",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "alt-shortcut",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    },
+    {
+      "label": "shift-shortcut",
+      "width": 390,
+      "display": "none",
+      "active": false,
+      "value": "",
+      "focus": null,
+      "labels": [
+        "none",
+        "none"
+      ],
+      "terms": [
+        "",
+        ""
+      ],
+      "cards": [
+        "thread-1000001",
+        "thread-1000002"
+      ],
+      "stored": {
+        "query": null,
+        "board": null
+      }
+    }
+  ],
+  "cases": [
+    {
+      "theme": "yotsuba",
+      "width": 1280,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(128, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "width": 1280,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(128, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "12px",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(238, 170, 136)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "width": 390,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(136, 0, 0)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(192, 166, 157)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "width": 390,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(136, 0, 0)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(192, 166, 157)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "18px",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(238, 170, 136)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "width": 1280,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(0, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "width": 1280,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(0, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "12px",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(153, 136, 238)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "width": 390,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(52, 52, 92)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(183, 197, 217)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade-blue.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "width": 390,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(52, 52, 92)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(183, 197, 217)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade-blue.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "18px",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(153, 136, 238)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "futaba",
+      "width": 1280,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "color": "rgb(128, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "13.3333px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "futaba",
+      "width": 1280,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "color": "rgb(128, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "15px",
+          "fontSize": "13.3333px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "futaba",
+      "width": 390,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "color": "rgb(136, 0, 0)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(192, 166, 157)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "futaba",
+      "width": 390,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "color": "rgb(136, 0, 0)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(192, 166, 157)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "18px",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "burichan",
+      "width": 1280,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "color": "rgb(0, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "13.3333px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "burichan",
+      "width": 1280,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "color": "rgb(0, 0, 0)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "15px",
+          "fontSize": "13.3333px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "burichan",
+      "width": 390,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "color": "rgb(52, 52, 92)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(183, 197, 217)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade-blue.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "burichan",
+      "width": 390,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "color": "rgb(52, 52, 92)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(183, 197, 217)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade-blue.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "18px",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px 2px",
+          "margin": "0px 5px 0px 0px",
+          "boxSizing": "content-box",
+          "borderWidth": "2px",
+          "borderColor": "rgb(118, 118, 118)",
+          "borderStyle": "inset",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "16px"
+        }
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "width": 1280,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(197, 200, 198)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(197, 200, 198)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "width": 1280,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(197, 200, 198)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(197, 200, 198)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "12px",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "width": 390,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(112, 112, 112)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(40, 42, 46)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(27, 28, 30)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade-dark.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "width": 390,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(112, 112, 112)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(40, 42, 46)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgb(27, 28, 30)",
+          "backgroundImage": "url(\"https://reference.invalid/image/buttonfade-dark.png\")",
+          "backgroundRepeat": "repeat-x"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "18px",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "photon",
+      "width": 1280,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(51, 51, 51)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(51, 51, 51)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "photon",
+      "width": 1280,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "right",
+          "lineHeight": "normal"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "color": "rgb(51, 51, 51)",
+          "borderWidth": "0px",
+          "borderColor": "rgb(51, 51, 51)",
+          "borderStyle": "none",
+          "borderRadius": "0px",
+          "padding": "0px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"[\"",
+          "after": "\"]\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "12px",
+          "fontSize": "11px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(238, 170, 136)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "photon",
+      "width": 390,
+      "state": "closed",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(51, 51, 51)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(204, 204, 204)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "linear-gradient(rgb(238, 238, 238) 0%, rgb(224, 224, 224) 100%)",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "none"
+        },
+        "input": {
+          "width": "75px",
+          "height": "auto",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    },
+    {
+      "theme": "photon",
+      "width": 390,
+      "state": "open",
+      "values": {
+        "settings": {
+          "float": "right",
+          "textAlign": "center",
+          "lineHeight": "40px"
+        },
+        "wrapper": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "700",
+          "color": "rgb(51, 51, 51)",
+          "borderWidth": "1px",
+          "borderColor": "rgb(204, 204, 204)",
+          "borderStyle": "solid",
+          "borderRadius": "3px",
+          "padding": "6px 10px 5px",
+          "whiteSpace": "normal",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "linear-gradient(rgb(238, 238, 238) 0%, rgb(224, 224, 224) 100%)",
+          "backgroundRepeat": "repeat"
+        },
+        "button": {
+          "cursor": "pointer",
+          "userSelect": "none",
+          "whiteSpace": "nowrap"
+        },
+        "brackets": {
+          "before": "\"\"",
+          "after": "\"\""
+        },
+        "container": {
+          "display": "inline"
+        },
+        "input": {
+          "width": "75px",
+          "height": "18px",
+          "fontSize": "16px",
+          "fontFamily": "Arial",
+          "padding": "1px",
+          "margin": "0px 5px 0px 2px",
+          "boxSizing": "content-box",
+          "borderWidth": "1px",
+          "borderColor": "rgb(238, 170, 136)",
+          "borderStyle": "solid",
+          "lineHeight": "normal",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)"
+        },
+        "clear": {
+          "textDecorationLine": "none",
+          "borderWidth": "0px",
+          "fontSize": "13.3333px"
+        }
+      }
+    }
+  ]
+}

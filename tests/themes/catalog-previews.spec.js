@@ -1,3 +1,4 @@
+import { fillCatalogSearch } from '../browser/catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test.use({ javaScriptEnabled: true });
@@ -66,8 +67,8 @@ test('hover delay, mouseout and catalog mutations cancel pending previews', asyn
   await expect(tip).toHaveCount(0);
   await page.keyboard.press('Escape');
   await target.dispatchEvent('mouseover');
-  await page.locator('#qf-box').fill('^absent-owned-preview$');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, '^absent-owned-preview$');
+  await page.locator('#qf-box').press('Enter');
   await page.clock.runFor(250);
   await expect(tip).toHaveCount(0);
   await expect(page.locator('#threads .thread')).toHaveCount(0);
@@ -151,8 +152,9 @@ test('preview page numbers retain bump ranking after sort, pin and filtering', a
   await expect(target).toHaveClass(/\bpinned\b/);
   await show(page, target);
   await expect(label).toHaveText(original);
-  await page.locator('#qf-box').fill('Both limits reached');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'Both limits reached');
+  await page.locator('#qf-box').press('Enter');
+  await page.clock.runFor(250);
   await show(page, target);
   await expect(label).toHaveText(original);
 });

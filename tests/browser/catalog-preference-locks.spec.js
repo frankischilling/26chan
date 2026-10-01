@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 const catalog = '/test/catalog';
@@ -72,8 +73,8 @@ test('reset updates the catalog before its held-lock preference removal commits'
 
 test('cross-tab restore cancels a queued save without replacing local display; restore event applies in place', async ({ page, context }) => {
   await prepare(page);
-  await page.locator('#qf-box').fill('owned search');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'owned search');
+  await applyCatalogSearch(page);
   const other = await context.newPage();
   await holdLock(other);
   let navigations = 0;

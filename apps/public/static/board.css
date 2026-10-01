@@ -67,6 +67,47 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .catalogControl { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
 .catalogControls input { width: 150px; max-width: 100%; }
 .catalogControls select, .catalogControls input, .catalogControls button { font: inherit; }
+/* Pinned catalog control geometry; the GET controls remain usable without JS. */
+:root {
+  --catalog-controls-font: arial, helvetica, sans-serif; --catalog-controls-size: 10pt;
+  --catalog-field-font: 11px; --catalog-field-padding: 1px; --catalog-field-margin: 0 5px 0 2px;
+  --catalog-field-border: 1px solid #aaa; --catalog-field-focus: #ea8;
+  --catalog-button-color: #880000; --catalog-button-edge: #c0a69d; --catalog-button-paper: #f0e0d6;
+  --catalog-button-image: url('/static/watcher/buttonfade.png'); --catalog-button-repeat: repeat-x;
+}
+#search-label, #search-label-bottom { display: none; }
+.catalogControls > .mobile { display: none; }
+.catalogControls:not(.nativeCatalogControls) { display: block; }
+.catalogControls:not(.nativeCatalogControls) .btn-wrap { display: none; }
+.catalogControls:not(.nativeCatalogControls) #info { display: none; }
+.catalogControls:not(.nativeCatalogControls) #settings { display: flex; width: 100%; flex-wrap: wrap; align-items: center; gap: 5px; }
+.catalogControls:not(.nativeCatalogControls) #qf-cnt { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
+.nativeCatalogControls { display: block; color: var(--ink, #800000); font: var(--catalog-controls-size) var(--catalog-controls-font); line-height: normal; }
+.nativeCatalogControls #info { float: left; }
+.nativeCatalogControls #settings { float: right; text-align: right; line-height: normal; }
+.nativeCatalogControls .catalogControl { display: inline; }
+.nativeCatalogControls .catalogSearchFallback, .nativeCatalogControls .catalogApplyFallback { display: none; }
+.nativeCatalogControls .clear { clear: both; }
+.nativeCatalogControls .btn-wrap { border: 0; padding: 0; background: transparent; border-radius: 0; font-weight: normal; white-space: normal; }
+.nativeCatalogControls .btn-wrap::before { content: '['; }
+.nativeCatalogControls .btn-wrap::after { content: ']'; }
+.nativeCatalogControls .button { display: inline; padding: 0; margin: 0; border: 0; background: transparent; color: inherit; font: inherit; line-height: normal; cursor: pointer; user-select: none; white-space: nowrap; }
+.nativeCatalogControls .button[hidden] { display: none; }
+.nativeCatalogControls .button.active { font-weight: bold; }
+.nativeCatalogControls #qf-box { width: 75px; max-width: none; height: auto; min-width: 0; padding: var(--catalog-field-padding); margin: var(--catalog-field-margin); box-sizing: content-box; border: var(--catalog-field-border); border-radius: 0; font: var(--catalog-field-font) Arial; color: #000; background: #fff; line-height: normal; }
+.nativeCatalogControls #qf-clear { text-decoration: none; }
+.nativeCatalogControls #qf-box:focus { border-color: var(--catalog-field-focus); }
+@media (max-width: 480px) {
+  .nativeCatalogControls { text-align: center; }
+  .nativeCatalogControls #info { float: none; line-height: 30px; }
+  .nativeCatalogControls #settings { text-align: center; line-height: 40px; }
+  .nativeCatalogControls > hr.mobile { display: block; margin-top: 10px; }
+  .nativeCatalogControls .catalogControl { white-space: nowrap; }
+  .nativeCatalogControls .btn-wrap { border-radius: 3px; font-weight: bold; padding: 6px 10px 5px; background-color: var(--catalog-button-paper); background-image: var(--catalog-button-image); background-repeat: var(--catalog-button-repeat); border: 1px solid var(--catalog-button-edge); color: var(--catalog-button-color); cursor: pointer; }
+  .nativeCatalogControls .btn-wrap::before, .nativeCatalogControls .btn-wrap::after { content: ''; }
+  .nativeCatalogControls #qf-box { font-size: 16px; }
+  #search-label-bottom { display: none !important; }
+}
 @media (max-width: 480px) { .catalog.small .thread, .catalog.extended-small .thread { width: 155px; } }
 .boardDirectory, .message { max-width: 720px; margin: 30px auto; padding: 15px; background: #f0e0d6; border: 1px solid #d9bfb7; }
 .boardDirectory article { border-top: 1px solid #d9bfb7; }

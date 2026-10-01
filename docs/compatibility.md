@@ -2,6 +2,13 @@
 
 ## Active reference boundary
 
+The [catalog Search controls](catalog-search-controls.md) now have a whole-client
+public v1025 replay covering 46 behavior states and 24 style cases. The local
+enhancement follows keyup, open/close, session, keyboard and six-theme rules while
+retaining bounded queries, fixed assets and the ordinary GET fallback. Its owned
+fixtures establish the listed properties, not complete original-page parity or
+unknown server-side teaser normalization in #82.
+
 The mobile-header continuation adds [post tooltips](post-tooltips.md), with
 released relative-date boundaries, full-name hover timing and 18 synthetic
 style/placement cases across six themes. Finite original-post admission and

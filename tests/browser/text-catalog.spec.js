@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted text catalogs restore GET-excluded rows and sort live without navigation', async ({ browser, request }) => {
@@ -35,20 +36,20 @@ test('persisted text catalogs restore GET-excluded rows and sort live without na
     await expect(live.locator('#threads .wbtn')).toHaveCount(0);
     let navigations = 0;
     live.on('request', request => { if (request.isNavigationRequest()) navigations++; });
-    await live.locator('#qf-box').fill(marker);
-    await live.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(live, marker);
+    await applyCatalogSearch(live);
     const rows = live.locator('#threads tbody > tr');
     await expect(rows).toHaveCount(3);
     await live.locator('#order-ctrl').selectOption('date');
     expect(await rows.evaluateAll(nodes => nodes.map(node => node.dataset.threadId))).toEqual([...created].reverse());
     await live.locator('#order-ctrl').selectOption('r');
     expect(await rows.evaluateAll(nodes => nodes.map(node => node.dataset.threadId))).toEqual(created);
-    await live.locator('#qf-box').fill('^absent-owned-text-catalog$');
-    await live.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(live, '^absent-owned-text-catalog$');
+    await applyCatalogSearch(live);
     await expect(rows).toHaveCount(0);
     await expect(live.locator('#threads > .empty')).toBeVisible();
-    await live.locator('#qf-box').fill(marker);
-    await live.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(live, marker);
+    await applyCatalogSearch(live);
     await expect(rows).toHaveCount(3);
     await expect(live.locator('#threads > .empty')).toHaveCount(0);
     await expect(rows.locator('.postMenuBtn')).toHaveCount(3);

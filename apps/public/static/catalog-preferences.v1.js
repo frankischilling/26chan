@@ -8,6 +8,9 @@ import { NativeWatchLock } from './native-filter.v1.js';
   const teaser = document.getElementById('teaser-ctrl');
   const reset = document.getElementById('catalog-reset');
   const search = document.getElementById('qf-box');
+  const searchToggle = document.getElementById('qf-ctrl');
+  const searchContainer = document.getElementById('qf-cnt');
+  const searchClose = document.getElementById('qf-clear');
   const preferenceStatus = document.getElementById('catalog-preference-status');
   const spoilers = document.getElementById('theme-nospoiler');
   const spoilerControl = spoilers instanceof HTMLSelectElement;
@@ -92,6 +95,20 @@ import { NativeWatchLock } from './native-filter.v1.js';
   const searchReady = entries !== null && search instanceof HTMLInputElement
     && hidden instanceof HTMLTemplateElement && entries.every(entry => entry.fields !== null)
     && action.origin === location.origin && action.pathname === location.pathname;
+  const searchControlsReady = searchReady && searchToggle instanceof HTMLButtonElement
+    && searchClose instanceof HTMLButtonElement && searchContainer instanceof HTMLSpanElement
+    && form.contains(searchToggle) && searchContainer.contains(search) && searchContainer.contains(searchClose);
+  const searchLabels = ['', '-bottom'].map(suffix => ({
+    label: document.getElementById(`search-label${suffix}`), term: document.getElementById(`search-term${suffix}`),
+  })).filter(({ label, term }) => label instanceof HTMLSpanElement && term instanceof HTMLSpanElement && label.contains(term));
+  const showSearchLabels = query => {
+    if (!searchControlsReady) return;
+    for (const { label, term } of searchLabels) {
+      if (query) term.textContent = query;
+      label.style.display = query ? 'inline' : 'none';
+    }
+  };
+  let searchOpen = false;
   const originalEmpty = container?.querySelector(':scope > .empty');
   let renderedOrder = hiddenCount ? null : order.value;
   let renderedQuery = search instanceof HTMLInputElement ? search.value : '';
@@ -484,14 +501,14 @@ import { NativeWatchLock } from './native-filter.v1.js';
     if (!valid(value)) return;
     persistPreference(JSON.stringify(value));
   };
-  const saveSearch = query => {
+  const saveSearch = (query, keepBoard = false) => {
     try {
       if (query) {
         sessionStorage.setItem(searchKey, query);
         sessionStorage.setItem(boardKey, board);
       } else {
         sessionStorage.removeItem(searchKey);
-        sessionStorage.removeItem(boardKey);
+        if (!keepBoard) sessionStorage.removeItem(boardKey);
       }
     } catch { /* Search does not depend on storage. */ }
   };
@@ -596,7 +613,7 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (message) container.append(message);
     }
     entriesRoot.replaceChildren(fragment);
-    if (searchReady) renderedQuery = query;
+    if (searchReady) { renderedQuery = query; showSearchLabels(query); }
     if (stateReady) { if (persistPins) persistState(pinKey, pins); updateStateControls(); }
     return true;
   };
@@ -610,11 +627,12 @@ import { NativeWatchLock } from './native-filter.v1.js';
     }
     search.setCustomValidity('');
     if (!apply(current(), search.value)) return false;
-    saveSearch(renderedQuery);
+    saveSearch(renderedQuery, searchControlsReady);
     updateURL(current());
     return true;
   };
   form.addEventListener('submit', event => {
+    if (searchControlsReady) { event.preventDefault(); return; }
     save();
     if (searchReady) { event.preventDefault(); applySearch(); }
   });
@@ -635,6 +653,38 @@ import { NativeWatchLock } from './native-filter.v1.js';
     });
   }
   if (searchReady) {
+    const openSearch = () => {
+      searchOpen = true;
+      searchContainer.style.display = 'inline';
+      searchToggle.classList.add('active');
+      searchToggle.setAttribute('aria-expanded', 'true');
+      search.value = '';
+      showSearchLabels('');
+      search.focus();
+    };
+    const closeSearch = () => {
+      searchOpen = false;
+      searchContainer.style.display = 'none';
+      searchToggle.classList.remove('active');
+      searchToggle.setAttribute('aria-expanded', 'false');
+      search.setCustomValidity('');
+      if (document.activeElement === searchToggle || searchContainer.contains(document.activeElement)) document.activeElement.blur();
+      // The released client keeps both the old input and any pending debounce.
+      // A pending search can therefore apply after closing the field.
+      if (apply(current(), '')) { saveSearch('', true); updateURL(current()); }
+    };
+    if (searchControlsReady) {
+      form.classList.add('nativeCatalogControls');
+      searchToggle.hidden = false;
+      searchClose.hidden = false;
+      searchContainer.style.display = 'none';
+      searchToggle.addEventListener('click', () => { if (searchOpen) closeSearch(); else openSearch(); });
+      searchClose.addEventListener('click', closeSearch);
+      document.addEventListener('keydown', event => {
+        if ((event.key === 's' || event.key === 'S') && event.target === document.body
+          && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); openSearch(); }
+      });
+    }
     container.addEventListener('click', event => {
       const link = event.target instanceof Element ? event.target.closest('.empty > a') : null;
       if (renderedQuery && link && container.contains(link)) {
@@ -646,11 +696,19 @@ import { NativeWatchLock } from './native-filter.v1.js';
       }
     });
     const schedule = () => { clearTimeout(timer); if (!composing) timer = setTimeout(applySearch, 250); };
-    search.addEventListener('input', schedule);
-    search.addEventListener('compositionstart', () => { composing = true; clearTimeout(timer); });
-    search.addEventListener('compositionend', () => { composing = false; schedule(); });
+    if (searchControlsReady) search.addEventListener('keyup', event => { if (event.key !== 'Escape') schedule(); });
+    else {
+      search.addEventListener('input', schedule);
+      search.addEventListener('compositionstart', () => { composing = true; clearTimeout(timer); });
+      search.addEventListener('compositionend', () => { composing = false; schedule(); });
+    }
     search.addEventListener('keydown', event => {
-      if (event.key === 'Escape') { event.preventDefault(); search.value = ''; applySearch(); }
+      if (searchControlsReady && event.key === 'Enter') event.preventDefault();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (searchControlsReady) closeSearch();
+        else { search.value = ''; applySearch(); }
+      }
     });
   }
   reset.addEventListener('click', event => {
@@ -667,6 +725,12 @@ import { NativeWatchLock } from './native-filter.v1.js';
     reset.href = url.href;
     if (searchReady) {
       hiddenOnly = false;
+      if (searchControlsReady) {
+        searchOpen = false;
+        searchContainer.style.display = 'none';
+        searchToggle.classList.remove('active');
+        searchToggle.setAttribute('aria-expanded', 'false');
+      }
       search.value = '';
       search.setCustomValidity('');
       if (apply(defaults, '')) {
@@ -771,4 +835,12 @@ import { NativeWatchLock } from './native-filter.v1.js';
     }
   }
   if (searchReady && query) saveSearch(query);
+  if (searchControlsReady && query) {
+    searchOpen = true;
+    searchContainer.style.display = 'inline';
+    searchToggle.classList.add('active');
+    searchToggle.setAttribute('aria-expanded', 'true');
+    showSearchLabels(query);
+    search.focus();
+  }
 })();

@@ -1,3 +1,4 @@
+import { openCatalogSearch, fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -7,31 +8,33 @@ const termKey = '4chan-catalog-search';
 const boardKey = '4chan-catalog-search-board';
 const query = page => new URL(page.url()).searchParams.get('q') || '';
 
-test('live search debounces the latest input, waits for composition and clears on Escape', async ({ page }) => {
+test('live search debounces the latest keyup, follows source composition and closes on Escape', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-09-13T12:00:00Z') });
   await page.goto(`${catalog}?q=`);
   await page.clock.pauseAt(new Date('2026-09-13T13:00:00Z'));
+  await openCatalogSearch(page);
   let navigations = 0;
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1; });
   const input = page.locator('#qf-box');
-  await input.fill('Alpha');
+  await fillCatalogSearch(page, 'Alpha');
   await page.clock.runFor(249);
   expect(query(page)).toBe('');
-  await input.fill('Beta');
+  await fillCatalogSearch(page, 'Beta');
   await page.clock.runFor(249);
   expect(query(page)).toBe('');
   await page.clock.runFor(1);
   expect(query(page)).toBe('Beta');
   await input.dispatchEvent('compositionstart');
-  await input.fill('Gamma');
+  await fillCatalogSearch(page, 'Gamma');
   await page.clock.runFor(500);
-  expect(query(page)).toBe('Beta');
+  expect(query(page)).toBe('Gamma');
   await input.dispatchEvent('compositionend');
   await page.clock.runFor(250);
   expect(query(page)).toBe('Gamma');
   await input.press('Escape');
   expect(query(page)).toBe('');
-  await expect(input).toHaveValue('');
+  await expect(input).toHaveValue('Gamma');
+  await expect(input).not.toBeVisible();
   expect(navigations).toBe(0);
 });
 
@@ -39,8 +42,8 @@ test('search sessions are tab-local, clear on a board change and support bounded
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(catalog);
-  await page.locator('#qf-box').fill('sessionneedle');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'sessionneedle');
+  await applyCatalogSearch(page);
   expect(await page.evaluate(key => sessionStorage.getItem(key), termKey)).toBe('sessionneedle');
   let navigations = 0;
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1; });
@@ -110,7 +113,7 @@ test('the actual live matcher passes every shared operator and case example with
   let navigations = 0;
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1; });
   for (const [index, entry] of contract.cases.entries()) {
-    await page.locator('#qf-box').fill(entry.query);
+    await fillCatalogSearch(page, entry.query);
     await page.clock.runFor(250);
     expect(query(page)).toBe(entry.query);
     await expect(page.locator(`#thread-${index + 1}`)).toHaveCount(entry.matches ? 1 : 0);
@@ -139,8 +142,8 @@ test('inert filtered cards do not request their images until shown', async ({ pa
   expect(requests).toBe(0);
   await page.evaluate(() => { window.hiddenCard = document.getElementById('catalogFiltered').content.querySelector('.thread'); });
   const shown = page.waitForResponse(response => response.url().includes('hidden-probe'));
-  await page.locator('#qf-box').fill('hidden');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await fillCatalogSearch(page, 'hidden');
+  await applyCatalogSearch(page);
   expect((await shown).status()).toBe(200);
   await expect(page.locator('#thread-2')).toBeVisible();
   expect(await page.evaluate(() => document.getElementById('thread-2') === window.hiddenCard)).toBe(true);
@@ -160,11 +163,12 @@ test('live search stays usable without storage and enforces scalar-value bounds'
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1; });
   const input = page.locator('#qf-box');
   const limit = String.fromCodePoint(0x1f600).repeat(128);
+  await openCatalogSearch(page);
   await input.fill(limit);
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await applyCatalogSearch(page);
   expect(query(page)).toBe(limit);
   await input.fill(`${limit}a`);
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await applyCatalogSearch(page);
   expect(query(page)).toBe(limit);
   expect(await input.evaluate(node => node.validationMessage)).toContain('128 characters');
   await input.press('Escape');
@@ -193,12 +197,12 @@ test('empty catalogs distinguish no threads from no matches across every clear c
       await expect(empty).toHaveText(initial ? 'No matching threads. Show all threads.' : 'No threads yet. Start the first thread.');
       if (!initial) {
         await input.fill('missing');
-        await page.getByRole('button', { name: 'Apply', exact: true }).click();
+        await applyCatalogSearch(page);
       }
       await expect(empty).toHaveText('No matching threads. Show all threads.');
       if (control === 'Apply') {
         await input.fill('');
-        await page.getByRole('button', { name: 'Apply', exact: true }).click();
+        await applyCatalogSearch(page);
       } else if (control === 'Escape') {
         await input.press('Escape');
       } else {
@@ -211,7 +215,7 @@ test('empty catalogs distinguish no threads from no matches across every clear c
       expect(query(page)).toBe('');
       expect(navigations).toBe(0);
       await input.fill('missing again');
-      await page.getByRole('button', { name: 'Apply', exact: true }).click();
+      await applyCatalogSearch(page);
       await expect(empty).toHaveText('No matching threads. Show all threads.');
       await empty.getByRole('link', { name: 'Show all threads', exact: true }).click();
       await expect(empty).toHaveText('No threads yet. Start the first thread.');
