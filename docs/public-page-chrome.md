@@ -252,6 +252,18 @@ policy and denied-script controls, then finds the older one-script element
 count. The assertion now requires the exact two module paths and types, with no
 inline script element. The broader behavior suite must pass after these changes.
 
+The broader local Linux run passes the first 58 browser cases and the subsequent
+position, shortcut, menu, thread/reply-hiding and watcher groups. Its first
+archive-lifecycle attempt cannot find an older helper's conventional Cargo
+target path in the shared-target guest. The local launcher supplies that path
+and builds the remaining example helpers. The remaining group then finds two
+text-only browser cases with the same whole-class assumption as the earlier
+Rust test. They now check the `text_only` token while retaining required-subject,
+subject-only OP, subjectless reply, absent upload and API policy assertions.
+The remaining group passes 79 of 81 before that assertion correction. All three
+focused subject-policy cases pass afterward. Windows passes all eight catalog
+preference/CSP and subject-policy cases after both browser assertion corrections.
+
 That hosted Windows run passes 1,172 of 1,173 theme cases. The remaining case
 fails at navigation with `net::ERR_NO_BUFFER_SPACE`, before comparing the owned
 catalog state. The saved failure screenshot is a blank page. Before themes,
@@ -262,6 +274,12 @@ now uses the existing bounded visual diagnostics, including failure-time host
 aggregates when CI enables them. No retry, pixel tolerance, baseline or test
 selection is changed. This failure remains recorded; a fresh complete hosted
 run is required.
+
+The fourth hosted Windows run on `26dbd376f7ffb19eb9533b02bcbb1f6ff27c956e`
+passes the complete 1,173-case theme group and the other visual groups. This
+does not identify the cause of the earlier navigation failure. The final
+text-only browser assertion change still requires all five hosted checks on
+its own commit before merging.
 
 Hosted qualification runs on the pull request; all required checks
 must pass on its final commit before merging. This record does not claim complete

@@ -43,7 +43,7 @@ for (const javaScriptEnabled of [false, true]) {
     try {
       await page.goto(`${origin}/news/`);
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
-      await expect(page.locator('body')).toHaveClass('text_only');
+      await expect(page.locator('body')).toHaveClass(/(^|\s)text_only(\s|$)/);
       await expect(page.locator('#sub')).toHaveAttribute('required', '');
       await expect(page.locator('#com')).not.toHaveAttribute('required');
       await expect(page.locator('input[type=file]')).toHaveCount(0);
