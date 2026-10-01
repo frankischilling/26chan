@@ -202,6 +202,7 @@ pub const SEARCH_PAGE_SIZE: i64 = 10;
 pub const SEARCH_MAX_PAGES: i64 = 10;
 pub const SEARCH_SCAN_POSTS: i64 = 20_000;
 pub const SEARCH_MATCHING_REPLIES_PER_THREAD: i64 = 5;
+pub const SEARCH_COMMENT_CHARS: i64 = 1024;
 
 pub struct SearchThread {
     pub board: Board,
@@ -320,7 +321,14 @@ pub async fn search(
         .collect();
 
     let mut posts: Vec<Post> = sqlx::query_as(
-        "SELECT p.* FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
+        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.flag_name,\
+                p.subject,\
+                CASE WHEN char_length(p.comment) <= $4 THEN p.comment \
+                     WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
+                       substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
+                     ELSE left(p.comment, $4::integer) END AS comment,\
+                p.comment_format,p.created_at,p.deleted \
+         FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
          CROSS JOIN LATERAL (\
             SELECT picked.* FROM (\
                 (SELECT op.* FROM content.posts op \
@@ -337,6 +345,7 @@ pub async fn search(
     .bind(&ids)
     .bind(query)
     .bind(SEARCH_MATCHING_REPLIES_PER_THREAD)
+    .bind(SEARCH_COMMENT_CHARS)
     .fetch_all(&mut *tx)
     .await?;
     crate::post_media::load(&mut tx, &mut posts).await?;

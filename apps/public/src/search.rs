@@ -1,22 +1,19 @@
 use crate::{
     AppState,
     handlers::AppError,
-    views::{PostView, ThreadView},
+    views::{PostFragment, PostView, ThreadView},
 };
 use askama::Template;
 use axum::{
     Router,
     extract::{Query, State},
-    http::{StatusCode, header},
+    http::header,
     response::{IntoResponse, Response},
     routing::get,
 };
-use board_domain::Token;
-use board_domain::comment_markup::Tag;
-use board_domain::word_break::WordPart;
 use board_store::Board;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::json;
 
 pub(crate) const SCRIPT_PATH: &str = "/static/global-search.v1.js";
 const RESPONSE_LIMIT: usize = 1_048_576;
@@ -25,15 +22,7 @@ const RESPONSE_LIMIT: usize = 1_048_576;
 #[template(path = "search.html")]
 struct SearchPage {
     boards: Vec<Board>,
-}
-
-#[derive(Template)]
-#[template(path = "search_thread.html")]
-struct SearchThreadTemplate<'a> {
-    board: &'a Board,
-    view: &'a ThreadView,
-    media_origin: &'a str,
-    catalog: bool,
+    media_origin: String,
 }
 
 #[derive(Deserialize)]
@@ -66,7 +55,17 @@ async fn script() -> impl IntoResponse {
 async fn page(State(state): State<AppState>) -> Result<Response, AppError> {
     let mut boards = board_store::boards(&state.pool).await?;
     boards.sort_by(|left, right| left.slug.cmp(&right.slug));
-    crate::output::html(&state, &SearchPage { boards })
+    crate::output::html(
+        &state,
+        &SearchPage {
+            boards,
+            media_origin: state
+                .media
+                .as_ref()
+                .map(|media| media.settings.origin.as_string())
+                .unwrap_or_default(),
+        },
+    )
 }
 
 async fn api(
@@ -83,24 +82,6 @@ async fn api(
         .unwrap_or_default();
     let mut threads = Vec::with_capacity(result.threads.len());
     for hit in result.threads {
-        let replies = usize::try_from(hit.thread.reply_count).map_err(|_| {
-            AppError(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Search result is unavailable.",
-            )
-        })?;
-        let images = usize::try_from(hit.visible_images).map_err(|_| {
-            AppError(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Search result is unavailable.",
-            )
-        })?;
-        let posts_json: Vec<Value> = hit
-            .posts
-            .iter()
-            .cloned()
-            .map(|post| crate::api::post_json(post, &hit.thread, &hit.board, replies, images, None))
-            .collect::<Result<_, _>>()?;
         let latest_reply_id = hit
             .posts
             .iter()
@@ -116,17 +97,24 @@ async fn api(
             omitted: 0,
             image_replies: hit.visible_images,
         };
-        let html = SearchThreadTemplate {
-            board: &hit.board,
-            view: &view,
-            media_origin: &media_origin,
-            catalog: false,
+        let mut posts = Vec::with_capacity(view.posts.len());
+        for item in &view.posts {
+            posts.push(json!({
+                "no": item.post.id.to_string(),
+                "html": PostFragment {
+                    item,
+                    view: &view,
+                    board: &hit.board,
+                    media_origin: &media_origin,
+                    catalog: false,
+                }
+                .render()?,
+            }));
         }
-        .render()?;
         threads.push(json!({
             "board": hit.board.slug,
-            "posts": posts_json,
-            "html": html,
+            "thread": view.thread.id.to_string(),
+            "posts": posts,
         }));
     }
     let value = json!({

@@ -167,7 +167,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   return tree;
 }
 
-function parsePostRecipe(html, context, no, budget, limits) {
+export function parsePostRecipe(html, context, no, budget, limits) {
   budget.created ??= 0;
   const treeAdapter = { ...defaultTreeAdapter, createElement(...args) {
     require(++budget.created <= limits.nodes); return defaultTreeAdapter.createElement(...args);

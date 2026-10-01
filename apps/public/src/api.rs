@@ -126,7 +126,7 @@ pub async fn boards(
     response(&state.limits, json!({"boards": boards}), None, &headers)
 }
 
-pub(crate) fn post_json(
+fn post_json(
     post: Post,
     thread: &Thread,
     board: &Board,
