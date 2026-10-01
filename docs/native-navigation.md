@@ -55,6 +55,8 @@ preserves that same contract.
 
 The controller first captures the server-rendered mobile directory. It validates
 the same finite slug/title schema and retains each non-worksafe option's class.
+The HTML directory shares the page content's repeatable-read transaction, so a
+concurrent commit cannot mix new board labels with older content or settings.
 Later DOM changes cannot enlarge that admitted set. A valid server directory
 avoids another HTTP request. Pages without it retain the bounded transport below.
 

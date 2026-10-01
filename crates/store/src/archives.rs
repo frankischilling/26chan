@@ -1,4 +1,4 @@
-use crate::{Board, PgPool, StoreError};
+use crate::{Board, PageSnapshot, PgPool, StoreError};
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 
@@ -15,6 +15,22 @@ pub struct ArchiveSnapshot {
 }
 
 pub async fn archive_snapshot(pool: &PgPool, slug: &str) -> Result<ArchiveSnapshot, StoreError> {
+    Ok(read_archive_snapshot(pool, slug, false).await?.snapshot)
+}
+
+/// Include navigation in the same transaction as the HTML archive listing.
+pub async fn archive_page_snapshot(
+    pool: &PgPool,
+    slug: &str,
+) -> Result<PageSnapshot<ArchiveSnapshot>, StoreError> {
+    read_archive_snapshot(pool, slug, true).await
+}
+
+async fn read_archive_snapshot(
+    pool: &PgPool,
+    slug: &str,
+    include_navigation: bool,
+) -> Result<PageSnapshot<ArchiveSnapshot>, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
@@ -29,8 +45,12 @@ pub async fn archive_snapshot(pool: &PgPool, slug: &str) -> Result<ArchiveSnapsh
     .ok_or(StoreError::NotFound)?;
     let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT 1000")
         .bind(slug).fetch_all(&mut *tx).await?;
+    let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;
-    Ok(ArchiveSnapshot { board, entries })
+    Ok(PageSnapshot {
+        snapshot: ArchiveSnapshot { board, entries },
+        navigation_boards,
+    })
 }
 
 /// Caller holds the board row lock through the new OP's commit.

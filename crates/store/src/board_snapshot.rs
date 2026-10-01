@@ -1,4 +1,4 @@
-use crate::{Board, PgPool, Post, StoreError, Thread};
+use crate::{Board, PageSnapshot, PgPool, Post, StoreError, Thread};
 use std::collections::BTreeMap;
 
 pub enum BoardSelection {
@@ -40,6 +40,28 @@ pub async fn board_snapshot(
     selection: BoardSelection,
     replies: Option<i64>,
 ) -> Result<BoardSnapshot, StoreError> {
+    Ok(read_board_snapshot(pool, slug, selection, replies, false)
+        .await?
+        .snapshot)
+}
+
+/// Include navigation in the same transaction as HTML board or catalog content.
+pub async fn board_page_snapshot(
+    pool: &PgPool,
+    slug: &str,
+    selection: BoardSelection,
+    replies: Option<i64>,
+) -> Result<PageSnapshot<BoardSnapshot>, StoreError> {
+    read_board_snapshot(pool, slug, selection, replies, true).await
+}
+
+async fn read_board_snapshot(
+    pool: &PgPool,
+    slug: &str,
+    selection: BoardSelection,
+    replies: Option<i64>,
+    include_navigation: bool,
+) -> Result<PageSnapshot<BoardSnapshot>, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     if replies.is_some_and(|limit| !(0..=5).contains(&limit)) {
         return Err(StoreError::Invalid("Invalid preview limit."));
@@ -100,6 +122,7 @@ pub async fn board_snapshot(
     .bind(&ids)
     .fetch_all(&mut *tx)
     .await?;
+    let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;
 
     let counts: BTreeMap<_, _> = counts
@@ -124,9 +147,12 @@ pub async fn board_snapshot(
             thread,
         })
         .collect();
-    Ok(BoardSnapshot {
-        board,
-        threads,
-        has_next,
+    Ok(PageSnapshot {
+        snapshot: BoardSnapshot {
+            board,
+            threads,
+            has_next,
+        },
+        navigation_boards,
     })
 }

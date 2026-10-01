@@ -76,6 +76,10 @@ node scripts/verify-public-page-dark-reference.mjs <reference-directory>
 
 Directory rendering is capped at 100 boards and retains the current board when
 it lies beyond that set. Template escaping applies to titles and descriptions.
+HTML board, catalog, thread and archive readers load that directory within the
+same repeatable-read transaction as their content and settings. Rendering starts
+after commit. JSON and updater reads retain their existing bounded queries and
+do not load the HTML directory.
 The mobile controller captures at most 100 admitted local slugs and six mode
 controls. It does not fetch a directory or admit external destinations.
 Persistent navigation reuses that validated server directory and preserves its
@@ -157,7 +161,39 @@ Linux passes the final 286-case group: 192 ordinary component/hover cases, 48
 dark component cases, 24 mobile post-header cases and 22 Settings lifecycle cases.
 Its core, library, asset, Clippy, formatting and generated-asset checks also pass
 after the dark correction. All three original client replay records match without
-rewriting them. Hosted qualification runs on the pull request; all required checks
+rewriting them.
+
+The first hosted Linux run fails the existing board snapshot concurrency test:
+the HTML handlers read navigation after committing their content snapshot, so
+all ten index/catalog modes combine old content with a newly committed board
+title. The correction moves the bounded directory read into each HTML snapshot.
+The expanded lock-witness test checks 32 reads across index/catalog, active and
+archived thread HTML, archive HTML and both JSON listeners, including deletion.
+Another owned board changes its title and worksafe state in the same commit;
+HTML controls prove that this second board appears before and after the change.
+Every concurrent response must equal a complete before or after response,
+including its status. Fixture creation uses one transaction and cleanup removes
+both owned boards after an assertion failure.
+
+Windows passes eight real-database cases across the expanded board test, thread
+snapshots, archive routes, updater responses, store archive rollover and store
+concurrency. Linux passes the same eight plus the tail/policy/privilege case with
+its separate staff role. Initial coverage setup fails on incomplete board bounds,
+an archived sticky thread and an implicit settled sticky state; these fixture
+errors are corrected. The first tail run lacks staff credentials; sourcing the
+existing owned staff configuration resolves it on Linux. Windows does not run
+that staff-dependent case locally. These setup failures do not replace or weaken
+the original concurrency assertion.
+
+After the snapshot correction, Windows passes the twelve real-handler browser
+cases again. Public library/asset checks, formatting and generated-asset checks
+pass on both platforms. Windows passes all-target/all-feature Clippy for the
+public and store packages; Linux passes the full workspace equivalent. The
+broader Windows workspace attempt stops while building the staff application's
+vendored OpenSSL because Perl is unavailable. That attempt is not counted as a
+passing workspace check.
+
+Hosted qualification runs on the pull request; all required checks
 must pass on its final commit before merging. This record does not claim complete
 page or rewrite parity.
 
