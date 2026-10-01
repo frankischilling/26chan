@@ -56,6 +56,7 @@ pub struct Queue {
     pub csrf: String,
     pub recent: bool,
     pub admin: bool,
+    pub moderator: bool,
 }
 #[cfg(test)]
 mod tests {
@@ -94,6 +95,7 @@ mod tests {
             csrf: "example".into(),
             recent: true,
             admin: false,
+            moderator: true,
         }
         .render()
         .unwrap();
@@ -150,6 +152,7 @@ mod tests {
                 csrf: "owned-fixture".into(),
                 recent: true,
                 admin: false,
+                moderator: true,
             }
             .render()
             .unwrap();
@@ -160,7 +163,10 @@ mod tests {
             assert!(!html.contains("href=\"/test/post/42\""));
             assert!(html.contains("<span>&gt;&gt;42</span>"));
             assert!(html.contains("href=\"https://www.4chan.org/faq\""));
-            assert_eq!(html.contains("href=\"https://example.org/path\""), format & 64 == 0);
+            assert_eq!(
+                html.contains("href=\"https://example.org/path\""),
+                format & 64 == 0
+            );
             assert!(html.contains("href=\"/comment-markup.css\""));
         }
     }
@@ -200,6 +206,7 @@ mod tests {
                 csrf: "example".into(),
                 recent: true,
                 admin: true,
+                moderator: true,
             }
             .render()
             .unwrap();

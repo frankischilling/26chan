@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
+pub mod access;
 pub mod auth;
 pub mod config;
 mod handlers;
+mod latest;
 pub mod store;
 mod views;
 use axum::{
@@ -124,6 +126,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
+        .route("/latest.php", get(latest::latest))
+        .route("/j/latest.php", get(latest::latest))
+        .route("/imgboard.php", get(latest::legacy))
+        .route("/j/imgboard.php", get(latest::legacy))
         .route("/post", get(handlers::posting).post(handlers::post_message))
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))
@@ -181,6 +187,7 @@ mod tests {
             role: "moderator".into(),
             csrf_hash: auth::hash(&t),
             recent: true,
+            permissions: access::Permissions::all_boards(),
         };
         assert!(auth::csrf(&s, &t).is_ok());
         assert!(auth::csrf(&s, &auth::token()).is_err());

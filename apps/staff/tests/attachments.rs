@@ -308,6 +308,7 @@ async fn exercise_attachment(f: &Fixture) {
         role: "unknown".into(),
         csrf_hash: vec![],
         recent: true,
+        permissions: board_staff::access::Permissions::all_boards(),
     };
     assert!(matches!(
         store::moderate(&f.state.staff, &session, &f.board, f.post, "remove-file").await,
@@ -395,6 +396,7 @@ async fn interrupted_audit_rolls_back_file_removal(f: &Fixture) {
             role: "moderator".into(),
             csrf_hash: vec![],
             recent: true,
+            permissions: board_staff::access::Permissions::all_boards(),
         };
         store::moderate(&staff, &session, &board, post, "remove-file").await
     });

@@ -13,7 +13,7 @@ works without JavaScript. Posting requires the current session and CSRF proof,
 same-origin request metadata and authentication less than ten minutes old.
 Successful submission links to the persisted public post.
 
-Moderators default to `mod`; administrators default to `admin`. An offline
+Moderators default to `mod`, managers to `manager`, and administrators to `admin`. An offline
 operator can assign a different allowed public label:
 
 ```powershell
@@ -21,12 +21,12 @@ target/debug/staff-operator.exe capcode alice manager
 target/debug/staff-operator.exe capcode alice default
 ```
 
-Only administrators can receive `admin`, `manager`, `developer` or `founder`.
-A moderator can receive `mod` or the role default. Assignment changes invalidate
+Only administrators can receive `admin`, `developer` or `founder`.
+A manager can receive `mod`, `manager` or the role default; a moderator can receive `mod` or its default. Janitors cannot create public staff-badged posts. Assignment changes invalidate
 all sessions. Changing a role clears its explicit public label and invalidates
 sessions. Historical post badges retain their saved value. An administrator
 assigned `admin` can choose the highlighted variant for one post; the other
-labels cannot request that variant.
+labels cannot request that variant. Both authorization issuance and consumption check the current allowed and denied board lists; a board-scope change cannot leave an old authorization usable.
 
 The shared posting transaction retains board subject, comment, forced-anonymous,
 closed-thread, bump, reply-limit and rollover rules. Staff posts have no public
@@ -57,9 +57,9 @@ account authority after row-lock waits, consumes the record and writes the audit
 entry in the post transaction. A rollback leaves neither post nor audit committed.
 
 Neither runtime can read or edit the private authorization table. The scoped
-owner cannot read credentials, change account roles, badges or expiry clocks,
+owner can read credential IDs and their account ownership, but not credential key material. It cannot change account roles, badges or expiry clocks,
 insert content, manage deployments or access media. Its column update grants
-permit the required row locks. The public runtime cannot mint, consume or set
+permit the required row locks and session-activity refresh. The public runtime cannot mint, consume or set
 badges through SQL, forms, cookies or headers.
 
 ## Public rendering and evidence
@@ -78,8 +78,7 @@ listed individually in the image CSP. Founderâ€™s public `@2x` URL returned
 its available 16-pixel icon is retained without an invented density asset.
 Badge titles refer to this boardâ€™s staff, avoiding a false claim of authority
 on the reference service. These namespace and credential boundaries are E-016.
-Original private authentication, assignment and attachment behavior remain
-unspecified by the permitted references.
+The private source supplies the rank and board-scope behavior described in [staff operation](staff.md). Staff attachment posting remains unfinished.
 
 The finite native recipe requires one complete badge in the post's own header,
 matching label, classes, title, icon, density path and dimensions. It rejects

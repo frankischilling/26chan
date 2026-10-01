@@ -1,4 +1,7 @@
-use crate::{AppError, AppState};
+use crate::{
+    AppError, AppState,
+    access::{Level, Permissions},
+};
 use axum::http::HeaderMap;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::{RngCore, rngs::OsRng};
@@ -48,25 +51,71 @@ pub struct Session {
     pub role: String,
     pub csrf_hash: Vec<u8>,
     pub recent: bool,
+    #[sqlx(flatten)]
+    pub permissions: Permissions,
 }
-pub async fn session(state: &AppState, headers: &HeaderMap) -> Result<Session, AppError> {
+
+impl Session {
+    pub fn at_least(&self, level: Level) -> bool {
+        Level::parse(&self.role).is_some_and(|current| current >= level)
+    }
+}
+
+pub struct Authority {
+    pub session: Session,
+    transaction: sqlx::Transaction<'static, sqlx::Postgres>,
+    token_hash: Vec<u8>,
+    idle_seconds: i32,
+}
+
+impl Authority {
+    /// Account and session locks stay held while the content transaction runs.
+    /// Recheck the clock after content locks, before making its changes durable.
+    pub async fn ensure_current(&mut self, require_recent: bool) -> Result<(), AppError> {
+        let status: Option<(bool,bool)> = sqlx::query_as(
+            "SELECT s.expires_at>clock_timestamp() AND s.last_activity_at>clock_timestamp()-make_interval(secs=>$2) \
+             AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin'), \
+             s.authenticated_at>clock_timestamp()-interval '10 minutes' \
+             FROM staff_identity.sessions s JOIN staff_identity.accounts a ON a.id=s.account_id \
+             WHERE s.token_hash=$1",
+        ).bind(&self.token_hash).bind(self.idle_seconds).fetch_optional(&mut *self.transaction).await?;
+        let (live, recent) = status.ok_or(AppError::Unauthorized)?;
+        if !live {
+            return Err(AppError::Unauthorized);
+        }
+        if require_recent && !recent {
+            return Err(AppError::Recent);
+        }
+        Ok(())
+    }
+
+    pub async fn finish(self) -> Result<Session, AppError> {
+        self.transaction.commit().await?;
+        Ok(self.session)
+    }
+}
+
+pub async fn guard(state: &AppState, headers: &HeaderMap) -> Result<Authority, AppError> {
     let value = cookie(headers, state.config.cookie_name())?;
+    let token_hash = hash(&value);
+    let idle_seconds = state.config.idle_timeout.as_secs() as i32;
     let mut transaction = state.auth.begin().await?;
-    sqlx::query_scalar::<_, bool>(
-        "SELECT true FROM staff_identity.sessions WHERE token_hash=$1 FOR UPDATE",
-    )
-    .bind(hash(&value))
-    .fetch_optional(&mut *transaction)
-    .await?
-    .ok_or(AppError::Unauthorized)?;
-    let session: Session = sqlx::query_as("UPDATE staff_identity.sessions s SET last_activity_at=clock_timestamp() FROM staff_identity.accounts a,staff_identity.credentials c WHERE s.token_hash=$1 AND s.account_id=a.id AND c.id=s.credential_id AND c.account_id=a.id AND s.expires_at>clock_timestamp() AND s.last_activity_at>clock_timestamp()-($2::bigint*interval '1 second') AND a.revoked_at IS NULL AND a.role IN ('moderator','admin') RETURNING s.account_id,a.role,s.csrf_hash,(s.authenticated_at>clock_timestamp()-interval '10 minutes') AS recent")
-        .bind(hash(&value))
-        .bind(state.config.idle_timeout.as_secs() as i64)
+    let session: Session = sqlx::query_as("SELECT * FROM staff_identity.lock_session($1,$2)")
+        .bind(&token_hash)
+        .bind(idle_seconds)
         .fetch_optional(&mut *transaction)
         .await?
         .ok_or(AppError::Unauthorized)?;
-    transaction.commit().await?;
-    Ok(session)
+    Ok(Authority {
+        session,
+        transaction,
+        token_hash,
+        idle_seconds,
+    })
+}
+
+pub async fn session(state: &AppState, headers: &HeaderMap) -> Result<Session, AppError> {
+    guard(state, headers).await?.finish().await
 }
 pub fn csrf(session: &Session, value: &str) -> Result<(), AppError> {
     if value.len() != 43 || hash(value) != session.csrf_hash {
@@ -89,10 +138,10 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     }
     let posting: bool = match expected {
         "board_auth" => {
-            sqlx::query("SELECT public_capcode FROM staff_identity.accounts LIMIT 0")
+            sqlx::query("SELECT public_capcode,allow_boards,deny_boards,flags FROM staff_identity.accounts LIMIT 0")
                 .execute(pool)
                 .await?;
-            sqlx::query_scalar("SELECT has_function_privilege(current_user,'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content' AND p.proname='consume_staff_post_authority' AND has_function_privilege(current_user,p.oid,'EXECUTE'))").fetch_one(pool).await?
+            sqlx::query_scalar("SELECT has_function_privilege(current_user,'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE') AND coalesce(has_function_privilege(current_user,to_regprocedure('staff_identity.lock_session(bytea,integer)'),'EXECUTE'),false) AND NOT has_column_privilege(current_user,'staff_identity.accounts','allow_boards','UPDATE') AND NOT has_column_privilege(current_user,'staff_identity.accounts','deny_boards','UPDATE') AND NOT has_column_privilege(current_user,'staff_identity.accounts','flags','UPDATE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content' AND p.proname='consume_staff_post_authority' AND has_function_privilege(current_user,p.oid,'EXECUTE'))").fetch_one(pool).await?
         }
         "board_staff" => {
             sqlx::query("SELECT capcode FROM content.posts LIMIT 0")

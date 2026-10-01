@@ -137,24 +137,32 @@ async fn retained_staff_responses_keep_the_admission_budget() {
 }
 #[tokio::test]
 async fn unauthenticated_and_unavailable_sessions_fail_closed() {
-    for (cookie, status) in [
-        (None, StatusCode::UNAUTHORIZED),
-        (Some("staff=invalid"), StatusCode::UNAUTHORIZED),
-        (
-            Some("staff=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
-            StatusCode::SERVICE_UNAVAILABLE,
-        ),
+    for path in [
+        "/reports",
+        "/latest.php",
+        "/j/latest.php",
+        "/imgboard.php?mode=latest",
+        "/j/imgboard.php?mode=latest",
     ] {
-        let mut request = Request::builder().uri("/reports");
-        if let Some(cookie) = cookie {
-            request = request.header("cookie", cookie);
+        for (cookie, status) in [
+            (None, StatusCode::UNAUTHORIZED),
+            (Some("staff=invalid"), StatusCode::UNAUTHORIZED),
+            (
+                Some("staff=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+                StatusCode::SERVICE_UNAVAILABLE,
+            ),
+        ] {
+            let mut request = Request::builder().uri(path);
+            if let Some(cookie) = cookie {
+                request = request.header("cookie", cookie);
+            }
+            let response = app()
+                .oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status);
+            assert_eq!(response.headers()["cache-control"], "private, no-store");
         }
-        let response = app()
-            .oneshot(request.body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-        assert_eq!(response.status(), status);
-        assert_eq!(response.headers()["cache-control"], "private, no-store");
     }
 }
 #[tokio::test]

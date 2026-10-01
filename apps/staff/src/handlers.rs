@@ -186,7 +186,7 @@ pub async fn enroll_start(
         return Err(AppError::Unauthorized);
     }
     let invite = auth::hash(&input.invitation);
-    let account:Account=sqlx::query_as("SELECT a.id,a.username,a.user_handle FROM staff_identity.accounts a JOIN staff_identity.invitations i ON i.account_id=a.id WHERE i.token_hash=$1 AND i.expires_at>clock_timestamp() AND a.revoked_at IS NULL AND a.role IN ('moderator','admin')").bind(&invite).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
+    let account:Account=sqlx::query_as("SELECT a.id,a.username,a.user_handle FROM staff_identity.accounts a JOIN staff_identity.invitations i ON i.account_id=a.id WHERE i.token_hash=$1 AND i.expires_at>clock_timestamp() AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin')").bind(&invite).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
     let existing: Vec<String> = sqlx::query_scalar(
         "SELECT credential::text FROM staff_identity.credentials WHERE account_id=$1",
     )
@@ -266,7 +266,7 @@ pub async fn login_start(
     if input.username.is_empty() || input.username.len() > 64 {
         return Err(AppError::Unauthorized);
     }
-    let account:Account=sqlx::query_as("SELECT id,username,user_handle FROM staff_identity.accounts WHERE username=$1 AND revoked_at IS NULL AND role IN ('moderator','admin')").bind(input.username).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
+    let account:Account=sqlx::query_as("SELECT id,username,user_handle FROM staff_identity.accounts WHERE username=$1 AND revoked_at IS NULL AND role IN ('janitor','moderator','manager','admin')").bind(input.username).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
     let credentials: Vec<String> = sqlx::query_scalar(
         "SELECT credential::text FROM staff_identity.credentials WHERE account_id=$1",
     )
@@ -314,7 +314,7 @@ pub async fn login_finish(
         .bind(ceremony.account_id)
         .execute(&mut *tx)
         .await?;
-    let previous:String=sqlx::query_scalar("SELECT c.credential::text FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.id=$2 AND a.revoked_at IS NULL AND a.role IN ('moderator','admin')").bind(key_id).bind(ceremony.account_id).fetch_optional(&mut *tx).await?.ok_or(AppError::Unauthorized)?;
+    let previous:String=sqlx::query_scalar("SELECT c.credential::text FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.id=$2 AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin')").bind(key_id).bind(ceremony.account_id).fetch_optional(&mut *tx).await?.ok_or(AppError::Unauthorized)?;
     let json: Value = serde_json::from_str(&previous).map_err(|_| AppError::Internal)?;
     let old_counter = json["cred"]["counter"].as_u64().ok_or(AppError::Internal)?;
     if (old_counter > 0 || result.counter() > 0) && u64::from(result.counter()) <= old_counter {
@@ -363,25 +363,28 @@ pub async fn login_finish(
     Ok(response)
 }
 pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<String>, AppError> {
-    let session = auth::session(&state, &headers).await?;
+    let mut authority = auth::guard(&state, &headers).await?;
+    let session = &authority.session;
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
-    auth::csrf(&session, &csrf)?;
-    let reports = store::reports(&state.staff)
+    auth::csrf(session, &csrf)?;
+    let reports = store::reports(&state.staff, session)
         .await?
         .into_iter()
         .map(views::Preview::from)
         .collect();
-    Ok(Html(
-        views::Queue {
-            media_origin: state.config.media_origin.clone(),
-            reports,
-            csrf,
-            recent: session.recent,
-            admin: session.role == "admin",
-        }
-        .render()
-        .map_err(|_| AppError::Internal)?,
-    ))
+    let html = views::Queue {
+        media_origin: state.config.media_origin.clone(),
+        reports,
+        csrf,
+        recent: session.recent,
+        admin: session.role == "admin",
+        moderator: session.at_least(crate::access::Level::Moderator),
+    }
+    .render()
+    .map_err(|_| AppError::Internal)?;
+    authority.ensure_current(false).await?;
+    authority.finish().await?;
+    Ok(Html(html))
 }
 
 #[derive(Default, Deserialize)]
@@ -400,6 +403,11 @@ pub async fn posting(
     Query(query): Query<PostingQuery>,
 ) -> Result<Html<String>, AppError> {
     let session = auth::session(&state, &headers).await?;
+    if !session.at_least(crate::access::Level::Moderator)
+        || (!query.board.is_empty() && !session.permissions.allows(&query.board))
+    {
+        return Err(AppError::Forbidden);
+    }
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
     auth::csrf(&session, &csrf)?;
     if query.thread < 0
@@ -409,7 +417,8 @@ pub async fn posting(
         return Err(AppError::Invalid);
     }
     let boards: Vec<(String, String)> =
-        sqlx::query_as("SELECT slug,title FROM content.boards ORDER BY slug LIMIT 1000")
+        sqlx::query_as("SELECT slug,title FROM content.boards WHERE ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
+            .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
             .fetch_all(&state.staff)
             .await?;
     if let Some(id) = query.posted {
@@ -419,7 +428,7 @@ pub async fn posting(
             return Err(AppError::NotFound);
         }
     }
-    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
         .bind(session.account_id).fetch_one(&state.auth).await?;
     Ok(Html(
         views::Posting {
@@ -463,6 +472,11 @@ pub async fn post_message(
     let request_start = start.0;
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
+    if !session.at_least(crate::access::Level::Moderator)
+        || !session.permissions.allows(&input.board)
+    {
+        return Err(AppError::Forbidden);
+    }
     auth::csrf(&session, &input.csrf)?;
     if !session.recent {
         return Err(AppError::Recent);
@@ -529,16 +543,20 @@ pub async fn moderate(
     Form(input): Form<Mutation>,
 ) -> Result<Redirect, AppError> {
     auth::origin(&headers, &state.config.origin)?;
-    let session = auth::session(&state, &headers).await?;
-    auth::csrf(&session, &input.csrf)?;
-    store::moderate(
+    let mut authority = auth::guard(&state, &headers).await?;
+    let session = &authority.session;
+    auth::csrf(session, &input.csrf)?;
+    let transaction = store::prepare_moderation(
         &state.staff,
-        &session,
+        session,
         &input.board,
         input.target,
         &input.action,
     )
     .await?;
+    authority.ensure_current(true).await?;
+    transaction.commit().await?;
+    authority.finish().await?;
     Ok(Redirect::to("/reports"))
 }
 pub async fn logout(
