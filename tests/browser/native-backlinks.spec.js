@@ -1,5 +1,5 @@
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings } from './helpers/watcher-settings.js';
+import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const mobileAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
@@ -69,7 +69,7 @@ async function initialize(page, url, settings = {}, { rules, neverMobile } = {})
     if (neverMobile !== undefined && localStorage.getItem('4chan_never_show_mobile') === null) localStorage.setItem('4chan_never_show_mobile', neverMobile);
   }, { settings, rules, neverMobile });
   await page.goto(url);
-  await expect(page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')).toBeVisible();
+  await expect(watcherSettingsOpener(page)).toBeVisible();
 }
 
 const forward = (page, source, target, board = 'demo') => page.locator(`#m${source} a.quotelink[href="/${board}/post/${target}"]`);

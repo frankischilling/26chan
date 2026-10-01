@@ -167,3 +167,29 @@ not added to transfer. [Catalog filter transfer](catalog-filter-transfer.md)
 now integrates its separate format into export/review and the shared restore
 transaction. Hosted
 checks are required before merging the combined catalog batch.
+
+## Catalog readiness after navigation changes
+
+The Linux browser jobs on the first two PR #188 heads each passed 31 of 32
+quote-preview cases. The catalog exclusion case stopped at its readiness check:
+it selected only the original Settings links, which the admitted desktop
+drop-down navigation hides. The visible Settings button was present. The
+backlink suite had the same catalog readiness assumption, although those jobs
+stopped before reaching it.
+
+Both suites now share the Settings opener already used to open the real dialog.
+It admits the original visible links, the persistent-navigation button and the
+custom-navigation link. Public defaults and feature assertions are unchanged.
+In particular, the catalog cases still insert explicit quote-shaped fixtures,
+require no preview/backlink graph or quote requests, and then navigate to a real
+owned thread to check that the feature works there. All 82 quote-preview and
+backlink cases pass on Windows and Linux through real PostgreSQL-backed posting
+handlers. The Linux browser command passed all 82 in 6.8 minutes; its local
+wrapper then failed on a trailing partial command because the wrapper file had
+been edited while Bash was executing it. The wrapper's syntax check passes,
+and subsequent qualification uses an immutable copy. No application or test
+assertion changed to address that launcher error.
+
+```text
+npx playwright test tests/browser/native-quote-preview.spec.js tests/browser/native-backlinks.spec.js
+```

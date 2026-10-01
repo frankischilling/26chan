@@ -58,3 +58,14 @@ attaching it. The repeated probe exited 1 as intended and retained the original
 PNG, its reporter attachment copy and the automatic failure screenshot. This
 checks local capture. Neither it nor the later hosted upload establishes a fix
 for the original failures.
+
+PR #188's second Windows job, 110205089764, passed its reviewed catalog capture
+and later found a transparent image-hover background in one of 61 media cases.
+Its retained screenshot was inspected. The prior observer did not record
+stylesheets, so that evidence cannot identify the original transport failure.
+The [image-control record](native-image-controls.md#theme-stylesheet-failure)
+describes the deterministic missing-theme reproduction and the CSS fallback
+fix. Future synthetic failures include bounded stylesheet response/failure
+paths and computed page/hover colors. A stylesheet failure test checks the
+recorded path/error code and exclusion of URL query/fragment sentinels. The
+earlier Quick Reply and catalog interaction investigations remain open.

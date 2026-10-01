@@ -1,10 +1,14 @@
 import { expect } from '@playwright/test';
 
-export async function openWatcherSettings(page) {
-  await page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')
+export function watcherSettingsOpener(page) {
+  return page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')
     .or(page.getByRole('navigation', { name: 'Persistent board navigation', exact: true }).getByRole('button', { name: 'Settings', exact: true }))
     .or(page.getByRole('navigation', { name: 'Custom board navigation', exact: true }).getByRole('link', { name: 'Settings', exact: true }))
-    .first().click();
+    .first();
+}
+
+export async function openWatcherSettings(page) {
+  await watcherSettingsOpener(page).click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
   await expect(dialog).toBeVisible();
   const monitoring = dialog.getByRole('button', { name: 'Monitoring', exact: true });

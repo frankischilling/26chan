@@ -643,7 +643,7 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .board.noPictures[data-image-family="tomorrow"] .fileThumb { border-color: #c5c8c6; }
 .board.noPictures[data-image-family="photon"] .fileThumb { border-color: #004a99; }
 #image-hover { position: fixed; top: 0; right: 0; max-width: 100%; max-height: 100%; pointer-events: none; z-index: 9002; }
-#image-hover.nativeImageBackground { background-color: var(--paper, inherit); }
+#image-hover.nativeImageBackground { background-color: var(--paper, #ffffee); }
 .nativeImageFeedback { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 30px); padding: 6px 10px; border: 1px solid var(--edge); background: var(--panel); color: var(--ink); z-index: 9999; }
 
 .nativeMediaEmbed { width: min(640px, calc(100vw - 60px)); max-width: 100%; margin: 6px 0; }
