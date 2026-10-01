@@ -1,6 +1,6 @@
 .prettyprint { font-size: 14px; }
 :root { --catalog-controls-font: 'Times New Roman', serif; --catalog-controls-size: 16px; --catalog-field-font: 10pt; --catalog-field-padding: 1px 2px; --catalog-field-margin: 0 5px 0 0; --catalog-field-border: 2px inset #767676; --catalog-field-focus: #767676; }
-:root { --text-catalog-cell-font: 12pt; }
+:root { --text-catalog-cell-font: 12pt; --catalog-settings-font: var(--font); }
 :root { --font: 'Times New Roman', serif; --size: 12pt; --decoration: underline; --wash: none; --settings-edge: rgba(0, 0, 0, 0.2); }
 :root { --reply-border-width: 0; --reply-edge: #800000; --arrows: #800000; --target-edge: #800000; }
 :root { --mobile-capcode-highlight-edge: currentColor; }
@@ -33,4 +33,6 @@
 }
 
 :root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question.png'); }
+dialog.catalogSettings#theme #theme-css { font-size: 13.3333px; height: 60px; margin: 0; padding: 2px; border-color: rgb(118, 118, 118); }
+@media (max-width: 480px) { dialog.catalogSettings#theme #theme-css { font-size: 16px; height: 76px; } }
 @media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question@2x.png'); } }

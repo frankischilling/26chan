@@ -1,5 +1,7 @@
 import { NativeWatchLock } from './native-filter.v1.js';
 import { mountCatalogFilters } from './catalog-filters.v1.js';
+import { readCatalogTheme } from './native-settings.v1.js';
+import { updateCatalogSpoilers } from './catalog-theme.v1.js';
 
 (() => {
   'use strict';
@@ -14,9 +16,17 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
   const searchClose = document.getElementById('qf-clear');
   const filterToggle = document.getElementById('filters-ctrl');
   const preferenceStatus = document.getElementById('catalog-preference-status');
-  const spoilers = document.getElementById('theme-nospoiler');
+  const spoilers = document.getElementById('catalog-spoilers') ?? document.getElementById('theme-nospoiler');
   const spoilerControl = spoilers instanceof HTMLSelectElement;
   const themeKey = 'catalog-theme';
+  let themeCache = null;
+  let volatileTheme = false;
+  const themePreferences = () => {
+    let raw = themeCache;
+    try { if (!volatileTheme) raw = localStorage.getItem(themeKey); } catch { /* Use the last admitted tab value. */ }
+    const parsed = readCatalogTheme(raw);
+    return parsed.status === 'ok' ? parsed.theme : {};
+  };
   const revealSpoilers = () => spoilerControl && spoilers.value === 'on';
   if (!(form instanceof HTMLFormElement) || !(order instanceof HTMLSelectElement)
       || !(size instanceof HTMLSelectElement) || !(teaser instanceof HTMLSelectElement)
@@ -669,16 +679,44 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
     updateURL(current());
     return true;
   };
+  const updateThemeLinks = theme => {
+    for (const entry of entries) {
+      const link = entry.node.querySelector(textOnly ? '.txt-sub a' : '.catalogThumb');
+      if (!(link instanceof HTMLAnchorElement)) continue;
+      const target = new URL(link.href);
+      if (target.origin !== location.origin || target.pathname !== `/${board}/thread/${entry.id}` || target.search || target.hash) continue;
+      if (theme.newtab === true) { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
+      else { link.removeAttribute('target'); link.removeAttribute('rel'); }
+    }
+  };
+  document.addEventListener('4chanCatalogThemeApplied', event => {
+    if (!event.detail || typeof event.detail.initial !== 'boolean' || typeof event.detail.persistent !== 'boolean') return;
+    const parsed = readCatalogTheme(event.detail.raw);
+    themeCache = event.detail.raw; volatileTheme = !event.detail.persistent;
+    const theme = parsed.status === 'ok' ? parsed.theme : {};
+    updateThemeLinks(theme);
+    const initialOverride = event.detail.initial && new URL(location.href).searchParams.has('spoilers');
+    if (spoilerControl && !initialOverride) {
+      const changed = revealSpoilers() !== (theme.nospoiler === true);
+      spoilers.value = theme.nospoiler === true ? 'on' : 'off';
+      if (changed && apply(current(), renderedQuery, false) && !event.detail.initial) updateURL(current());
+    }
+    document.body.classList.toggle('reveal-img-spoilers', revealSpoilers());
+  });
+  const saveSpoilers = enabled => {
+    void updateCatalogSpoilers(document.getElementById('watcher-context'), enabled).then(result => {
+      if (!form.isConnected) return;
+      if (result.status === 'ok' && !result.persisted) setPreferenceStatus('Spoiler preference stays in this tab. Browser storage or cross-tab locking is unavailable.');
+      else if (!['ok', 'cancelled'].includes(result.status)) setPreferenceStatus('Spoiler preference could not be saved. The current view remains usable.');
+    });
+  };
   form.addEventListener('submit', event => {
     if (searchControlsReady) { event.preventDefault(); return; }
     save();
     if (searchReady) { event.preventDefault(); applySearch(); }
   });
   if (spoilerControl) spoilers.addEventListener('change', () => {
-    try {
-      if (revealSpoilers()) localStorage.setItem(themeKey, JSON.stringify({ nospoiler: true }));
-      else localStorage.removeItem(themeKey);
-    } catch { /* Explicit reveal remains usable without storage. */ }
+    saveSpoilers(revealSpoilers());
     if (apply(current())) updateURL(current());
     else form.requestSubmit();
   });
@@ -720,13 +758,7 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
       searchClose.addEventListener('click', closeSearch);
       document.addEventListener('keyup', event => {
         if (event.target?.nodeName === 'INPUT' || event.target?.nodeName === 'TEXTAREA') return;
-        try {
-          const raw = localStorage.getItem(themeKey);
-          if (raw !== null && raw.length <= 4096) {
-            const theme = JSON.parse(raw);
-            if (theme && typeof theme === 'object' && !Array.isArray(theme) && theme.nobinds === true) return;
-          }
-        } catch { /* Keyboard controls remain usable without preference storage. */ }
+        if (themePreferences().nobinds === true) return;
         if (event.keyCode === 83) openSearch();
         else if (event.keyCode === 88) {
           order.value = ({ date: 'alt', alt: 'r', r: 'absdate', absdate: 'date' })[order.value];
@@ -766,7 +798,7 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
     saveSearch('');
     if (spoilerControl) {
       spoilers.value = 'off';
-      try { localStorage.removeItem(themeKey); } catch { /* Explicit defaults still apply. */ }
+      saveSpoilers(false);
     }
     const defaults = { orderby: 'alt', large: false, extended: true };
     const url = new URL(action.href);
@@ -834,16 +866,9 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
   const url = new URL(location.href);
   let spoilerChanged = false;
   if (spoilerControl && !url.searchParams.has('spoilers')) {
-    try {
-      const raw = localStorage.getItem(themeKey);
-      if (raw !== null && raw.length <= 4096) {
-        const saved = JSON.parse(raw);
-        if (saved && typeof saved === 'object' && !Array.isArray(saved) && saved.nospoiler === true) {
-          spoilerChanged = !revealSpoilers();
-          spoilers.value = 'on';
-        }
-      }
-    } catch { /* Never apply arbitrary catalog-theme fields or stored CSS. */ }
+    if (themePreferences().nospoiler === true) {
+      spoilerChanged = !revealSpoilers(); spoilers.value = 'on';
+    }
   }
   let display = current();
   if (!['order', 'size', 'teaser'].some(name => url.searchParams.has(name))) {

@@ -28,9 +28,9 @@ and 16 refresh cases at widths 1280/390. It records event phase, target,
 modifiers, cancellation, Search state, sort order and exact card IDs. Refresh
 cases cross the real browser navigation boundary to the same owned document.
 
-The same record contains 24 Settings editor states and 12 style cases. Those
-additional Settings properties are reference evidence for the next implementation
-step; they are not claimed as implemented or qualified by the shortcut tests.
+The same record now contains 24 Settings editor states, 16 native-default states
+and 12 style cases. [Catalog Settings](catalog-settings.md) implements and
+qualifies those properties separately from the shortcut tests.
 No production post, filename, media or private source fixture is retained.
 
 The production-template shortcut suite passes all 38 tests on Windows. Combined
@@ -48,4 +48,4 @@ remain required before merging the combined batch.
 No new asset path, CSP permission, dependency, migration, service authority or
 credential policy changes. The three shortcuts require complete catalog metadata
 and the already-admitted Search controls. Complete original-page comparisons,
-the remaining Settings options and server normalization remain unfinished.
+complete navigation chrome and server normalization remain unfinished.

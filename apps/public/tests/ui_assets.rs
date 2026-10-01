@@ -691,78 +691,88 @@ async fn public_navigation_icons_match_pinned_bytes_and_have_no_api_or_post_rout
 }
 
 #[tokio::test]
-async fn catalog_filter_controller_is_bounded_fixed_code_and_absent_from_the_api_listener() {
-    let path = "/static/catalog-filters.v1.js";
-    let expected = include_bytes!("../static/catalog-filters.v1.js");
-    assert!(expected.len() <= 32_768);
-    assert!(std::str::from_utf8(expected).is_ok());
-    for origin in ["http://127.0.0.1:3000", "https://board.example"] {
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
-            .unwrap();
-        let (app, api) = board_public::routers(pool, origin.into(), origin.starts_with("https:"));
-        for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
-            let response = app
-                .clone()
-                .oneshot(
-                    Request::builder()
-                        .method(method)
-                        .uri(path)
-                        .header("origin", origin)
-                        .body(Body::empty())
-                        .unwrap(),
-                )
-                .await
+async fn catalog_controllers_are_bounded_fixed_code_and_absent_from_the_api_listener() {
+    for (path, expected, alias, newer) in [
+        (
+            "/static/catalog-filters.v1.js",
+            include_bytes!("../static/catalog-filters.v1.js").as_slice(),
+            "/static/catalog-filters.js",
+            "/static/catalog-filters.v2.js",
+        ),
+        (
+            "/static/catalog-theme.v1.js",
+            include_bytes!("../static/catalog-theme.v1.js").as_slice(),
+            "/static/catalog-theme.js",
+            "/static/catalog-theme.v2.js",
+        ),
+    ] {
+        assert!(expected.len() <= 32_768);
+        assert!(std::str::from_utf8(expected).is_ok());
+        for origin in ["http://127.0.0.1:3000", "https://board.example"] {
+            let pool = sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap();
-            if matches!(method, "GET" | "HEAD") {
-                assert_eq!(response.status(), StatusCode::OK);
-                assert_eq!(
-                    response.headers()["content-type"],
-                    "text/javascript; charset=utf-8"
-                );
-                assert_eq!(
-                    response.headers()["cache-control"],
-                    "public, max-age=0, must-revalidate"
-                );
-                assert_eq!(response.headers()["x-content-type-options"], "nosniff");
-                assert!(response.headers().get("set-cookie").is_none());
-                assert!(
-                    response
-                        .headers()
-                        .get("access-control-allow-origin")
-                        .is_none()
-                );
-                let csp = response.headers()["content-security-policy"]
-                    .to_str()
+            let (app, api) =
+                board_public::routers(pool, origin.into(), origin.starts_with("https:"));
+            for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(method)
+                            .uri(path)
+                            .header("origin", origin)
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
                     .unwrap();
-                for directive in [
-                    "default-src 'none';",
-                    "script-src 'none';",
-                    "connect-src 'none';",
-                    "worker-src 'none';",
-                ] {
-                    assert!(csp.contains(directive));
-                }
-                let bytes = response.into_body().collect().await.unwrap().to_bytes();
-                if method == "GET" {
-                    assert_eq!(bytes.as_ref(), expected);
+                if matches!(method, "GET" | "HEAD") {
+                    assert_eq!(response.status(), StatusCode::OK);
+                    assert_eq!(
+                        response.headers()["content-type"],
+                        "text/javascript; charset=utf-8"
+                    );
+                    assert_eq!(
+                        response.headers()["cache-control"],
+                        "public, max-age=0, must-revalidate"
+                    );
+                    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+                    assert!(response.headers().get("set-cookie").is_none());
+                    assert!(
+                        response
+                            .headers()
+                            .get("access-control-allow-origin")
+                            .is_none()
+                    );
+                    let csp = response.headers()["content-security-policy"]
+                        .to_str()
+                        .unwrap();
+                    for directive in [
+                        "default-src 'none';",
+                        "script-src 'none';",
+                        "connect-src 'none';",
+                        "worker-src 'none';",
+                    ] {
+                        assert!(csp.contains(directive));
+                    }
+                    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                    if method == "GET" {
+                        assert_eq!(bytes.as_ref(), expected);
+                    } else {
+                        assert!(bytes.is_empty());
+                    }
                 } else {
-                    assert!(bytes.is_empty());
+                    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
                 }
-            } else {
-                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
             }
-        }
-        for (router, target) in [
-            (api, path),
-            (app.clone(), "/static/catalog-filters.js"),
-            (app, "/static/catalog-filters.v2.js"),
-        ] {
-            let response = router
-                .oneshot(Request::get(target).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
-            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            for (router, target) in [(api, path), (app.clone(), alias), (app, newer)] {
+                let response = router
+                    .oneshot(Request::get(target).body(Body::empty()).unwrap())
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            }
         }
     }
 }

@@ -43,7 +43,7 @@ const auxiliary = ['settingsWindowLink', 'settingsWindowLinkBot', 'settingsWindo
   'hidden-count', 'hidden-count-bottom', 'ordered-by', 'last-updated', 'last-updated-bottom', 'filters-clear-hidden', 'filters-clear-hidden-bottom'];
 function html(css) {
   return `<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}\n${mobile.text}</style><link id="mobile-css">
-<div id="backdrop" class="hidden"></div><div id="boardNavDesktop"></div><div id="boardNavDesktopFoot"></div><div id="boardNavMobile"></div>
+<div id="backdrop" class="hidden"></div><div id="boardNavDesktop"><span class="boardList"></span></div><div id="boardNavDesktopFoot"><span class="boardList"></span></div><div id="boardNavMobile"><select id="boardSelectMobile"><option value="/demo/catalog">demo</option></select><span></span></div>
 <form name="post"><table id="postForm"></table></form><div id="ctrl"><div id="info">
 <span id="search-label">Search: <span id="search-term"></span></span></div><hr class="mobile">
 <div id="settings" class="mobilebtn"><span class="ctrl-wrap">Sort by: <select id="order-ctrl"><option value="alt">Bump order</option><option value="absdate">Last reply</option><option value="date">Creation date</option><option value="r">Reply count</option></select></span>
@@ -56,7 +56,7 @@ ${auxiliary.map(id => id.startsWith('settingsWindowLink') ? `<a id="${id}" href=
 <select id="styleSelector"><option value="Yotsuba B New">Yotsuba B</option></select><input id="owned-input"><textarea id="owned-textarea"></textarea><button id="owned-button">Owned button</button><a id="owned-link" href="#bottom">Owned link</a><div id="bottom"></div>`;
 }
 const browser = await chromium.launch();
-const states = [], shortcuts = [], reloads = [], cases = [];
+const states = [], nativeDefaults = [], shortcuts = [], reloads = [], cases = [];
 const pageErrors = new WeakMap();
 async function closePage(page) {
   assert.deepEqual(pageErrors.get(page), [], 'Pinned catalog client raised a page error');
@@ -78,7 +78,10 @@ async function pageFor(style, width, hash = '', stored = {}, density = 1) {
   await page.evaluate(({ name, stored }) => {
     localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true }));
     document.cookie = `ws_style=${encodeURIComponent(name.replaceAll('_', ' ').replace(/\b[a-z]/g, value => value.toUpperCase()))}; Path=/`;
-    for (const [key, value] of Object.entries(stored)) { if (key.startsWith('4chan-catalog-search')) sessionStorage.setItem(key, value); else localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value)); }
+    for (const [key, value] of Object.entries(stored)) {
+      const storage = key.startsWith('4chan-catalog-search') ? sessionStorage : localStorage;
+      if (value === null) storage.removeItem(key); else storage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    }
   }, { name: style.name, stored });
   await page.addScriptTag({ content: client.text });
   await page.evaluate(catalog => {
@@ -92,7 +95,7 @@ async function pageFor(style, width, hash = '', stored = {}, density = 1) {
   return page;
 }
 
-async function record(page, label) {
+async function record(page, label, destination = states) {
   const value = await page.evaluate(() => {
     const panel = document.getElementById('theme');
     const shown = panel && !panel.classList.contains('hidden');
@@ -109,7 +112,7 @@ async function record(page, label) {
       stored: { theme: localStorage.getItem('catalog-theme'), settings: localStorage.getItem('4chan-settings') },
     };
   });
-  states.push({ label, width: page.viewportSize().width, ...value });
+  destination.push({ label, width: page.viewportSize().width, ...value });
   assert.deepEqual(pageErrors.get(page), [], label);
 }
 async function shortcutState(page, label, event) {
@@ -211,12 +214,22 @@ try {
     cases.push({ theme: style.theme, width, values: await panelStyle(page) });
     await closePage(page);
   }
+  for (const width of [1280, 390]) for (const [label, settings] of [
+    ['absent', null], ['empty', {}], ['explicit-off', { threadWatcher: false, dropDownNav: false }],
+    ['explicit-on', { threadWatcher: true, dropDownNav: true }],
+  ]) {
+    const page = await pageFor(style, width, '', { '4chan-settings': settings });
+    await page.locator('#settingsWindowLink').click({ force: true });
+    await record(page, label + '-opened', nativeDefaults);
+    await page.locator('#theme-save').click(); await record(page, label + '-saved', nativeDefaults);
+    await closePage(page);
+  }
 } finally { await browser.close(); }
 const observed = { scope: 'Whole unchanged pinned catalog client on three owned cards. Settings fields, persistence, CSS editor state and keyboard phase/target/modifier cases. All nonfixture requests denied; no production content.',
   client: { url: 'https://s.4cdn.org/' + client.pin.path, bytes: client.pin.bytes, sha256: client.pin.sha256 },
   environment: { chromium: browser.version(), viewports: [[1280, 900], [390, 900]], density: 1, clock: '2026-09-08T12:00:00Z', paused_at: '2026-09-08T13:00:00Z' },
-  styles: [...styles.map(row => row.pin), mobile.pin], catalog, states, shortcuts, reloads, cases };
+  styles: [...styles.map(row => row.pin), mobile.pin], catalog, states, nativeDefaults, shortcuts, reloads, cases };
 const destination = new URL('docs/public-catalog-settings-reference.json', root);
 if (args[1] === '--write') await writeFile(destination, JSON.stringify(observed, null, 2) + '\n');
 else assert.deepEqual(observed, JSON.parse(await readFile(destination)));
-console.log(`PASS ${states.length} catalog settings states, ${shortcuts.length} shortcut states, ${reloads.length} reload cases and ${cases.length} style cases`);
+console.log(`PASS ${states.length} catalog settings states, ${nativeDefaults.length} native defaults, ${shortcuts.length} shortcut states, ${reloads.length} reload cases and ${cases.length} style cases`);

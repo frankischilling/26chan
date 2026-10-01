@@ -1367,6 +1367,856 @@
       }
     }
   ],
+  "nativeDefaults": [
+    {
+      "label": "absent-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": null
+      }
+    },
+    {
+      "label": "absent-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "empty-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{}"
+      }
+    },
+    {
+      "label": "empty-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "explicit-off-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-off-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-on-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "explicit-on-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "absent-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": null
+      }
+    },
+    {
+      "label": "absent-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "empty-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{}"
+      }
+    },
+    {
+      "label": "empty-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-off-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-off-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-on-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "explicit-on-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":false}"
+      }
+    }
+  ],
   "shortcuts": [
     {
       "label": "body-keydown",

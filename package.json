@@ -61,7 +61,8 @@
     "test:themes": "playwright test --config playwright.themes.config.js",
     "test:states": "playwright test --config playwright.states.config.js",
     "test:staff": "playwright test --config playwright.staff.config.js",
-    "test:catalog-filters-core": "node --test tests/browser/catalog-filters.test.mjs"
+    "test:catalog-filters-core": "node --test tests/browser/catalog-filters.test.mjs",
+    "test:catalog-theme-core": "node --test tests/browser/catalog-theme.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",

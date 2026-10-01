@@ -4,6 +4,7 @@ use axum::{Router, http::header, routing::get};
 pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
 pub(crate) const CATALOG_FILTER_PATH: &str = "/static/catalog-filters.v1.js";
 pub(crate) const CATALOG_FILTER_CORE_PATH: &str = "/static/catalog-filter-core.v1.js";
+pub(crate) const CATALOG_THEME_PATH: &str = "/static/catalog-theme.v1.js";
 pub(crate) const WATCHER_SCRIPT_PATH: &str = "/static/thread-watcher.v1.js";
 pub(crate) const WATCHER_CORE_PATH: &str = "/static/thread-watcher-core.v1.js";
 pub(crate) const POST_TRACKING_PATH: &str = "/static/post-tracking.v1.js";
@@ -632,6 +633,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             CATALOG_FILTER_CORE_PATH,
             include_bytes!("../static/catalog-filter-core.v1.js").as_slice(),
+        ),
+        (
+            CATALOG_THEME_PATH,
+            include_bytes!("../static/catalog-theme.v1.js").as_slice(),
         ),
         (
             NATIVE_EMBEDS_PATH,

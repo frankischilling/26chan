@@ -12,7 +12,7 @@ The pinned public extension v1191 exports settings in the URL fragment `#cfg=`. 
 }
 ```
 
-The public Export Settings panel shows the generated URL in a read-only field and provides a bookmarkable restore link. The rewrite keeps that URL shape and the export control. It uses the canonical current board URL (`/<board>/`) as the destination, so an export opened from a thread, catalog page, or upload flow does not copy the current query string, fragment, thread identifier, or upload URL into the bookmark.
+The public Export Settings panel shows the generated URL in a read-only field and provides a bookmarkable restore link. The rewrite keeps that URL shape and the export control in board/thread Settings. The catalog uses its separate [public catalog editor](catalog-settings.md). The export builder uses the canonical current board URL (`/<board>/`) as the destination, so any supported caller does not copy a query string, fragment, thread identifier, or upload URL into the bookmark.
 
 Only preference storage is considered for transfer. The module reads `4chan-settings`, `4chan-filters`, `4chan-css`, and `catalog-settings`. It does not enumerate storage, cookies, forms, or page fields, and it never reads Thread Watcher state, tracked-post state, post receipts, deletion passwords, upload identifiers, upload capabilities, or other workflow data.
 

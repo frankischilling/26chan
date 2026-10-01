@@ -49,11 +49,15 @@ test('mobile CSS contains saved desktop coordinates before breakpoint callbacks 
           hidden: panel.hidden, left: panel.getBoundingClientRect().left,
           right: panel.getBoundingClientRect().right, width: innerWidth,
           scroll: document.documentElement.scrollWidth,
+          overflow: [...document.querySelectorAll('body *')].map(element => {
+            const box = element.getBoundingClientRect();
+            return { tag: element.localName, id: element.id, class: element.className, left: box.left, right: box.right };
+          }).filter(box => box.right > innerWidth).slice(0, 10),
         }));
         expect(measured.hidden).toBe(false);
         expect(measured.left).toBe(0);
         expect(measured.right).toBeLessThanOrEqual(measured.width);
-        expect(measured.scroll).toBeLessThanOrEqual(measured.width);
+        expect(measured.scroll, JSON.stringify(measured)).toBeLessThanOrEqual(measured.width);
       }
       await page.waitForFunction(() => matchMedia('(max-width: 480px)').matches);
       // Wait for the browser's change event, then run the deliberately held handler.
@@ -138,7 +142,7 @@ test('invalid stored styles fall back safely and mobile placement leaves desktop
 test('dragging still works in the current tab when storage is unavailable', async ({ page, context }) => {
   await context.addInitScript(() => { for (const method of ['getItem', 'setItem', 'removeItem']) Storage.prototype[method] = () => { throw new Error('Unavailable'); }; });
   await page.goto('/test/catalog');
-  await saveWatcherSettings(page, { threadWatcher: true }, { reload: false });
+  await saveWatcherSettings(page, { threadWatcher: true }, { reload: false, tabOnly: true });
   const before = await page.locator('#threadWatcher').boundingBox();
   await drag(page, 200, 100);
   await expect.poll(async () => (await page.locator('#threadWatcher').boundingBox()).x).toBeCloseTo(before.x + 200, 3);

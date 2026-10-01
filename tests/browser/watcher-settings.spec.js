@@ -7,7 +7,7 @@ test('catalog settings discard cancelled edits and save the native watcher flag 
   page.on('request', request => { if (request.isNavigationRequest()) navigations++; });
   let dialog = await openWatcherSettings(page);
   await expect(dialog).toHaveAttribute('id', 'theme');
-  await expect(dialog.locator('#theme-tw')).toBeFocused();
+  await expect(dialog.locator('#theme-nobinds')).toBeFocused();
   await dialog.getByLabel('Thread Watcher', { exact: true }).check();
   await page.keyboard.press('Escape');
   await expect(page.locator('#settingsWindowLink')).toBeFocused();
@@ -19,7 +19,7 @@ test('catalog settings discard cancelled edits and save the native watcher flag 
   await dialog.getByRole('button', { name: 'Close settings' }).click();
   await saveWatcherSettings(page, { threadWatcher: true });
   await expect(page.locator('#threadWatcher')).toBeVisible();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')))).toEqual({ disableAll: false, threadWatcher: true, threadAutoWatcher: true, unrelated: 'keep' });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')))).toEqual({ disableAll: false, threadWatcher: true, threadAutoWatcher: true, unrelated: 'keep', dropDownNav: false });
   expect(navigations).toBe(0);
 });
 

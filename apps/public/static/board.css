@@ -148,7 +148,7 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
   .nativeCatalogControls #settings { text-align: center; line-height: 40px; }
   .nativeCatalogControls > hr.mobile { display: block; margin-top: 10px; }
   .nativeCatalogControls .catalogControl { white-space: nowrap; }
-  .nativeCatalogControls .btn-wrap { border-radius: 3px; font-weight: bold; padding: 6px 10px 5px; background-color: var(--catalog-button-paper); background-image: var(--catalog-button-image); background-repeat: var(--catalog-button-repeat); border: 1px solid var(--catalog-button-edge); color: var(--catalog-button-color); cursor: pointer; }
+  .nativeCatalogControls .btn-wrap { display: inline-block; line-height: normal; border-radius: 3px; font-weight: bold; padding: 6px 10px 5px; background-color: var(--catalog-button-paper); background-image: var(--catalog-button-image); background-repeat: var(--catalog-button-repeat); border: 1px solid var(--catalog-button-edge); color: var(--catalog-button-color); cursor: pointer; }
   .nativeCatalogControls .btn-wrap::before, .nativeCatalogControls .btn-wrap::after { content: ''; }
   .nativeCatalogControls #qf-box { font-size: 16px; }
   #search-label-bottom { display: none !important; }
@@ -425,6 +425,21 @@ dialog.catalogSettings { position: absolute; inset: auto; top: 60px; left: 50%; 
 .catalogSettings h4 { font-size: 14px; padding: 0; margin: 10px 0 5px; }
 .catalogSettings .clickset { margin-bottom: 8px; }
 .catalogSettings .clickset li { clear: both; margin-bottom: 2px; line-height: 20px; }
+dialog.catalogSettings#theme { font-family: var(--catalog-settings-font, arial, helvetica, sans-serif); }
+dialog.catalogSettings#theme .clickset { list-style-type: disc; }
+dialog.catalogSettings#theme .clickset li { list-style-type: none; }
+dialog.catalogSettings#theme input[type=checkbox] { margin: 3px 3px 3px 4px; padding: 0; }
+dialog.catalogSettings#theme #theme-css { box-sizing: content-box; width: 320px; height: 52px; font: 11px "DejaVu Sans Mono", Consolas, "Andale Mono", "Lucida Console", monospace; margin: 0 2px 0 0; padding: 2px 4px 3px; border: 1px solid #aaa; color: #000; background: #fff; }
+dialog.catalogSettings#theme #theme-btns { margin: 5px 0 3px; padding: 0; text-align: start; }
+dialog.catalogSettings#theme #theme-msg:empty { display: none; }
+dialog.catalogSettings#theme #theme-msg { display: block; }
+dialog.catalogSettings#theme #theme-save { font-family: Arial; font-size: 13.3333px; padding: 1px 6px; margin: 0; }
+dialog.catalogSettings#theme #theme-close { position: absolute; right: 5px; top: -3px; display: block; width: 18px; height: 18px; background-color: transparent; background-size: 100%; border: 0; padding: 0; color: inherit; cursor: pointer; }
+@media (max-width: 480px) {
+  dialog.catalogSettings#theme { width: 310px; margin-left: -165px; }
+  dialog.catalogSettings#theme #theme-css { width: 300px; height: 76px; font-size: 16px; }
+  dialog.catalogSettings#theme .desktop { display: none !important; }
+}
 dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
 .extensionSettings .nativeSettingsBody { box-sizing: border-box; position: relative; top: 25px; width: 400px; max-width: calc(100% - 20px); max-height: 85%; margin: 0 auto; overflow: auto; background: var(--panel); border: 1px solid var(--settings-frame, rgba(0, 0, 0, 0.2)); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); }
 .settingsExpandAll { text-align: center; margin: 0 0 10px; padding-left: 7px; }

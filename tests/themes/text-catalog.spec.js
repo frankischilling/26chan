@@ -17,7 +17,7 @@ for (const theme of themes) {
       await expect(table.locator('td.txt-sub').nth(4)).toHaveText('<script>literal & subject</script>');
       await expect(table.locator('script, img, .teaser')).toHaveCount(0);
       await expect(table.locator('td.txt-date').first()).toHaveText('09/08/26(Tue)08:00:00');
-      for (const id of ['size-ctrl', 'teaser-ctrl', 'theme-nospoiler']) await expect(page.locator(`#${id}`)).toBeHidden();
+      for (const id of ['size-ctrl', 'teaser-ctrl', 'catalog-spoilers']) await expect(page.locator(`#${id}`)).toBeHidden();
       await expect(page.locator('#order-ctrl')).toBeVisible();
       await expect(page.locator('#qf-box')).toBeVisible();
       await expect(table.locator('th.txt-date')).toHaveCSS('display', name === 'mobile' ? 'none' : 'table-cell');

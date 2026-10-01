@@ -48,7 +48,7 @@ for (const scale of [1, 2]) {
           localStorage.setItem('4chan-tw-timestamp', String(Date.now()));
         });
         const pending = [];
-        await page.route('**/_watch/**', route => { pending.push(route); });
+        await page.route('**/_watch/*/**', route => { pending.push(route); });
         for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
           await page.setViewportSize(viewport);
           for (const catalog of [true, false]) {

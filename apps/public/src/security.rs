@@ -204,13 +204,15 @@ fn headers(
         );
         if page == Some(InteractivePage::Catalog) {
             format!(
-                "{}{} {}{} {}{} {watcher}",
+                "{}{} {}{} {}{} {}{} {watcher}",
                 state.origin,
                 crate::ui_assets::CATALOG_SCRIPT_PATH,
                 state.origin,
                 crate::ui_assets::CATALOG_FILTER_PATH,
                 state.origin,
-                crate::ui_assets::CATALOG_FILTER_CORE_PATH
+                crate::ui_assets::CATALOG_FILTER_CORE_PATH,
+                state.origin,
+                crate::ui_assets::CATALOG_THEME_PATH
             )
         } else {
             watcher
@@ -413,7 +415,11 @@ mod tests {
                     );
                 }
                 assert_eq!(directive("style-src"), "style-src 'self'");
-                for path in ["catalog-filters.v1.js", "catalog-filter-core.v1.js"] {
+                for path in [
+                    "catalog-filters.v1.js",
+                    "catalog-filter-core.v1.js",
+                    "catalog-theme.v1.js",
+                ] {
                     assert_eq!(
                         directive("script-src")
                             .split_whitespace()

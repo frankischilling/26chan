@@ -6,7 +6,7 @@ The separate [catalog Filters & Highlights](catalog-filters.md) consumer now
 uses a whole-client public v1025 replay for matching grammar, rule effects,
 editor states and six-theme styles. Patterns run in bounded disposable workers;
 storage uses the shared lock and an opening-value conflict check. Settings
-transfer for this format, catalog theme options, complete original-page pixels
+transfer for this format, complete original-page pixels
 and server normalization remain unfinished.
 
 The [catalog Search controls](catalog-search-controls.md) now have a whole-client
@@ -17,7 +17,11 @@ fixtures establish the listed properties, not complete original-page parity or
 unknown server-side teaser normalization in #82.
 The later [keyboard reference](catalog-shortcuts.md) corrects the initial
 phase/target/modifier assumption and adds R, X and the disable preference. Its
-Settings editor/style observations remain reference inputs for unfinished work.
+The [catalog Settings editor](catalog-settings.md) now implements the observed
+five options, sparse storage, CSS draft and six-theme/mobile styles. Finite CSS,
+shared-lock conflict checks and explicit tab-only fallback are security
+adaptations. Its navigation control uses the existing bounded component;
+complete original catalog navigation pixels remain unfinished.
 
 The mobile-header continuation adds [post tooltips](post-tooltips.md), with
 released relative-date boundaries, full-name hover timing and 18 synthetic
