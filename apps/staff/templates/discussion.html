@@ -1,0 +1,43 @@
+{% import "formatting.html" as formatting %}
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/j/ - {{ board.title }}</title><link rel="stylesheet" href="/discussion.css"></head>
+<body class="publicPageChrome nws discussionPage">
+<nav class="boardList" aria-label="Staff navigation">[ <a href="/j/">j</a> / <a href="/reports">Reports</a> / <a href="/">Sign in</a> ] [ <a href="{{ public_origin }}/" rel="noreferrer">Public boards</a> ]</nav>
+<main id="content"><div class="boardBanner" id="top"><div class="boardTitle" role="heading" aria-level="1">/j/ - {{ board.title }}</div></div>
+{% if parent > 0 %}<nav class="boardNavDesktop">[ <a href="/j/">Return</a> ] [ <a href="#bottom">Bottom</a> ]</nav>{% endif %}
+{% if !error.is_empty() %}<p class="discussionError" role="alert">{{ error }}</p>{% endif %}
+{% if !closed %}
+<form class="postForm discussionForm" id="reply" name="post" method="post" action="/j/imgboard.php">
+<h2>{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</h2>
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="mode" value="regist"><input type="hidden" name="resto" value="{{ parent }}">
+<input type="hidden" name="name" value=""><input type="hidden" name="email" value="">
+<div><label for="sub">Subject</label><input name="sub" id="sub" value="{{ subject }}" maxlength="600"></div>
+<div><label for="com">Comment</label><textarea name="com" id="com" rows="5" maxlength="{{ board.max_comment_chars }}">{{ comment }}</textarea></div>
+{% if !recent %}<p><a href="/">Sign in again</a> before posting.</p>{% endif %}
+<button type="submit">Submit</button>
+</form>
+{% else %}<p class="closedNotice">This thread is closed.</p>{% endif %}
+<hr><div class="board">
+{% for view in threads %}
+<section class="thread" id="t{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}">
+{% for item in view.posts %}
+<article class="postContainer {% if item.post.id == view.thread.id %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ item.post.id }}">
+{% if item.post.id != view.thread.id %}<div class="sideArrows" aria-hidden="true">&gt;&gt;</div>{% endif %}
+<div class="post {% if item.post.id == view.thread.id %}op{% else %}reply{% endif %}" id="p{{ item.post.id }}">
+<div class="postInfo">
+{% if !item.post.subject.is_empty() %}<span class="subject">{{ item.post.subject }}</span>{% endif %}
+<span class="name {{ item.name_class() }}">Anonymous{% if let Some(role) = item.role %} ## {{ role.label() }}{% endif %}</span>
+<time datetime="{{ item.post.created_at.to_rfc3339() }}">{{ item.now }}</time>
+<span class="postNum"><a href="/j/thread/{{ view.thread.id }}#p{{ item.post.id }}" title="Link to this post">No.</a><a href="/j/thread/{{ view.thread.id }}{% if !view.thread.closed %}?quote={{ item.post.id }}#reply{% else %}#p{{ item.post.id }}{% endif %}" title="Reply to this post">{{ item.post.id }}</a></span>
+{% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed %}<span>Closed</span>{% endif %} [<a href="/j/thread/{{ view.thread.id }}">Reply</a>]{% endif %}
+</div>
+<blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), "j", public_origin) %}{% endcall %}</blockquote>
+</div></article>
+{% endfor %}
+{% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/j/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
+</section>
+{% else %}<p class="empty">No threads yet.</p>{% endfor %}
+</div>
+<nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
+<nav id="bottom">[ <a href="#top">Top</a> / <a href="/j/">Index</a> / <a href="/reports">Reports</a> ]</nav>
+</main></body></html>

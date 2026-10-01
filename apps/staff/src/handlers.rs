@@ -379,6 +379,7 @@ pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<Stri
         recent: session.recent,
         admin: session.role == "admin",
         moderator: session.at_least(crate::access::Level::Moderator),
+        discussion: session.permissions.can_discuss(&session.role),
     }
     .render()
     .map_err(|_| AppError::Internal)?;
@@ -404,6 +405,7 @@ pub async fn posting(
 ) -> Result<Html<String>, AppError> {
     let session = auth::session(&state, &headers).await?;
     if !session.at_least(crate::access::Level::Moderator)
+        || query.board == "j"
         || (!query.board.is_empty() && !session.permissions.allows(&query.board))
     {
         return Err(AppError::Forbidden);
@@ -417,7 +419,7 @@ pub async fn posting(
         return Err(AppError::Invalid);
     }
     let boards: Vec<(String, String)> =
-        sqlx::query_as("SELECT slug,title FROM content.boards WHERE ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
+        sqlx::query_as("SELECT slug,title FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
             .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
             .fetch_all(&state.staff)
             .await?;
@@ -473,6 +475,7 @@ pub async fn post_message(
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
     if !session.at_least(crate::access::Level::Moderator)
+        || input.board == "j"
         || !session.permissions.allows(&input.board)
     {
         return Err(AppError::Forbidden);

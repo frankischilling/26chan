@@ -112,6 +112,25 @@ impl Fixture {
         sqlx::query_as("SELECT id,thread_id,capcode FROM content.posts WHERE board=$1 ORDER BY id DESC LIMIT 1").bind(&self.board).fetch_one(&self.owner).await.unwrap()
     }
     async fn cleanup(&self) {
+        let discussion_threads: Vec<i64> = sqlx::query_scalar(
+            "SELECT p.id FROM staff_identity.discussion_posts d JOIN content.posts p ON p.id=d.post_id \
+             WHERE d.account_id=$1 AND p.board='j' AND p.thread_id=p.id",
+        ).bind(self.account).fetch_all(&self.owner).await.unwrap();
+        sqlx::query("DELETE FROM content.moderation_audit WHERE board='j' AND account_id=$1")
+            .bind(self.account)
+            .execute(&self.owner)
+            .await
+            .unwrap();
+        for query in [
+            "DELETE FROM content.posts WHERE board='j' AND thread_id=ANY($1)",
+            "DELETE FROM content.threads WHERE board='j' AND id=ANY($1)",
+        ] {
+            sqlx::query(query)
+                .bind(&discussion_threads)
+                .execute(&self.owner)
+                .await
+                .unwrap();
+        }
         for query in [
             "DELETE FROM content.moderation_audit WHERE board=$1",
             "DELETE FROM content.reports WHERE board=$1",
@@ -504,6 +523,191 @@ async fn revocation_lock_case(consume: bool) {
         assert_eq!(sql_code(&outcome.unwrap_err()).as_deref(),Some("28000"));
         assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.posts WHERE id=$1").bind(post.id).fetch_one(&case.owner).await.unwrap(),0);
         assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.moderation_audit WHERE target_id=$1 AND action='staff-post'").bind(post.id).fetch_one(&case.owner).await.unwrap(),0);
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+async fn private_request(
+    case: &Fixture,
+    path: &str,
+    form: Option<String>,
+) -> axum::response::Response {
+    let mut request = Request::builder().uri(path).header(
+        "cookie",
+        format!("staff={}; staff-csrf={}", case.token, case.csrf),
+    );
+    let body = if let Some(form) = form {
+        request = request
+            .method("POST")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header("origin", "http://localhost:3001")
+            .header("sec-fetch-site", "same-origin");
+        Body::from(form)
+    } else {
+        Body::empty()
+    };
+    let response = board_staff::router(case.state.clone())
+        .oneshot(request.body(body).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.headers()["cache-control"], "private, no-store");
+    assert!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .is_none()
+    );
+    response
+}
+
+fn private_form(case: &Fixture, thread: i64, comment: &str) -> String {
+    url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("csrf", &case.csrf)
+        .append_pair("mode", "regist")
+        .append_pair("resto", &thread.to_string())
+        .append_pair("name", "Forged Admin <name>")
+        .append_pair("email", "fortune")
+        .append_pair("sub", "Owned <script> subject")
+        .append_pair("com", comment)
+        .finish()
+}
+
+async fn private_html(case: &Fixture, path: &str) -> String {
+    let response = private_request(case, path, None).await;
+    let status = response.status();
+    let text = String::from_utf8(
+        to_bytes(response.into_body(), 4_194_304)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{text}");
+    text
+}
+
+#[tokio::test]
+async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public_routes() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        let username = format!("owned_private_{}",case.account);
+        sqlx::query("UPDATE staff_identity.accounts SET role='janitor',username=$2,allow_boards=ARRAY['janitor'] WHERE id=$1")
+            .bind(case.account).bind(&username).execute(&case.owner).await.unwrap();
+        for path in ["/j/","/j/index.php","/j/0.php","/j/thread/1","/j/res/1.php","/j/post/1"] {
+            let response = board_staff::router(case.state.clone()).oneshot(Request::get(path).body(Body::empty()).unwrap()).await.unwrap();
+            assert_eq!(response.status(),StatusCode::UNAUTHORIZED,"{path}");
+        }
+        for path in ["/j/","/j/index.php","/j/0.php"] {
+            let text = private_html(&case,path).await;
+            assert!(text.contains("Janitor &#38; Moderator Discussion"));
+            assert!(text.contains("name=\"csrf\""));
+            assert!(text.contains("type=\"hidden\" name=\"name\""));
+            assert!(text.contains("type=\"hidden\" name=\"email\""));
+            assert!(!text.contains("<label for=\"name\""));
+        }
+        let single_auth=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .acquire_timeout(Duration::from_secs(1))
+            .connect(&std::env::var("AUTH_DATABASE_URL").unwrap()).await.unwrap();
+        let single_state=Arc::new(AppState {
+            config:case.state.config.clone(),auth:single_auth.clone(),staff:case.state.staff.clone(),
+            webauthn:WebauthnBuilder::new("localhost",&Url::parse("http://localhost:3001").unwrap()).unwrap().build().unwrap(),
+            limits:Limits::default(),
+        });
+        let one_connection=board_staff::router(single_state).oneshot(Request::get("/j/")
+            .header("cookie",format!("staff={}; staff-csrf={}",case.token,case.csrf))
+            .body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(one_connection.status(),StatusCode::OK,"A private page must not hold one auth connection while waiting for another");
+        drop(one_connection);
+        single_auth.close().await;
+        let response = private_request(&case,"/j/imgboard.php",Some(private_form(&case,0,"Owned private <script> body"))).await;
+        assert_eq!(response.status(),StatusCode::SEE_OTHER);
+        let location = response.headers()["location"].to_str().unwrap();
+        let thread: i64 = location.strip_prefix("/j/thread/").unwrap().split('#').next().unwrap().parse().unwrap();
+        let saved: (String,Option<String>,Option<String>) = sqlx::query_as("SELECT name,capcode,trip FROM content.posts WHERE id=$1")
+            .bind(thread).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(saved,("Anonymous".into(),None,None));
+        let actor:i64 = sqlx::query_scalar("SELECT account_id FROM staff_identity.discussion_posts WHERE post_id=$1")
+            .bind(thread).fetch_one(&case.state.auth).await.unwrap();
+        assert_eq!(actor,case.account);
+        let text = private_html(&case,&format!("/j/thread/{thread}")).await;
+        assert!(text.contains("Anonymous ## Janitor"));
+        assert!(text.contains("discussionJanitor"));
+        assert!(!text.contains("Forged Admin"));
+        assert!(!text.contains(&username));
+        assert!(!text.contains("<script>"));
+        assert!(text.contains("&#60;script&#62;"));
+        assert_eq!(case.submit(0,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::FORBIDDEN);
+
+        let thread_path = format!("/j/thread/{thread}");
+        for (role,label,class) in [("moderator","Mod","discussionModerator"),("manager","Manager","discussionManager"),("admin","Admin","discussionAdmin")] {
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1")
+                .bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let response=private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,&format!("Reply by source role {role}. >>{thread} >>>/g/123")))).await;
+            assert_eq!(response.status(),StatusCode::SEE_OTHER);
+            let text=private_html(&case,&thread_path).await;
+            assert!(text.contains(&format!("Anonymous ## {label}")));
+            assert!(text.contains(class));
+            assert!(!text.contains("## Janitor"),"Source labels follow the current author role");
+            assert!(!text.contains(&username));
+            assert!(text.contains(&format!("href=\"/j/post/{thread}\"")));
+            assert!(text.contains("href=\"http://127.0.0.1:3000/g/post/123\""));
+        }
+        let legacy=private_html(&case,&format!("/j/res/{thread}.php")).await;
+        assert!(legacy.contains("Anonymous ## Admin"));
+        let quote=private_html(&case,&format!("{thread_path}?quote={thread}")).await;
+        assert!(quote.contains(&format!("&#62;&#62;{thread}\n</textarea>")));
+        let redirected=private_request(&case,&format!("/j/post/{thread}"),None).await;
+        assert_eq!(redirected.status(),StatusCode::SEE_OTHER);
+        assert_eq!(redirected.headers()["location"],format!("{thread_path}#p{thread}"));
+        for app in [&case.public,&case.api] {
+            for path in [format!("/j/thread/{thread}.json"),"/j/1.json".into(),"/j/catalog.json".into(),"/j/index.rss".into()] {
+                let response=app.clone().oneshot(Request::get(&path).header("cookie",format!("staff={}",case.token)).body(Body::empty()).unwrap()).await.unwrap();
+                assert_eq!(response.status(),StatusCode::NOT_FOUND,"{path}");
+            }
+        }
+        let public=pool("TEST_PUBLIC_DATABASE_URL").await;
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE thread_id=$1")
+            .bind(thread).fetch_one(&public).await.unwrap();
+        assert_eq!(count,0);
+        denied(&public,"SELECT * FROM staff_identity.discussion_posts LIMIT 0").await;
+        denied(&case.state.staff,"SELECT * FROM staff_identity.discussion_posts LIMIT 0").await;
+        denied(&case.state.auth,"INSERT INTO staff_identity.discussion_posts(post_id,account_id) SELECT 1,1 WHERE false").await;
+        public.close().await;
+        let privacy=sqlx::query("UPDATE content.boards SET staff_only=false WHERE slug='j'").execute(&case.owner).await.unwrap_err();
+        assert_eq!(sql_code(&privacy).as_deref(),Some("23514"));
+
+        let before:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE thread_id=$1").bind(thread).fetch_one(&case.owner).await.unwrap();
+        let invalid=private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,""))).await;
+        assert_eq!(invalid.status(),StatusCode::BAD_REQUEST);
+        let invalid_text=String::from_utf8(to_bytes(invalid.into_body(),4_194_304).await.unwrap().to_vec()).unwrap();
+        assert!(invalid_text.contains("Owned &#60;script&#62; subject"));
+        assert!(invalid_text.contains("role=\"alert\""));
+        assert!(!invalid_text.contains("<script>"));
+        let bad_csrf=private_form(&case,thread,"Rejected CSRF").replace(&case.csrf,"invalid");
+        assert_eq!(private_request(&case,"/j/imgboard.php",Some(bad_csrf)).await.status(),StatusCode::FORBIDDEN);
+        let forged=board_store::create_staff_post(&case.state.staff,"j",thread,
+            &board_store::NewPost{name:"Forged identity".into(),subject:"Owned".into(),comment:"Must fail".into(),deletion_hash:String::new(),sage:false},chrono::Utc::now(),
+            board_store::StaffPostAuthority{auth_pool:&case.state.auth,session_hash:&auth::hash(&case.token),csrf_hash:&auth::hash(&case.csrf),ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false}).await;
+        assert!(matches!(forged,Err(board_store::StoreError::AuthorizationChanged)));
+        sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY['j'] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+        let queue=private_html(&case,"/reports").await;
+        assert!(!queue.contains("href=\"/j/\""));
+        for path in ["/j/","/latest.php","/j/latest.php",thread_path.as_str()] {
+            assert_eq!(private_request(&case,path,None).await.status(),StatusCode::FORBIDDEN);
+        }
+        assert_eq!(private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,"Denied board"))).await.status(),StatusCode::FORBIDDEN);
+        sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY[]::text[] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+        sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+        assert!(private_html(&case,&thread_path).await.contains("before posting"));
+        assert_eq!(private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,"Stale auth"))).await.status(),StatusCode::FORBIDDEN);
+        sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE account_id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+        assert_eq!(private_request(&case,&thread_path,None).await.status(),StatusCode::UNAUTHORIZED);
+        let after:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE thread_id=$1").bind(thread).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(before,after);
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.moderation_audit WHERE board='j' AND account_id=$1")
+            .bind(case.account).fetch_one(&case.owner).await.unwrap(),before);
     }).await;
     fixture.cleanup().await;
     result.unwrap();

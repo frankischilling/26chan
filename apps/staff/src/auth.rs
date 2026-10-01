@@ -69,6 +69,10 @@ pub struct Authority {
 }
 
 impl Authority {
+    pub(crate) fn connection(&mut self) -> &mut sqlx::PgConnection {
+        &mut self.transaction
+    }
+
     /// Account and session locks stay held while the content transaction runs.
     /// Recheck the clock after content locks, before making its changes durable.
     pub async fn ensure_current(&mut self, require_recent: bool) -> Result<(), AppError> {

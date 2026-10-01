@@ -2,6 +2,7 @@
 pub mod access;
 pub mod auth;
 pub mod config;
+mod discussion;
 mod handlers;
 mod latest;
 pub mod store;
@@ -29,12 +30,15 @@ pub struct AppState {
 pub struct Limits {
     pub permits: Arc<tokio::sync::Semaphore>,
     pub attempts: std::sync::Mutex<(std::time::Instant, u32)>,
+    pub response_output: board_http::ResponseBudget,
 }
 impl Default for Limits {
     fn default() -> Self {
         Self {
             permits: Arc::new(tokio::sync::Semaphore::new(16)),
             attempts: std::sync::Mutex::new((std::time::Instant::now(), 0)),
+            response_output: board_http::ResponseBudget::new(64 * 1024 * 1024)
+                .expect("fixed staff output budget"),
         }
     }
 }
@@ -127,9 +131,20 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
         .route("/latest.php", get(latest::latest))
+        .route("/j", get(discussion::index))
+        .route("/j/", get(discussion::index))
+        .route("/j/index.php", get(discussion::index))
+        .route("/j/thread/{thread}", get(discussion::thread))
+        .route("/j/res/{thread}", get(discussion::legacy_thread))
+        .route("/j/post/{post}", get(discussion::post_link))
+        .route("/j/{page}", get(discussion::page))
+        .route("/discussion.css", get(discussion::stylesheet))
         .route("/j/latest.php", get(latest::latest))
         .route("/imgboard.php", get(latest::legacy))
-        .route("/j/imgboard.php", get(latest::legacy))
+        .route(
+            "/j/imgboard.php",
+            get(latest::legacy).post(discussion::submit),
+        )
         .route("/post", get(handlers::posting).post(handlers::post_message))
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))

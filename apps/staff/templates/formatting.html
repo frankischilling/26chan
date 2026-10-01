@@ -1,14 +1,14 @@
-{% macro comment(lines) -%}
+{% macro comment(lines, board = "", public_origin = "") -%}
 {%- for line in lines -%}
 {%- if !loop.first -%}<br>{%- endif -%}
 {%- if line.green -%}<span class="quote">{%- endif -%}
 {%- for token in line.tokens -%}
 {%- match token -%}
 {%- when Token::Text with (text) -%}{{ text }}
-{%- when Token::Quote with (id) -%}<span>&gt;&gt;{{ id }}</span>
-{%- when Token::CrossQuote with (target, id) -%}<span>&gt;&gt;&gt;/{{ target }}/{{ id }}</span>
-{%- when Token::PostQuote with (quote) -%}<span>{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}</span>
-{%- when Token::StaticQuote with (quote, parts) -%}<span>{%- for part in parts -%}{%- match part -%}{%- when WordPart::Text with (text) -%}{{ text }}{%- when WordPart::Break -%}<wbr>{%- endmatch -%}{%- endfor -%}</span>
+{%- when Token::Quote with (id) -%}{% if board.is_empty() %}<span>&gt;&gt;{{ id }}</span>{% else %}<a class="quotelink" href="/{{ board }}/post/{{ id }}">&gt;&gt;{{ id }}</a>{% endif %}
+{%- when Token::CrossQuote with (target, id) -%}{% if board.is_empty() %}<span>&gt;&gt;&gt;/{{ target }}/{{ id }}</span>{% else %}<a class="quotelink" href="{% if target != "j" %}{{ public_origin }}{% endif %}/{{ target }}/post/{{ id }}" rel="noreferrer">&gt;&gt;&gt;/{{ target }}/{{ id }}</a>{% endif %}
+{%- when Token::PostQuote with (quote) -%}{% if board.is_empty() %}<span>{% else %}<a class="quotelink" href="{% if quote.board().is_some() && quote.board_label() != "j" %}{{ public_origin }}{% endif %}{{ quote.href(board) }}" rel="noreferrer">{% endif %}{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}{% if board.is_empty() %}</span>{% else %}</a>{% endif %}
+{%- when Token::StaticQuote with (quote, parts) -%}{% if board.is_empty() %}<span>{% else %}<a class="quotelink" href="{% if quote.href().starts_with("/") && !quote.href().starts_with("//") && !quote.href().starts_with("/j/") %}{{ public_origin }}{% endif %}{{ quote.href() }}" rel="noreferrer noopener">{% endif %}{%- for part in parts -%}{%- match part -%}{%- when WordPart::Text with (text) -%}{{ text }}{%- when WordPart::Break -%}<wbr>{%- endmatch -%}{%- endfor -%}{% if board.is_empty() %}</span>{% else %}</a>{% endif %}
 {%- when Token::Spoiler with (text) -%}<span class="spoiler">{{ text }}</span>
 {%- when Token::Link with (url) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{{ url }}</a>
 {%- when Token::WrappedLink with (url, parts) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{%- for part in parts -%}{%- match part -%}{%- when WordPart::Text with (text) -%}{{ text }}{%- when WordPart::Break -%}<wbr>{%- endmatch -%}{%- endfor -%}</a>

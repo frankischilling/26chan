@@ -19,6 +19,13 @@ pub(crate) async fn latest(
     headers: HeaderMap,
 ) -> Result<Json<Latest>, AppError> {
     let mut authority = auth::guard(&state, &headers).await?;
+    if !authority
+        .session
+        .permissions
+        .can_discuss(&authority.session.role)
+    {
+        return Err(AppError::Forbidden);
+    }
     let no = sqlx::query_scalar(
         "SELECT coalesce(max(p.id),0) FROM content.posts p \
          JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board \

@@ -59,6 +59,10 @@ pub struct Permissions {
 }
 
 impl Permissions {
+    pub fn can_discuss(&self, role: &str) -> bool {
+        Level::parse(role).is_some() && !self.deny_boards.iter().any(|board| board == "j")
+    }
+
     pub fn all_boards() -> Self {
         Self {
             allow_boards: vec!["all".into()],

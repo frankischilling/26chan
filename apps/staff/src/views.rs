@@ -57,6 +57,7 @@ pub struct Queue {
     pub recent: bool,
     pub admin: bool,
     pub moderator: bool,
+    pub discussion: bool,
 }
 #[cfg(test)]
 mod tests {
@@ -96,6 +97,7 @@ mod tests {
             recent: true,
             admin: false,
             moderator: true,
+            discussion: true,
         }
         .render()
         .unwrap();
@@ -153,6 +155,7 @@ mod tests {
                 recent: true,
                 admin: false,
                 moderator: true,
+                discussion: true,
             }
             .render()
             .unwrap();
@@ -207,6 +210,7 @@ mod tests {
                 recent: true,
                 admin: true,
                 moderator: true,
+                discussion: true,
             }
             .render()
             .unwrap();
