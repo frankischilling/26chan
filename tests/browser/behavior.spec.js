@@ -11,6 +11,7 @@ const navigationAssets = JSON.parse(await readFile(new URL('../../docs/public-na
 const flagAssets = JSON.parse(await readFile(new URL('../../docs/public-country-flags-reference.json', import.meta.url), 'utf8'));
 const capcodeAssets = JSON.parse(await readFile(new URL('../../docs/public-capcode-reference.json', import.meta.url), 'utf8'));
 const filterAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-filter-assets.json', import.meta.url), 'utf8'));
+const boardReference = JSON.parse(await readFile(new URL('../../fixtures/board-reference.json', import.meta.url), 'utf8'));
 const releaseImages = [
   ...flagAssets.assets.filter(asset => asset.mime.startsWith('image/')).map(asset => ({ ...asset, path: `${flagAssets.local_base}${asset.name}` })),
   ...capcodeAssets.assets.map(asset => ({ ...asset, path: `${capcodeAssets.local_base}${asset.name}` })),
@@ -671,7 +672,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await page.goto('http://127.0.0.1:3000/test/');
   const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
   const limit = listing.boards.find(board => board.board === 'test').max_comment_chars;
-  expect(limit).toBe(4000);
+  expect(limit).toBe(boardReference.boards.find(board => board.slug === 'test').max_comment_chars);
   const comment = '𠮷'.repeat(limit);
   const wrapped = count => `${'𠮷'.repeat(35)}<wbr>`.repeat(Math.floor(count / 35)) + '𠮷'.repeat(count % 35);
   await expect(page.locator('#postHelp')).toContainText(`${limit} characters`);

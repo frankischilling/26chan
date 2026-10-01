@@ -15,10 +15,13 @@ Checks run on October 1, 2026:
 | `php scripts/extract-robot9000-reference.php 4chan-old fixtures/robot9000-reference.json --check` | 25 reduction cases and 11 durations matched in WSL; the source directory was supplied by its absolute path from the worktree |
 | `cargo test -p board-store --test robot9000 --features database-tests --locked` | 3 passed on Windows against separate disposable PostgreSQL 16 |
 | `cargo test -p board-public --test robot9000 --lib --all-features --locked` | 101 Windows library tests and the real HTML/JSON posting test passed |
-| `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | Passed under Ubuntu/WSL before the final HTTP and attachment assertions were added |
+| `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | Passed under Ubuntu/WSL on the final integrated code, including the HTTP and attachment assertions |
 | `cargo test -p board-staff --test posting authenticated_capcoded_staff_bypass_robot9000 --features database-tests --locked` | Passed in Ubuntu/WSL; revoked staff remained denied |
 | `bash scripts/test-role-bootstrap.sh` | Fresh migrations, two-way historical comparisons, exact function-owner/runtime grants and actual negative reads/updates passed; private Unix-socket cluster removed |
 | `npx playwright test tests/browser/robot9000.spec.js` | Passed without retries on Windows Chromium, covering desktop and a touch-enabled mobile context |
+| `cargo fmt --all -- --check` | Passed on the integrated code in Ubuntu/WSL |
+| `cargo test --workspace --all-features --locked` | All 598 tests passed in Ubuntu/WSL against the separate disposable database |
+| `node node_modules/@playwright/test/cli.js test tests/browser/robot9000.spec.js tests/browser/native-embeds.spec.js` | All 4 scenarios passed on the integrated code in Linux Chromium without retries, including real desktop/mobile posting |
 
 Persisted checks exercise disabled-board behavior, unauthenticated bypass
 options, private board denial, missing identity, normalization collisions,
@@ -67,5 +70,8 @@ checks. The complete relevant commands passed afterward.
 
 An initial all-workspace Windows check could not build vendored OpenSSL because
 Perl was absent from PATH. It is not counted as a pass; the WSL workspace check
-and real staff test used the installed toolchain. Current-head CI and full
-integration qualification must still run after this work is committed.
+and real staff test used the installed toolchain. Final integrated local
+qualification subsequently passed; current-head hosted CI remains required.
+The first final integrated Clippy invocation also caught a duplicate code-tag
+match arm added during review. That duplicate was removed before rerunning
+qualification; the failed invocation is not a passing result.

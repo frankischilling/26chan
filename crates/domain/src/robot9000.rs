@@ -127,7 +127,6 @@ fn markup(tag: crate::comment_markup::Tag, open: bool) -> &'static str {
         (Tag::Spoiler, false) => "</s>",
         (Tag::Code, true) => "<pre class=\"prettyprint\">",
         (Tag::Code, false) => "</pre>",
-        (Tag::Code, false) => "</pre>",
         (Tag::Sjis, true) => "<span class=\"sjis\">",
         (Tag::Bold, true) => "<span class=\"mu-s\">",
         (Tag::Italic, true) => "<span class=\"mu-i\">",
