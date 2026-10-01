@@ -1,5 +1,49 @@
 // Release-owned settings controls. Stored strings never become HTML.
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, optionChecked, hasMobileLayout = () => false }) {
+import { parseCatalogCSS } from './native-custom-css.v1.js';
+
+export const CATALOG_THEME_LIMITS = Object.freeze({ storage: 24576, css: 16384 });
+
+export function catalogDropDownEnabled(raw, mobileLayout) {
+  if (mobileLayout || typeof raw !== 'string' || raw.length > 4096) return false;
+  try {
+    const settings = JSON.parse(raw);
+    return !!settings && typeof settings === 'object' && !Array.isArray(settings)
+      && !Object.keys(settings).some(key => ['__proto__', 'prototype', 'constructor'].includes(key))
+      && settings.disableAll !== true && settings.dropDownNav !== false;
+  } catch { return false; }
+}
+
+export function readCatalogTheme(raw) {
+  if (raw === null) return { status: 'ok', theme: {} };
+  if (typeof raw !== 'string' || raw.length > CATALOG_THEME_LIMITS.storage) return { status: 'invalid' };
+  try {
+    const value = JSON.parse(raw);
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Object.keys(value).some(key => !['nobinds', 'nospoiler', 'newtab', 'css'].includes(key))) return { status: 'invalid' };
+    const theme = {};
+    for (const key of ['nobinds', 'nospoiler', 'newtab']) {
+      if (value[key] !== undefined && typeof value[key] !== 'boolean') return { status: 'invalid' };
+      if (value[key] === true) theme[key] = true;
+    }
+    if (value.css !== undefined) {
+      if (typeof value.css !== 'string' || value.css.length > CATALOG_THEME_LIMITS.css) return { status: 'invalid' };
+      if (value.css) theme.css = value.css;
+    }
+    const styles = parseCatalogCSS(theme.css ?? '');
+    return { status: 'ok', theme, ...(styles.status === 'ok' ? { styles } : { cssError: styles.error }) };
+  } catch { return { status: 'invalid' }; }
+}
+
+export function writeCatalogTheme(value) {
+  let raw;
+  try { raw = JSON.stringify(value); } catch { return { status: 'invalid' }; }
+  const checked = readCatalogTheme(raw);
+  if (checked.status !== 'ok' || checked.cssError) return { status: 'invalid', error: checked.cssError ?? 'Catalog settings are invalid.' };
+  raw = Object.keys(checked.theme).length ? JSON.stringify(checked.theme) : null;
+  return { ...checked, raw };
+}
+
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false }) {
   const navigation = document.querySelector('.boardList');
   let active = null;
   let pendingSave = null;
@@ -33,6 +77,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     opener?.focus();
   }
   function open(source) {
+    if (catalog && typeof openCatalogSettings === 'function') { openCatalogSettings(source); return; }
     if (active) { close(); return; }
     opener = source;
     const initial = read();

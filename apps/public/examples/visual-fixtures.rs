@@ -2,6 +2,10 @@
 // Test-only renderer for screenshot CI. It compiles the actual production view
 // module/templates. Persistence and real HTTP mutations have separate tests.
 use board_public::catalog;
+#[path = "visual/catalog_controls.rs"]
+mod catalog_controls;
+#[path = "visual/catalog_filters.rs"]
+mod catalog_filters;
 #[path = "visual/catalog_limits.rs"]
 mod catalog_limits;
 #[path = "visual/headers.rs"]
@@ -366,6 +370,7 @@ async fn main() {
             false,
         ))
         .merge(media_fixture.routes())
+        .merge(catalog_filters::routes().await)
         .route(
             "/",
             get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),
@@ -379,7 +384,9 @@ async fn main() {
         .route("/forced-anonymous/", get(|| async { Html(render_page(false, false, false, true)) }))
         .route("/text-only/", get(|| async { Html(render_page(false, false, true, false)) }))
         .route("/demo/catalog", get(|| async { Html(page(true)) }))
+        .route("/controlui/catalog", get(|| async { Html(catalog_controls::page()) }))
         .route("/text-catalog/catalog", get(|| async { Html(catalog_limits::text_page()) }))
+        .route("/settingstext/catalog", get(|| async { Html(catalog_limits::settings_text_page()) }))
         .route("/preview-pages/catalog", get(|| async { Html(catalog_limits::preview_pages()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {

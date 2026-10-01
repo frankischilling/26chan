@@ -1,5 +1,5 @@
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings } from './helpers/watcher-settings.js';
+import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const escaped = '<script>window.quotePreviewInjected = true</script>\n<img src="/__quote-preview-escaped.png" onerror="window.quotePreviewInjected = true">';
@@ -55,7 +55,7 @@ async function initialize(page, url, settings = { quotePreview: true }) {
     }
   }, settings);
   await page.goto(url);
-  await expect(page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')).toBeVisible();
+  await expect(watcherSettingsOpener(page)).toBeVisible();
 }
 
 function network(page) {

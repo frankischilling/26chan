@@ -1,5 +1,7 @@
 .prettyprint { background-color: rgba(255, 255, 255, .1); border: 1px solid rgba(0, 0, 0, .5); }
 :root {
+  --catalog-field-focus: #000;
+  --catalog-button-color: #707070; --catalog-button-edge: #282a2e; --catalog-button-paper: #1b1c1e; --catalog-button-image: url('/static/catalog/buttonfade-dark.png');
   --post-tooltip-background: #000;
   --capcode-mod: #81a2be; --capcode-highlight: #3a171c; --capcode-highlight-edge: #3a171c;
   --settings-edge: #111111; --settings-frame: #111111;
@@ -41,3 +43,6 @@
 }
 :root { --catalog-preview-paper: #000; --catalog-preview-subject: #b294bb; }
 :root { --post-number-hover: #5f89ac; }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/tomorrow/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/tomorrow/question@2x.png'); } }

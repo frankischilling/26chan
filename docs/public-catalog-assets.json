@@ -10,7 +10,8 @@
     {"name":"sticky.gif","mime":"image/gif","bytes":552,"sha256":"d1acdb0c52f79ac791cb6286c97358a03a4453f879ce5f64fe7a0752b4350a04","collected_utc":"2026-09-13T07:12:57.5912825Z","dimensions":[16,16]},
     {"name":"closed.gif","mime":"image/gif","bytes":341,"sha256":"b50a9168bb37b5a8711c921224e978b38bafa543412a32f6deb85dde613d338e","collected_utc":"2026-09-13T07:12:57.6182946Z","dimensions":[16,16]},
     {"name":"sticky@2x.gif","mime":"image/gif","bytes":808,"sha256":"8ca449e455b14ca09d7697e438063ef7c0109264cbced71e29c71c3295bbd457","collected_utc":"2026-09-13T07:13:10.4931401Z","dimensions":[32,32]},
-    {"name":"closed@2x.gif","mime":"image/gif","bytes":525,"sha256":"a34d463f3009c0e7dc7f81431c34ded5ffea59e5e4962b37d0ce8e443ad8b196","collected_utc":"2026-09-13T07:13:10.5427374Z","dimensions":[32,32]}
+    {"name":"closed@2x.gif","mime":"image/gif","bytes":525,"sha256":"a34d463f3009c0e7dc7f81431c34ded5ffea59e5e4962b37d0ce8e443ad8b196","collected_utc":"2026-09-13T07:13:10.5427374Z","dimensions":[32,32]},
+    {"name":"buttonfade-dark.png","mime":"image/png","bytes":105,"sha256":"396468a066547506b4fb938ab88df37936b7ba627ea1523e463cd3ffa9c04f14","collected_utc":"2026-09-30T23:37:46.725Z","dimensions":[1,32],"source":"Named by pinned public catalog mobile CSS v705 for Tomorrow controls."}
   ],
   "styles": {
     ".imgdel":{"box":[155,53],"css":{"width":"127px","height":"13px","padding":"20px 14px","minHeight":"0px","boxSizing":"content-box"}},

@@ -22,7 +22,8 @@ height limit is the viewport height. Hover previews use one fixed image at the
 top right, leave 20 pixels beyond the hovered thumbnail and fit within the
 viewport. The preview background option uses the theme's page color. The public
 client inherits that color from its body; our themes put it on the document root,
-so the controller's CSS reads the same `--paper` value. Hover and the
+so the controller's CSS reads the same `--paper` value. If the optional theme
+stylesheet fails, it uses the base page's `#ffffee` background. Hover and the
 height/background controls are desktop options.
 
 Hiding thumbnails makes them transparent and adds the reference's theme-colored
@@ -104,3 +105,37 @@ The implementing PR records the executed browser, database and CI checks. These
 tests establish the implemented image controls and their limits, not complete
 visual parity with an original public page. Issue #180 tracks this feature group
 within the broader reference work in #6.
+
+## Theme stylesheet failure
+
+PR #188's second hosted Windows run passed 60 of 61 media cases. Its hover
+background case found a transparent preview instead of the base page color;
+the preview had the enabled background class. The retained screenshot was
+downloaded and inspected. That job recorded script transport, but not stylesheet
+transport, so it does not establish why the optional theme failed to apply.
+
+A deterministic local case aborting only `/static/theme.css` reproduced the
+same CSS failure: the document root retained `rgb(255, 255, 238)`, the body was
+transparent and `--paper` was absent. The old variable fallback inherited the
+body's transparency. Its replacement is the existing base page color. Loaded
+themes still supply their own variable. The new case retains exact color and
+healthy image-load assertions; six additional cases check each selected theme.
+All 16 image-control cases then passed on Windows and Linux. This fixes the missing-theme
+fallback, without claiming a cause for the hosted stylesheet failure or the
+earlier unrelated Windows interaction failures.
+
+The complete Windows media run passes all 68 cases, and the separate diagnostic
+suite passes all five cases on both platforms, including the existing script
+and privacy controls. The Linux image/diagnostic wrapper exits successfully.
+The nine fixed-asset/CSP cases and formatting pass on Windows and Linux. Other
+full-page Windows baselines are unchanged by this fallback fix.
+
+```text
+npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
+```
+
+Synthetic visual diagnostics now retain up to 16 stylesheet response
+path/status pairs and 16 failed path/error-code pairs, plus finite computed
+root/body/hover colors and an admitted hex page-color variable. They exclude
+queries, fragments, headers, bodies, cookies and storage. No dependency,
+media admission, worker authority, retry, timeout or pixel tolerance changes.

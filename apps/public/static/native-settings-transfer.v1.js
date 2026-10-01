@@ -2,6 +2,7 @@ import { FILTER_LIMITS, readFilterRules, readNativeFilters, filterColor } from '
 import { CUSTOM_CSS_LIMITS, parseCustomCSS } from './native-custom-css.v1.js';
 import { customBoards } from './native-display.v1.js';
 import { readWatcherPosition } from './watcher-position.v1.js';
+import { CATALOG_FILTER_LIMITS, readCatalogFilters } from './catalog-filter-core.v1.js';
 
 export const SETTINGS_TRANSFER_LIMITS = Object.freeze({
   encodedChars: 1048576,
@@ -9,6 +10,7 @@ export const SETTINGS_TRANSFER_LIMITS = Object.freeze({
   decodedBytes: 524288,
   settingsChars: 4096,
   filtersChars: FILTER_LIMITS.settings,
+  catalogFiltersChars: CATALOG_FILTER_LIMITS.storage,
   cssBytes: CUSTOM_CSS_LIMITS.bytes,
   catalogSettingsChars: 1024,
   existingValueChars: 4194304,
@@ -19,6 +21,7 @@ export const SETTINGS_TRANSFER_STORAGE_KEYS = Object.freeze([
   '4chan-settings',
   '4chan-filters',
   '4chan-css',
+  'catalog-filters',
   'catalog-settings',
 ]);
 
@@ -138,6 +141,21 @@ export function validateTransferCSS(raw) {
   return { status: 'ok', count: parsed.rules.length };
 }
 
+export function validateTransferCatalogFilters(raw) {
+  const parsed = safeJSON(raw, SETTINGS_TRANSFER_LIMITS.catalogFiltersChars, 'Catalog filters');
+  if (parsed.status !== 'ok' || !safeObjectTree(parsed.value)) {
+    return { status: 'invalid', error: parsed.error ?? 'Catalog filters contain reserved property names.' };
+  }
+  const checked = readCatalogFilters(raw);
+  if (checked.status !== 'ok') return { status: 'invalid', error: 'Catalog filters do not match the supported catalog rule format.' };
+  try {
+    if (checked.rules.some(rule => filterColor(rule.color) === null)) {
+      return { status: 'invalid', error: 'A catalog filter color is invalid.' };
+    }
+  } catch { return { status: 'invalid', error: 'Catalog filter colors could not be checked.' }; }
+  return { status: 'ok', count: checked.rules.length };
+}
+
 export function validateCatalogSettings(raw) {
   const parsed = safeJSON(raw, SETTINGS_TRANSFER_LIMITS.catalogSettingsChars, 'Catalog settings');
   if (parsed.status !== 'ok' || !sameKeys(parsed.value, ['orderby', 'large', 'extended']) || !safeObjectTree(parsed.value)
@@ -163,7 +181,7 @@ export function checkTransferValues(values) {
     const checked = key === '4chan-settings' ? validateTransferSettings(raw)
       : key === '4chan-filters' ? validateTransferFilters(raw)
         : key === '4chan-css' ? (raw === '' ? { status: 'invalid', error: 'Empty Custom CSS must be omitted.' } : validateTransferCSS(raw))
-          : validateCatalogSettings(raw);
+          : key === 'catalog-filters' ? validateTransferCatalogFilters(raw) : validateCatalogSettings(raw);
     if (checked.status !== 'ok') return { status: 'invalid', error: checked.error };
     normalized[key] = raw;
   }
@@ -178,11 +196,8 @@ function checkedPayload(payload) {
   if (!keys.includes('settings') || keys.some(key => !PAYLOAD_KEYS.has(key))) {
     return { status: 'invalid', error: 'The restore payload contains unsupported fields.' };
   }
-  if (Object.hasOwn(payload, 'catalogFilters')) {
-    return { status: 'unsupported-catalog-filters', error: 'Catalog filters cannot be restored by this version.' };
-  }
   if (typeof payload.settings !== 'string') return { status: 'invalid', error: 'The restore payload is missing settings.' };
-  for (const key of ['filters', 'css', 'catalogSettings']) {
+  for (const key of ['filters', 'css', 'catalogFilters', 'catalogSettings']) {
     if (Object.hasOwn(payload, key) && typeof payload[key] !== 'string') {
       return { status: 'invalid', error: `The ${key} field must be text.` };
     }
@@ -200,6 +215,7 @@ function checkedPayload(payload) {
     })),
     filters: null,
     css: null,
+    catalogFilters: null,
     catalogSettings: null,
   };
 
@@ -216,6 +232,13 @@ function checkedPayload(payload) {
     values['4chan-css'] = payload.css;
     details.push(`Custom CSS: ${css.count} rule${css.count === 1 ? '' : 's'}`);
     review.css = { count: css.count, raw: payload.css };
+  }
+  if (Object.hasOwn(payload, 'catalogFilters')) {
+    const filters = validateTransferCatalogFilters(payload.catalogFilters);
+    if (filters.status !== 'ok') return filters;
+    values['catalog-filters'] = payload.catalogFilters;
+    details.push(`Catalog filters: ${filters.count}`);
+    review.catalogFilters = { count: filters.count, raw: payload.catalogFilters };
   }
   if (Object.hasOwn(payload, 'catalogSettings')) {
     const catalog = validateCatalogSettings(payload.catalogSettings);
@@ -280,6 +303,7 @@ export function buildSettingsTransfer(readItem) {
   for (const [storageKey, field, validate] of [
     ['4chan-filters', 'filters', validateTransferFilters],
     ['4chan-css', 'css', validateTransferCSS],
+    ['catalog-filters', 'catalogFilters', validateTransferCatalogFilters],
     ['catalog-settings', 'catalogSettings', validateCatalogSettings],
   ]) {
     const stored = readForExport(readItem, storageKey);
@@ -449,6 +473,7 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
     const rawSections = [];
     if (review.preview.filters) rawSections.push(rawDetails(`Filters (${review.preview.filters.count})`, review.preview.filters.raw, 'settingsTransferFilters'));
     if (review.preview.css) rawSections.push(rawDetails(`Custom CSS (${review.preview.css.count} rule${review.preview.css.count === 1 ? '' : 's'})`, review.preview.css.raw, 'settingsTransferCSS'));
+    if (review.preview.catalogFilters) rawSections.push(rawDetails(`Catalog filters (${review.preview.catalogFilters.count})`, review.preview.catalogFilters.raw, 'settingsTransferCatalogFilters'));
     if (review.preview.catalogSettings) rawSections.push(rawDetails('Catalog display preferences', review.preview.catalogSettings, 'settingsTransferCatalog'));
     const message = node('p', '', 'settingsMessage settingsTransferMessage'); message.setAttribute('role', 'status');
     const actions = node('div', undefined, 'center');
@@ -483,7 +508,9 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
           return;
         }
         pendingReview = null;
-        document.dispatchEvent(new window.CustomEvent('4chanPreferencesRestored', { detail: { persisted: result.persisted !== false } }));
+        document.dispatchEvent(new window.CustomEvent('4chanPreferencesRestored', {
+          detail: { persisted: result.persisted !== false, keys: Object.keys(review.values) },
+        }));
         document.dispatchEvent(new window.CustomEvent('4chanSettingsSaved'));
         message.textContent = 'Settings restored.';
         confirm.disabled = true;

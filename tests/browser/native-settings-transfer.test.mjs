@@ -14,6 +14,7 @@ import {
   validateCatalogSettings,
   validateTransferCSS,
   validateTransferFilters,
+  validateTransferCatalogFilters,
   validateTransferSettings,
 } from '../../apps/public/static/native-settings-transfer.v1.js';
 import { quickReplyPosition } from '../../apps/public/client/native-quick-reply-position.js';
@@ -33,6 +34,7 @@ const filterRaw = JSON.stringify([{
 }]);
 const cssRaw = '.reply { color: #112233; padding-left: 8px; }';
 const catalogRaw = JSON.stringify({ orderby: 'r', large: true, extended: false });
+const catalogFiltersRaw = JSON.stringify({ 0: { active: 1, pattern: 'needle', boards: 'demo', hidden: 1, top: 0 } });
 const publicDefaultSettingsRaw = JSON.stringify({
   quotePreview: true, backlinks: true, quickReply: true, threadUpdater: true, threadHiding: true,
   alwaysAutoUpdate: false, topPageNav: false, threadWatcher: false, threadAutoWatcher: false,
@@ -54,7 +56,7 @@ test('current settings, filters, CSS and catalog formats validate without wideni
   assert.equal(validateTransferCSS(cssRaw).status, 'ok');
   assert.equal(validateCatalogSettings(catalogRaw).status, 'ok');
   assert.deepEqual(SETTINGS_TRANSFER_STORAGE_KEYS,
-    ['4chan-settings', '4chan-filters', '4chan-css', 'catalog-settings']);
+    ['4chan-settings', '4chan-filters', '4chan-css', 'catalog-filters', 'catalog-settings']);
 
   for (const raw of [
     '{"constructor":false}',
@@ -131,7 +133,7 @@ test('restore links are bounded before decoding and nested parsing', () => {
     'The restore payload is too large.');
   assert.equal(parseSettingsTransferHash('#cfg=%E0%A4%A').error, 'The restore link is not correctly encoded.');
   assert.equal(parseSettingsTransferHash(payloadHash({ settings: settingsRaw, catalogFilters: '[]' })).status,
-    'unsupported-catalog-filters');
+    'invalid');
   assert.equal(parseSettingsTransferHash(payloadHash({ settings: settingsRaw, css: '.reply { display: none; }' })).status, 'invalid');
   assert.equal(parseSettingsTransferHash(payloadHash({ settings: '{"prototype":true}' })).status, 'invalid');
   assert.equal(parseSettingsTransferHash(payloadHash({ settings: settingsRaw, filters: '[{"__proto__":{}}]' })).status, 'invalid');
@@ -152,14 +154,14 @@ test('export reads only preference keys and builds a canonical same-origin board
   const reads = [];
   const stored = new Map([
     ['4chan-settings', settingsRaw], ['4chan-filters', filterRaw], ['4chan-css', cssRaw],
-    ['catalog-settings', catalogRaw], ['catalog-filters', '[{"legacy":true}]'],
+    ['catalog-settings', catalogRaw], ['catalog-filters', catalogFiltersRaw],
     ['4chan-watch', '{"secret":"watch"}'], ['4chan-post-receipts', '{"secret":"receipt"}'], ['password', 'secret'],
   ]);
   const readItem = key => { reads.push(key); return stored.get(key) ?? null; };
   const built = buildSettingsTransfer(readItem);
   assert.equal(built.status, 'ok');
   assert.deepEqual(reads, SETTINGS_TRANSFER_STORAGE_KEYS);
-  assert.equal(Object.hasOwn(built.payload, 'catalogFilters'), false);
+  assert.equal(built.payload.catalogFilters, catalogFiltersRaw);
   assert.equal(JSON.stringify(built.payload).includes('watch'), false);
   assert.equal(JSON.stringify(built.payload).includes('receipt'), false);
   assert.equal(JSON.stringify(built.payload).includes('secret'), false);
@@ -173,9 +175,50 @@ test('export reads only preference keys and builds a canonical same-origin board
   assert.equal(parseSettingsTransferHash(new URL(transfer.url).hash).status, 'ok');
 });
 
+test('catalog transfer preserves independently replayed raw fields and separates the two rule formats', async () => {
+  const reference = JSON.parse(await readFile(new URL('../../docs/public-settings-transfer-reference.json', import.meta.url)));
+  for (const example of reference.exports) {
+    const built = buildSettingsTransfer(key => key === '4chan-settings' ? example.payload.settings : example.stored[key] ?? null);
+    assert.equal(built.status, 'ok', example.name);
+    assert.deepEqual(built.payload, example.payload, example.name);
+    const restored = parseSettingsTransferHash('#cfg=' + built.encoded);
+    assert.equal(restored.status, 'ok');
+    if (Object.hasOwn(example.payload, 'catalogFilters')) {
+      assert.equal(restored.values['catalog-filters'], example.payload.catalogFilters);
+      assert.equal(restored.review.catalogFilters.raw, example.payload.catalogFilters);
+    }
+  }
+  assert.equal(validateTransferCatalogFilters(filterRaw).status, 'invalid');
+  assert.equal(validateTransferFilters(catalogFiltersRaw).status, 'invalid');
+  assert.equal(validateTransferCatalogFilters('{}').count, 0);
+});
+
+test('catalog transfer bounds, flags and reserved nested keys reject the complete payload', () => {
+  const row = { active: 1, pattern: 'paper', boards: '', hidden: 0, top: 0 };
+  const valid = raw => validateTransferCatalogFilters(raw).status;
+  assert.equal(valid(JSON.stringify(Object.fromEntries(Array.from({ length: 64 }, (_, i) => [i, row])))), 'ok');
+  const bad = [null, '[]', 'null', '', '{', ' '.repeat(SETTINGS_TRANSFER_LIMITS.catalogFiltersChars + 1),
+    JSON.stringify(Object.fromEntries(Array.from({ length: 65 }, (_, i) => [i, row]))),
+    JSON.stringify({ 100000: row }), JSON.stringify({ '01': row }),
+    JSON.stringify({ 0: { ...row, pattern: 'x'.repeat(1025) } }),
+    JSON.stringify({ 0: { ...row, boards: 'x'.repeat(1025) } }),
+    JSON.stringify({ 0: { ...row, active: '1' } }),
+    '{"0":{"active":1,"pattern":"paper","boards":"","extra":{"constructor":{}}}}',
+  ];
+  for (const raw of bad) {
+    assert.equal(valid(raw), 'invalid');
+    assert.equal(parseSettingsTransferHash('#cfg=' + encodeURIComponent(JSON.stringify({ settings: '{}', catalogFilters: raw }))).status, 'invalid');
+  }
+  const booleans = JSON.stringify({ 7: { ...row, active: true, hidden: false, top: true } });
+  assert.deepEqual(checkTransferValues({ '4chan-settings': '{}', 'catalog-filters': booleans }), {
+    status: 'ok', values: { '4chan-settings': '{}', 'catalog-filters': booleans },
+  });
+});
+
 const sourceNames = [
   'native-settings-transfer.v1.js', 'native-filter.v1.js', 'native-custom-css.v1.js',
   'native-display.v1.js', 'watcher-position.v1.js',
+  'catalog-filter-core.v1.js',
 ];
 const sources = Object.fromEntries(await Promise.all(sourceNames.map(async name => [name,
   await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8')])));
@@ -249,6 +292,11 @@ test('filter colors use the same browser validator as the native filter editor',
       { type: 2, pattern: 'needle', boards: 'demo', active: true, color },
     ])).status));
   assert.deepEqual(results, ['ok', 'ok', 'invalid', 'invalid', 'invalid', 'invalid']);
+  const catalogResults = await page.evaluate(() => ['#ff0000', 'rgb(10, 20, 30)', 'red; background:url(/attack)',
+    'var(--color)', 'inherit', 'not-a-color'].map(color => transferAPI.validateTransferCatalogFilters(JSON.stringify({
+      0: { pattern: 'needle', boards: '', active: 1, color },
+    })).status));
+  assert.deepEqual(catalogResults, results);
   assert.deepEqual(requests, []);
 });
 
@@ -278,7 +326,7 @@ test('export dialog is inert, readonly and canonical while hostile filter text r
 
 test('incoming transfer requires visible review before one restore transaction', async t => {
   const incoming = JSON.stringify({ quotePreview: false, customCSS: true });
-  const hash = payloadHash({ settings: incoming, filters: filterRaw, css: cssRaw, catalogSettings: catalogRaw });
+  const hash = payloadHash({ settings: incoming, filters: filterRaw, css: cssRaw, catalogFilters: catalogFiltersRaw, catalogSettings: catalogRaw });
   const { page } = await fixture(t, { hash, stored: { '4chan-settings': settingsRaw } });
   const dialog = page.getByRole('dialog', { name: 'Restore Settings', exact: true });
   await dialog.waitFor({ state: 'visible' });
@@ -290,16 +338,18 @@ test('incoming transfer requires visible review before one restore transaction',
   assert.match(await dialog.textContent(), /quotePreview: false/);
   assert.equal(await dialog.locator('.settingsTransferFilters pre').textContent(), filterRaw);
   assert.equal(await dialog.locator('.settingsTransferCSS pre').textContent(), cssRaw);
+  assert.equal(await dialog.locator('.settingsTransferCatalogFilters pre').textContent(), catalogFiltersRaw);
   assert.match(await dialog.textContent(), /Catalog display preferences/);
   await dialog.getByRole('button', { name: 'Restore Settings', exact: true }).click();
   await page.waitForFunction(() => restoreCalls.length === 1 && transferStore.get('4chan-settings') !== undefined);
   assert.equal(await page.evaluate(() => transferStore.get('4chan-settings')), incoming);
+  assert.equal(await page.evaluate(() => transferStore.get('catalog-filters')), catalogFiltersRaw);
   assert.equal(await dialog.getByRole('status').textContent(), 'Settings restored.');
   assert.equal(await dialog.getByRole('button', { name: 'Restore Settings', exact: true }).isDisabled(), true);
-  assert.deepEqual(await page.evaluate(() => restoredEvents), [{ persisted: true }]);
+  assert.deepEqual(await page.evaluate(() => restoredEvents), [{ persisted: true, keys: SETTINGS_TRANSFER_STORAGE_KEYS }]);
 });
 
-test('newer storage wins over a stale review and unsupported catalog filters never reach restore', async t => {
+test('newer storage wins over a stale review and malformed catalog filters never reach restore', async t => {
   const incoming = JSON.stringify({ quotePreview: false });
   const { page } = await fixture(t, { hash: payloadHash({ settings: incoming }), stored: { '4chan-settings': settingsRaw } });
   const dialog = page.getByRole('dialog', { name: 'Restore Settings', exact: true });
@@ -314,7 +364,7 @@ test('newer storage wins over a stale review and unsupported catalog filters nev
   await page.evaluate(hash => { location.hash = hash; }, payloadHash({ settings: incoming, catalogFilters: '[]' }));
   const error = page.locator('#settingsTransferError');
   await error.waitFor({ state: 'visible' });
-  assert.match(await error.textContent(), /Catalog filters cannot be restored/i);
+  assert.match(await error.textContent(), /supported catalog rule format/i);
   assert.equal(await page.evaluate(() => restoreCalls.length), 1);
 });
 

@@ -72,7 +72,7 @@ async fn catalog_script_is_release_owned_and_not_an_image_source() {
 
 #[tokio::test]
 async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
-    let manifests: [serde_json::Value; 5] = [
+    let manifests: [serde_json::Value; 6] = [
         serde_json::from_str(include_str!(
             "../../../docs/public-country-flags-reference.json"
         ))
@@ -81,6 +81,10 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
         serde_json::from_str(include_str!("../../../docs/public-catalog-assets.json")).unwrap(),
         serde_json::from_str(include_str!("../../../docs/public-watcher-assets.json")).unwrap(),
         serde_json::from_str(include_str!("../../../docs/public-updater-assets.json")).unwrap(),
+        serde_json::from_str(include_str!(
+            "../../../docs/public-catalog-filter-assets.json"
+        ))
+        .unwrap(),
     ];
     let assets: Vec<_> = manifests
         .iter()
@@ -219,59 +223,76 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
 }
 
 #[tokio::test]
-async fn native_filter_worker_is_fixed_code_without_network_or_import_authority() {
+async fn filter_workers_are_fixed_code_without_network_or_import_authority() {
     for origin in ["http://127.0.0.1:3000", "https://board.example"] {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
             .unwrap();
         let app = board_public::router(pool, origin.into(), origin.starts_with("https:"));
-        for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
-            let response = app
-                .clone()
-                .oneshot(
-                    Request::builder()
-                        .method(method)
-                        .uri("/static/native-filter.v1.js")
-                        .header("origin", origin)
-                        .body(Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-            if matches!(method, "GET" | "HEAD") {
-                assert_eq!(response.status(), StatusCode::OK);
-                assert_eq!(
-                    response.headers()["content-type"],
-                    "text/javascript; charset=utf-8"
-                );
-                assert_eq!(
-                    response.headers()["cache-control"],
-                    "public, max-age=0, must-revalidate"
-                );
-                assert_eq!(response.headers()["x-content-type-options"], "nosniff");
-                assert!(response.headers().get("set-cookie").is_none());
-                let csp = response.headers()["content-security-policy"]
-                    .to_str()
+        for (path, expected) in [
+            (
+                "/static/native-filter.v1.js",
+                include_bytes!("../static/native-filter.v1.js").as_slice(),
+            ),
+            (
+                "/static/catalog-filter-core.v1.js",
+                include_bytes!("../static/catalog-filter-core.v1.js").as_slice(),
+            ),
+        ] {
+            if path == "/static/catalog-filter-core.v1.js" {
+                assert!(expected.len() <= 16_384);
+                assert!(std::str::from_utf8(expected).is_ok());
+            }
+            for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(method)
+                            .uri(path)
+                            .header("origin", origin)
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
                     .unwrap();
-                assert!(csp.contains("default-src 'none';"));
-                assert!(csp.contains("script-src 'none';"));
-                assert!(csp.contains("connect-src 'none';"));
-                assert!(csp.contains("worker-src 'none';"));
-                assert!(!csp.contains("'self'"));
-                let bytes = response.into_body().collect().await.unwrap().to_bytes();
-                if method == "GET" {
+                if matches!(method, "GET" | "HEAD") {
+                    assert_eq!(response.status(), StatusCode::OK);
                     assert_eq!(
-                        bytes.as_ref(),
-                        include_bytes!("../static/native-filter.v1.js")
+                        response.headers()["content-type"],
+                        "text/javascript; charset=utf-8"
                     );
+                    assert_eq!(
+                        response.headers()["cache-control"],
+                        "public, max-age=0, must-revalidate"
+                    );
+                    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+                    assert!(response.headers().get("set-cookie").is_none());
+                    let csp = response.headers()["content-security-policy"]
+                        .to_str()
+                        .unwrap();
+                    assert!(csp.contains("default-src 'none';"));
+                    assert!(csp.contains("script-src 'none';"));
+                    assert!(csp.contains("connect-src 'none';"));
+                    assert!(csp.contains("worker-src 'none';"));
+                    assert!(!csp.contains("'self'"));
+                    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                    if method == "GET" {
+                        assert_eq!(bytes.as_ref(), expected);
+                    } else {
+                        assert!(bytes.is_empty());
+                    }
                 } else {
-                    assert!(bytes.is_empty());
+                    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
                 }
-            } else {
-                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
             }
         }
-        for path in ["/static/native-filter.js", "/static/native-filter.v2.js"] {
+        for path in [
+            "/static/native-filter.js",
+            "/static/native-filter.v2.js",
+            "/static/catalog-filter-core.js",
+            "/static/catalog-filter-core.v2.js",
+        ] {
             let response = app
                 .clone()
                 .oneshot(Request::get(path).body(Body::empty()).unwrap())
@@ -666,5 +687,92 @@ async fn public_navigation_icons_match_pinned_bytes_and_have_no_api_or_post_rout
                 .status(),
             StatusCode::NOT_FOUND
         );
+    }
+}
+
+#[tokio::test]
+async fn catalog_controllers_are_bounded_fixed_code_and_absent_from_the_api_listener() {
+    for (path, expected, alias, newer) in [
+        (
+            "/static/catalog-filters.v1.js",
+            include_bytes!("../static/catalog-filters.v1.js").as_slice(),
+            "/static/catalog-filters.js",
+            "/static/catalog-filters.v2.js",
+        ),
+        (
+            "/static/catalog-theme.v1.js",
+            include_bytes!("../static/catalog-theme.v1.js").as_slice(),
+            "/static/catalog-theme.js",
+            "/static/catalog-theme.v2.js",
+        ),
+    ] {
+        assert!(expected.len() <= 32_768);
+        assert!(std::str::from_utf8(expected).is_ok());
+        for origin in ["http://127.0.0.1:3000", "https://board.example"] {
+            let pool = sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+                .unwrap();
+            let (app, api) =
+                board_public::routers(pool, origin.into(), origin.starts_with("https:"));
+            for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(method)
+                            .uri(path)
+                            .header("origin", origin)
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                if matches!(method, "GET" | "HEAD") {
+                    assert_eq!(response.status(), StatusCode::OK);
+                    assert_eq!(
+                        response.headers()["content-type"],
+                        "text/javascript; charset=utf-8"
+                    );
+                    assert_eq!(
+                        response.headers()["cache-control"],
+                        "public, max-age=0, must-revalidate"
+                    );
+                    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+                    assert!(response.headers().get("set-cookie").is_none());
+                    assert!(
+                        response
+                            .headers()
+                            .get("access-control-allow-origin")
+                            .is_none()
+                    );
+                    let csp = response.headers()["content-security-policy"]
+                        .to_str()
+                        .unwrap();
+                    for directive in [
+                        "default-src 'none';",
+                        "script-src 'none';",
+                        "connect-src 'none';",
+                        "worker-src 'none';",
+                    ] {
+                        assert!(csp.contains(directive));
+                    }
+                    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                    if method == "GET" {
+                        assert_eq!(bytes.as_ref(), expected);
+                    } else {
+                        assert!(bytes.is_empty());
+                    }
+                } else {
+                    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+                }
+            }
+            for (router, target) in [(api, path), (app.clone(), alias), (app, newer)] {
+                let response = router
+                    .oneshot(Request::get(target).body(Body::empty()).unwrap())
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            }
+        }
     }
 }

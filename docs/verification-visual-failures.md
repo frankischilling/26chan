@@ -58,3 +58,23 @@ attaching it. The repeated probe exited 1 as intended and retained the original
 PNG, its reporter attachment copy and the automatic failure screenshot. This
 checks local capture. Neither it nor the later hosted upload establishes a fix
 for the original failures.
+
+PR #188's second Windows job, 110205089764, passed its reviewed catalog capture
+and later found a transparent image-hover background in one of 61 media cases.
+Its retained screenshot was inspected. The prior observer did not record
+stylesheets, so that evidence cannot identify the original transport failure.
+The [image-control record](native-image-controls.md#theme-stylesheet-failure)
+describes the deterministic missing-theme reproduction and the CSS fallback
+fix. Future synthetic failures include bounded stylesheet response/failure
+paths and computed page/hover colors. A stylesheet failure test checks the
+recorded path/error code and exclusion of URL query/fragment sentinels. The
+earlier Quick Reply and catalog interaction investigations remain open.
+
+PR #188's third Windows job, 110212114460, passed all 68 media cases and
+590 of 591 theme cases. The catalog Settings lifecycle failure image lacks
+both the Settings links and the saved new-tab target, while the saved spoiler
+flag is applied. It does not identify a startup or transport cause. These
+synthetic lifecycle cases now use the same bounded script, stylesheet and
+page-state observer. The [catalog Settings record](catalog-settings.md#initial-catalog-flags-without-settings)
+describes the separate deterministic watcher-script failure and initial-flag
+fix. The observer adds evidence without retries or relaxed assertions.

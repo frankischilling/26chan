@@ -166,6 +166,52 @@ test('hover follows viewport geometry and its background setting uses the visibl
   await expect(preview).toHaveCSS('background-color', expected.background);
 });
 
+test('hover retains the base page background when the optional theme stylesheet fails', async ({ page, visualDiagnostics }) => {
+  let themeFailures = 0;
+  await page.route(url => url.origin === origin && url.pathname === '/static/theme.css', route => {
+    themeFailures++;
+    return route.abort('failed');
+  });
+  await page.setViewportSize({ width: 640, height: 480 });
+  await openThread(page, { imageHover: true, imageHoverBg: true });
+  expect(themeFailures).toBe(1);
+  expect(visualDiagnostics.failedStylesheets).toEqual([{ path: '/static/theme.css', error: 'net::ERR_FAILED' }]);
+  expect(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--paper').trim())).toBe('');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 238)');
+  const thumbnail = page.locator('#f1000201 > a.fileThumb > img');
+  await thumbnail.scrollIntoViewIfNeeded();
+  await waitForImage(thumbnail);
+  await thumbnail.hover();
+  const preview = page.locator('#image-hover');
+  await expect(preview).toBeVisible();
+  await waitForImage(preview);
+  await expect(preview).toHaveClass('nativeImageBackground');
+  await expect(preview).toHaveCSS('background-color', 'rgb(255, 255, 238)');
+});
+
+for (const [theme, background] of Object.entries({
+  yotsuba: 'rgb(255, 255, 238)', futaba: 'rgb(255, 255, 238)',
+  'yotsuba-b': 'rgb(238, 242, 255)', burichan: 'rgb(238, 242, 255)',
+  photon: 'rgb(238, 238, 238)', tomorrow: 'rgb(29, 31, 33)',
+})) {
+  test(`${theme} hover uses the selected page background`, async ({ page, context }) => {
+    await context.addCookies(['board-theme', 'board-theme-ws'].map(name => ({
+      name, value: theme, url: origin, httpOnly: true, sameSite: 'Lax',
+    })));
+    await page.setViewportSize({ width: 640, height: 480 });
+    await openThread(page, { imageHover: true, imageHoverBg: true });
+    await expect(page.locator('html')).toHaveCSS('background-color', background);
+    const thumbnail = page.locator('#f1000201 > a.fileThumb > img');
+    await thumbnail.scrollIntoViewIfNeeded();
+    await waitForImage(thumbnail);
+    await thumbnail.hover();
+    const preview = page.locator('#image-hover');
+    await expect(preview).toBeVisible();
+    await waitForImage(preview);
+    await expect(preview).toHaveCSS('background-color', background);
+  });
+}
+
 test('hover cancellation, load errors and rejected media links cannot leave preview DOM or start foreign fetches', async ({ page }) => {
   await openThread(page, { imageHover: true, imageHoverBg: true });
 

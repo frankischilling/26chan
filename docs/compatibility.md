@@ -2,6 +2,28 @@
 
 ## Active reference boundary
 
+The separate [catalog Filters & Highlights](catalog-filters.md) consumer now
+uses a whole-client public v1025 replay for matching grammar, rule effects,
+editor states and six-theme styles. Patterns run in bounded disposable workers;
+storage uses the shared lock and an opening-value conflict check.
+[Settings transfer](catalog-filter-transfer.md) now includes this format in the
+reviewed restore transaction. Complete original-page pixels and server
+normalization remain unfinished.
+
+The [catalog Search controls](catalog-search-controls.md) now have a whole-client
+public v1025 replay covering 46 behavior states and 24 style cases. The local
+enhancement follows keyup, open/close, session, keyboard and six-theme rules while
+retaining bounded queries, fixed assets and the ordinary GET fallback. Its owned
+fixtures establish the listed properties, not complete original-page parity or
+unknown server-side teaser normalization in #82.
+The later [keyboard reference](catalog-shortcuts.md) corrects the initial
+phase/target/modifier assumption and adds R, X and the disable preference.
+The [catalog Settings editor](catalog-settings.md) now implements the observed
+five options, sparse storage, CSS draft and six-theme/mobile styles. Finite CSS,
+shared-lock conflict checks and explicit tab-only fallback are security
+adaptations. Its navigation control uses the existing bounded component;
+complete original catalog navigation pixels remain unfinished.
+
 The mobile-header continuation adds [post tooltips](post-tooltips.md), with
 released relative-date boundaries, full-name hover timing and 18 synthetic
 style/placement cases across six themes. Finite original-post admission and
@@ -73,9 +95,11 @@ explicit security adaptations to the public client's unrestricted CSS and player
 integration.
 
 [Settings transfer](native-settings-transfer.md) uses the public `#cfg=` envelope
-for settings, filters, CSS and catalog display preferences. Restore first shows
-the proposed values and requires confirmation. It rejects unsupported catalog
-filter data and unsafe style rules. The two known settings whose underlying
+for settings, native and catalog filters, CSS and catalog display preferences.
+Restore first shows the proposed values and requires confirmation. Both rule
+formats use their own bounded reader and disposable-worker validation before
+the shared, conflict-checked save. Malformed rules and unsafe styles are rejected. The
+two known settings whose underlying
 features are unavailable remain inactive values; importing them does not add
 WebM processing or optional production HTTPS. [Poster IDs](poster-ids.md) provide
 the optional thread-scoped label, ID filters and default-on IDColor behavior.

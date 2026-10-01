@@ -204,9 +204,13 @@ fn headers(
         );
         if page == Some(InteractivePage::Catalog) {
             format!(
-                "{}{} {watcher}",
+                "{}{} {}{} {}{} {watcher}",
                 state.origin,
-                crate::ui_assets::CATALOG_SCRIPT_PATH
+                crate::ui_assets::CATALOG_SCRIPT_PATH,
+                state.origin,
+                crate::ui_assets::CATALOG_FILTER_PATH,
+                state.origin,
+                crate::ui_assets::CATALOG_THEME_PATH
             )
         } else {
             watcher
@@ -216,7 +220,7 @@ fn headers(
     };
     let script = if interactive {
         format!(
-            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
+            "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
             crate::ui_assets::POST_TRACKING_PATH,
             state.origin,
@@ -225,6 +229,8 @@ fn headers(
             crate::ui_assets::WATCHER_POSITION_PATH,
             state.origin,
             crate::ui_assets::NATIVE_FILTER_PATH,
+            state.origin,
+            crate::ui_assets::CATALOG_FILTER_CORE_PATH,
             state.origin,
             crate::ui_assets::NATIVE_BACKLINKS_PATH,
             state.origin,
@@ -270,7 +276,13 @@ fn headers(
         "'none'".into()
     };
     let worker = if interactive {
-        format!("{}{}", state.origin, crate::ui_assets::NATIVE_FILTER_PATH)
+        format!(
+            "{}{} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_FILTER_PATH,
+            state.origin,
+            crate::ui_assets::CATALOG_FILTER_CORE_PATH
+        )
     } else {
         "'none'".into()
     };
@@ -391,6 +403,7 @@ mod tests {
                     "native-custom-css.v1.js",
                     "native-quick-reply.v1.js",
                     "native-post-tooltips.v1.js",
+                    "catalog-filter-core.v1.js",
                 ] {
                     assert_eq!(
                         directive("script-src")
@@ -400,6 +413,14 @@ mod tests {
                     );
                 }
                 assert_eq!(directive("style-src"), "style-src 'self'");
+                for path in ["catalog-filters.v1.js", "catalog-theme.v1.js"] {
+                    assert_eq!(
+                        directive("script-src")
+                            .split_whitespace()
+                            .any(|value| value == format!("{origin}/static/{path}")),
+                        page == Some(InteractivePage::Catalog)
+                    );
+                }
                 assert_eq!(
                     directive("frame-src"),
                     if page == Some(InteractivePage::Board) {
@@ -428,7 +449,9 @@ mod tests {
                 if page.is_some() {
                     assert_eq!(
                         directive("worker-src"),
-                        format!("worker-src {origin}/static/native-filter.v1.js")
+                        format!(
+                            "worker-src {origin}/static/native-filter.v1.js {origin}/static/catalog-filter-core.v1.js"
+                        )
                     );
                     assert_eq!(
                         directive("connect-src"),

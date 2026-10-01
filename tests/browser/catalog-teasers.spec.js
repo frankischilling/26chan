@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted catalog teasers use board policy in HTML, GET filtering and live search', async ({ browser }, info) => {
@@ -43,14 +44,14 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       await live.goto(`${origin}/${entry.board}/catalog?q=${title}`);
       let navigations = 0;
       live.on('request', request => { if (request.isNavigationRequest()) navigations += 1; });
-      await live.locator('#qf-box').fill(entry.query);
-      await live.getByRole('button', { name: 'Apply', exact: true }).click();
+      await fillCatalogSearch(live, entry.query);
+      await applyCatalogSearch(live);
       await expect(live.locator(`#threads #thread-${entry.id}`)).toBeVisible();
-      await live.locator('#qf-box').fill('^absent-owned-teaser$');
-      await live.getByRole('button', { name: 'Apply', exact: true }).click();
+      await fillCatalogSearch(live, '^absent-owned-teaser$');
+      await applyCatalogSearch(live);
       await expect(live.locator('#threads .thread')).toHaveCount(0);
-      await live.locator('#qf-box').fill(entry.query);
-      await live.getByRole('button', { name: 'Apply', exact: true }).click();
+      await fillCatalogSearch(live, entry.query);
+      await applyCatalogSearch(live);
       await expect(live.locator(`#threads #thread-${entry.id}`)).toBeVisible();
       expect(navigations).toBe(0);
       live.removeAllListeners('request');

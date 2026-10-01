@@ -5,7 +5,7 @@ catalog cards and controls. The public v1025 client names `filedeleted-res.gif`,
 `nofile.png` and `spoiler.png`. Public catalog CSS v705 names `sticky.gif` and
 `closed.gif`, with `@2x` variants at two device pixels per CSS pixel.
 [The asset manifest](public-catalog-assets.json) records the original seven public URLs
-and the later high-density deleted-file icon, with
+and the later high-density deleted-file icon and Tomorrow control gradient, with
 collection times, byte counts, SHA-256 hashes and dimensions. These are unchanged
 public static images, not project-created artwork or files from the excluded
 source checkout. No user posts, uploads, private source or production data were

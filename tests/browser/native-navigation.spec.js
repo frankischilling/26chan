@@ -2,6 +2,24 @@ import { test, expect } from '@playwright/test';
 
 const settingsKey = '4chan-settings';
 
+test('catalog Settings uses the actual board directory and disables navigation without reload', async ({ page }) => {
+  const errors = [], unexpected = []; page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => { if (new URL(request.url()).origin !== 'http://127.0.0.1:3000') unexpected.push(request.url()); });
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', '{}'));
+  const directory = page.waitForResponse(response => response.url().endsWith('/_watch/boards'));
+  await page.goto('/test/catalog'); expect((await directory).status()).toBe(200);
+  const bar = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
+  await expect(bar).toBeVisible(); await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('test');
+  await expect(bar.locator('option[value="demo"]')).toHaveCount(1);
+  let navigations = 0; page.on('framenavigated', () => navigations++);
+  await bar.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('#theme-ddn').uncheck(); await page.locator('#theme-save').click();
+  await expect(page.locator('#theme')).toBeHidden(); await expect(bar).toHaveCount(0);
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), settingsKey)).toEqual({ threadWatcher: false, dropDownNav: false });
+  await expect(page.locator('#settingsWindowLink')).toBeVisible(); expect(navigations).toBe(0);
+  expect(errors).toEqual([]); expect(unexpected).toEqual([]);
+});
+
 test('persistent board navigation saves settings, uses the actual directory and supports keyboard relocation', async ({ page, context }) => {
   const failures = [], unexpected = [];
   page.on('pageerror', error => failures.push(error.message));

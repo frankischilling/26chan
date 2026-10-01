@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -44,8 +45,8 @@ test('release catalog search consumes the shared serialized field contract', asy
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1; });
   for (const [index, entry] of fields.composition_cases.entries()) {
     for (const check of entry.checks) {
-      await page.locator('#qf-box').fill(check.query);
-      await page.getByRole('button', { name: 'Apply', exact: true }).click();
+      await fillCatalogSearch(page, check.query);
+      await applyCatalogSearch(page);
       await expect(page.locator('#thread-' + (index + 1))).toHaveCount(check.matches ? 1 : 0);
     }
   }
@@ -93,8 +94,8 @@ test('server GET and release live search agree on escaped formatted fields from 
       await expect(server.locator('#threads > .thread')).toHaveCount(1);
       await expect(server.locator('#threads > .thread')).toHaveAttribute('id', `thread-${entry.id}`);
       await expect(server.locator(`#thread-${entry.id} .catalogThumb`)).toHaveAttribute('data-search-text', entry.text);
-      await live.locator('#qf-box').fill(query);
-      await live.getByRole('button', { name: 'Apply', exact: true }).click();
+      await fillCatalogSearch(live, query);
+      await applyCatalogSearch(live);
       await expect(live.locator('#threads > .thread')).toHaveCount(1);
       await expect(live.locator('#threads > .thread')).toHaveAttribute('id', `thread-${entry.id}`);
       await expect(live.locator(`#thread-${entry.id} .catalogThumb`)).toHaveAttribute('data-search-text', entry.text);
@@ -103,12 +104,12 @@ test('server GET and release live search agree on escaped formatted fields from 
     for (const query of [`^${marker}`, `${marker} A&B`]) {
       await server.goto(`${origin}/test/catalog?q=${encodeURIComponent(query)}`);
       await expect(server.locator('#threads > .thread')).toHaveCount(0);
-      await live.locator('#qf-box').fill(query);
-      await live.getByRole('button', { name: 'Apply', exact: true }).click();
+      await fillCatalogSearch(live, query);
+      await applyCatalogSearch(live);
       await expect(live.locator('#threads > .thread')).toHaveCount(0);
     }
-    await live.locator('#qf-box').fill(marker);
-    await live.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(live, marker);
+    await applyCatalogSearch(live);
     await expect(live.locator('#threads > .thread')).toHaveCount(3);
     expect(navigations).toBe(0);
   } finally {

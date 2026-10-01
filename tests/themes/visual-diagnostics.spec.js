@@ -81,6 +81,20 @@ test('script transport failures retain only a bounded path and network error cod
   await expect(page.locator('.postMenuBtn').first()).toBeVisible();
 });
 
+test('stylesheet transport failures retain only a bounded path and network error code', async ({ page, visualDiagnostics }) => {
+  await page.route('**/static/theme.css?*', route => route.abort('connectionfailed'));
+  await page.goto('/demo/?private=QUERY_SENTINEL#FRAGMENT_SENTINEL');
+  await expect(page.locator('.postMenuBtn').first()).toBeVisible();
+  expect(visualDiagnostics.failedStylesheets).toEqual([
+    { path: '/static/theme.css', error: 'net::ERR_CONNECTION_FAILED' },
+  ]);
+  const state = await readVisualState(page);
+  expect(state.background).toEqual({ root: 'rgb(255, 255, 238)', body: 'rgba(0, 0, 0, 0)', hover: null, paper: null });
+  const serialized = JSON.stringify({ state, failedStylesheets: visualDiagnostics.failedStylesheets });
+  expect(serialized).not.toContain('QUERY_SENTINEL');
+  expect(serialized).not.toContain('FRAGMENT_SENTINEL');
+});
+
 test('synthetic visual state excludes form, cookie and storage contents', async ({ page, context }) => {
   await context.addCookies([{ name: 'owned-private', value: 'COOKIE_SENTINEL', url: 'http://127.0.0.1:3000' }]);
   await page.goto('/demo/');

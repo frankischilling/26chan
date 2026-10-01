@@ -1,3 +1,4 @@
+import { fillCatalogSearch, applyCatalogSearch } from '../browser/catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon'];
@@ -16,7 +17,7 @@ for (const theme of themes) {
       await expect(table.locator('td.txt-sub').nth(4)).toHaveText('<script>literal & subject</script>');
       await expect(table.locator('script, img, .teaser')).toHaveCount(0);
       await expect(table.locator('td.txt-date').first()).toHaveText('09/08/26(Tue)08:00:00');
-      for (const id of ['size-ctrl', 'teaser-ctrl', 'theme-nospoiler']) await expect(page.locator(`#${id}`)).toBeHidden();
+      for (const id of ['size-ctrl', 'teaser-ctrl', 'catalog-spoilers']) await expect(page.locator(`#${id}`)).toBeHidden();
       await expect(page.locator('#order-ctrl')).toBeVisible();
       await expect(page.locator('#qf-box')).toBeVisible();
       await expect(table.locator('th.txt-date')).toHaveCSS('display', name === 'mobile' ? 'none' : 'table-cell');
@@ -73,11 +74,11 @@ test.describe('live text rows', () => {
     await pinned.locator('.postMenuBtn').click();
     await page.getByRole('menuitem', { name: 'Unhide thread', exact: true }).click();
     await expect(rows).toHaveCount(6);
-    await page.locator('#qf-box').fill('Synthetic counter fixture');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(page, 'Synthetic counter fixture');
+    await applyCatalogSearch(page);
     await expect(rows).toHaveCount(6);
-    await page.locator('#qf-box').fill('^absent-text-catalog$');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await fillCatalogSearch(page, '^absent-text-catalog$');
+    await applyCatalogSearch(page);
     await expect(rows).toHaveCount(0);
     await expect(page.locator('#threads > .empty')).toContainText('No matching threads.');
     await page.getByRole('link', { name: 'Show all threads', exact: true }).click();

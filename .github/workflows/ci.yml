@@ -365,6 +365,12 @@ jobs:
       - name: Verify bounded relative post dates
         shell: pwsh
         run: npm run test:post-tooltips-core
+      - name: Verify bounded catalog filters, theme settings and styles
+        shell: pwsh
+        run: |
+          npm run test:catalog-filters-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:catalog-theme-core
       - name: Verify bounded thread expansion
         shell: pwsh
         run: npm run test:expansion-core

@@ -5,7 +5,7 @@ const workerPath = '/static/native-filter.v1.js';
 test('native filter module workers match exact IDs, terminate on deadlines and cancel without blocking the page', async ({ page }) => {
   const response = await page.goto('/demo/');
   const origin = new URL(page.url()).origin;
-  expect(response.headers()['content-security-policy']).toContain(`worker-src ${origin}${workerPath};`);
+  expect(response.headers()['content-security-policy']).toContain(`worker-src ${origin}${workerPath} ${origin}/static/catalog-filter-core.v1.js;`);
   const outcome = await page.evaluate(async path => {
     const { NativeFilterMatcher } = await import(path);
     let created = 0, terminated = 0, ticks = 0;

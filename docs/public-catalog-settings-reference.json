@@ -1,0 +1,4350 @@
+{
+  "scope": "Whole unchanged pinned catalog client on three owned cards. Settings fields, persistence, CSS editor state and keyboard phase/target/modifier cases. All nonfixture requests denied; no production content.",
+  "client": {
+    "url": "https://s.4cdn.org/js/catalog.min.1025.js",
+    "bytes": 51921,
+    "sha256": "ce645b150e747f9ad1682dc005daf30d7bc1a9f2cd473b4f1e55f99adf76fa9f"
+  },
+  "environment": {
+    "chromium": "151.0.7922.34",
+    "viewports": [
+      [
+        1280,
+        900
+      ],
+      [
+        390,
+        900
+      ]
+    ],
+    "density": 1,
+    "clock": "2026-09-08T12:00:00Z",
+    "paused_at": "2026-09-08T13:00:00Z"
+  },
+  "styles": [
+    {
+      "path": "css/catalog_yotsuba_new.705.css",
+      "bytes": 28015,
+      "sha256": "1c277be1b3963220228d8981abc26328d2c444b82292f9d23ee2e44e93588410",
+      "downloaded_utc": "2026-09-13T06:20:14.5904824Z"
+    },
+    {
+      "path": "css/catalog_yotsuba_b_new.705.css",
+      "bytes": 28098,
+      "sha256": "7d2731cec02c89685d2fd3a3230b0837dbc8dcfb7c5992dfae747d1613dc7d0c",
+      "downloaded_utc": "2026-09-13T06:20:14.6512871Z"
+    },
+    {
+      "path": "css/catalog_futaba_new.705.css",
+      "bytes": 27482,
+      "sha256": "b1ac2ceab0d075a7089a8ccf5ecea53909aa12697e189202ee3ee8e445eff77b",
+      "downloaded_utc": "2026-09-13T06:20:14.6768221Z"
+    },
+    {
+      "path": "css/catalog_burichan_new.705.css",
+      "bytes": 27257,
+      "sha256": "df8300559e21147bebaa130f45b2175e1d2ffe1dcc0f9e8dbefa2faa73361c9f",
+      "downloaded_utc": "2026-09-13T06:20:14.7013541Z"
+    },
+    {
+      "path": "css/catalog_tomorrow.705.css",
+      "bytes": 27725,
+      "sha256": "581df4378f0b915bf950a838b28e3e0d103cae9844d5f3b20d1544796d071dc1",
+      "downloaded_utc": "2026-09-13T06:20:14.7249174Z"
+    },
+    {
+      "path": "css/catalog_photon.705.css",
+      "bytes": 27510,
+      "sha256": "ad0f3c28ac04f7059cac7c2e6ccf32808c361a61462fc5db4399d945bb4d625d",
+      "downloaded_utc": "2026-09-13T06:20:14.7454892Z"
+    },
+    {
+      "path": "css/catalog_mobile.705.css",
+      "bytes": 7492,
+      "sha256": "df6577e72e1fa6837da522fe9da2cb56152203e9fb5b8ccaef242e4219a7a4f2",
+      "downloaded_utc": "2026-09-13T06:15:54Z"
+    }
+  ],
+  "catalog": {
+    "slug": "demo",
+    "anon": "Anonymous",
+    "count": 3,
+    "flags": false,
+    "threads": {
+      "1000001": {
+        "author": "Avery",
+        "trip": "!Origami",
+        "b": 2,
+        "sub": "Owned crane",
+        "teaser": "One sheet",
+        "file": "crane.png",
+        "s": 1,
+        "r": 2,
+        "i": 0,
+        "date": 1788868800,
+        "w": 1,
+        "h": 1,
+        "tn_w": 1,
+        "tn_h": 1,
+        "lr": {}
+      },
+      "1000002": {
+        "author": "Riley",
+        "trip": "!Paper",
+        "capcode": "mod",
+        "b": 1,
+        "sub": "Owned boat",
+        "teaser": "Two folds",
+        "file": "boat.png",
+        "s": 2,
+        "r": 1,
+        "i": 0,
+        "date": 1788868800,
+        "w": 1,
+        "h": 1,
+        "tn_w": 1,
+        "tn_h": 1,
+        "lr": {}
+      },
+      "1000003": {
+        "author": "Anonymous",
+        "sub": "Feeling fold",
+        "teaser": "paper feeling",
+        "b": 0,
+        "s": 3,
+        "r": 0,
+        "i": 0,
+        "date": 1788868800,
+        "w": 1,
+        "h": 1,
+        "tn_w": 1,
+        "tn_h": 1,
+        "lr": {}
+      }
+    },
+    "order": {
+      "alt": [
+        1000003,
+        1000002,
+        1000001
+      ],
+      "absdate": [
+        1000001,
+        1000002,
+        1000003
+      ],
+      "date": [
+        1000003,
+        1000002,
+        1000001
+      ],
+      "r": [
+        1000001,
+        1000002,
+        1000003
+      ]
+    }
+  },
+  "states": [
+    {
+      "label": "initial",
+      "width": 1280,
+      "shown": false,
+      "fields": [],
+      "css": null,
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true}"
+      }
+    },
+    {
+      "label": "opened-defaults",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true}"
+      }
+    },
+    {
+      "label": "checked-unsaved",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "theme-newtab",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true}"
+      }
+    },
+    {
+      "label": "saved-three-options",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": true,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000002",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000001",
+          "target": "_blank"
+        }
+      ],
+      "stored": {
+        "theme": "{\"nobinds\":true,\"nospoiler\":true,\"newtab\":true}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "reopened-three-options",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": true,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000002",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000001",
+          "target": "_blank"
+        }
+      ],
+      "stored": {
+        "theme": "{\"nobinds\":true,\"nospoiler\":true,\"newtab\":true}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "saved-empty-theme",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "css-unsaved",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": "theme-css",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "closed-unsaved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "reopened-unsaved-css",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "saved-css",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": "{\"css\":\".teaser { color: #008000; }\"}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "reopened-css",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": "{\"css\":\".teaser { color: #008000; }\"}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "cleared-css",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "initial",
+      "width": 390,
+      "shown": false,
+      "fields": [],
+      "css": null,
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true}"
+      }
+    },
+    {
+      "label": "opened-defaults",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true}"
+      }
+    },
+    {
+      "label": "checked-unsaved",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "theme-newtab",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true}"
+      }
+    },
+    {
+      "label": "saved-three-options",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": true,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000002",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000001",
+          "target": "_blank"
+        }
+      ],
+      "stored": {
+        "theme": "{\"nobinds\":true,\"nospoiler\":true,\"newtab\":true}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "reopened-three-options",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": true,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000002",
+          "target": "_blank"
+        },
+        {
+          "id": "thread-1000001",
+          "target": "_blank"
+        }
+      ],
+      "stored": {
+        "theme": "{\"nobinds\":true,\"nospoiler\":true,\"newtab\":true}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "saved-empty-theme",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "css-unsaved",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": "theme-css",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "closed-unsaved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "reopened-unsaved-css",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "saved-css",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": "{\"css\":\".teaser { color: #008000; }\"}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "reopened-css",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": ".teaser { color: #008000; }",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": "{\"css\":\".teaser { color: #008000; }\"}",
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "cleared-css",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"disableAll\":true,\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    }
+  ],
+  "nativeDefaults": [
+    {
+      "label": "absent-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": null
+      }
+    },
+    {
+      "label": "absent-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "empty-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{}"
+      }
+    },
+    {
+      "label": "empty-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "explicit-off-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-off-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-on-opened",
+      "width": 1280,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "explicit-on-saved",
+      "width": 1280,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "ddn",
+          "checked": true,
+          "rowDisplay": "list-item"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "absent-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": null
+      }
+    },
+    {
+      "label": "absent-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "empty-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{}"
+      }
+    },
+    {
+      "label": "empty-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-off-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-off-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":false,\"dropDownNav\":false}"
+      }
+    },
+    {
+      "label": "explicit-on-opened",
+      "width": 390,
+      "shown": true,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": "",
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":true}"
+      }
+    },
+    {
+      "label": "explicit-on-saved",
+      "width": 390,
+      "shown": false,
+      "fields": [
+        {
+          "key": "nobinds",
+          "checked": false,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "nospoiler",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "newtab",
+          "checked": false,
+          "rowDisplay": "list-item"
+        },
+        {
+          "key": "tw",
+          "checked": true,
+          "rowDisplay": "none"
+        },
+        {
+          "key": "ddn",
+          "checked": false,
+          "rowDisplay": "none"
+        }
+      ],
+      "css": "",
+      "focus": null,
+      "spoilerClass": false,
+      "links": [
+        {
+          "id": "thread-1000003",
+          "target": null
+        },
+        {
+          "id": "thread-1000002",
+          "target": null
+        },
+        {
+          "id": "thread-1000001",
+          "target": null
+        }
+      ],
+      "stored": {
+        "theme": null,
+        "settings": "{\"threadWatcher\":true,\"dropDownNav\":false}"
+      }
+    }
+  ],
+  "shortcuts": [
+    {
+      "label": "body-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "body-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "button-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "owned-button",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "button-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-button",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "link-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "owned-link",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "link-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-link",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "select-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "order-ctrl",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "select-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "order-ctrl",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "input-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "owned-input",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "input-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-input",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "textarea-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "owned-textarea",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "textarea-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-textarea",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "control-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "ctrlKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "control-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "ctrlKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "alt-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "altKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "alt-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "altKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "shift-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "shiftKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "shift-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "shiftKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "meta-keydown",
+      "width": 1280,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "metaKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "meta-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "metaKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "disabled-keyup",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "cycle-0",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "r",
+      "cards": [
+        "thread-1000001",
+        "thread-1000002",
+        "thread-1000003"
+      ]
+    },
+    {
+      "label": "cycle-1",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "absdate",
+      "cards": [
+        "thread-1000001",
+        "thread-1000002",
+        "thread-1000003"
+      ]
+    },
+    {
+      "label": "cycle-2",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "date",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "cycle-3",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "body-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "body-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "button-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "owned-button",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "button-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-button",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "link-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "owned-link",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "link-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-link",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "select-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "order-ctrl",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "select-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "order-ctrl",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "input-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "owned-input",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "input-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-input",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "textarea-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "owned-textarea",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "textarea-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-textarea",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "control-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "ctrlKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "control-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "ctrlKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "alt-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "altKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "alt-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "altKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "shift-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "shiftKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "shift-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "shiftKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "meta-keydown",
+      "width": 390,
+      "event": {
+        "type": "keydown",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "metaKey": true
+        },
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "meta-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {
+          "metaKey": true
+        },
+        "prevented": false
+      },
+      "shown": "inline",
+      "active": true,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "disabled-keyup",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 83,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "cycle-0",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "r",
+      "cards": [
+        "thread-1000001",
+        "thread-1000002",
+        "thread-1000003"
+      ]
+    },
+    {
+      "label": "cycle-1",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "absdate",
+      "cards": [
+        "thread-1000001",
+        "thread-1000002",
+        "thread-1000003"
+      ]
+    },
+    {
+      "label": "cycle-2",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "date",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    },
+    {
+      "label": "cycle-3",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 88,
+        "modifiers": {},
+        "prevented": false
+      },
+      "shown": "none",
+      "active": false,
+      "input": "",
+      "order": "alt",
+      "cards": [
+        "thread-1000003",
+        "thread-1000002",
+        "thread-1000001"
+      ]
+    }
+  ],
+  "reloads": [
+    {
+      "label": "body",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "button",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-button",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "select",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "order-ctrl",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "input",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-input",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "textarea",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "owned-textarea",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "shift",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {
+          "shiftKey": true
+        },
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "control",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {
+          "ctrlKey": true
+        },
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "disabled",
+      "width": 1280,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "body",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "button",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-button",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "select",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "order-ctrl",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "input",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-input",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "textarea",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "owned-textarea",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "shift",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {
+          "shiftKey": true
+        },
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    },
+    {
+      "label": "control",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {
+          "ctrlKey": true
+        },
+        "prevented": false
+      },
+      "navigations": 1,
+      "samePage": true
+    },
+    {
+      "label": "disabled",
+      "width": 390,
+      "event": {
+        "type": "keyup",
+        "target": "body",
+        "code": 82,
+        "modifiers": {},
+        "prevented": false
+      },
+      "navigations": 0,
+      "samePage": true
+    }
+  ],
+  "cases": [
+    {
+      "theme": "yotsuba",
+      "width": 1280,
+      "values": {
+        "panel": {
+          "width": "330px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(128, 0, 0)",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgb(217, 191, 183)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "320px",
+          "height": "52px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "11px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "width": 390,
+      "values": {
+        "panel": {
+          "width": "310px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(128, 0, 0)",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgb(217, 191, 183)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "300px",
+          "height": "76px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "16px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "width": 1280,
+      "values": {
+        "panel": {
+          "width": "330px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgb(183, 197, 217)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "320px",
+          "height": "52px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "11px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "width": 390,
+      "values": {
+        "panel": {
+          "width": "310px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgb(183, 197, 217)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "300px",
+          "height": "76px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "16px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "futaba",
+      "width": 1280,
+      "values": {
+        "panel": {
+          "width": "330px",
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "14px",
+          "color": "rgb(128, 0, 0)",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgba(0, 0, 0, 0.2)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "320px",
+          "height": "60px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "13.3333px",
+          "margin": "0px",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(118, 118, 118)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "futaba",
+      "width": 390,
+      "values": {
+        "panel": {
+          "width": "310px",
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "14px",
+          "color": "rgb(128, 0, 0)",
+          "backgroundColor": "rgb(240, 224, 214)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(128, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgba(0, 0, 0, 0.2)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "300px",
+          "height": "76px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "16px",
+          "margin": "0px",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(118, 118, 118)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "burichan",
+      "width": 1280,
+      "values": {
+        "panel": {
+          "width": "330px",
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "14px",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgba(0, 0, 0, 0.2)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "320px",
+          "height": "60px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "13.3333px",
+          "margin": "0px",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(118, 118, 118)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "burichan",
+      "width": 390,
+      "values": {
+        "panel": {
+          "width": "310px",
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "14px",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(214, 218, 240)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(0, 0, 0)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "\"Times New Roman\", serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgba(0, 0, 0, 0.2)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "300px",
+          "height": "76px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "16px",
+          "margin": "0px",
+          "padding": "2px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(118, 118, 118)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "width": 1280,
+      "values": {
+        "panel": {
+          "width": "330px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(197, 200, 198)",
+          "backgroundColor": "rgb(40, 42, 46)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(197, 200, 198)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgb(17, 17, 17)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "320px",
+          "height": "52px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "11px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "width": 390,
+      "values": {
+        "panel": {
+          "width": "310px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(197, 200, 198)",
+          "backgroundColor": "rgb(40, 42, 46)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(197, 200, 198)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgb(17, 17, 17)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "300px",
+          "height": "76px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "16px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "photon",
+      "width": 1280,
+      "values": {
+        "panel": {
+          "width": "330px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(51, 51, 51)",
+          "backgroundColor": "rgb(221, 221, 221)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(51, 51, 51)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgba(0, 0, 0, 0.2)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "320px",
+          "height": "52px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "11px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    },
+    {
+      "theme": "photon",
+      "width": 390,
+      "values": {
+        "panel": {
+          "width": "310px",
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "14px",
+          "color": "rgb(51, 51, 51)",
+          "backgroundColor": "rgb(221, 221, 221)",
+          "padding": "2px 5px 5px",
+          "borderWidth": "0px",
+          "borderColor": "rgb(51, 51, 51)",
+          "borderRadius": "0px",
+          "boxShadow": "rgba(0, 0, 0, 0.25) 0px 0px 5px 0px"
+        },
+        "header": {
+          "fontFamily": "arial, helvetica, sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "700",
+          "lineHeight": "14px",
+          "margin": "5px 0px",
+          "padding": "0px 0px 5px",
+          "borderBottomWidth": "1px",
+          "borderBottomColor": "rgba(0, 0, 0, 0.2)",
+          "textAlign": "center"
+        },
+        "heading": {
+          "fontSize": "14px",
+          "fontWeight": "700",
+          "margin": "10px 0px 5px",
+          "padding": "0px"
+        },
+        "list": {
+          "margin": "0px 0px 8px",
+          "padding": "0px",
+          "listStyleType": "disc"
+        },
+        "row": {
+          "margin": "0px 0px 2px",
+          "padding": "0px",
+          "lineHeight": "20px"
+        },
+        "checkbox": {
+          "margin": "3px 3px 3px 4px",
+          "padding": "0px"
+        },
+        "css": {
+          "width": "300px",
+          "height": "76px",
+          "fontFamily": "\"DejaVu Sans Mono\", Consolas, \"Andale Mono\", \"Lucida Console\", monospace",
+          "fontSize": "16px",
+          "margin": "0px 2px 0px 0px",
+          "padding": "2px 4px 3px",
+          "borderWidth": "1px",
+          "borderColor": "rgb(170, 170, 170)",
+          "color": "rgb(0, 0, 0)",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "boxSizing": "content-box"
+        },
+        "actions": {
+          "margin": "5px 0px 3px",
+          "padding": "0px",
+          "textAlign": "start"
+        },
+        "submit": {
+          "fontFamily": "Arial",
+          "fontSize": "13.3333px",
+          "padding": "1px 6px",
+          "margin": "0px"
+        }
+      }
+    }
+  ]
+}

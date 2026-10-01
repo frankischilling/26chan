@@ -1,4 +1,7 @@
 import { NativeWatchLock } from './native-filter.v1.js';
+import { mountCatalogFilters } from './catalog-filters.v1.js';
+import { readCatalogTheme } from './native-settings.v1.js';
+import { updateCatalogSpoilers } from './catalog-theme.v1.js';
 
 (() => {
   'use strict';
@@ -8,10 +11,22 @@ import { NativeWatchLock } from './native-filter.v1.js';
   const teaser = document.getElementById('teaser-ctrl');
   const reset = document.getElementById('catalog-reset');
   const search = document.getElementById('qf-box');
+  const searchToggle = document.getElementById('qf-ctrl');
+  const searchContainer = document.getElementById('qf-cnt');
+  const searchClose = document.getElementById('qf-clear');
+  const filterToggle = document.getElementById('filters-ctrl');
   const preferenceStatus = document.getElementById('catalog-preference-status');
-  const spoilers = document.getElementById('theme-nospoiler');
+  const spoilers = document.getElementById('catalog-spoilers') ?? document.getElementById('theme-nospoiler');
   const spoilerControl = spoilers instanceof HTMLSelectElement;
   const themeKey = 'catalog-theme';
+  let themeCache = null;
+  let volatileTheme = false;
+  const themePreferences = () => {
+    let raw = themeCache;
+    try { if (!volatileTheme) raw = localStorage.getItem(themeKey); } catch { /* Use the last admitted tab value. */ }
+    const parsed = readCatalogTheme(raw);
+    return parsed.status === 'ok' ? parsed.theme : {};
+  };
   const revealSpoilers = () => spoilerControl && spoilers.value === 'on';
   if (!(form instanceof HTMLFormElement) || !(order instanceof HTMLSelectElement)
       || !(size instanceof HTMLSelectElement) || !(teaser instanceof HTMLSelectElement)
@@ -83,6 +98,10 @@ import { NativeWatchLock } from './native-filter.v1.js';
         reply: node.querySelector(textOnly ? '.txt-rep [data-replies-count]' : '.meta > b, .meta > i > b'),
         controls: node.querySelector(textOnly ? '.txt-ctrl' : '.meta'),
         fields: searchable ? [fields.searchText, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
+        filterCard: searchable && ['filterName', 'filterTrip', 'filterCapcode'].every(name => typeof fields[name] === 'string')
+          ? { id: data.threadId, text: fields.searchText, author: fields.filterName,
+            ...(fields.hasFile === 'true' ? { file: fields.searchFile } : {}),
+            ...(fields.filterTrip ? { trip: fields.filterTrip } : {}), ...(fields.filterCapcode ? { capcode: fields.filterCapcode } : {}) } : null,
         small: thumb ? dimensions(thumb, 'small', 150) : null,
         large: thumb ? dimensions(thumb, 'large', 250) : null,
         id: integer(data.threadId), bumped: integer(data.bumped, true),
@@ -92,6 +111,23 @@ import { NativeWatchLock } from './native-filter.v1.js';
   const searchReady = entries !== null && search instanceof HTMLInputElement
     && hidden instanceof HTMLTemplateElement && entries.every(entry => entry.fields !== null)
     && action.origin === location.origin && action.pathname === location.pathname;
+  const searchControlsReady = searchReady && searchToggle instanceof HTMLButtonElement
+    && searchClose instanceof HTMLButtonElement && searchContainer instanceof HTMLSpanElement
+    && form.contains(searchToggle) && searchContainer.contains(search) && searchContainer.contains(searchClose);
+  const searchLabels = ['', '-bottom'].map(suffix => ({
+    label: document.getElementById(`search-label${suffix}`), term: document.getElementById(`search-term${suffix}`),
+  })).filter(({ label, term }) => label instanceof HTMLSpanElement && term instanceof HTMLSpanElement && label.contains(term));
+  const showSearchLabels = query => {
+    if (!searchControlsReady) return;
+    for (const { label, term } of searchLabels) {
+      if (query) term.textContent = query;
+      label.style.display = query ? 'inline' : 'none';
+    }
+  };
+  let searchOpen = false;
+  let catalogFilters = null;
+  let catalogHadFilters = false;
+  const filteredLabels = [];
   const originalEmpty = container?.querySelector(':scope > .empty');
   let renderedOrder = hiddenCount ? null : order.value;
   let renderedQuery = search instanceof HTMLInputElement ? search.value : '';
@@ -128,9 +164,9 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (pairs.length > 1024) throw new Error('Too many stored threads');
       for (const [id, value] of pairs) {
         if (!/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n) continue;
-        if (pins ? !Number.isSafeInteger(value) || value < 0 : value !== true) continue;
+        if (pins ? !Number.isSafeInteger(value) || value < 0 : value !== true && value !== 1) continue;
         if (!byId.has(id) && BigInt(id) < newest) continue;
-        values.set(id, value);
+        values.set(id, pins ? value : true);
       }
     } catch { /* Invalid optional state cannot disable the catalog. */ }
     persistState(name, values);
@@ -484,14 +520,14 @@ import { NativeWatchLock } from './native-filter.v1.js';
     if (!valid(value)) return;
     persistPreference(JSON.stringify(value));
   };
-  const saveSearch = query => {
+  const saveSearch = (query, keepBoard = false) => {
     try {
       if (query) {
         sessionStorage.setItem(searchKey, query);
         sessionStorage.setItem(boardKey, board);
       } else {
         sessionStorage.removeItem(searchKey);
-        sessionStorage.removeItem(boardKey);
+        if (!keepBoard) sessionStorage.removeItem(boardKey);
       }
     } catch { /* Search does not depend on storage. */ }
   };
@@ -522,9 +558,14 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (hiddenOnly && total === 0) hiddenOnly = false;
       shownHiddenCount = hiddenOnly || !query ? total : 0;
     }
-    if (value.orderby !== renderedOrder) {
+    const filterSnapshot = catalogFilters?.snapshot() ?? { rules: [], matches: new Map() };
+    const filterActive = !query && !hiddenOnly;
+    const ruleFor = entry => filterActive && !(stateReady && pins.has(entry.id.toString()))
+      ? filterSnapshot.rules[filterSnapshot.matches.get(entry.id.toString())] : undefined;
+    if (filterSnapshot.rules.length || value.orderby !== renderedOrder) {
       entries.sort((a, b) => (textOnly ? 0 : Number(b.sticky) - Number(a.sticky))
-        || (stateReady ? Number(pins.has(b.id.toString())) - Number(pins.has(a.id.toString())) : 0) || (
+        || Number(!!(stateReady && pins.has(b.id.toString()) || ruleFor(b)?.top))
+          - Number(!!(stateReady && pins.has(a.id.toString()) || ruleFor(a)?.top)) || (
         value.orderby === 'date' ? compare(b.id, a.id)
           : value.orderby === 'absdate' ? compareOptional(b.latest, a.latest) || compare(a.id, b.id)
             : value.orderby === 'r' ? compare(b.replies, a.replies) || compare(a.id, b.id)
@@ -540,11 +581,30 @@ import { NativeWatchLock } from './native-filter.v1.js';
     teaser.value = value.extended ? 'on' : 'off';
     container.className = textOnly ? 'catalog textCatalog' : `catalog ${value.extended ? 'extended-' : ''}${value.large ? 'large' : 'small'}`;
     const fragment = document.createDocumentFragment();
-    let count = 0;
+    let count = 0, filteredCount = 0;
+    const hits = filterSnapshot.rules.map(() => 0);
     for (const entry of entries) {
       const id = entry.id.toString();
+      const highlight = entry.node.querySelector('.catalogThumb .thumb');
+      if (entry.filterColor) {
+        highlight?.classList.remove('hl');
+        if (highlight?.style.borderColor === entry.filterColor) highlight.style.borderColor = '';
+        if (entry.teaser.style.color === entry.filterColor) entry.teaser.style.color = '';
+        entry.filterColor = '';
+      }
       if (stateReady && (hiddenOnly ? !hiddenThreads.has(id) : !query && hiddenThreads.has(id))) continue;
       if (!hiddenOnly && searchReady && pattern && !entry.fields.some(field => pattern.test(field))) continue;
+      const rule = ruleFor(entry);
+      if (rule) {
+        hits[filterSnapshot.matches.get(id)]++;
+        if (rule.hidden) { filteredCount++; continue; }
+        if (rule.color) {
+          if (highlight) { highlight.classList.add('hl'); highlight.style.borderColor = rule.color; }
+          // The released image catalog leaves teaser text uncolored. Its
+          // legacy markup is malformed; preserve the visible result with safe DOM.
+          entry.filterColor = highlight?.style.borderColor ?? '';
+        }
+      }
       if (stateReady) {
         const pinned = pins.has(id);
         if (textOnly) entry.node.classList.toggle('pinned', pinned);
@@ -596,7 +656,12 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (message) container.append(message);
     }
     entriesRoot.replaceChildren(fragment);
-    if (searchReady) renderedQuery = query;
+    for (const { label, count } of filteredLabels) {
+      label.style.display = filteredCount ? 'inline' : 'none';
+      if (filteredCount) count.textContent = String(filteredCount);
+    }
+    catalogFilters?.setHits(hits);
+    if (searchReady) { renderedQuery = query; showSearchLabels(query); }
     if (stateReady) { if (persistPins) persistState(pinKey, pins); updateStateControls(); }
     return true;
   };
@@ -610,19 +675,52 @@ import { NativeWatchLock } from './native-filter.v1.js';
     }
     search.setCustomValidity('');
     if (!apply(current(), search.value)) return false;
-    saveSearch(renderedQuery);
+    saveSearch(renderedQuery, searchControlsReady);
     updateURL(current());
     return true;
   };
+  const updateThemeLinks = theme => {
+    for (const entry of entries) {
+      const link = entry.node.querySelector(textOnly ? '.txt-sub a' : '.catalogThumb');
+      if (!(link instanceof HTMLAnchorElement)) continue;
+      const href = link.getAttribute('href');
+      if (href === null) continue;
+      let target;
+      try { target = new URL(href, location.href); } catch { continue; }
+      if (target.origin !== location.origin || target.pathname !== `/${board}/thread/${entry.id}` || target.search || target.hash) continue;
+      if (theme.newtab === true) { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
+      else { link.removeAttribute('target'); link.removeAttribute('rel'); }
+    }
+  };
+  if (entries !== null) updateThemeLinks(themePreferences());
+  document.addEventListener('4chanCatalogThemeApplied', event => {
+    if (!event.detail || typeof event.detail.initial !== 'boolean' || typeof event.detail.persistent !== 'boolean') return;
+    const parsed = readCatalogTheme(event.detail.raw);
+    themeCache = event.detail.raw; volatileTheme = !event.detail.persistent;
+    const theme = parsed.status === 'ok' ? parsed.theme : {};
+    updateThemeLinks(theme);
+    const initialOverride = event.detail.initial && new URL(location.href).searchParams.has('spoilers');
+    if (spoilerControl && !initialOverride) {
+      const changed = revealSpoilers() !== (theme.nospoiler === true);
+      spoilers.value = theme.nospoiler === true ? 'on' : 'off';
+      if (changed && apply(current(), renderedQuery, false) && !event.detail.initial) updateURL(current());
+    }
+    document.body.classList.toggle('reveal-img-spoilers', revealSpoilers());
+  });
+  const saveSpoilers = enabled => {
+    void updateCatalogSpoilers(document.getElementById('watcher-context'), enabled).then(result => {
+      if (!form.isConnected) return;
+      if (result.status === 'ok' && !result.persisted) setPreferenceStatus('Spoiler preference stays in this tab. Browser storage or cross-tab locking is unavailable.');
+      else if (!['ok', 'cancelled'].includes(result.status)) setPreferenceStatus('Spoiler preference could not be saved. The current view remains usable.');
+    });
+  };
   form.addEventListener('submit', event => {
+    if (searchControlsReady) { event.preventDefault(); return; }
     save();
     if (searchReady) { event.preventDefault(); applySearch(); }
   });
   if (spoilerControl) spoilers.addEventListener('change', () => {
-    try {
-      if (revealSpoilers()) localStorage.setItem(themeKey, JSON.stringify({ nospoiler: true }));
-      else localStorage.removeItem(themeKey);
-    } catch { /* Explicit reveal remains usable without storage. */ }
+    saveSpoilers(revealSpoilers());
     if (apply(current())) updateURL(current());
     else form.requestSubmit();
   });
@@ -635,6 +733,43 @@ import { NativeWatchLock } from './native-filter.v1.js';
     });
   }
   if (searchReady) {
+    const openSearch = () => {
+      searchOpen = true;
+      searchContainer.style.display = 'inline';
+      searchToggle.classList.add('active');
+      searchToggle.setAttribute('aria-expanded', 'true');
+      search.value = '';
+      showSearchLabels('');
+      search.focus();
+    };
+    const closeSearch = () => {
+      searchOpen = false;
+      searchContainer.style.display = 'none';
+      searchToggle.classList.remove('active');
+      searchToggle.setAttribute('aria-expanded', 'false');
+      search.setCustomValidity('');
+      if (document.activeElement === searchToggle || searchContainer.contains(document.activeElement)) document.activeElement.blur();
+      // The released client keeps both the old input and any pending debounce.
+      // A pending search can therefore apply after closing the field.
+      if (apply(current(), '')) { saveSearch('', true); updateURL(current()); }
+    };
+    if (searchControlsReady) {
+      form.classList.add('nativeCatalogControls');
+      searchToggle.hidden = false;
+      searchClose.hidden = false;
+      searchContainer.style.display = 'none';
+      searchToggle.addEventListener('click', () => { if (searchOpen) closeSearch(); else openSearch(); });
+      searchClose.addEventListener('click', closeSearch);
+      document.addEventListener('keyup', event => {
+        if (event.target?.nodeName === 'INPUT' || event.target?.nodeName === 'TEXTAREA') return;
+        if (themePreferences().nobinds === true) return;
+        if (event.keyCode === 83) openSearch();
+        else if (event.keyCode === 88) {
+          order.value = ({ date: 'alt', alt: 'r', r: 'absdate', absdate: 'date' })[order.value];
+          order.dispatchEvent(new Event('change'));
+        } else if (event.keyCode === 82 && !event.shiftKey) location.assign(location.href);
+      });
+    }
     container.addEventListener('click', event => {
       const link = event.target instanceof Element ? event.target.closest('.empty > a') : null;
       if (renderedQuery && link && container.contains(link)) {
@@ -646,11 +781,19 @@ import { NativeWatchLock } from './native-filter.v1.js';
       }
     });
     const schedule = () => { clearTimeout(timer); if (!composing) timer = setTimeout(applySearch, 250); };
-    search.addEventListener('input', schedule);
-    search.addEventListener('compositionstart', () => { composing = true; clearTimeout(timer); });
-    search.addEventListener('compositionend', () => { composing = false; schedule(); });
+    if (searchControlsReady) search.addEventListener('keyup', event => { if (event.key !== 'Escape') schedule(); });
+    else {
+      search.addEventListener('input', schedule);
+      search.addEventListener('compositionstart', () => { composing = true; clearTimeout(timer); });
+      search.addEventListener('compositionend', () => { composing = false; schedule(); });
+    }
     search.addEventListener('keydown', event => {
-      if (event.key === 'Escape') { event.preventDefault(); search.value = ''; applySearch(); }
+      if (searchControlsReady && event.key === 'Enter') event.preventDefault();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (searchControlsReady) closeSearch();
+        else { search.value = ''; applySearch(); }
+      }
     });
   }
   reset.addEventListener('click', event => {
@@ -659,7 +802,7 @@ import { NativeWatchLock } from './native-filter.v1.js';
     saveSearch('');
     if (spoilerControl) {
       spoilers.value = 'off';
-      try { localStorage.removeItem(themeKey); } catch { /* Explicit defaults still apply. */ }
+      saveSpoilers(false);
     }
     const defaults = { orderby: 'alt', large: false, extended: true };
     const url = new URL(action.href);
@@ -667,6 +810,12 @@ import { NativeWatchLock } from './native-filter.v1.js';
     reset.href = url.href;
     if (searchReady) {
       hiddenOnly = false;
+      if (searchControlsReady) {
+        searchOpen = false;
+        searchContainer.style.display = 'none';
+        searchToggle.classList.remove('active');
+        searchToggle.setAttribute('aria-expanded', 'false');
+      }
       search.value = '';
       search.setCustomValidity('');
       if (apply(defaults, '')) {
@@ -695,24 +844,32 @@ import { NativeWatchLock } from './native-filter.v1.js';
     preferenceSuspended = false;
     preferenceLock.resume();
   });
-  document.addEventListener('4chanPreferencesRestored', () => {
+  document.addEventListener('4chanPreferencesRestored', async event => {
+    const restoredKeys = event.detail?.keys;
+    const filtersRestored = Array.isArray(restoredKeys) && restoredKeys.includes('catalog-filters');
+    if (Array.isArray(restoredKeys) && !filtersRestored && !restoredKeys.includes('catalog-settings')) return;
     cancelPreferenceWrite();
+    if (!livePreferenceControls()) return;
+    if (filtersRestored) await catalogFilters?.restore();
     if (!livePreferenceControls()) return;
     const raw = readPreferenceRaw();
     if (raw.status !== 'ok') { persistenceUnavailable(); return; }
-    if (raw.raw === null) { setPreferenceStatus(''); return; }
-    const restored = storedPreference(raw.raw);
-    if (!restored) {
-      setPreferenceStatus('Restored catalog preferences are invalid and were not applied on this page.');
+    const storedDisplay = raw.raw === null ? null : storedPreference(raw.raw);
+    if (!filtersRestored && !storedDisplay) {
+      setPreferenceStatus(raw.raw === null ? '' : 'Restored catalog preferences are invalid and were not applied on this page.');
       return;
     }
+    const restored = storedDisplay ?? current();
     const query = searchReady && validQuery(search.value) ? search.value : renderedQuery;
+    renderedOrder = null;
+    catalogHadFilters = (catalogFilters?.snapshot().rules.length ?? 0) > 0;
     if (!apply(restored, query, false)) {
       setPreferenceStatus('Restored catalog preferences could not be applied to this catalog snapshot.');
       return;
     }
-    updateURL(restored);
-    setPreferenceStatus('');
+    if (storedDisplay) updateURL(restored);
+    setPreferenceStatus(raw.raw !== null && !storedDisplay
+      ? 'Stored catalog display preferences are invalid. Restored filters use the current display.' : '');
   });
 
   if (stateReady) installThreadControls();
@@ -721,16 +878,9 @@ import { NativeWatchLock } from './native-filter.v1.js';
   const url = new URL(location.href);
   let spoilerChanged = false;
   if (spoilerControl && !url.searchParams.has('spoilers')) {
-    try {
-      const raw = localStorage.getItem(themeKey);
-      if (raw !== null && raw.length <= 4096) {
-        const saved = JSON.parse(raw);
-        if (saved && typeof saved === 'object' && !Array.isArray(saved) && saved.nospoiler === true) {
-          spoilerChanged = !revealSpoilers();
-          spoilers.value = 'on';
-        }
-      }
-    } catch { /* Never apply arbitrary catalog-theme fields or stored CSS. */ }
+    if (themePreferences().nospoiler === true) {
+      spoilerChanged = !revealSpoilers(); spoilers.value = 'on';
+    }
   }
   let display = current();
   if (!['order', 'size', 'teaser'].some(name => url.searchParams.has(name))) {
@@ -771,4 +921,34 @@ import { NativeWatchLock } from './native-filter.v1.js';
     }
   }
   if (searchReady && query) saveSearch(query);
+  if (searchControlsReady && query) {
+    searchOpen = true;
+    searchContainer.style.display = 'inline';
+    searchToggle.classList.add('active');
+    searchToggle.setAttribute('aria-expanded', 'true');
+    showSearchLabels(query);
+    search.focus();
+  }
+  if (searchControlsReady && entries.length <= 20001 && entries.every(entry => entry.filterCard !== null)
+    && filterToggle instanceof HTMLButtonElement && form.contains(filterToggle)) {
+    for (const suffix of ['', '-bottom']) {
+      const label = document.createElement('span'); label.id = `filtered-label${suffix}`;
+      label.style.display = 'none';
+      const count = document.createElement('span'); count.id = `filtered-count${suffix}`;
+      label.append('Filtered: ', count); filteredLabels.push({ label, count });
+      if (suffix) container.after(label); else form.querySelector('#info').append(' ', label);
+    }
+    catalogFilters = mountCatalogFilters({ board, cards: entries.map(entry => entry.filterCard),
+      form, container, opener: filterToggle,
+      changed: () => {
+        const active = (catalogFilters?.snapshot().rules.length ?? 0) > 0;
+        // An empty initial refresh has no effects to apply. Rendering again
+        // would consume the pin reply delta displayed by the original pass.
+        if (!active && !catalogHadFilters) return;
+        if (active || catalogHadFilters) renderedOrder = null;
+        catalogHadFilters = active;
+        apply(current());
+      },
+    });
+  }
 })();

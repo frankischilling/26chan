@@ -67,6 +67,92 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .catalogControl { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
 .catalogControls input { width: 150px; max-width: 100%; }
 .catalogControls select, .catalogControls input, .catalogControls button { font: inherit; }
+/* Pinned catalog control geometry; the GET controls remain usable without JS. */
+:root {
+  --catalog-controls-font: arial, helvetica, sans-serif; --catalog-controls-size: 10pt;
+  --catalog-field-font: 11px; --catalog-field-padding: 1px; --catalog-field-margin: 0 5px 0 2px;
+  --catalog-field-border: 1px solid #aaa; --catalog-field-focus: #ea8;
+  --catalog-button-color: #880000; --catalog-button-edge: #c0a69d; --catalog-button-paper: #f0e0d6;
+  --catalog-button-image: url('/static/watcher/buttonfade.png'); --catalog-button-repeat: repeat-x;
+}
+#search-label, #search-label-bottom { display: none; }
+.catalogControls > .mobile { display: none; }
+.catalogControls:not(.nativeCatalogControls) { display: block; }
+.catalogControls:not(.nativeCatalogControls) .btn-wrap { display: none; }
+.catalogControls:not(.nativeCatalogControls) #info { display: none; }
+.catalogControls:not(.nativeCatalogControls) #settings { display: flex; width: 100%; flex-wrap: wrap; align-items: center; gap: 5px; }
+.catalogControls:not(.nativeCatalogControls) #qf-cnt { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
+.nativeCatalogControls { display: block; color: var(--ink, #800000); font: var(--catalog-controls-size) var(--catalog-controls-font); line-height: normal; }
+.nativeCatalogControls #info { float: left; }
+.nativeCatalogControls #settings { float: right; text-align: right; line-height: normal; }
+.nativeCatalogControls .catalogControl { display: inline; }
+.nativeCatalogControls .catalogSearchFallback, .nativeCatalogControls .catalogApplyFallback { display: none; }
+.nativeCatalogControls .clear { clear: both; }
+.nativeCatalogControls .btn-wrap { border: 0; padding: 0; background: transparent; border-radius: 0; font-weight: normal; white-space: normal; }
+.nativeCatalogControls .btn-wrap::before { content: '['; }
+.nativeCatalogControls .btn-wrap::after { content: ']'; }
+.nativeCatalogControls .button { display: inline; padding: 0; margin: 0; border: 0; background: transparent; color: inherit; font: inherit; line-height: normal; cursor: pointer; user-select: none; white-space: nowrap; }
+.nativeCatalogControls .button[hidden] { display: none; }
+.nativeCatalogControls .button.active { font-weight: bold; }
+.nativeCatalogControls #qf-box { width: 75px; max-width: none; height: auto; min-width: 0; padding: var(--catalog-field-padding); margin: var(--catalog-field-margin); box-sizing: content-box; border: var(--catalog-field-border); border-radius: 0; font: var(--catalog-field-font) Arial; color: #000; background: #fff; line-height: normal; }
+.nativeCatalogControls #qf-clear { text-decoration: none; }
+.nativeCatalogControls #qf-box:focus { border-color: var(--catalog-field-focus); }
+
+/* Catalog v1025 filters have their own editor and rule format. */
+.catalogFilterPanel { box-sizing: content-box; position: absolute; left: 50%; right: auto; bottom: auto; border: 0; padding: 2px 5px 5px; margin-top: 0; margin-bottom: 0; background: var(--panel, #f0e0d6); color: var(--ink, #800000); font-size: 14px; line-height: normal; box-shadow: 0 0 5px rgba(0, 0, 0, .25); max-width: none; max-height: none; }
+.catalogFilterPanel::backdrop { background: rgba(0, 0, 0, .25); }
+.catalogFilterPanel.hidden, .catalogFilterPalette.hidden { display: none; }
+#filters { width: 380px; margin-left: -190px; }
+.catalogFilterPanel .panelHeader { position: static; border-bottom: 1px solid var(--catalog-filter-edge, var(--settings-edge, #d9bfb7)); font-size: 16px; font-weight: bold; margin: 5px 0; padding-bottom: 5px; text-align: center; line-height: 14px; }
+.catalogFilterPanel input[type=text] { box-sizing: content-box; padding: var(--catalog-field-padding); border: var(--catalog-field-border); border-radius: 0; color: #000; background: #fff; font: var(--catalog-field-font) Arial; line-height: normal; }
+#filters-search { position: absolute; left: 4px; width: 50px; padding: 0 2px; font-size: 11px; margin: 0; }
+#filters-search:focus { width: 85px; }
+.catalogFilterPanel .icon { position: absolute; top: 5px; right: 5px; display: block; width: 18px; height: 18px; margin: 0; padding: 0; border: 0; background-color: transparent; background-size: 100%; cursor: pointer; }
+.catalogFilterPanel .helpIcon { background-image: var(--catalog-filter-help); right: 23px; }
+#filter-table { width: 100%; border: 0; border-collapse: separate; border-spacing: 1px; font-size: var(--catalog-filter-action-font, 10pt); font-family: inherit; }
+#filter-table th { font-size: 11px; min-width: 20px; font-weight: bold; }
+#filter-table th, #filter-table td { padding: 0; text-align: center; }
+#filter-table tbody td { padding: 8px 0 0; }
+#filter-table tfoot td { padding-top: 20px; }
+#filter-table .filter-pattern { width: 140px; margin: var(--catalog-filter-field-margin, 0 2px); }
+#filter-table .filter-boards { width: 30px; margin: var(--catalog-filter-field-margin, 0 2px); }
+#filter-table .filter-hits { font-size: 12px; }
+#filter-table input[type=checkbox] { appearance: auto; width: 13px; height: 13px; padding: 0; border: 0; margin: 0; }
+.catalogFilterPanel .pointer { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; line-height: normal; }
+.catalogFilterPanel .clickbox { box-sizing: content-box; width: 16px; height: 16px; display: block; margin: auto; padding: 0; line-height: 16px; font: 10px Arial; text-align: center; background: #fff; border: 1px solid #aaa; color: #000; }
+#filters-add, #filters-save { padding: 1px 6px; border: 2px outset ButtonBorder; background: ButtonFace; color: ButtonText; font: var(--catalog-field-font) Arial; }
+#filters-add { float: left; }
+#filter-table .right { float: right; }
+#filters-msg { font-size: 12px; padding-right: 5px; }
+.catalogFilterPalette { position: fixed; top: 0; left: 0; right: auto; bottom: auto; width: 100%; height: 100%; max-width: none; max-height: none; padding: 0; margin: 0; border: 0; background: transparent; }
+.catalogFilterPalette::backdrop { background: transparent; }
+.catalogFilterPalette #colorpicker { position: fixed; left: auto; padding: 4px; }
+.catalogFilterPalette #colorpicker td { padding: 2px; text-align: center; }
+#filter-rgb { width: 80px; }
+#filter-rgb-ok { float: right; }
+#filter-palette-close, #filter-palette-clear { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+#filters-protip { top: 50px; width: 570px; padding-left: 10px; padding-right: 10px; margin-left: -295px; }
+#filters-protip h4 { font-size: 15px; margin: 10px 0 5px; }
+#filters-protip h4::before { content: '»'; margin-right: 3px; }
+.catalog .thumb.hl { border-style: solid; border-width: 3px; }
+@media (max-width: 480px) {
+  #filters { width: 310px; margin-left: -160px; }
+  #filters-search { display: none; font-size: 16px; }
+  .catalogFilterPanel input[type=text] { font-size: 16px; }
+  #filter-table .filter-pattern { width: 90px; }
+  #filters-protip { width: calc(100vw - 40px); left: 10px; margin-left: 0; }
+}
+@media (max-width: 480px) {
+  .nativeCatalogControls { text-align: center; }
+  .nativeCatalogControls #info { float: none; line-height: 30px; }
+  .nativeCatalogControls #settings { text-align: center; line-height: 40px; }
+  .nativeCatalogControls > hr.mobile { display: block; margin-top: 10px; }
+  .nativeCatalogControls .catalogControl { white-space: nowrap; }
+  .nativeCatalogControls .btn-wrap { display: inline-block; line-height: normal; border-radius: 3px; font-weight: bold; padding: 6px 10px 5px; background-color: var(--catalog-button-paper); background-image: var(--catalog-button-image); background-repeat: var(--catalog-button-repeat); border: 1px solid var(--catalog-button-edge); color: var(--catalog-button-color); cursor: pointer; }
+  .nativeCatalogControls .btn-wrap::before, .nativeCatalogControls .btn-wrap::after { content: ''; }
+  .nativeCatalogControls #qf-box { font-size: 16px; }
+  #search-label-bottom { display: none !important; }
+}
 @media (max-width: 480px) { .catalog.small .thread, .catalog.extended-small .thread { width: 155px; } }
 .boardDirectory, .message { max-width: 720px; margin: 30px auto; padding: 15px; background: #f0e0d6; border: 1px solid #d9bfb7; }
 .boardDirectory article { border-top: 1px solid #d9bfb7; }
@@ -339,6 +425,21 @@ dialog.catalogSettings { position: absolute; inset: auto; top: 60px; left: 50%; 
 .catalogSettings h4 { font-size: 14px; padding: 0; margin: 10px 0 5px; }
 .catalogSettings .clickset { margin-bottom: 8px; }
 .catalogSettings .clickset li { clear: both; margin-bottom: 2px; line-height: 20px; }
+dialog.catalogSettings#theme { font-family: var(--catalog-settings-font, arial, helvetica, sans-serif); }
+dialog.catalogSettings#theme .clickset { list-style-type: disc; }
+dialog.catalogSettings#theme .clickset li { list-style-type: none; }
+dialog.catalogSettings#theme input[type=checkbox] { margin: 3px 3px 3px 4px; padding: 0; }
+dialog.catalogSettings#theme #theme-css { box-sizing: content-box; width: 320px; height: 52px; font: 11px "DejaVu Sans Mono", Consolas, "Andale Mono", "Lucida Console", monospace; margin: 0 2px 0 0; padding: 2px 4px 3px; border: 1px solid #aaa; color: #000; background: #fff; }
+dialog.catalogSettings#theme #theme-btns { margin: 5px 0 3px; padding: 0; text-align: start; }
+dialog.catalogSettings#theme #theme-msg:empty { display: none; }
+dialog.catalogSettings#theme #theme-msg { display: block; }
+dialog.catalogSettings#theme #theme-save { font-family: Arial; font-size: 13.3333px; padding: 1px 6px; margin: 0; }
+dialog.catalogSettings#theme #theme-close { position: absolute; right: 5px; top: -3px; display: block; width: 18px; height: 18px; background-color: transparent; background-size: 100%; border: 0; padding: 0; color: inherit; cursor: pointer; }
+@media (max-width: 480px) {
+  dialog.catalogSettings#theme { width: 310px; margin-left: -165px; }
+  dialog.catalogSettings#theme #theme-css { width: 300px; height: 76px; font-size: 16px; }
+  dialog.catalogSettings#theme .desktop { display: none !important; }
+}
 dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
 .extensionSettings .nativeSettingsBody { box-sizing: border-box; position: relative; top: 25px; width: 400px; max-width: calc(100% - 20px); max-height: 85%; margin: 0 auto; overflow: auto; background: var(--panel); border: 1px solid var(--settings-frame, rgba(0, 0, 0, 0.2)); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); }
 .settingsExpandAll { text-align: center; margin: 0 0 10px; padding-left: 7px; }
@@ -542,7 +643,7 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .board.noPictures[data-image-family="tomorrow"] .fileThumb { border-color: #c5c8c6; }
 .board.noPictures[data-image-family="photon"] .fileThumb { border-color: #004a99; }
 #image-hover { position: fixed; top: 0; right: 0; max-width: 100%; max-height: 100%; pointer-events: none; z-index: 9002; }
-#image-hover.nativeImageBackground { background-color: var(--paper, inherit); }
+#image-hover.nativeImageBackground { background-color: var(--paper, #ffffee); }
 .nativeImageFeedback { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 30px); padding: 6px 10px; border: 1px solid var(--edge); background: var(--panel); color: var(--ink); z-index: 9999; }
 
 .nativeMediaEmbed { width: min(640px, calc(100vw - 60px)); max-width: 100%; margin: 6px 0; }
@@ -562,3 +663,6 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .nativeSettingsTransfer .export-field { box-sizing: border-box; width: 100%; }
 .nativeSettingsTransfer pre { max-height: 16em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .nativeSettings .center > button + button { margin-left: 8px; }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question@2x.png'); } }

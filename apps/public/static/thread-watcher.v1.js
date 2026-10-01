@@ -2,7 +2,7 @@ import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches,
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
-import { installSettings } from './native-settings.v1.js';
+import { installSettings, catalogDropDownEnabled } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
@@ -19,6 +19,7 @@ import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './nati
 import { mountNativeEmbeds } from './native-embeds.v1.js';
 import { mountNativeCustomCSS } from './native-custom-css.v1.js';
 import { mountNativeSettingsTransfer, checkTransferValues, SETTINGS_TRANSFER_STORAGE_KEYS, SETTINGS_TRANSFER_LIMITS } from './native-settings-transfer.v1.js';
+import { CatalogFilterMatcher, readCatalogFilters } from './catalog-filter-core.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -55,6 +56,7 @@ function start(context) {
     warn: text => { notice.textContent = text; },
   });
   let settingsCache = {};
+  let settingsRawCache = null;
   let volatileSettings = false;
   let volatileFilters = false;
   let filterCache = null;
@@ -91,6 +93,7 @@ function start(context) {
     let raw;
     try { raw = localStorage.getItem(settingsKey); }
     catch { persistent = false; volatileSettings = true; return { ...settingsCache }; }
+    settingsRawCache = raw;
     settingsCache = {};
     if (raw && raw.length <= 4096) {
       try {
@@ -231,6 +234,7 @@ function start(context) {
   });
   const catalogTransport = new NativeCatalogTransport();
   const matcher = new NativeFilterMatcher();
+  const catalogMatcher = new CatalogFilterMatcher();
   let refreshCycle = null;
   const refresh = {
     cancel() { refreshCycle?.abort(); catalogTransport.cancel(); threadRefresh.cancel(); },
@@ -332,7 +336,14 @@ function start(context) {
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });
   let nativeEmbeds = null, nativeCustomCSS = null, settingsTransfer = null;
+  const catalogTheme = catalog ? import('./catalog-theme.v1.js').then(({ mountCatalogTheme }) => mountCatalogTheme({
+    root: context, configuration, saveVolatileSettings: (changes, signal) => saveSettings(changes, signal, true),
+    mobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
+  })).catch(() => { notice.textContent = 'Catalog settings could not be loaded.'; return null; }) : null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    openCatalogSettings: catalog ? opener => { void catalogTheme.then(controller => {
+      if (controller) controller.open(opener); else notice.textContent = 'Catalog settings could not be opened.';
+    }); } : undefined,
     hasMobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
@@ -350,7 +361,7 @@ function start(context) {
   const nativePosterIds = catalog ? null : mountNativePosterIds({ root: document.body, settings: configuration });
   const nativePosterIdActions = catalog ? null : mountNativePosterIdActions({ root: document.body,
     settings: configuration, thread: Boolean(threadId) });
-  const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
+  const nativeDisplay = mountNativeDisplay({ root: document.body,
     settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
   });
   const nativePostTooltips = catalog ? null : mountNativePostTooltips({ root: document.body,
@@ -371,8 +382,13 @@ function start(context) {
   nativeLayout = catalog ? null : mountNativeLayout({ root: document.body, settings: configuration,
     mobile, readNeverMobile, themeStylesheet: document.querySelector('link[data-native-theme-stylesheet]'),
   });
-  nativeNavigation = catalog ? null : mountNativeNavigation({ root: document.body, board, thread: threadId, catalog,
-    settings: configuration, mobile, readNeverMobile,
+  nativeNavigation = mountNativeNavigation({ root: document.body, board, thread: threadId, catalog,
+    settings: () => {
+      const settings = configuration();
+      return catalog ? { ...settings, dropDownNav: catalogDropDownEnabled(volatileSettings
+        ? (settingsRawCache === null && !Object.hasOwn(settings, 'dropDownNav') ? null : JSON.stringify(settings)) : read(settingsKey),
+        mobile.matches && readNeverMobile() !== 'true') } : settings;
+    }, mobile, readNeverMobile,
     openSettings: opener => settingsNavigation.open(opener), openCustomMenu: opener => nativeDisplay?.openEditor(opener),
     decorateButton: (control, name, description) => {
       control.title = description; control.setAttribute('aria-label', description);
@@ -476,7 +492,7 @@ function start(context) {
   function writeSettings(settings) {
     const raw = JSON.stringify(settings);
     if (raw.length > 4096) { notice.textContent = 'Settings are too large to save this change.'; return false; }
-    if (persistent) {
+    if (persistent && !volatileSettings) {
       try { localStorage.setItem(settingsKey, raw); }
       catch { persistent = false; volatileSettings = true; }
     } else volatileSettings = true;
@@ -543,6 +559,15 @@ function start(context) {
       if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
       if (validation.status !== 'ok') return { status: 'invalid' };
     }
+    if (Object.hasOwn(next, 'catalog-filters')) {
+      // Syntax-check every active catalog rule, including rules scoped to other
+      // boards. Preserve the reviewed scope in storage; only this empty-card
+      // validation packet uses the editor's all-board scope.
+      const parsed = readCatalogFilters(next['catalog-filters']);
+      const validation = await catalogMatcher.match(parsed.rules.map(rule => ({ ...rule, boards: '' })), board, [], { signal });
+      if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
+      if (validation.status !== 'ok') return { status: 'invalid' };
+    }
     return locked(() => {
       if (signal?.aborted) return { status: 'conflict' };
       if (!hasLocks || !persistent || volatileSettings || volatileFilters || volatileCSS) return { status: 'unavailable' };
@@ -574,11 +599,12 @@ function start(context) {
       return { status: 'ok', persisted: true };
     }, signal);
   }
-  async function saveSettings(changes, signal) {
+  async function saveSettings(changes, signal, tabOnly = false) {
     const applied = await locked(() => {
       if (signal?.aborted) return false;
       const settings = { ...configuration(), ...changes };
       if (catalog && changes.threadWatcher === true) settings.disableAll = false;
+      if (tabOnly) volatileSettings = true;
       if (!writeSettings(settings)) return false;
       refresh.cancel();
       enabled = settings.threadWatcher === true && settings.disableAll !== true;
@@ -1088,7 +1114,7 @@ function start(context) {
     if (post) { post.classList.add('watcherReadTarget'); post.scrollIntoView({ block: 'nearest' }); }
     history.replaceState(null, '', location.pathname + location.search);
   }
-  document.addEventListener('4chanPreferencesRestored', () => {
+  const refreshNativePreferences = () => {
     if (!mutationLock.active) return;
     refresh.cancel();
     const settings = configuration();
@@ -1096,7 +1122,9 @@ function start(context) {
     collapsed = mobile.matches;
     render();
     void nativeFilters?.refresh();
-  });
+  };
+  document.addEventListener('4chanPreferencesRestored', refreshNativePreferences);
+  document.addEventListener('4chanCatalogSettingsSaved', refreshNativePreferences);
   window.addEventListener('storage', event => {
     if (event.key === '4chan_never_show_mobile') { closePostMenu(); render(); return; }
     if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;

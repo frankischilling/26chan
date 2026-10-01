@@ -1,0 +1,35 @@
+[
+  {
+    "url": "https://s.4cdn.org/image/buttonfade.png",
+    "path": "apps/public/static/watcher/buttonfade.png",
+    "bytes": 113,
+    "sha256": "9ee7e6f152b09e958ffd72a72b9b8a1ba4f6db0bf3c68f0dbe4326432fa79cae",
+    "dimensions": [
+      1,
+      32
+    ],
+    "collected_utc": "2026-09-30T23:37:46.691Z"
+  },
+  {
+    "url": "https://s.4cdn.org/image/buttonfade-blue.png",
+    "path": "apps/public/static/watcher/buttonfade-blue.png",
+    "bytes": 113,
+    "sha256": "5a08b65825b6090fced4c652510ccee11c08a1dcfc1c2434c4dbfb0d5f413b3d",
+    "dimensions": [
+      1,
+      32
+    ],
+    "collected_utc": "2026-09-30T23:37:46.712Z"
+  },
+  {
+    "url": "https://s.4cdn.org/image/buttonfade-dark.png",
+    "path": "apps/public/static/catalog/buttonfade-dark.png",
+    "bytes": 105,
+    "sha256": "396468a066547506b4fb938ab88df37936b7ba627ea1523e463cd3ffa9c04f14",
+    "dimensions": [
+      1,
+      32
+    ],
+    "collected_utc": "2026-09-30T23:37:46.725Z"
+  }
+]

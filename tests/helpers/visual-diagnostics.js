@@ -26,11 +26,17 @@ export async function readVisualState(page) {
       } catch { return null; }
     };
     const finite = value => Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
+    const color = element => {
+      if (!element) return null;
+      const value = getComputedStyle(element).backgroundColor;
+      return /^rgba?\([0-9., /%]+\)$/.test(value) && value.length <= 64 ? value : null;
+    };
     const select = selector => {
       const value = node(selector)?.value;
       return ['small', 'large', 'on', 'off'].includes(value) ? value : null;
     };
     const threads = Array.from(document.querySelectorAll('.thread')).slice(0, 4);
+    const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
     return {
       path: location.pathname.slice(0, 128), ready: document.readyState,
       viewport: [innerWidth, innerHeight], scroll: [scrollX, scrollY],
@@ -39,6 +45,10 @@ export async function readVisualState(page) {
       postMenus: document.querySelectorAll('.postMenuBtn').length,
       size: select('#size-ctrl'), teaser: select('#teaser-ctrl'), spoilers: select('#theme-nospoiler'),
       reveal: document.body.classList.contains('reveal-img-spoilers'),
+      background: {
+        root: color(document.documentElement), body: color(document.body), hover: color(node('#image-hover')),
+        paper: /^(?:#[a-fA-F0-9]{3}|#[a-fA-F0-9]{6})$/.test(paper) ? paper : null,
+      },
       threads: threads.map(element => ({
         id: /^t[0-9]+$/.test(element.id) ? element.id : null,
         closed: element.dataset.closed === 'true', archived: element.dataset.archived === 'true',
@@ -62,7 +72,7 @@ export async function readVisualState(page) {
 
 export const test = base.extend({
   visualDiagnostics: [async ({ context }, use, info) => {
-    const errors = [], scripts = [], failedScripts = [];
+    const errors = [], scripts = [], failedScripts = [], stylesheets = [], failedStylesheets = [];
     const observed = new Set();
     const observe = page => {
       if (observed.has(page)) return;
@@ -71,13 +81,17 @@ export const test = base.extend({
         if (errors.length < 8) errors.push({ name: error.name.slice(0, 64), message: error.message.slice(0, 512) });
       });
       page.on('response', response => {
-        if (scripts.length >= 16 || response.request().resourceType() !== 'script') return;
-        scripts.push({ path: new URL(response.url()).pathname.slice(0, 128), status: response.status() });
+        const type = response.request().resourceType();
+        const records = type === 'script' ? scripts : type === 'stylesheet' ? stylesheets : null;
+        if (!records || records.length >= 16) return;
+        records.push({ path: new URL(response.url()).pathname.slice(0, 128), status: response.status() });
       });
       page.on('requestfailed', request => {
-        if (failedScripts.length >= 16 || request.resourceType() !== 'script') return;
+        const type = request.resourceType();
+        const records = type === 'script' ? failedScripts : type === 'stylesheet' ? failedStylesheets : null;
+        if (!records || records.length >= 16) return;
         const error = request.failure()?.errorText;
-        failedScripts.push({
+        records.push({
           path: new URL(request.url()).pathname.slice(0, 128),
           error: /^net::[A-Z0-9_]{1,80}$/.test(error ?? '') ? error : 'unavailable',
         });
@@ -99,11 +113,11 @@ export const test = base.extend({
         if (window.ownedVisualEvents.length > 8) window.ownedVisualEvents.shift();
       }, { passive: true });
     });
-    await use({ failedScripts });
+    await use({ failedScripts, failedStylesheets });
     if (info.status !== info.expectedStatus) {
       const pages = await Promise.all(context.pages().slice(0, 4)
         .map(page => readVisualState(page).catch(() => ({ unavailable: true }))));
-      console.log('Synthetic visual failure state:', JSON.stringify({ errors, scripts, failedScripts, pages }));
+      console.log('Synthetic visual failure state:', JSON.stringify({ errors, scripts, failedScripts, stylesheets, failedStylesheets, pages }));
       if (process.platform === 'win32' && process.env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1') {
         try {
           const script = fileURLToPath(new URL('../../scripts/windows-visual-resources.ps1', import.meta.url));

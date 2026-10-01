@@ -1,0 +1,220 @@
+{
+  "collection_date": "2026-10-01",
+  "source": "https://s.4cdn.org/js/extension.min.1191.js",
+  "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37",
+  "bytes": 182061,
+  "browser": "151.0.7922.34",
+  "scope": "Whole unchanged public v1191 loaded on an owned empty shell after DOMContentLoaded; Main.init completed, board Main.run did not run. Direct Config.toURL/loadFromURL entry points with synthetic preferences and denied nonfixture traffic. No original-page export layout, focus, board initialization or production data.",
+  "exports": [
+    {
+      "name": "absent-optionals",
+      "stored": {},
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}"
+      },
+      "reads": [
+        "4chan-settings",
+        "4chan-filters",
+        "4chan-css",
+        "catalog-filters",
+        "catalog-settings"
+      ],
+      "writes": []
+    },
+    {
+      "name": "empty-optionals",
+      "stored": {
+        "4chan-filters": "",
+        "4chan-css": "",
+        "catalog-filters": "",
+        "catalog-settings": ""
+      },
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}"
+      },
+      "reads": [
+        "4chan-settings",
+        "4chan-filters",
+        "4chan-css",
+        "catalog-filters",
+        "catalog-settings"
+      ],
+      "writes": []
+    },
+    {
+      "name": "all-fields",
+      "stored": {
+        "4chan-filters": "[{\"type\":2,\"pattern\":\"paper\",\"boards\":\"demo\",\"active\":true}]",
+        "4chan-css": ".reply { color: #112233; }",
+        "catalog-filters": "{\"0\":{\"active\":1,\"pattern\":\"paper\",\"boards\":\"\",\"hidden\":1,\"top\":0}}",
+        "catalog-settings": "{\"orderby\":\"r\",\"large\":true,\"extended\":false}"
+      },
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}",
+        "filters": "[{\"type\":2,\"pattern\":\"paper\",\"boards\":\"demo\",\"active\":true}]",
+        "css": ".reply { color: #112233; }",
+        "catalogFilters": "{\"0\":{\"active\":1,\"pattern\":\"paper\",\"boards\":\"\",\"hidden\":1,\"top\":0}}",
+        "catalogSettings": "{\"orderby\":\"r\",\"large\":true,\"extended\":false}"
+      },
+      "reads": [
+        "4chan-settings",
+        "4chan-filters",
+        "4chan-css",
+        "catalog-filters",
+        "catalog-settings"
+      ],
+      "writes": []
+    },
+    {
+      "name": "empty-catalog-rules",
+      "stored": {
+        "catalog-filters": "{}"
+      },
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}",
+        "catalogFilters": "{}"
+      },
+      "reads": [
+        "4chan-settings",
+        "4chan-filters",
+        "4chan-css",
+        "catalog-filters",
+        "catalog-settings"
+      ],
+      "writes": []
+    },
+    {
+      "name": "numeric-rule-keys",
+      "stored": {
+        "catalog-filters": "{\"7\":{\"active\":true,\"pattern\":\"paper\",\"boards\":\"demo\",\"hidden\":false,\"top\":true}}"
+      },
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}",
+        "catalogFilters": "{\"7\":{\"active\":true,\"pattern\":\"paper\",\"boards\":\"demo\",\"hidden\":false,\"top\":true}}"
+      },
+      "reads": [
+        "4chan-settings",
+        "4chan-filters",
+        "4chan-css",
+        "catalog-filters",
+        "catalog-settings"
+      ],
+      "writes": []
+    }
+  ],
+  "restores": [
+    {
+      "name": "settings-only",
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}"
+      },
+      "restored": true,
+      "hash": "",
+      "writes": [
+        {
+          "key": "4chan-settings",
+          "value": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}"
+        }
+      ],
+      "stored": {
+        "4chan-settings": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}",
+        "4chan-filters": null,
+        "4chan-css": null,
+        "catalog-filters": null,
+        "catalog-settings": null
+      }
+    },
+    {
+      "name": "all-fields",
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}",
+        "filters": "[{\"type\":2,\"pattern\":\"paper\",\"boards\":\"demo\",\"active\":true}]",
+        "css": ".reply { color: #112233; }",
+        "catalogFilters": "{\"0\":{\"active\":1,\"pattern\":\"paper\",\"boards\":\"\",\"hidden\":1,\"top\":0}}",
+        "catalogSettings": "{\"orderby\":\"r\",\"large\":true,\"extended\":false}"
+      },
+      "restored": true,
+      "hash": "",
+      "writes": [
+        {
+          "key": "4chan-settings",
+          "value": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}"
+        },
+        {
+          "key": "4chan-filters",
+          "value": "[{\"type\":2,\"pattern\":\"paper\",\"boards\":\"demo\",\"active\":true}]"
+        },
+        {
+          "key": "4chan-css",
+          "value": ".reply { color: #112233; }"
+        },
+        {
+          "key": "catalog-filters",
+          "value": "{\"0\":{\"active\":1,\"pattern\":\"paper\",\"boards\":\"\",\"hidden\":1,\"top\":0}}"
+        },
+        {
+          "key": "catalog-settings",
+          "value": "{\"orderby\":\"r\",\"large\":true,\"extended\":false}"
+        }
+      ],
+      "stored": {
+        "4chan-settings": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}",
+        "4chan-filters": "[{\"type\":2,\"pattern\":\"paper\",\"boards\":\"demo\",\"active\":true}]",
+        "4chan-css": ".reply { color: #112233; }",
+        "catalog-filters": "{\"0\":{\"active\":1,\"pattern\":\"paper\",\"boards\":\"\",\"hidden\":1,\"top\":0}}",
+        "catalog-settings": "{\"orderby\":\"r\",\"large\":true,\"extended\":false}"
+      }
+    },
+    {
+      "name": "empty-optionals",
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}",
+        "filters": "",
+        "css": "",
+        "catalogFilters": "",
+        "catalogSettings": ""
+      },
+      "restored": true,
+      "hash": "",
+      "writes": [
+        {
+          "key": "4chan-settings",
+          "value": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}"
+        }
+      ],
+      "stored": {
+        "4chan-settings": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}",
+        "4chan-filters": null,
+        "4chan-css": null,
+        "catalog-filters": null,
+        "catalog-settings": null
+      }
+    },
+    {
+      "name": "empty-catalog-rules",
+      "payload": {
+        "settings": "{\"disableAll\":true,\"quotePreview\":false}",
+        "catalogFilters": "{}"
+      },
+      "restored": true,
+      "hash": "",
+      "writes": [
+        {
+          "key": "4chan-settings",
+          "value": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}"
+        },
+        {
+          "key": "catalog-filters",
+          "value": "{}"
+        }
+      ],
+      "stored": {
+        "4chan-settings": "{\"quotePreview\":false,\"backlinks\":true,\"quickReply\":true,\"threadUpdater\":true,\"threadHiding\":true,\"alwaysAutoUpdate\":false,\"topPageNav\":false,\"threadWatcher\":false,\"threadAutoWatcher\":false,\"imageExpansion\":true,\"fitToScreenExpansion\":false,\"threadExpansion\":true,\"alwaysDepage\":false,\"localTime\":true,\"stickyNav\":false,\"keyBinds\":false,\"inlineQuotes\":false,\"filter\":false,\"revealSpoilers\":false,\"imageHover\":false,\"threadStats\":true,\"IDColor\":true,\"noPictures\":false,\"embedYouTube\":true,\"embedSoundCloud\":false,\"updaterSound\":false,\"customCSS\":false,\"autoScroll\":false,\"hideStubs\":false,\"compactThreads\":false,\"centeredThreads\":false,\"dropDownNav\":false,\"autoHideNav\":false,\"classicNav\":false,\"fixedThreadWatcher\":false,\"persistentQR\":false,\"forceHTTPS\":false,\"darkTheme\":false,\"linkify\":false,\"unmuteWebm\":false,\"disableAll\":true}",
+        "4chan-filters": null,
+        "4chan-css": null,
+        "catalog-filters": "{}",
+        "catalog-settings": null
+      }
+    }
+  ]
+}

@@ -2,6 +2,9 @@
 use axum::{Router, http::header, routing::get};
 
 pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
+pub(crate) const CATALOG_FILTER_PATH: &str = "/static/catalog-filters.v1.js";
+pub(crate) const CATALOG_FILTER_CORE_PATH: &str = "/static/catalog-filter-core.v1.js";
+pub(crate) const CATALOG_THEME_PATH: &str = "/static/catalog-theme.v1.js";
 pub(crate) const WATCHER_SCRIPT_PATH: &str = "/static/thread-watcher.v1.js";
 pub(crate) const WATCHER_CORE_PATH: &str = "/static/thread-watcher-core.v1.js";
 pub(crate) const POST_TRACKING_PATH: &str = "/static/post-tracking.v1.js";
@@ -207,6 +210,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "/static/catalog/closed@2x.gif",
         "image/gif",
         include_bytes!("../static/catalog/closed@2x.gif"),
+    ),
+    (
+        "/static/catalog/buttonfade-dark.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttonfade-dark.png"),
     ),
     (
         "/static/watcher/futaba/watch_thread_off.png",
@@ -548,6 +556,46 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "image/x-icon",
         include_bytes!("../static/notifications/favicon-nws-newfilters.ico"),
     ),
+    (
+        "/static/catalog/buttons/futaba/question.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/futaba/question.png"),
+    ),
+    (
+        "/static/catalog/buttons/futaba/question@2x.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/futaba/question@2x.png"),
+    ),
+    (
+        "/static/catalog/buttons/burichan/question.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/burichan/question.png"),
+    ),
+    (
+        "/static/catalog/buttons/burichan/question@2x.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/burichan/question@2x.png"),
+    ),
+    (
+        "/static/catalog/buttons/tomorrow/question.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/tomorrow/question.png"),
+    ),
+    (
+        "/static/catalog/buttons/tomorrow/question@2x.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/tomorrow/question@2x.png"),
+    ),
+    (
+        "/static/catalog/buttons/photon/question.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/photon/question.png"),
+    ),
+    (
+        "/static/catalog/buttons/photon/question@2x.png",
+        "image/png",
+        include_bytes!("../static/catalog/buttons/photon/question@2x.png"),
+    ),
 ];
 
 pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
@@ -578,6 +626,18 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            CATALOG_FILTER_PATH,
+            include_bytes!("../static/catalog-filters.v1.js").as_slice(),
+        ),
+        (
+            CATALOG_FILTER_CORE_PATH,
+            include_bytes!("../static/catalog-filter-core.v1.js").as_slice(),
+        ),
+        (
+            CATALOG_THEME_PATH,
+            include_bytes!("../static/catalog-theme.v1.js").as_slice(),
+        ),
         (
             NATIVE_EMBEDS_PATH,
             include_bytes!("../static/native-embeds.v1.js").as_slice(),

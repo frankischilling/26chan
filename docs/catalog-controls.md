@@ -1,10 +1,15 @@
 # Catalog controls
 
-Issue #64 adds working sort, thumbnail-size, teaser and search controls to the
+The initial #64 slice added working sort, thumbnail-size, teaser and search controls to the
 catalog cards. The [public reference](public-catalog-reference.json) records
 the observed option labels/values and pinned client semantics. Its reproduction
 script now checks all four display modes in every theme at desktop/mobile
-widths. It never executes the original client or uses production post fixtures.
+widths. That original card/style collector does not execute the original client
+or use production post fixtures. The later [Search control reference](catalog-search-controls.md)
+executes the whole hash-pinned public client on owned synthetic cards and checks
+the current control behavior and styles independently.
+The separate [Filters & Highlights reference](catalog-filters.md) also executes
+the whole public client for its grammar, editor and rule effects.
 
 ## Read interface
 
@@ -46,17 +51,19 @@ never request spoiler/deleted-file image bytes.
 
 ## Differences and remaining work
 
-The public client applies options immediately and stores preferences/search
-in browser storage. This implementation submits a GET form and keeps options
-only in its URL. It retains the current `script-src 'none'` boundary and does
-not make user-controlled parameters executable. Search uses each stored field
-and Unicode lowercasing, not the original generated-teaser markup or JavaScript
-regex casing rules. Original teaser preprocessing, preference persistence,
-instant filtering, watchers, menus and hover previews remain incomplete.
+The original #64 implementation submitted a GET form and kept options only in its
+URL under `script-src 'none'`. Later slices added fixed local scripts, bounded
+browser preference persistence, in-place search/sorting, generated fields,
+watchers, menus, pins/hiding and hover previews. Current Search opening, keyup,
+closing, session and theme rules are checked in the linked control record.
+The GET fallback and canonical local URL parameters remain documented extensions.
+Unknown server-side teaser normalization and complete original-page comparisons
+remain open; the earlier absence of client features is no longer current scope.
 [Catalog fallback graphics](catalog-state-assets.md) are tracked by #66;
 other page-level visual gaps remain under #6.
-Toolbar wrapping is local: each label stays with its control on narrow screens.
-These controls do not establish whole-client or whole-page parity.
+Fallback toolbar wrapping is local: each label stays with its GET control on
+narrow screens. The enhanced Search styles now follow the pinned reference.
+The stated properties do not establish whole-client or whole-page parity.
 
 [Bump and image-limit indicators](catalog-limits.md) now use the same coherent
 snapshot and count rules as the JSON interface. Original teaser preprocessing

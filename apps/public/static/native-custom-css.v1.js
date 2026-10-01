@@ -26,6 +26,16 @@ const SELECTORS = new Map([
   ['.filetext', '.post .fileText'],
 ]);
 
+const CATALOG_SELECTORS = new Map([
+  ['.thread', '#threads > .thread'],
+  ['.teaser', '#threads > .thread .teaser'],
+  ['.meta', '#threads > .thread .meta'],
+  ['.thumb', '#threads > .thread .thumb'],
+  ['.txt-sub', '#threads .txt-sub'],
+  ['.txt-rep', '#threads .txt-rep'],
+  ['.txt-date', '#threads .txt-date'],
+]);
+
 const COLOR_PROPERTIES = new Set(['color', 'background-color', 'border-color']);
 const FONT_SIZES = new Set([
   '8px', '9px', '10px', '11px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '22px', '24px',
@@ -93,6 +103,14 @@ function skipWhitespace(raw, start) {
 }
 
 export function parseCustomCSS(raw) {
+  return parseStyles(raw, SELECTORS, selector => `.board ${selector}`, 'post');
+}
+
+export function parseCatalogCSS(raw) {
+  return parseStyles(raw, CATALOG_SELECTORS, selector => selector, 'catalog');
+}
+
+function parseStyles(raw, allowedSelectors, scope, label) {
   if (typeof raw !== 'string') return invalid('Custom CSS must be text.');
   if (raw.length > CUSTOM_CSS_LIMITS.bytes) return invalid('Custom CSS must be 16 KiB or smaller.');
   const bytes = new TextEncoder().encode(raw).byteLength;
@@ -122,8 +140,8 @@ export function parseCustomCSS(raw) {
     }
     const selectors = [];
     for (const selector of selectorInputs) {
-      const normalized = SELECTORS.get(selector.toLowerCase());
-      if (!normalized) return invalid(`Rule ${rules.length + 1}: selector "${selector}" is not an allowed post selector.`);
+      const normalized = allowedSelectors.get(selector.toLowerCase());
+      if (!normalized) return invalid(`Rule ${rules.length + 1}: selector "${selector}" is not an allowed ${label} selector.`);
       if (!selectors.includes(normalized)) selectors.push(normalized);
     }
 
@@ -156,7 +174,7 @@ export function parseCustomCSS(raw) {
     position = close + 1;
   }
 
-  const css = rules.map(rule => `${rule.selectors.map(selector => `.board ${selector}`).join(', ')} { ${rule.declarations
+  const css = rules.map(rule => `${rule.selectors.map(scope).join(', ')} { ${rule.declarations
     .map(([property, value]) => `${property}: ${value};`).join(' ')} }`).join('\n');
   return { status: 'ok', bytes, rules, css };
 }
