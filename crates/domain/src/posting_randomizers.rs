@@ -40,6 +40,12 @@ pub enum Outcome {
     Fortune { text: &'static str, color: String },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GenerationError {
+    InvalidRequest,
+    RandomnessUnavailable,
+}
+
 /// Parse only features enabled by the locked board row. The source checks the
 /// exact lower-case `fortune` option and searches the case-sensitive dice
 /// expression without anchoring it to the whole options field.
@@ -183,16 +189,21 @@ fn parse_positive_i64_allow_zero(digits: &[u8]) -> Result<i64, ValidationError> 
     Ok(value)
 }
 
-pub fn generate(request: &Request) -> Result<Outcome, ()> {
+pub fn generate(request: &Request) -> Result<Outcome, GenerationError> {
     let random = SystemRandom::new();
     generate_with(request, |upper| random_below(&random, upper))
 }
 
-fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, ()> {
+fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, GenerationError> {
+    if upper == 0 {
+        return Err(GenerationError::InvalidRequest);
+    }
     let zone = u32::MAX - (u32::MAX % upper);
     loop {
         let mut bytes = [0u8; 4];
-        random.fill(&mut bytes).map_err(|_| ())?;
+        random
+            .fill(&mut bytes)
+            .map_err(|_| GenerationError::RandomnessUnavailable)?;
         let value = u32::from_le_bytes(bytes);
         if value < zone {
             return Ok(value % upper);
@@ -202,8 +213,8 @@ fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, ()> {
 
 fn generate_with(
     request: &Request,
-    mut below: impl FnMut(u32) -> Result<u32, ()>,
-) -> Result<Outcome, ()> {
+    mut below: impl FnMut(u32) -> Result<u32, GenerationError>,
+) -> Result<Outcome, GenerationError> {
     match request {
         Request::Fortune => {
             let index = below(FORTUNES.len() as u32)? as usize;
@@ -213,15 +224,24 @@ fn generate_with(
             })
         }
         Request::Dice(dice) => {
+            if !(1..=MAX_DICE_ROLLS).contains(&dice.count)
+                || !(1..=MAX_DICE_SIDES).contains(&dice.sides)
+            {
+                return Err(GenerationError::InvalidRequest);
+            }
             let mut values = Vec::with_capacity(usize::from(dice.count));
-            let mut total = 0i64;
+            let mut total = 0i128;
             for _ in 0..dice.count {
-                let value = i64::from(below(dice.sides)? + 1);
+                let draw = below(dice.sides)?;
+                if draw >= dice.sides {
+                    return Err(GenerationError::RandomnessUnavailable);
+                }
+                let value = i128::from(draw) + 1;
                 values.push(value);
                 total += value;
             }
             let modifier = dice.modifier.map(|value| {
-                total += value;
+                total += i128::from(value);
                 if value >= 0 {
                     format!(" + {value}")
                 } else {
@@ -232,7 +252,7 @@ fn generate_with(
                 "Rolled {}{}",
                 values
                     .iter()
-                    .map(i64::to_string)
+                    .map(i128::to_string)
                     .collect::<Vec<_>>()
                     .join(", "),
                 modifier.as_deref().unwrap_or("")
@@ -316,6 +336,81 @@ mod tests {
         assert!(request("dice+2d2147483648", true, false).is_err());
         assert!(request("dice+2d6+999999999999999999999", true, false).is_err());
         assert!(request(&"x".repeat(101), true, true).is_err());
+    }
+
+    #[test]
+    fn generator_validates_public_requests_and_handles_numeric_boundaries() {
+        for dice in [
+            DiceRequest {
+                count: 0,
+                sides: 6,
+                modifier: None,
+            },
+            DiceRequest {
+                count: MAX_DICE_ROLLS + 1,
+                sides: 6,
+                modifier: None,
+            },
+            DiceRequest {
+                count: 1,
+                sides: 0,
+                modifier: None,
+            },
+            DiceRequest {
+                count: 1,
+                sides: MAX_DICE_SIDES + 1,
+                modifier: None,
+            },
+        ] {
+            assert_eq!(
+                generate_with(&Request::Dice(dice), |_| panic!("RNG must not run")),
+                Err(GenerationError::InvalidRequest)
+            );
+        }
+
+        let request = request("dice+2d6+9223372036854775807", true, false)
+            .unwrap()
+            .unwrap();
+        let mut draws = [0, 0].into_iter();
+        assert_eq!(
+            generate_with(&request, |_| Ok(draws.next().unwrap())).unwrap(),
+            Outcome::Dice(
+                "Rolled 1, 1 + 9223372036854775807 = 9223372036854775809 (2d6 + 9223372036854775807)"
+                    .into()
+            )
+        );
+    }
+
+    #[test]
+    fn generator_surfaces_rng_failures_without_partial_results() {
+        assert_eq!(
+            generate_with(&Request::Fortune, |_| Err(
+                GenerationError::RandomnessUnavailable
+            )),
+            Err(GenerationError::RandomnessUnavailable)
+        );
+        assert_eq!(
+            generate_with(
+                &Request::Dice(DiceRequest {
+                    count: 1,
+                    sides: 6,
+                    modifier: None,
+                }),
+                |_| Err(GenerationError::RandomnessUnavailable)
+            ),
+            Err(GenerationError::RandomnessUnavailable)
+        );
+        assert_eq!(
+            generate_with(
+                &Request::Dice(DiceRequest {
+                    count: 1,
+                    sides: 6,
+                    modifier: None,
+                }),
+                |_| Ok(6)
+            ),
+            Err(GenerationError::RandomnessUnavailable)
+        );
     }
 
     #[test]

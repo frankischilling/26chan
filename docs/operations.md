@@ -19,6 +19,10 @@ Migration 0041 keeps [country and board flags](post-flags.md) disabled on existi
 boards. Geographic boards need an operator-owned country database loaded through
 `COUNTRY_DATABASE`; data updates take effect after a public-service restart.
 
+Migration 0055 adds [source dice and fortune options](source-posting-randomizers.md).
+It enables them only on the boards recorded by the pinned source snapshot.
+Synthetic boards stay disabled unless an operator changes their board row.
+
 Migration 0008 also requires `board_media_read` to exist. The staging role template creates it as NOLOGIN with bounded database timeouts; it gains only the approved-asset view grant when migrations run. Keep it disabled until a media serving deployment is qualified. The development reader bootstrap creates a separate login only in the verified disposable cluster. `scripts/test-role-bootstrap.sh` applies the role template and every migration in an isolated Unix-socket-only cluster, then checks the reader's grants and disabled login.
 
 Provide the public database URL through a root-owned `/etc/paperboard/public.env` readable only by systemd/operator, using `board_public` and `sslmode=verify-full` with a validated CA. Do not put migration, staff, media, release, cloud-management or backup credentials in that file. Startup rejects unrelated database credentials. The unit clears capabilities, prevents new privileges, restricts filesystem access and caps resources. Review its requirements against the target distribution before enabling it.
