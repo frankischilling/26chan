@@ -1,0 +1,4493 @@
+{
+    "reference": "operator-supplied 4chan-old checkout",
+    "extractor_php": "8.3.6",
+    "extractor_pcre": "10.42 2022-12-11",
+    "files": {
+        "wordfilters/asp.php": "90999f8aebb36bfb516ce3da3d41c7fd1bfff142273ec90f5bf10af46505c5f0",
+        "wordfilters/ck.php": "18f751bc00a43986ce8b73b32c885240b600959abdd993ad2f9ac53fcf29d952",
+        "wordfilters/global.php": "f5ff2ac132b86fa4889e4312f3c2162ab121854cffeb33505f22bfbd2c65b439",
+        "wordfilters/int.php": "18f751bc00a43986ce8b73b32c885240b600959abdd993ad2f9ac53fcf29d952",
+        "wordfilters/test.php": "6eebf9ea022c07ae445097fee1be1951fc723dbf03f51ac62df790eee48eb6d5",
+        "wordfilters/v.php": "5801c47c10383f99eb5826b8625c3d4cc3d808ec4ced74a6d2c3ae3f1eae13d6",
+        "wordfilters/vg.php": "f5ff2ac132b86fa4889e4312f3c2162ab121854cffeb33505f22bfbd2c65b439",
+        "wordfilters/vp.php": "f5ff2ac132b86fa4889e4312f3c2162ab121854cffeb33505f22bfbd2c65b439",
+        "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+    },
+    "profiles": {
+        "asp": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "onions Onions ONIONS onions basedbeans BasedBeans BASEDBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "onions onions baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasedbeans basedbeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz basedab basedabc basedabcd basedabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz onions ONIONS onions ONIONS onionsil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "onions onions onions onions onions onions onions onions sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "onions onions onions onions basedbeans basedbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "Onions xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy based日本 basedéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "onionś ́onions onions‿ ‿onions soy² ²soy onions‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "onions sSoyoY Onions ONIONS ONIONS ONIONS"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">onions senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]onions senpai KEK[/code] https://example.invalid/senpai?onions=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "ding-dong diddly Ding-Dong DiddlyDing-Dong DiddlyDING-DONG DIDDLY ding-dong diddlys ding-dong diddlyDING-DONG DIDDLY"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "ding-dong diddly! Finna! Ding-Dong Diddlynext Ding-Dong Diddly next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nonions\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": []
+        },
+        "ck": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;soy<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">soy senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]soy senpai KEK[/code] https://example.invalid/senpai?soy=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nsoy\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": []
+        },
+        "global": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "onions Onions ONIONS onions basedbeans BasedBeans BASEDBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "onions onions baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasedbeans basedbeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz basedab basedabc basedabcd basedabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz onions ONIONS onions ONIONS onionsil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "onions onions onions onions onions onions onions onions sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "onions onions onions onions basedbeans basedbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "Onions xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy based日本 basedéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "onionś ́onions onions‿ ‿onions soy² ²soy onions‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "onions sSoyoY Onions ONIONS ONIONS ONIONS"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">onions senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]onions senpai KEK[/code] https://example.invalid/senpai?onions=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nonions\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": []
+        },
+        "int": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;soy<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">soy senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]soy senpai KEK[/code] https://example.invalid/senpai?soy=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nsoy\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": []
+        },
+        "test": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "b4k4 B4K4 Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senp4i SENP4I Senp4i f4m senp4it4chi SENP4IT4CHI SENP4IT4CHI Senp4it4chi f4ms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "f4mily _f4m f4m_ 1f4m f4m1 (senp4i) /senp4i/ c4fésenp4i senp4ié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "onions Onions ONIONS onions b4sedbe4ns B4sedBe4ns B4SEDBE4NS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "onions onions b4444444444444444444444444444444444sedbe4ns b4sedbe4ns"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz b4sed4b b4sed4bc b4sed4bcd b4sed4bcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz onions ONIONS onions ONIONS onionsil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "onions onions onions onions onions onions onions onions sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "onions onions onions onions b4sedbe4ns b4sedbe4ns"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "Onions xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy b4sed日本 b4sedé4b"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "onionś ́onions onions‿ ‿onions soy² ²soy onions‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "onions sSoyoY Onions ONIONS ONIONS ONIONS"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;onions<br><s>b4k4 KEK desu</s> &4mp;senp4i"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre cl4ss=\"prettyprint\">onions senp4i KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]onions senp4i KEK[/code] https://ex4mple.inv4lid/senp4i?onions=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finn4 Finn4 Finn4 FINN4 finn4s finn4FINN4"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finn4! Finn4! Finn4 next Finn4  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcf4t pcuck pccuck v4lvedrone PCF4T Pcf4t Pcuck PCuck Pccuck V4lvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenye4rold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcf4tx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordin4ry unch4nged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senp4i\nonions\tb4k4"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": [
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        0,
+                        0
+                    ],
+                    "output": "4eiosTt gt lt tt Tt <pre cl4ss=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        0,
+                        1
+                    ],
+                    "output": "43iosTt gt lt tt Tt <pr3 cl4ss=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        0,
+                        2
+                    ],
+                    "output": "4e1osTt gt lt tt Tt <pre cl4ss=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        0,
+                        3
+                    ],
+                    "output": "4ei0sTt gt lt tt Tt <pre cl4ss=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        0,
+                        4
+                    ],
+                    "output": "4eio5Tt gt lt tt Tt <pre cl455=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        0,
+                        5
+                    ],
+                    "output": "4eios7t gt lt 7t 7t <pre cl4ss=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        1,
+                        0
+                    ],
+                    "output": "43iosTt gt lt tt Tt <pr3 cl4ss=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        1,
+                        1
+                    ],
+                    "output": "a3iosTt gt lt tt Tt <pr3 class=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        1,
+                        2
+                    ],
+                    "output": "a31osTt gt lt tt Tt <pr3 class=\"pr3ttypr1nt\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        1,
+                        3
+                    ],
+                    "output": "a3i0sTt gt lt tt Tt <pr3 class=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        1,
+                        4
+                    ],
+                    "output": "a3io5Tt gt lt tt Tt <pr3 cla55=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        1,
+                        5
+                    ],
+                    "output": "a3ios7t gt lt 7t 7t <pr3 class=\"pr37typrin7\">73x7</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        2,
+                        0
+                    ],
+                    "output": "4e1osTt gt lt tt Tt <pre cl4ss=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        2,
+                        1
+                    ],
+                    "output": "a31osTt gt lt tt Tt <pr3 class=\"pr3ttypr1nt\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        2,
+                        2
+                    ],
+                    "output": "ae1osTt gt lt tt Tt <pre class=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        2,
+                        3
+                    ],
+                    "output": "ae10sTt gt lt tt Tt <pre class=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        2,
+                        4
+                    ],
+                    "output": "ae1o5Tt gt lt tt Tt <pre cla55=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        2,
+                        5
+                    ],
+                    "output": "ae1os7t gt lt 7t 7t <pre class=\"pre7typr1n7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        3,
+                        0
+                    ],
+                    "output": "4ei0sTt gt lt tt Tt <pre cl4ss=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        3,
+                        1
+                    ],
+                    "output": "a3i0sTt gt lt tt Tt <pr3 class=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        3,
+                        2
+                    ],
+                    "output": "ae10sTt gt lt tt Tt <pre class=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        3,
+                        3
+                    ],
+                    "output": "aei0sTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        3,
+                        4
+                    ],
+                    "output": "aei05Tt gt lt tt Tt <pre cla55=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        3,
+                        5
+                    ],
+                    "output": "aei0s7t gt lt 7t 7t <pre class=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        4,
+                        0
+                    ],
+                    "output": "4eio5Tt gt lt tt Tt <pre cl455=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        4,
+                        1
+                    ],
+                    "output": "a3io5Tt gt lt tt Tt <pr3 cla55=\"pr3ttyprint\">T3xt</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        4,
+                        2
+                    ],
+                    "output": "ae1o5Tt gt lt tt Tt <pre cla55=\"prettypr1nt\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        4,
+                        3
+                    ],
+                    "output": "aei05Tt gt lt tt Tt <pre cla55=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        4,
+                        4
+                    ],
+                    "output": "aeio5Tt gt lt tt Tt <pre cla55=\"prettyprint\">Text</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        4,
+                        5
+                    ],
+                    "output": "aeio57t gt lt 7t 7t <pre cla55=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        5,
+                        0
+                    ],
+                    "output": "4eios7t gt lt 7t 7t <pre cl4ss=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        5,
+                        1
+                    ],
+                    "output": "a3ios7t gt lt 7t 7t <pr3 class=\"pr37typrin7\">73x7</pr3>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        5,
+                        2
+                    ],
+                    "output": "ae1os7t gt lt 7t 7t <pre class=\"pre7typr1n7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        5,
+                        3
+                    ],
+                    "output": "aei0s7t gt lt 7t 7t <pre class=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        5,
+                        4
+                    ],
+                    "output": "aeio57t gt lt 7t 7t <pre cla55=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "aeiosTt gt lt tt Tt <pre class=\"prettyprint\">Text</pre>",
+                    "rolls": [
+                        5,
+                        5
+                    ],
+                    "output": "aeios7t gt lt 7t 7t <pre class=\"pre7typrin7\">7ex7</pre>"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        0,
+                        0
+                    ],
+                    "output": "4t tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        0,
+                        1
+                    ],
+                    "output": "4t tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        0,
+                        2
+                    ],
+                    "output": "4t tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        0,
+                        3
+                    ],
+                    "output": "4t tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        0,
+                        4
+                    ],
+                    "output": "4t tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        0,
+                        5
+                    ],
+                    "output": "47 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        1,
+                        0
+                    ],
+                    "output": "4t tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        1,
+                        1
+                    ],
+                    "output": "At tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        1,
+                        2
+                    ],
+                    "output": "At tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        1,
+                        3
+                    ],
+                    "output": "At tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        1,
+                        4
+                    ],
+                    "output": "At tt gT lT gt lt T t t35t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        1,
+                        5
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 73s7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        2,
+                        0
+                    ],
+                    "output": "4t tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        2,
+                        1
+                    ],
+                    "output": "At tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        2,
+                        2
+                    ],
+                    "output": "At tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        2,
+                        3
+                    ],
+                    "output": "At tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        2,
+                        4
+                    ],
+                    "output": "At tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        2,
+                        5
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        3,
+                        0
+                    ],
+                    "output": "4t tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        3,
+                        1
+                    ],
+                    "output": "At tt gT lT gt lt T t t3st"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        3,
+                        2
+                    ],
+                    "output": "At tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        3,
+                        3
+                    ],
+                    "output": "At tt gT lT gt lt T t test"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        3,
+                        4
+                    ],
+                    "output": "At tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        3,
+                        5
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        4,
+                        0
+                    ],
+                    "output": "4t tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        4,
+                        1
+                    ],
+                    "output": "At tt gT lT gt lt T t t35t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        4,
+                        2
+                    ],
+                    "output": "At tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        4,
+                        3
+                    ],
+                    "output": "At tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        4,
+                        4
+                    ],
+                    "output": "At tt gT lT gt lt T t te5t"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        4,
+                        5
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7e57"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        5,
+                        0
+                    ],
+                    "output": "47 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        5,
+                        1
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 73s7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        5,
+                        2
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        5,
+                        3
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        5,
+                        4
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7e57"
+                },
+                {
+                    "input": "At tt gT lT gt lt T t test",
+                    "rolls": [
+                        5,
+                        5
+                    ],
+                    "output": "A7 7t gT lT gt lt 7 7 7es7"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        0,
+                        0
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        0,
+                        1
+                    ],
+                    "output": "&4mp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        0,
+                        2
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        0,
+                        3
+                    ],
+                    "output": "&4mp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        0,
+                        4
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        0,
+                        5
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        1,
+                        0
+                    ],
+                    "output": "&4mp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        1,
+                        1
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        1,
+                        2
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        1,
+                        3
+                    ],
+                    "output": "&amp; &lt; &gt; [c0d3] [/c0d3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        1,
+                        4
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        1,
+                        5
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        2,
+                        0
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        2,
+                        1
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        2,
+                        2
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        2,
+                        3
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        2,
+                        4
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        2,
+                        5
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        3,
+                        0
+                    ],
+                    "output": "&4mp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        3,
+                        1
+                    ],
+                    "output": "&amp; &lt; &gt; [c0d3] [/c0d3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        3,
+                        2
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        3,
+                        3
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        3,
+                        4
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        3,
+                        5
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        4,
+                        0
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        4,
+                        1
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        4,
+                        2
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        4,
+                        3
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        4,
+                        4
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        4,
+                        5
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        5,
+                        0
+                    ],
+                    "output": "&4mp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        5,
+                        1
+                    ],
+                    "output": "&amp; &lt; &gt; [cod3] [/cod3]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        5,
+                        2
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        5,
+                        3
+                    ],
+                    "output": "&amp; &lt; &gt; [c0de] [/c0de]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        5,
+                        4
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                },
+                {
+                    "input": "&amp; &lt; &gt; [code] [/code]",
+                    "rolls": [
+                        5,
+                        5
+                    ],
+                    "output": "&amp; &lt; &gt; [code] [/code]"
+                }
+            ]
+        },
+        "v": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "onions Onions ONIONS onions basedbeans BasedBeans BASEDBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "onions onions baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasedbeans basedbeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz basedab basedabc basedabcd basedabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz onions ONIONS onions ONIONS onionsil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "onions onions onions onions onions onions onions onions sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "onions onions onions onions basedbeans basedbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "Onions xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy based日本 basedéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "onionś ́onions onions‿ ‿onions soy² ²soy onions‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "onions sSoyoY Onions ONIONS ONIONS ONIONS"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">onions senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]onions senpai KEK[/code] https://example.invalid/senpai?onions=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcbro pcbro pcbro pcbro PCFAT Pcbro Pcbro PCbro Pcbro Pcbro"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonybro Sonybro sonybros Sonybros sonybro Sonybro sonybros Sonybros"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonybro Sonybro nintenbro Nintenbro nintenbro Nintenbro"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenbro Nintenbro nintenbro nintenbro Nintenbro xpcbrox"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nonions\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "pcfat",
+                    "field": "com",
+                    "output": "pcbro"
+                },
+                {
+                    "input": "prefixpcfatsuffix",
+                    "field": "com",
+                    "output": "prefixpcbrosuffix"
+                },
+                {
+                    "input": "pcuck",
+                    "field": "com",
+                    "output": "pcbro"
+                },
+                {
+                    "input": "prefixpcucksuffix",
+                    "field": "com",
+                    "output": "prefixpcbrosuffix"
+                },
+                {
+                    "input": "pccuck",
+                    "field": "com",
+                    "output": "pcbro"
+                },
+                {
+                    "input": "prefixpccucksuffix",
+                    "field": "com",
+                    "output": "prefixpcbrosuffix"
+                },
+                {
+                    "input": "valvedrone",
+                    "field": "com",
+                    "output": "pcbro"
+                },
+                {
+                    "input": "prefixvalvedronesuffix",
+                    "field": "com",
+                    "output": "prefixpcbrosuffix"
+                },
+                {
+                    "input": "sonynigger",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonyniggersuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "sonygger",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonyggersuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "sonydrone",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonydronesuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "sonycuck",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonycucksuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "sonypony",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonyponysuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "nintencuck",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintencucksuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "nintoddler",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintoddlersuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "nintendotoddler",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintendotoddlersuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "nintendrone",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintendronesuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "nintenyearold",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintenyearoldsuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "nintendroid",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintendroidsuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "nintenshit",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintenshitsuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "Pcfat",
+                    "field": "com",
+                    "output": "Pcbro"
+                },
+                {
+                    "input": "prefixPcfatsuffix",
+                    "field": "com",
+                    "output": "prefixPcbrosuffix"
+                },
+                {
+                    "input": "Pcuck",
+                    "field": "com",
+                    "output": "Pcbro"
+                },
+                {
+                    "input": "prefixPcucksuffix",
+                    "field": "com",
+                    "output": "prefixPcbrosuffix"
+                },
+                {
+                    "input": "PCuck",
+                    "field": "com",
+                    "output": "PCbro"
+                },
+                {
+                    "input": "prefixPCucksuffix",
+                    "field": "com",
+                    "output": "prefixPCbrosuffix"
+                },
+                {
+                    "input": "Pccuck",
+                    "field": "com",
+                    "output": "Pcbro"
+                },
+                {
+                    "input": "prefixPccucksuffix",
+                    "field": "com",
+                    "output": "prefixPcbrosuffix"
+                },
+                {
+                    "input": "Valvedrone",
+                    "field": "com",
+                    "output": "Pcbro"
+                },
+                {
+                    "input": "prefixValvedronesuffix",
+                    "field": "com",
+                    "output": "prefixPcbrosuffix"
+                },
+                {
+                    "input": "Sonynigger",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonyniggersuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "Sonygger",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonyggersuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "Sonydrone",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonydronesuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "Sonycuck",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonycucksuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "Sonypony",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonyponysuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "Nintencuck",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintencucksuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "Nintoddler",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintoddlersuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "Nintendotoddler",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintendotoddlersuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "Nintendrone",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintendronesuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "Nintenyearold",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintenyearoldsuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "Nintendroid",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintendroidsuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "Nintenshit",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintenshitsuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "nintendr0ne",
+                    "field": "com",
+                    "output": "nintenbro"
+                },
+                {
+                    "input": "prefixnintendr0nesuffix",
+                    "field": "com",
+                    "output": "prefixnintenbrosuffix"
+                },
+                {
+                    "input": "Nintendr0ne",
+                    "field": "com",
+                    "output": "Nintenbro"
+                },
+                {
+                    "input": "prefixNintendr0nesuffix",
+                    "field": "com",
+                    "output": "prefixNintenbrosuffix"
+                },
+                {
+                    "input": "sonybrony",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonybronysuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "Sonybrony",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonybronysuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "sonybronies",
+                    "field": "com",
+                    "output": "sonybros"
+                },
+                {
+                    "input": "prefixsonybroniessuffix",
+                    "field": "com",
+                    "output": "prefixsonybrossuffix"
+                },
+                {
+                    "input": "Sonybronies",
+                    "field": "com",
+                    "output": "Sonybros"
+                },
+                {
+                    "input": "prefixSonybroniessuffix",
+                    "field": "com",
+                    "output": "prefixSonybrossuffix"
+                },
+                {
+                    "input": "sonypony",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsonyponysuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "Sonypony",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSonyponysuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                },
+                {
+                    "input": "sonyponies",
+                    "field": "com",
+                    "output": "sonybros"
+                },
+                {
+                    "input": "prefixsonyponiessuffix",
+                    "field": "com",
+                    "output": "prefixsonybrossuffix"
+                },
+                {
+                    "input": "Sonyponies",
+                    "field": "com",
+                    "output": "Sonybros"
+                },
+                {
+                    "input": "prefixSonyponiessuffix",
+                    "field": "com",
+                    "output": "prefixSonybrossuffix"
+                },
+                {
+                    "input": "sonigger",
+                    "field": "com",
+                    "output": "sonybro"
+                },
+                {
+                    "input": "prefixsoniggersuffix",
+                    "field": "com",
+                    "output": "prefixsonybrosuffix"
+                },
+                {
+                    "input": "Sonigger",
+                    "field": "com",
+                    "output": "Sonybro"
+                },
+                {
+                    "input": "prefixSoniggersuffix",
+                    "field": "com",
+                    "output": "prefixSonybrosuffix"
+                }
+            ],
+            "leet": []
+        },
+        "vg": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "onions Onions ONIONS onions basedbeans BasedBeans BASEDBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "onions onions baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasedbeans basedbeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz basedab basedabc basedabcd basedabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz onions ONIONS onions ONIONS onionsil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "onions onions onions onions onions onions onions onions sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "onions onions onions onions basedbeans basedbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "Onions xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy based日本 basedéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "onionś ́onions onions‿ ‿onions soy² ²soy onions‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "onions sSoyoY Onions ONIONS ONIONS ONIONS"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">onions senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]onions senpai KEK[/code] https://example.invalid/senpai?onions=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nonions\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": []
+        },
+        "vp": {
+            "cases": [
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "com",
+                    "output": "baka BAKA Smh sMh desu DESU Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "sub",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS",
+                    "field": "name",
+                    "output": "smh SMH Smh sMh tbh TBH Tbh sjw SJWS"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "com",
+                    "output": "senpai SENPAI Senpai fAm senpaitachi SENPAITACHI SENPAITACHI Senpaitachi fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "sub",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "fam FAM Fam fAm fams FAMS FAMs Fams fAms",
+                    "field": "name",
+                    "output": "fam FAM Fam fAm fams FAMS FAMs Fams fAms"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "com",
+                    "output": "family _fam fam_ 1fam fam1 (senpai) /senpai/ cafésenpai senpaié"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "sub",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé",
+                    "field": "name",
+                    "output": "family _fam fam_ 1fam fam1 (fam) /fam/ caféfam famé"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "com",
+                    "output": "KEK cuck Cuck KEKKEK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "sub",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "CUCK cuck Cuck CUCKCUCK",
+                    "field": "name",
+                    "output": "CUCK cuck Cuck CUCKCUCK"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "com",
+                    "output": "onions Onions ONIONS onions basedbeans BasedBeans BASEDBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "sub",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS",
+                    "field": "name",
+                    "output": "soy Soy SOY sOy soybeans SoyBeans SOYBEANS"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "com",
+                    "output": "onions onions baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasedbeans basedbeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "sub",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans",
+                    "field": "name",
+                    "output": "sooy soooy sooooooooooooooooooooooooooooooooooybeans soooooooooooooooooooooooooooooooooooybeans"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "com",
+                    "output": "soyz basedab basedabc basedabcd basedabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "sub",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyz soyab soyabc soyabcd soyabcde",
+                    "field": "name",
+                    "output": "soyz soyab soyabc soyabcd soyabcde"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "com",
+                    "output": "soyuz SOYUZ Soyuz onions ONIONS onions ONIONS onionsil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "sub",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil",
+                    "field": "name",
+                    "output": "soyuz SOYUZ Soyuz soyim SOYIM soylent SOYLENT soylentil"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "com",
+                    "output": "onions onions onions onions onions onions onions onions sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "sub",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy",
+                    "field": "name",
+                    "output": "s0y sοy sоy sօy sჿy sΟy sОy sՕy sυy"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "com",
+                    "output": "onions onions onions onions basedbeans basedbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "sub",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "soу soУ soΥ soυ soуbeans soΥbeans",
+                    "field": "name",
+                    "output": "soу soУ soΥ soυ soуbeans soΥbeans"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "com",
+                    "output": "Onions xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "sub",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ſoy xsoy soy1 soy_ _soy 1soy",
+                    "field": "name",
+                    "output": "ſoy xsoy soy1 soy_ _soy 1soy"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "com",
+                    "output": "ésoy soyé 日本soy based日本 basedéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "sub",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "ésoy soyé 日本soy soy日本 soyéab",
+                    "field": "name",
+                    "output": "ésoy soyé 日本soy soy日本 soyéab"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "com",
+                    "output": "onionś ́onions onions‿ ‿onions soy² ²soy onions‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "sub",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "soý ́soy soy‿ ‿soy soy² ²soy soy‌",
+                    "field": "name",
+                    "output": "soý ́soy soy‿ ‿soy soy² ²soy soy‌"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "com",
+                    "output": "onions sSoyoY Onions ONIONS ONIONS ONIONS"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "sub",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
+                    "field": "name",
+                    "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "com",
+                    "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "sub",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
+                    "field": "name",
+                    "output": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "com",
+                    "output": "<pre class=\"prettyprint\">onions senpai KEK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "sub",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "<pre class=\"prettyprint\">soy fam CUCK</pre>",
+                    "field": "name",
+                    "output": "<pre class=\"prettyprint\">soy fam CUCK</pre>"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "com",
+                    "output": "[code]onions senpai KEK[/code] https://example.invalid/senpai?onions=KEK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "sub",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK",
+                    "field": "name",
+                    "output": "[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "com",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "sub",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna Finna Finna FINNA finnas finnaFINNA",
+                    "field": "name",
+                    "output": "finna Finna Finna FINNA finnas finnaFINNA"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "com",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "sub",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "finna! Finna! Finna next Finna  next",
+                    "field": "name",
+                    "output": "finna! Finna! Finna next Finna  next"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "com",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "sub",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone",
+                    "field": "name",
+                    "output": "pcfat pcuck pccuck valvedrone PCFAT Pcfat Pcuck PCuck Pccuck Valvedrone"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "com",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "sub",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies",
+                    "field": "name",
+                    "output": "sonypony Sonypony sonyponies Sonyponies sonybrony Sonybrony sonybronies Sonybronies"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "com",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "sub",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler",
+                    "field": "name",
+                    "output": "sonydrone Sonycuck nintendrone Nintencuck nintoddler Nintendotoddler"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "com",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "sub",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx",
+                    "field": "name",
+                    "output": "nintenyearold Nintendroid nintenshit nintendr0ne Nintendr0ne xpcfatx"
+                },
+                {
+                    "input": "",
+                    "field": "com",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "sub",
+                    "output": ""
+                },
+                {
+                    "input": "",
+                    "field": "name",
+                    "output": ""
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "com",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "sub",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "ordinary unchanged",
+                    "field": "name",
+                    "output": "ordinary unchanged"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "com",
+                    "output": "senpai\nonions\tbaka"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "sub",
+                    "output": "fam\nsoy\tsmh"
+                },
+                {
+                    "input": "fam\nsoy\tsmh",
+                    "field": "name",
+                    "output": "fam\nsoy\tsmh"
+                }
+            ],
+            "leet": []
+        }
+    }
+}
