@@ -142,13 +142,19 @@ impl Fixture {
         serde_json::from_slice(&to_bytes(response.into_body(), 262_144).await.unwrap()).unwrap()
     }
     async fn create(&self) {
-        assert_eq!(
-            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM content.boards")
-                .fetch_one(&self.admin)
-                .await
-                .unwrap(),
-            0,
-            "Source must be a fresh empty restore database"
+        assert!(
+            sqlx::query_scalar::<_, bool>(
+                "SELECT NOT EXISTS(SELECT 1 FROM content.posts) \
+                 AND NOT EXISTS(SELECT 1 FROM content.threads) \
+                 AND NOT EXISTS(SELECT 1 FROM media.assets) \
+                 AND NOT EXISTS(SELECT 1 FROM media.jobs) \
+                 AND NOT EXISTS(SELECT 1 FROM media_intake.handles) \
+                 AND NOT EXISTS(SELECT 1 FROM content.boards WHERE slug='restore')",
+            )
+            .fetch_one(&self.admin)
+            .await
+            .unwrap(),
+            "Source must be a freshly migrated database without posts or media"
         );
         sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,archive_retention_seconds) VALUES ('restore','Restore fixture','Synthetic only',2000,100,100,100,10,20,3600)").execute(&self.admin).await.unwrap();
         // An ahead-of-wall-clock counter catches a restore that resets the clock.
