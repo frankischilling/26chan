@@ -18,8 +18,9 @@ for (const javaScriptEnabled of [false, true]) {
       const message = page.locator(`#m${op}`);
       await expect(message.locator('.mu-s')).toHaveText(long);
       await expect(message.locator('.mu-s wbr')).toHaveCount(2);
-      await expect(message.locator('a:not(.quotelink)')).toHaveAttribute('href', destination);
-      await expect(message.locator('a wbr')).toHaveCount(2);
+      await expect(message.locator('a:not(.quotelink)')).toHaveCount(0);
+      await expect(message).toContainText(destination);
+      await expect(message.locator('wbr')).toHaveCount(6);
       await expect(message.locator('script')).toHaveCount(0);
       await expect(message).toContainText('leftright <script>');
       for (const width of [1280, 390]) {

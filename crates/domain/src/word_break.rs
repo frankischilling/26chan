@@ -12,7 +12,7 @@ pub enum WordPart {
 }
 
 pub(crate) fn enabled(format: i16) -> bool {
-    matches!(format, 40..=47 | 56..=63)
+    matches!(format, 40..=47 | 56..=63 | 104..=111 | 120..=127)
 }
 
 fn wrap(text: &str) -> String {
@@ -46,18 +46,30 @@ fn parts(text: &str) -> Vec<WordPart> {
     output
 }
 
-pub(crate) fn tokenize(text: &str) -> Vec<Token> {
+#[cfg(test)]
+fn tokenize(text: &str) -> Vec<Token> {
+    tokenize_source(text, false, true)
+}
+
+pub(crate) fn tokenize_source(text: &str, source_links: bool, internal_links: bool) -> Vec<Token> {
     let mut output = Vec::new();
     // Link generation precedes word wrapping in the source. Quote-number
     // matching follows it, so a break can terminate a run of quote digits.
-    for token in tokenize_with(text, false, false, true) {
+    for token in tokenize_with(
+        text,
+        false,
+        false,
+        !source_links || internal_links,
+        source_links,
+        false,
+    ) {
         match token {
             Token::Link(url) => {
                 let label = parts(&wrap(&url));
                 output.push(Token::WrappedLink(url, label));
             }
             Token::Text(text) => {
-                for token in tokenize_with(&wrap(&text), false, true, false) {
+                for token in tokenize_with(&wrap(&text), false, true, false, false, source_links) {
                     if let Token::Text(text) = token {
                         output.extend(parts(&text).into_iter().map(|part| match part {
                             WordPart::Text(text) => Token::Text(text),
@@ -67,6 +79,14 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
                         output.push(token);
                     }
                 }
+            }
+            Token::StaticQuote(quote, _) => {
+                let label = parts(&wrap(&quote.label()));
+                output.push(Token::StaticQuote(quote, label));
+            }
+            Token::ServerLink(link, _) => {
+                let label = parts(&wrap(link.href()));
+                output.push(Token::ServerLink(link, label));
             }
             _ => unreachable!("link-only tokenization"),
         }

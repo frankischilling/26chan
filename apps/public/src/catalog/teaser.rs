@@ -8,6 +8,7 @@ pub struct Policy {
     pub text_only: bool,
     pub sjis: bool,
     pub truncate: bool,
+    pub source_links: bool,
 }
 
 impl From<&board_store::Board> for Policy {
@@ -16,6 +17,16 @@ impl From<&board_store::Board> for Policy {
             text_only: board.text_only,
             sjis: board.comment_sjis_spacing,
             truncate: board.slug == "b",
+            source_links: false,
+        }
+    }
+}
+
+impl Policy {
+    pub fn for_post(board: &board_store::Board, format: i16) -> Self {
+        Self {
+            source_links: matches!(format, 104..=111 | 120..=127),
+            ..board.into()
         }
     }
 }
@@ -38,7 +49,18 @@ pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
         if line.green {
             tokens.push(Token::OpenQuote);
         }
-        tokens.extend(line.tokens.iter().cloned());
+        tokens.extend(line.tokens.iter().cloned().map(|token| {
+            if policy.source_links {
+                match token {
+                    Token::Quote(id) => Token::Text(format!(">>{id}")),
+                    Token::CrossQuote(board, id) => Token::Text(format!(">>>/{board}/{id}")),
+                    Token::PostQuote(quote) => Token::Text(quote.label().into()),
+                    token => token,
+                }
+            } else {
+                token
+            }
+        }));
         if line.green {
             tokens.push(Token::CloseQuote);
         }
@@ -49,14 +71,18 @@ pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
     if policy.sjis {
         tokens = replace_sjis(tokens);
     }
-    let truncated = policy.truncate && serialize(&tokens, board).chars().count() > 300;
+    let truncated = policy.truncate
+        && serialize(&tokens, board, policy.source_links)
+            .chars()
+            .count()
+            > 300;
     if !policy.truncate || truncated {
         tokens = strip(tokens);
     }
     if truncated {
         tokens = truncate(tokens);
     }
-    let serialized = serialize(&tokens, board);
+    let serialized = serialize(&tokens, board, policy.source_links);
     Prepared {
         lines: vec![Line {
             green: false,
@@ -116,7 +142,7 @@ fn strip(tokens: Vec<Token>) -> Vec<Token> {
                 result.push(token)
             }
             Token::Spoiler(text) | Token::Link(text) => result.push(Token::Text(text)),
-            Token::WrappedLink(_, parts) => {
+            Token::WrappedLink(_, parts) | Token::ServerLink(_, parts) => {
                 for part in parts {
                     if let WordPart::Text(text) = part {
                         result.push(Token::Text(text));
@@ -125,6 +151,8 @@ fn strip(tokens: Vec<Token>) -> Vec<Token> {
             }
             Token::Quote(id) => result.push(Token::Text(format!(">>{id}"))),
             Token::CrossQuote(board, id) => result.push(Token::Text(format!(">>>/{board}/{id}"))),
+            Token::PostQuote(quote) => result.push(Token::Text(quote.label().into())),
+            Token::StaticQuote(quote, _) => result.push(Token::Text(quote.label())),
             Token::WordBreak
             | Token::OpenMarkup(_)
             | Token::CloseMarkup(_)
@@ -204,17 +232,32 @@ fn markup(tag: Tag, open: bool) -> &'static str {
     }
 }
 
-fn serialize(tokens: &[Token], board: &str) -> String {
+fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
     let mut result = String::new();
     for token in tokens {
         match token {
             Token::Text(text) => result.push_str(&source_html_entities(text)),
             Token::Quote(id) => result.push_str(&format!("<a class=\"quotelink\" href=\"/{}/post/{id}\">&gt;&gt;{id}</a>", source_html_entities(board))),
             Token::CrossQuote(target, id) => result.push_str(&format!("<a class=\"quotelink\" href=\"/{}/post/{id}\">&gt;&gt;&gt;/{}/{id}</a>", source_html_entities(target), source_html_entities(target))),
+            Token::PostQuote(quote) => result.push_str(&source_html_entities(quote.label())),
+            Token::StaticQuote(quote, parts) => {
+                if source_links {
+                    result.push_str(&format!("<a href=\"{}\" class=\"quotelink\"{}>", source_html_entities(&quote.source_href()), if quote.opens_new_tab() { " target=\"_blank\"" } else { "" }));
+                } else {
+                    result.push_str(&format!("<a class=\"quotelink\" href=\"{}\"{}>", source_html_entities(&quote.href()), if quote.opens_new_tab() { " target=\"_blank\" rel=\"noopener noreferrer\"" } else { "" }));
+                }
+                for part in parts { match part { WordPart::Text(text) => result.push_str(&source_html_entities(text)), WordPart::Break => result.push_str("<wbr>") } }
+                result.push_str("</a>");
+            }
             Token::Spoiler(text) => result.push_str(&format!("<span class=\"spoiler\" tabindex=\"0\" aria-label=\"Spoiler; focus to reveal\">{}</span>", source_html_entities(text))),
             Token::Link(url) => result.push_str(&format!("<a href=\"{}\" rel=\"nofollow noreferrer noopener\">{}</a>", source_html_entities(url), source_html_entities(url))),
             Token::WrappedLink(url, parts) => {
                 result.push_str(&format!("<a href=\"{}\" rel=\"nofollow noreferrer noopener\">", source_html_entities(url)));
+                for part in parts { match part { WordPart::Text(text) => result.push_str(&source_html_entities(text)), WordPart::Break => result.push_str("<wbr>") } }
+                result.push_str("</a>");
+            }
+            Token::ServerLink(link, parts) => {
+                result.push_str(&format!("<a href=\"{}\" target=\"_blank\"{}>", source_html_entities(link.href()), if source_links { "" } else { " rel=\"nofollow noreferrer noopener\"" }));
                 for part in parts { match part { WordPart::Text(text) => result.push_str(&source_html_entities(text)), WordPart::Break => result.push_str("<wbr>") } }
                 result.push_str("</a>");
             }
@@ -233,6 +276,32 @@ mod tests {
     use super::*;
     use board_domain::parse_post_comment;
     use proptest::prelude::*;
+
+    #[test]
+    fn source_catalog_serialization_matches_the_original_php_transformations() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../fixtures/format-reference.json"))
+                .unwrap();
+        for case in reference["teaser_cases"].as_array().unwrap() {
+            let input = case["input"].as_str().unwrap();
+            let lines = board_domain::parse_post_comment_on_board(
+                input,
+                case["format"].as_i64().unwrap() as i16,
+                "g",
+            );
+            let policy = Policy {
+                text_only: case["text_only"].as_bool().unwrap(),
+                sjis: true,
+                truncate: case["truncate"].as_bool().unwrap(),
+                source_links: true,
+            };
+            assert_eq!(
+                prepare(&lines, "g", policy).serialized,
+                case["teaser"].as_str().unwrap(),
+                "{case}"
+            );
+        }
+    }
 
     fn prepared(input: &str, format: i16, policy: Policy) -> Prepared {
         prepare(&parse_post_comment(input, format), "b", policy)

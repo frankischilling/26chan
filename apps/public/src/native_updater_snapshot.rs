@@ -378,6 +378,11 @@ mod tests {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();
         let id = i64::MAX - 1;
         let board = Board {
+            source_order: 1000,
+            catalog_enabled: true,
+            json_enabled: true,
+            staff_only: false,
+            upload_board: false,
             slug: "test".into(),
             title: "Test".into(),
             description: String::new(),

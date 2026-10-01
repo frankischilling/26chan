@@ -1,4 +1,4 @@
-use board_domain::parse_post_comment;
+use board_domain::parse_post_comment_on_board;
 
 // Preserve source tab expansion while bounding independent synthetic inputs.
 const SUBJECT_SCALARS: usize = board_domain::MAX_SUBJECT_BYTES;
@@ -40,9 +40,9 @@ pub(crate) fn from_post(
     compose(
         subject,
         &super::teaser::prepare(
-            &parse_post_comment(comment, format),
+            &parse_post_comment_on_board(comment, format, &board.slug),
             &board.slug,
-            board.into(),
+            super::teaser::Policy::for_post(board, format),
         )
         .serialized,
     )
@@ -53,6 +53,7 @@ mod tests {
     use super::*;
     use crate::catalog::filter::Filter;
     use board_domain::parse_comment;
+    use board_domain::parse_post_comment;
     use proptest::prelude::*;
     use serde::Deserialize;
 

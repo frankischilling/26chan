@@ -1,7 +1,7 @@
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
-use board_domain::{Line, Token, parse_post_comment};
+use board_domain::{Line, Token, parse_post_comment_on_board};
 use board_store::{Board, Post, Thread};
 #[path = "views/file_label.rs"]
 mod file_label;
@@ -90,7 +90,9 @@ fn board_navigation<'a>(boards: &'a [Board], current: &'a Board) -> Vec<&'a Boar
         links.truncate(99);
         links.push(current);
     }
-    links.sort_by(|left, right| left.slug.cmp(&right.slug));
+    links.sort_by(|left, right| {
+        (left.source_order, &left.slug).cmp(&(right.source_order, &right.slug))
+    });
     links
 }
 
@@ -183,7 +185,11 @@ impl PostView {
     }
 
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
-        crate::catalog::teaser::prepare(&self.lines, &board.slug, board.into())
+        crate::catalog::teaser::prepare(
+            &self.lines,
+            &board.slug,
+            crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
+        )
     }
 
     pub fn catalog_search_text(&self, teaser: &crate::catalog::teaser::Prepared) -> String {
@@ -201,7 +207,7 @@ impl PostView {
         )
     }
     pub fn new(post: Post) -> Self {
-        let lines = parse_post_comment(&post.comment, post.comment_format);
+        let lines = parse_post_comment_on_board(&post.comment, post.comment_format, &post.board);
         let now = post
             .created_at
             .with_timezone(&chrono_tz::America::New_York)
@@ -249,6 +255,7 @@ pub struct Comment<'a> {
 #[cfg(test)]
 mod comment_tests {
     use super::*;
+    use board_domain::parse_post_comment;
     use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
 
     fn render(input: &str, format: i16) -> String {

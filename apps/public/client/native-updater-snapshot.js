@@ -64,7 +64,10 @@ export function postMediaUrl(raw, context) {
   return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|s\.jpg)$/.test(raw.slice(prefix.length));
 }
 export function postLinkUrl(raw, context) {
-  if (raw.startsWith('/')) return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18}|\?quote=[1-9][0-9]{0,18}#reply)?)$/.test(raw);
+  if (raw.startsWith('/')) {
+    if (/^\/rules#[a-z0-9]{1,10}[a-z0-9+/,\-]*$/.test(raw)) return true;
+    return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18}|\?quote=[1-9][0-9]{0,18}#reply)?|catalog(?:#s=(?:[a-z0-9+\-]|%2F|%2C)+)?|)$/.test(raw);
+  }
   const url = new URL(raw);
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !/[\u0000-\u0020\u007f]/.test(raw);
 }

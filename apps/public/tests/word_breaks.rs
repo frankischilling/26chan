@@ -12,7 +12,7 @@ use tower::ServiceExt;
 
 fn comment() -> String {
     format!(
-        "[b]{}[/b]\n{}\n> {}\nhttps://example.org/{}\nleft{{{{w_br}}}}right <script>",
+        "[b]{}[/b]\n{}\n> {}\nhttps://example.org/{}\nleft{{{{w_br}}}}right <script>\n>>>/g/catalog >>>/po/ >>>/g/a+b",
         "x".repeat(70),
         "界".repeat(35),
         "q".repeat(35),
@@ -114,7 +114,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let reply = submit(&app, &slug, op, mode).await;
         for id in [op, reply] {
             let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-            assert_eq!(saved.comment_format, 63);
+            assert_eq!(saved.comment_format, 127);
             assert!(saved.comment.contains("{{w_br}}"));
             assert!(!saved.comment.contains("<wbr>"));
         }
@@ -123,14 +123,29 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert!(html.contains(&format!("{}<wbr>", "界".repeat(35))));
         assert!(html.contains("left<wbr>right &#60;script&#62;"));
         assert!(!html.contains("<script>"));
+        for destination in ["/g/catalog", "/po/", "/g/catalog#s=a+b"] {
+            assert!(html.contains(&format!("class=\"quotelink\" href=\"{destination}\"")));
+        }
         let destination = format!("https://example.org/{}", "a".repeat(70));
-        assert!(html.contains(&format!("href=\"{destination}\"")));
+        assert!(!html.contains(&format!("href=\"{destination}\"")));
+        assert!(html.contains(&format!(
+            "https://example.org/{}<wbr>{}<wbr>{}",
+            "a".repeat(15),
+            "a".repeat(35),
+            "a".repeat(20)
+        )));
         for router in [&app, &api] {
             let value: serde_json::Value =
                 serde_json::from_str(&get(router, &format!("/{slug}/thread/{op}.json")).await)
                     .unwrap();
             for post in value["posts"].as_array().unwrap() {
                 assert!(post["com"].as_str().unwrap().contains("<wbr>"));
+                assert!(
+                    post["com"]
+                        .as_str()
+                        .unwrap()
+                        .contains("href=\"/g/catalog#s=a+b\"")
+                );
                 assert!(post.get("comment_format").is_none());
             }
         }
@@ -154,7 +169,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        40
+        104
     );
     assert!(
         sqlx::query("UPDATE content.posts SET comment_format=8 WHERE id=$1")

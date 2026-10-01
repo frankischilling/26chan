@@ -18,6 +18,7 @@ python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
 npm run test:linkification
+npx playwright test tests/browser/static-quotes.spec.js
 npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes

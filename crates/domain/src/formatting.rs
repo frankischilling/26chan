@@ -6,9 +6,18 @@ pub enum Token {
     Text(String),
     Quote(u64),
     CrossQuote(String, u64),
+    PostQuote(crate::post_quote::PostQuote),
+    StaticQuote(
+        crate::static_quote::StaticQuote,
+        Vec<crate::word_break::WordPart>,
+    ),
     Spoiler(String),
     Link(String),
     WrappedLink(String, Vec<crate::word_break::WordPart>),
+    ServerLink(
+        crate::server_link::ServerLink,
+        Vec<crate::word_break::WordPart>,
+    ),
     WordBreak,
     OpenMarkup(Tag),
     CloseMarkup(Tag),
@@ -46,10 +55,26 @@ pub fn parse_comment(input: &str) -> Vec<Line> {
 /// policy stamped at insertion, never a board's mutable current settings.
 /// Unknown versions fail closed to escaped, bounded text and line breaks.
 pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
+    parse_post_comment_on_board(input, format, "")
+}
+
+pub fn parse_post_comment_on_board(input: &str, format: i16, board: &str) -> Vec<Line> {
     if format == 0 {
         return parse_comment(input);
     }
     let policy = MarkupPolicy::from_post_format(format);
+    let source_links = policy.is_some() && format & 64 != 0;
+    let bounded = input
+        .char_indices()
+        .nth(crate::MAX_COMMENT_CHARS)
+        .map_or(input, |(index, _)| &input[..index]);
+    let normalized = if source_links {
+        crate::server_link::normalize(bounded, board)
+    } else {
+        std::borrow::Cow::Borrowed(bounded)
+    };
+    let internal_links = crate::server_link::link_probe(&normalized);
+    let input = normalized.as_ref();
     let markup = parse_markup(input, policy.unwrap_or_default());
     let mut lines = vec![Line {
         green: false,
@@ -88,13 +113,21 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
                     }
                     let input = if green { start } else { &text };
                     let tokens = if crate::word_break::enabled(format) {
-                        crate::word_break::tokenize(input)
+                        crate::word_break::tokenize_source(input, source_links, internal_links)
                     } else {
                         tokenize(input, false)
                     };
                     for token in tokens {
                         // A generated link ends the source's [^<]* quote span.
-                        if green && matches!(token, Token::Link(_) | Token::WrappedLink(_, _)) {
+                        if green
+                            && matches!(
+                                token,
+                                Token::Link(_)
+                                    | Token::WrappedLink(_, _)
+                                    | Token::ServerLink(_, _)
+                                    | Token::StaticQuote(_, _)
+                            )
+                        {
                             output.push(Token::CloseQuote);
                             green = false;
                         }
@@ -115,7 +148,7 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
 }
 
 fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
-    tokenize_with(line, legacy_spoilers, true, true)
+    tokenize_with(line, legacy_spoilers, true, true, false, false)
 }
 
 pub(crate) fn tokenize_with(
@@ -123,6 +156,8 @@ pub(crate) fn tokenize_with(
     legacy_spoilers: bool,
     quotes: bool,
     links: bool,
+    static_quotes: bool,
+    source_quotes: bool,
 ) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut text = String::new();
@@ -133,17 +168,47 @@ pub(crate) fn tokenize_with(
             if let Some(end) = rest.find("[/spoiler]") {
                 found = Some((Token::Spoiler(rest[..end].to_owned()), 9 + end + 10));
             }
+        } else if static_quotes
+            && let Some((quote, consumed)) = crate::static_quote::StaticQuote::parse(tail)
+        {
+            found = Some((Token::StaticQuote(quote, Vec::new()), consumed));
         } else if quotes && let Some(rest) = tail.strip_prefix(">>>/") {
             if let Some(end) = rest.bytes().take(11).position(|byte| byte == b'/')
                 && let Ok(board) = crate::BoardSlug::parse(&rest[..end])
                 && let Some((id, digits)) = post_number(&rest[end + 1..])
             {
                 let consumed = 4 + board.as_str().len() + 1 + digits;
-                found = Some((Token::CrossQuote(board.as_str().into(), id), consumed));
+                found = Some((
+                    if source_quotes {
+                        Token::PostQuote(crate::post_quote::PostQuote {
+                            board: Some(board.as_str().into()),
+                            id,
+                            label: tail[..consumed].into(),
+                        })
+                    } else {
+                        Token::CrossQuote(board.as_str().into(), id)
+                    },
+                    consumed,
+                ));
             }
         } else if quotes && let Some(rest) = tail.strip_prefix(">>") {
             if let Some((id, len)) = post_number(rest) {
-                found = Some((Token::Quote(id), len + 2));
+                found = Some((
+                    if source_quotes {
+                        Token::PostQuote(crate::post_quote::PostQuote {
+                            board: None,
+                            id,
+                            label: tail[..len + 2].into(),
+                        })
+                    } else {
+                        Token::Quote(id)
+                    },
+                    len + 2,
+                ));
+            }
+        } else if links && static_quotes {
+            if let Some((link, len)) = crate::server_link::ServerLink::parse(tail) {
+                found = Some((Token::ServerLink(link, Vec::new()), len));
             }
         } else if links && (tail.starts_with("https://") || tail.starts_with("http://")) {
             let end = tail.find(char::is_whitespace).unwrap_or(tail.len());

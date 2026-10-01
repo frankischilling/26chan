@@ -12,11 +12,14 @@ palettes and cross-board quotes. `scripts/check-launch-readiness.sh` checks
 production launch requirements and intentionally fails while they remain
 unqualified. Its result does not decide local rewrite parity.
 
-The September 15, 2026 inventory reconciles earlier checkpoint descriptions with
-merged work. The [active reference boundary](compatibility.md#active-reference-boundary)
-excludes source-only claims from the supplied leaked checkout as compatibility
-evidence. Preserve existing implementation while collecting permitted evidence;
-missing evidence is not a reason to invent a replacement server policy.
+The [active reference boundary](compatibility.md#active-reference-boundary)
+is the supplied original checkout. The October 1 requirement covers all 80
+listed boards, two additional configurations and every source feature.
+[The tracker](https://github.com/frankischilling/26chan/issues/191) records the
+remaining public, staff, media, configuration and site workflows.
+[Board installation](original-board-inventory.md) and
+[server comment links](server-comment-links.md) add checked behavior toward
+that target. Their tests do not establish complete layout or feature parity.
 
 The September 27 image-control batch adds expansion, screen fitting, hover,
 transparent-preview backgrounds, spoiler reveal and thumbnail hiding for

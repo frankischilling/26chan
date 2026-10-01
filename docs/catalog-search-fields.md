@@ -54,27 +54,18 @@ tab expansion. Comments retain the 16,000-scalar parser limit.
 
 ## Deliberate limits still under investigation
 
-Source entity spelling and the teaser transformation are implemented for the
-current formatter. Ambient mbstring encoding, original-link presentation and
-quote resolution remain unresolved or unfinished. Link attributes can affect
-short `/b/` search text and the pre-strip truncation cutoff. The public `/b/`
-snapshot is consistent with an entity-aware bounded helper, but it is not enough
-to claim every cutoff or entity spelling. Whole-post and whole-catalog parity
-remain open.
+Source entity spelling and teaser preparation use the saved formatter and current
+board policy. [Server comment links](server-comment-links.md) reconstruct the
+source static-link representation for search and `/b/` truncation. The synthetic
+PHP fixture pins UTF-8 mbstring behavior, including link-dependent length checks
+and unresolved numeric quote text. GET and live search consume that shared value.
 
-Missing filenames are not coerced to the string `undefined`, and deleted filenames
-remain excluded from both metadata and search. Filename serialization beyond the
-existing public representation is not newly claimed as reference-aligned.
-
-Issue #82 remains open for those narrower reference gaps. Shared serialization,
-source teaser preparation and the GET/live field-composition differences are
-implemented and covered by the release browser script; complete entity,
-link-generated truncation and filename-edge parity are not established.
+Missing filenames are not coerced to the string `undefined`, and deleted
+filenames stay excluded from metadata and search. This privacy adaptation is
+explicit. Original attachment normalization and download behavior remain in
+#202; complete surrounding catalog layout remains in #193.
 
 The September 15 inventory confirms that shared teaser projection, text-only
 catalog tables and hover previews are integrated through #157, #160 and #164.
-Their existence is no longer pending work for #82. Source-only claims remain
-subject to the [active reference boundary](compatibility.md#active-reference-boundary).
-The public API examples include server-generated external anchors; optional
-browser linkification does not establish a universal server formatting policy
-and does not alter the catalog's saved search representation.
+The active completion target now follows the
+[supplied source snapshot](compatibility.md#active-reference-boundary).

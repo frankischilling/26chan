@@ -7,7 +7,8 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
   const cases = [
     { board: 'b', comment: 'x'.repeat(301), teaser: `${'x'.repeat(300)}…`, query: 'x…$' },
     { board: 'b', comment: 'y'.repeat(40), teaser: `${'y'.repeat(35)}<wbr>${'y'.repeat(5)}`, query: '<wbr>yyyyy$' },
-    { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
+    { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '[spoiler] [/spoiler]', query: 'spoiler' },
+    { board: 'test', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
     { board: 'sjis', comment: '[sjis]wide  art\nnext[/sjis]after [spoiler]quiet[/spoiler] <script>owned</script>', teaser: '[SJIS]after <s>quiet</s> &lt;script&gt;owned&lt;/script&gt;', query: '[SJIS]after' },
     { board: 'news', comment: 'first\n\nsecond', teaser: 'first\nsecond', query: 'second$' },
   ];

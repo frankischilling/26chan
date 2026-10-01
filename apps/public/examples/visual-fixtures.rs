@@ -42,6 +42,11 @@ fn navigation_boards() -> Vec<Board> {
 
 fn board() -> Board {
     Board {
+        source_order: 1000,
+        catalog_enabled: true,
+        json_enabled: true,
+        staff_only: false,
+        upload_board: false,
         slug: "demo".into(),
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),

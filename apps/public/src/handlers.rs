@@ -205,6 +205,9 @@ async fn board_page(
         Some(if catalog { 0 } else { 3 }),
     )
     .await?;
+    if catalog && !snapshot.board.catalog_enabled {
+        return Err(AppError(StatusCode::NOT_FOUND, "Catalog not found."));
+    }
     let hidden = if catalog {
         options.apply(&mut snapshot)
     } else {

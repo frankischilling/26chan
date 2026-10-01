@@ -808,7 +808,7 @@ async fn final_content_admission(f: &Fixture) {
         let saved = board_store::find_post(&f.public, &f.board, id)
             .await
             .unwrap();
-        assert_eq!(saved.comment_format, 47);
+        assert_eq!(saved.comment_format, 111);
         assert_eq!(
             attachment(&f.public, id).await.unwrap().unwrap().asset_id,
             asset
@@ -1054,7 +1054,7 @@ async fn comment_spacing(f: &Fixture) {
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();
-        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 40 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
+        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 104 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
             .bind(id).fetch_one(&f.public).await.unwrap();
         assert!(stamped);
         assert_eq!(

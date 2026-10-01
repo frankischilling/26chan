@@ -41,6 +41,11 @@ pub enum StoreError {
 #[derive(Clone, sqlx::FromRow)]
 pub struct Board {
     pub slug: String,
+    pub source_order: i32,
+    pub catalog_enabled: bool,
+    pub json_enabled: bool,
+    pub staff_only: bool,
+    pub upload_board: bool,
     pub title: String,
     pub description: String,
     pub max_comment_chars: i32,

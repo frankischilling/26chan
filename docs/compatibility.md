@@ -2,6 +2,30 @@
 
 ## Active reference boundary
 
+The target is the supplied `4chan-old` checkout at revision
+`545b7812d1849f7958d914950c91fdbbe38f6b22`, as requested on October 1, 2026.
+Completion requires every board and feature in that snapshot, including
+desktop/mobile presentation and optional features. The
+[source-parity tracker](https://github.com/frankischilling/26chan/issues/191)
+lists the remaining work. Public release references below provide additional
+evidence; matching a newer public component alone does not establish snapshot parity.
+
+[Board definitions](original-board-inventory.md) install the 80 listed boards
+and both additional configurations. Their existing supported policy fields,
+order and route availability are checked against the pinned fixture. `/j/`
+content is protected by database row policies. Specialized board workflows and
+the rest of the configuration model remain tracked separately.
+
+[Server links](server-comment-links.md) distinguish internal normalization and
+static board/catalog/rules links from optional browser URL linking. New saved
+formatter profiles preserve that distinction across HTML, JSON, staff previews,
+catalogs and native projections. Historical profiles retain their behavior.
+Synthetic fixtures run through the original PHP functions pin normalization,
+static links and catalog teaser serialization. Complete page comparisons and
+the remaining original formatting and media workflows are still required.
+
+## Earlier public-reference checkpoints
+
 The [public page navigation, titles and footer](public-page-chrome.md) use
 sanitized public DOM observations and unchanged Core/extension replays on owned
 markup. The local board directory, mobile destinations, mode preference and
@@ -41,20 +65,17 @@ adds filename tips, generic spoiler/deleted-file states, 40 filename/size vector
 20 released state cases and 216 style comparisons. Complete original-page
 comparisons remain outside this checked scope.
 
-The September 15, 2026 continuation uses the original brief's permitted-public-
-reference requirement. The supplied old checkout's remote identifies it as
-leaked source. The historical audit below is retained as a record of earlier
-work, but **source-only entries are not accepted compatibility evidence** for
-this continuation. Existing behavior remains project-defined unless a permitted
-public document or released asset independently establishes it. Historical tests
-still describe the local implementation; they do not certify original behavior.
+The September 15 continuation used public releases as its reference boundary.
+The October 1 source-parity requirement above governs current completion.
+Historical verification records describe their own scope and test environment.
 
 The [browser URL linker](source-linkification.md) has been independently checked
 against public extension v1191. Its optional settings and DOM lifecycle preserve
 the current server formatter. Official API examples contain external anchors,
-so the client reference alone cannot justify removing server-generated links or
-changing stored profiles. Remaining server normalization and static-link rules
-stay open in #165 and #6.
+so that client reference alone does not specify the server policy. The
+[current server formatter](server-comment-links.md) uses the supplied source
+functions and preserves historical profiles. Full reference qualification
+remains tracked in #6 and #191.
 
 The [native quote-preview slice](native-quote-previews.md) independently uses
 the same permitted public release for default-on hover, local highlighting,

@@ -6,6 +6,12 @@ Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boar
 
 Development is ongoing. The explicit isolated development profile supports public uploads, processing status, persisted attachments, thumbnails and file deletion. Production uploads remain disabled pending qualification. A separate WebAuthn staff application handles report review, staff-badged text posting and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
+Migrations install [all original board definitions](docs/original-board-inventory.md),
+with configured catalogs, archives, formatting, IDs and flags. Public database
+credentials cannot read or write private `/j/` content. Special board workflows
+and the remaining source features are tracked in
+[#191](https://github.com/frankischilling/26chan/issues/191).
+
 A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG, [JPEG](docs/jpeg-media.md) and [single-frame GIF](docs/gif-media.md) decoders inside a per-job guest and validates bounded output. All published files are normalized PNGs; original uploads are never downloadable. [Publication commands](docs/media-approval.md) provide durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. [HTTP intake](docs/media-intake.md) connects uploads to authenticated dispatch. Production host and storage qualification remain unfinished.
 
 [Native image controls](docs/native-image-controls.md) add inline expansion, screen fitting, hover previews and image display preferences to approved attachments. They share the existing settings and quote ownership rules, with finite full-image loading and an explicit media-origin boundary.

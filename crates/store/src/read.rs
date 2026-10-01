@@ -20,7 +20,7 @@ pub async fn preview_posts(
 
 pub async fn boards(pool: &PgPool) -> Result<Vec<Board>, StoreError> {
     Ok(
-        sqlx::query_as("SELECT * FROM content.boards ORDER BY slug LIMIT 100")
+        sqlx::query_as("SELECT * FROM content.boards ORDER BY source_order,slug LIMIT 100")
             .fetch_all(pool)
             .await?,
     )
@@ -40,7 +40,7 @@ pub(crate) async fn snapshot_navigation(
         return Ok(Vec::new());
     }
     Ok(
-        sqlx::query_as("SELECT * FROM content.boards ORDER BY slug LIMIT 100")
+        sqlx::query_as("SELECT * FROM content.boards ORDER BY source_order,slug LIMIT 100")
             .fetch_all(&mut **tx)
             .await?,
     )

@@ -88,7 +88,9 @@ pub async fn boards(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    let boards: Vec<_> = board_store::boards(&state.pool).await?.into_iter().map(|board| {
+    let mut directory = board_store::boards(&state.pool).await?;
+    directory.sort_by(|a, b| a.slug.cmp(&b.slug));
+    let boards: Vec<_> = directory.into_iter().filter(|board| board.json_enabled).map(|board| {
         let mut value = json!({
         "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
         "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
@@ -282,6 +284,7 @@ pub async fn thread_selection(
         tail_size,
         tail_id,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
+    require_json(&board, false)?;
     let mut posts: Vec<Value> = posts
         .into_iter()
         .map(|post| post_json(post, &thread, &board, replies, images, unique_ips))
@@ -315,6 +318,7 @@ pub async fn archive(
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
     let snapshot = board_store::archive_snapshot(&state.pool, slug).await?;
+    require_json(&snapshot.board, false)?;
     let ids: Vec<_> = snapshot.entries.into_iter().map(|entry| entry.id).collect();
     response(&state.limits, json!(ids), None, headers)
 }
@@ -361,6 +365,7 @@ pub async fn thread_list(
         board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, None)
             .await?;
     let board = snapshot.board;
+    require_json(&board, false)?;
     let threads = snapshot.threads;
     let mut pages = Vec::new();
     for (index, chunk) in threads.chunks(board.threads_per_page as usize).enumerate() {
@@ -388,6 +393,7 @@ pub async fn catalog(
         board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, Some(5))
             .await?;
     let board = snapshot.board;
+    require_json(&board, true)?;
     let mut pages = Vec::new();
     let mut threads = snapshot.threads.into_iter().peekable();
     while threads.peek().is_some() {
@@ -425,6 +431,7 @@ pub async fn index(
     )
     .await?;
     let board = snapshot.board;
+    require_json(&board, false)?;
     let mut entries = Vec::new();
     for preview in snapshot.threads {
         let mut posts = match preview_thread(&board, preview) {
@@ -447,6 +454,13 @@ pub async fn index(
         entries.push(json!({"posts": posts}));
     }
     response(&state.limits, json!({"threads": entries}), None, headers)
+}
+
+fn require_json(board: &Board, catalog: bool) -> Result<(), AppError> {
+    if !board.json_enabled || (catalog && !board.catalog_enabled) {
+        return Err(AppError(StatusCode::NOT_FOUND, "JSON resource not found."));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

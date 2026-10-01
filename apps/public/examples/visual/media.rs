@@ -107,6 +107,11 @@ impl Fixture {
         let archived = kind == "archived";
         let closed = kind == "closed" || kind == "closed-board";
         let board = board_store::Board {
+            source_order: 1000,
+            catalog_enabled: true,
+            json_enabled: true,
+            staff_only: false,
+            upload_board: false,
             slug: "img".into(),
             title: "Paper image fixtures".into(),
             description: "Synthetic folds, thumbnails and file states.".into(),

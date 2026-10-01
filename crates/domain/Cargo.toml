@@ -13,6 +13,7 @@ maxminddb = { version = "=0.30.3", default-features = false }
 
 [dev-dependencies]
 proptest.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

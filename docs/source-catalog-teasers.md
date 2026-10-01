@@ -44,18 +44,16 @@ No migration or new runtime database grant is needed. Deploy the public binary;
 existing pages acquire the new metadata when reloaded. The explicit synthetic
 seed includes `/b/` and `/sjis/` cases alongside the existing text-only fixture.
 
-The implementation pins UTF-8 scalar behavior. The supplied helper depends on
-ambient mbstring encoding, which the source snapshot does not establish.
-Source linkification and quote resolution remain separate unfinished stages:
-short `/b/` comments retain the existing safe link representation, and its
-generated attributes contribute to the helper's length and search text. This
-does not prove identical source link spelling or identical cutoffs around
-those unresolved attributes. The rewrite does not generate abbreviation spans;
+The implementation pins UTF-8 scalar behavior. The
+[format fixture](../fixtures/format-reference.json) records actual original
+function results with UTF-8 mbstring. [Server comment links](server-comment-links.md)
+reconstruct the stored static-link spelling for the source length/search check.
+Numeric references remain unresolved text in this catalog representation.
+Secure rendering attributes are separate from the serialized search value.
+The rewrite does not generate abbreviation spans;
 literal user text resembling them must not be removed. The [text-only table](source-text-catalog.md)
-keeps its teaser inert for search. Date-hover previews, complete surrounding
-layout and filename serialization remain under issue #82 and the compatibility
-inventory. These limits do not prevent the known teaser transformations from
-being applied to the formatter that exists today.
+keeps its teaser inert for search. Complete surrounding layout and original
+attachment metadata remain under #193 and #202.
 
 Unit checks cover whitespace, spoilers, SJIS span endings and LF behavior,
 short/long `/b/` comments, pre-strip length, scalar and entity boundaries,

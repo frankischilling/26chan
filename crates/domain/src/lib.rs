@@ -17,10 +17,13 @@ pub mod formatting;
 pub mod image_limit;
 pub mod op_bump;
 mod post_content;
+pub mod post_quote;
+pub mod server_link;
+pub mod static_quote;
 pub use post_content::{PostKind, PreparedPostContent, prepare_post_content};
 pub mod posting_options;
 mod subject;
-pub use formatting::{Line, Token, parse_comment, parse_post_comment};
+pub use formatting::{Line, Token, parse_comment, parse_post_comment, parse_post_comment_on_board};
 pub use subject::{MAX_SUBJECT_BYTES, prepare_post_subject, source_html_entities};
 
 pub const MAX_COMMENT_CHARS: usize = 16_000;

@@ -16,6 +16,19 @@ function snapshot(inside) {
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
 
+test('source board, catalog search and rules links survive the bounded recipe without opening other routes', () => {
+  for (const href of ['/po/', '/g/catalog', '/g/catalog#s=a+b%2Fc%2Cd-e', '/rules#g3', '/rules#unknown4']) {
+    const inside = `<a class="quotelink" href="${href}">&gt;&gt;&gt;/g/catalog</a>`;
+    assert.equal(parse(snapshot(inside)).status, 'ok', href);
+  }
+  for (const href of ['//evil.example/g/catalog', '/g/catalog?admin=1', '/g/catalog#s=%2F..%2F',
+    '/g/catalog#s=a%20b', '/g/catalog#s=a%2fb', '/rules#../admin', '/g/../admin', '/admin',
+    '/g/catalog#s=a b', 'javascript:alert(1)']) {
+    const inside = `<a class="quotelink" href="${href}">owned</a>`;
+    assert.equal(parse(snapshot(inside)).status, 'invalid-snapshot', href);
+  }
+});
+
 const capcodes = [
   ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
   ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators', 'adminicon', 'This user is a board Administrator.'],
