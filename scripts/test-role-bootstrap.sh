@@ -47,13 +47,24 @@ done
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$
 BEGIN
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode'] FROM content.posts p)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p)
      OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
      OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
+    RAISE NOTICE 'Historical upgrade diagnostics: %', (
+      SELECT jsonb_build_object(
+        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
+        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p),
+        'threads_forward_changed', EXISTS(SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before),
+        'threads_reverse_changed', EXISTS(SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads),
+        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL),
+        'poster_context_present', EXISTS(SELECT 1 FROM post_secrets.poster_contexts),
+        'historical_count_known', content.unique_posters('countold',8800001) IS NOT NULL
+      )
+    );
     RAISE EXCEPTION 'Poster count upgrade changed history or invented identity';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_staff_post_owner'
@@ -64,7 +75,12 @@ BEGIN
      OR has_schema_privilege('board_staff_post_owner','deployment','USAGE')
      OR has_schema_privilege('board_staff_post_owner','media','USAGE')
      OR has_table_privilege('board_staff_post_owner','content.posts','INSERT,UPDATE,DELETE')
-     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','SELECT,INSERT,UPDATE')
+     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','INSERT,UPDATE')
+     OR has_table_privilege('board_staff_post_owner','staff_identity.credentials','DELETE,TRUNCATE,TRIGGER')
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='staff_identity' AND c.table_name='credentials'
+          AND c.column_name NOT IN ('id','account_id') AND has_column_privilege('board_staff_post_owner','staff_identity.credentials',c.column_name,'SELECT'))
+     OR NOT has_column_privilege('board_staff_post_owner','staff_identity.credentials','id','SELECT')
+     OR NOT has_column_privilege('board_staff_post_owner','staff_identity.credentials','account_id','SELECT')
      OR has_column_privilege('board_staff_post_owner','staff_identity.accounts','role','UPDATE')
      OR has_column_privilege('board_staff_post_owner','staff_identity.accounts','public_capcode','UPDATE')
      OR has_column_privilege('board_staff_post_owner','staff_identity.sessions','csrf_hash','UPDATE')
@@ -157,6 +173,29 @@ BEGIN
     RAISE EXCEPTION 'Bootstrap observer grants differ';
   END IF;
 END $$;
+-- The posting owner needs credential identifiers to lock a live session, but
+-- must not read the passkey document or change credential identity.
+SET ROLE board_staff_post_owner;
+SELECT id,account_id FROM staff_identity.credentials LIMIT 0;
+DO $$
+BEGIN
+  BEGIN
+    PERFORM credential FROM staff_identity.credentials LIMIT 0;
+    RAISE EXCEPTION 'Staff posting owner read a passkey document';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    UPDATE staff_identity.credentials SET account_id=account_id WHERE false;
+    RAISE EXCEPTION 'Staff posting owner changed credential identity';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    DELETE FROM staff_identity.credentials WHERE false;
+    RAISE EXCEPTION 'Staff posting owner deleted a credential';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $$;
+RESET ROLE;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('board_media_intake','board_media_intake_owner')
