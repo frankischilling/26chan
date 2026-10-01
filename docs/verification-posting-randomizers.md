@@ -26,7 +26,9 @@ Checks run on October 1, 2026:
 | `npx playwright test tests/browser/posting-randomizers.spec.js tests/browser/global-search.spec.js` | 6 passed on Windows Chromium before the additional updater/RSS/preview assertions |
 | `npx playwright test tests/browser/posting-randomizers.spec.js` | Expanded desktop and real mobile-device scenarios both passed, without retries |
 | `sudo bash scripts/test-role-bootstrap.sh` | Fresh migration, historical preservation and restricted role checks passed in an isolated Unix-socket cluster; cleanup completed |
-| `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | Passed in Ubuntu under WSL before the final RSS escaping test was added |
+| `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | Passed in Ubuntu under WSL, including the rerun after the final RSS test was corrected |
+| `cargo test --workspace --all-features --locked` | Recovered integration run passed 583 tests, none failed or ignored; its public binary preceded the final RSS test |
+| `cargo test -p board-public --lib --all-features --locked` | Final public library passed all 104 tests in WSL, including the new RSS escaping case |
 
 The browser scenarios create and delete their own threads. They check fixed
 one-sided dice through page reload, JSON, catalogs, search, RSS and a reply
@@ -51,16 +53,30 @@ advisories and separate monitoring qualification also passed on that checkpoint.
 Those results do not qualify the later dice/fortune changes or make the failed
 aggregate check pass.
 
+[Run 36903933543](https://github.com/frankischilling/26chan/actions/runs/36903933543)
+on `f825d6064b3b4d848a3d71587afbcf51cd37a7ce` subsequently passed all 584
+all-feature workspace tests, the preceding public library and HTTPS check,
+all four search browser scenarios and both expanded dice/fortune scenarios.
+Media/operations, attachment restoration and Windows visual qualification
+passed. The Linux job then failed the native embed scenarios after external
+URLs became plain source text. The [embed verification record](verification-embed-source.md)
+describes that repair. The run's aggregate result is failed; subsequent browser
+steps were not executed.
+
 A first browser invocation timed out while rebuilding the server; it was not
 counted as a pass. The first public-library run passed 99 tests and failed the
 new RSS test because it assumed the existing template had no leading whitespace.
 The assertion now trims that whitespace before checking the generated prefix;
 the complete 100-test library command passed afterward. A WSL restart
-interrupted a broad workspace test run and
+interrupted an earlier broad workspace test run and
 removed its disposable database. The subsequent Windows persisted-test attempt
 failed to connect to that stopped database. A new owned cluster was migrated
 and seeded, and both focused persisted tests passed. The interrupted full run
-is not recorded as successful.
+is not recorded as successful. The recovered integration run completed with
+583 passing tests, including the actual HTTPS proxy, browser attachment,
+private staff discussion and persisted store tests. After the final RSS test
+was added, workspace Clippy and the 104-test all-feature public library passed
+again. Final pushed-head CI qualification is still separate.
 
 For local reproduction, use the disposable setup in `README.md`,
 apply all migrations and seed `fixtures/demo.sql`. Rust database tests need the

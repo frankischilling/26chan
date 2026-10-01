@@ -1,6 +1,6 @@
 // Click-to-load provider embeds. Provider resources are never requested while
 // the page is being scanned or while an affordance is merely visible.
-export const EMBED_LIMITS = Object.freeze({ nodes: 32768, links: 4096, frames: 8, depth: 32 });
+export const EMBED_LIMITS = Object.freeze({ nodes: 32768, links: 4096, frames: 8, depth: 32, characters: 192000 });
 
 const URL_LIMIT = 2048;
 const youtubeId = /^[A-Za-z0-9_-]{11}$/;
@@ -107,6 +107,7 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
   const document = root.ownerDocument, window = document.defaultView;
   const owner = { kind: 'native-embeds' };
   const entries = new Map(), players = new Set();
+  const rawSources = new WeakSet(), ownedUI = new WeakSet();
   let suspended = false, destroyed = false, queued = false;
 
   function configuration() {
@@ -129,15 +130,24 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
   }
 
   function anchorTarget(anchor) {
+    if (rawSources.has(anchor)) {
+      if ([...anchor.childNodes].some(node => node.nodeType !== 3 && !(node.nodeType === 1 && node.tagName === 'WBR'))) return null;
+      return embedTarget(anchor.textContent);
+    }
     const raw = anchor.getAttribute('href'), direct = embedTarget(raw);
     if (direct) return direct;
     if (!anchor.classList.contains('linkified') || anchor.getAttribute('data-native-linkified') !== 'true') return null;
     try {
+      if (typeof raw !== 'string' || raw.length > URL_LIMIT * 9 + 32) return null;
       const link = new URL(raw, window.location.origin), params = [...link.searchParams.entries()];
       if (link.origin !== window.location.origin || link.pathname !== '/derefer' || link.hash || params.length !== 1
         || params[0][0] !== 'url') return null;
       const label = projection?.text ? projection.text(anchor) : anchor.textContent;
-      if (params[0][1] !== label) return null;
+      // The source linker encodes serialized HTML; its derefer endpoint decodes
+      // these entities once. Match that destination to the displayed text.
+      const destination = params[0][1].replace(/&(amp|lt|gt|quot|#0*39);/g,
+        (_, value) => ({ amp: '&', lt: '<', gt: '>', quot: '"' }[value] ?? "'"));
+      if (destination !== label) return null;
       return embedTarget(label);
     } catch { return null; }
   }
@@ -145,7 +155,7 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
   function sourceContext(anchor) {
     let current = anchor, message = null;
     for (let depth = 0; current && depth <= bounds.depth; depth++, current = current.parentElement) {
-      if (current !== anchor && projection?.has?.(current)) return null;
+      if (current !== anchor && (ownedUI.has(current) || projection?.has?.(current))) return null;
       if (current.hasAttribute?.('hidden') || current.classList?.contains('deleted')
         || current.classList?.contains('post-hidden') || current.classList?.contains('native-thread-hidden')
         || current.classList?.contains('mobile-post-hidden')) return null;
@@ -157,18 +167,49 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
 
   function scan(config, mobile) {
     if (!root.isConnected || config.disableAll === true) return new Map();
-    const targets = new Map();
+    const targets = new Map(), recipes = [], parents = new Set(), sizes = new Map();
     const filter = {
       acceptNode(node) {
-        return node !== root && projection?.has?.(node)
+        return node !== root && (ownedUI.has(node) || projection?.has?.(node))
           ? window.NodeFilter.FILTER_REJECT : window.NodeFilter.FILTER_ACCEPT;
       },
     };
-    const walker = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT, filter);
-    let nodes = 1, links = 0, node;
+    const walker = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT | window.NodeFilter.SHOW_TEXT, filter);
+    let nodes = 1, links = 0, characters = 0, node;
     while ((node = walker.nextNode())) {
       if (++nodes > bounds.nodes) return null;
-      if (node.localName !== 'a' || !node.hasAttribute('href')) continue;
+      if (node.nodeType === 3) {
+        characters += node.data.length;
+        if (characters > bounds.characters) return null;
+        const parent = node.parentElement;
+        const message = parent && sourceContext(parent);
+        if (!parent || parents.has(parent) || !message) continue;
+        parents.add(parent);
+        let nested = parent;
+        while (nested && nested !== root && nested.localName !== 'a' && !rawSources.has(nested)) nested = nested.parentElement;
+        if (nested && nested !== root) continue;
+        const runs = textRuns(parent);
+        if (runs === null) return null;
+        for (const run of runs) {
+          for (const match of run.text.matchAll(/https:\/\/[^\s<>"']+/ig)) {
+            let raw = match[0].replace(/[:!?,.]+$/, '');
+            const target = embedTarget(raw), currentMode = target && mode(target, config, mobile);
+            if (!currentMode) continue;
+            if (++links > bounds.links) return null;
+            let size = sizes.get(message);
+            if (size === undefined) {
+              try { size = projection?.html ? projection.html(message).length : message.innerHTML.length; }
+              catch { return null; }
+            }
+            size += 13; // An attribute-free source span; controls are projected out.
+            if (size > 65536) return null;
+            sizes.set(message, size);
+            recipes.push({ start: run.points[match.index], end: run.points[match.index + raw.length], target, mode: currentMode });
+          }
+        }
+        continue;
+      }
+      if (!rawSources.has(node) && (node.localName !== 'a' || !node.hasAttribute('href'))) continue;
       if (++links > bounds.links) return null;
       if (!sourceContext(node)) continue;
       const target = anchorTarget(node);
@@ -176,7 +217,39 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
       const currentMode = mode(target, config, mobile);
       if (currentMode) targets.set(node, { target, mode: currentMode });
     }
-    return targets;
+    if (nodes + recipes.length * 3 > bounds.nodes) return null;
+    return { targets, recipes };
+  }
+
+  function textRuns(parent) {
+    if (parent.childNodes.length > bounds.nodes) return null;
+    let characters = 0;
+    for (const child of parent.childNodes) if (child.nodeType === 3) {
+      characters += child.data.length;
+      if (characters > bounds.characters) return null;
+    }
+    const runs = []; let run = null;
+    for (const [index, child] of [...parent.childNodes].entries()) {
+      if (child.nodeType !== 3 && !(child.nodeType === 1 && child.tagName === 'WBR')) { run = null; continue; }
+      if (!run) { run = { text: '', points: [[parent, index]] }; runs.push(run); }
+      if (child.nodeType === 3) {
+        run.points[run.text.length] = [child, 0];
+        for (let offset = 0; offset < child.data.length; offset++) {
+          run.text += child.data[offset]; run.points.push([child, offset + 1]);
+        }
+      } else run.points[run.text.length] = [parent, index + 1];
+    }
+    return runs;
+  }
+
+  function wrapRecipes(plan) {
+    for (const { start, end, target, mode } of plan.recipes.reverse()) {
+      const range = document.createRange(); range.setStart(...start); range.setEnd(...end);
+      const source = document.createElement('span');
+      source.append(range.extractContents()); range.insertNode(source);
+      rawSources.add(source); plan.targets.set(source, { target, mode });
+    }
+    return plan.targets;
   }
 
   function sameTarget(left, right) {
@@ -195,6 +268,7 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
     closePlayer(entry);
     entries.delete(entry.anchor);
     entry.control.remove();
+    if (rawSources.has(entry.anchor)) entry.anchor.replaceWith(...entry.anchor.childNodes);
   }
 
   function createPlayer(entry) {
@@ -212,7 +286,7 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
       iframe.title = 'SoundCloud player'; iframe.width = '500'; iframe.height = '166';
       iframe.referrerPolicy = 'no-referrer'; iframe.setAttribute('allow', 'autoplay');
     }
-    projection?.claim?.(container, owner);
+    ownedUI.add(container); projection?.claim?.(container, owner);
     container.append(iframe); entry.control.after(container);
     entry.frame = { iframe, container }; players.add(entry);
     entry.toggle.textContent = 'Remove';
@@ -243,7 +317,7 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
     toggle.href = descriptor.target.source; toggle.target = '_blank'; toggle.rel = 'noopener noreferrer';
     toggle.textContent = descriptor.mode === 'open' ? 'Open' : 'Embed';
     control.append(' [', toggle, ']');
-    projection?.claim?.(control, owner);
+    ownedUI.add(control); projection?.claim?.(control, owner);
     const entry = { anchor, target: descriptor.target, mode: descriptor.mode, control, toggle, frame: null };
     toggle.addEventListener('click', event => onToggle(event, entry));
     entries.set(anchor, entry); anchor.after(control);
@@ -270,9 +344,9 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
   function refresh() {
     queued = false;
     if (destroyed || suspended) return;
-    const targets = scan(configuration(), mobileLayout());
+    const plan = scan(configuration(), mobileLayout());
     // Exceeding a scan bound fails closed and removes any already-active player.
-    reconcile(targets ?? new Map());
+    reconcile(plan && plan.targets ? wrapRecipes(plan) : new Map());
   }
 
   function schedule(changes = null) {
@@ -286,7 +360,7 @@ export function mountNativeEmbeds({ root, settings, hasMobileLayout = () => fals
   const observer = new window.MutationObserver(changes => schedule(changes));
   function observe() {
     const target = document.body ?? document.documentElement;
-    if (target) observer.observe(target, { childList: true, subtree: true, attributes: true,
+    if (target) observer.observe(target, { childList: true, characterData: true, subtree: true, attributes: true,
       attributeFilter: ['href', 'class', 'hidden'] });
   }
   const onSettings = () => refresh();
