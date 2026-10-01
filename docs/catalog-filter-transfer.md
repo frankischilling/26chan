@@ -86,8 +86,10 @@ Failures were recorded and corrected:
   fixture requests immediately. All eight pass on both platforms, without
   changing their lock, storage, cancellation or lifetime assertions.
 
-No retries, browser/test timeouts, pixel tolerance or screenshot baselines were
-changed. These browser checks make no new media-containment claim. The combined
+The transfer checks changed no retries, browser/test timeouts or pixel tolerance.
+The combined batch's separately inspected catalog screenshot update is recorded
+in [Search controls](catalog-search-controls.md#reviewed-project-capture).
+These browser checks make no new media-containment claim. The combined
 catalog batch still requires hosted checks before merge; complete page chrome
 and server teaser normalization remain unfinished.
 

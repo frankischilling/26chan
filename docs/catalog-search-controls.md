@@ -100,3 +100,24 @@ pixel tolerance, retry or timeout changed. All five generated checks and eight
 preference-lock core cases also passed. The fixed-asset reference replay passes
 all six themes, both widths and densities 1/2. Hosted checks remain required
 before this next integration merges.
+
+## Reviewed project capture
+
+The first hosted Windows run for [PR #188](https://github.com/frankischilling/26chan/pull/188)
+passed its board screenshots and failed the catalog screenshot by 4,313 pixels.
+The old project capture showed the always-visible Search field and Apply button.
+The new capture shows the pinned client's closed Search and Filters controls,
+with the toolbar aligned to the right. The expected, actual and diff images
+were retained, downloaded and inspected. The local run reproduced the same
+failure. Using Playwright's existing comparison settings, the changed region
+is `(9, 180)` through `(1271, 205)`, entirely within that toolbar; the local and
+hosted actual captures match under those unchanged settings.
+
+Only `catalog-desktop-win32.png` is updated to the inspected local capture.
+The project stores these full-page regression captures on Windows; the Linux
+qualification workspace had no corresponding baselines. Its attempted
+three-image run failed for missing baselines and generated ignored local
+captures, which are not added to the repository. The Linux production behavior
+and component-style results remain separate evidence. All three Windows
+project captures then passed. This update changes no pixel tolerance, timeout
+or retry and makes no original full-page parity claim.
