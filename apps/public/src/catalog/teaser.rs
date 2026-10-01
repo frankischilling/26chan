@@ -36,6 +36,29 @@ pub struct Prepared {
     pub serialized: String,
 }
 
+/// Reconstruct the source's saved comment representation for text projections.
+/// The return value is data and never grants permission to bypass HTML escaping.
+pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String {
+    let mut result = String::new();
+    for (index, line) in lines.iter().enumerate() {
+        if index > 0 {
+            result.push_str("<br>");
+        }
+        if line.green {
+            result.push_str("<span class=\"quote\">");
+        }
+        result.push_str(&serialize(
+            &line.tokens,
+            board,
+            matches!(format, 104..=111 | 120..=127),
+        ));
+        if line.green {
+            result.push_str("</span>");
+        }
+    }
+    result
+}
+
 pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
     let mut tokens = Vec::new();
     let mut previous_break = false;

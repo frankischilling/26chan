@@ -7,6 +7,7 @@
 {% import "thread_navigation.html" as thread_navigation %}
 {% import "page_navigation.html" as page_navigation %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block alternate_feed %}{% if board.rss_enabled %}<link rel="alternate" title="RSS feed" href="/{{ board.slug }}/index.rss" type="application/rss+xml">{% endif %}{% endblock %}
 {% block body_attributes %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}

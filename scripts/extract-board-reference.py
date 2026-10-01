@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-POLICY_KEYS = set("CATEGORY TITLE META_DESCRIPTION MAX_COM_CHARS MAX_LINES CODE_TAGS SJIS_TAGS SPOILERS REQUIRE_SUBJECT OP_MARKUP FORCED_ANON DISP_ID SHOW_COUNTRY_FLAGS ENABLE_BOARD_FLAGS BOARD_FLAGS_TYPE TEXT_ONLY MAX_RES MAX_IMGRES PAGE_MAX DEF_PAGES LOG_MAX ENABLE_ARCHIVE ARCHIVE_MAX_AGE JSON_TAIL_SIZE PERMASAGE_HOURS ENABLE_CATALOG ENABLE_JSON JANITOR_BOARD UPLOAD_BOARD MAX_KB ENABLE_WEBM ENABLE_WEBM_AUDIO MAX_WEBM_FILESIZE MAX_WEBM_DURATION RENZOKU RENZOKU2 RENZOKU3 NO_TEXTONLY GIF_ONLY PASS_ONLY ROBOT9000".split())
+POLICY_KEYS = set("CATEGORY TITLE META_DESCRIPTION MAX_COM_CHARS MAX_LINES CODE_TAGS SJIS_TAGS SPOILERS REQUIRE_SUBJECT OP_MARKUP FORCED_ANON DISP_ID SHOW_COUNTRY_FLAGS ENABLE_BOARD_FLAGS BOARD_FLAGS_TYPE TEXT_ONLY MAX_RES MAX_IMGRES PAGE_MAX DEF_PAGES LOG_MAX ENABLE_ARCHIVE ARCHIVE_MAX_AGE JSON_TAIL_SIZE PERMASAGE_HOURS ENABLE_CATALOG ENABLE_JSON JANITOR_BOARD UPLOAD_BOARD USE_RSS MAX_KB ENABLE_WEBM ENABLE_WEBM_AUDIO MAX_WEBM_FILESIZE MAX_WEBM_DURATION RENZOKU RENZOKU2 RENZOKU3 NO_TEXTONLY GIF_ONLY PASS_ONLY ROBOT9000".split())
 
 
 def policy(path):
@@ -85,12 +85,23 @@ def migration(reference):
             + "\nON CONFLICT(slug) DO UPDATE SET\n" + ",\n".join(key + "=EXCLUDED." + key for key in columns if key != "slug") + ";\n")
 
 
+def rss_migration(reference):
+    rows = ["('" + board["slug"] + "'," +
+            ("true" if board["source_policy"]["USE_RSS"].lower() == "yes" else "false") + ")"
+            for board in reference["boards"]]
+    return ("-- Feed policy extracted from the same pinned board configuration.\n"
+            "ALTER TABLE content.boards ADD COLUMN rss_enabled boolean NOT NULL DEFAULT true;\n"
+            "UPDATE content.boards b SET rss_enabled=policy.enabled FROM (VALUES\n" +
+            ",\n".join(rows) + ") policy(slug,enabled) WHERE b.slug=policy.slug;\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--migration", type=Path)
+    parser.add_argument("--rss-migration", type=Path)
     args = parser.parse_args()
     reference = extract(args.source)
     data = json.dumps(reference, ensure_ascii=False, indent=2) + "\n"
@@ -99,11 +110,15 @@ def main():
             raise SystemExit("Board reference differs from the supplied checkout.")
         if args.migration and args.migration.read_text(encoding="utf-8") != migration(reference):
             raise SystemExit("Board migration differs from the extracted policy.")
+        if args.rss_migration and args.rss_migration.read_text(encoding="utf-8") != rss_migration(reference):
+            raise SystemExit("RSS migration differs from the extracted policy.")
         print("Board reference matches all listed and additional configuration files.")
     else:
         args.output.write_text(data, encoding="utf-8")
         if args.migration:
             args.migration.write_text(migration(reference), encoding="utf-8")
+        if args.rss_migration:
+            args.rss_migration.write_text(rss_migration(reference), encoding="utf-8")
 
 
 if __name__ == "__main__":

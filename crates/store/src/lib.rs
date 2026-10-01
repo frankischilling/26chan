@@ -10,11 +10,13 @@ pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
 mod read;
+mod rss;
 mod thread_statistics;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
+pub use rss::{RssSnapshot, rss_snapshot};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 pub use thread_statistics::{ThreadStatistics, thread_statistics};
@@ -46,6 +48,7 @@ pub struct Board {
     pub json_enabled: bool,
     pub staff_only: bool,
     pub upload_board: bool,
+    pub rss_enabled: bool,
     pub title: String,
     pub description: String,
     pub max_comment_chars: i32,

@@ -144,6 +144,7 @@ pub async fn page(
         "threads.json" => api::thread_list(&state, &board, &headers).await,
         "catalog.json" => api::catalog(&state, &board, &headers).await,
         "archive.json" => api::archive(&state, &board, &headers).await,
+        "index.rss" => crate::rss::feed(&state, &board, &headers).await,
         "archive" => {
             let board_store::PageSnapshot {
                 snapshot,

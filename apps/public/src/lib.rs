@@ -16,6 +16,7 @@ mod post_preferences;
 mod post_receipts;
 mod posting_form;
 mod posting_response;
+mod rss;
 mod security;
 pub mod themes;
 pub mod transport;

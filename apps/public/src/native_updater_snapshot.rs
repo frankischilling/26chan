@@ -383,6 +383,7 @@ mod tests {
             json_enabled: true,
             staff_only: false,
             upload_board: false,
+            rss_enabled: true,
             slug: "test".into(),
             title: "Test".into(),
             description: String::new(),

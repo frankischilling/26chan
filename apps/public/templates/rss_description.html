@@ -1,0 +1,2 @@
+{% import "formatting.html" as formatting %}
+ {% if !source.is_empty() %}<a href="{{ source }}" target="_blank" rel="noopener noreferrer"><img style="float:left;margin:8px" border="0" src="{{ thumbnail }}"></a>{% endif %} {% if spoilers %}(Spoilers){% else %}{% call formatting::comment(lines, board, origin) %}{% endcall %}{% endif %}

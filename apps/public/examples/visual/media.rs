@@ -112,6 +112,7 @@ impl Fixture {
             json_enabled: true,
             staff_only: false,
             upload_board: false,
+            rss_enabled: true,
             slug: "img".into(),
             title: "Paper image fixtures".into(),
             description: "Synthetic folds, thumbnails and file states.".into(),

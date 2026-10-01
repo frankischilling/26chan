@@ -47,6 +47,7 @@ fn board() -> Board {
         json_enabled: true,
         staff_only: false,
         upload_board: false,
+        rss_enabled: true,
         slug: "demo".into(),
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
