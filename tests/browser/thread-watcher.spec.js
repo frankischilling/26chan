@@ -242,7 +242,7 @@ test('post menus close on outside activation, Escape and viewport changes and ho
   await expect(trigger).toBeFocused();
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
   await trigger.click();
-  await page.locator('h1').click();
+  await page.getByRole('heading', { level: 1 }).click();
   await expect(page.locator('#post-menu')).toHaveCount(0);
   await trigger.click();
   await page.setViewportSize({ width: 390, height: 844 });

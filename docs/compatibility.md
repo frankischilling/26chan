@@ -2,6 +2,14 @@
 
 ## Active reference boundary
 
+The [public page navigation, titles and footer](public-page-chrome.md) use
+sanitized public DOM observations and unchanged Core/extension replays on owned
+markup. The local board directory, mobile destinations, mode preference and
+shared Settings links are implemented. Six-theme component properties and hover
+colors have independent reference records. Global Search, information-page
+destinations, banner images, complete menu styling and original-page placement
+remain unfinished.
+
 The separate [catalog Filters & Highlights](catalog-filters.md) consumer now
 uses a whole-client public v1025 replay for matching grammar, rule effects,
 editor states and six-theme styles. Patterns run in bounded disposable workers;
@@ -219,6 +227,7 @@ fields remain open.
 | V-015 | Backlinks, quote annotations and local reverse-quote preview cues; observed public extension v1191 | Default-on board/thread graph and layout-mobile navigation implemented in #168 | [Reference, ownership and limits](native-backlinks.md); filter input excludes only owned after-filter suffixes, preserves literal poster text and existing tracked labels, and retains exact quote navigation. Strict board/thread binding, bounded graph work and a fixed page-only module are explicit replacements. Current-commit tests and review are recorded in the implementing PR |
 | V-016 | Optional inline quotes, nested placement and collapse, backlink target hiding and mobile activation; observed public extension v1191 | Implemented with existing release URLs and bounded one-post transport; final qualification recorded in the implementing PR | [Reference, ownership, budgets and verification](native-inline-quotes.md); one shared registry preserves original filter/notification/watch inputs, exact IDs and navigation. Core tests distinguish trusted input from synthetic lifecycle controls; persisted tests cover real settings, held responses, updater/filter settlement and finite admission. Inert copies, finite budgets and touch-request arbitration are explicit replacements. Full extension and page parity remain #6 |
 | V-017 | Image expansion, screen fitting, hover/background, spoiler reveal and thumbnail hiding; public extension v1191 | Implemented for approved normalized media on board and thread pages; tracked in #180 | [Reference, controls, limits and tests](native-image-controls.md). Fixed media URLs, finite full-image loads, settings and source invalidation, and projection ownership preserve the existing media and quote boundaries. Original media delivery and full-page parity remain #5/#6 |
+| V-018 | Board directory, mobile view selection, title and footer; public Core v1128, extension v1191 and pinned v716/v705 CSS | Server navigation on board/catalog/thread/archive pages, bounded mobile controller and shared Settings links implemented and locally qualified; hosted checks required before merge | [Reference and checks](public-page-chrome.md): 192 component/hover cases, 48 mobile dark component cases, six destination cases, twelve stylesheet selections and twelve original menu cases. Archive script authority admits only the navigation module. Full original startup, menu styling, banners, information pages and Global Search remain #6 |
 
 ## Security-driven and project-defined exceptions
 

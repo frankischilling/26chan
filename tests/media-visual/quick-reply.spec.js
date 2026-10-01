@@ -411,11 +411,11 @@ test('source mobile reopening uses 25px while initial placement uses 28px and pr
 
 test('source Q is thread-only and quotes selection without inventing a post link', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true })));
-  await page.goto('/demo/'); await page.locator('h1').click(); await page.keyboard.press('q');
+  await page.goto('/demo/'); await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q');
   await expect(page.locator('#quickReply')).toHaveCount(0);
-  await page.goto('/img/thread/1000201'); await page.locator('h1').click();
-  const selected = await page.locator('h1').textContent();
-  await page.locator('h1').evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
+  await page.goto('/img/thread/1000201'); await page.getByRole('heading', { level: 1 }).click();
+  const selected = await page.getByRole('heading', { level: 1 }).textContent();
+  await page.getByRole('heading', { level: 1 }).evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
   await page.keyboard.press('q'); await expect(page.locator('#qrCom')).toHaveValue(`>${selected}\n`);
   await expect(page.locator('#qrResto')).toHaveValue('1000201');
 });
@@ -426,8 +426,8 @@ test('Ctrl-click quotes without linking even with optional keyboard shortcuts di
   await link.click({ modifiers: ['Control'] }); await expect(page.locator('#qrCom')).toHaveValue('');
   expect(context.pages()).toHaveLength(1);
   await page.locator('#qrCom').fill('Existing draft');
-  const selected = await page.locator('h1').textContent();
-  await page.locator('h1').evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
+  const selected = await page.getByRole('heading', { level: 1 }).textContent();
+  await page.getByRole('heading', { level: 1 }).evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
   // Dispatch the source click with an existing DOM selection, without a
   // preceding synthetic mousedown that would collapse it in this harness.
   const selection = await page.locator('#qrCom').evaluate(node => ({ start: node.selectionStart, end: node.selectionEnd }));

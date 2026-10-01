@@ -55,6 +55,7 @@ enum InteractivePage {
     Board,
     Catalog,
     Upload,
+    Archive,
 }
 
 pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
@@ -96,7 +97,9 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
         [board, ""] => !board.is_empty(),
         [board, page] => {
             !board.is_empty()
-                && (*page == "catalog" || page.parse::<u16>().is_ok_and(|page| page < 1000))
+                && (*page == "catalog"
+                    || *page == "archive"
+                    || page.parse::<u16>().is_ok_and(|page| page < 1000))
         }
         [board, "thread", id] => !board.is_empty() && id.parse::<i64>().is_ok_and(|id| id > 0),
         _ => false,
@@ -104,7 +107,9 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
     let upload_page = *request.method() == Method::POST
         && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
     let page = if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
-        Some(if parts.last() == Some(&"catalog") {
+        Some(if parts.last() == Some(&"archive") {
+            InteractivePage::Archive
+        } else if parts.last() == Some(&"catalog") {
             InteractivePage::Catalog
         } else {
             InteractivePage::Board
@@ -202,7 +207,9 @@ fn headers(
             state.origin,
             crate::ui_assets::WATCHER_CORE_PATH
         );
-        if page == Some(InteractivePage::Catalog) {
+        if page == Some(InteractivePage::Archive) {
+            format!("{}{}", state.origin, crate::ui_assets::PAGE_CHROME_PATH)
+        } else if page == Some(InteractivePage::Catalog) {
             format!(
                 "{}{} {}{} {}{} {watcher}",
                 state.origin,
@@ -218,7 +225,7 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let script = if interactive {
+    let script = if interactive && page != Some(InteractivePage::Archive) {
         format!(
             "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
@@ -258,7 +265,16 @@ fn headers(
     } else {
         script
     };
-    let connect = if interactive {
+    let script = if interactive && page != Some(InteractivePage::Archive) {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::PAGE_CHROME_PATH
+        )
+    } else {
+        script
+    };
+    let connect = if interactive && page != Some(InteractivePage::Archive) {
         match posting {
             Some(posting) if page == Some(InteractivePage::Board) && state.media.is_some() => {
                 // Only this board's bounded public upload workflow is available
@@ -275,7 +291,7 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let worker = if interactive {
+    let worker = if interactive && page != Some(InteractivePage::Archive) {
         format!(
             "{}{} {}{}",
             state.origin,
@@ -286,7 +302,7 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let sound = if interactive {
+    let sound = if interactive && page != Some(InteractivePage::Archive) {
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
     } else {
         "'none'".into()
@@ -381,7 +397,9 @@ mod tests {
                 Some(InteractivePage::Board),
                 Some(InteractivePage::Catalog),
                 Some(InteractivePage::Upload),
+                Some(InteractivePage::Archive),
             ] {
+                let full = page.is_some() && page != Some(InteractivePage::Archive);
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,
@@ -409,7 +427,7 @@ mod tests {
                         directive("script-src")
                             .split_whitespace()
                             .any(|value| value == format!("{origin}/static/{path}")),
-                        page.is_some()
+                        full
                     );
                 }
                 assert_eq!(directive("style-src"), "style-src 'self'");
@@ -433,20 +451,26 @@ mod tests {
                     directive("script-src")
                         .split_whitespace()
                         .any(|value| value == format!("{origin}/static/native-display.v1.js")),
-                    page.is_some()
+                    full
                 );
                 assert_eq!(
                     directive("script-src")
                         .split_whitespace()
                         .any(|value| value == backlink),
-                    page.is_some()
+                    full
                 );
                 assert!(
                     !directive("script-src")
                         .split_whitespace()
                         .any(|value| value == "'self'")
                 );
-                if page.is_some() {
+                assert_eq!(
+                    directive("script-src")
+                        .split_whitespace()
+                        .any(|value| value == format!("{origin}/static/page-chrome.v1.js")),
+                    page.is_some()
+                );
+                if full {
                     assert_eq!(
                         directive("worker-src"),
                         format!(
@@ -457,6 +481,14 @@ mod tests {
                         directive("connect-src"),
                         format!("connect-src {origin}/_watch/")
                     );
+                } else if page == Some(InteractivePage::Archive) {
+                    assert_eq!(
+                        directive("script-src"),
+                        format!("script-src {origin}/static/page-chrome.v1.js")
+                    );
+                    for name in ["worker-src", "connect-src", "media-src", "frame-src"] {
+                        assert_eq!(directive(name), format!("{name} 'none'"));
+                    }
                 } else {
                     assert_eq!(directive("script-src"), "script-src 'none'");
                     assert_eq!(directive("worker-src"), "worker-src 'none'");
@@ -465,6 +497,76 @@ mod tests {
                 assert!(!directive("img-src").contains("native-backlinks"));
                 assert!(!directive("media-src").contains("native-backlinks"));
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn archive_navigation_authority_requires_a_successful_read_only_html_page() {
+        let origin = "http://127.0.0.1:3000";
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: origin.into(),
+            production: false,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        let owned = || async { axum::response::Html("Owned archive fixture") };
+        let app = Router::new()
+            .route("/test/archive", get(owned).post(owned))
+            .route("/plain/archive", get(|| async { "Owned plain fixture" }))
+            .route(
+                "/error/archive",
+                get(|| async {
+                    (
+                        StatusCode::NOT_FOUND,
+                        axum::response::Html("Owned missing page"),
+                    )
+                }),
+            )
+            .route("/test/archive.json", get(owned))
+            .layer(middleware::from_fn_with_state(state, protect));
+        for (method, path, admitted) in [
+            (Method::GET, "/test/archive", true),
+            (Method::HEAD, "/test/archive", true),
+            (Method::POST, "/test/archive", false),
+            (Method::GET, "/plain/archive", false),
+            (Method::HEAD, "/error/archive", false),
+            (Method::GET, "/test/archive.json", false),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let csp = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            let directives: Vec<_> = csp.split(';').map(str::trim).collect();
+            let expected = if admitted {
+                format!("script-src {origin}/static/page-chrome.v1.js")
+            } else {
+                "script-src 'none'".into()
+            };
+            assert!(directives.contains(&expected.as_str()));
+            for name in ["connect-src", "worker-src", "media-src", "frame-src"] {
+                assert!(directives.contains(&format!("{name} 'none'").as_str()));
+            }
+            assert!(!csp.contains("thread-watcher"));
+            assert!(!csp.contains("native-settings"));
+            assert!(!csp.contains("catalog-filter"));
         }
     }
 

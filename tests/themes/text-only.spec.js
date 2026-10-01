@@ -4,7 +4,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
   test(`text-only native form at ${viewport.width}px keeps subject validation and hides uploads`, async ({ page }, info) => {
     await page.setViewportSize(viewport);
     await page.goto('/text-only/');
-    await expect(page.locator('body')).toHaveClass('text_only');
+    await expect(page.locator('body')).toHaveClass(/\btext_only\b/);
     await expect(page.locator('#sub')).toHaveAttribute('required', '');
     await expect(page.locator('#com')).not.toHaveAttribute('required');
     await expect(page.locator('#upfile')).toHaveCount(0);

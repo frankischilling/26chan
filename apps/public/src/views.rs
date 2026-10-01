@@ -17,6 +17,7 @@ pub struct Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub navigation_boards: Vec<Board>,
     pub quote: String,
     pub catalog_hidden: Vec<ThreadView>,
     pub board: Board,
@@ -47,6 +48,10 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn navigation(&self) -> Vec<&Board> {
+        board_navigation(&self.navigation_boards, &self.board)
+    }
+
     pub fn posting_allowed(&self) -> bool {
         !self.catalog
             && (self.parent == 0
@@ -68,8 +73,25 @@ impl BoardPage {
 #[derive(Template)]
 #[template(path = "archive.html")]
 pub struct ArchivePage {
+    pub navigation_boards: Vec<Board>,
     pub board: Board,
     pub entries: Vec<board_store::ArchiveEntry>,
+}
+
+impl ArchivePage {
+    pub fn navigation(&self) -> Vec<&Board> {
+        board_navigation(&self.navigation_boards, &self.board)
+    }
+}
+
+fn board_navigation<'a>(boards: &'a [Board], current: &'a Board) -> Vec<&'a Board> {
+    let mut links: Vec<_> = boards.iter().take(100).collect();
+    if !links.iter().any(|board| board.slug == current.slug) {
+        links.truncate(99);
+        links.push(current);
+    }
+    links.sort_by(|left, right| left.slug.cmp(&right.slug));
+    links
 }
 
 pub struct ThreadView {

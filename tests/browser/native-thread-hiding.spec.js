@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const key = '4chan-hide-t-demo', purgeKey = '4chan-purge-t-demo', lock = 'paperboard-thread-hiding-demo';
@@ -31,7 +32,7 @@ async function menu(page, id, action) {
   await page.getByRole('menuitem', { name: action, exact: true }).click();
 }
 async function settings(page) {
-  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await watcherSettingsOpener(page).click();
   if (!(await page.locator('#setting-threadHiding').isVisible())) {
     await page.getByRole('button', { name: 'Filters & Post Hiding', exact: true }).click();
   }

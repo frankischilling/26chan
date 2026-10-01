@@ -149,6 +149,7 @@ pub async fn page(
             crate::output::html(
                 &state,
                 &ArchivePage {
+                    navigation_boards: board_store::boards(&state.pool).await?,
                     board: snapshot.board,
                     entries: snapshot.entries,
                 },
@@ -237,6 +238,7 @@ async fn board_page(
     crate::output::html(
         state,
         &BoardPage {
+            navigation_boards: board_store::boards(&state.pool).await?,
             quote: String::new(),
             catalog_hidden: hidden_views,
             board,
@@ -323,6 +325,7 @@ pub async fn thread(
     crate::output::html(
         &state,
         &BoardPage {
+            navigation_boards: board_store::boards(&state.pool).await?,
             quote,
             catalog_hidden: Vec::new(),
             board,

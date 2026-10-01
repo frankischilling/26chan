@@ -103,6 +103,7 @@ fn page(slug: &str, sorted: bool) -> String {
         threads.sort_by_key(|view| std::cmp::Reverse(view.thread.id));
     }
     views::BoardPage {
+        navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
         board,

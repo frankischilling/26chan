@@ -46,3 +46,85 @@
 
 :root { --catalog-filter-help: url('/static/catalog/buttons/tomorrow/question.png'); }
 @media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/tomorrow/question@2x.png'); } }
+
+/* Pinned public page navigation, title and footer components. */
+body.publicPageChrome:not(.is_catalog) { color: rgb(197, 200, 198); background-color: rgb(29, 31, 33); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) .boardBanner { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) #boardNavDesktop { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) #boardNavDesktop a { color: rgb(129, 162, 190); border-bottom-color: rgb(129, 162, 190); }
+body.publicPageChrome:not(.is_catalog) #boardNavMobile { color: rgb(197, 200, 198); background-color: rgb(40, 42, 46); border-bottom-color: rgb(17, 17, 17); }
+body.publicPageChrome:not(.is_catalog) #boardSelectMobile { color: rgb(197, 200, 198); background-color: rgb(40, 42, 46); border-bottom-color: rgb(87, 90, 96); }
+body.publicPageChrome:not(.is_catalog) #settingsWindowLinkMobile { color: rgb(129, 162, 190); border-bottom-color: rgb(129, 162, 190); }
+body.publicPageChrome:not(.is_catalog) .boardTitle { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) .boardSubtitle { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) #boardNavDesktopFoot { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) #boardNavDesktopFoot a { color: rgb(129, 162, 190); border-bottom-color: rgb(129, 162, 190); }
+body.publicPageChrome:not(.is_catalog) #footer-links { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) #absbot { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome:not(.is_catalog) #boardNavDesktop a:hover { color: rgb(95, 137, 172); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(95, 137, 172); }
+body.publicPageChrome:not(.is_catalog) #boardNavDesktopFoot a:hover { color: rgb(95, 137, 172); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(95, 137, 172); }
+@media (max-width: 480px) {
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="true"]:not([data-native-never-mobile="true"]) #settingsWindowLinkMobile { color: rgb(52, 52, 92); border-bottom-color: rgb(52, 52, 92); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="true"]:not([data-native-never-mobile="true"]) #settingsWindowLinkMobile:hover { color: rgb(221, 0, 0); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(221, 0, 0); }
+}
+@media (max-width: 480px) {
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) { color: rgb(128, 0, 0); background-color: rgb(255, 255, 238); border-bottom-color: rgb(128, 0, 0); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) .boardBanner { color: rgb(128, 0, 0); border-bottom-color: rgb(128, 0, 0); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) #boardNavMobile { color: rgb(128, 0, 0); background-color: rgb(240, 224, 214); border-bottom-color: rgb(217, 191, 183); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) #settingsWindowLinkMobile { color: rgb(0, 0, 128); border-bottom-color: rgb(0, 0, 128); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) .boardTitle { color: rgb(128, 0, 0); border-bottom-color: rgb(128, 0, 0); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) .boardSubtitle { color: rgb(128, 0, 0); border-bottom-color: rgb(128, 0, 0); }
+  body.publicPageChrome:not(.is_catalog)[data-worksafe="false"]:not([data-native-never-mobile="true"]) #settingsWindowLinkMobile:hover { color: rgb(0, 0, 128); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(0, 0, 128); }
+}
+body.publicPageChrome.is_catalog { color: rgb(197, 200, 198); background-color: rgb(29, 31, 33); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog .boardBanner { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog #boardNavDesktop { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog #boardNavDesktop a { color: rgb(129, 162, 190); border-bottom-color: rgb(129, 162, 190); }
+body.publicPageChrome.is_catalog #boardNavMobile { color: rgb(197, 200, 198); background-color: rgb(40, 42, 46); border-bottom-color: rgb(17, 17, 17); }
+body.publicPageChrome.is_catalog #settingsWindowLinkMobile { color: rgb(129, 162, 190); border-bottom-color: rgb(129, 162, 190); }
+body.publicPageChrome.is_catalog .boardTitle { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog .boardSubtitle { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog #boardNavDesktopFoot { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog #boardNavDesktopFoot a { color: rgb(129, 162, 190); border-bottom-color: rgb(129, 162, 190); }
+body.publicPageChrome.is_catalog #footer-links { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog #absbot { color: rgb(197, 200, 198); border-bottom-color: rgb(197, 200, 198); }
+body.publicPageChrome.is_catalog #boardNavDesktop a:hover { color: rgb(95, 137, 172); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(95, 137, 172); }
+body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(95, 137, 172); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(95, 137, 172); }
+@media (max-width: 480px) {
+  body.publicPageChrome.is_catalog[data-worksafe="true"]:not([data-native-never-mobile="true"]) #boardNavMobile { background-color: rgb(29, 31, 33); border-bottom-color: rgb(40, 42, 46); }
+  body.publicPageChrome.is_catalog[data-worksafe="true"]:not([data-native-never-mobile="true"]) #settingsWindowLinkMobile:hover { color: rgb(95, 137, 172); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(95, 137, 172); }
+}
+@media (max-width: 480px) {
+  body.publicPageChrome.is_catalog[data-worksafe="false"]:not([data-native-never-mobile="true"]) #boardNavMobile { background-color: rgb(29, 31, 33); border-bottom-color: rgb(40, 42, 46); }
+  body.publicPageChrome.is_catalog[data-worksafe="false"]:not([data-native-never-mobile="true"]) #settingsWindowLinkMobile:hover { color: rgb(95, 137, 172); background-color: rgba(0, 0, 0, 0); text-decoration-line: none; border-bottom-color: rgb(95, 137, 172); }
+}
+
+/* Qualified public mobile dark navigation. */
+@media (max-width: 480px) {
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] { color: rgb(197, 200, 198); background-color: rgb(29, 31, 33); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] .boardBanner { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #boardNavDesktop { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #boardNavDesktop a { color: rgb(129, 162, 190); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(129, 162, 190); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #boardNavMobile { color: rgb(197, 200, 198); background-color: rgb(29, 31, 33); background-image: none; border-bottom-color: rgb(40, 42, 46); border-bottom-style: solid; border-bottom-width: 2px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #boardSelectMobile { color: rgb(197, 200, 198); background-color: rgb(40, 42, 46); background-image: none; border-bottom-color: rgb(87, 90, 96); border-bottom-style: solid; border-bottom-width: 1px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #settingsWindowLinkMobile { color: rgb(129, 162, 190); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(129, 162, 190); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] .boardTitle { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] .boardSubtitle { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #boardNavDesktopFoot { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #boardNavDesktopFoot a { color: rgb(129, 162, 190); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(129, 162, 190); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #footer-links { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="true"] #absbot { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] { color: rgb(197, 200, 198); background-color: rgb(29, 31, 33); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] .boardBanner { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #boardNavDesktop { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #boardNavDesktop a { color: rgb(129, 162, 190); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(129, 162, 190); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #boardNavMobile { color: rgb(197, 200, 198); background-color: rgb(29, 31, 33); background-image: none; border-bottom-color: rgb(40, 42, 46); border-bottom-style: solid; border-bottom-width: 2px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #boardSelectMobile { color: rgb(197, 200, 198); background-color: rgb(40, 42, 46); background-image: none; border-bottom-color: rgb(87, 90, 96); border-bottom-style: solid; border-bottom-width: 1px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #settingsWindowLinkMobile { color: rgb(129, 162, 190); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(129, 162, 190); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] .boardTitle { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] .boardSubtitle { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #boardNavDesktopFoot { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #boardNavDesktopFoot a { color: rgb(129, 162, 190); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(129, 162, 190); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #footer-links { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+  body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #absbot { color: rgb(197, 200, 198); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(197, 200, 198); border-bottom-style: none; border-bottom-width: 0px; }
+}

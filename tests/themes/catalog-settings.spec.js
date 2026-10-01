@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 const reference = JSON.parse(await readFile(new URL('../../docs/public-catalog-settings-reference.json', import.meta.url), 'utf8'));
@@ -6,7 +7,7 @@ const catalog = '/settingsui/catalog';
 async function open(page, width) {
   const navigation = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
   if (await navigation.isVisible()) await navigation.getByRole('button', { name: 'Settings', exact: true }).click();
-  else await page.locator(width <= 480 ? '#settingsWindowLinkMobile' : '#settingsWindowLink').click();
+  else await watcherSettingsOpener(page).click();
   await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
 }
 async function state(page, label) {

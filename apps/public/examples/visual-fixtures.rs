@@ -23,6 +23,23 @@ use views::{BoardPage, PostView, ThreadView};
 fn time(value: &str) -> DateTime<Utc> {
     value.parse().expect("fixed synthetic timestamp")
 }
+fn navigation_boards() -> Vec<Board> {
+    vec![
+        board(),
+        Board {
+            slug: "f".into(),
+            title: "Owned file board".into(),
+            ..board()
+        },
+        Board {
+            slug: "zed".into(),
+            title: "Owned zed".into(),
+            worksafe: false,
+            ..board()
+        },
+    ]
+}
+
 fn board() -> Board {
     Board {
         slug: "demo".into(),
@@ -56,6 +73,30 @@ fn board() -> Board {
 }
 fn page(catalog: bool) -> String {
     render_page(catalog, false, false, false)
+}
+
+fn chrome_page(catalog: bool, worksafe: bool) -> String {
+    let boards = navigation_boards();
+    let current = boards
+        .iter()
+        .find(|board| board.slug == if worksafe { "demo" } else { "zed" })
+        .unwrap()
+        .clone();
+    BoardPage {
+        navigation_boards: boards,
+        board: current,
+        quote: String::new(),
+        catalog_hidden: vec![],
+        threads: vec![],
+        parent: 0,
+        previous: String::new(),
+        next: String::new(),
+        catalog,
+        catalog_options: catalog::Options::default(),
+        media_origin: String::new(),
+    }
+    .render()
+    .unwrap()
 }
 
 fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) -> String {
@@ -150,6 +191,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         thread.reply_count = 3;
     }
     BoardPage {
+        navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
         board,
@@ -194,6 +236,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
         board: Board {
@@ -236,6 +279,7 @@ fn archive_page(empty: bool) -> String {
         ]
     };
     views::ArchivePage {
+        navigation_boards: crate::navigation_boards(),
         board: archive_board(if empty { "emptyarc" } else { "arc" }),
         entries,
     }
@@ -301,6 +345,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
         parent: thread.id,
@@ -340,6 +385,7 @@ async fn main() {
     .render()
     .unwrap();
     let _ = views::ArchivePage {
+        navigation_boards: crate::navigation_boards(),
         board: board(),
         entries: vec![],
     }
@@ -378,6 +424,10 @@ async fn main() {
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
+        .route("/chrome/demo/", get(|| async { Html(chrome_page(false, true)) }))
+        .route("/chrome/demo/catalog", get(|| async { Html(chrome_page(true, true)) }))
+        .route("/chrome/zed/", get(|| async { Html(chrome_page(false, false)) }))
+        .route("/chrome/zed/catalog", get(|| async { Html(chrome_page(true, false)) }))
         .route("/headers/", get(|| async { Html(headers::page()) }))
         .route("/headers-nws/", get(|| async { Html(headers::page_with_worksafe(false)) }))
         .route("/markup/", get(|| async { Html(render_page(false, true, false, false)) }))

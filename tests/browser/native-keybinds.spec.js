@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const test = base.extend({
@@ -24,14 +25,14 @@ const test = base.extend({
   },
 });
 const watch = (page, id) => page.locator(`#watch-${id}-demo`);
-async function press(page, key) { await page.locator('h1').click(); await page.keyboard.press(key); }
+async function press(page, key) { await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press(key); }
 async function enable(page, url, extra = {}) {
   await page.goto(url);
   await page.evaluate(extra => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true, threadWatcher: true, ...extra })), extra);
   await page.reload();
 }
 async function openNavigation(page) {
-  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await watcherSettingsOpener(page).click();
   if (!(await page.locator('#setting-keyBinds').isVisible())) {
     await page.getByRole('button', { name: 'Navigation', exact: true }).click();
   }
@@ -76,7 +77,7 @@ test('editing fields, modifiers and disabled features do not accidentally watch 
 
 test('F opens the existing filter editor with selection from a persisted post', async ({ page, owned }) => {
   await enable(page, owned.url, { filter: true });
-  await page.locator('h1').click();
+  await page.getByRole('heading', { level: 1 }).click();
   await page.locator(`#m${owned.id}`).evaluate(element => {
     const range = document.createRange(); range.selectNodeContents(element);
     const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);

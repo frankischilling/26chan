@@ -33,7 +33,7 @@ for (const theme of themes) {
       const bounds = await table.boundingBox(), parent = await catalog.boundingBox();
       expect(bounds.x - parent.x).toBeCloseTo((parent.width - bounds.width) / 2, 1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      await expect(catalog).toHaveScreenshot(`text-catalog-${theme}-${name}.png`);
+      await expect.soft(catalog).toHaveScreenshot(`text-catalog-${theme}-${name}.png`);
     }
   });
 }

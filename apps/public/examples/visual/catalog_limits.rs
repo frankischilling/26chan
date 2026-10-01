@@ -114,6 +114,7 @@ fn render(
     })
     .collect();
     views::BoardPage {
+        navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
         board,

@@ -19,6 +19,7 @@ pub(crate) const NATIVE_POST_TOOLTIPS_PATH: &str = "/static/native-post-tooltips
 pub(crate) const NATIVE_THREAD_CONTROLS_PATH: &str = "/static/native-thread-controls.v1.js";
 pub(crate) const NATIVE_THREAD_STATS_PATH: &str = "/static/native-thread-stats.v1.js";
 pub(crate) const NATIVE_NAVIGATION_PATH: &str = "/static/native-navigation.v1.js";
+pub(crate) const PAGE_CHROME_PATH: &str = "/static/page-chrome.v1.js";
 pub(crate) const NATIVE_LAYOUT_PATH: &str = "/static/native-layout.v1.js";
 pub(crate) const NATIVE_EMBEDS_PATH: &str = "/static/native-embeds.v1.js";
 pub(crate) const NATIVE_CUSTOM_CSS_PATH: &str = "/static/native-custom-css.v1.js";
@@ -653,6 +654,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             NATIVE_NAVIGATION_PATH,
             include_bytes!("../static/native-navigation.v1.js").as_slice(),
+        ),
+        (
+            PAGE_CHROME_PATH,
+            include_bytes!("../static/page-chrome.v1.js").as_slice(),
         ),
         (
             NATIVE_LAYOUT_PATH,

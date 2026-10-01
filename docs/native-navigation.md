@@ -32,8 +32,10 @@ height; auto-hide releases that top edge so the controls can use the viewport.
 
 `dropDownNav` keeps board selection and navigation actions at the top of the
 window. `classicNav` replaces the desktop selector with ordinary board links;
-mobile retains the selector. A saved custom board list supplies ordered local
-slugs. Otherwise the control reads the public directory below. Settings and
+mobile retains the selector. The selector retains the full directory when a
+custom board list is enabled; separate links show the chosen boards. Custom
+links open indexes, including from a catalog. Ordinary selection preserves the
+catalog view except for `f`, which opens its index. Settings and
 Edit boards open the existing dialogs. The All boards link remains available if
 the directory cannot load.
 
@@ -51,6 +53,11 @@ preserves that same contract.
 
 ## Directory and resource limits
 
+The controller first captures the server-rendered mobile directory. It validates
+the same finite slug/title schema and retains each non-worksafe option's class.
+Later DOM changes cannot enlarge that admitted set. A valid server directory
+avoids another HTTP request. Pages without it retain the bounded transport below.
+
 `GET /_watch/boards` returns an exact version 1 object with at most 100 public
 board slugs and titles. It uses the existing read-only board query and response
 budget. The response exposes no posting credentials, private identities or
@@ -63,7 +70,8 @@ strict schema, rejects redirects and sends no credentials. Empty chunks count
 toward the work limit. Slugs and titles become text nodes or fixed local paths;
 they never become HTML or external navigation authority.
 
-The navigation resource imports only the fixed display and position helpers.
+The navigation resource imports the fixed display, position and page-navigation
+helpers. The last also mounts the ordinary mobile selector and mode controls.
 Icons are literal release-owned routes. Public asset tests verify the sixteen
 PNG hashes, signatures and dimensions and retain the exact image CSP allowlist.
 No broad image, script or worker source is added.

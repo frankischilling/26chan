@@ -691,7 +691,7 @@ async fn public_navigation_icons_match_pinned_bytes_and_have_no_api_or_post_rout
 }
 
 #[tokio::test]
-async fn catalog_controllers_are_bounded_fixed_code_and_absent_from_the_api_listener() {
+async fn catalog_and_page_controllers_are_bounded_fixed_code_and_absent_from_the_api_listener() {
     for (path, expected, alias, newer) in [
         (
             "/static/catalog-filters.v1.js",
@@ -704,6 +704,12 @@ async fn catalog_controllers_are_bounded_fixed_code_and_absent_from_the_api_list
             include_bytes!("../static/catalog-theme.v1.js").as_slice(),
             "/static/catalog-theme.js",
             "/static/catalog-theme.v2.js",
+        ),
+        (
+            "/static/page-chrome.v1.js",
+            include_bytes!("../static/page-chrome.v1.js").as_slice(),
+            "/static/page-chrome.js",
+            "/static/page-chrome.v2.js",
         ),
     ] {
         assert!(expected.len() <= 32_768);

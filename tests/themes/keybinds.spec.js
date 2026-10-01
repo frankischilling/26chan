@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 
 test.use({ javaScriptEnabled: true });
@@ -8,7 +9,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
     await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true })));
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 }); await page.goto('/demo/');
-      await page.getByRole('link', { name: 'Settings', exact: true }).click();
+      await watcherSettingsOpener(page).click();
       await page.getByRole('button', { name: 'Navigation', exact: true }).click();
       await expect(page.locator('#setting-keyBinds')).toBeChecked();
       await page.getByRole('link', { name: 'Show', exact: true }).click();

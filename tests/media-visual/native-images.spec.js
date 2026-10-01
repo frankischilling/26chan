@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
 import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
@@ -45,7 +46,7 @@ async function updaterSnapshot(browser) {
 test('image settings keep reference defaults while normal and legacy files expand, collapse and quote safely', async ({ page }, info) => {
   await openThread(page);
 
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   await expect(page.locator('#setting-imageExpansion')).toBeChecked();
   for (const key of ['fitToScreenExpansion', 'imageHover', 'imageHoverBg', 'revealSpoilers', 'noPictures']) {
     await expect(page.locator(`#setting-${key}`)).not.toBeChecked();
@@ -78,7 +79,7 @@ test('image settings keep reference defaults while normal and legacy files expan
 
 test('Images & Media settings save through the UI and restore behavior after navigation', async ({ page }) => {
   await openThread(page);
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   const category = page.locator('#settings-images');
   if (await category.isHidden()) await page.getByRole('button', { name: 'Images & Media', exact: true }).click();
   await page.locator('#setting-imageExpansion').uncheck();
@@ -107,7 +108,7 @@ test('Images & Media settings save through the UI and restore behavior after nav
   expect(controllerPrevented).toBe(false);
   await expect(anchor.locator('.expanded-thumb')).toHaveCount(0);
 
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   if (await category.isHidden()) await page.getByRole('button', { name: 'Images & Media', exact: true }).click();
   await expect(page.locator('#setting-imageExpansion')).not.toBeChecked();
   await expect(page.locator('#setting-revealSpoilers')).toBeChecked();

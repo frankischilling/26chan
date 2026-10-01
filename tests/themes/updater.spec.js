@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 test.use({ javaScriptEnabled: true });
 for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
@@ -23,7 +24,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
       const path = info.outputPath(`${theme}-${width}-updater.png`);
       await page.locator('.threadNav:visible').first().screenshot({ path });
       await info.attach(`${theme} ${width} updater`, { path, contentType: 'image/png' });
-      await page.getByRole('link', { name: 'Settings', exact: true }).click();
+      await watcherSettingsOpener(page).click();
       if (!(await page.locator('#setting-threadUpdater').isVisible())) await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
       await expect(page.locator('#setting-threadUpdater')).toBeChecked();
       await expect(page.locator('#setting-alwaysAutoUpdate')).not.toBeChecked();

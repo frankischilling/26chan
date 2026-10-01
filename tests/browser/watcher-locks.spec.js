@@ -1,3 +1,4 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 const origin = 'http://127.0.0.1:3000', lockName = 'paperboard-thread-watcher';
 const test = base.extend({
@@ -59,7 +60,7 @@ test('an expired watch action cannot commit when the actual held lock is release
 
 test('a timed-out settings save retains its dialog draft and cannot overwrite storage after lock release', async ({ page, owned, holder }) => {
   await initialize(page, owned);
-  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await watcherSettingsOpener(page).click();
   await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
   await page.locator('#setting-threadAutoWatcher').check(); await holder.hold();
   const save = page.getByRole('button', { name: 'Save Settings', exact: true }); await save.click(); await queued(holder);
@@ -79,7 +80,7 @@ test('a timed-out settings save retains its dialog draft and cannot overwrite st
 for (const cancellation of ['close', 'pagehide']) {
   test(`settings ${cancellation} cancels a held save without closing a newer dialog or navigating`, async ({ page, owned, holder }) => {
     await initialize(page, owned);
-    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await watcherSettingsOpener(page).click();
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
     await page.locator('#setting-threadAutoWatcher').check();
     await holder.hold();
@@ -93,7 +94,7 @@ for (const cancellation of ['close', 'pagehide']) {
       await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
     }
     await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toHaveCount(0);
-    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await watcherSettingsOpener(page).click();
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
     await page.locator('#setting-fixedThreadWatcher').check();
     await holder.release();
@@ -178,7 +179,7 @@ test('policy-denied locking makes every shared writer volatile even when local s
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   expect((await refreshed).status()).toBe(200);
   await expect(page.locator('.watcherPanel')).toHaveAttribute('aria-busy', 'false');
-  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await watcherSettingsOpener(page).click();
   await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
   await page.locator('#setting-threadAutoWatcher').check();
   await page.getByRole('button', { name: 'Save Settings', exact: true }).click();

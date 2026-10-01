@@ -10,8 +10,8 @@
   {% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css">{% endblock %}
 </head>
 <body{% block body_attributes %}{% endblock %}>
-<nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>
+{% block board_navigation %}<nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>{% endblock %}
 <main id="content">{% block content %}{% endblock %}</main>
-<footer><p>{% block theme_link %}<a href="/settings/theme">Style</a>{% endblock %}</p><p>Paperboard development build. {% block feature_notice %}Text posts only.{% endblock %}</p></footer>
+{% block page_footer %}<footer><p>{% block theme_link %}<a href="/settings/theme">Style</a>{% endblock %}</p><p>Paperboard development build. {% block feature_notice %}Text posts only.{% endblock %}</p></footer>{% endblock %}
 </body>
 </html>

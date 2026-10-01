@@ -294,21 +294,35 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     if (catalog || !category.hidden) fields.get('threadWatcher').input.focus();
     else expand.focus();
   }
-  const desktop = node('span', undefined, 'settingsDesktop');
-  const desktopLink = link('settingsWindowLink', 'Settings', open);
-  desktopLink.setAttribute('aria-haspopup', 'dialog');
-  desktop.append('[', desktopLink, ']');
-  const mobile = node('span', undefined, 'settingsMobile');
-  const watcher = link('watcher-open-mobile', 'TW', toggleWatcher);
-  watcher.setAttribute('aria-controls', 'threadWatcher');
-  watcher.hidden = true;
-  const mobileLink = link('settingsWindowLinkMobile', 'Settings', open);
-  mobileLink.setAttribute('aria-haspopup', 'dialog');
-  mobile.append(watcher, ' ', mobileLink);
-  const navigationLinks = node('span');
-  navigationLinks.id = 'navtopright';
-  navigationLinks.append(desktop, mobile);
-  navigation?.append(navigationLinks);
+  let watcher;
+  const publicLinks = ['#boardNavDesktop #settingsWindowLink', '#boardNavDesktopFoot #settingsWindowLinkBot', '#boardNavMobile #settingsWindowLinkMobile']
+    .map(selector => document.querySelector(selector));
+  if (publicLinks.every(element => element instanceof HTMLAnchorElement)) {
+    for (const anchor of publicLinks) {
+      anchor.setAttribute('aria-haspopup', 'dialog'); anchor.setAttribute('data-native-settings-ready', '');
+      anchor.addEventListener('click', event => { event.preventDefault(); open(anchor); });
+    }
+    watcher = link('watcher-open-mobile', 'TW', toggleWatcher);
+    watcher.setAttribute('aria-controls', 'threadWatcher'); watcher.hidden = true;
+    publicLinks[2].before(watcher, ' ');
+  } else {
+    const desktop = node('span', undefined, 'settingsDesktop');
+    const desktopLink = link('settingsWindowLink', 'Settings', open);
+    desktopLink.setAttribute('aria-haspopup', 'dialog');
+    desktop.append('[', desktopLink, ']');
+    const mobile = node('span', undefined, 'settingsMobile');
+    watcher = link('watcher-open-mobile', 'TW', toggleWatcher);
+    watcher.setAttribute('aria-controls', 'threadWatcher');
+    watcher.hidden = true;
+    const mobileLink = link('settingsWindowLinkMobile', 'Settings', open);
+    mobileLink.setAttribute('aria-haspopup', 'dialog');
+    mobile.append(watcher, ' ', mobileLink);
+    const navigationLinks = node('span');
+    navigationLinks.id = 'navtopright';
+    navigationLinks.append(desktop, mobile);
+    navigation?.append(navigationLinks);
+    desktopLink.setAttribute('data-native-settings-ready', ''); mobileLink.setAttribute('data-native-settings-ready', '');
+  }
   window.addEventListener('pagehide', close);
   return {
     open,

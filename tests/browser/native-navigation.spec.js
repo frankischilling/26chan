@@ -1,23 +1,26 @@
+import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 
 const settingsKey = '4chan-settings';
 
 test('catalog Settings uses the actual board directory and disables navigation without reload', async ({ page }) => {
-  const errors = [], unexpected = []; page.on('pageerror', error => errors.push(error.message));
+  const errors = [], unexpected = [], directoryRequests = []; page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (new URL(request.url()).origin !== 'http://127.0.0.1:3000') unexpected.push(request.url()); });
   await page.addInitScript(() => localStorage.setItem('4chan-settings', '{}'));
-  const directory = page.waitForResponse(response => response.url().endsWith('/_watch/boards'));
-  await page.goto('/test/catalog'); expect((await directory).status()).toBe(200);
+  page.on('request', request => { if (new URL(request.url()).pathname === '/_watch/boards') directoryRequests.push(request.url()); });
+  const directory = await page.request.get('/_watch/boards'); expect(directory.status()).toBe(200);
+  await page.goto('/test/catalog');
   const bar = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
   await expect(bar).toBeVisible(); await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('test');
   await expect(bar.locator('option[value="demo"]')).toHaveCount(1);
+  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual((await directory.json()).boards.map(entry => entry.board));
   let navigations = 0; page.on('framenavigated', () => navigations++);
   await bar.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('#theme-ddn').uncheck(); await page.locator('#theme-save').click();
   await expect(page.locator('#theme')).toBeHidden(); await expect(bar).toHaveCount(0);
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), settingsKey)).toEqual({ threadWatcher: false, dropDownNav: false });
   await expect(page.locator('#settingsWindowLink')).toBeVisible(); expect(navigations).toBe(0);
-  expect(errors).toEqual([]); expect(unexpected).toEqual([]);
+  expect(errors).toEqual([]); expect(unexpected).toEqual([]); expect(directoryRequests).toEqual([]);
 });
 
 test('persistent board navigation saves settings, uses the actual directory and supports keyboard relocation', async ({ page, context }) => {
@@ -28,7 +31,7 @@ test('persistent board navigation saves settings, uses the actual directory and 
     if (url.origin !== 'http://127.0.0.1:3000') unexpected.push(url.origin);
   });
   await page.goto('/test/0');
-  await page.locator('#settingsWindowLink').click();
+  await watcherSettingsOpener(page).click();
   const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
   await settings.locator('#settings-expand-all').click();
   for (const name of ['Use persistent drop-down navigation bar', 'Page navigation at top of page', 'Navigation arrows']) {
@@ -71,7 +74,10 @@ test('persistent board navigation saves settings, uses the actual directory and 
     }, settingsKey);
     await expect(bar).toHaveCount(0);
     await expect(arrows).toHaveCount(0);
-    await expect(page.getByRole('navigation', { name: 'Board navigation', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Mobile board navigation', exact: true })).toBeVisible();
+    await expect(page.locator('#boardSelectMobile')).toHaveValue('demo');
+    await expect(page.locator('#boardNavDesktop, #boardNavDesktopFoot')).toHaveCount(2);
+    await expect(page.locator('#boardNavDesktop')).toBeHidden();
   } finally { await other.close(); }
   expect(failures).toEqual([]); expect(unexpected).toEqual([]);
 });
