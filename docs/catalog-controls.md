@@ -8,6 +8,8 @@ widths. That original card/style collector does not execute the original client
 or use production post fixtures. The later [Search control reference](catalog-search-controls.md)
 executes the whole hash-pinned public client on owned synthetic cards and checks
 the current control behavior and styles independently.
+The separate [Filters & Highlights reference](catalog-filters.md) also executes
+the whole public client for its grammar, editor and rule effects.
 
 ## Read interface
 

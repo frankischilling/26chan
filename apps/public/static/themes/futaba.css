@@ -10,6 +10,7 @@
 
 /* Pinned public watcher images; only release-owned URLs are permitted. */
 :root {
+  --catalog-filter-field-margin: 0; --catalog-filter-action-font: 14px;
   --capcode-highlight-edge: var(--reply-edge);
   --watcher-icon-family: futaba;
   --watcher-header-line-height: 1;
@@ -30,3 +31,6 @@
     --watcher-cross: url('/static/watcher/futaba/cross@2x.png');
   }
 }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question@2x.png'); } }

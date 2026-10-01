@@ -97,6 +97,51 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .nativeCatalogControls #qf-box { width: 75px; max-width: none; height: auto; min-width: 0; padding: var(--catalog-field-padding); margin: var(--catalog-field-margin); box-sizing: content-box; border: var(--catalog-field-border); border-radius: 0; font: var(--catalog-field-font) Arial; color: #000; background: #fff; line-height: normal; }
 .nativeCatalogControls #qf-clear { text-decoration: none; }
 .nativeCatalogControls #qf-box:focus { border-color: var(--catalog-field-focus); }
+
+/* Catalog v1025 filters have their own editor and rule format. */
+.catalogFilterPanel { box-sizing: content-box; position: absolute; left: 50%; right: auto; bottom: auto; border: 0; padding: 2px 5px 5px; margin-top: 0; margin-bottom: 0; background: var(--panel, #f0e0d6); color: var(--ink, #800000); font-size: 14px; line-height: normal; box-shadow: 0 0 5px rgba(0, 0, 0, .25); max-width: none; max-height: none; }
+.catalogFilterPanel::backdrop { background: rgba(0, 0, 0, .25); }
+.catalogFilterPanel.hidden, .catalogFilterPalette.hidden { display: none; }
+#filters { width: 380px; margin-left: -190px; }
+.catalogFilterPanel .panelHeader { position: static; border-bottom: 1px solid var(--catalog-filter-edge, var(--settings-edge, #d9bfb7)); font-size: 16px; font-weight: bold; margin: 5px 0; padding-bottom: 5px; text-align: center; line-height: 14px; }
+.catalogFilterPanel input[type=text] { box-sizing: content-box; padding: var(--catalog-field-padding); border: var(--catalog-field-border); border-radius: 0; color: #000; background: #fff; font: var(--catalog-field-font) Arial; line-height: normal; }
+#filters-search { position: absolute; left: 4px; width: 50px; padding: 0 2px; font-size: 11px; margin: 0; }
+#filters-search:focus { width: 85px; }
+.catalogFilterPanel .icon { position: absolute; top: 5px; right: 5px; display: block; width: 18px; height: 18px; margin: 0; padding: 0; border: 0; background-color: transparent; background-size: 100%; cursor: pointer; }
+.catalogFilterPanel .helpIcon { background-image: var(--catalog-filter-help); right: 23px; }
+#filter-table { width: 100%; border: 0; border-collapse: separate; border-spacing: 1px; font-size: var(--catalog-filter-action-font, 10pt); font-family: inherit; }
+#filter-table th { font-size: 11px; min-width: 20px; font-weight: bold; }
+#filter-table th, #filter-table td { padding: 0; text-align: center; }
+#filter-table tbody td { padding: 8px 0 0; }
+#filter-table tfoot td { padding-top: 20px; }
+#filter-table .filter-pattern { width: 140px; margin: var(--catalog-filter-field-margin, 0 2px); }
+#filter-table .filter-boards { width: 30px; margin: var(--catalog-filter-field-margin, 0 2px); }
+#filter-table .filter-hits { font-size: 12px; }
+#filter-table input[type=checkbox] { appearance: auto; width: 13px; height: 13px; padding: 0; border: 0; margin: 0; }
+.catalogFilterPanel .pointer { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; line-height: normal; }
+.catalogFilterPanel .clickbox { box-sizing: content-box; width: 16px; height: 16px; display: block; margin: auto; padding: 0; line-height: 16px; font: 10px Arial; text-align: center; background: #fff; border: 1px solid #aaa; color: #000; }
+#filters-add, #filters-save { padding: 1px 6px; border: 2px outset ButtonBorder; background: ButtonFace; color: ButtonText; font: var(--catalog-field-font) Arial; }
+#filters-add { float: left; }
+#filter-table .right { float: right; }
+#filters-msg { font-size: 12px; padding-right: 5px; }
+.catalogFilterPalette { position: fixed; top: 0; left: 0; right: auto; bottom: auto; width: 100%; height: 100%; max-width: none; max-height: none; padding: 0; margin: 0; border: 0; background: transparent; }
+.catalogFilterPalette::backdrop { background: transparent; }
+#colorpicker { position: fixed; left: auto; padding: 4px; }
+#colorpicker td { padding: 2px; text-align: center; }
+#filter-rgb { width: 80px; }
+#filter-rgb-ok { float: right; }
+#filter-palette-close, #filter-palette-clear { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+#filters-protip { top: 50px; width: 570px; padding-left: 10px; padding-right: 10px; margin-left: -295px; }
+#filters-protip h4 { font-size: 15px; margin: 10px 0 5px; }
+#filters-protip h4::before { content: '»'; margin-right: 3px; }
+.catalog .thumb.hl { border-style: solid; border-width: 3px; }
+@media (max-width: 480px) {
+  #filters { width: 310px; margin-left: -160px; }
+  #filters-search { display: none; font-size: 16px; }
+  .catalogFilterPanel input[type=text] { font-size: 16px; }
+  #filter-table .filter-pattern { width: 90px; }
+  #filters-protip { width: calc(100vw - 40px); left: 10px; margin-left: 0; }
+}
 @media (max-width: 480px) {
   .nativeCatalogControls { text-align: center; }
   .nativeCatalogControls #info { float: none; line-height: 30px; }
@@ -603,3 +648,6 @@ div.backlink { display: inline; padding: 0 0 0 5px; font-size: .8em !important; 
 .nativeSettingsTransfer .export-field { box-sizing: border-box; width: 100%; }
 .nativeSettingsTransfer pre { max-height: 16em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .nativeSettings .center > button + button { margin-left: 8px; }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/futaba/question@2x.png'); } }

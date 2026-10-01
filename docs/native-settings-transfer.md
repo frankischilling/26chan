@@ -20,7 +20,12 @@ Only preference storage is considered for transfer. The module reads `4chan-sett
 
 The rewrite has a finite `catalog-settings` format: `orderby` is one of `alt`, `absdate`, `date`, or `r`, and `large` and `extended` are booleans. That format is exported and restored.
 
-The public payload also has a `catalogFilters` field. The rewrite has no current `catalog-filters` consumer or validator; catalog filtering uses the validated `4chan-filters` format instead. Generated exports therefore omit `catalogFilters`, and incoming payloads that contain it are rejected with an explicit message. No conversion between the two formats is guessed.
+The public payload also has a `catalogFilters` field. The rewrite now has a
+separate [catalog rule consumer and validator](catalog-filters.md), but its
+restore review, worker validation and multi-key rollback have not been
+integrated into settings transfer. Generated exports still omit
+`catalogFilters`, and incoming payloads that contain it are rejected with an
+explicit message. No conversion between the two filter formats is guessed.
 
 The v1191 defaults include `forceHTTPS` and `unmuteWebm`. They are preserved as boolean compatibility values, but this version does not activate those features. `IDColor` is active for [poster IDs](poster-ids.md). The review marks them as inactive compatibility values. In particular, a transferred `forceHTTPS` value does not relax the rewrite's HTTPS policy.
 

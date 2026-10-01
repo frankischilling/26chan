@@ -41,6 +41,7 @@ npm run test:quick-reply
 npx playwright test tests/browser/mobile-post-headers.spec.js
 npx playwright test tests/browser/post-identities.spec.js
 npx playwright test tests/browser/poster-ids.spec.js
+npm run test:catalog-filters-core
 npm run test:behavior
 npx playwright test tests/browser/catalog-teasers.spec.js
 npx playwright test tests/browser/text-catalog.spec.js

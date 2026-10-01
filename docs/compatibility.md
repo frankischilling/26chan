@@ -2,6 +2,13 @@
 
 ## Active reference boundary
 
+The separate [catalog Filters & Highlights](catalog-filters.md) consumer now
+uses a whole-client public v1025 replay for matching grammar, rule effects,
+editor states and six-theme styles. Patterns run in bounded disposable workers;
+storage uses the shared lock and an opening-value conflict check. Settings
+transfer for this format, catalog theme options, complete original-page pixels
+and server normalization remain unfinished.
+
 The [catalog Search controls](catalog-search-controls.md) now have a whole-client
 public v1025 replay covering 46 behavior states and 24 style cases. The local
 enhancement follows keyup, open/close, session, keyboard and six-theme rules while
@@ -82,7 +89,9 @@ integration.
 [Settings transfer](native-settings-transfer.md) uses the public `#cfg=` envelope
 for settings, filters, CSS and catalog display preferences. Restore first shows
 the proposed values and requires confirmation. It rejects unsupported catalog
-filter data and unsafe style rules. The two known settings whose underlying
+filter transfer data and unsafe style rules. Catalog rules now have their own
+local consumer, but their transfer transaction has not been integrated. The
+two known settings whose underlying
 features are unavailable remain inactive values; importing them does not add
 WebM processing or optional production HTTPS. [Poster IDs](poster-ids.md) provide
 the optional thread-scoped label, ID filters and default-on IDColor behavior.

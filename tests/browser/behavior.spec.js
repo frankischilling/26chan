@@ -10,12 +10,14 @@ const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updat
 const navigationAssets = JSON.parse(await readFile(new URL('../../docs/public-navigation-assets.json', import.meta.url), 'utf8'));
 const flagAssets = JSON.parse(await readFile(new URL('../../docs/public-country-flags-reference.json', import.meta.url), 'utf8'));
 const capcodeAssets = JSON.parse(await readFile(new URL('../../docs/public-capcode-reference.json', import.meta.url), 'utf8'));
+const filterAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-filter-assets.json', import.meta.url), 'utf8'));
 const releaseImages = [
   ...flagAssets.assets.filter(asset => asset.mime.startsWith('image/')).map(asset => ({ ...asset, path: `${flagAssets.local_base}${asset.name}` })),
   ...capcodeAssets.assets.map(asset => ({ ...asset, path: `${capcodeAssets.local_base}${asset.name}` })),
   ...navigationAssets.files.map(asset => ({ path: asset.path.replace('apps/public', ''), dimensions: [asset.width, asset.height] })),
   ...[uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
     manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` }))),
+  ...filterAssets.assets.map(asset => ({ ...asset, path: `${filterAssets.local_base}${asset.name}`, dimensions: [asset.width, asset.height] })),
 ];
 
 const apiOrigin = 'http://127.0.0.1:3003';

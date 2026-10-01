@@ -4,6 +4,8 @@
 use board_public::catalog;
 #[path = "visual/catalog_controls.rs"]
 mod catalog_controls;
+#[path = "visual/catalog_filters.rs"]
+mod catalog_filters;
 #[path = "visual/catalog_limits.rs"]
 mod catalog_limits;
 #[path = "visual/headers.rs"]
@@ -368,6 +370,7 @@ async fn main() {
             false,
         ))
         .merge(media_fixture.routes())
+        .merge(catalog_filters::routes().await)
         .route(
             "/",
             get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),

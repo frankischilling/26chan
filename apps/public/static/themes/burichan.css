@@ -2,6 +2,7 @@
 :root { --catalog-controls-font: 'Times New Roman', serif; --catalog-controls-size: 16px; --catalog-field-font: 10pt; --catalog-field-padding: 1px 2px; --catalog-field-margin: 0 5px 0 0; --catalog-field-border: 2px inset #767676; --catalog-field-focus: #767676; --catalog-button-color: #34345c; --catalog-button-edge: #b7c5d9; --catalog-button-paper: #d6daf0; --catalog-button-image: url('/static/watcher/buttonfade-blue.png'); }
 :root { --text-catalog-cell-font: 12pt; }
 :root {
+  --catalog-filter-field-margin: 0; --catalog-filter-action-font: 14px;
   --mobile-capcode-highlight-edge: currentColor;
   --capcode-highlight: #c1c6e2; --capcode-highlight-edge: var(--reply-edge);
   --settings-edge: rgba(0, 0, 0, 0.2);
@@ -38,3 +39,6 @@
   }
 }
 :root { --catalog-preview-subject: #dedede; }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/burichan/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/burichan/question@2x.png'); } }

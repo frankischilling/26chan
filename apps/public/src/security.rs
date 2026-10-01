@@ -204,9 +204,13 @@ fn headers(
         );
         if page == Some(InteractivePage::Catalog) {
             format!(
-                "{}{} {watcher}",
+                "{}{} {}{} {}{} {watcher}",
                 state.origin,
-                crate::ui_assets::CATALOG_SCRIPT_PATH
+                crate::ui_assets::CATALOG_SCRIPT_PATH,
+                state.origin,
+                crate::ui_assets::CATALOG_FILTER_PATH,
+                state.origin,
+                crate::ui_assets::CATALOG_FILTER_CORE_PATH
             )
         } else {
             watcher
@@ -270,7 +274,16 @@ fn headers(
         "'none'".into()
     };
     let worker = if interactive {
-        format!("{}{}", state.origin, crate::ui_assets::NATIVE_FILTER_PATH)
+        let native = format!("{}{}", state.origin, crate::ui_assets::NATIVE_FILTER_PATH);
+        if page == Some(InteractivePage::Catalog) {
+            format!(
+                "{native} {}{}",
+                state.origin,
+                crate::ui_assets::CATALOG_FILTER_CORE_PATH
+            )
+        } else {
+            native
+        }
     } else {
         "'none'".into()
     };
@@ -400,6 +413,14 @@ mod tests {
                     );
                 }
                 assert_eq!(directive("style-src"), "style-src 'self'");
+                for path in ["catalog-filters.v1.js", "catalog-filter-core.v1.js"] {
+                    assert_eq!(
+                        directive("script-src")
+                            .split_whitespace()
+                            .any(|value| value == format!("{origin}/static/{path}")),
+                        page == Some(InteractivePage::Catalog)
+                    );
+                }
                 assert_eq!(
                     directive("frame-src"),
                     if page == Some(InteractivePage::Board) {
@@ -428,7 +449,13 @@ mod tests {
                 if page.is_some() {
                     assert_eq!(
                         directive("worker-src"),
-                        format!("worker-src {origin}/static/native-filter.v1.js")
+                        if page == Some(InteractivePage::Catalog) {
+                            format!(
+                                "worker-src {origin}/static/native-filter.v1.js {origin}/static/catalog-filter-core.v1.js"
+                            )
+                        } else {
+                            format!("worker-src {origin}/static/native-filter.v1.js")
+                        }
                     );
                     assert_eq!(
                         directive("connect-src"),

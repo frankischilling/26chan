@@ -1,0 +1,87 @@
+{
+  "scope": "Unchanged static help icons named by pinned catalog CSS v705. No production posts or media.",
+  "source_base": "https://s.4cdn.org/image/buttons/",
+  "local_base": "/static/catalog/buttons/",
+  "assets": [
+    {
+      "name": "futaba/question.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/question.png",
+      "mime": "image/png",
+      "bytes": 150,
+      "sha256": "40c6417c731d2d99693264d48981b5a3fa5fb64604dc58ac68430657b5d927a6",
+      "width": 18,
+      "height": 18,
+      "collected_at": "2026-10-01T00:43:04.962Z"
+    },
+    {
+      "name": "futaba/question@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/futaba/question@2x.png",
+      "mime": "image/png",
+      "bytes": 157,
+      "sha256": "780313066393240c9cdf862eabd1f626646bc1843ad8c5899bd4cec32a3a8c37",
+      "width": 36,
+      "height": 36,
+      "collected_at": "2026-10-01T00:43:04.989Z"
+    },
+    {
+      "name": "burichan/question.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/question.png",
+      "mime": "image/png",
+      "bytes": 129,
+      "sha256": "3b4c10523c11203db7e2338a4f4f5d17bbe98f1efac7f3e897baa730beeab339",
+      "width": 18,
+      "height": 18,
+      "collected_at": "2026-10-01T00:43:05.006Z"
+    },
+    {
+      "name": "burichan/question@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/burichan/question@2x.png",
+      "mime": "image/png",
+      "bytes": 150,
+      "sha256": "2c89020bb2e3143b889dd919d8b7afbe1a49df363b4b7e5ad7fb279efa38dac5",
+      "width": 36,
+      "height": 36,
+      "collected_at": "2026-10-01T00:43:05.025Z"
+    },
+    {
+      "name": "tomorrow/question.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/question.png",
+      "mime": "image/png",
+      "bytes": 120,
+      "sha256": "087f328cbe492cd5703be147538f1bf6e7449f38706e5d1a74b3b6a0ce9bb0c7",
+      "width": 18,
+      "height": 18,
+      "collected_at": "2026-10-01T00:43:05.044Z"
+    },
+    {
+      "name": "tomorrow/question@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/tomorrow/question@2x.png",
+      "mime": "image/png",
+      "bytes": 138,
+      "sha256": "3466c38aa7247c68759665348b313b861d2dd9e2ee19aa5bb58fa079dd4a59f3",
+      "width": 36,
+      "height": 36,
+      "collected_at": "2026-10-01T00:43:05.065Z"
+    },
+    {
+      "name": "photon/question.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/question.png",
+      "mime": "image/png",
+      "bytes": 127,
+      "sha256": "c53bad2e45fe8a3494be36b78066f90f8d95dcec38b4f27e03126b42ab584d44",
+      "width": 18,
+      "height": 18,
+      "collected_at": "2026-10-01T00:43:05.085Z"
+    },
+    {
+      "name": "photon/question@2x.png",
+      "url": "https://s.4cdn.org/image/buttons/photon/question@2x.png",
+      "mime": "image/png",
+      "bytes": 147,
+      "sha256": "ad151ad9b8e78a33b55121bfb002cb5e7fceb885400bd613f6ce9e87a5604a68",
+      "width": 36,
+      "height": 36,
+      "collected_at": "2026-10-01T00:43:05.182Z"
+    }
+  ]
+}

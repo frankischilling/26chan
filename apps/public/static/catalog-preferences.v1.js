@@ -1,4 +1,5 @@
 import { NativeWatchLock } from './native-filter.v1.js';
+import { mountCatalogFilters } from './catalog-filters.v1.js';
 
 (() => {
   'use strict';
@@ -11,6 +12,7 @@ import { NativeWatchLock } from './native-filter.v1.js';
   const searchToggle = document.getElementById('qf-ctrl');
   const searchContainer = document.getElementById('qf-cnt');
   const searchClose = document.getElementById('qf-clear');
+  const filterToggle = document.getElementById('filters-ctrl');
   const preferenceStatus = document.getElementById('catalog-preference-status');
   const spoilers = document.getElementById('theme-nospoiler');
   const spoilerControl = spoilers instanceof HTMLSelectElement;
@@ -86,6 +88,10 @@ import { NativeWatchLock } from './native-filter.v1.js';
         reply: node.querySelector(textOnly ? '.txt-rep [data-replies-count]' : '.meta > b, .meta > i > b'),
         controls: node.querySelector(textOnly ? '.txt-ctrl' : '.meta'),
         fields: searchable ? [fields.searchText, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
+        filterCard: searchable && ['filterName', 'filterTrip', 'filterCapcode'].every(name => typeof fields[name] === 'string')
+          ? { id: data.threadId, text: fields.searchText, author: fields.filterName,
+            ...(fields.hasFile === 'true' ? { file: fields.searchFile } : {}),
+            ...(fields.filterTrip ? { trip: fields.filterTrip } : {}), ...(fields.filterCapcode ? { capcode: fields.filterCapcode } : {}) } : null,
         small: thumb ? dimensions(thumb, 'small', 150) : null,
         large: thumb ? dimensions(thumb, 'large', 250) : null,
         id: integer(data.threadId), bumped: integer(data.bumped, true),
@@ -109,6 +115,9 @@ import { NativeWatchLock } from './native-filter.v1.js';
     }
   };
   let searchOpen = false;
+  let catalogFilters = null;
+  let catalogHadFilters = false;
+  const filteredLabels = [];
   const originalEmpty = container?.querySelector(':scope > .empty');
   let renderedOrder = hiddenCount ? null : order.value;
   let renderedQuery = search instanceof HTMLInputElement ? search.value : '';
@@ -145,9 +154,9 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (pairs.length > 1024) throw new Error('Too many stored threads');
       for (const [id, value] of pairs) {
         if (!/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n) continue;
-        if (pins ? !Number.isSafeInteger(value) || value < 0 : value !== true) continue;
+        if (pins ? !Number.isSafeInteger(value) || value < 0 : value !== true && value !== 1) continue;
         if (!byId.has(id) && BigInt(id) < newest) continue;
-        values.set(id, value);
+        values.set(id, pins ? value : true);
       }
     } catch { /* Invalid optional state cannot disable the catalog. */ }
     persistState(name, values);
@@ -539,9 +548,14 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (hiddenOnly && total === 0) hiddenOnly = false;
       shownHiddenCount = hiddenOnly || !query ? total : 0;
     }
-    if (value.orderby !== renderedOrder) {
+    const filterSnapshot = catalogFilters?.snapshot() ?? { rules: [], matches: new Map() };
+    const filterActive = !query && !hiddenOnly;
+    const ruleFor = entry => filterActive && !(stateReady && pins.has(entry.id.toString()))
+      ? filterSnapshot.rules[filterSnapshot.matches.get(entry.id.toString())] : undefined;
+    if (filterSnapshot.rules.length || value.orderby !== renderedOrder) {
       entries.sort((a, b) => (textOnly ? 0 : Number(b.sticky) - Number(a.sticky))
-        || (stateReady ? Number(pins.has(b.id.toString())) - Number(pins.has(a.id.toString())) : 0) || (
+        || Number(!!(stateReady && pins.has(b.id.toString()) || ruleFor(b)?.top))
+          - Number(!!(stateReady && pins.has(a.id.toString()) || ruleFor(a)?.top)) || (
         value.orderby === 'date' ? compare(b.id, a.id)
           : value.orderby === 'absdate' ? compareOptional(b.latest, a.latest) || compare(a.id, b.id)
             : value.orderby === 'r' ? compare(b.replies, a.replies) || compare(a.id, b.id)
@@ -557,11 +571,30 @@ import { NativeWatchLock } from './native-filter.v1.js';
     teaser.value = value.extended ? 'on' : 'off';
     container.className = textOnly ? 'catalog textCatalog' : `catalog ${value.extended ? 'extended-' : ''}${value.large ? 'large' : 'small'}`;
     const fragment = document.createDocumentFragment();
-    let count = 0;
+    let count = 0, filteredCount = 0;
+    const hits = filterSnapshot.rules.map(() => 0);
     for (const entry of entries) {
       const id = entry.id.toString();
+      const highlight = entry.node.querySelector('.catalogThumb .thumb');
+      if (entry.filterColor) {
+        highlight?.classList.remove('hl');
+        if (highlight?.style.borderColor === entry.filterColor) highlight.style.borderColor = '';
+        if (entry.teaser.style.color === entry.filterColor) entry.teaser.style.color = '';
+        entry.filterColor = '';
+      }
       if (stateReady && (hiddenOnly ? !hiddenThreads.has(id) : !query && hiddenThreads.has(id))) continue;
       if (!hiddenOnly && searchReady && pattern && !entry.fields.some(field => pattern.test(field))) continue;
+      const rule = ruleFor(entry);
+      if (rule) {
+        hits[filterSnapshot.matches.get(id)]++;
+        if (rule.hidden) { filteredCount++; continue; }
+        if (rule.color) {
+          if (highlight) { highlight.classList.add('hl'); highlight.style.borderColor = rule.color; }
+          // The released image catalog leaves teaser text uncolored. Its
+          // legacy markup is malformed; preserve the visible result with safe DOM.
+          entry.filterColor = highlight?.style.borderColor ?? '';
+        }
+      }
       if (stateReady) {
         const pinned = pins.has(id);
         if (textOnly) entry.node.classList.toggle('pinned', pinned);
@@ -613,6 +646,11 @@ import { NativeWatchLock } from './native-filter.v1.js';
       if (message) container.append(message);
     }
     entriesRoot.replaceChildren(fragment);
+    for (const { label, count } of filteredLabels) {
+      label.style.display = filteredCount ? 'inline' : 'none';
+      if (filteredCount) count.textContent = String(filteredCount);
+    }
+    catalogFilters?.setHits(hits);
     if (searchReady) { renderedQuery = query; showSearchLabels(query); }
     if (stateReady) { if (persistPins) persistState(pinKey, pins); updateStateControls(); }
     return true;
@@ -842,5 +880,27 @@ import { NativeWatchLock } from './native-filter.v1.js';
     searchToggle.setAttribute('aria-expanded', 'true');
     showSearchLabels(query);
     search.focus();
+  }
+  if (searchControlsReady && entries.length <= 20001 && entries.every(entry => entry.filterCard !== null)
+    && filterToggle instanceof HTMLButtonElement && form.contains(filterToggle)) {
+    for (const suffix of ['', '-bottom']) {
+      const label = document.createElement('span'); label.id = `filtered-label${suffix}`;
+      label.style.display = 'none';
+      const count = document.createElement('span'); count.id = `filtered-count${suffix}`;
+      label.append('Filtered: ', count); filteredLabels.push({ label, count });
+      if (suffix) container.after(label); else form.querySelector('#info').append(' ', label);
+    }
+    catalogFilters = mountCatalogFilters({ board, cards: entries.map(entry => entry.filterCard),
+      form, container, opener: filterToggle,
+      changed: () => {
+        const active = (catalogFilters?.snapshot().rules.length ?? 0) > 0;
+        // An empty initial refresh has no effects to apply. Rendering again
+        // would consume the pin reply delta displayed by the original pass.
+        if (!active && !catalogHadFilters) return;
+        if (active || catalogHadFilters) renderedOrder = null;
+        catalogHadFilters = active;
+        apply(current());
+      },
+    });
   }
 })();

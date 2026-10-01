@@ -43,3 +43,6 @@
 }
 :root { --catalog-preview-paper: #000; --catalog-preview-subject: #b294bb; }
 :root { --post-number-hover: #5f89ac; }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/tomorrow/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/tomorrow/question@2x.png'); } }

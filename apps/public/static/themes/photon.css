@@ -33,3 +33,6 @@
   }
 }
 :root { --catalog-preview-subject: #dedede; --catalog-preview-author: #dedede; }
+
+:root { --catalog-filter-help: url('/static/catalog/buttons/photon/question.png'); }
+@media (min-resolution: 2dppx) { :root { --catalog-filter-help: url('/static/catalog/buttons/photon/question@2x.png'); } }
