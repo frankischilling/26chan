@@ -117,6 +117,9 @@ impl Options {
                                 &post.comment,
                                 post.comment_format,
                                 &snapshot.board,
+                                post.dice_result.as_deref(),
+                                post.fortune_text.as_deref(),
+                                post.fortune_color.as_deref(),
                             )) || post.attachment.as_ref().is_some_and(|file| {
                                 !file.file_deleted && query.matches(&file.filename)
                             })

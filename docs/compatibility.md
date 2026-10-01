@@ -24,13 +24,24 @@ Synthetic fixtures run through the original PHP functions pin normalization,
 static links and catalog teaser serialization. Complete page comparisons and
 the remaining original formatting and media workflows are still required.
 
+[Global Search](public-search.md) now searches persisted public threads with
+source query parameters, grouped results, ordering and pagination. Public board
+visibility is enforced by the database. [RSS feeds](rss-feeds.md) use the source
+feed switches, item order and summary rules. [Staff access](staff.md) includes
+the source rank ordering, board allow/deny scope and
+[private discussion](private-staff-discussion.md); remaining staff actions are
+tracked separately. [Dice and fortunes](source-posting-randomizers.md) retain
+board-enabled results across public projections, with bounded numeric parsing
+and server-generated randomness. Each linked document records its scope and
+verification limits.
+
 ## Earlier public-reference checkpoints
 
 The [public page navigation, titles and footer](public-page-chrome.md) use
 sanitized public DOM observations and unchanged Core/extension replays on owned
 markup. The local board directory, mobile destinations, mode preference and
 shared Settings links are implemented. Six-theme component properties and hover
-colors have independent reference records. Global Search, information-page
+colors have independent reference records. Information-page
 destinations, banner images, complete menu styling and original-page placement
 remain unfinished.
 

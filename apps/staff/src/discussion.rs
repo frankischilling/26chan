@@ -69,6 +69,7 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::AuthorizationChanged => AppError::Unauthorized,
         StoreError::Database(error) => AppError::Database(error),
         StoreError::UnsafeRole => AppError::Forbidden,
+        StoreError::RandomnessUnavailable => AppError::Internal,
     }
 }
 

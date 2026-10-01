@@ -29,6 +29,17 @@ test('source board, catalog search and rules links survive the bounded recipe wi
   }
 });
 
+test('fortune palette classes and dice markup survive the finite updater recipe without inline style authority', () => {
+  const inside = '<b>Rolled 6, 6 = 12 (2d6)<br><br></b>ordinary'
+    + '<span class="fortune fortune-10"><br><br><b>Your fortune: Outlook good</b></span>';
+  assert.equal(parse(snapshot(inside)).status, 'ok');
+  for (const hostile of [
+    inside.replace('fortune-10', 'fortune-owned'),
+    inside.replace('class="fortune fortune-10"', 'class="fortune fortune-10" style="color:#00cbb0"'),
+    inside.replace('fortune fortune-10', 'fortune fortune-10 quote'),
+  ]) assert.equal(parse(snapshot(hostile)).status, 'invalid-snapshot', hostile);
+});
+
 const capcodes = [
   ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
   ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators', 'adminicon', 'This user is a board Administrator.'],

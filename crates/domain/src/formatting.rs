@@ -23,6 +23,20 @@ pub enum Token {
     CloseMarkup(Tag),
     OpenQuote,
     CloseQuote,
+    /// Server-generated wrappers. User formatting never creates these tokens.
+    GeneratedBold(bool),
+    GeneratedFortune(bool, String),
+}
+
+impl Token {
+    pub fn fortune_class(&self) -> &str {
+        match self {
+            Self::GeneratedFortune(_, color) => {
+                crate::posting_randomizers::fortune_class(color).unwrap_or("fortune")
+            }
+            _ => "fortune",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

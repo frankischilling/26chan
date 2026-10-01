@@ -100,6 +100,20 @@ test('preview recipes retain escaped tripcode headers without granting attribute
   }
 });
 
+test('quote previews accept only the fixed fortune palette recipe', () => {
+  const fortune = '<b>Rolled 1 (1d1)<br><br></b>'
+    + '<span class="fortune fortune-0"><br><br><b>Your fortune: Bad Luck</b></span>';
+  assert.equal(parse(snapshot(fortune)).status, 'ok');
+  assert.equal(
+    parse(snapshot(fortune.replace('fortune-0', 'fortune-13'))).status,
+    'invalid-preview'
+  );
+  assert.equal(
+    parse(snapshot(fortune.replace('class="fortune fortune-0"', 'class="fortune fortune-0" style="color:#7fec11"'))).status,
+    'invalid-preview'
+  );
+});
+
 test('hostile HTML, media, credentials and oversized recipes cannot cross the parser boundary', () => {
   for (const hostile of ['<script>alert(1)</script>', '<style>body{display:none}</style>', '<iframe src="/staff"></iframe>',
     '<svg><image href="https://tracker.example/x"/></svg>', '<math><mi>x</mi></math>', '<template><img src="/tracker"></template>',

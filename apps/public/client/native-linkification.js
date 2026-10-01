@@ -38,7 +38,7 @@ export function sourceLinkSpans(serialized, probed = hasSourceLink(serialized)) 
   return output;
 }
 
-const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
+const tags = new Set(['SPAN', 'B', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const escapeText = ch => ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
 const generated = 'data-native-linkified';
 

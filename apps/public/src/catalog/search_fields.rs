@@ -36,13 +36,18 @@ pub(crate) fn from_post(
     comment: &str,
     format: i16,
     board: &board_store::Board,
+    dice: Option<&str>,
+    fortune: Option<&str>,
+    fortune_color: Option<&str>,
 ) -> String {
     compose(
         subject,
-        &super::teaser::prepare(
+        &super::teaser::prepare_with_randomizers(
             &parse_post_comment_on_board(comment, format, &board.slug),
             &board.slug,
             super::teaser::Policy::for_post(board, format),
+            dice,
+            fortune.zip(fortune_color),
         )
         .serialized,
     )
@@ -147,6 +152,24 @@ mod tests {
             format!("<b>{expanded}</b>: body")
         );
         assert!(Filter::new("B</b>").matches(&from_raw(&expanded, "body")));
+    }
+
+    #[test]
+    fn retained_randomizers_are_searchable_without_trusting_markup() {
+        assert_eq!(
+            compose(
+                "<subject>",
+                &super::super::teaser::prepare_with_randomizers(
+                    &parse_comment("ordinary"),
+                    "test",
+                    Default::default(),
+                    Some("Rolled 6, 6 = 12 (2d6)"),
+                    Some(("<Outlook good>", "#7fec11")),
+                )
+                .serialized,
+            ),
+            "<b>&lt;subject&gt;</b>: Rolled 6, 6 = 12 (2d6) ordinary Your fortune: &lt;Outlook good&gt;"
+        );
     }
 
     #[test]

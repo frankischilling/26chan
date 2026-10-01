@@ -4,7 +4,8 @@ Issue #210 implements the posting randomizers from the pinned source revision
 `545b7812d1849f7958d914950c91fdbbe38f6b22`.
 
 `imgboard.php:5548-5560` handles fortunes. The active list has 13 entries and
-the feature runs only when the Options field is exactly `fortune`. The
+the feature runs when the Options field is exactly `fortune` after removing
+all case-insensitive `sage` occurrences. Spaces are retained. The
 Christmas 2021 list in the same branch is commented out, so it is recorded as a
 seasonal variant rather than active behavior. The selected fortune and its
 derived color are generated once during posting and stored with the post.
@@ -36,24 +37,32 @@ generator before randomness is requested.
 Randomness comes from the operating system through `ring::rand::SystemRandom`.
 Failure aborts the post before thread or post mutation. Stored dice text,
 fortune text and the six-digit fortune color are constrained by the database.
-Templates provide the fixed `<b>`, `<br>` and fortune wrapper elements while
-escaping the stored text. Clients never supply trusted HTML or the generated
-metadata.
+The public JSON projection retains the source-style inline color representation.
+Live pages map the 13 source-derived colors to fixed external CSS classes so the
+fortune remains colored under the site's `style-src 'self'` policy. Templates
+provide the fixed `<b>`, `<br>` and fortune wrapper elements while escaping
+the stored text. Clients never supply trusted HTML or generated metadata.
 
 ## Operations and rollback
 
-Apply migration 0055 before deploying a binary that reads the three new board
-flags or post metadata columns. Existing boards are updated to the pinned source
-settings above; synthetic boards default to all three features disabled. Binary
+Apply migration 0055 before deploying a binary that reads the two new board
+flags or three post metadata columns. Existing boards are updated to the pinned
+source settings above; synthetic boards default to both features disabled. Binary
 rollback should keep the additive columns in place because older binaries ignore
 them.
 
 Posting, the retained randomizer result and attachment consumption share one
 transaction. A rejected parent or later insertion error rolls the generated
 metadata back with the post. Page refreshes, thread JSON, board JSON, catalogs
-and updater projections read the stored result instead of rolling again.
+and updater, search and RSS projections read the stored result instead of
+rolling again. Catalogs apply the source tag stripping and `/b/` truncation
+after adding the generated text, so a dice prefix uses part of that teaser's
+300-character allowance.
 
 The focused domain tests cover grammar quirks, maximum modifiers, invalid
 constructed requests and randomness failure. The database test covers board
 guards, stable reloads and rollback; its exercise runs in a spawned task so
 fixture cleanup still executes after an assertion panic.
+
+The [verification record](verification-posting-randomizers.md) lists the source
+fixture checks, persisted tests, browser scenarios and current CI limits.

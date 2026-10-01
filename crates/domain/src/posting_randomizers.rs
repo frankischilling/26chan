@@ -20,6 +20,10 @@ const FORTUNES: [&str; 13] = [
     "（　´_ゝ`）ﾌｰﾝ ",
     "Good news will come to you by mail",
 ];
+const FORTUNE_COLORS: [&str; 13] = [
+    "#7fec11", "#bac200", "#e7890c", "#fd4d32", "#f51c6a", "#d302a7", "#9d05da", "#6023f8",
+    "#2a56fb", "#0893e1", "#00cbb0", "#16f174", "#43fd3b",
+];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DiceRequest {
@@ -57,6 +61,8 @@ pub fn request(
     if value.len() > MAX_PUBLIC_FIELD_BYTES {
         return Err(ValidationError("Options must contain at most 100 bytes."));
     }
+    let normalized = crate::posting_options::without_sage(value);
+    let value = normalized.as_str();
     if fortune_enabled && value == "fortune" {
         return Ok(Some(Request::Fortune));
     }
@@ -158,7 +164,7 @@ fn parse_modifier(input: &[u8], start: usize) -> Result<Option<i64>, ValidationE
         if number_end == number_start {
             continue;
         }
-        let magnitude = parse_positive_i64_allow_zero(&input[number_start..number_end])?;
+        let magnitude = parse_modifier_magnitude(&input[number_start..number_end])?;
         let mut value = if negative_capture {
             -magnitude
         } else {
@@ -169,22 +175,25 @@ fn parse_modifier(input: &[u8], start: usize) -> Result<Option<i64>, ValidationE
             .position(|byte| *byte == b'-')
             .is_some_and(|position| position > 0)
         {
-            value = value
-                .checked_neg()
-                .ok_or(ValidationError("Dice modifier is too large."))?;
+            value = -value;
         }
-        return Ok(Some(value));
+        return i64::try_from(value)
+            .map(Some)
+            .map_err(|_| ValidationError("Dice modifier is too large."));
     }
     Ok(None)
 }
 
-fn parse_positive_i64_allow_zero(digits: &[u8]) -> Result<i64, ValidationError> {
-    let mut value = 0i64;
+fn parse_modifier_magnitude(digits: &[u8]) -> Result<i128, ValidationError> {
+    let mut value = 0i128;
     for digit in digits {
         value = value
             .checked_mul(10)
-            .and_then(|value| value.checked_add(i64::from(*digit - b'0')))
+            .and_then(|value| value.checked_add(i128::from(*digit - b'0')))
             .ok_or(ValidationError("Dice modifier is too large."))?;
+        if value > i128::from(i64::MAX) + 1 {
+            return Err(ValidationError("Dice modifier is too large."));
+        }
     }
     Ok(value)
 }
@@ -199,7 +208,7 @@ fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, Generation
         return Err(GenerationError::InvalidRequest);
     }
     let zone = u32::MAX - (u32::MAX % upper);
-    loop {
+    for _ in 0..128 {
         let mut bytes = [0u8; 4];
         random
             .fill(&mut bytes)
@@ -209,6 +218,7 @@ fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, Generation
             return Ok(value % upper);
         }
     }
+    Err(GenerationError::RandomnessUnavailable)
 }
 
 fn generate_with(
@@ -218,6 +228,9 @@ fn generate_with(
     match request {
         Request::Fortune => {
             let index = below(FORTUNES.len() as u32)? as usize;
+            if index >= FORTUNES.len() {
+                return Err(GenerationError::RandomnessUnavailable);
+            }
             Ok(Outcome::Fortune {
                 text: FORTUNES[index],
                 color: fortune_color(index),
@@ -282,9 +295,74 @@ fn fortune_color(index: usize) -> String {
     )
 }
 
+pub fn fortune_class(color: &str) -> Option<&'static str> {
+    FORTUNE_COLORS
+        .iter()
+        .position(|candidate| *candidate == color)
+        .map(|index| match index {
+            0 => "fortune fortune-0",
+            1 => "fortune fortune-1",
+            2 => "fortune fortune-2",
+            3 => "fortune fortune-3",
+            4 => "fortune fortune-4",
+            5 => "fortune fortune-5",
+            6 => "fortune fortune-6",
+            7 => "fortune fortune-7",
+            8 => "fortune fortune-8",
+            9 => "fortune fortune-9",
+            10 => "fortune fortune-10",
+            11 => "fortune fortune-11",
+            _ => "fortune fortune-12",
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    #[test]
+    fn retained_dice_and_fortunes_match_the_extracted_source_vectors() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/randomizer-reference.json"))
+                .unwrap();
+        for case in reference["dice_cases"].as_array().unwrap() {
+            let parsed = request(case["options"].as_str().unwrap(), true, false).unwrap();
+            if case["dice"].is_null() {
+                assert_eq!(parsed, None);
+            } else {
+                assert_eq!(
+                    generate(&parsed.unwrap()).unwrap(),
+                    Outcome::Dice(case["dice"].as_str().unwrap().into())
+                );
+            }
+        }
+        for (index, entry) in reference["fortunes"].as_array().unwrap().iter().enumerate() {
+            let expected = Outcome::Fortune {
+                text: FORTUNES[index],
+                color: fortune_color(index),
+            };
+            assert_eq!(FORTUNES[index], entry["text"]);
+            assert_eq!(fortune_color(index), entry["color"]);
+            assert_eq!(
+                generate_with(&Request::Fortune, |_| Ok(index as u32)).unwrap(),
+                expected
+            );
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+        #[test]
+        fn arbitrary_options_never_create_unbounded_requests(value in ".{0,130}") {
+            let parsed = request(&value, true, true);
+            if value.len() > MAX_PUBLIC_FIELD_BYTES { prop_assert!(parsed.is_err()); }
+            if let Ok(Some(Request::Dice(dice))) = parsed {
+                prop_assert!((1..=MAX_DICE_ROLLS).contains(&dice.count));
+                prop_assert!((1..=MAX_DICE_SIDES).contains(&dice.sides));
+            }
+        }
+    }
 
     #[test]
     fn source_option_grammar_and_board_guards_are_preserved() {
@@ -293,6 +371,11 @@ mod tests {
             Some(Request::Fortune)
         );
         assert_eq!(request("Fortune", false, true).unwrap(), None);
+        assert_eq!(
+            request("SaGefortunesage", false, true).unwrap(),
+            Some(Request::Fortune)
+        );
+        assert_eq!(request("fortune sage", false, true).unwrap(), None);
         assert_eq!(request("fortune", false, false).unwrap(), None);
         assert_eq!(
             request("xxdice+2d6+3yy", true, false).unwrap(),
@@ -336,6 +419,15 @@ mod tests {
         assert!(request("dice+2d2147483648", true, false).is_err());
         assert!(request("dice+2d6+999999999999999999999", true, false).is_err());
         assert!(request(&"x".repeat(101), true, true).is_err());
+        assert!(request("dice+2d1+9223372036854775808", true, false).is_err());
+        assert_eq!(
+            request("dice+2d1 -9223372036854775808", true, false).unwrap(),
+            Some(Request::Dice(DiceRequest {
+                count: 2,
+                sides: 1,
+                modifier: Some(i64::MIN)
+            }))
+        );
     }
 
     #[test]
@@ -436,6 +528,28 @@ mod tests {
         );
         assert_eq!(fortune_color(0), "#7fec11");
         assert_eq!(fortune_color(12), "#43fd3b");
+        for (index, color) in FORTUNE_COLORS.iter().enumerate() {
+            assert_eq!(fortune_color(index), *color);
+            assert_eq!(
+                fortune_class(color),
+                Some(match index {
+                    0 => "fortune fortune-0",
+                    1 => "fortune fortune-1",
+                    2 => "fortune fortune-2",
+                    3 => "fortune fortune-3",
+                    4 => "fortune fortune-4",
+                    5 => "fortune fortune-5",
+                    6 => "fortune fortune-6",
+                    7 => "fortune fortune-7",
+                    8 => "fortune fortune-8",
+                    9 => "fortune fortune-9",
+                    10 => "fortune fortune-10",
+                    11 => "fortune fortune-11",
+                    _ => "fortune fortune-12",
+                })
+            );
+        }
+        assert_eq!(fortune_class("#ffffff"), None);
         assert_eq!(
             generate_with(&Request::Fortune, |_| Ok(10)).unwrap(),
             Outcome::Fortune {

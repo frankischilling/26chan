@@ -149,6 +149,9 @@ struct Description<'a> {
     source: String,
     thumbnail: String,
     spoilers: bool,
+    dice: Option<&'a str>,
+    fortune: Option<&'a str>,
+    color: Option<&'a str>,
 }
 
 fn write_feed(
@@ -175,8 +178,25 @@ fn write_feed(
             post.comment_format,
             &post.board,
         );
-        let stored =
+        let mut stored =
             crate::catalog::teaser::stored_comment(&lines, &post.board, post.comment_format);
+        if let Some(dice) = &post.dice_result {
+            stored = format!(
+                "<b>{}<br><br></b>{stored}",
+                board_domain::source_html_entities(dice)
+            );
+        }
+        if let Some((text, color)) = post
+            .fortune_text
+            .as_deref()
+            .zip(post.fortune_color.as_deref())
+        {
+            stored.push_str(&format!(
+                "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
+                board_domain::source_html_entities(color),
+                board_domain::source_html_entities(text)
+            ));
+        }
         let title = item_title(post, &stored, board.forced_anon);
         let link = format!("{origin}/{}/thread/{}", board.slug, post.id);
         writer.write_str("<item>")?;
@@ -225,6 +245,9 @@ fn write_feed(
             source,
             thumbnail,
             spoilers: stored.contains("[spoiler"),
+            dice: post.dice_result.as_deref(),
+            fortune: post.fortune_text.as_deref(),
+            color: post.fortune_color.as_deref(),
         }
         .render_into(&mut XmlText(writer))?;
         writer.write_str("</description></item>")?;
@@ -296,6 +319,9 @@ mod tests {
             source: "https://media.example/test/42.png".into(),
             thumbnail: "https://media.example/test/42s.jpg".into(),
             spoilers: false,
+            dice: None,
+            fortune: None,
+            color: None,
         }
         .render()
         .unwrap();
@@ -313,6 +339,33 @@ mod tests {
             );
         }
         assert!(description.contains("src=\"https://media.example/test/42s.jpg\""));
+        assert!(!description.contains("<script>"));
+    }
+
+    #[test]
+    fn feed_descriptions_render_retained_randomizers_and_escape_their_text() {
+        let lines = board_domain::parse_post_comment_on_board("ordinary comment", 104, "b");
+        let description = Description {
+            lines: &lines,
+            board: "b",
+            origin: "https://boards.example",
+            source: String::new(),
+            thumbnail: String::new(),
+            spoilers: false,
+            dice: Some("Rolled 1 (1d1)"),
+            fortune: Some("<script> & fortune"),
+            color: Some("#7fec11"),
+        }
+        .render()
+        .unwrap();
+        assert!(
+            description
+                .trim_start()
+                .starts_with("<b>Rolled 1 (1d1)<br><br></b>")
+        );
+        assert!(description.contains("ordinary comment"));
+        assert!(description.contains("style=\"color:#7fec11\""));
+        assert!(description.contains("Your fortune: &#60;script&#62; &#38; fortune"));
         assert!(!description.contains("<script>"));
     }
 }

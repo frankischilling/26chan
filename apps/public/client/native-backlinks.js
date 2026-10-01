@@ -6,7 +6,7 @@ export const BACKLINK_LIMITS = Object.freeze({ posts: 20001, linksPerPost: 512,
   html: FILTER_LIMITS.html, text: FILTER_LIMITS.field,
   previewRows: 128, previewNodes: 1024, previewChars: 32768 });
 
-const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
+const tags = new Set(['SPAN', 'B', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const id = value => typeof value === 'string' && !/\D/.test(value) && postId(value) === value;
 const escapeText = text => text.replace(/[&<>\u00a0]/g,
   ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\u00a0': '&nbsp;' })[ch]);

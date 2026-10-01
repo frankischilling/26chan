@@ -60,6 +60,16 @@ pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String
 }
 
 pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
+    prepare_with_randomizers(lines, board, policy, None, None)
+}
+
+pub fn prepare_with_randomizers(
+    lines: &[Line],
+    board: &str,
+    policy: Policy,
+    dice: Option<&str>,
+    fortune: Option<(&str, &str)>,
+) -> Prepared {
     let mut tokens = Vec::new();
     let mut previous_break = false;
     for (index, line) in lines.iter().enumerate() {
@@ -90,6 +100,28 @@ pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
         if line.green || !line.tokens.is_empty() {
             previous_break = false;
         }
+    }
+    let separator = if policy.text_only { "\n" } else { " " };
+    if let Some(dice) = dice {
+        let mut prefix = vec![
+            Token::GeneratedBold(true),
+            Token::Text(format!("{dice}{separator}")),
+            Token::GeneratedBold(false),
+        ];
+        prefix.append(&mut tokens);
+        tokens = prefix;
+    }
+    if let Some((text, color)) = fortune
+        && board_domain::posting_randomizers::fortune_class(color).is_some()
+    {
+        tokens.extend([
+            Token::GeneratedFortune(true, color.into()),
+            Token::Text(separator.into()),
+            Token::GeneratedBold(true),
+            Token::Text(format!("Your fortune: {text}")),
+            Token::GeneratedBold(false),
+            Token::GeneratedFortune(false, color.into()),
+        ]);
     }
     if policy.sjis {
         tokens = replace_sjis(tokens);
@@ -181,6 +213,7 @@ fn strip(tokens: Vec<Token>) -> Vec<Token> {
             | Token::CloseMarkup(_)
             | Token::OpenQuote
             | Token::CloseQuote => {}
+            Token::GeneratedBold(_) | Token::GeneratedFortune(_, _) => {}
         }
     }
     result
@@ -289,6 +322,9 @@ fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
             Token::CloseMarkup(tag) => result.push_str(markup(*tag, false)),
             Token::OpenQuote => result.push_str("<span class=\"quote\">"),
             Token::CloseQuote => result.push_str("</span>"),
+            Token::GeneratedBold(open) => result.push_str(if *open { "<b>" } else { "</b>" }),
+            Token::GeneratedFortune(true, color) => result.push_str(&format!("<span class=\"fortune\" style=\"color:{color}\">")),
+            Token::GeneratedFortune(false, _) => result.push_str("</span>"),
         }
     }
     result
@@ -298,6 +334,31 @@ fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
 mod tests {
     use super::*;
     use board_domain::parse_post_comment;
+
+    #[test]
+    fn generated_randomizers_follow_source_teaser_stripping_and_truncation() {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/randomizer-reference.json"
+        ))
+        .unwrap();
+        for case in reference["teaser_cases"].as_array().unwrap() {
+            let lines = vec![Line {
+                green: false,
+                tokens: vec![Token::Text(case["comment"].as_str().unwrap().into())],
+            }];
+            let prepared = prepare_with_randomizers(
+                &lines,
+                "b",
+                Policy {
+                    truncate: case["truncate"].as_bool().unwrap(),
+                    ..Default::default()
+                },
+                case["dice"].as_str(),
+                case["fortune"].as_str().zip(case["color"].as_str()),
+            );
+            assert_eq!(prepared.serialized, case["teaser"], "{case}");
+        }
+    }
     use proptest::prelude::*;
 
     #[test]

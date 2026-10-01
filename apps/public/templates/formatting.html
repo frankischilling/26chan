@@ -20,6 +20,8 @@
 {%- match tag -%}{%- when Tag::Spoiler -%}</s>{%- when Tag::Code -%}</pre>{%- when Tag::Sjis -%}</span>{%- when Tag::Bold -%}</span>{%- when Tag::Italic -%}</span>{%- when Tag::Red -%}</span>{%- when Tag::Green -%}</span>{%- when Tag::Blue -%}</span>{%- endmatch -%}
 {%- when Token::OpenQuote -%}<span class="quote">
 {%- when Token::CloseQuote -%}</span>
+{%- when Token::GeneratedBold with (open) -%}{%- if open -%}<b>{%- else -%}</b>{%- endif -%}
+{%- when Token::GeneratedFortune with (open, color) -%}{%- if open -%}<span class="{{ token.fortune_class() }}">{%- else -%}</span>{%- endif -%}
 {%- endmatch -%}
 {%- endfor -%}
 {%- if line.green -%}</span>{%- endif -%}

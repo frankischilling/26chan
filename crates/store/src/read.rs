@@ -327,7 +327,7 @@ pub async fn search(
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
                        substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
                      ELSE left(p.comment, $4::integer) END AS comment,\
-                p.comment_format,p.created_at,p.deleted \
+                p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.created_at,p.deleted \
          FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
          CROSS JOIN LATERAL (\
             SELECT picked.* FROM (\
@@ -389,25 +389,6 @@ pub async fn search(
         offset,
         nhits,
     })
-}
-
-#[cfg(test)]
-mod search_tests {
-    use super::*;
-
-    #[test]
-    fn search_request_uses_the_source_page_window_and_hash_bound() {
-        assert!(validate_search_request("owned", None, 0).is_ok());
-        assert!(validate_search_request("owned", Some("g"), 90).is_ok());
-        for offset in [-10, 5, 100] {
-            assert!(validate_search_request("owned", None, offset).is_err());
-        }
-        assert!(validate_search_request("", None, 0).is_err());
-        assert!(validate_search_request("owned", Some("../j"), 0).is_err());
-        assert!(validate_search_request(&"x".repeat(513), None, 0).is_err());
-        assert!(validate_search_request(&"😀".repeat(256), None, 0).is_ok());
-        assert!(validate_search_request(&"😀".repeat(257), None, 0).is_err());
-    }
 }
 
 pub struct PostSnapshot {
@@ -481,4 +462,23 @@ pub async fn op_deletion_hash(
         .bind(parent)
         .fetch_optional(pool)
         .await?)
+}
+
+#[cfg(test)]
+mod search_tests {
+    use super::*;
+
+    #[test]
+    fn search_request_uses_the_source_page_window_and_hash_bound() {
+        assert!(validate_search_request("owned", None, 0).is_ok());
+        assert!(validate_search_request("owned", Some("g"), 90).is_ok());
+        for offset in [-10, 5, 100] {
+            assert!(validate_search_request("owned", None, offset).is_err());
+        }
+        assert!(validate_search_request("", None, 0).is_err());
+        assert!(validate_search_request("owned", Some("../j"), 0).is_err());
+        assert!(validate_search_request(&"x".repeat(513), None, 0).is_err());
+        assert!(validate_search_request(&"😀".repeat(256), None, 0).is_ok());
+        assert!(validate_search_request(&"😀".repeat(257), None, 0).is_err());
+    }
 }

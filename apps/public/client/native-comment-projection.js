@@ -21,7 +21,7 @@ export function createCommentProjection() {
   }
   const escape = value => value.replace(/[&<>"\u00a0]/g,
     ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\u00a0': '&nbsp;' })[ch]);
-  const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
+  const tags = new Set(['SPAN', 'B', 'S', 'PRE', 'BR', 'WBR', 'A']);
 
   function html(message) {
     let nodes = 0, size = 0;

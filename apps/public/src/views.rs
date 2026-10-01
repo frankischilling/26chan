@@ -184,11 +184,23 @@ impl PostView {
         None
     }
 
+    pub fn fortune_class(&self) -> Option<&'static str> {
+        self.post
+            .fortune_color
+            .as_deref()
+            .and_then(board_domain::posting_randomizers::fortune_class)
+    }
+
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
-        crate::catalog::teaser::prepare(
+        crate::catalog::teaser::prepare_with_randomizers(
             &self.lines,
             &board.slug,
             crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
+            self.post.dice_result.as_deref(),
+            self.post
+                .fortune_text
+                .as_deref()
+                .zip(self.post.fortune_color.as_deref()),
         )
     }
 

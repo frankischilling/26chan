@@ -622,6 +622,23 @@ mod tests {
     }
 
     #[test]
+    fn randomizer_projection_uses_csp_safe_fortune_palette_and_retained_dice() {
+        let mut snapshot = fixture();
+        snapshot.posts[1].dice_result = Some("Rolled 6, 6 = 12 (2d6)".into());
+        snapshot.posts[1].fortune_text = Some("Outlook good".into());
+        snapshot.posts[1].fortune_color = Some("#00cbb0".into());
+        let value: serde_json::Value =
+            serde_json::from_slice(&encode(snapshot, "", MAX_BYTES).unwrap()).unwrap();
+        let html = value["posts"][1]["html"].as_str().unwrap();
+        assert!(html.contains("<b>Rolled 6, 6 = 12 (2d6)<br><br></b>"));
+        assert!(html.contains(
+            r#"<span class="fortune fortune-10"><br><br><b>Your fortune: Outlook good</b></span>"#
+        ));
+        assert!(!html.contains("style="));
+        assert!(!html.contains("#00cbb0"));
+    }
+
+    #[test]
     fn snapshot_uses_each_post_stamp_not_current_board_policy() {
         for format in [0, 8, 9, 15] {
             let mut snapshot = fixture();
