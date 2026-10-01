@@ -38,6 +38,8 @@ pub enum StoreError {
     Database(#[from] sqlx::Error),
     #[error("Unsafe database role.")]
     UnsafeRole,
+    #[error("Server randomness is unavailable.")]
+    RandomnessUnavailable,
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -75,6 +77,8 @@ pub struct Board {
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
     pub image_limit: i32,
+    pub dice_roll: bool,
+    pub fortune_trip: bool,
 }
 
 impl Board {
@@ -140,6 +144,9 @@ pub struct Post {
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,
+    pub dice_result: Option<String>,
+    pub fortune_text: Option<String>,
+    pub fortune_color: Option<String>,
     pub created_at: DateTime<Utc>,
     pub deleted: bool,
     #[sqlx(skip)]

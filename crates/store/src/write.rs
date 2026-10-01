@@ -125,6 +125,7 @@ pub async fn create_post_with_identity_keys(
             keys,
             country_database: None,
             flag: "",
+            options: "",
         },
     )
     .await
@@ -135,6 +136,9 @@ pub struct PostMetadata<'a> {
     pub country_database: Option<&'a board_domain::country::CountryDatabase>,
     /// Public choice, validated against the locked operator-owned board policy.
     pub flag: &'a str,
+    /// Raw public options text. Operator-owned board policy decides whether a
+    /// dice or fortune request is meaningful after the board row is locked.
+    pub options: &'a str,
 }
 
 pub async fn create_post_with_metadata(
@@ -198,6 +202,7 @@ pub async fn create_staff_post(
                 },
                 country_database: None,
                 flag: "",
+                options: "",
             },
             staff: Some(authority),
         },
@@ -241,6 +246,32 @@ async fn create_post_in_context(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
+    let special = board_domain::posting_randomizers::request(
+        metadata.options,
+        board.dice_roll,
+        board.fortune_trip,
+    )
+    .map_err(|error| StoreError::Invalid(error.0))?
+    .map(|request| {
+        board_domain::posting_randomizers::generate(&request)
+            .map_err(|_| StoreError::RandomnessUnavailable)
+    })
+    .transpose()?;
+    let (dice_result, fortune_text, fortune_color) = match special {
+        Some(board_domain::posting_randomizers::Outcome::Dice(result)) => {
+            (Some(result), None, None)
+        }
+        Some(board_domain::posting_randomizers::Outcome::Fortune { text, color }) => {
+            (None, Some(text), Some(color))
+        }
+        None => (None, None, None),
+    };
+    sqlx::query("SELECT set_config('board.dice_result',$1,true),set_config('board.fortune_text',$2,true),set_config('board.fortune_color',$3,true)")
+        .bind(dice_result.as_deref().unwrap_or(""))
+        .bind(fortune_text.unwrap_or(""))
+        .bind(fortune_color.as_deref().unwrap_or(""))
+        .execute(&mut *tx)
+        .await?;
     board.check_attachment_allowed(parent, attachment.is_some())?;
     let flag = if metadata.flag == "0" {
         ""

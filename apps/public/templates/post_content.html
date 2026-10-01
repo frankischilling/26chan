@@ -10,7 +10,7 @@
 {% if item.post.id == view.thread.id %}{% if view.thread.sticky %}<span>Sticky</span>{% endif %}{% if view.thread.closed || view.thread.archived_at.is_some() %}<span>Closed</span>{% endif %} [<a href="/{{ board.slug }}/thread/{{ view.thread.id }}">{% if view.thread.archived_at.is_some() %}View thread{% else %}Reply{% endif %}</a>]{% endif %}
 </div>
 {% if catalog || item.post.id != view.thread.id %}{% call attachments::file(item, board.slug, media_origin) %}{% endcall %}{% endif %}
-<blockquote class="postMessage" id="m{{ item.post.id }}">{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}</blockquote>
+<blockquote class="postMessage" id="m{{ item.post.id }}">{% if let Some(dice) = item.post.dice_result %}<b>{{ dice }}<br><br></b>{% endif %}{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}{% if let Some(fortune) = item.post.fortune_text %}{% if let Some(color) = item.post.fortune_color %}<span class="fortune" style="color:{{ color }}"><br><br><b>Your fortune: {{ fortune }}</b></span>{% endif %}{% endif %}</blockquote>
 {% if !catalog %}
 <details class="postActions"><summary>Delete or report</summary>
 <form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="delete{{ item.post.id }}">Deletion password</label> <input id="delete{{ item.post.id }}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required>{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %} <label><input type="checkbox" name="file_only" value="true">File only</label>{% endif %}{% endif %} <button>Delete post</button></form>

@@ -250,6 +250,9 @@ mod catalog_tests {
 pub struct Comment<'a> {
     pub lines: &'a [Line],
     pub board: &'a str,
+    pub dice_result: Option<&'a str>,
+    pub fortune_text: Option<&'a str>,
+    pub fortune_color: Option<&'a str>,
 }
 
 #[cfg(test)]
@@ -262,9 +265,30 @@ mod comment_tests {
         Comment {
             lines: &parse_post_comment(input, format),
             board: "test",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
         }
         .render()
         .unwrap()
+    }
+
+    #[test]
+    fn retained_randomizer_metadata_uses_fixed_markup_and_escaped_text() {
+        let lines = parse_post_comment("ordinary <text>", 0);
+        let html = Comment {
+            lines: &lines,
+            board: "test",
+            dice_result: Some("Rolled <1>"),
+            fortune_text: Some("<script>alert(1)</script>"),
+            fortune_color: Some("#00cbb0"),
+        }
+        .render()
+        .unwrap();
+        assert_eq!(
+            html,
+            r#"<b>Rolled &#60;1&#62;<br><br></b>ordinary &#60;text&#62;<span class="fortune" style="color:#00cbb0"><br><br><b>Your fortune: &#60;script&#62;alert(1)&#60;/script&#62;</b></span>"#
+        );
     }
 
     #[test]
@@ -410,6 +434,9 @@ mod comment_tests {
         let html = Comment {
             lines: &lines,
             board: "test",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
         }
         .render()
         .unwrap();
@@ -434,6 +461,9 @@ mod comment_tests {
             let html = Comment {
                 lines: &lines,
                 board: "test",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
             }
             .render()
             .unwrap();
@@ -469,6 +499,9 @@ mod comment_tests {
                 let html = Comment {
                     lines: &lines,
                     board: "test",
+                    dice_result: None,
+                    fortune_text: None,
+                    fortune_color: None,
                 }
                 .render()
                 .unwrap();

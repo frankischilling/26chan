@@ -138,6 +138,9 @@ fn post_json(
     let comment = Comment {
         lines: &post.lines,
         board: &board.slug,
+        dice_result: post.post.dice_result.as_deref(),
+        fortune_text: post.post.fortune_text.as_deref(),
+        fortune_color: post.post.fortune_color.as_deref(),
     }
     .render()?;
     let op = post.post.id == thread.id;

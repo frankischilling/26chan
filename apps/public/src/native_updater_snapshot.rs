@@ -411,6 +411,8 @@ mod tests {
             archive_retention_seconds: 0,
             archive_limit: 0,
             image_limit: 100,
+            dice_roll: false,
+            fortune_trip: false,
         };
         let thread = Thread {
             id,
@@ -446,6 +448,9 @@ mod tests {
                 flag_name: None,
                 subject: "<script>subject</script>".into(),
                 comment: "<script>alert(1)</script>\n>>9223372036854775806".into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: now,
                 deleted: false,
                 attachment: None,
@@ -529,6 +534,9 @@ mod tests {
                 let expected = crate::views::Comment {
                     lines: &board_domain::parse_post_comment(&snapshot.post.comment, format),
                     board: "test",
+                    dice_result: None,
+                    fortune_text: None,
+                    fortune_color: None,
                 }
                 .render()
                 .unwrap();
@@ -623,6 +631,9 @@ mod tests {
             let expected = crate::views::Comment {
                 lines: &board_domain::parse_post_comment(&snapshot.posts[1].comment, format),
                 board: "test",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
             }
             .render()
             .unwrap();

@@ -77,6 +77,9 @@ fn page(slug: &str, sorted: bool) -> String {
                 flag_name: None,
                 subject: subject.into(),
                 comment: comment.into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
                 attachment: filename.map(|filename| PostAttachment {

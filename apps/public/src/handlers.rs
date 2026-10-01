@@ -581,6 +581,7 @@ async fn submit_post(
         board_store::PostMetadata {
             country_database: state.country_database.as_deref(),
             flag: &form.flag,
+            options: &form.email,
             keys: board_store::PostIdentityKeys {
                 tripcode: state.tripcode_key.as_deref(),
                 poster_id: state.poster_id_key.as_deref(),

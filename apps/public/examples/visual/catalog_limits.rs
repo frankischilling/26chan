@@ -104,6 +104,9 @@ fn render(
                     subject.into()
                 },
                 comment: "Synthetic counter fixture.".into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
                 attachment: None,

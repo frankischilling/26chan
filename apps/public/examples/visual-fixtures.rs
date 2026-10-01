@@ -75,6 +75,8 @@ fn board() -> Board {
         archive_retention_seconds: 0,
         archive_limit: 1000,
         image_limit: 0,
+        dice_roll: false,
+        fortune_trip: false,
     }
 }
 fn page(catalog: bool) -> String {
@@ -144,6 +146,9 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         flag_name: None,
         subject: "What are you making?".into(),
         comment: ">start with a single sheet".into(),
+        dice_result: None,
+        fortune_text: None,
+        fortune_color: None,
         created_at: time("2026-09-08T12:00:00Z"),
         deleted: false,
         attachment: None,
@@ -165,6 +170,9 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
             flag_name: None,
             subject: String::new(),
             comment: ">>1000001\nA small paper lighthouse. Still working on the roof.".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: time("2026-09-08T12:05:00Z"),
             deleted: false,
             attachment: None,
@@ -327,6 +335,9 @@ fn archived_thread() -> String {
             flag_name: None,
             subject: "<b>A paper lighthouse</b>".into(),
             comment: "The completed paper lighthouse.\n>fold each edge carefully\n[spoiler]There is a tiny door at the back.[/spoiler]".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: None,
@@ -343,6 +354,9 @@ fn archived_thread() -> String {
             country_name: None,
             board_flag: None,
             flag_name: None,
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             subject: String::new(),
             comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
             created_at: thread.bumped_at,
@@ -400,6 +414,9 @@ async fn main() {
     let _ = views::Comment {
         lines: &[],
         board: "demo",
+        dice_result: None,
+        fortune_text: None,
+        fortune_color: None,
     }
     .render()
     .unwrap();

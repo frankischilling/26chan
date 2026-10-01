@@ -580,6 +580,7 @@ async fn poster_counts(f: &Fixture) {
             board_store::PostMetadata {
                 country_database: Some(&countries),
                 flag,
+                options: "",
                 keys: board_store::PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&key),
