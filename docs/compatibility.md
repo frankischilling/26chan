@@ -94,10 +94,10 @@ explicit security adaptations to the public client's unrestricted CSS and player
 integration.
 
 [Settings transfer](native-settings-transfer.md) uses the public `#cfg=` envelope
-for settings, filters, CSS and catalog display preferences. Restore first shows
-the proposed values and requires confirmation. It rejects unsupported catalog
-filter transfer data and unsafe style rules. Catalog rules now have their own
-local consumer, but their transfer transaction has not been integrated. The
+for settings, native and catalog filters, CSS and catalog display preferences.
+Restore first shows the proposed values and requires confirmation. Both rule
+formats use their own bounded reader and disposable-worker validation before
+the shared, conflict-checked save. Malformed rules and unsafe styles are rejected. The
 two known settings whose underlying
 features are unavailable remain inactive values; importing them does not add
 WebM processing or optional production HTTPS. [Poster IDs](poster-ids.md) provide

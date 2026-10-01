@@ -19,6 +19,7 @@ import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './nati
 import { mountNativeEmbeds } from './native-embeds.v1.js';
 import { mountNativeCustomCSS } from './native-custom-css.v1.js';
 import { mountNativeSettingsTransfer, checkTransferValues, SETTINGS_TRANSFER_STORAGE_KEYS, SETTINGS_TRANSFER_LIMITS } from './native-settings-transfer.v1.js';
+import { CatalogFilterMatcher, readCatalogFilters } from './catalog-filter-core.v1.js';
 
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
@@ -233,6 +234,7 @@ function start(context) {
   });
   const catalogTransport = new NativeCatalogTransport();
   const matcher = new NativeFilterMatcher();
+  const catalogMatcher = new CatalogFilterMatcher();
   let refreshCycle = null;
   const refresh = {
     cancel() { refreshCycle?.abort(); catalogTransport.cancel(); threadRefresh.cancel(); },
@@ -554,6 +556,15 @@ function start(context) {
       // compiles active patterns without running them against post text.
       const parsed = readNativeFilters(next[filterKey]);
       const validation = await matcher.match(parsed.filters, board, [], { mode: 'page', signal });
+      if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
+      if (validation.status !== 'ok') return { status: 'invalid' };
+    }
+    if (Object.hasOwn(next, 'catalog-filters')) {
+      // Syntax-check every active catalog rule, including rules scoped to other
+      // boards. Preserve the reviewed scope in storage; only this empty-card
+      // validation packet uses the editor's all-board scope.
+      const parsed = readCatalogFilters(next['catalog-filters']);
+      const validation = await catalogMatcher.match(parsed.rules.map(rule => ({ ...rule, boards: '' })), board, [], { signal });
       if (signal?.aborted || !mutationLock.active) return { status: 'conflict' };
       if (validation.status !== 'ok') return { status: 'invalid' };
     }

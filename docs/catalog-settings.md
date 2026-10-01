@@ -163,5 +163,7 @@ layout is not newly qualified as original catalog pixels by the Settings record.
 The catalog editor has the public catalog controls; Export remains available
 from board/thread Settings, where its canonical board URL and transfer review
 are tested. `catalog-theme` is outside the public v1191 export payload and is
-not added to transfer. Catalog filter transfer also remains unfinished. Hosted
+not added to transfer. [Catalog filter transfer](catalog-filter-transfer.md)
+now integrates its separate format into export/review and the shared restore
+transaction. Hosted
 checks are required before merging the combined catalog batch.

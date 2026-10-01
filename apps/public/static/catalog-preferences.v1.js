@@ -840,24 +840,32 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
     preferenceSuspended = false;
     preferenceLock.resume();
   });
-  document.addEventListener('4chanPreferencesRestored', () => {
+  document.addEventListener('4chanPreferencesRestored', async event => {
+    const restoredKeys = event.detail?.keys;
+    const filtersRestored = Array.isArray(restoredKeys) && restoredKeys.includes('catalog-filters');
+    if (Array.isArray(restoredKeys) && !filtersRestored && !restoredKeys.includes('catalog-settings')) return;
     cancelPreferenceWrite();
+    if (!livePreferenceControls()) return;
+    if (filtersRestored) await catalogFilters?.restore();
     if (!livePreferenceControls()) return;
     const raw = readPreferenceRaw();
     if (raw.status !== 'ok') { persistenceUnavailable(); return; }
-    if (raw.raw === null) { setPreferenceStatus(''); return; }
-    const restored = storedPreference(raw.raw);
-    if (!restored) {
-      setPreferenceStatus('Restored catalog preferences are invalid and were not applied on this page.');
+    const storedDisplay = raw.raw === null ? null : storedPreference(raw.raw);
+    if (!filtersRestored && !storedDisplay) {
+      setPreferenceStatus(raw.raw === null ? '' : 'Restored catalog preferences are invalid and were not applied on this page.');
       return;
     }
+    const restored = storedDisplay ?? current();
     const query = searchReady && validQuery(search.value) ? search.value : renderedQuery;
+    renderedOrder = null;
+    catalogHadFilters = (catalogFilters?.snapshot().rules.length ?? 0) > 0;
     if (!apply(restored, query, false)) {
       setPreferenceStatus('Restored catalog preferences could not be applied to this catalog snapshot.');
       return;
     }
-    updateURL(restored);
-    setPreferenceStatus('');
+    if (storedDisplay) updateURL(restored);
+    setPreferenceStatus(raw.raw !== null && !storedDisplay
+      ? 'Stored catalog display preferences are invalid. Restored filters use the current display.' : '');
   });
 
   if (stateReady) installThreadControls();

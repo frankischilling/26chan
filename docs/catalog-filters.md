@@ -55,7 +55,8 @@ is separately limited to 60 seconds. Cancellation, invalid data, an unavailable
 worker or a timeout clears rule effects and leaves threads visible; no pattern
 runs on the UI thread as a fallback.
 
-Only catalog pages admit the two fixed modules and the new worker path. The
+The catalog editor remains catalog-only. Its fixed core module and worker are
+also admitted on interactive public pages for settings-transfer validation. The
 worker response denies network requests, imports and nested workers. Stored
 patterns never become HTML, callbacks or URLs. Colors use the existing finite
 native-filter validator. The editor uses native dialogs and text nodes; the
@@ -75,10 +76,11 @@ and BFCache suspend cancel queued work. If storage or Web Locks are unavailable,
 edits stay in the current tab and the editor states that limitation. There is
 no unlocked persistent write.
 
-[Settings transfer](native-settings-transfer.md) still rejects incoming
-`catalogFilters` and omits them from exports. The new local consumer does not
-by itself qualify restore review, pattern validation and multi-key rollback for
-this additional format. That integration remains unfinished.
+[Settings transfer](native-settings-transfer.md) now exports admitted
+`catalogFilters` and includes them in explicit restore review, worker syntax
+validation, shared-lock conflict checks and recovery after failed writes.
+[Catalog transfer qualification](catalog-filter-transfer.md) records its
+production-browser coverage. The two rule formats remain separate.
 
 ## Verification
 

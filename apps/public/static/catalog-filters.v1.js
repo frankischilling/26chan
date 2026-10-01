@@ -22,7 +22,7 @@ export function mountCatalogFilters({ board, cards, form, container, opener, cha
   form.after(notice);
   let snapshot = { rules: [], matches: new Map() }, hits = [], controller, generation = 0;
   let retired = false, suspended = false, dialog, help, picker, fields, list, search, message, submit, nextId = 0;
-  let expectedRaw = null, cachedRaw = null, pendingSave = null;
+  let expectedRaw = null, cachedRaw = null, pendingSave = null, editorStale = false;
   let persistent = typeof navigator.locks?.request === 'function';
   const live = () => !retired && !suspended && form.isConnected && container.isConnected
     && document.getElementById('ctrl') === form && document.getElementById('threads') === container;
@@ -58,20 +58,20 @@ export function mountCatalogFilters({ board, cards, form, container, opener, cha
       field.hits.textContent = eligible(snapshot.rules[field.savedIndex] ?? {}) ? `x${hits[field.savedIndex] ?? 0}` : '';
     }
   };
-  async function refresh() {
+  async function refresh({ notify = true } = {}) {
     controller?.abort(); controller = new AbortController();
     const signal = controller.signal, current = ++generation;
     if (!live()) return;
     const parsed = parsedRules(read());
     const next = { rules: [], matches: new Map() };
     if (parsed.status !== 'ok') {
-      snapshot = next; changed(); announce('Stored catalog filters are invalid. Threads remain visible.'); return;
+      snapshot = next; if (notify) changed(); announce('Stored catalog filters are invalid. Threads remain visible.'); return;
     }
     if (parsed.rules.length) {
       // Bound each worker packet and the complete page cycle independently.
       const deadline = setTimeout(() => {
         if (controller?.signal !== signal || current !== generation || !live()) return;
-        controller.abort(); snapshot = { rules: [], matches: new Map() }; changed();
+        controller.abort(); snapshot = { rules: [], matches: new Map() }; if (notify) changed();
         announce('Catalog filters exceeded their time limit. Threads remain visible.');
       }, 60000);
       try {
@@ -91,13 +91,26 @@ export function mountCatalogFilters({ board, cards, form, container, opener, cha
         next.rules = parsed.rules;
       } catch {
         if (!signal.aborted && current === generation && live()) {
-          snapshot = { rules: [], matches: new Map() }; changed(); announce('Catalog filters could not be checked. Threads remain visible.');
+          snapshot = { rules: [], matches: new Map() }; if (notify) changed(); announce('Catalog filters could not be checked. Threads remain visible.');
         }
         return;
       } finally { clearTimeout(deadline); }
     }
     if (signal.aborted || current !== generation || !live()) return;
-    snapshot = next; changed(); updateHits(); announce('');
+    snapshot = next; if (notify) changed(); updateHits(); announce('');
+  }
+  async function restore() {
+    if (!live()) return;
+    pendingSave?.abort();
+    if (dialog?.open) {
+      editorStale = true;
+      message.textContent = 'Catalog filters changed since this editor opened. Reopen the editor before saving.';
+    }
+    // A successful transfer can replace stored rules while this consumer is
+    // tab-only. Refresh its read cache without granting persistence authority.
+    try { cachedRaw = localStorage.getItem(storageKey); }
+    catch { persistent = false; }
+    await refresh({ notify: false });
   }
   const closePicker = () => { if (picker?.open) picker.close(); picker?.classList.add('hidden'); };
   const closeHelp = () => { if (help?.open) help.close(); help?.classList.add('hidden'); };
@@ -176,6 +189,7 @@ export function mountCatalogFilters({ board, cards, form, container, opener, cha
   }
   async function save() {
     if (pendingSave || !live() || !dialog.open) return;
+    if (editorStale) { message.textContent = 'Catalog filters changed since this editor opened. Reopen the editor before saving.'; return; }
     const rules = [...list.children].map(row => {
       const field = fields.get(row);
       return { active: Number(field.active.checked), pattern: field.pattern.value, boards: field.boards.value,
@@ -254,7 +268,7 @@ export function mountCatalogFilters({ board, cards, form, container, opener, cha
     if (!live()) return;
     if (!dialog) build();
     if (dialog.open) return;
-    expectedRaw = read(); const parsed = parsedRules(expectedRaw);
+    expectedRaw = read(); editorStale = false; const parsed = parsedRules(expectedRaw);
     search.value = ''; message.textContent = ''; nextId = 0;
     list.replaceChildren(); fields.clear();
     if (parsed.status === 'ok') parsed.rules.forEach((rule, index) => addRow(rule, index));
@@ -280,5 +294,5 @@ export function mountCatalogFilters({ board, cards, form, container, opener, cha
   });
   observer.observe(document.body, { childList: true, subtree: true });
   void refresh();
-  return { snapshot: () => snapshot, setHits: value => { hits = value; updateHits(); }, open, refresh };
+  return { snapshot: () => snapshot, setHits: value => { hits = value; updateHits(); }, open, refresh, restore };
 }

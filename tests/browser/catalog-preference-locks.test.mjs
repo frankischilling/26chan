@@ -27,14 +27,16 @@ function html() {
 }
 
 test('catalog preference mutations share the watcher lock and remain race-safe', async t => {
-  const files = {
-    '/static/catalog-preferences.v1.js': await readFile(new URL('../../apps/public/static/catalog-preferences.v1.js', import.meta.url), 'utf8'),
-    '/static/native-filter.v1.js': await readFile(new URL('../../apps/public/static/native-filter.v1.js', import.meta.url), 'utf8'),
-  };
+  const files = Object.fromEntries(await Promise.all([
+    'catalog-preferences.v1.js', 'native-filter.v1.js', 'catalog-filters.v1.js',
+    'catalog-filter-core.v1.js', 'native-settings.v1.js', 'catalog-theme.v1.js', 'native-custom-css.v1.js',
+  ].map(async name => ['/static/' + name,
+    await readFile(new URL('../../apps/public/static/' + name, import.meta.url), 'utf8')])));
   const browser = await chromium.launch({ headless: true });
   try {
     async function setup(options = {}) {
       const context = await browser.newContext({ viewport: { width: 1000, height: 700 } });
+      const denied = [];
       await context.addInitScript(({ initial, lockName, options }) => {
         if (location.origin !== 'https://catalog-locks.example') return;
         const getItem = Storage.prototype.getItem;
@@ -80,11 +82,12 @@ test('catalog preference mutations share the watcher lock and remain race-safe',
         if (url.origin === origin && url.pathname === '/test/catalog') return route.fulfill({ contentType: 'text/html', body: html() });
         if (url.origin === origin && url.pathname === '/blank') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>lock holder</title>' });
         if (url.pathname.endsWith('favicon.ico')) return route.fulfill({ status: 204 });
-        return route.abort();
+        denied.push(url.href); return route.abort();
       });
       const page = await context.newPage(), errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(`${origin}/test/catalog`);
+      assert.deepEqual(denied, [], 'The fixture must serve every fixed module dependency');
       await page.waitForFunction(() => document.querySelector('#catalog-unpin-all'));
       return { context, page, errors };
     }

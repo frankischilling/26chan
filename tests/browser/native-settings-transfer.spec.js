@@ -23,6 +23,7 @@ const filters = JSON.stringify([{
 }]);
 const css = '.reply { color: #334455; padding-left: 8px; }';
 const catalog = JSON.stringify({ orderby: 'r', large: true, extended: false });
+const catalogFilters = JSON.stringify({ 7: { active: 1, pattern: '<img src=/settings-transfer-attack>', boards: '', hidden: 0, top: 0 } });
 const cfg = payload => `#cfg=${encodeURIComponent(JSON.stringify(payload))}`;
 
 async function openSettings(page) {
@@ -37,15 +38,17 @@ test('real settings export is canonical, inert and excludes unrelated browser st
   page.on('request', request => {
     if (request.url().includes('settings-transfer-attack')) attackRequests.push(request.url());
   });
-  await page.addInitScript(({ settings, filters, css, catalog }) => {
+  await page.addInitScript(({ settings, filters, css, catalog, catalogFilters }) => {
     localStorage.setItem('4chan-settings', settings);
     localStorage.setItem('4chan-filters', filters);
     localStorage.setItem('4chan-css', css);
     localStorage.setItem('catalog-settings', catalog);
+    localStorage.setItem('catalog-filters', catalogFilters);
+    localStorage.setItem('catalog-theme', '{"newtab":true}');
     localStorage.setItem('4chan-watch', '{"private-watch":"do-not-export"}');
     localStorage.setItem('4chan-watch-bl', '{"private-blacklist":1}');
     localStorage.setItem('owned-password-fixture', 'do-not-export-password');
-  }, { settings, filters, css, catalog });
+  }, { settings, filters, css, catalog, catalogFilters });
   const response = await page.goto('/demo/0?ignored=1');
   expect(response.status()).toBe(200);
 
@@ -62,8 +65,8 @@ test('real settings export is canonical, inert and excludes unrelated browser st
   await expect(exportDialog.locator('img, script, style')).toHaveCount(0);
 
   const payload = JSON.parse(decodeURIComponent(new URL(url).hash.slice(5)));
-  expect(payload).toEqual({ settings, filters, css, catalogSettings: catalog });
-  expect(payload).not.toHaveProperty('catalogFilters');
+  expect(payload).toEqual({ settings, filters, css, catalogFilters, catalogSettings: catalog });
+  expect(payload).not.toHaveProperty('catalogTheme');
   expect(JSON.stringify(payload)).not.toContain('private-watch');
   expect(JSON.stringify(payload)).not.toContain('private-blacklist');
   expect(JSON.stringify(payload)).not.toContain('do-not-export-password');
@@ -260,7 +263,7 @@ for (const interruption of ['cancel', 'newer-storage']) {
   });
 }
 
-test('unsupported catalog filters and dangerous CSS stop before storage writes or network activity', async ({ page }) => {
+test('malformed catalog filters and dangerous CSS stop before storage writes or network activity', async ({ page }) => {
   const attackRequests = [];
   page.on('request', request => {
     if (request.url().includes('settings-transfer-attack')) attackRequests.push(request.url());
@@ -271,7 +274,7 @@ test('unsupported catalog filters and dangerous CSS stop before storage writes o
   await page.goto(`/demo/${cfg({ settings: JSON.stringify({ quotePreview: false }), catalogFilters: '[]' })}`);
   let error = page.locator('#settingsTransferError');
   await expect(error).toBeVisible();
-  await expect(error).toContainText('Catalog filters cannot be restored');
+  await expect(error).toContainText('supported catalog rule format');
   expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(current);
   await error.getByRole('button', { name: 'Close', exact: true }).click();
 
