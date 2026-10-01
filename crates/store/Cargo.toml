@@ -11,6 +11,7 @@ database-tests = []
 board-domain = { path = "../domain" }
 sqlx.workspace = true
 chrono.workspace = true
+chrono-tz = "0.10"
 thiserror.workspace = true
 tokio.workspace = true
 sha2 = "0.10"

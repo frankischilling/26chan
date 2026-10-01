@@ -10,6 +10,7 @@ pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
 mod read;
+mod robot9000;
 mod rss;
 mod thread_statistics;
 mod write;
@@ -40,6 +41,8 @@ pub enum StoreError {
     UnsafeRole,
     #[error("Server randomness is unavailable.")]
     RandomnessUnavailable,
+    #[error("{0}")]
+    Robot9000Rejected(String),
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -79,6 +82,8 @@ pub struct Board {
     pub image_limit: i32,
     pub dice_roll: bool,
     pub fortune_trip: bool,
+    pub robot9000: bool,
+    pub robot9000_state_limit: i32,
 }
 
 impl Board {

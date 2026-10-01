@@ -19,6 +19,7 @@ cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
 npm run test:global-search
 npm run test:posting-randomizers
+npm run test:robot9000
 npm run test:linkification
 npx playwright test tests/browser/static-quotes.spec.js
 npm run test:quote-preview

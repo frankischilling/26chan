@@ -1,5 +1,13 @@
 # Architecture and threat model
 
+[Robot9000](source-robot9000.md) keeps text history and board-specific actor
+keys in private tables. Runtime roles have no direct grants on them. A bounded,
+fixed-search-path function owned by a restricted NOLOGIN role applies state
+under the board lock. A rejected public post commits only its mute/history
+changes after rolling back content and attachment mutations. The public
+application still sees the submitted comment and verified transport address;
+hashing private state does not remove that existing runtime authority.
+
 [Protected-thread image admission](source-image-admission.md) skips the
 reply-image count cap for sticky or undead threads. The attachment owner
 can read those flags under the thread lock but cannot change them. Approval,

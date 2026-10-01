@@ -70,6 +70,7 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::Database(error) => AppError::Database(error),
         StoreError::UnsafeRole => AppError::Forbidden,
         StoreError::RandomnessUnavailable => AppError::Internal,
+        StoreError::Robot9000Rejected(_) => AppError::Internal,
     }
 }
 

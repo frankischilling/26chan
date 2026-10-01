@@ -413,6 +413,8 @@ mod tests {
             image_limit: 100,
             dice_roll: false,
             fortune_trip: false,
+            robot9000: false,
+            robot9000_state_limit: 100000,
         };
         let thread = Thread {
             id,

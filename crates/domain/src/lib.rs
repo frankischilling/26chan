@@ -23,6 +23,7 @@ pub mod static_quote;
 pub use post_content::{PostKind, PreparedPostContent, prepare_post_content};
 pub mod posting_options;
 pub mod posting_randomizers;
+pub mod robot9000;
 mod subject;
 pub use formatting::{Line, Token, parse_comment, parse_post_comment, parse_post_comment_on_board};
 pub use subject::{MAX_SUBJECT_BYTES, prepare_post_subject, source_html_entities};

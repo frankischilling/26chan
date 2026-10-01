@@ -362,6 +362,27 @@ async fn create_post_in_context(
             },
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
+    // Keep the locked policy outside the savepoint. A rejected post rolls back
+    // rollover, counters, attachments and secrets, then persists only its mute.
+    let robot_actor = if board.robot9000 && staff.is_none() {
+        let key = keys
+            .poster_id
+            .ok_or(StoreError::Invalid("Robot9000 identity is unavailable."))?;
+        let peer = context
+            .peer
+            .ok_or(StoreError::Invalid("Robot9000 identity is unavailable."))?;
+        Some(
+            key.robot9000_fingerprint(slug, peer)
+                .map_err(|error| StoreError::Invalid(error.0))?,
+        )
+    } else {
+        None
+    };
+    if robot_actor.is_some() {
+        sqlx::query("SAVEPOINT robot9000_post")
+            .execute(&mut *tx)
+            .await?;
+    }
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await?;
@@ -551,6 +572,37 @@ async fn create_post_in_context(
             .bind(parent)
             .execute(&mut *tx)
             .await?;
+    }
+    if let Some(actor) = robot_actor {
+        let prepared = board_domain::robot9000::prepare_post(
+            &comment,
+            board_domain::comment_markup::MarkupPolicy {
+                spoilers: board.comment_spoiler_cleanup,
+                code: board.comment_code_spacing,
+                sjis: board.comment_sjis_spacing,
+                op: op_markup,
+            },
+            slug,
+        )
+        .map_err(StoreError::Invalid)?;
+        let now = Utc::now()
+            .with_nanosecond(0)
+            .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
+        let decision = crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await?;
+        if let crate::robot9000::Decision::Reject(message) = &decision {
+            sqlx::query("ROLLBACK TO SAVEPOINT robot9000_post")
+                .execute(&mut *tx)
+                .await?;
+            // The pre-savepoint board lock prevents another writer changing
+            // the decision between rollback and the state-only commit.
+            if crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await? != decision {
+                return Err(StoreError::Database(sqlx::Error::Protocol(
+                    "Robot9000 decision changed under the board lock.".into(),
+                )));
+            }
+            tx.commit().await?;
+            return Err(StoreError::Robot9000Rejected(message.clone()));
+        }
     }
     tx.commit().await?;
     Ok(id)

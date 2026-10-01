@@ -36,6 +36,11 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
         let private = expected["staff_only"] == true;
         let rss_enabled = expected["source_policy"]["USE_RSS"] == "yes";
         assert_eq!(saved["rss_enabled"], rss_enabled, "/{slug}/: RSS policy");
+        assert_eq!(
+            saved["robot9000"],
+            expected["source_policy"]["ROBOT9000"] == "yes",
+            "/{slug}/: Robot9000 policy"
+        );
         if !private {
             board_store::board_page_snapshot(
                 &public,

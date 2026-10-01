@@ -50,6 +50,29 @@ impl PosterIdKey {
             epoch: hex(epoch.as_ref()),
         })
     }
+    pub fn robot9000_fingerprint(
+        &self,
+        board: &str,
+        peer: IpAddr,
+    ) -> Result<[u8; 32], crate::ValidationError> {
+        crate::BoardSlug::parse(board)?;
+        let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &self.0);
+        let mut context = ring::hmac::Context::with_key(&signing);
+        context.update(b"26chan-r9k-v1\0");
+        context.update(board.as_bytes());
+        context.update(&[0]);
+        match peer.to_canonical() {
+            IpAddr::V4(peer) => {
+                context.update(&[4]);
+                context.update(&peer.octets());
+            }
+            IpAddr::V6(peer) => {
+                context.update(&[6]);
+                context.update(&peer.octets());
+            }
+        }
+        Ok(context.sign().as_ref().try_into().expect("SHA-256 length"))
+    }
     fn digest(
         &self,
         prefix: &[u8],
@@ -158,5 +181,25 @@ mod tests {
         ] {
             assert!(PosterIdKey::parse(&invalid).is_err());
         }
+    }
+    #[test]
+    fn robot9000_fingerprints_are_private_board_scoped_and_canonical() {
+        let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();
+        let peer = "192.0.2.10".parse().unwrap();
+        let first = key.robot9000_fingerprint("r9k", peer).unwrap();
+        assert_eq!(
+            first
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+            "cd02dccd1cdd175f5f3fb02a00ba57eff8398e6aea76d0733d62a8acb28ae666"
+        );
+        assert_eq!(
+            first,
+            key.robot9000_fingerprint("r9k", "::ffff:192.0.2.10".parse().unwrap())
+                .unwrap()
+        );
+        assert_ne!(first, key.robot9000_fingerprint("test", peer).unwrap());
+        assert!(key.robot9000_fingerprint("../r9k", peer).is_err());
     }
 }

@@ -35,6 +35,12 @@ board-enabled results across public projections, with bounded numeric parsing
 and server-generated randomness. Each linked document records its scope and
 verification limits.
 
+[Robot9000](source-robot9000.md) now applies the active public text-originality
+and progressive mute rules with private state, atomic posting and capcoded
+staff bypass. Anonymous staff bypass and administrative cleanup remain part
+of the remaining staff workflow. The implementation retains active source
+normalization and expiry behavior with bounded storage and private actor keys.
+
 ## Earlier public-reference checkpoints
 
 The [public page navigation, titles and footer](public-page-chrome.md) use

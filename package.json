@@ -8,6 +8,7 @@
     "check:global-search": "node scripts/build-global-search.mjs --check",
     "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs && playwright test tests/browser/global-search.spec.js",
     "test:posting-randomizers": "playwright test tests/browser/posting-randomizers.spec.js",
+    "test:robot9000": "playwright test tests/browser/robot9000.spec.js",
     "test:files-core": "npm run check:native-filter && node --test tests/browser/native-file-presentation.test.mjs",
     "test:post-tooltips-core": "node --test tests/browser/native-post-tooltips.test.mjs",
     "test:post-tooltips": "npm run test:post-tooltips-core && playwright test tests/browser/native-post-tooltips.spec.js",

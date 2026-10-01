@@ -38,14 +38,17 @@ fn verify_deletion_password(password: &str, encoded: &str) -> bool {
 pub struct AppError(pub StatusCode, pub &'static str);
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let body = Message {
-            title: "Request could not be completed",
-            message: self.1,
-        }
-        .render()
-        .unwrap_or_else(|_| "Request failed.".into());
-        (self.0, Html(body)).into_response()
+        message_response(self.0, self.1)
     }
+}
+pub(crate) fn message_response(status: StatusCode, message: &str) -> Response {
+    let body = Message {
+        title: "Request could not be completed",
+        message,
+    }
+    .render()
+    .unwrap_or_else(|_| "Request failed.".into());
+    (status, Html(body)).into_response()
 }
 impl From<StoreError> for AppError {
     fn from(error: StoreError) -> Self {
@@ -588,7 +591,12 @@ async fn submit_post(
             },
         },
     )
-    .await?;
+    .await;
+    let id = match id {
+        Ok(id) => id,
+        Err(StoreError::Robot9000Rejected(message)) => return Ok(format.rule_error(&message)),
+        Err(error) => return Err(error.into()),
+    };
     let thread = if form.resto == 0 { id } else { form.resto };
     let location = if options.return_to_board {
         format!("/{board}/")

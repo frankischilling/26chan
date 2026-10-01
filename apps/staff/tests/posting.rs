@@ -298,6 +298,29 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
     result.unwrap();
 }
 
+#[tokio::test]
+async fn authenticated_capcoded_staff_bypass_robot9000_without_registering_text() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let outcome=tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET robot9000=true WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        for _ in 0..2 {
+            assert_eq!(case.submit(0,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);
+            assert_eq!(case.latest().await.2.as_deref(),Some("mod"));
+        }
+        let counts:(i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1),(SELECT count(*) FROM post_secrets.robot9000_mutes WHERE board=$1)")
+            .bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(counts,(0,0));
+        sqlx::query("UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1")
+            .bind(case.account).execute(&case.owner).await.unwrap();
+        assert_eq!(case.submit(0,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::UNAUTHORIZED);
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap(),2);
+    }).await;
+    fixture.cleanup().await;
+    outcome.unwrap();
+}
+
 #[derive(Clone)]
 struct BoundPost {
     ticket: Vec<u8>,

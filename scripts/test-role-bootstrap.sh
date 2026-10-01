@@ -67,6 +67,43 @@ BEGIN
     );
     RAISE EXCEPTION 'Poster count upgrade changed history or invented identity';
   END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_robot9000_owner'
+      AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+     OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_robot9000_owner')
+     OR has_schema_privilege('board_robot9000_owner','content','CREATE')
+     OR has_schema_privilege('board_robot9000_owner','post_secrets','CREATE')
+     OR has_schema_privilege('board_robot9000_owner','staff_identity','USAGE')
+     OR has_schema_privilege('board_robot9000_owner','deployment','USAGE')
+     OR has_schema_privilege('board_robot9000_owner','media','USAGE')
+     OR has_table_privilege('board_robot9000_owner','content.posts','SELECT,INSERT,UPDATE,DELETE')
+     OR has_any_column_privilege('board_robot9000_owner','post_secrets.deletion','SELECT,INSERT,UPDATE')
+     OR has_table_privilege('board_robot9000_owner','post_secrets.deletion','DELETE,TRUNCATE,TRIGGER')
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
+          AND c.column_name NOT IN ('slug','robot9000','robot9000_state_limit','staff_only')
+          AND has_column_privilege('board_robot9000_owner','content.boards',c.column_name,'SELECT'))
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
+          AND c.column_name<>'slug' AND has_column_privilege('board_robot9000_owner','content.boards',c.column_name,'UPDATE'))
+     OR has_table_privilege('board_robot9000_owner','post_secrets.robot9000_texts','DELETE,TRUNCATE,TRIGGER,REFERENCES')
+     OR has_table_privilege('board_robot9000_owner','post_secrets.robot9000_mutes','DELETE,TRUNCATE,TRIGGER,REFERENCES')
+     OR EXISTS (SELECT 1 FROM unnest(ARRAY['SELECT','INSERT','UPDATE']) privilege(name)
+          WHERE NOT has_table_privilege('board_robot9000_owner','post_secrets.robot9000_texts',name)
+             OR NOT has_table_privilege('board_robot9000_owner','post_secrets.robot9000_mutes',name)) THEN
+    RAISE EXCEPTION 'Robot9000 function owner exceeds required authority';
+  END IF;
+  IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
+       'board_media_read','board_media_intake','board_monitor']) runtime(name)
+       WHERE has_any_column_privilege(name,'post_secrets.robot9000_texts','SELECT,INSERT,UPDATE')
+          OR has_any_column_privilege(name,'post_secrets.robot9000_mutes','SELECT,INSERT,UPDATE')
+          OR has_table_privilege(name,'post_secrets.robot9000_texts','DELETE,TRUNCATE,TRIGGER')
+          OR has_table_privilege(name,'post_secrets.robot9000_mutes','DELETE,TRUNCATE,TRIGGER')
+          OR (name<>'board_public' AND has_function_privilege(name,
+              'content.check_robot9000(text,bytea,bytea,double precision,timestamptz)','EXECUTE')))
+     OR NOT has_function_privilege('board_public',
+          'content.check_robot9000(text,bytea,bytea,double precision,timestamptz)','EXECUTE')
+     OR EXISTS (SELECT 1 FROM post_secrets.robot9000_texts)
+     OR EXISTS (SELECT 1 FROM post_secrets.robot9000_mutes) THEN
+    RAISE EXCEPTION 'Robot9000 runtime grants or historical state differ';
+  END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_staff_post_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
      OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_staff_post_owner')
@@ -196,6 +233,27 @@ BEGIN
   END;
 END $$;
 RESET ROLE;
+SET ROLE board_robot9000_owner;
+SELECT digest FROM post_secrets.robot9000_texts LIMIT 0;
+SELECT actor FROM post_secrets.robot9000_mutes LIMIT 0;
+DO $$ BEGIN
+  BEGIN
+    PERFORM password_hash FROM post_secrets.deletion LIMIT 0;
+    RAISE EXCEPTION 'Robot9000 owner read a deletion secret';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM credential FROM staff_identity.credentials LIMIT 0;
+    RAISE EXCEPTION 'Robot9000 owner read a staff credential';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    UPDATE content.boards SET robot9000=false WHERE false;
+    RAISE EXCEPTION 'Robot9000 owner changed board policy';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $$;
+RESET ROLE;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('board_media_intake','board_media_intake_owner')
@@ -235,4 +293,4 @@ SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
 cleanup
 trap - EXIT
-printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; staff-post and poster-count owners, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
+printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; staff-post, poster-count and Robot9000 owners, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
