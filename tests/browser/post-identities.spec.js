@@ -21,16 +21,16 @@ test('persisted tripcodes survive browser previews, filters and ordinary renderi
     await page.locator(`#m${remote} a.quotelink`).hover();
     const preview = page.locator('#quote-preview');
     await expect(preview).toBeVisible();
-    await expect(preview.locator('.postertrip')).toHaveText('!ozOtJW9BFA');
-    await expect(preview.locator('.name')).toHaveText('<owned name>');
+    await expect(preview.locator('.postInfo .postertrip')).toHaveText('!ozOtJW9BFA');
+    await expect(preview.locator('.postInfo .name')).toHaveText('<owned name>');
     await expect(preview.locator('owned, script, form, input')).toHaveCount(0);
     await page.goto(`/demo/thread/${target}`);
-    await expect(page.locator(`#p${target} .postertrip`)).toHaveText('!ozOtJW9BFA');
-    await expect(page.locator(`#p${reply} .postertrip`)).toHaveText('!ozOtJW9BFA');
+    await expect(page.locator(`#pi${target} .postertrip`)).toHaveText('!ozOtJW9BFA');
+    await expect(page.locator(`#pi${reply} .postertrip`)).toHaveText('!ozOtJW9BFA');
     for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
       await context.addCookies([{ name: 'board-theme-ws', value: theme, url: origin, httpOnly: true, sameSite: 'Lax' }]);
       await page.reload();
-      const style = await page.locator(`#p${reply} .postertrip`).evaluate(node => {
+      const style = await page.locator(`#pi${reply} .postertrip`).evaluate(node => {
         const actual = getComputedStyle(node), name = getComputedStyle(node.parentElement.querySelector('.name'));
         return { weight: actual.fontWeight, sameColor: actual.color === name.color };
       });
@@ -42,7 +42,7 @@ test('persisted tripcodes survive browser previews, filters and ordinary renderi
     await page.reload();
     await expect(page.locator(`#p${reply}`)).toHaveClass(/post-hidden/);
     await expect(page.locator(`#m${reply}`)).toBeHidden();
-    await expect(page.locator(`#p${target} .postertrip`)).toBeVisible();
+    await expect(page.locator(`#pi${target} .postertrip`)).toBeVisible();
     const data = await (await request.get(`/demo/thread/${target}.json`)).json();
     expect(data.posts.map(post => post.trip)).toEqual(['!ozOtJW9BFA', '!ozOtJW9BFA']);
     expect(data.posts.map(post => post.name)).toEqual(['<owned name>', 'Reply']);

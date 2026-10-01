@@ -1,0 +1,177 @@
+{
+  "collection_date": "2026-09-30",
+  "scope": "Pure released age and callback vectors on synthetic values, plus virtual timer cancellation. No extension initialization, original-server DOM, tooltip HTML construction, external request or full-page pixels qualified. The formatter-shaped direct subject returns no callback value; the wrapped control does not establish original-server markup.",
+  "clients": [
+    {
+      "url": "https://s.4cdn.org/js/extension.min.1191.js",
+      "sha256": "3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37"
+    },
+    {
+      "url": "https://s.4cdn.org/js/core.min.1128.js",
+      "sha256": "688d4a950499d3eef915549d5db28c1410cf08e067c9cd6598d62d42e595f1ea"
+    }
+  ],
+  "helpers": [
+    {
+      "name": "age",
+      "bytes": 350,
+      "sha256": "3f4e2c8564078333efe86b3bb80f6cd5dc4fee15c212c94b50471a961399bdc7"
+    },
+    {
+      "name": "full-label callback",
+      "bytes": 460,
+      "sha256": "cf16b1e10bb6227ba6fd8f90d49a32f72430d0a394c857411feffcbad8b03656"
+    },
+    {
+      "name": "Tip literal",
+      "bytes": 1168,
+      "sha256": "df5a69739d728e8c833cc63604a7671673f8d3f2f6c4ec744d7d206b4407532b"
+    },
+    {
+      "name": "date hover",
+      "bytes": 191,
+      "sha256": "4e9c12bda1752c42b007ac76a9d1a3123beb8654e5ef543095d0c6e1999f1a20"
+    },
+    {
+      "name": "date hover cancellation",
+      "bytes": 108,
+      "sha256": "4494c88323a3cb6d30f6c095df8ab33aa693a96319bdeb27d6f88b31d5143172"
+    }
+  ],
+  "coreDelay": 300,
+  "dateHover": {
+    "records": [
+      {
+        "delay": 500,
+        "text": "30 seconds ago"
+      },
+      {
+        "delay": 500,
+        "text": "one minute ago"
+      }
+    ],
+    "cancelled": [
+      1,
+      2
+    ],
+    "remaining": 0
+  },
+  "ages": [
+    {
+      "delta": -1,
+      "text": "moments ago"
+    },
+    {
+      "delta": 0,
+      "text": "moments ago"
+    },
+    {
+      "delta": 0.5,
+      "text": "moments ago"
+    },
+    {
+      "delta": 1,
+      "text": "1 seconds ago"
+    },
+    {
+      "delta": 2,
+      "text": "2 seconds ago"
+    },
+    {
+      "delta": 59.9,
+      "text": "59 seconds ago"
+    },
+    {
+      "delta": 60,
+      "text": "one minute ago"
+    },
+    {
+      "delta": 61,
+      "text": "one minute ago"
+    },
+    {
+      "delta": 119,
+      "text": "one minute ago"
+    },
+    {
+      "delta": 120,
+      "text": "2 minutes ago"
+    },
+    {
+      "delta": 3599,
+      "text": "59 minutes ago"
+    },
+    {
+      "delta": 3600,
+      "text": "one hour ago"
+    },
+    {
+      "delta": 3660,
+      "text": "one hour ago"
+    },
+    {
+      "delta": 3720,
+      "text": "one hour and 2 minutes ago"
+    },
+    {
+      "delta": 86399,
+      "text": "23 hours and 59 minutes ago"
+    },
+    {
+      "delta": 86400,
+      "text": "one day ago"
+    },
+    {
+      "delta": 90000,
+      "text": "one day ago"
+    },
+    {
+      "delta": 93600,
+      "text": "one day and 2 hours ago"
+    },
+    {
+      "delta": 172800,
+      "text": "2 days ago"
+    }
+  ],
+  "names": [
+    {
+      "kind": "exact ordinary name",
+      "result": "Owned &lt;label&gt; &amp; text"
+    },
+    {
+      "kind": "additional class",
+      "result": null
+    }
+  ],
+  "subjects": [
+    {
+      "kind": "formatter direct subject child",
+      "result": null
+    },
+    {
+      "kind": "wrapped subject control",
+      "result": "Owned &lt;label&gt; &amp; text"
+    }
+  ],
+  "filenames": [
+    {
+      "kind": "title filename",
+      "title": "Owned full filename.png",
+      "html": "Owned short.png",
+      "result": "Owned full filename.png"
+    },
+    {
+      "kind": "HTML-looking title",
+      "title": "<img src=\"https://invalid.example/owned-tooltip-control\">.png",
+      "html": "Owned short.png",
+      "result": "<img src=\"https://invalid.example/owned-tooltip-control\">.png"
+    },
+    {
+      "kind": "missing title fallback",
+      "title": null,
+      "html": "Owned &lt;file&gt;.png",
+      "result": "Owned &lt;file&gt;.png"
+    }
+  ]
+}

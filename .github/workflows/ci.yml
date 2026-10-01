@@ -141,6 +141,7 @@ jobs:
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked
           python3 -m unittest discover -s tests/media -p test_runner.py
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
+          python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/debug"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
@@ -355,9 +356,15 @@ jobs:
       - name: Verify bounded image loading and display preferences
         shell: pwsh
         run: npm run test:images-core
+      - name: Verify bounded file labels and mobile captions
+        shell: pwsh
+        run: npm run test:files-core
       - name: Verify local dates and bounded board navigation
         shell: pwsh
         run: npm run test:display-core
+      - name: Verify bounded relative post dates
+        shell: pwsh
+        run: npm run test:post-tooltips-core
       - name: Verify bounded thread expansion
         shell: pwsh
         run: npm run test:expansion-core

@@ -105,9 +105,9 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const publicStaffPage = await context.newPage(), publicStaffErrors = [];
     publicStaffPage.on('pageerror', error => publicStaffErrors.push(error.message));
     await publicStaffPage.goto(staffThreadUrl);
-    const moderatorIcon = publicStaffPage.locator(`#p${moderatorPost} .identityIcon`);
+    const moderatorIcon = publicStaffPage.locator(`#pi${moderatorPost} .identityIcon`);
     await expect.poll(() => moderatorIcon.evaluate(image => image.complete && image.naturalWidth)).toBe(16);
-    await expect(publicStaffPage.locator(`#p${moderatorPost} .capcode`)).toHaveText('## Mod');
+    await expect(publicStaffPage.locator(`#pi${moderatorPost} .capcode`)).toHaveText('## Mod');
     await page.goto('/reports');
     const report = page.locator(`#report-${data.report}`);
     await expect(report).toContainText('Review <b>text</b>');
@@ -198,12 +198,12 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const adminPost = new URL(page.url()).searchParams.get('posted');
     await publicStaffPage.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
     await expect(publicStaffPage.locator(`#p${adminPost}`)).toHaveClass(/highlightPost/);
-    await expect(publicStaffPage.locator(`#p${adminPost} .capcode`)).toHaveText('## Admin');
-    await expect.poll(() => publicStaffPage.locator(`#p${adminPost} .identityIcon`).evaluate(image => image.complete && image.naturalWidth)).toBe(16);
+    await expect(publicStaffPage.locator(`#pi${adminPost} .capcode`)).toHaveText('## Admin');
+    await expect.poll(() => publicStaffPage.locator(`#pi${adminPost} .identityIcon`).evaluate(image => image.complete && image.naturalWidth)).toBe(16);
     await publicStaffPage.locator(`#p${moderatorPost}`).evaluate(post => { post.hidden = true; });
     await publicStaffPage.locator(`#m${adminPost} a.quotelink`).hover();
-    await expect(publicStaffPage.locator('#quote-preview .capcode')).toHaveText('## Mod');
-    await expect.poll(() => publicStaffPage.locator('#quote-preview .identityIcon').evaluate(image => image.complete && image.naturalWidth)).toBe(16);
+    await expect(publicStaffPage.locator('#quote-preview .postInfo .capcode')).toHaveText('## Mod');
+    await expect.poll(() => publicStaffPage.locator('#quote-preview .postInfo .identityIcon').evaluate(image => image.complete && image.naturalWidth)).toBe(16);
     await expect(publicStaffPage.locator('#quote-preview')).not.toHaveText(/Post with staff badge/);
     expect(publicStaffErrors).toEqual([]);
     await publicStaffPage.close();

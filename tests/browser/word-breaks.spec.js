@@ -31,7 +31,7 @@ for (const javaScriptEnabled of [false, true]) {
       }
       const reply = `[b]${'y'.repeat(70)}[/b]`;
       if (javaScriptEnabled) {
-        await page.locator(`#p${op} .postInfo > .postNum > a[title="Reply to this post"]`).click();
+        await page.locator(`#p${op} :is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible`).click();
         await page.locator('#qrCom').fill(reply);
         await page.locator('#qr-pwd').fill(password);
         const before = page.url();

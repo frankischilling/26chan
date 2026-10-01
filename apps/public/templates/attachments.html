@@ -1,13 +1,14 @@
 {% macro file(item, board, media_origin) %}
 {% if let Some(file) = item.post.attachment %}
-{% if file.file_deleted %}<p class="fileDeleted">File deleted.</p>
+{% if file.file_deleted %}<div class="file" id="f{{ item.post.id }}"><span class="fileThumb"><img class="fileDeletedRes" src="/static/catalog/filedeleted-res.gif" srcset="/static/catalog/filedeleted-res@2x.gif 2x" alt="File deleted." width="127" height="13" loading="lazy"></span></div>
 {% else if !media_origin.is_empty() %}
-<div class="file" id="f{{ item.post.id }}"{% if file.spoiler %} data-image-spoiler="true" data-image-filename="{{ file.filename }}"{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}"{% else %} data-thumbnail-width="{{ file.width }}" data-thumbnail-height="{{ file.height }}" data-thumbnail-legacy="true"{% endif %}{% endif %}>
-<p>File: <a href="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{% if file.spoiler %}Spoiler Image{% else %}{{ file.filename }}{% endif %}</a> ({{ file.bytes }} bytes, {{ file.width }}×{{ file.height }}, normalized PNG)</p>
+<div class="file" id="f{{ item.post.id }}"{% if file.spoiler %} data-image-spoiler="true" data-image-filename="{{ file.filename }}"{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}"{% else %}{% let (width, height) = item.catalog_size(true) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}" data-thumbnail-legacy="true"{% endif %}{% endif %}>
+{% let label = item.file_label(file.filename) %}
+<div class="fileText" id="fT{{ item.post.id }}"{% if file.spoiler %} title="{{ file.filename }}"{% endif %}>File: <a href="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer"{% if label.shortened %} title="{{ file.filename }}"{% endif %}>{% if file.spoiler %}Spoiler Image{% else %}{{ label.text }}{% endif %}</a> ({{ item.file_size(file.bytes) }}, {{ file.width }}x{{ file.height }})</div>
 {% if file.spoiler %}
-<details><summary>Spoiler image</summary><a href="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">View spoiler image</a></details>
+<a class="fileThumb imgspoiler" href="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer"><img src="/static/catalog/spoiler.png" alt="{{ item.file_size(file.bytes) }}" width="100" height="100" loading="lazy"><div class="mFileInfo mobile">{{ item.file_size(file.bytes) }} PNG</div></a>
 {% else %}
-<a class="fileThumb" href="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %}<img src="{{ media_origin }}/{{ board }}/{{ file.tim }}s.jpg" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">{% else %}<img src="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" alt="{{ file.filename }}" width="{{ file.width }}" height="{{ file.height }}" loading="lazy">{% endif %}</a>
+<a class="fileThumb" href="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" target="_blank" rel="noopener noreferrer">{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %}<img src="{{ media_origin }}/{{ board }}/{{ file.tim }}s.jpg" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">{% else %}{% let (width, height) = item.catalog_size(true) %}<img src="{{ media_origin }}/{{ board }}/{{ file.tim }}.png" alt="{{ file.filename }}" width="{{ width }}" height="{{ height }}" loading="lazy">{% endif %}<div class="mFileInfo mobile">{{ item.file_size(file.bytes) }} PNG</div></a>
 {% endif %}
 </div>
 {% endif %}

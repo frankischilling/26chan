@@ -6,7 +6,7 @@ test('updater retains owned normal, spoiler and deleted-file rendering and nativ
   const plain = await browser.newContext({ javaScriptEnabled: false });
   const source = await plain.newPage(); await source.goto(`${origin}/img/thread/1000201`);
   const posts = await source.locator('.postContainer').evaluateAll(nodes => nodes.map(node => ({ no: node.id.slice(2),
-    file_deleted: !!node.querySelector('.fileDeleted'), html: node.outerHTML })));
+    file_deleted: !!node.querySelector('.fileDeletedRes'), html: node.outerHTML })));
   await plain.close();
   const snapshot = { version: 2, tail_size: 0, tail_id: null, board: 'img', thread: '1000201', closed: false, archived: false, sticky: false,
     replies: posts.length - 1, images: 4, posts };
@@ -18,10 +18,9 @@ test('updater retains owned normal, spoiler and deleted-file rendering and nativ
   await expect(page.locator('.threadNav.desktop .nativeUpdaterStatus').first()).toHaveText('5 new posts');
   await expect(page.locator('.postContainer')).toHaveCount(6);
   await expect(page.locator('#f1000202 img')).toHaveAttribute('src', 'http://localhost:3004/img/1000202s.jpg');
-  await expect(page.locator('#f1000205 img, #p1000206 img')).toHaveCount(0);
-  await expect(page.locator('#p1000206 .fileDeleted')).toHaveText('File deleted.');
-  await page.locator('#f1000205 summary').click();
-  await expect(page.getByRole('link', { name: 'View spoiler image', exact: true })).toHaveAttribute('href', 'http://localhost:3004/img/1000205.png');
+  await expect(page.locator('#f1000205 .imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
+  await expect(page.locator('#p1000206 .fileDeletedRes')).toHaveAttribute('alt', 'File deleted.');
+  await expect(page.locator('#f1000205 .imgspoiler')).toHaveAttribute('href', 'http://localhost:3004/img/1000205.png');
   await page.setViewportSize({ width: 390, height: 900 });
   await page.getByRole('button', { name: 'Post menu for post 1000202', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', 'http://localhost:3004/img/1000202.png');

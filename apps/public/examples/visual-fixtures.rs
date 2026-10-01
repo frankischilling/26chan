@@ -374,6 +374,7 @@ async fn main() {
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
         .route("/headers/", get(|| async { Html(headers::page()) }))
+        .route("/headers-nws/", get(|| async { Html(headers::page_with_worksafe(false)) }))
         .route("/markup/", get(|| async { Html(render_page(false, true, false, false)) }))
         .route("/forced-anonymous/", get(|| async { Html(render_page(false, false, false, true)) }))
         .route("/text-only/", get(|| async { Html(render_page(false, false, true, false)) }))

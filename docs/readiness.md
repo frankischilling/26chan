@@ -76,11 +76,18 @@ remain unfinished.
 
 [Post-number navigation](post-number-navigation.md) separates permalinks from
 quote actions and adds a script-free prefilled reply form. Its continuation
-also compares actual staff headers with 72 pinned public desktop cases;
-original mobile header and full-page comparisons remain unfinished.
+also compares actual staff headers with 72 pinned public desktop cases.
+The mobile continuation compares paired headers with 288 pinned public cases
+and adds [post tooltips](post-tooltips.md) with relative dates, inert full-name
+text, fixed statistics labels and six-theme style/placement checks. Complete
+original-page comparisons remain unfinished. Its
+[presentation verification](verification-public-presentation.md) records the
+resize, TLS fixture and connection-retirement corrections with current local
+results and their limits.
 
 | Work item | Current state | Acceptance needed |
 |---|---|---|
+| File presentation | [Released file headers, mobile captions and filename tooltips](file-presentation.md) have 40 formatter vectors, 20 spoiler/deleted state cases, 216 style comparisons, native filter/menu/updater integration and six reviewed project captures | Original server filename rules, board-specific custom spoilers, animated media and complete original-page comparisons remain unfinished |
 | Approved design brief | User clarified on September 13, 2026: recreate the old 4chan frontend 1:1, rather than redesign it; no separate attachment is required | Match the reference layout, typography, colors, assets, controls and states on desktop and mobile using source permitted by the rewrite prompt; record differences and verify visual and behavioral parity |
 | Rewrite publication | Authorized target: [frankischilling/26chan](https://github.com/frankischilling/26chan); recent merged slices include [JPEG input #51](jpeg-media.md), [themes #53](public-themes.md), [cross-board quotes #55](cross-board-quotes.md), [empty/error states #57](verification-public-states.md) and [desktop post layout #59](public-post-layout.md), each with reviewed-head passing checks and matching merge trees | Require passing checks before each merge; repository integration does not qualify a production release |
 | Public text slice | Implemented with Unicode scalar limits and request admission retained through response data lifetime. [Request budgets](public-request-limits.md) cover shared public/API connections and final encoded payload blocks, with per-response byte ceilings and retained-frame accounting under #176 | Review compatibility exceptions and production abuse limits; bound database snapshots and intermediate view/JSON memory; qualify deployed host/proxy capacity and deadlines |

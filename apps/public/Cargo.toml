@@ -38,7 +38,7 @@ chrono-tz = "0.10"
 rustix = { version = "=1.1.4", features = ["process"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["process", "io-util"] }
+tokio = { workspace = true, features = ["process", "io-util", "test-util"] }
 board-media-admin = { path = "../media-admin" }
 board-media-http = { path = "../media-http" }
 board-media-intake = { path = "../media-intake" }

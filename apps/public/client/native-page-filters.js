@@ -18,12 +18,12 @@ function selectedFilter() {
       : element?.classList.contains('postertrip') ? 0
         : element?.classList.contains('subject') ? 5
           : element?.matches('.posteruid,.hand') ? 4
-            : element?.matches('.fileText,.file > p > a') ? 6 : 2;
+            : element?.matches('.fileText,.fileText > a,.file > p > a') ? 6 : 2;
     return { pattern, type };
   } catch { return { pattern: null, type: 2 }; }
 }
 
-export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML, projection }) {
+export function mountNativeFilters({ board, threadId, settings, read, save, match, getTracked, changed, applied, commentHTML, projection, headerForPost }) {
   const root = document.querySelector('.board');
   const query = (parent, selector) => projection ? projection.query(parent, selector) : parent.querySelector(selector);
   const notice = document.createElement('p'); notice.className = 'nativeFilterNotice'; notice.setAttribute('role', 'status');
@@ -35,6 +35,15 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
   let controller, pending, generation = 0, signature, scheduled = false;
   let suspended = false, retired = false;
   const effects = new Map(), revealed = new Set();
+  function placePreview(prior) {
+    const header = headerForPost?.(prior.post) ?? prior.info;
+    if (header && prior.preview.parentElement !== header) header.append(prior.preview);
+  }
+  function syncHeaders() {
+    for (const prior of effects.values()) {
+      if (prior.preview?.isConnected && prior.post.isConnected) placePreview(prior);
+    }
+  }
   function clear() {
     for (const [element, prior] of effects) {
       if (!prior.hidden) element.classList.remove('post-hidden');
@@ -66,8 +75,10 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
       for (const [key, selector] of [['name', '.name'], ['trip', '.postertrip'], ['id', '.posteruid > :first-child'], ['sub', '.subject']]) {
         const element = query(info, selector); if (element) value[key] = projection ? projection.text(element) : element.textContent;
       }
-      const file = query(post, '.file'), filename = query(post, '.file > p > a');
-      value.filename = spoilerFilename(file) ?? (projection ? projection.text(filename) : filename?.textContent ?? '');
+      const file = query(post, '.file'), filename = query(post, '.file > .fileText > a,.file > p > a');
+      const full = filename?.getAttribute('title');
+      value.filename = spoilerFilename(file) ?? (full && full.length <= 255 && filenameEncoder.encode(full).length <= 255 && !/\p{Cc}/u.test(full)
+        ? full : projection ? projection.text(filename) : filename?.textContent ?? '');
       for (const [key, text] of Object.entries(value)) {
         if (text.length > (key === 'com' ? FILTER_LIMITS.html : FILTER_LIMITS.field)) throw new Error('field-limit');
       }
@@ -122,7 +133,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
         const row = byId.get(result.id), rule = rules[result.filter];
         if (!row?.post.isConnected || !rule || revealed.has(row.id)) continue;
         const element = row.op ? row.section : row.post;
-        const prior = { hidden: element.classList.contains('post-hidden'), highlight: element.classList.contains('filter-hl'),
+        const prior = { post: row.post, info: row.info, hidden: element.classList.contains('post-hidden'), highlight: element.classList.contains('filter-hl'),
           shadow: element.style.boxShadow, assigned: element.style.boxShadow };
         effects.set(element, prior);
         if (rule.hide) {
@@ -137,7 +148,7 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
               if (row.op) return;
               event.preventDefault(); revealed.add(row.id); element.classList.remove('post-hidden'); preview.remove();
             });
-            row.info.append(preview); prior.preview = preview;
+            prior.preview = preview; placePreview(prior);
           }
         } else {
           element.classList.add('filter-hl');
@@ -216,6 +227,6 @@ export function mountNativeFilters({ board, threadId, settings, read, save, matc
     }
     changed(); void refresh();
   } });
-  return { refresh, refreshSettled, open, selection: selectedFilter,
+  return { refresh, refreshSettled, syncHeaders, open, selection: selectedFilter,
     addSelection: (opener, selected) => open(opener, selected) };
 }

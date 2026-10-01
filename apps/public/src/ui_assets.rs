@@ -12,6 +12,7 @@ pub(crate) const NATIVE_QUICK_REPLY_PATH: &str = "/static/native-quick-reply.v1.
 pub(crate) const NATIVE_BACKLINKS_PATH: &str = "/static/native-backlinks.v1.js";
 pub(crate) const NATIVE_IMAGES_PATH: &str = "/static/native-images.v1.js";
 pub(crate) const NATIVE_DISPLAY_PATH: &str = "/static/native-display.v1.js";
+pub(crate) const NATIVE_POST_TOOLTIPS_PATH: &str = "/static/native-post-tooltips.v1.js";
 pub(crate) const NATIVE_THREAD_CONTROLS_PATH: &str = "/static/native-thread-controls.v1.js";
 pub(crate) const NATIVE_THREAD_STATS_PATH: &str = "/static/native-thread-stats.v1.js";
 pub(crate) const NATIVE_NAVIGATION_PATH: &str = "/static/native-navigation.v1.js";
@@ -171,6 +172,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "/static/catalog/filedeleted-res.gif",
         "image/gif",
         include_bytes!("../static/catalog/filedeleted-res.gif"),
+    ),
+    (
+        "/static/catalog/filedeleted-res@2x.gif",
+        "image/gif",
+        include_bytes!("../static/catalog/filedeleted-res@2x.gif"),
     ),
     (
         "/static/catalog/nofile.png",
@@ -603,6 +609,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             NATIVE_DISPLAY_PATH,
             include_bytes!("../static/native-display.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_POST_TOOLTIPS_PATH,
+            include_bytes!("../static/native-post-tooltips.v1.js").as_slice(),
         ),
         (
             NATIVE_IMAGES_PATH,

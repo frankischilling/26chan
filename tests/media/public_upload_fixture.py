@@ -15,6 +15,18 @@ from test_dispatch import HEX, REPO, SAFE, account, sql, wait_until
 from test_vm import red_png
 
 
+def finish_browser(process, script):
+    # Browser stderr can include one-use capabilities in page/response details.
+    # Emit only a fixed script name and its numeric source location on failure.
+    assert script in ('public-upload.mjs', 'quick-reply-upload.mjs')
+    output, error = process.communicate(timeout=35)
+    if process.returncode != 0:
+        locations = re.findall(rb'/' + re.escape(script.encode()) + rb':([0-9]{1,6}):([0-9]{1,6})\b', error)
+        location = ':' + ':'.join(value.decode('ascii') for value in locations[0]) if locations else ''
+        raise AssertionError('owned upload browser rejected at ' + script + location)
+    return output
+
+
 class PublicUnit(UnitProcess):
     def __init__(self, token):
         assert re.fullmatch('[a-z0-9_]{8}', token)
@@ -144,7 +156,7 @@ class PublicUpload:
         asset = f.finish(f.dispatch()).decode().strip()
         assert HEX.fullmatch(asset)
         f.clean_vm()
-        output = f.finish(process)
+        output = finish_browser(process, script)
         mode = b'JavaScript' if javascript else b'no-JavaScript'
         assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'

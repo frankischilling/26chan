@@ -11,6 +11,7 @@ import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection 
 import { mountNativeQuickReply } from './native-quick-reply.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
+import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
 import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
@@ -256,6 +257,8 @@ function start(context) {
     changed: () => { nativeQuotePreview?.refresh(); if (nativeBacklinks) syncPostMenus(); },
   });
   const nativeFilters = catalog ? null : mountNativeFilters({ board, threadId, settings: configuration, projection,
+    headerForPost: post => post.querySelector(sourceMobileLayout(mobile.matches, readNeverMobile())
+      ? ':scope > .postInfoM' : ':scope > .postInfo'),
     read: () => read(filterKey), save: saveFilterRules,
     match: (...args) => matcher.match(...args), getTracked: key => tracking.tracked(key),
     changed: () => refresh.cancel(),
@@ -350,11 +353,16 @@ function start(context) {
   const nativeDisplay = catalog ? null : mountNativeDisplay({ root: document.body,
     settings: configuration, save: saveSettings, openSettings: opener => settingsNavigation.open(opener), projection,
   });
+  const nativePostTooltips = catalog ? null : mountNativePostTooltips({ root: document.body,
+    context: { origin: location.origin, board, mediaOrigin: context.dataset.mediaOrigin },
+    settings: configuration, projection, display: nativeDisplay,
+  });
   const nativeStats = catalog ? null : mountNativeThreadStats({ board, thread: threadId,
     settings: configuration, mobile, readNeverMobile,
   });
   let nativeLayout = null, nativeNavigation = null;
   const themeChanged = () => {
+    nativePostTooltips?.clear();
     nativeQuotePreview?.clear();
     render();
     nativeNavigation?.themeChanged();
@@ -603,7 +611,7 @@ function start(context) {
   }
   function label(section) {
     const teaser = section.querySelector('.teaser') || section.querySelector('template.catalogTeaser')?.content.querySelector('.teaser');
-    const subject = catalog ? teaser?.querySelector('b')?.textContent : projection.query(section, '.op .subject')?.textContent;
+    const subject = catalog ? teaser?.querySelector('b')?.textContent : projection.query(section, '.op > .postInfo .subject')?.textContent;
     return watchLabel(subject, textWithBreaks(catalog ? teaser : projection.query(section, '.op .postMessage')), sectionId(section));
   }
   async function toggleThread(section) {
@@ -715,7 +723,7 @@ function start(context) {
     return link;
   }
   function postFileMenu(menu) {
-    const source = projection.query(menu.post, '.file > p > a[href]');
+    const source = projection.query(menu.post, '.file > .fileText > a[href],.file > p > a[href]');
     if (!source) return;
     let file;
     try { file = new URL(source.href); } catch { return; }
@@ -866,9 +874,10 @@ function start(context) {
     for (const section of sections()) {
       for (const post of projection.queryAll(section, '.post[id]')) {
         const id = postId(post.id.slice(1));
-        const info = post.querySelector('.postInfo');
+        const mobileLayout = sourceMobileLayout(mobile.matches, readNeverMobile());
+        const info = post.querySelector(mobileLayout ? ':scope > .postInfoM' : ':scope > .postInfo');
         if (!id || !info) continue;
-        let trigger = info.querySelector('[data-post-menu]');
+        let trigger = post.querySelector(':scope > .postInfo > [data-post-menu],:scope > .postInfoM > [data-post-menu]');
         if (!trigger && !disabled) {
           trigger = button('', event => {
             event.stopPropagation();
@@ -890,8 +899,8 @@ function start(context) {
         if (!trigger) continue;
         trigger.dataset.family = themeFamily();
         trigger.hidden = disabled;
-        trigger.textContent = mobile.matches ? '...' : '\u25b6';
-        if (mobile.matches) {
+        trigger.textContent = mobileLayout ? '...' : '\u25b6';
+        if (mobileLayout) {
           if (info.firstElementChild !== trigger) info.prepend(trigger);
         } else {
           const boundary = nativeBacklinks?.menuBoundary(post, info);
@@ -916,6 +925,7 @@ function start(context) {
     nativePosterIds?.refresh();
     nativePosterIdActions?.refresh();
     nativeLayout?.refresh();
+    nativeFilters?.syncHeaders();
     nativeNavigation?.refresh();
     nativeExpansion?.refresh();
     nativeDepager?.refresh();
@@ -1088,7 +1098,7 @@ function start(context) {
     void nativeFilters?.refresh();
   });
   window.addEventListener('storage', event => {
-    if (event.key === '4chan_never_show_mobile') { nativeDepager?.refresh(); nativeEmbeds?.refresh(); return; }
+    if (event.key === '4chan_never_show_mobile') { closePostMenu(); render(); return; }
     if (event.key !== null && ![storeKey, settingsKey, blacklistKey, filterKey].includes(event.key)) return;
     refresh.cancel();
     load();

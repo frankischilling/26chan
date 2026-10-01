@@ -14,6 +14,7 @@ try {
   browser = await chromium.launch({ timeout: 15000 });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage(); page.setDefaultTimeout(10000);
+  const requests = []; page.on('request', request => requests.push(request.url()));
   const url = path => new URL(path, origin).href;
   const created = await context.request.post(url(`/${board}/post`), { headers: { Origin: origin.origin }, maxRedirects: 0,
     form: { com: 'Owned image Quick Reply thread', password } });
@@ -97,9 +98,15 @@ try {
   assert.equal(typeof (await replay.json()).error, 'string');
   assert.equal((await (await context.request.get(api)).json()).posts.length, 3);
   await page.goto(url(`/${board}/thread/${thread}`));
-  await expect(page.locator(`#p${post} .file img`)).toHaveCount(0);
-  await page.locator(`#p${post} .file details summary`).click();
-  const link = page.locator(`#p${post} .file details a`), media = await link.getAttribute('href');
+  const file = page.locator(`#p${post} .file`);
+  await expect(file.locator('a.fileThumb.imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
+  await expect(file.locator('.fileText > a')).toHaveText('Spoiler Image');
+  const link = file.locator('a.fileThumb.imgspoiler'), media = await link.getAttribute('href');
+  await expect(file.locator('img')).toHaveCount(1);
+  await expect(file.locator('img')).toHaveAttribute('width', '100');
+  await expect(file.locator('img')).toHaveAttribute('height', '100');
+  assert.equal(requests.includes(media), false, 'the spoiler placeholder must not fetch full media');
+  assert.equal(requests.includes(media.replace(/\.png$/, 's.jpg')), false, 'the spoiler placeholder must not fetch its approved thumbnail');
   assert.notEqual(new URL(media).origin, origin.origin); assert.equal((await context.request.get(media)).status(), 200);
   const opening = page.waitForEvent('popup'); await link.click(); const imagePage = await opening;
   await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
@@ -107,6 +114,8 @@ try {
   await page.locator(`#p${post} .postActions summary`).click();
   await deletion.locator('[name=password]').fill(password); await deletion.locator('[name=file_only]').check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
+  await expect(page.locator(`#p${post} .file img.fileDeletedRes`)).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
+  await expect(page.locator(`#p${post} .file a`)).toHaveCount(0);
   assert.equal((await context.request.get(media)).status(), 404);
   const deleted = (await (await context.request.get(api)).json()).posts.find(value => String(value.no) === post);
   assert.equal(deleted.filedeleted, 1); assert.equal(deleted.tim, undefined);

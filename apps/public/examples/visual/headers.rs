@@ -5,6 +5,10 @@ use board_store::{Post, Thread};
 // Synthetic, script-free pages rendered by the production Askama template.
 // Each role appears on both an OP and a reply, with no posting authority.
 pub fn page() -> String {
+    page_with_worksafe(true)
+}
+
+pub fn page_with_worksafe(worksafe: bool) -> String {
     let capcodes = [
         "mod",
         "admin",
@@ -66,10 +70,12 @@ pub fn page() -> String {
             image_replies: 0,
         });
     }
+    let mut board = board();
+    board.worksafe = worksafe;
     views::BoardPage {
         quote: String::new(),
         catalog_hidden: Vec::new(),
-        board: board(),
+        board,
         threads,
         parent: 0,
         previous: String::new(),

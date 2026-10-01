@@ -1,4 +1,5 @@
 // Finite staff badge recipes from the pinned public API and released client.
+import { postFileAssetUrl } from './native-file-presentation.js';
 const definitions = [
   ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
   ['Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators', 'adminicon', 'This user is a board Administrator.'],
@@ -25,20 +26,27 @@ export function validateCapcodeTree(tree, no) {
     if (typeof node === 'string') return;
     all.push(node);
     if (classes(node).some(isCapcodeToken) || node.tag === 'strong'
-      || Object.hasOwn(node.attrs, 'srcset') || (node.tag === 'img' && Object.hasOwn(node.attrs, 'title'))
+      || (Object.hasOwn(node.attrs, 'srcset') && !postFileAssetUrl(node.attrs.src)) || (node.tag === 'img' && Object.hasOwn(node.attrs, 'title'))
       || postIdentityUrl(node.attrs.src)) marked.push(node);
     node.children.forEach(collect);
   }
   collect(tree);
   const blocks = all.filter(node => classes(node).includes('nameBlock'));
-  require(blocks.length <= 1);
+  const mobile = all.find(node => node.tag === 'div' && node.attrs.id === `pim${no}`);
+  require(blocks.length <= (mobile ? 2 : 1));
   const permitted = new Set();
-  if (blocks.length) {
-    const block = blocks[0];
-    const header = all.find(node => node.tag === 'div' && node.attrs.id === `pi${no}`);
-    require(header?.children.includes(block) && block.tag === 'span' && block.children.length === 5);
+  for (const block of blocks) {
+    const isMobile = mobile?.children.includes(block);
+    if (isMobile && block.attrs.class === 'nameBlock') {
+      permitted.add(block); continue; // Full ordinary recipe is checked with the mobile header.
+    }
+    const header = isMobile ? mobile : all.find(node => node.tag === 'div' && node.attrs.id === `pi${no}`);
+    require(header?.children.includes(block) && block.tag === 'span'
+      && (isMobile ? block.children.length >= 6 && block.children.length <= 8 : block.children.length === 5));
     const [name, space1, badge, space2, icon] = block.children;
-    require(typeof name === 'object' && name.tag === 'span' && exact(name.attrs, { class: 'name' })
+    require(typeof name === 'object' && name.tag === 'span' && (isMobile
+      ? name.attrs.class === 'name' && Object.keys(name.attrs).every(key => ['class', 'title'].includes(key))
+      : exact(name.attrs, { class: 'name' }))
       && name.children.every(child => typeof child === 'string')
       && new TextEncoder().encode(name.children.join('')).length <= 100
       && space1 === ' ' && space2 === ' '

@@ -57,6 +57,7 @@ test('navigation controls own only their layout, local links and finite saved po
     files[`/static/${name}`] = await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8');
   }
   const css = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8');
+  const fade = await readFile(new URL('../../apps/public/static/themes/fade.png', import.meta.url));
   const browser = await chromium.launch({ headless: true });
   try {
     async function setup(config = {}) {
@@ -65,6 +66,7 @@ test('navigation controls own only their layout, local links and finite saved po
       page.on('pageerror', error => errors.push(error.message));
       await page.route('**/*', async route => {
         const url = new URL(route.request().url());
+        if (url.origin === origin && url.pathname === '/static/themes/fade.png') return route.fulfill({ contentType: 'image/png', body: fade });
         if (files[url.pathname]) return route.fulfill({ contentType: 'text/javascript', body: files[url.pathname] });
         if (url.pathname === '/_watch/boards') { requests.push(url.pathname); return route.fulfill({ contentType: 'application/json', body: JSON.stringify(directory) }); }
         if (url.pathname === '/test/1') return route.fulfill({ contentType: 'text/html', body:

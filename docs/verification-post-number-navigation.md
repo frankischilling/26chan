@@ -81,8 +81,15 @@ batch. Its first hosted Windows run stopped at the reviewed board capture;
 the next head passed Windows, media/operations, monitoring and dependency
 checks. Its Linux application job failed while the inline fixture created a
 reply, before that case's browser interaction. The combined gate also failed.
-The final-head qualification and matching-head merge remain pending. Local
-results above do not substitute for those checks.
+The final head, `3d99eabf423b1ac4b9ef8ade7f5174ad4ae7a960`, passed all six
+checks: [Build](https://github.com/frankischilling/26chan/actions/runs/36718197415),
+[Monitoring](https://github.com/frankischilling/26chan/actions/runs/36718197099)
+and the [Advisory check](https://github.com/frankischilling/26chan/actions/runs/36718198547).
+PR #186 merged as `d139e6a6442f5254e5861d888583fedbfb056d9d`. Its merge tree
+matches the qualified head. The main-branch
+[Build](https://github.com/frankischilling/26chan/actions/runs/36721063411) and
+[Monitoring](https://github.com/frankischilling/26chan/actions/runs/36721063485)
+runs also passed.
 
 The failed request reused an HTTP socket and stopped immediately about 110
 seconds after server startup, consistent with the default retirement window.

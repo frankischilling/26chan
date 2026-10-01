@@ -45,10 +45,20 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   }
   function restoreDate(element, entry) {
     if (entry.text.parentNode === element && entry.text.data === entry.display.text) entry.text.data = entry.original;
-    if (element.getAttribute('title') === entry.display.title) {
+    if (element.getAttribute('title') === (entry.titleHidden ? null : entry.display.title)) {
       if (entry.title === null) element.removeAttribute('title'); else element.setAttribute('title', entry.title);
     }
     entry.release(); dates.delete(element);
+  }
+  function suppressDateTitle(element) {
+    const entry = dates.get(element);
+    if (!entry || entry.titleHidden || element.getAttribute('title') !== entry.display.title) return null;
+    entry.titleHidden = true; element.removeAttribute('title');
+    return () => {
+      if (dates.get(element) !== entry || !entry.titleHidden) return;
+      entry.titleHidden = false;
+      if (element.getAttribute('title') === null) element.title = entry.display.title;
+    };
   }
   function restoreMenus() {
     for (const { original, hidden, menu } of menus.splice(0)) {
@@ -129,25 +139,38 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
       if (config.disableAll === true) closeEditor();
       navigation(config);
       for (const [element, entry] of dates) {
-        if (!enabled || !root.contains(element) || element.getAttribute('datetime') !== entry.iso
-          || element.childNodes.length !== 1 || element.firstChild !== entry.text) restoreDate(element, entry);
+        if (!enabled || !root.contains(element) || element.getAttribute(entry.attribute) !== entry.value
+          || element.childNodes.length !== entry.children.length
+          || entry.children.some((child, index) => element.childNodes[index] !== child)) restoreDate(element, entry);
       }
       if (!enabled) return;
       const walker = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT);
       for (let element = walker.nextNode(), visited = 0; element && visited < DISPLAY_LIMITS.scanNodes; element = walker.nextNode(), visited++) {
         if (dates.size >= DISPLAY_LIMITS.times) break;
-        if (!element.matches('.postInfo > time[datetime]') || dates.has(element)
-          || element.childNodes.length !== 1 || element.firstChild.nodeType !== 3
+        const mobileDate = element.matches('.postInfoM > span.dateTime.postNum[data-utc]');
+        if (!element.matches('.postInfo > time[datetime]') && !mobileDate || dates.has(element)
+          || element.childNodes.length !== (mobileDate ? 3 : 1) || element.firstChild.nodeType !== 3
           || element.firstChild.data.length > 64 || (element.getAttribute('title')?.length ?? 0) > 128) continue;
-        const iso = element.getAttribute('datetime'), display = localeDate(iso, clock);
+        const attribute = mobileDate ? 'data-utc' : 'datetime', value = element.getAttribute(attribute);
+        let iso = value;
+        if (mobileDate) {
+          if (!/^-?(?:0|[1-9][0-9]{0,11})$/.test(value)
+            || ![...element.children].every(node => node.localName === 'a')
+            || element.children[0].title !== 'Link to this post' || element.children[1].title !== 'Reply to this post') continue;
+          const date = new Date(Number(value) * 1000);
+          if (!Number.isFinite(date.getTime())) continue;
+          iso = date.toISOString();
+        }
+        const display = localeDate(iso, clock);
         if (!display) continue;
+        if (mobileDate) display.text += ' ';
         const text = element.firstChild, original = text.data, title = element.getAttribute('title');
         const release = projection.trackText(text, () => text.data === display.text ? original : text.data);
-        dates.set(element, { text, original, title, iso, display, release });
+        dates.set(element, { text, original, title, attribute, value, children: [...element.childNodes], display, release });
         text.data = display.text; element.title = display.title;
       }
     } finally {
-      if (!destroyed && !suspended) observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['datetime'] });
+      if (!destroyed && !suspended) observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['datetime', 'data-utc'] });
     }
   }
   function schedule() {
@@ -166,7 +189,7 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
   document.addEventListener('4chanSettingsSaved', refresh);
   refresh();
-  return { refresh, openEditor, destroy() {
+  return { refresh, openEditor, suppressDateTitle, destroy() {
     if (destroyed) return;
     hide(); destroyed = true;
     window.removeEventListener('storage', storage);
@@ -296,8 +319,7 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
     timer = null;
     const record = labels.get(hovered);
     if (!tipAllowed(record) || !hovered.isConnected) { hideTip(); return; }
-    let count = 0;
-    for (const candidate of labels.values()) if (candidate.id === record.id) ++count;
+    const count = new Set([...labels.values()].filter(candidate => candidate.id === record.id).map(candidate => candidate.post)).size;
     if (!tooltip) {
       if (document.getElementById('native-poster-id-tip')) { hideTip(); return; }
       tooltip = document.createElement('span'); tooltip.id = 'native-poster-id-tip';
@@ -314,7 +336,7 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
   function refresh() {
     if (destroyed || suspended) return;
     if (!root.isConnected) { destroy(); return; }
-    const found = new Map(), posts = new Set(), walk = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT);
+    const found = new Map(), walk = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT);
     let element, nodes = 0;
     complete = true;
     while ((element = walk.nextNode())) {
@@ -328,15 +350,16 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
       ].find(([label, nameClass, group, title]) => element.textContent === `## ${label}`
         && element.className === `capcode hand ${group}` && element.title === title
         && element.parentElement?.className === `nameBlock ${nameClass}`
-        && element.parentElement.parentElement?.classList.contains('postInfo'));
+        && element.parentElement.parentElement?.matches('.postInfo,.postInfoM'));
       const ordinary = element.matches('.posteruid > .hand') && /^[+/0-9A-Za-z]{8}$/.test(element.textContent);
       if (!badge && !ordinary) continue;
-      const info = element.closest('.postInfo'), post = info?.parentElement, section = post?.closest('.thread');
+      const info = element.closest('.postInfo,.postInfoM'), post = info?.parentElement, section = post?.closest('.thread');
       if (!post?.matches('.post') || !/^p[1-9][0-9]{0,18}$/.test(post.id)
-        || !post.parentElement?.matches('.postContainer') || !/^t[1-9][0-9]{0,18}$/.test(section?.id || '')
-        || posts.has(post.id)) continue;
+        || !post.parentElement?.matches('.postContainer') || post.parentElement.id !== `pc${post.id.slice(1)}`
+        || !/^t[1-9][0-9]{0,18}$/.test(section?.id || '')
+        || ![`pi${post.id.slice(1)}`, `pim${post.id.slice(1)}`].includes(info.id)) continue;
       const id = badge ? `capcode:${badge[2]}` : element.textContent;
-      posts.add(post.id); found.set(element, { id, kind: badge ? 'capcode' : 'id', post, section });
+      found.set(element, { id, kind: badge ? 'capcode' : 'id', post, section });
       own(element, 'role', 'button'); own(element, 'tabindex', '0');
       if (ordinary) own(element, 'title', 'Highlight posts by this ID');
       own(element, 'aria-pressed', String(id === selected));

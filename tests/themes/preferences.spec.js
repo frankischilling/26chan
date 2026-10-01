@@ -22,16 +22,23 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
       await expect(page).toHaveURL('http://127.0.0.1:3000/demo/');
       await expect(page.locator('html')).toHaveCSS('background-color', paper);
       await expect(page.locator('html')).toHaveCSS('color', ink);
-      await expect(page.locator('.reply')).toHaveCSS('background-color', panel);
-      await expect(page.locator('.subject').first()).toHaveCSS('color', subject);
-      await expect(page.locator('.name').first()).toHaveCSS('color', name);
+      await expect(page.locator('.reply')).toHaveCSS('background-color', device === 'mobile' ? 'rgb(214, 218, 240)' : panel);
+      await expect(page.locator('.subject').first()).toHaveCSS('color', device === 'mobile' ? 'rgb(15, 12, 93)' : subject);
+      await expect(page.locator('.name').first()).toHaveCSS('color', device === 'mobile' ? 'rgb(17, 119, 67)' : name);
       expect(await page.locator('html').evaluate(node => getComputedStyle(node).fontFamily.includes('Times New Roman'))).toBe(serif);
       expect(await page.locator('.postMessage').allTextContents()).toEqual(content);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const arrows = await page.locator('.sideArrows').boundingBox();
-      const reply = await page.locator('.reply').boundingBox();
-      expect(arrows.x + arrows.width).toBeLessThanOrEqual(reply.x);
-      expect(Math.abs(arrows.y - reply.y)).toBeLessThanOrEqual(4);
+      if (device === 'mobile') {
+        await expect(page.locator('.sideArrows')).toBeHidden();
+        await expect(page.locator('.postInfoM').first()).toBeVisible();
+        await expect(page.locator('.postInfo').first()).toBeHidden();
+        await expect(page.locator('body')).toHaveCSS('font-family', 'arial, helvetica, sans-serif');
+      } else {
+        const arrows = await page.locator('.sideArrows').boundingBox();
+        const reply = await page.locator('.reply').boundingBox();
+        expect(arrows.x + arrows.width).toBeLessThanOrEqual(reply.x);
+        expect(Math.abs(arrows.y - reply.y)).toBeLessThanOrEqual(4);
+      }
       const cookies = await context.cookies();
       expect(cookies).toHaveLength(1);
       expect(cookies[0]).toMatchObject({ name: 'board-theme-ws', value: id, path: '/', httpOnly: true, sameSite: 'Lax' });

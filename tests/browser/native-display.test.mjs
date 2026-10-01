@@ -33,6 +33,8 @@ test('display controls preserve original content, finite navigation and lifecycl
   const html = '<!doctype html><html><head><meta charset="utf-8"></head><body>'
     + '<nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>'
     + '<main class="board"><article class="postContainer opContainer" id="pc100"><div class="post op" id="p100">'
+    + `<div class="postInfoM mobile" id="pim100"><span class="nameBlock"><span class="name">Anonymous</span><br><span class="subject"></span> </span>`
+    + `<span class="dateTime postNum" data-utc="${Date.parse('2026-03-08T09:59:59Z') / 1000}">03/08/26(Sun)05:59:59 <a href="/test/thread/100#p100" title="Link to this post">No.</a><a href="/test/thread/100?quote=100#reply" title="Reply to this post">100</a></span></div>`
     + '<div class="postInfo" id="pi100"><span class="name">Anonymous</span> '
     + '<time datetime="2026-03-08T09:59:59Z">03/08/26(Sun)05:59:59</time>'
     + '<span class="postNum"><a href="/test/thread/100#p100" title="Link to this post">No.</a><a href="/test/thread/100?quote=100#reply" title="Reply to this post">100</a></span></div>'
@@ -79,9 +81,39 @@ test('display controls preserve original content, finite navigation and lifecycl
           ]);
           assert.deepEqual(result, [{ text: first, title }, { text: second, title }]);
           assert.equal(await page.locator('#pi100 time').textContent(), first);
+          assert.equal(await page.locator('#pim100 .dateTime').evaluate(node => node.firstChild.data), first + ' ');
+          assert.deepEqual(await page.locator('#pim100 .dateTime > a').allTextContents(), ['No.', '100']);
           assert.deepEqual(requests, []);
         } finally { await context.close(); }
       }
+    });
+
+    await t.test('a date tooltip suppresses only its owned title and cannot restore retired display state', async () => {
+      const { context, page, requests } = await setup();
+      try {
+        const result = await page.evaluate(() => {
+          const date = document.querySelector('#pi100 time');
+          const initial = date.getAttribute('title');
+          const restore = display.suppressDateTitle(date);
+          const hidden = date.getAttribute('title');
+          restore();
+          const restored = date.getAttribute('title');
+          const retired = display.suppressDateTitle(date);
+          config.localTime = false; display.refresh(); retired();
+          return { initial, hidden, restored, retiredTitle: date.getAttribute('title'), text: date.textContent };
+        });
+        assert.deepEqual(result, { initial: 'Timezone: UTC-7', hidden: null, restored: 'Timezone: UTC-7',
+          retiredTitle: null, text: '03/08/26(Sun)05:59:59' });
+        const replaced = await page.evaluate(() => {
+          config.localTime = true; display.refresh();
+          const date = document.querySelector('#pim100 .dateTime');
+          const restore = display.suppressDateTitle(date);
+          date.title = 'Owned outside replacement'; restore(); display.destroy();
+          return { title: date.title, links: [...date.children].map(link => link.textContent) };
+        });
+        assert.deepEqual(replaced, { title: 'Owned outside replacement', links: ['No.', '100'] });
+        assert.deepEqual(requests, []);
+      } finally { await context.close(); }
     });
 
     await t.test('quote copies read server text and restore it when local time is disabled', async () => {
@@ -91,15 +123,22 @@ test('display controls preserve original content, finite navigation and lifecycl
           const context = { origin: location.origin, board: 'test', thread: '100', mediaOrigin: '' };
           const tree = quotes.localQuoteTree(document.getElementById('pc100'), context, '100', projection);
           const findTime = value => typeof value !== 'string' && (value.tag === 'time' ? value : value.children.map(findTime).find(Boolean));
+          const findMobileDate = value => typeof value !== 'string' && (value.attrs.class === 'dateTime postNum' ? value : value.children.map(findMobileDate).find(Boolean));
           const copy = quotes.prepareQuotePost(tree, context, '100').build(document);
           copy.id = 'owned-copy'; document.querySelector('.board').append(copy);
-          return findTime(tree);
+          return { time: findTime(tree), mobileDate: findMobileDate(tree).children[0] };
         });
-        assert.deepEqual(result, { tag: 'time', attrs: { datetime: '2026-03-08T09:59:59Z' }, children: ['03/08/26(Sun)05:59:59'] });
+        assert.deepEqual(result, { time: { tag: 'time', attrs: { datetime: '2026-03-08T09:59:59Z' }, children: ['03/08/26(Sun)05:59:59'] },
+          mobileDate: '03/08/26(Sun)05:59:59 ' });
         await page.waitForFunction(() => document.querySelector('#owned-copy time').textContent === '03/08/26(Sun)01:59:59');
+        assert.equal(await page.locator('#owned-copy .postInfoM .dateTime').evaluate(node => node.firstChild.data), '03/08/26(Sun)01:59:59 ');
+        assert.equal(await page.locator('#owned-copy [id]').count(), 0);
         await page.evaluate(() => { config.localTime = false; display.refresh(); });
         assert.deepEqual(await page.locator('.postInfo time').allTextContents(), ['03/08/26(Sun)05:59:59', '03/08/26(Sun)05:59:59']);
         assert.equal(await page.locator('time[title]').count(), 0);
+        assert.deepEqual(await page.locator('.postInfoM .dateTime').evaluateAll(nodes => nodes.map(node => node.firstChild.data)),
+          ['03/08/26(Sun)05:59:59 ', '03/08/26(Sun)05:59:59 ']);
+        assert.equal(await page.locator('.postInfoM .dateTime[title]').count(), 0);
         assert.equal(await page.locator('#m100').textContent(), 'Owned original comment');
         assert.deepEqual(requests, []);
       } finally { await context.close(); }
@@ -158,6 +197,7 @@ test('display controls preserve original content, finite navigation and lifecycl
         await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
         assert.equal(await page.locator('.customBoardList').count(), 0);
         assert.equal(await page.locator('#pi100 time').textContent(), '03/08/26(Sun)05:59:59');
+        assert.equal(await page.locator('#pim100 .dateTime').evaluate(node => node.firstChild.data), '03/08/26(Sun)05:59:59 ');
         await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
         assert.equal(await page.locator('.customBoardList').count(), 1);
         assert.equal(await page.locator('#pi100 time').textContent(), '03/08/26(Sun)09:59:59');
@@ -165,6 +205,7 @@ test('display controls preserve original content, finite navigation and lifecycl
         assert.equal(await page.locator('.customBoardList').count(), 0);
         assert.equal(await page.locator('#pi100 time').textContent(), '03/08/26(Sun)05:59:59');
         assert.equal(await page.locator('time[title]').count(), 0);
+        assert.equal(await page.locator('.postInfoM .dateTime[title]').count(), 0);
       } finally { await context.close(); }
     });
   } finally { await browser.close(); }

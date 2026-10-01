@@ -1,5 +1,6 @@
 """Owned Linux HTTPS round trip; called by the database integration test."""
 import contextlib
+from datetime import datetime, timedelta, timezone
 import http.client
 import json
 import os
@@ -33,6 +34,53 @@ def stop(process):
             raise AssertionError('Owned service did not drain')
 
 
+def proxy_certificate(root):
+    cert, key, csr = (root / name for name in ('public.crt', 'public.key', 'public.csr'))
+    (root / 'issued').mkdir(mode=0o700)
+    (root / 'index.txt').write_text('')
+    (root / 'serial').write_text('1000\n')
+    config = root / 'issuer.cnf'
+    config.write_text(f'''[ca]
+default_ca = issuer
+[issuer]
+database = {root}/index.txt
+new_certs_dir = {root}/issued
+serial = {root}/serial
+default_md = sha256
+default_days = 1
+policy = subject_policy
+x509_extensions = server
+[subject_policy]
+commonName = supplied
+[server]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = IP:127.0.0.1
+''')
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    start, end = now - timedelta(minutes=5), now + timedelta(days=1)
+    commands = [
+        ['openssl', 'req', '-new', '-newkey', 'rsa:2048', '-nodes', '-sha256',
+         '-keyout', str(key), '-out', str(csr), '-subj', '/CN=127.0.0.1'],
+        ['openssl', 'ca', '-batch', '-notext', '-selfsign', '-config', str(config),
+         '-keyfile', str(key), '-in', str(csr), '-out', str(cert),
+         '-startdate', start.strftime('%Y%m%d%H%M%SZ'), '-enddate', end.strftime('%Y%m%d%H%M%SZ')],
+    ]
+    for command in commands:
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+    # A fresh fixture tolerates bounded guest clock adjustment. Verification
+    # remains enabled, including rejection outside its actual validity window.
+    for instant, accepted in [(int(now.timestamp()), True), (int(start.timestamp()) - 1, False),
+                              (int(end.timestamp()) + 1, False)]:
+        verified = subprocess.run(['openssl', 'verify', '-CAfile', str(cert), '-verify_ip', '127.0.0.1',
+                                   '-attime', str(instant), str(cert)],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        assert (verified.returncode == 0) == accepted, 'Owned certificate validity verification failed'
+    key.chmod(0o600)
+    return cert, key
+
+
 def main():
     binary, board = sys.argv[1:]
     assert sys.platform == 'linux'
@@ -44,11 +92,7 @@ def main():
         port, unused_port, api_port = free_port(), free_port(), free_port()
         origin = f'https://127.0.0.1:{port}'
         path = root / 'public.sock'
-        cert, key = root / 'public.crt', root / 'public.key'
-        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-                        '-keyout', str(key), '-out', str(cert), '-days', '1',
-                        '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        cert, key = proxy_certificate(root)
         site = (ROOT / 'deploy/public-proxy.nginx.conf').read_text()
         for old, new in [('listen 443 ssl;', f'listen 127.0.0.1:{port} ssl;'),
                          ('boards.example.com', '127.0.0.1'),

@@ -38,8 +38,8 @@ for (const javaScriptEnabled of [false, true]) {
         await page.locator('#com').fill('Owned anonymous reply'); await page.locator('#password').fill(password);
         await page.getByRole('button', { name: 'Post', exact: true }).click();
       }
-      await expect(page.locator('.reply .name')).toHaveText('Anonymous');
-      await page.reload(); await expect(page.locator('.reply .name')).toHaveText('Anonymous');
+      await expect(page.locator('.reply .postInfo .name')).toHaveText('Anonymous');
+      await page.reload(); await expect(page.locator('.reply .postInfo .name')).toHaveText('Anonymous');
       const json = await (await context.request.get(`${origin}/${slug}/thread/${op}.json`)).json();
       expect(json.posts).toHaveLength(2);
       for (const post of json.posts) { expect(post.name).toBe('Anonymous'); expect(post.sub).toBeUndefined(); }

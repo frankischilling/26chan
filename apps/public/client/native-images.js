@@ -54,7 +54,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     && !element.closest('.deleted,.post-hidden,.native-thread-hidden,.mobile-post-hidden,[hidden]')
     && element.getClientRects().length > 0;
   function target(anchor) {
-    return anchor?.matches?.('a.fileThumb') && anchor.closest('.file') && available(anchor)
+    return anchor?.matches?.('a.fileThumb:not(.imgspoiler)') && anchor.closest('.file') && available(anchor)
       ? imageTarget(anchor.getAttribute('href'), mediaOrigin) : null;
   }
   function thumbnail(anchor, file) {
@@ -169,8 +169,9 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   function spoilerData(file) {
     if (file.dataset.imageSpoiler !== 'true' || !available(file)) return null;
     const details = Array.from(file.children).find(element => element.localName === 'details');
-    const link = details?.querySelector('a[href]'), source = link && imageTarget(link.getAttribute('href'), mediaOrigin);
-    const caption = file.querySelector(':scope > p > a[href]');
+    const placeholder = file.querySelector(':scope > a.fileThumb.imgspoiler');
+    const link = placeholder ?? details?.querySelector('a[href]'), source = link && imageTarget(link.getAttribute('href'), mediaOrigin);
+    const caption = file.querySelector(':scope > .fileText > a[href],:scope > p > a[href]');
     if (!source || caption?.getAttribute('href') !== source.url) return null;
     const filename = file.dataset.imageFilename;
     if (!filename || filename.length > 255 || /[\u0000-\u001f\u007f-\u009f]/.test(filename)
@@ -178,7 +179,10 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     const width = file.dataset.thumbnailWidth, height = file.dataset.thumbnailHeight;
     if (!/^[1-9][0-9]{0,3}$/.test(width ?? '') || !/^[1-9][0-9]{0,3}$/.test(height ?? '')
       || Number(width) > bounds.dimension || Number(height) > bounds.dimension) return null;
-    return { details, source, caption, filename, width, height, legacy: file.dataset.thumbnailLegacy === 'true' };
+    if (placeholder && (placeholder.className !== 'fileThumb imgspoiler'
+      || placeholder.querySelector('img')?.getAttribute('src') !== '/static/catalog/spoiler.png'
+      || caption.parentElement.title !== filename)) return null;
+    return { details, placeholder, source, caption, filename, width, height, legacy: file.dataset.thumbnailLegacy === 'true' };
   }
   function conceal(file) {
     const entry = revealed.get(file);
@@ -189,6 +193,11 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (entry.captionHidden === null) entry.caption.removeAttribute('hidden');
     else entry.caption.setAttribute('hidden', entry.captionHidden);
     entry.untrackCaption?.();
+    if (entry.placeholder) {
+      if (entry.placeholderHidden === null) entry.placeholder.removeAttribute('hidden');
+      else entry.placeholder.setAttribute('hidden', entry.placeholderHidden);
+      entry.untrackPlaceholder?.();
+    }
     entry.image.removeAttribute('src'); entry.anchor.remove(); setClass(file, 'nativeSpoilerRevealed', false);
   }
   function reveal(file, data) {
@@ -199,16 +208,33 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
     projection?.claim(anchor, owner);
     // The generated thumbnail belongs to the reveal entry. It is never copied
-    // into quote recipes; their original spoiler details retain the same policy.
+    // into quote recipes; their original spoiler placeholder retains its policy.
     const label = document.createElement('a');
     label.href = data.source.url; label.target = '_blank'; label.rel = 'noopener noreferrer';
-    label.textContent = data.filename; projection?.claim(label, owner);
+    const dot = data.filename.lastIndexOf('.'), stem = dot > 0 ? data.filename.slice(0, dot) : data.filename;
+    const op = file.parentElement.classList.contains('op');
+    if (data.placeholder) {
+      const scale = Math.min(1, (op ? 250 : 125) / image.width, (op ? 250 : 125) / image.height);
+      image.width = Math.max(1, Math.floor(image.width * scale)); image.height = Math.max(1, Math.floor(image.height * scale));
+    }
+    label.textContent = (stem.length > (op ? 40 : 30) ? stem.slice(0, op ? 35 : 25) + '(...)' + data.filename.slice(dot > 0 ? dot : data.filename.length) : data.filename).toWellFormed();
+    if (label.textContent !== data.filename) label.title = data.filename;
+    projection?.claim(label, owner);
     const captionHidden = data.caption.getAttribute('hidden');
     const untrackCaption = projection?.trackAttributes(data.caption,
       (name, value) => name === 'hidden' ? captionHidden : value);
-    const entry = { ...data, anchor, image, label, captionHidden, untrackCaption }; revealed.set(file, entry);
+    const placeholderHidden = data.placeholder?.getAttribute('hidden');
+    const untrackPlaceholder = data.placeholder && projection?.trackAttributes(data.placeholder,
+      (name, value) => name === 'hidden' ? placeholderHidden : value);
+    const entry = { ...data, anchor, image, label, captionHidden, untrackCaption, placeholderHidden, untrackPlaceholder }; revealed.set(file, entry);
     data.caption.hidden = true; data.caption.after(label);
-    anchor.append(image); file.append(anchor); setClass(file, 'nativeSpoilerRevealed', true);
+    if (data.placeholder) {
+      data.placeholder.hidden = true;
+      const caption = document.createElement('div'); caption.className = 'mFileInfo mobile';
+      caption.textContent = data.placeholder.querySelector('.mFileInfo')?.textContent ?? '';
+      anchor.append(caption);
+    }
+    anchor.prepend(image); file.append(anchor); setClass(file, 'nativeSpoilerRevealed', true);
     image.src = data.legacy ? data.source.url : data.source.thumbnail;
   }
   function refresh() {
@@ -227,7 +253,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     }
     for (const [file, entry] of revealed) {
       const data = active && config.revealSpoilers === true && spoilerData(file);
-      if (!data || data.source.url !== entry.source.url || data.details !== entry.details
+      if (!data || data.source.url !== entry.source.url || data.details !== entry.details || data.placeholder !== entry.placeholder
         || data.width !== entry.width || data.height !== entry.height || data.legacy !== entry.legacy
         || data.filename !== entry.filename || data.caption !== entry.caption
         || entry.label.parentNode !== data.caption.parentNode || entry.anchor.parentNode !== file) conceal(file);

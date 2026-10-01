@@ -65,12 +65,15 @@ for (const density of [1, 2]) {
       const page = await context.newPage();
       await page.goto('http://127.0.0.1:3000/headers/');
       await expect(page.locator('.postInfo > .postNum > a')).toHaveCount(24);
-      await expect.poll(() => page.locator('.identityIcon').evaluateAll(nodes => nodes.every(node => node.complete && node.naturalWidth > 0))).toBe(true);
-      expect(await page.locator('.identityIcon').evaluateAll(nodes => nodes.every(node => {
+      await expect(page.locator('.postInfoM > .postNum > a')).toHaveCount(24);
+      const icons = page.locator('.postInfoM .identityIcon');
+      await expect(icons).toHaveCount(12);
+      await expect.poll(() => icons.evaluateAll(nodes => nodes.every(node => node.complete && node.naturalWidth > 0))).toBe(true);
+      expect(await icons.evaluateAll(nodes => nodes.every(node => {
         const image = node.getBoundingClientRect();
         return image.width === 16 && image.height === 16 && image.left >= 0 && image.right <= innerWidth;
       }))).toBe(true);
-      for (const icon of await page.locator('.identityIcon').all()) {
+      for (const icon of await icons.all()) {
         const src = await icon.getAttribute('src');
         const expected = density === 2 && !src.endsWith('/foundericon.gif') ? src.replace('.gif', '@2x.gif') : src;
         expect(await icon.evaluate(node => new URL(node.currentSrc).pathname)).toBe(expected);

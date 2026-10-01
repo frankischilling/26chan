@@ -66,7 +66,8 @@ test('editor creates ordered native rules and palette values, then applies a glo
   await expect(page.locator(`#m${fixture.thread}`)).toBeVisible();
 });
 
-test('board subject filters hide OP threads, navigate through stubs, and never filter thread-page OPs', async ({ page, fixture }) => {
+for (const width of [1280, 390]) test(`board subject filters hide OP threads, navigate through stubs, and never filter thread-page OPs at ${width}px`, async ({ page, fixture }) => {
+  await page.setViewportSize({ width, height: 900 });
   await prepare(page, fixture, [rule(fixture.title, { type: 5 })]);
   await page.goto('/demo/');
   const section = page.locator(`#t${fixture.thread}`);
@@ -326,7 +327,7 @@ async function selectText(page, selector) {
 
 test('post-menu selection opens an unsaved native Name filter and saves through the existing editor', async ({ page, fixture }) => {
   await prepare(page, fixture, []);
-  await selectText(page, `#p${fixture.reply} .name`);
+  await selectText(page, `#pi${fixture.reply} .name`);
   await page.getByRole('button', { name: `Post menu for post ${fixture.reply}`, exact: true }).click();
   await page.getByRole('menuitem', { name: 'Filter selected text', exact: true }).click();
   await expect(page.locator('#filter-list tr')).toHaveCount(1);
@@ -350,7 +351,7 @@ test('selection infers native field types, trims text and cancelling never chang
       const span = document.createElement('span'); span.className = className; span.textContent = text; info.append(span);
     }
   });
-  const cases = [[`.subject`, fixture.title, '5'], ['.postertrip', '!OwnedTrip', '0'], ['.hand', 'OwnedID', '4'],
+  const cases = [[`.postInfo .subject`, fixture.title, '5'], ['.postertrip', '!OwnedTrip', '0'], ['.hand', 'OwnedID', '4'],
     ['.fileText', 'owned-file.png', '6'], ['.postMessage', 'Owned filter opening post', '2']];
   for (const [selector, text, type] of cases) {
     await selectText(page, `#p${fixture.thread} ${selector}`);

@@ -35,7 +35,7 @@ async function updaterSnapshot(browser) {
     const source = await context.newPage();
     await source.goto(`${origin}${threadPath}`);
     const posts = await source.locator('.postContainer').evaluateAll(nodes => nodes.map(node => ({
-      no: node.id.slice(2), file_deleted: !!node.querySelector('.fileDeleted'), html: node.outerHTML,
+      no: node.id.slice(2), file_deleted: !!node.querySelector('.fileDeletedRes'), html: node.outerHTML,
     })));
     return { version: 2, tail_size: 0, tail_id: null, board: 'img', thread: '1000201',
       closed: false, archived: false, sticky: false, replies: posts.length - 1, images: 4, posts };
@@ -70,7 +70,7 @@ test('image settings keep reference defaults while normal and legacy files expan
   await expect(legacy.locator('.expanded-thumb')).toHaveCount(0);
 
   const quoted = await expand(page, 1000202);
-  await page.locator('#p1000202 .postNum > a[title="Reply to this post"]').click();
+  await page.locator('#pi1000202 > .postNum > a[title="Reply to this post"]').click();
   await expect(page.locator('#qrCom')).toHaveValue('>>1000202\n');
   await expect(page.locator('#quickReply .expanded-thumb, #quickReply img')).toHaveCount(0);
   await expect(quoted.image).toBeVisible();
@@ -119,13 +119,14 @@ test('noPictures preserves thumbnail geometry and fitted expansions remain visib
   await openThread(page, { noPictures: true, fitToScreenExpansion: true });
   const board = page.locator('.board');
   await expect(board).toHaveClass(/\bnoPictures\b/);
-  await expect(page.locator('#f1000205 .fileThumb')).toHaveCount(0);
+  await expect(page.locator('#f1000205 .imgspoiler > img')).toHaveCSS('opacity', '0');
+  await expect(page.locator('#f1000205 .imgspoiler > .mFileInfo')).toBeHidden();
 
   const thumbnail = page.locator('#f1000201 > a.fileThumb > img');
   await thumbnail.scrollIntoViewIfNeeded();
   await waitForImage(thumbnail);
   const before = await thumbnail.boundingBox();
-  expect([before.width, before.height]).toEqual([250, 150]);
+  expect([before.width, before.height]).toEqual([125, 125]);
   await expect(thumbnail).toHaveCSS('opacity', '0');
 
   const { image } = await expand(page, 1000201);
@@ -223,24 +224,24 @@ test('spoiler media stays unfetched by default and revealSpoilers alone creates 
     if (url.origin === mediaOrigin && url.pathname.includes('1000205')) requests.push(url.pathname);
   });
   await openThread(page);
-  await expect(page.locator('#f1000205 > p > a')).toHaveText('Spoiler Image');
-  await expect(page.locator('#f1000205 > a.fileThumb')).toHaveCount(0);
-  await page.locator('#f1000205 details').scrollIntoViewIfNeeded();
+  await expect(page.locator('#f1000205 > .fileText > a')).toHaveText('Spoiler Image');
+  await expect(page.locator('#f1000205 > a.fileThumb.imgspoiler > img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
+  await page.locator('#f1000205 .imgspoiler').scrollIntoViewIfNeeded();
   await waitForImage(page.locator('#f1000204 .fileThumb img'));
   expect(requests).toEqual([]);
 
   await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ imageExpansion: false })));
   await page.reload();
-  await expect(page.locator('#f1000205 > a.fileThumb')).toHaveCount(0);
+  await expect(page.locator('#f1000205 > a.fileThumb.imgspoiler')).toBeVisible();
 
   requests.length = 0;
   await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ imageExpansion: false, revealSpoilers: true })));
   await page.reload();
   const file = page.locator('#f1000205');
   await expect(file).toHaveClass(/\bnativeSpoilerRevealed\b/);
-  await expect(file.locator('details')).toBeHidden();
-  await expect(file.locator(':scope > p > a:visible')).toHaveText(await file.getAttribute('data-image-filename'));
-  const thumbnail = file.locator(':scope > a.fileThumb > img');
+  await expect(file.locator('.imgspoiler')).toBeHidden();
+  await expect(file.locator(':scope > .fileText > a:visible')).toHaveText(await file.getAttribute('data-image-filename'));
+  const thumbnail = file.locator(':scope > a.fileThumb:not(.imgspoiler) > img');
   await expect(thumbnail).toHaveAttribute('src', `${mediaOrigin}/img/1000205s.jpg`);
   await thumbnail.scrollIntoViewIfNeeded();
   await waitForImage(thumbnail);
@@ -248,8 +249,9 @@ test('spoiler media stays unfetched by default and revealSpoilers alone creates 
   expect(requests).not.toContain('/img/1000205.png');
   await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ revealSpoilers: false })));
   await page.reload();
-  await expect(page.locator('#f1000205 > p > a')).toHaveText('Spoiler Image');
-  await expect(page.locator('#f1000205 > a.fileThumb')).toHaveCount(0);
+  await expect(page.locator('#f1000205 > .fileText > a')).toHaveText('Spoiler Image');
+  await expect(page.locator('#f1000205 > a.fileThumb.imgspoiler')).toBeVisible();
+  await expect(page.locator('#f1000205 > a.fileThumb:not(.imgspoiler)')).toHaveCount(0);
 });
 
 test('cross-tab disable and pagehide release expanded images while a persisted pageshow restores normal admission', async ({ context, page }) => {

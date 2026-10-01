@@ -60,7 +60,7 @@ test('spoiler file actions use metadata without revealing or fetching the hidden
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/img/thread/1000201');
   const post = page.locator('#p1000205');
-  await expect(post.locator('.fileThumb')).toHaveCount(0);
+  await expect(post.locator('.imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
   await page.getByRole('button', { name: 'Post menu for post 1000205', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', 'http://localhost:3004/img/1000205.png');
   await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
@@ -68,7 +68,8 @@ test('spoiler file actions use metadata without revealing or fetching the hidden
     const url = new URL(await page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true }).getAttribute('href'));
     expect(url.searchParams.get('url')).toBe('http://localhost:3004/img/1000205.png');
   }
-  await expect(post.locator('.file details')).not.toHaveAttribute('open');
+  await expect(post.locator('.imgspoiler')).toBeVisible();
+  await expect(post.locator('.fileThumb:not(.imgspoiler)')).toHaveCount(0);
   expect(requests.some(url => /\/img\/1000205(?:s\.jpg|\.png)$/.test(url))).toBe(false);
 });
 
@@ -77,7 +78,7 @@ test('noncanonical and credential-bearing file links cannot become menu navigati
   await page.goto('/img/thread/1000201');
   for (const href of ['javascript:void(0)', 'https://synthetic:synthetic@example.invalid/img/1000201.png',
     'https://example.invalid/wrong/1000201.png', 'https://example.invalid/img/1000201.png?token=synthetic']) {
-    await page.locator(`#p${id} .file > p > a`).evaluate((link, href) => { link.href = href; }, href);
+    await page.locator(`#p${id} .file > .fileText > a`).evaluate((link, href) => { link.href = href; }, href);
     await trigger(page).click();
     await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: 'Search image on Google', exact: true })).toHaveCount(0);

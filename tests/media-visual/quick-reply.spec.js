@@ -6,7 +6,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
     await context.addCookies([{ name: 'board-theme-ws', value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 }); await page.goto('/demo/');
-      const link = page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first(); const id = (await link.textContent());
+      const link = page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first(); const id = (await link.textContent());
       await link.click();
       const dialog = page.locator('#quickReply'); await expect(dialog).toBeVisible();
       await expect(page.locator('#qrCom')).toHaveValue(`>>${id}\n`);
@@ -42,7 +42,7 @@ test('Quick Reply drag uses bounded coordinates and thread navigation exposes th
 });
 
 test('Quick Reply renders errors as text, aborts without retry and ignores late completions after close', async ({ page }) => {
-  await page.goto('/demo/'); await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
+  await page.goto('/demo/'); await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click();
   await page.locator('#qrCom').fill('Owned draft'); await page.locator('#qr-pwd').fill('owned-password');
   let calls = 0;
   await page.route('**/demo/imgboard.php', async route => {
@@ -65,13 +65,13 @@ test('Quick Reply renders errors as text, aborts without retry and ignores late 
   await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
   await held.fulfill({ contentType: 'application/json', body: '{"tid":1000001,"pid":1000011}' }).catch(() => {});
   await expect(page.locator('#quickReply')).toHaveCount(0); expect(calls).toBe(3);
-  await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
+  await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click();
   await expect(page.locator('#qrCom')).toHaveValue('>>1000001\n');
   await expect(submit).toHaveValue('Post'); await expect(page.locator('#com')).toHaveValue('');
 });
 
 test('Quick Reply guards closed threads and keeps the source spoiler caret behavior', async ({ page }) => {
-  await page.goto('/demo/'); await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
+  await page.goto('/demo/'); await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click();
   const comment = page.locator('#qrCom');
   await comment.fill(''); await comment.press('Control+s');
   expect(await comment.evaluate(node => node.selectionStart)).toBe(9);
@@ -83,7 +83,7 @@ test('Quick Reply guards closed threads and keeps the source spoiler caret behav
   const before = page.url(), warning = page.waitForEvent('dialog').then(async dialog => {
     expect(dialog.type()).toBe('alert'); expect(dialog.message()).toBe('This thread is closed'); await dialog.accept();
   });
-  await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click(); await warning;
+  await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click(); await warning;
   await expect(page.locator('#quickReply')).toHaveCount(0); expect(page.url()).toBe(before);
 });
 
@@ -366,7 +366,7 @@ test('an approved Quick Reply consumes both editors capability fields and reopen
 });
 
 test('source length advice is debounced, typed, cancelable and does not hide server errors', async ({ page }) => {
-  await page.goto('/demo/'); await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click();
+  await page.goto('/demo/'); await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click();
   await expect(page.locator('#qrResto')).toHaveValue('1000001');
   await expect(page.locator('#quickReply')).toHaveAttribute('data-trackpos', 'QR-position');
   const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
@@ -388,7 +388,7 @@ test('source length advice is debounced, typed, cancelable and does not hide ser
   await page.locator('#quickReply input[type=submit]').click(); await expect(error).toHaveText('Server rule rejected this post');
   await comment.press('ArrowRight'); await page.clock.runFor(500); await expect(error).toHaveText('Server rule rejected this post');
   await comment.fill(value); await comment.press('ArrowLeft'); await comment.press('Escape');
-  await page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first().click(); await page.clock.runFor(1000);
+  await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click(); await page.clock.runFor(1000);
   await expect(page.locator('#qrError')).toBeHidden(); await expect(comment).toHaveValue('>>1000001\n');
 });
 
@@ -396,7 +396,7 @@ test('source mobile reopening uses 25px while initial placement uses 28px and pr
   await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/demo/');
   // Keep the quote target below the overlay while exercising repeated real clicks.
   await page.locator('#mpostform a').click();
-  const link = page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first(); await link.click();
+  const link = page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first(); await link.click();
   expect(await page.locator('#quickReply').evaluate(node => parseFloat(node.style.top) - scrollY)).toBe(28);
   await link.click(); expect(await page.locator('#quickReply').evaluate(node => parseFloat(node.style.top) - scrollY)).toBe(25);
   const comment = page.locator('#qrCom'); await comment.fill('Long line\n'.repeat(100));
@@ -422,7 +422,7 @@ test('source Q is thread-only and quotes selection without inventing a post link
 
 test('Ctrl-click quotes without linking even with optional keyboard shortcuts disabled', async ({ page, context }) => {
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: false })));
-  await page.goto('/demo/'); const link = page.locator('.postInfo > .postNum > a[title="Reply to this post"]').first();
+  await page.goto('/demo/'); const link = page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first();
   await link.click({ modifiers: ['Control'] }); await expect(page.locator('#qrCom')).toHaveValue('');
   expect(context.pages()).toHaveLength(1);
   await page.locator('#qrCom').fill('Existing draft');

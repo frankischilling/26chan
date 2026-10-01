@@ -63,7 +63,7 @@ const originalQuote = (page, source, target) => page.locator(`#m${source} ${quot
 const backlink = (page, owner, target) => page.locator(`#bl_${owner} > span > a.quotelink[href="${target.url}#p${target.id}"]`);
 // Find the nearest observable panel around its canonical post-number link. This
 // works whether the renderer uses the post itself or an outer inline wrapper.
-const inlineFor = (scope, target) => scope.locator(`.inlined .postNum > a[title="Link to this post"][href="${target.url}#p${target.id}"]`)
+const inlineFor = (scope, target) => scope.locator(`.inlined .postInfo > .postNum > a[title="Link to this post"][href="${target.url}#p${target.id}"]`)
   .locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " inlined ")][1]');
 const rule = (pattern, changes = {}) => ({ type: 2, pattern, boards: 'demo', active: true,
   auto: false, hide: false, color: '#ff0000', ...changes });

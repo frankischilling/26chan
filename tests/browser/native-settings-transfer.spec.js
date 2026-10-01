@@ -208,7 +208,12 @@ test('filter restore checks syntax in a worker and source Quick Reply coordinate
   expect(box.x + box.width).toBeCloseTo(980, 0);
   expect(box.y).toBeCloseTo(80, 0);
   await page.locator('#qrCom').fill('Unsubmitted position check');
+  // The browser schedules resize delivery after setViewportSize returns.
+  await page.evaluate(() => {
+    window.ownedQuickReplyResize = new Promise(resolve => window.addEventListener('resize', resolve, { once: true }));
+  });
   await page.setViewportSize({ width: 640, height: 700 });
+  await page.evaluate(() => window.ownedQuickReplyResize);
   const resized = await qr.boundingBox();
   expect(resized.x).toBeGreaterThanOrEqual(0);
   expect(resized.x + resized.width).toBeLessThanOrEqual(640);

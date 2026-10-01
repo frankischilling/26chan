@@ -11,6 +11,7 @@ npm ci --ignore-scripts
 if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium
 fi
+npm run check:generated
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
@@ -21,7 +22,9 @@ npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes
 npm run test:images-core
+npm run test:files-core
 npm run test:display
+npm run test:post-tooltips
 npm run check:native-thread-controls
 npm run test:thread-updater-dom
 npm run test:expansion
@@ -33,7 +36,9 @@ npm run test:embeds
 npm run test:custom-css
 npm run test:settings-transfer
 npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
+npx playwright test --config playwright.media-visual.config.js tests/media-visual/file-presentation.spec.js
 npm run test:quick-reply
+npx playwright test tests/browser/mobile-post-headers.spec.js
 npx playwright test tests/browser/post-identities.spec.js
 npx playwright test tests/browser/poster-ids.spec.js
 npm run test:behavior

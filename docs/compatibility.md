@@ -2,6 +2,15 @@
 
 ## Active reference boundary
 
+The mobile-header continuation adds [post tooltips](post-tooltips.md), with
+released relative-date boundaries, full-name hover timing and 18 synthetic
+style/placement cases across six themes. Finite original-post admission and
+text-only rendering replace global callbacks and HTML insertion. The existing
+native title covers direct subjects. [File presentation](file-presentation.md)
+adds filename tips, generic spoiler/deleted-file states, 40 filename/size vectors,
+20 released state cases and 216 style comparisons. Complete original-page
+comparisons remain outside this checked scope.
+
 The September 15, 2026 continuation uses the original brief's permitted-public-
 reference requirement. The supplied old checkout's remote identifies it as
 leaked source. The historical audit below is retained as a record of earlier
@@ -73,13 +82,24 @@ the optional thread-scoped label, ID filters and default-on IDColor behavior.
 
 ## Reference inventory
 
+[File presentation](file-presentation.md) adds independently replayed public
+client filename/size vectors and desktop/mobile file-style comparisons. The
+Rust header, mobile caption, tooltip, filters, menus and native projections share
+the approved-media boundary. Generic spoiler/deleted-file presentation now has
+20 formatter cases and 192 style comparisons, including both deleted-icon
+densities. Original downloads, board-specific custom spoilers, animated media
+and complete original-page matching remain separate requirements.
+
 [Post-number navigation](post-number-navigation.md) follows the released
 formatter's separate permalink and reply links. A bounded same-origin GET
 prefills the ordinary form when JavaScript is unavailable. The
 [header reference](public-post-header-reference.json) records 72 synthetic
 desktop OP/reply cases across six themes and six staff badges. Actual Rust
-template checks use those facts; original mobile headers and full-page pixels
-remain unqualified.
+template checks use those facts. The [mobile header reference](source-mobile-headers.md)
+adds 288 property cases across both mobile families, six styles, six staff roles,
+OP/reply posts and ordinary/dark classes. Ten pure-helper vectors cover shortened
+labels. These qualify the recorded properties; original full-page pixels and
+server-side name serialization remain unqualified.
 
 [Posting identities](post-identities.md) add the official FAQ's normal tripcode
 example and double-hash syntax, a conditional API trip field and escaped native
@@ -122,7 +142,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | B-012 | Optional poster IDs; pinned API `user_ids`/`id` fields, public extension v1191 IDColor/counts and core v1128 click controls | Thread-scoped saved labels, HTML/JSON/preview rendering, ID filters, default-on colors, click/keyboard highlights and loaded-post tooltips implemented | [Poster IDs](poster-ids.md), [native controls](native-poster-id-controls.md) and [private thread counts](private-poster-counts.md); independent hash vectors, persisted key/peer/scope and privilege tests, migration retention and browser lifecycle checks. Hash replacement is E-014; country flags are B-013 and [staff text badges](staff-capcodes.md) now have a persisted, scoped posting flow; staff attachments and full original-page qualification remain unfinished |
 | B-013 | Conditional country/board fields in pinned API documentation; released extension v1191 spans and observed public flag select | Saved per-post geography from an offline operator database or an allowed board choice; ordinary/multipart/Quick Reply posting, HTML and bounded native projections | [References, policy and tests](post-flags.md). IPv4/IPv6/mapped/unknown producer vectors, actual-role policy and mutation denials, attachment paths, script-free and native Chromium flows. Original private geolocation and capture rules are unknown; E-015 records the replacement and omission policy. Full rendered-page/mobile parity remains unfinished |
 | B-014 | Six `capcode` values in the pinned public API; public extension v1191 badge and highlight rendering | Staff text posting, persisted fields, fixed local icons, bounded native copies and group selection implemented; qualified in merged #185; desktop header continuation tracked separately | [Staff badges](staff-capcodes.md) and [verification](verification-staff-posting.md) cover actual role, HTTP, concurrency, asset and browser checks. The separate authentication proof and local namespace are E-016. Staff attachments, private original assignment and full-page/mobile visual comparisons remain unfinished |
-| B-015 | Public extension v1191 separates post permalinks and quote controls | Separate links, finite updater/preview recipes, live Quick Reply delegation and script-free quoted posting implemented; current-head qualification tracked separately | [Navigation](post-number-navigation.md), [72 desktop header facts](public-post-header-reference.json) and [actual tests](verification-post-number-navigation.md). The form fallback is E-017; original mobile header and complete page matching remain unfinished |
+| B-015 | Public extension v1191 separates post permalinks and quote controls | Separate links in paired mobile/desktop headers, bound updater/preview recipes, live Quick Reply delegation and script-free quoted posting implemented | [Navigation](post-number-navigation.md), [72 desktop header facts](public-post-header-reference.json), [288 mobile property cases and label vectors](source-mobile-headers.md), and [desktop verification](verification-post-number-navigation.md). The form fallback is E-017; complete original-page matching remains unfinished |
 | B-001 | Persistent thread creation/replies; project; **source**: [original rules](#posting-and-text) | Implemented | Real PostgreSQL and browser tests; no copied posting internals |
 | B-002 | `sage`, current-count bumping and source cutoff; **source**: [original rules](#counts-bumping-and-admission) | Count/sticky/permaage/permasage, age and OP self-bump rules implemented, serialized per board | [Count rules](source-bump-rules.md), [flag controls](thread-bump-flags.md), [age cutoff](source-bump-age.md), [private OP matching](source-op-bumps.md) and [posting clocks](source-posting-times.md). Sticky/permasage override permaage, which overrides age and self-sage. Flags and age CI passed; OP and posting-clock changes await complete current-head CI. Source admission, other cooldowns and deletion/moderation timestamp details remain unfinished |
 | B-003 | Board settings and thread limits; project; **source**: [original rules](#counts-bumping-and-admission) | Unicode scalar comment limits, independent UTF-8 byte ceiling, [100-byte public name/subject limits](public-field-limits.md), active-thread cap, reply/bump limits | Domain/store/HTTP/browser tests; full boards displace oldest nonsticky threads; optional archives retain read-only threads, otherwise soft deletion; migration 0021 preserves historical fields and deletion |

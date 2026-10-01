@@ -10,6 +10,10 @@ A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG, [JP
 
 [Native image controls](docs/native-image-controls.md) add inline expansion, screen fitting, hover previews and image display preferences to approved attachments. They share the existing settings and quote ownership rules, with finite full-image loading and an explicit media-origin boundary.
 
+[File headers and mobile captions](docs/file-presentation.md) use the released
+client's filename cutoffs and size units. Full-name filters and inert filename
+tooltips retain the uploaded display label while downloads remain normalized PNGs.
+
 [Local dates and custom board navigation](docs/native-display.md) use the same
 settings and preserve server output when disabled. The
 [legacy action route](docs/legacy-actions.md) supports password deletion and a
