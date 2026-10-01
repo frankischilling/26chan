@@ -64,8 +64,8 @@ The unchanged Windows settings lifecycle file passed all 22 cases. Twenty
 additional repetitions of the specific failed interaction also passed, each
 with a fresh worker and no retries. These focused local passes do not reproduce
 or explain the hosted failure. Both resource samples emitted valid bounded
-JSON; the event query remained unavailable. The full 1,173-case hosted theme
-group remains a qualification requirement.
+JSON; the event query remained unavailable. These local checks preceded the
+full hosted theme run described below.
 
 ```text
 node node_modules/@playwright/test/cli.js test --config playwright.themes.config.js tests/themes/catalog-settings-lifecycle.spec.js
@@ -75,3 +75,37 @@ node node_modules/@playwright/test/cli.js test --config playwright.themes.config
 The hosted run failed overall, and later Linux browser groups did not run.
 The final current-head checks must pass before #228 can close or the complete
 rewrite can merge.
+
+[Run 36919534871](https://github.com/frankischilling/26chan/actions/runs/36919534871),
+on `68c5a48`, passed the full Windows visual job, including all 1,173 theme
+cases. Media/operations, restoration, dependency advisories and monitoring
+also passed. This Windows pass does not explain the earlier intermittent
+resource failure, so #139 and #142 remain open.
+
+Linux passed all 58 scenarios in the corrected behavior group and the later
+groups through the eight updater scenarios. Its notification file then passed
+five cases and failed the two filter-generation cases. They still expected
+the server to turn `https://lower.test/path` into an anchor. The pinned source
+server only links its own domains; external URLs remain text for the optional
+browser linker. The saved response correctly contained both external URLs as
+text, so the assertions failed before either updater completion check ran.
+The aggregate workflow failed and subsequent browser groups did not run.
+
+The notification fixture now posts a source-domain URL alongside the lowercase
+and uppercase external URLs. It requires exactly the source-domain server
+anchor, neither external server anchor, and no browser decoration in JSON.
+Both preference settings retain the exact update-event highlight, notice and
+completion checks. Enabling linkification must produce exactly two browser
+anchors with the expected text and encoded redirect destinations while
+preserving the source-domain anchor. Disabling it must produce none.
+
+All seven unchanged and corrected notification scenarios passed against the
+integrated public process and disposable PostgreSQL database in Linux without
+retries:
+
+```text
+node node_modules/@playwright/test/cli.js test tests/browser/native-updater-notifications.spec.js
+```
+
+This focused pass qualifies the fixture correction locally. Final current-head
+CI, including all previously skipped groups, remains required.

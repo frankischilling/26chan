@@ -72,11 +72,14 @@ for (const linkify of [false, true]) {
     await page.evaluate(() => localStorage.setItem('4chan-filters', JSON.stringify([
       { active: true, pattern: 'Final filter generation', boards: 'demo', type: 2, color: '#ff0000' },
     ])));
-    const reply = await owned.reply('Final filter generation https://lower.test/path then HTTPS://UPPER.TEST/Path?Q=One');
+    const reply = await owned.reply('Final filter generation https://www.4chan.org/legal then https://lower.test/path then HTTPS://UPPER.TEST/Path?Q=One');
     const snapshot = await (await request.get(owned.path)).json();
     const html = snapshot.posts.find(post => post.no === reply).html;
-    expect(html).toContain('href="https://lower.test/path"');
+    expect(html).toContain('href="https://www.4chan.org/legal"');
+    expect(html).toContain('https://lower.test/path');
+    expect(html).not.toContain('href="https://lower.test/path"');
     expect(html).toContain('HTTPS://UPPER.TEST/Path?Q=One');
+    expect(html).not.toContain('href="HTTPS://UPPER.TEST/Path?Q=One"');
     expect(html).not.toContain('data-native-linkified');
     await page.evaluate(id => {
       window.completedFilterGeneration = null;
@@ -94,9 +97,17 @@ for (const linkify of [false, true]) {
     await update(page);
     await expect(status(page)).toHaveText('1 new post');
     expect(await page.evaluate(() => window.completedFilterGeneration)).toEqual({
-      highlighted: true, generated: linkify ? 1 : 0, notice: '',
+      highlighted: true, generated: linkify ? 2 : 0, notice: '',
     });
     await expect(page.locator(`#p${reply}`)).toHaveClass(/filter-hl/);
+    await expect(page.locator(`#m${reply} a[href="https://www.4chan.org/legal"]`)).toHaveCount(1);
+    const generated = page.locator(`#m${reply} a[data-native-linkified]`);
+    await expect(generated).toHaveCount(linkify ? 2 : 0);
+    if (linkify) {
+      await expect(generated).toHaveText(['https://lower.test/path', 'HTTPS://UPPER.TEST/Path?Q=One']);
+      await expect(generated.nth(0)).toHaveAttribute('href', '/derefer?url=https%3A%2F%2Flower.test%2Fpath');
+      await expect(generated.nth(1)).toHaveAttribute('href', '/derefer?url=HTTPS%3A%2F%2FUPPER.TEST%2FPath%3FQ%3DOne');
+    }
   });
 }
 
