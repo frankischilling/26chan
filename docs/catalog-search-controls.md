@@ -3,9 +3,13 @@
 Search now opens the compact field used by the pinned public catalog client.
 Clicking Search again, clicking × or pressing Escape closes it and restores the
 catalog. Closing retains the old field value; reopening clears that value and
-focuses the field. Unmodified S from the document body opens Search. When Search
+focuses the field. S on keyup from a non-input target opens Search. When Search
 is already open, S clears its field and labels while retaining the existing
-filter until the next keyup. Ctrl, Alt and Shift combinations do not open it.
+filter until the next field keyup. Modifier keys do not suppress the shortcut.
+The later [keyboard reference](catalog-shortcuts.md) establishes phase, targets,
+modifiers, the disable option, R and X. The initial 46-state reference below
+tested full S presses from the body and modified keydown events, which did not
+establish the broader shortcut behavior.
 
 Filtering follows keyup after 250 ms. Enter uses the same debounce and does not
 submit a document request. An input event alone does not filter. The released

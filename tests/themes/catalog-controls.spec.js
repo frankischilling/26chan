@@ -80,7 +80,7 @@ for (const width of [1280, 390]) {
     await state(page, 'enter-immediate'); await page.clock.runFor(250); await state(page, 'enter-250');
   });
   for (const [label, modifiers] of [['control-shortcut', { ctrlKey: true }], ['alt-shortcut', { altKey: true }], ['shift-shortcut', { shiftKey: true }]]) {
-    test(`catalog Search ignores ${label} at ${width}`, async ({ page }) => {
+    test(`catalog Search ignores ${label} keydown at ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 }); await page.goto(catalog);
       await page.evaluate(modifiers => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', keyCode: 83, bubbles: true, cancelable: true, ...modifiers })), modifiers);
       await state(page, label);

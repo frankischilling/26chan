@@ -718,9 +718,20 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
       searchContainer.style.display = 'none';
       searchToggle.addEventListener('click', () => { if (searchOpen) closeSearch(); else openSearch(); });
       searchClose.addEventListener('click', closeSearch);
-      document.addEventListener('keydown', event => {
-        if ((event.key === 's' || event.key === 'S') && event.target === document.body
-          && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); openSearch(); }
+      document.addEventListener('keyup', event => {
+        if (event.target?.nodeName === 'INPUT' || event.target?.nodeName === 'TEXTAREA') return;
+        try {
+          const raw = localStorage.getItem(themeKey);
+          if (raw !== null && raw.length <= 4096) {
+            const theme = JSON.parse(raw);
+            if (theme && typeof theme === 'object' && !Array.isArray(theme) && theme.nobinds === true) return;
+          }
+        } catch { /* Keyboard controls remain usable without preference storage. */ }
+        if (event.keyCode === 83) openSearch();
+        else if (event.keyCode === 88) {
+          order.value = ({ date: 'alt', alt: 'r', r: 'absdate', absdate: 'date' })[order.value];
+          order.dispatchEvent(new Event('change'));
+        } else if (event.keyCode === 82 && !event.shiftKey) location.assign(location.href);
       });
     }
     container.addEventListener('click', event => {

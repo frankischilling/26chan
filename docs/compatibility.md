@@ -15,6 +15,9 @@ enhancement follows keyup, open/close, session, keyboard and six-theme rules whi
 retaining bounded queries, fixed assets and the ordinary GET fallback. Its owned
 fixtures establish the listed properties, not complete original-page parity or
 unknown server-side teaser normalization in #82.
+The later [keyboard reference](catalog-shortcuts.md) corrects the initial
+phase/target/modifier assumption and adds R, X and the disable preference. Its
+Settings editor/style observations remain reference inputs for unfinished work.
 
 The mobile-header continuation adds [post tooltips](post-tooltips.md), with
 released relative-date boundaries, full-name hover timing and 18 synthetic

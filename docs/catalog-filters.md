@@ -100,6 +100,15 @@ render alone. All 178 catalog/text-catalog theme cases pass after that fix in
 2.6 minutes, including the failing delta assertion. The other full-suite cases
 had passed before the correction. All five generated bundle checks pass.
 
+The owned Linux/PostgreSQL qualification passes all 93 public library tests,
+nine fixed-asset tests, public all-target/all-feature Clippy, 35 filter-core cases
+and all 47 production-server catalog/posting/CSP cases. There are zero ignored
+Rust/core cases. The first browser startup overlapped a Windows fixture listener
+and refused to reuse it; the separate rerun used the Linux server. The ignored
+qualification launcher initially had Windows line endings, corrected before
+it ran any checks. These local results qualify the stated scope; hosted checks
+remain required before merging.
+
 Earlier runs exposed real integration mistakes: teaser text was colored despite
 the public markup quirk; mobile field fonts/margins and the blue panel border
 differed; an empty filter refresh unnecessarily sorted Search's initial cards;

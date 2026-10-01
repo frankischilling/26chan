@@ -4,10 +4,10 @@ use axum::{Router, response::Html, routing::get};
 use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
 use board_store::{Post, Thread, post_media::PostAttachment};
 
-fn page() -> String {
+fn page(slug: &str, sorted: bool) -> String {
     let mut board = board();
-    board.slug = "filterui".into();
-    let threads = [
+    board.slug = slug.into();
+    let mut threads = [
         (
             1_000_001,
             "Owned crane",
@@ -98,7 +98,10 @@ fn page() -> String {
             image_replies: 0,
         },
     )
-    .collect();
+    .collect::<Vec<_>>();
+    if sorted {
+        threads.sort_by_key(|view| std::cmp::Reverse(view.thread.id));
+    }
     views::BoardPage {
         quote: String::new(),
         catalog_hidden: Vec::new(),
@@ -135,11 +138,22 @@ pub async fn routes() -> Router {
     let id = "00000000000000000000000000000001".parse().unwrap();
     guard.install(id, &output).unwrap();
     let bytes = reader.read(id, output.sha256(), output.len()).unwrap();
-    let mut router = Router::new().route("/filterui/catalog", get(|| async { Html(page()) }));
-    for id in [1_000_001, 1_000_002] {
+    let mut router = Router::new()
+        .route(
+            "/filterui/catalog",
+            get(|| async { Html(page("filterui", false)) }),
+        )
+        .route(
+            "/settingsui/catalog",
+            get(|| async { Html(page("settingsui", true)) }),
+        );
+    for (slug, id) in ["filterui", "settingsui"]
+        .into_iter()
+        .flat_map(|slug| [1_000_001, 1_000_002].map(|id| (slug, id)))
+    {
         let bytes = bytes.clone();
         router = router.route(
-            &format!("/filterui/{id}.png"),
+            &format!("/{slug}/{id}.png"),
             get(move || {
                 let bytes = bytes.clone();
                 async move { ([("content-type", "image/png")], bytes) }
