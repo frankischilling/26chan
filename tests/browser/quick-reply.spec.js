@@ -109,6 +109,45 @@ async function observePostingBody(page) {
   }, origin);
 }
 
+test('a mobile quote form keeps edits made before its client script initializes', async ({ browser, request }) => {
+  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned early mobile form thread', password } });
+  expect(created.status()).toBe(303);
+  const id = /#p(\d+)$/.exec(created.headers().location)[1];
+  const context = await browser.newContext({ viewport: { width: 390, height: 900 }, isMobile: true, hasTouch: true });
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  let observed;
+  const blocked = new Promise(resolve => { observed = resolve; });
+  try {
+    await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false, threadWatcher: false })));
+    const page = await context.newPage();
+    await page.route('**/native-quick-reply.v1.js', async route => {
+      observed();
+      await pending;
+      await route.continue();
+    });
+    await page.goto(`${origin}/fixture/thread/${id}?quote=${id}#reply`, { waitUntil: 'commit' });
+    await blocked;
+    await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);
+    await page.locator('#com').fill('Owned edit made before mobile form initialization');
+    release();
+    await expect(page.locator('form#reply')).toHaveClass(/nativePostForm/);
+    await expect(page.locator('#com')).toBeVisible();
+    await expect(page.locator('#com')).toHaveValue('Owned edit made before mobile form initialization');
+    await page.locator('form#reply button[type="submit"]').click();
+    await expect(page).toHaveURL(new RegExp(`/fixture/thread/${id}#p[1-9][0-9]*$`));
+    const saved = await (await request.get(`/fixture/thread/${id}.json`)).json();
+    expect(saved.posts).toHaveLength(2);
+    expect(saved.posts[1].com).toBe('Owned edit made before mobile form initialization');
+  } finally {
+    release();
+    await context.close();
+    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { no: id, password } })).status()).toBe(303);
+  }
+});
+
 test('Quick Reply persists replies, retains failed drafts, tracks own posts and updates without navigation', async ({ page, context, request }) => {
   const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
     form: { com: 'Owned Quick Reply thread', sub: 'Owned Quick Reply', password } });

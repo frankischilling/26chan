@@ -14,7 +14,7 @@ import tempfile
 import threading
 import urllib.parse
 
-from qualify import ROOT, check_signal_cleanup, install_signal_cleanup, port, request, stop, wait_for
+from qualify import ROOT, check_signal_cleanup, install_signal_cleanup, ports, request, stop, wait_for
 
 
 QUEUE_FAMILIES = {
@@ -138,9 +138,9 @@ def qualify(lifecycle_state=None):
         threading.Thread(target=receiver.serve_forever, daemon=True).start()
         cleanup.callback(receiver.server_close)
         cleanup.callback(receiver.shutdown)
-        metrics_port, prom_port, alert_port = (port() for _ in range(3))
+        metrics_port, prom_port, alert_port = ports(3)
         if len({metrics_port, prom_port, alert_port, receiver.server_port}) != 4:
-            raise AssertionError('Ephemeral port collision; rerun qualification')
+            raise AssertionError('Owned queue qualification ports must be distinct')
         instance = f'127.0.0.1:{metrics_port}'
         endpoint = f'http://{instance}'
         token = secrets.token_hex(32)

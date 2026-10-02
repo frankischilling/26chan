@@ -112,8 +112,12 @@ in full: Linux Rust/browser checks, Windows visual checks, media/operations and
 the required aggregate gate. Its
 [dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/37028174884)
 and [monitoring run](https://github.com/frankischilling/26chan/actions/runs/37028174423)
-also pass. This qualifies that checkpoint; the fixed public name/trip follow-up
-requires its own complete hosted checks before integration.
+also pass. This qualifies that checkpoint. The fixed public name/trip follow-up,
+`d44ea1f`, passes hosted Rust, media/operations, all Windows visual groups and
+dependency advisories, but fails its Linux Robot9000 browser case and independent
+monitoring workflow. The mobile initialization race and duplicate-port fixture
+failure are recorded in [CI fixture verification](verification-ci-board-fixtures.md).
+The follow-up remains unqualified until every check passes at its corrected head.
 
 Complete caller ordering, the staff `/test/` exception, remaining name and
 randomizer scope, unsupported regexp modifiers, IP/ASN rules, file blacklists

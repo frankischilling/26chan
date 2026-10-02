@@ -202,3 +202,40 @@ processing job and no approved output. Separate negative controls replaced each
 final wall-clock predicate with a transaction timestamp; both fail for accepting
 the expired lease. The mutations were reverted and all four media approval cases
 pass. Application media code and runtime role limits are unchanged.
+
+The next checkpoint, `d44ea1f`, fails
+[run 37036025365](https://github.com/frankischilling/26chan/actions/runs/37036025365)
+at the Linux Robot9000 browser case. Rust, media/operations and all Windows
+visual groups pass; the required aggregate gate fails. The retained browser
+trace shows the mobile submit button staying hidden, with no mobile POST sent.
+The comment was edited before the form script initialized. Initialization
+required an unchanged quote draft to reveal the form and therefore hid it.
+
+A controlled regression holds the actual client bundle request, edits the
+visible fallback field, then releases the bundle. It fails on the same hidden
+field before the fix. Mobile quote-form visibility now depends on the validated
+quote URL rather than mutable draft text. The regression also requires the edit
+to survive initialization and a real form submission to save it.
+With the correction, all 15 Quick Reply, preference and Robot9000 browser cases
+pass, including script-free desktop/mobile posting and invalid quote targets.
+All 481 client tests and generated-bundle checks pass. Test deadlines, retries,
+posting assertions and screenshot expectations are unchanged.
+
+The same checkpoint's
+[monitoring run 37036025377](https://github.com/frankischilling/26chan/actions/runs/37036025377)
+fails before the SIGTERM cleanup exercise: choosing and immediately closing
+one ephemeral socket at a time let the OS return a duplicate port. Qualifiers
+now reserve their whole port set before releasing it. Core, authenticated,
+queue, resource and maintenance callers use that batch API; receiver collision
+checks remain. This prevents reuse within the selected set, without claiming
+that reservations remain held while child processes bind their listeners.
+
+Local Linux checks pass both 20-test monitoring suites, actual core and
+authenticated scraping/alert delivery, queue transitions and unavailable-source
+recovery, and each profile's OS SIGTERM cleanup. Windows runs 18 core tests with
+two explicit Linux-only skips. Actual resource setup stops at its required
+cgroup-v2 check because that interface is absent in this WSL instance;
+maintenance requires the same interface. Both remain required hosted checks.
+The checkpoint's
+[dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/37036025524)
+passes. These corrections still require complete CI on their new head.
