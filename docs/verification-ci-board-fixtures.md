@@ -239,3 +239,13 @@ maintenance requires the same interface. Both remain required hosted checks.
 The checkpoint's
 [dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/37036025524)
 passes. These corrections still require complete CI on their new head.
+
+The corrected checkpoint `b4f0ef65eeff9eb91264b2a6596e5f398ab03277` passes
+[build/test run 37040774446](https://github.com/frankischilling/26chan/actions/runs/37040774446)
+in full: Linux Rust/browser checks, every Windows visual group,
+media/operations and the required aggregate gate. Its
+[monitoring run 37040774471](https://github.com/frankischilling/26chan/actions/runs/37040774471)
+and [advisory run 37040774637](https://github.com/frankischilling/26chan/actions/runs/37040774637)
+also pass. Hosted monitoring includes the actual resource and maintenance
+exercises that require cgroup v2. These results qualify that checkpoint;
+later feature work still requires checks at its own head.

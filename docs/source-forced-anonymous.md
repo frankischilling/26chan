@@ -61,4 +61,6 @@ library tests, six Quick Reply Node tests, the attachment authorization suite,
 and strict public/store Clippy for all targets/features passed. Formatting,
 actionlint, shell/JavaScript syntax, bundle generation and diff checks passed.
 Complete current-head CI qualification remains required before merge. This change
-does not implement full name/trip sanitation or privileged posting.
+does not implement privileged posting. Ordinary public name preparation and
+trip parsing are covered separately in [public-name verification](verification-public-names.md);
+staff-specific preparation and exceptions remain unfinished.

@@ -415,8 +415,12 @@ async fn create_post_in_context(
             trip: None,
         }
     } else {
-        board_domain::identity::prepare(post_name, keys.tripcode)
-            .map_err(|error| StoreError::Invalid(error.0))?
+        board_domain::identity::prepare_with_spacing(
+            post_name,
+            keys.tripcode,
+            board.comment_spacing(),
+        )
+        .map_err(|error| StoreError::Invalid(error.0))?
     };
     let content = board_domain::prepare_post_content_input(
         post_name,

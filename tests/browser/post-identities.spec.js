@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-identity-browser-password';
+const encoding = JSON.parse(readFileSync(new URL('../../crates/domain/tests/fixtures/trip-encoding.json', import.meta.url), 'utf8'));
 
 test('persisted tripcodes survive browser previews, filters and ordinary rendering', async ({ page, context, request }) => {
   const threads = [];
@@ -45,9 +47,55 @@ test('persisted tripcodes survive browser previews, filters and ordinary renderi
     await expect(page.locator(`#pi${target} .postertrip`)).toBeVisible();
     const data = await (await request.get(`/demo/thread/${target}.json`)).json();
     expect(data.posts.map(post => post.trip)).toEqual(['!ozOtJW9BFA', '!ozOtJW9BFA']);
-    expect(data.posts.map(post => post.name)).toEqual(['<owned name>', 'Reply']);
+    expect(data.posts.map(post => post.name)).toEqual(['&lt;owned name&gt;', 'Reply']);
   } finally {
     for (const thread of threads.reverse()) {
+      expect((await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { no: thread, password } })).status()).toBe(303);
+    }
+  }
+});
+
+test('CP932 trip-only names and cleaned text survive desktop, mobile and live rendering', async ({ browser, request }) => {
+  const trip = `!${encoding.vectors.find(vector => vector.input === 'かみ').trip}`;
+  for (const width of [1280, 390]) {
+    const created = await request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { name: '#かみ', com: 'Owned trip-only source thread', password } });
+    expect(created.status()).toBe(303);
+    const thread = /#p(\d+)$/.exec(created.headers().location)[1];
+    const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width === 390, hasTouch: width === 390 });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('4chan-settings', JSON.stringify({ filter: true, quickReply: true, quotePreview: true, threadStats: false, threadWatcher: false }));
+        localStorage.setItem('4chan-filters', JSON.stringify([{ type: 1, pattern: 'Anonymous', boards: '', active: true, auto: true, hide: true }]));
+      });
+      const page = await context.newPage();
+      await page.goto(`/demo/catalog`);
+      const card = page.locator(`a.catalogThumb[href="/demo/thread/${thread}"]`);
+      await expect(card).toHaveAttribute('data-filter-name', '');
+      await expect(card).toBeVisible();
+      await page.goto(`/demo/thread/${thread}`);
+      const info = page.locator(`#${width === 390 ? 'pim' : 'pi'}${thread}`);
+      await expect(info.locator('.name')).toHaveText('');
+      await expect(info.locator('.postertrip')).toHaveText(trip);
+      let data = await (await request.get(`/demo/thread/${thread}.json`)).json();
+      expect(Object.hasOwn(data.posts[0], 'name')).toBe(false);
+      expect(data.posts[0].trip).toBe(trip);
+      await info.locator('a[title="Reply to this post"]').click();
+      await expect(page.locator('#quickReply')).toBeVisible();
+      await page.locator('#qr-name').fill('＃Named！<owned>&"\'');
+      await page.locator('#qrCom').fill('Owned cleaned name result');
+      await page.locator('#quickReply input[type=submit]').click();
+      await expect(page.locator('.postMessage').filter({ hasText: 'Owned cleaned name result' })).toHaveCount(1);
+      data = await (await request.get(`/demo/thread/${thread}.json`)).json();
+      expect(data.posts).toHaveLength(2);
+      expect(data.posts[1].name).toBe('Named&lt;owned&gt;&amp;&quot;&#039;');
+      expect(data.posts[1].trip).toBeUndefined();
+      const reply = data.posts[1].no;
+      await expect(page.locator(`#pi${reply} .name`)).toHaveText('Named<owned>&"\'');
+      await expect(page.locator('owned')).toHaveCount(0);
+    } finally {
+      await context.close();
       expect((await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
         form: { no: thread, password } })).status()).toBe(303);
     }

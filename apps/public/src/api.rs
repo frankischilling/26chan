@@ -145,7 +145,10 @@ fn post_json(
     .render()?;
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
-        "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name });
+        "now": post.now, "time": post.post.created_at.timestamp() });
+    if !post.post.name.is_empty() || post.post.trip.is_none() {
+        value["name"] = json!(board_domain::source_html_entities(&post.post.name));
+    }
     if let Some(id) = &post.post.poster_id {
         value["id"] = json!(id);
     }

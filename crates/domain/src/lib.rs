@@ -33,6 +33,8 @@ pub mod posting_options;
 pub mod posting_randomizers;
 pub mod robot9000;
 mod subject;
+mod trip_cp932;
+mod trip_cp932_data;
 pub mod wordfilter;
 pub mod wordfiltered_comment;
 pub use formatting::{Line, Token, parse_comment, parse_post_comment, parse_post_comment_on_board};

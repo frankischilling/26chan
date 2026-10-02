@@ -213,7 +213,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .unwrap();
                 assert_eq!(
                     json["posts"][0]["name"],
-                    if enabled { "Anonymous" } else { "Owned <name>" }
+                    if enabled {
+                        "Anonymous"
+                    } else {
+                        "Owned &lt;name&gt;"
+                    }
                 );
                 assert_eq!(
                     json["posts"][0]

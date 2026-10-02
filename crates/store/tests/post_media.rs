@@ -280,7 +280,7 @@ async fn exercise(f: &Fixture) {
             .await
             .unwrap()
             .name,
-        "😀".repeat(25)
+        "Anonymous"
     );
     assert_eq!(
         board_store::find_post(&f.public, &f.board, id)
@@ -516,6 +516,7 @@ async fn exercise(f: &Fixture) {
     image_admission_flags(f).await;
     comment_spacing(f).await;
     tripcodes(f).await;
+    source_prepared_names(f).await;
     poster_counts(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
@@ -665,6 +666,89 @@ async fn tripcodes(f: &Fixture) {
     assert!(attachment(&f.public, id).await.unwrap().is_some());
     sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
         .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+}
+
+async fn source_prepared_names(f: &Fixture) {
+    let previous: bool =
+        sqlx::query_scalar("SELECT comment_code_spacing FROM content.boards WHERE slug=$1")
+            .bind(&f.board)
+            .fetch_one(&f.public)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE content.boards SET comment_code_spacing=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let source: serde_json::Value =
+        serde_json::from_str(include_str!("../../domain/tests/fixtures/public-name.json")).unwrap();
+    let expanded = format!("A{}B", "\t".repeat(63));
+    let policy = source["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["board"] == "g" && group["code"] == true)
+        .unwrap();
+    let spacing_case = policy["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["input"] == expanded)
+        .unwrap();
+    for (raw, name, trip) in [
+        ("#かみ", "", Some("!v/ClhaTjaY")),
+        (
+            expanded.as_str(),
+            spacing_case["name"].as_str().unwrap(),
+            None,
+        ),
+    ] {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        let mut draft = post();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let count_before: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&f.board)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        draft.name = "\"".repeat(43);
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid("Name or subject is too long."))
+        ));
+        let count_after: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&f.board)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        assert_eq!(count_after, count_before);
+        // The same approved capability must survive the late name rejection.
+        draft.name = raw.into();
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.name, name);
+        assert_eq!(saved.trip.as_deref(), trip);
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Conflict(_))
+        ));
+    }
+    sqlx::query("UPDATE content.boards SET comment_code_spacing=$2 WHERE slug=$1")
+        .bind(&f.board)
+        .bind(previous)
         .execute(&f.admin)
         .await
         .unwrap();

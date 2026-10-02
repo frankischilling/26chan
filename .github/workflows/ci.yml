@@ -226,6 +226,8 @@ jobs:
         run: sudo bash scripts/test-forced-anonymous-migration.sh
       - name: Upgrade tripcodes while preserving historical content and runtime grants
         run: sudo bash scripts/test-tripcode-migration.sh
+      - name: Upgrade source display names while preserving saved identities and runtime grants
+        run: sudo bash scripts/test-public-display-name-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
@@ -346,6 +348,8 @@ jobs:
           cargo test -p board-domain admission_normalization --lib --locked
           cargo test -p board-domain content_admission --lib --locked
           cargo test -p board-domain name_trip_admission --lib --locked
+          cargo test -p board-domain identity --lib --locked
+          cargo test -p board-domain trip_cp932 --lib --locked
           node --test tests/browser/owned-upload-response.test.mjs
       - name: Verify public TCP transport budgets
         shell: pwsh

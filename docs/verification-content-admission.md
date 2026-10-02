@@ -117,7 +117,13 @@ also pass. This qualifies that checkpoint. The fixed public name/trip follow-up,
 dependency advisories, but fails its Linux Robot9000 browser case and independent
 monitoring workflow. The mobile initialization race and duplicate-port fixture
 failure are recorded in [CI fixture verification](verification-ci-board-fixtures.md).
-The follow-up remains unqualified until every check passes at its corrected head.
+The corrected `b4f0ef6` checkpoint passes all build/test, monitoring and advisory
+jobs, including hosted resource and maintenance checks. The linked CI record
+contains the exact runs. Later changes require their own complete qualification.
+
+[Public-name verification](verification-public-names.md) separately records
+ordinary name preparation, CP932 normal-trip bytes, delimiter selection and
+saved/API display fields. Staff-specific preparation and exceptions remain open.
 
 Complete caller ordering, the staff `/test/` exception, remaining name and
 randomizer scope, unsupported regexp modifiers, IP/ASN rules, file blacklists

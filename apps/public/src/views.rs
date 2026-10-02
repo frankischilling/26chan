@@ -148,6 +148,10 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn filter_name(&self) -> String {
+        board_domain::source_html_entities(&self.post.name)
+    }
+
     pub fn file_label(&self, filename: &str) -> file_label::FileLabel {
         file_label::label(filename, self.post.id == self.post.thread_id)
     }
