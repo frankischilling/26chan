@@ -135,3 +135,12 @@ unchanged. A local rerun against a fresh PostgreSQL 16.15 cluster passes the
 complete restore exercise. The selected test port is validated, and the script
 still verifies that it belongs to its generated disposable cluster. The next
 pushed head requires its own full CI result.
+
+On `e669a41`, [run 36962497073](https://github.com/frankischilling/26chan/actions/runs/36962497073)
+passed media/operations, including restoration, and the complete Windows
+visual job. Linux was still passing successive browser groups when GitHub
+cancelled it at the job's 40-minute limit. The check annotation explicitly
+reports that execution limit. The aggregate gate consequently failed, so
+this head is unqualified. The Linux job now permits 60 minutes for the full
+suite; test assertions, per-test limits, retries and required jobs are
+unchanged. The corrected head requires its own completed CI run.

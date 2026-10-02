@@ -227,3 +227,11 @@ different historical engine is not claimed.
 External operator rules and classifier data were not supplied and are not invented.
 Their safe configuration, admission ordering, staff exceptions and failure
 policy remain implementation work under the open issue.
+
+Hosted [run 36962497073](https://github.com/frankischilling/26chan/actions/runs/36962497073)
+on the restore correction `e669a41` passed media/operations and the complete
+Windows visual job. Linux exceeded its 40-minute job limit while its browser
+suite was still progressing; GitHub's check annotation confirms the timeout.
+The aggregate gate failed. The Linux job limit is now 60 minutes, with all
+assertions and required checks retained. This newer checkpoint still requires
+its own full CI qualification.
