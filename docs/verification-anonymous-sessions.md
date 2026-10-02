@@ -176,6 +176,35 @@ CAPTCHA and Pass. Those consumers remain unfinished under #212, #199 and #201.
 Complete deletion policy remains #214. Source cookie import, configured
 third-party classifiers and operator private data are not claimed.
 
+## Native Windows screenshot recovery
+
+On `1d928b9`, [run 36991846844](https://github.com/frankischilling/26chan/actions/runs/36991846844)
+passed media and operations qualification, while the Windows job failed two
+archive screenshots. Both expected images still contained the visible deletion
+password control. The main visual cases and the other four archive cases passed.
+The failure images were retained and compared with the checked-in baselines;
+their expected-image hashes matched before any baseline was changed.
+
+The native repeat uses Rust 1.94.0, Node 24.14.0 and Playwright 1.62.0 with the
+existing pinned Chromium, viewports, fonts, fixtures and zero-pixel tolerance.
+All six archive cases pass after reviewing and updating only the two opened
+deletion-form images. The posting-form checks then found twelve theme images
+and four media board/thread images containing the obsolete visible password
+row and password-saving help text. Every diff was reviewed. Removing that row
+also narrows the desktop label column and moves following content upward.
+The ten catalog/read-only media cases already passed without baseline changes.
+
+Only those eighteen reviewed PNGs were updated. Assertions now check that the
+source password controls are empty and hidden while retaining the posting and
+deletion field names. The repeat passes both theme cases, which check all six
+persisted styles on desktop and mobile, and all fourteen media screenshot
+cases. Together with the archive repeat, all twenty-two targeted native cases
+pass. The first theme run remains recorded as two failures and the first media
+run as four failures plus ten passes; their images, traces and logs are retained.
+No application code, fixture content, screenshot tolerance, deadline or retry
+setting changed during this recovery. This targeted result does not replace
+complete current-head CI or the original-page comparison in #193.
+
 The earlier integrated checkpoint `3b6300a` passed all required jobs in
 [run 36966578661](https://github.com/frankischilling/26chan/actions/runs/36966578661).
 This newer slice still requires its own complete current-head CI. PR #227

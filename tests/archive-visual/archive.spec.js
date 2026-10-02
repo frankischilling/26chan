@@ -30,8 +30,13 @@ for (const [name, viewport] of [
     await page.goto('/arc/thread/1000101');
     await expect(page.getByText('This thread is archived and read-only.', { exact: true })).toBeVisible();
     await expect(page.locator('#postForm')).toHaveCount(0);
-      await expect(page.getByRole('link', { name: 'Return', exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Return', exact: true }).first()).toBeVisible();
     await page.locator('#p1000101 summary').click();
+    const ownership = page.locator('#delete1000101');
+    await expect(ownership).toHaveAttribute('type', 'hidden');
+    await expect(ownership).toHaveAttribute('name', 'password');
+    await expect(ownership).toHaveValue('');
+    await expect(ownership).toBeHidden();
     await expect(page.getByRole('button', { name: 'Delete post', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Report post', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
