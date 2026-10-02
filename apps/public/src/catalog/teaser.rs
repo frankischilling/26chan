@@ -154,7 +154,7 @@ fn closes_span(token: &Token) -> bool {
             | Token::CloseMarkup(
                 Tag::Sjis | Tag::Bold | Tag::Italic | Tag::Red | Tag::Green | Tag::Blue
             )
-    )
+    ) || matches!(token, Token::FilteredDelimiter(delimiter) if delimiter.closes_span())
 }
 
 fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
@@ -177,7 +177,8 @@ fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
         if index < skip {
             continue;
         }
-        if matches!(token, Token::OpenMarkup(Tag::Sjis))
+        if (matches!(token, Token::OpenMarkup(Tag::Sjis))
+            || matches!(&token, Token::FilteredDelimiter(delimiter) if delimiter.is_sjis()))
             && let Some(end) = endings[index]
         {
             result.push(Token::Text("[SJIS]".into()));
@@ -196,6 +197,15 @@ fn strip(tokens: Vec<Token>) -> Vec<Token> {
             Token::Text(_) | Token::OpenMarkup(Tag::Spoiler) | Token::CloseMarkup(Tag::Spoiler) => {
                 result.push(token)
             }
+            Token::ChangedEntity(_) => result.push(token),
+            Token::FilteredDelimiter(delimiter) if delimiter.element_name() == "s" => {
+                result.push(if delimiter.opening() {
+                    Token::OpenMarkup(Tag::Spoiler)
+                } else {
+                    Token::CloseMarkup(Tag::Spoiler)
+                });
+            }
+            Token::FilteredDelimiter(_) => {}
             Token::Spoiler(text) | Token::Link(text) => result.push(Token::Text(text)),
             Token::WrappedLink(_, parts) | Token::ServerLink(_, parts) => {
                 for part in parts {
@@ -260,6 +270,16 @@ fn truncate(tokens: Vec<Token>) -> Vec<Token> {
                 spoilers += if open { 1 } else { -1 };
                 result.push(token);
             }
+            Token::ChangedEntity(entity) => {
+                let width = entity.spelling().chars().count();
+                if width > remaining {
+                    // Source removes every incomplete trailing entity,
+                    // including the finite spellings changed by /test/.
+                    break;
+                }
+                remaining -= width;
+                result.push(Token::ChangedEntity(entity));
+            }
             _ => unreachable!("truncation follows tag stripping"),
         }
     }
@@ -320,6 +340,8 @@ fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
             Token::WordBreak => result.push_str("<wbr>"),
             Token::OpenMarkup(tag) => result.push_str(markup(*tag, true)),
             Token::CloseMarkup(tag) => result.push_str(markup(*tag, false)),
+            Token::FilteredDelimiter(delimiter) => result.push_str(&delimiter.source_projection()),
+            Token::ChangedEntity(entity) => result.push_str(entity.spelling()),
             Token::OpenQuote => result.push_str("<span class=\"quote\">"),
             Token::CloseQuote => result.push_str("</span>"),
             Token::GeneratedBold(open) => result.push_str(if *open { "<b>" } else { "</b>" }),
@@ -334,6 +356,69 @@ fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
 mod tests {
     use super::*;
     use board_domain::parse_post_comment;
+
+    #[test]
+    fn filtered_teasers_match_the_independently_extracted_source() {
+        use board_domain::wordfilter::{LeetRolls, Profile};
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/wordfilter-posting-reference.json"
+        ))
+        .unwrap();
+        let markup = board_domain::comment_markup::MarkupPolicy {
+            spoilers: true,
+            code: true,
+            sjis: true,
+            op: true,
+        };
+        for (name, profile) in [
+            ("global", Profile::Global),
+            ("ck", Profile::Basic),
+            ("asp", Profile::Asp),
+            ("v", Profile::Video),
+            ("test", Profile::Test),
+        ] {
+            for case in fixture["profiles"][name].as_array().unwrap() {
+                let rolls = if profile == Profile::Test {
+                    Some(
+                        LeetRolls::from_choices(
+                            case["rolls"][0].as_u64().unwrap() as u8,
+                            case["rolls"][1].as_u64().unwrap() as u8,
+                        )
+                        .unwrap(),
+                    )
+                } else {
+                    None
+                };
+                let mut saved = board_domain::wordfiltered_comment::prepare(
+                    case["admission_input"].as_str().unwrap(),
+                    markup,
+                    profile,
+                    rolls,
+                )
+                .unwrap();
+                saved.freeze_format("g");
+                let lines = board_domain::filtered_formatting::lines(&saved, "g");
+                for (truncate, field) in [(false, "teaser_full"), (true, "teaser")] {
+                    assert_eq!(
+                        prepare(
+                            &lines,
+                            "g",
+                            Policy {
+                                sjis: true,
+                                source_links: true,
+                                truncate,
+                                ..Policy::default()
+                            }
+                        )
+                        .serialized,
+                        case[field].as_str().unwrap(),
+                        "{name} {rolls:?} {} {field}",
+                        case["input"]
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn generated_randomizers_follow_source_teaser_stripping_and_truncation() {

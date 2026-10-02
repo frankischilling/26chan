@@ -72,6 +72,10 @@ pub struct ThreadSnapshot {
     pub tail_id: Option<i64>,
 }
 
+// Preserve the former maximum of 1001 raw 64,000-byte comments. Expanded filtered
+// projections and their saved data share that ceiling before any rows transfer.
+pub const MAX_THREAD_READ_BYTES: usize = board_domain::MAX_COMMENT_BYTES * 1001;
+
 /// Read board settings, thread metadata and posts from one database snapshot.
 /// Release the transaction before the caller renders the representation.
 pub async fn thread_snapshot(
@@ -89,7 +93,25 @@ pub async fn thread_snapshot_selection(
     id: i64,
     tail: bool,
 ) -> Result<ThreadSnapshot, StoreError> {
-    Ok(read_thread_snapshot(pool, slug, id, tail, false)
+    Ok(
+        read_thread_snapshot(pool, slug, id, tail, false, MAX_THREAD_READ_BYTES)
+            .await?
+            .snapshot,
+    )
+}
+
+/// A release-owned read projection can impose a smaller aggregate body budget.
+pub async fn thread_snapshot_selection_bounded(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    tail: bool,
+    max_bytes: usize,
+) -> Result<ThreadSnapshot, StoreError> {
+    if max_bytes == 0 || max_bytes > MAX_THREAD_READ_BYTES {
+        return Err(StoreError::Invalid("Invalid snapshot byte budget."));
+    }
+    Ok(read_thread_snapshot(pool, slug, id, tail, false, max_bytes)
         .await?
         .snapshot)
 }
@@ -100,7 +122,7 @@ pub async fn thread_page_snapshot(
     slug: &str,
     id: i64,
 ) -> Result<PageSnapshot<ThreadSnapshot>, StoreError> {
-    read_thread_snapshot(pool, slug, id, false, true).await
+    read_thread_snapshot(pool, slug, id, false, true, MAX_THREAD_READ_BYTES).await
 }
 
 async fn read_thread_snapshot(
@@ -109,6 +131,7 @@ async fn read_thread_snapshot(
     id: i64,
     tail: bool,
     include_navigation: bool,
+    max_bytes: usize,
 ) -> Result<PageSnapshot<ThreadSnapshot>, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     let mut tx = pool.begin().await?;
@@ -148,6 +171,11 @@ async fn read_thread_snapshot(
     } else {
         None
     };
+    let body_bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(octet_length(comment)+coalesce(octet_length(wordfilter_payload),0)+coalesce(octet_length(wordfilter_search),0)),0)::bigint FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3)")
+        .bind(slug).bind(id).bind(tail_id).fetch_one(&mut *tx).await?;
+    if body_bytes > max_bytes as i64 {
+        return Err(StoreError::ReadLimit);
+    }
     let mut entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3) ORDER BY id LIMIT 1001")
         .bind(slug)
         .bind(id)
@@ -262,7 +290,7 @@ pub async fn search(
 
     let rows: Vec<SearchHitRow> = sqlx::query_as(
         "WITH candidates AS MATERIALIZED (\
-            SELECT p.board,p.thread_id,p.id,p.subject,p.comment \
+            SELECT p.board,p.thread_id,p.id,p.subject,coalesce(p.wordfilter_search,p.comment) AS comment \
             FROM content.posts p \
             JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id \
             WHERE NOT p.deleted AND ($2::text IS NULL OR p.board=$2) \
@@ -327,7 +355,7 @@ pub async fn search(
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
                        substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
                      ELSE left(p.comment, $4::integer) END AS comment,\
-                p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.created_at,p.deleted \
+                p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.wordfilter_payload,p.created_at,p.deleted \
          FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
          CROSS JOIN LATERAL (\
             SELECT picked.* FROM (\
@@ -337,7 +365,7 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || reply.comment), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.wordfilter_search,reply.comment)), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p ORDER BY selected.ord,p.id",

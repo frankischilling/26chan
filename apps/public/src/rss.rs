@@ -173,11 +173,7 @@ fn write_feed(
     xml(writer, &format!("{board_url}index.rss"))?;
     writer.write_str("\" rel=\"self\" type=\"application/rss+xml\"/>")?;
     for post in &snapshot.posts {
-        let lines = board_domain::parse_post_comment_on_board(
-            &post.comment,
-            post.comment_format,
-            &post.board,
-        );
+        let lines = post.formatted_lines();
         let mut stored =
             crate::catalog::teaser::stored_comment(&lines, &post.board, post.comment_format);
         if let Some(dice) = &post.dice_result {

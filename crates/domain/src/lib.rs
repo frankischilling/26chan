@@ -13,6 +13,7 @@ mod comment_quotes;
 pub mod comment_spacing;
 mod comment_unicode;
 pub use comment_spacing::{CommentSpacing, prepare_post_comment};
+pub mod filtered_formatting;
 pub mod formatting;
 pub mod image_limit;
 pub mod op_bump;
@@ -26,6 +27,7 @@ pub mod posting_randomizers;
 pub mod robot9000;
 mod subject;
 pub mod wordfilter;
+pub mod wordfiltered_comment;
 pub use formatting::{Line, Token, parse_comment, parse_post_comment, parse_post_comment_on_board};
 pub use subject::{MAX_SUBJECT_BYTES, prepare_post_subject, source_html_entities};
 

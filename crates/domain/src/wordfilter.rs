@@ -1,11 +1,11 @@
 //! Audited built-in word transformations. These are not admission classifiers.
 
-use std::sync::OnceLock;
-
-use regex::{Regex, RegexBuilder};
 use ring::rand::{SecureRandom, SystemRandom};
 
 use crate::ValidationError;
+
+#[path = "wordfilter_unicode.rs"]
+mod unicode;
 
 pub const MAX_INPUT_BYTES: usize = 131_072;
 pub const MAX_OUTPUT_BYTES: usize = 524_288;
@@ -92,7 +92,7 @@ pub fn apply(
     }
     text = common(&text);
     if profile != Profile::Basic {
-        text = soy(&text)?;
+        text = soy(&text);
     }
     if profile == Profile::Video {
         for (from, to) in CONSOLES {
@@ -154,62 +154,33 @@ fn common(input: &str) -> String {
     output
 }
 
-struct UnicodeClasses {
-    word: Regex,
-    letter: Regex,
+fn char_matches(class: &[(u32, u32)], ch: char) -> bool {
+    let point = ch as u32;
+    let after = class.partition_point(|&(start, _)| start <= point);
+    after > 0 && class[after - 1].1 >= point
 }
 
-fn classes() -> Result<&'static UnicodeClasses, ValidationError> {
-    static CLASSES: OnceLock<Result<UnicodeClasses, regex::Error>> = OnceLock::new();
-    CLASSES
-        .get_or_init(|| {
-            let build = |pattern| {
-                RegexBuilder::new(pattern)
-                    .size_limit(1_048_576)
-                    .dfa_size_limit(262_144)
-                    .build()
-            };
-            Ok(UnicodeClasses {
-                word: build(r"^[\p{L}\p{N}_]$")?,
-                letter: build(r"^\p{L}$")?,
-            })
-        })
-        .as_ref()
-        .map_err(|_| ValidationError("Wordfilter character classes are unavailable."))
-}
-
-fn char_matches(class: &Regex, ch: char) -> bool {
-    class.is_match(ch.encode_utf8(&mut [0; 4]))
-}
-
-fn is_o(ch: char) -> bool {
-    ch.to_lowercase()
-        .next()
-        .is_some_and(|lower| matches!(lower, 'o' | '0' | 'ο' | 'о' | 'օ' | 'ჿ'))
-}
-
-fn soy(input: &str) -> Result<String, ValidationError> {
-    let classes = classes()?;
+fn soy(input: &str) -> String {
     let chars: Vec<(usize, char)> = input.char_indices().collect();
     let mut output = String::with_capacity(input.len());
     let mut cursor = 0;
     let mut index = 0;
     while index < chars.len() {
         let (start, first) = chars[index];
-        if !matches!(first, 's' | 'S' | 'ſ')
-            || (index > 0 && char_matches(&classes.word, chars[index - 1].1))
+        if !char_matches(unicode::S, first)
+            || (index > 0 && char_matches(unicode::WORD, chars[index - 1].1))
         {
             index += 1;
             continue;
         }
         let o_start = index + 1;
         let mut y_index = o_start;
-        while y_index < chars.len() && is_o(chars[y_index].1) {
+        while y_index < chars.len() && char_matches(unicode::O, chars[y_index].1) {
             y_index += 1;
         }
         if y_index == o_start
             || y_index == chars.len()
-            || !matches!(chars[y_index].1, 'y' | 'Y' | 'у' | 'У' | 'Υ' | 'υ')
+            || !char_matches(unicode::Y, chars[y_index].1)
         {
             index = y_index.max(index + 1);
             continue;
@@ -218,11 +189,11 @@ fn soy(input: &str) -> Result<String, ValidationError> {
         let mut end_index = suffix_index;
         let boundary = chars
             .get(suffix_index)
-            .is_none_or(|(_, ch)| !char_matches(&classes.word, *ch));
+            .is_none_or(|(_, ch)| !char_matches(unicode::WORD, *ch));
         if !boundary {
             while end_index < chars.len()
                 && end_index - suffix_index < 4
-                && char_matches(&classes.letter, chars[end_index].1)
+                && char_matches(unicode::ALPHA, chars[end_index].1)
             {
                 end_index += 1;
             }
@@ -276,7 +247,7 @@ fn soy(input: &str) -> Result<String, ValidationError> {
         index = end_index;
     }
     output.push_str(&input[cursor..]);
-    Ok(output)
+    output
 }
 
 pub fn leet(input: &str, rolls: LeetRolls) -> Result<String, ValidationError> {
@@ -372,6 +343,56 @@ const CONSOLES: &[(&str, &str)] = &[
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    fn fixed_source_classes_match_every_unicode_scalar() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/wordfilter-unicode-reference.json"
+        ))
+        .unwrap();
+        for (name, actual) in [
+            ("word", unicode::WORD),
+            ("alpha", unicode::ALPHA),
+            ("s", unicode::S),
+            ("o", unicode::O),
+            ("y", unicode::Y),
+        ] {
+            let expected: Vec<(u32, u32)> = fixture["ranges"][name]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|range| {
+                    (
+                        range[0].as_u64().unwrap() as u32,
+                        range[1].as_u64().unwrap() as u32,
+                    )
+                })
+                .collect();
+            assert!(
+                expected
+                    .iter()
+                    .all(|&(start, end)| start <= end && end < 0x110000)
+            );
+            assert!(expected.windows(2).all(|pair| pair[0].1 < pair[1].0));
+            let (mut range, mut matched, mut scalars) = (0, 0, 0);
+            for point in 0..0x110000 {
+                let Some(ch) = char::from_u32(point) else {
+                    continue;
+                };
+                scalars += 1;
+                while range < expected.len() && expected[range].1 < point {
+                    range += 1;
+                }
+                let reference = expected
+                    .get(range)
+                    .is_some_and(|&(start, end)| start <= point && point <= end);
+                assert_eq!(char_matches(actual, ch), reference, "{name} U+{point:04X}");
+                matched += u64::from(reference);
+            }
+            assert_eq!(matched, fixture["counts"][name].as_u64().unwrap());
+            assert_eq!(scalars, fixture["scalars"].as_u64().unwrap());
+        }
+    }
 
     proptest! {
         #![proptest_config(ProptestConfig { cases: 128, max_shrink_iters: 256, ..ProptestConfig::default() })]

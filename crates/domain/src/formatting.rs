@@ -21,6 +21,8 @@ pub enum Token {
     WordBreak,
     OpenMarkup(Tag),
     CloseMarkup(Tag),
+    FilteredDelimiter(crate::wordfiltered_comment::Delimiter),
+    ChangedEntity(crate::wordfiltered_comment::ChangedEntity),
     OpenQuote,
     CloseQuote,
     /// Server-generated wrappers. User formatting never creates these tokens.
@@ -43,6 +45,47 @@ impl Token {
 pub struct Line {
     pub green: bool,
     pub tokens: Vec<Token>,
+}
+
+/// Display text after formatting. Generated tags and word breaks contribute
+/// no characters; fixed invalid source tags retain their visible spelling.
+pub fn visible_text(token: &Token) -> std::borrow::Cow<'_, str> {
+    match token {
+        Token::Text(value) | Token::Spoiler(value) | Token::Link(value) => value.into(),
+        Token::Quote(id) => format!(">>{id}").into(),
+        Token::CrossQuote(board, id) => format!(">>>/{board}/{id}").into(),
+        Token::PostQuote(quote) => quote.label().into(),
+        Token::WrappedLink(_, parts)
+        | Token::ServerLink(_, parts)
+        | Token::StaticQuote(_, parts) => parts
+            .iter()
+            .filter_map(|part| match part {
+                crate::word_break::WordPart::Text(value) => Some(value.as_str()),
+                crate::word_break::WordPart::Break => None,
+            })
+            .collect::<String>()
+            .into(),
+        Token::ChangedEntity(entity) => entity.spelling().into(),
+        Token::FilteredDelimiter(delimiter)
+            if !delimiter.valid_element() && delimiter.opening() =>
+        {
+            delimiter.source_projection().into()
+        }
+        _ => "".into(),
+    }
+}
+
+pub fn plain_text(lines: &[Line]) -> String {
+    let mut text = String::new();
+    for (index, line) in lines.iter().enumerate() {
+        if index > 0 {
+            text.push('\n');
+        }
+        for token in &line.tokens {
+            text.push_str(&visible_text(token));
+        }
+    }
+    text
 }
 
 /// Nonrecursive grammar. HTML is always text; templates escape every text node.
@@ -161,6 +204,26 @@ pub fn parse_post_comment_on_board(input: &str, format: i16, board: &str) -> Vec
     lines
 }
 
+/// Saved filter data is strictly decoded and never grants HTML authority.
+/// A corrupt/unknown encoding has one inert bounded failure representation.
+pub fn parse_saved_comment(
+    input: &str,
+    format: i16,
+    board: &str,
+    wordfilter: Option<&[u8]>,
+) -> Vec<Line> {
+    match wordfilter {
+        None => parse_post_comment_on_board(input, format, board),
+        Some(bytes) => match crate::wordfiltered_comment::PreparedComment::decode(bytes) {
+            Ok(prepared) => crate::filtered_formatting::lines(&prepared, board),
+            Err(_) => vec![Line {
+                green: false,
+                tokens: vec![Token::Text("[Comment unavailable]".into())],
+            }],
+        },
+    }
+}
+
 fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
     tokenize_with(line, legacy_spoilers, true, true, false, false)
 }
@@ -173,8 +236,30 @@ pub(crate) fn tokenize_with(
     static_quotes: bool,
     source_quotes: bool,
 ) -> Vec<Token> {
+    tokenize_spanned(
+        line,
+        legacy_spoilers,
+        quotes,
+        links,
+        static_quotes,
+        source_quotes,
+    )
+    .into_iter()
+    .map(|(token, _)| token)
+    .collect()
+}
+
+pub(crate) fn tokenize_spanned(
+    line: &str,
+    legacy_spoilers: bool,
+    quotes: bool,
+    links: bool,
+    static_quotes: bool,
+    source_quotes: bool,
+) -> Vec<(Token, std::ops::Range<usize>)> {
     let mut tokens = Vec::new();
     let mut text = String::new();
+    let mut text_start = 0;
     let mut tail = line;
     while !tail.is_empty() {
         let mut found = None;
@@ -236,11 +321,13 @@ pub(crate) fn tokenize_with(
             }
         }
         if let Some((token, len)) = found {
+            let offset = line.len() - tail.len();
             if !text.is_empty() {
-                tokens.push(Token::Text(std::mem::take(&mut text)));
+                tokens.push((Token::Text(std::mem::take(&mut text)), text_start..offset));
             }
-            tokens.push(token);
+            tokens.push((token, offset..offset + len));
             tail = &tail[len..];
+            text_start = offset + len;
         } else {
             let c = tail.chars().next().expect("nonempty tail");
             text.push(c);
@@ -248,7 +335,7 @@ pub(crate) fn tokenize_with(
         }
     }
     if !text.is_empty() {
-        tokens.push(Token::Text(text));
+        tokens.push((Token::Text(text), text_start..line.len()));
     }
     tokens
 }

@@ -31,15 +31,15 @@ async function enable(page, path, options) {
 
 test('owned thread API refresh, cross-tab watch state and read acknowledgement work on two boards', async ({ page, context, request, createThread }) => {
   const a = await createThread('demo', 'Watch a paper model');
-  const b = await createThread('test', 'Watch another board');
+  const b = await createThread('fixture', 'Watch another board');
   await enable(page, '/demo/catalog?q=');
   await page.getByRole('button', { name: `Watch thread ${a}`, exact: true }).click();
   await expect(page.locator(`#watch-${a}-demo`)).toContainText('Watch a paper model');
   const other = await context.newPage();
-  await other.goto('/test/catalog?q=');
+  await other.goto('/fixture/catalog?q=');
   await expect(other.locator('#threadWatcher')).toBeVisible();
   await other.getByRole('button', { name: `Watch thread ${b}`, exact: true }).click();
-  await expect(page.locator(`#watch-${b}-test`)).toBeVisible();
+  await expect(page.locator(`#watch-${b}-fixture`)).toBeVisible();
   const reply = await request.post('/demo/post', { headers: { Origin: origin },
     form: { resto: a, com: 'A new reply for the watcher', password: 'watcher-test-password' }, maxRedirects: 0 });
   expect(reply.status()).toBe(303);

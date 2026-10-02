@@ -140,11 +140,20 @@ fn encode(
             .filter(|post| post.id != thread.id)
             .map(|post| post.id),
         thread,
-        posts: posts.into_iter().map(PostView::new).collect(),
+        posts: Vec::new(),
         omitted,
         image_replies: images as i64,
     };
-    let rendered = render_posts(&view, &board, media_origin, limit)?;
+    // Decode and format one bounded post at a time. A large saved thread must
+    // not allocate all token vectors before the output writer enforces its cap.
+    let mut rendered = Vec::with_capacity(posts.len());
+    let mut remaining = limit;
+    for post in posts {
+        let item = PostView::new(post);
+        let result = render_post(&item, &view, &board, media_origin, remaining)?;
+        remaining -= result.html.len();
+        rendered.push(result);
+    }
     let result = Snapshot {
         version: 2,
         board: board.slug,
@@ -170,28 +179,39 @@ pub(crate) fn render_posts(
     let mut rendered = Vec::with_capacity(view.posts.len());
     let mut remaining = limit;
     for item in &view.posts {
-        let mut output = LimitedOutput::new(remaining);
-        PostFragment {
-            item,
-            view,
-            board,
-            media_origin,
-            catalog: false,
-        }
-        .render_into(&mut output)
-        .map_err(|_| unavailable())?;
-        remaining -= output.bytes.len();
-        rendered.push(RenderedPost {
-            no: item.post.id.to_string(),
-            file_deleted: item
-                .post
-                .attachment
-                .as_ref()
-                .is_some_and(|file| file.file_deleted),
-            html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
-        });
+        let result = render_post(item, view, board, media_origin, remaining)?;
+        remaining -= result.html.len();
+        rendered.push(result);
     }
     Ok(rendered)
+}
+
+fn render_post(
+    item: &PostView,
+    view: &ThreadView,
+    board: &board_store::Board,
+    media_origin: &str,
+    limit: usize,
+) -> Result<RenderedPost, AppError> {
+    let mut output = LimitedOutput::new(limit);
+    PostFragment {
+        item,
+        view,
+        board,
+        media_origin,
+        catalog: false,
+    }
+    .render_into(&mut output)
+    .map_err(|_| unavailable())?;
+    Ok(RenderedPost {
+        no: item.post.id.to_string(),
+        file_deleted: item
+            .post
+            .attachment
+            .as_ref()
+            .is_some_and(|file| file.file_deleted),
+        html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
+    })
 }
 
 impl RenderedPost {
@@ -330,14 +350,19 @@ async fn selected(
         .ok()
         .filter(|id| *id > 0 && id.to_string() == key)
         .ok_or(AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-    let snapshot = board_store::thread_snapshot_selection(&state.pool, &board, id, tail).await?;
+    let limit = state.limits.response_limit(MAX_BYTES);
+    let read_limit = limit
+        .saturating_mul(2)
+        .min(board_store::MAX_THREAD_READ_BYTES);
+    let snapshot =
+        board_store::thread_snapshot_selection_bounded(&state.pool, &board, id, tail, read_limit)
+            .await?;
     let modified = snapshot.thread.http_modified_at;
     let media_origin = state
         .media
         .as_ref()
         .map(|media| media.settings.origin.as_string())
         .unwrap_or_default();
-    let limit = state.limits.response_limit(MAX_BYTES);
     let bytes = encode(
         snapshot,
         &media_origin,
@@ -415,6 +440,8 @@ mod tests {
             fortune_trip: false,
             robot9000: false,
             robot9000_state_limit: 100000,
+            word_filter_enabled: false,
+            word_filter_profile: 0,
         };
         let thread = Thread {
             id,
@@ -437,6 +464,7 @@ mod tests {
             .into_iter()
             .map(|no| Post {
                 comment_format: 0,
+                wordfilter_payload: None,
                 id: no,
                 board: board.slug.clone(),
                 thread_id: id,

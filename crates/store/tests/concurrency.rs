@@ -13,13 +13,13 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
         deletion_hash: "fixture-not-a-valid-password-hash".into(),
         sage: false,
     };
-    let id = board_store::create_post(&pool, "test", 0, &post)
+    let id = board_store::create_post(&pool, "fixture", 0, &post)
         .await
         .unwrap();
     let writer_pool = pool.clone();
     let writer = tokio::spawn(async move {
         for _ in 0..80 {
-            board_store::create_post(&writer_pool, "test", id, &post)
+            board_store::create_post(&writer_pool, "fixture", id, &post)
                 .await
                 .unwrap();
         }
@@ -30,16 +30,18 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
             thread: metadata,
             posts,
             ..
-        } = board_store::thread_snapshot(&pool, "test", id)
+        } = board_store::thread_snapshot(&pool, "fixture", id)
             .await
             .unwrap();
-        assert_eq!(board.slug, "test");
+        assert_eq!(board.slug, "fixture");
         assert_eq!(metadata.reply_count as usize, posts.len() - 1);
     }
     writer.await.unwrap();
-    board_store::delete_post(&pool, "test", id).await.unwrap();
+    board_store::delete_post(&pool, "fixture", id)
+        .await
+        .unwrap();
     assert!(matches!(
-        board_store::thread_snapshot(&pool, "test", id).await,
+        board_store::thread_snapshot(&pool, "fixture", id).await,
         Err(StoreError::NotFound)
     ));
     pool.close().await;

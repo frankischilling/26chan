@@ -45,23 +45,23 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
   const password = 'owned-catalog-transfer-fixture';
   try {
     for (let index = 0; index < 2; index++) {
-      await writer.goto('/test/');
+      await writer.goto('/fixture/');
       await writer.locator('#sub').fill(`Owned catalog transfer ${index}`);
       await writer.locator('#com').fill('Paper fixture for preference restoration.');
       await writer.locator('#password').fill(password);
-      const response = writer.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+      const response = writer.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
       await writer.getByRole('button', { name: 'Post', exact: true }).click();
       expect((await response).status()).toBe(303);
       await expect(writer).toHaveURL(/\/thread\/\d+#p\d+$/);
       created.push(/#p(\d+)$/.exec(writer.url())[1]);
     }
-    await prepare(page, initial, '/test/catalog');
+    await prepare(page, initial, '/fixture/catalog');
     const originalIds = await ids(page); expect(originalIds.length).toBeGreaterThan(1);
     const pinned = originalIds[0];
     await page.locator(`#thread-${pinned}`).hover();
     await page.getByRole('button', { name: `Thread ${pinned} menu`, exact: true }).click();
     await page.getByRole('menuitem', { name: 'Pin thread', exact: true }).click();
-    const pinBefore = await page.evaluate(() => localStorage.getItem('4chan-pin-test'));
+    const pinBefore = await page.evaluate(() => localStorage.getItem('4chan-pin-fixture'));
     const theme = '{"nobinds":true,"css":".teaser { color: #112233; }"}';
     await page.evaluate(theme => localStorage.setItem('catalog-theme', theme), theme);
     let navigations = 0; page.on('request', request => { if (request.isNavigationRequest()) navigations++; });
@@ -81,7 +81,7 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
     await expect.poll(() => ids(page)).toEqual([pinned]);
     await expect(page.locator('#size-ctrl')).toHaveValue('large');
     await expect(page.locator('#teaser-ctrl')).toHaveValue('off');
-    expect(await page.evaluate(() => localStorage.getItem('4chan-pin-test'))).toBe(pinBefore);
+    expect(await page.evaluate(() => localStorage.getItem('4chan-pin-fixture'))).toBe(pinBefore);
     expect(await page.evaluate(() => localStorage.getItem('catalog-theme'))).toBe(theme);
     expect(workers).toContain(origin + '/static/catalog-filter-core.v1.js');
     expect(await read(page)).toMatchObject({ '4chan-settings': incomingSettings, 'catalog-filters': rawRules, 'catalog-settings': display });
@@ -97,7 +97,7 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
     expect(navigations).toBe(0); expect(errors).toEqual([]);
   } finally {
     for (const id of created) {
-      await writer.goto(`/test/thread/${id}`);
+      await writer.goto(`/fixture/thread/${id}`);
       const actions = writer.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
       await actions.getByLabel('Deletion password', { exact: true }).fill(password);

@@ -79,6 +79,8 @@ fn board() -> Board {
         fortune_trip: false,
         robot9000: false,
         robot9000_state_limit: 100000,
+        word_filter_enabled: false,
+        word_filter_profile: 0,
     }
 }
 fn page(catalog: bool) -> String {
@@ -135,6 +137,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     };
     let mut posts = vec![PostView::new(Post {
         comment_format: 0,
+        wordfilter_payload: None,
         id: 1000001,
         board: "demo".into(),
         thread_id: 1000001,
@@ -159,6 +162,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     if !catalog {
         posts.push(PostView::new(Post {
             comment_format: 0,
+            wordfilter_payload: None,
             id: 1000002,
             board: "demo".into(),
             thread_id: 1000001,
@@ -184,23 +188,27 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         // Prepared synthetic comments, each with its own posting-time policy.
         posts[0] = PostView::new(Post {
             comment_format: 9,
+            wordfilter_payload: None,
             comment: "before [spoiler]hidden\nsecond[/spoiler] after\n[spoiler]<img src=x onerror=bad()>[/spoiler]".into(),
             ..posts[0].post.clone()
         });
         posts[1] = PostView::new(Post {
             comment_format: 10,
+            wordfilter_payload: None,
             comment: "[code]first  line\nsecond <script>line</script>[/code]".into(),
             ..posts[1].post.clone()
         });
         posts.push(PostView::new(Post {
             id: 1_000_003,
             comment_format: 12,
+            wordfilter_payload: None,
             comment: "[sjis]a  b\n c[/sjis]".into(),
             ..posts[1].post.clone()
         }));
         posts.push(PostView::new(Post {
             id: 1_000_004,
             comment_format: 24,
+            wordfilter_payload: None,
             comment: "[b]bold[/b] [i]italic[/i]\n[red]red[/red] [green]green[/green] [blue]blue[/blue]\n[b]<script>text stays text</script>[/b]".into(),
             ..posts[1].post.clone()
         }));
@@ -325,6 +333,7 @@ fn archived_thread() -> String {
     let posts = vec![
         PostView::new(Post {
             comment_format: 0,
+            wordfilter_payload: None,
             id: 1000101,
             board: board.slug.clone(),
             thread_id: thread.id,
@@ -346,6 +355,7 @@ fn archived_thread() -> String {
         }),
         PostView::new(Post {
             comment_format: 0,
+            wordfilter_payload: None,
             id: 1000104,
             board: board.slug.clone(),
             thread_id: thread.id,

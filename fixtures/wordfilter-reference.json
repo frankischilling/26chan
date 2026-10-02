@@ -227,6 +227,21 @@
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
                 },
                 {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "onions Ᲊonions onionsᲉᲉ 𜳰onions"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
                     "field": "com",
                     "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
@@ -620,6 +635,21 @@
                     "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
                     "field": "name",
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
                 },
                 {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
@@ -1017,6 +1047,21 @@
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
                 },
                 {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "onions Ᲊonions onionsᲉᲉ 𜳰onions"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
                     "field": "com",
                     "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
@@ -1412,6 +1457,21 @@
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
                 },
                 {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
                     "field": "com",
                     "output": "&gt;soy<br><s>baka KEK desu</s> &amp;senpai"
@@ -1805,6 +1865,21 @@
                     "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
                     "field": "name",
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "onions Ᲊonions onionsᲉᲉ 𜳰onions"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
                 },
                 {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
@@ -3067,6 +3142,21 @@
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
                 },
                 {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "onions Ᲊonions onionsᲉᲉ 𜳰onions"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
                     "field": "com",
                     "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
@@ -3912,6 +4002,21 @@
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
                 },
                 {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "onions Ᲊonions onionsᲉᲉ 𜳰onions"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",
                     "field": "com",
                     "output": "&gt;onions<br><s>baka KEK desu</s> &amp;senpai"
@@ -4305,6 +4410,21 @@
                     "input": "sᲿy sSoyoY ſoy ſOOY SοY SΟY",
                     "field": "name",
                     "output": "sᲿy sSoyoY ſoy ſOOY SοY SΟY"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "com",
+                    "output": "onions Ᲊonions onionsᲉᲉ 𜳰onions"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "sub",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
+                },
+                {
+                    "input": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy",
+                    "field": "name",
+                    "output": "sᲂy Ᲊsoy soyᲉᲉ 𜳰soy"
                 },
                 {
                     "input": "&gt;soy<br><s>smh CUCK tbh</s> &amp;fam",

@@ -5,6 +5,7 @@ import { isCapcodeToken, postIdentityUrl } from './native-capcodes.js';
 import { postFileAssetUrl } from './native-file-presentation.js';
 import { PREVIEW_LIMITS, previewContext, updaterContext, validatePostTree, postLinkUrl, postMediaUrl } from './native-updater-snapshot.js';
 import { NativeQuotePreviewTransport, checkedQuotePreview } from './native-quote-preview-transport.js';
+import { isCommentElement, isWordfilterMarkup, isWordfilterMarkupTag } from './native-wordfilter-markup.js';
 
 export const mobileQuoteDevice = userAgent => typeof userAgent === 'string'
   && /Mobile|Android|Dolfin|Opera Mobi|PlayStation Vita|Nintendo DS/.test(userAgent);
@@ -57,7 +58,7 @@ export function localQuoteTree(article, context, no, projection) {
     if (bytes > PREVIEW_LIMITS.bytes) throw new RangeError('preview-size');
   };
   const ids = new Set(['pc', 'p', 'pi', 'pim', 'm', 'f', 'fT'].map(prefix => prefix + no));
-  function read(node, depth) {
+  function read(node, depth, comment = false) {
     if (projection?.has(node)) return [];
     if (++nodes > PREVIEW_LIMITS.nodes || depth > PREVIEW_LIMITS.depth) throw new RangeError('preview-nodes');
     if (node.nodeType === 3) {
@@ -66,8 +67,16 @@ export function localQuoteTree(article, context, no, projection) {
     }
     if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml') return [];
     const tag = node.localName;
-    if (!Object.hasOwn(localTags, tag) || node.matches(controls)) return [];
+    if ((!Object.hasOwn(localTags, tag) && !isWordfilterMarkupTag(tag)) || node.matches(controls)) return [];
     charge(tag + ' '.repeat(12));
+    const originalAttrs = Object.fromEntries(Array.from(projection?.attributes(node) ?? node.attributes,
+      ({ name, value }) => [name, value]));
+    if (comment && isWordfilterMarkup(tag, originalAttrs)) {
+      for (const [key, value] of Object.entries(originalAttrs)) { charge(key); charge(value); }
+      if (node.childNodes.length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('preview-nodes');
+      return [{ tag, attrs: originalAttrs, children: Array.from(node.childNodes).flatMap(child => read(child, depth + 1, true)) }];
+    }
+    if (!Object.hasOwn(localTags, tag)) return [];
     const attrs = {};
     for (const key of localTags[tag]) {
       if (key === 'title' && tag === 'span' && !Array.from(node.classList).some(isPostFlagToken)
@@ -88,7 +97,8 @@ export function localQuoteTree(article, context, no, projection) {
       for (const key of ['width', 'height']) if (!/^[1-9][0-9]{0,3}$/.test(attrs[key] ?? '')) delete attrs[key];
     }
     if (Array.from(node.childNodes).filter(child => !projection?.has(child)).length + nodes > PREVIEW_LIMITS.nodes) throw new RangeError('preview-nodes');
-    const children = Array.from(node.childNodes).flatMap(child => read(child, depth + 1));
+    const message = tag === 'blockquote' && node.className === 'postMessage' && node.id === `m${no}`;
+    const children = Array.from(node.childNodes).flatMap(child => read(child, depth + 1, comment || message));
     if (tag === 'a') {
       if (attrs.href?.startsWith('#p')) {
         const ref = quoteTarget(attrs.href, context);
@@ -118,7 +128,7 @@ export function prepareQuotePost(tree, context, no) {
   const quotes = [];
   function clean(node) {
     if (typeof node === 'string') { nodes++; characters += node.length; return node; }
-    if (!Object.hasOwn(localTags, node.tag)
+    if ((!Object.hasOwn(localTags, node.tag) && !isWordfilterMarkupTag(node.tag))
       || node.attrs.class?.split(' ').some(value => ['postActions', 'sideArrows'].includes(value))) return null;
     nodes++;
     const attrs = Object.fromEntries(Object.entries(node.attrs).filter(([key]) => key !== 'id'));
@@ -140,7 +150,6 @@ export function prepareQuotePost(tree, context, no) {
   } };
 }
 
-const messageTags = new Set(['SPAN', 'B', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const escapedSize = text => text.replace(/[&<>"\u00a0]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\u00a0': '&nbsp;' })[ch]).length;
 // Conservatively measure serialized HTML and decoded filter text without making
 // a clone or parsing HTML on the UI thread. BR contributes the source newline.
@@ -155,7 +164,7 @@ function messageBudget(message, projection) {
       if (child.nodeType === 3) {
         if (child.data.length > FILTER_LIMITS.html) throw new RangeError('quote-text');
         html += escapedSize(child.data); text += child.data.length;
-      } else if (child.nodeType === 1 && messageTags.has(child.tagName)) {
+      } else if (child.nodeType === 1 && isCommentElement(child, projection?.attributes(child) ?? child.attributes)) {
         const leaf = child.tagName === 'BR' || child.tagName === 'WBR';
         html += leaf ? child.localName.length + 2 : child.localName.length * 2 + 5;
         for (const { name, value } of projection?.attributes(child) ?? child.attributes) {

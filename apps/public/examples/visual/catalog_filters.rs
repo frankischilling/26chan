@@ -64,6 +64,7 @@ fn page(slug: &str, sorted: bool) -> String {
             },
             posts: vec![views::PostView::new(Post {
                 comment_format: 0,
+                wordfilter_payload: None,
                 id,
                 board: board.slug.clone(),
                 thread_id: id,

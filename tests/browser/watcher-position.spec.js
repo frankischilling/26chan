@@ -31,7 +31,7 @@ test('mobile CSS contains saved desktop coordinates before breakpoint callbacks 
     };
     window.releaseWatcherBreakpoint = () => { for (const run of pending.splice(0)) run(); };
   });
-  for (const route of ['/test/', '/test/catalog']) {
+  for (const route of ['/fixture/', '/fixture/catalog']) {
     for (const position of ['left: 20%; top: 10%;', 'right: 20%; bottom: 0;']) {
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(route);
@@ -79,7 +79,7 @@ test('mobile CSS contains saved desktop coordinates before breakpoint callbacks 
 
 test('dragged positions persist across reloads and tabs without changing unrelated preferences', async ({ page, context }) => {
   await seed(context);
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   const panel = page.locator('#threadWatcher');
   await expect(panel).toHaveCSS('position', 'absolute');
   const before = await panel.boundingBox();
@@ -92,7 +92,7 @@ test('dragged positions persist across reloads and tabs without changing unrelat
   expect((await panel.boundingBox()).x).toBeCloseTo(after.x, 3);
   expect((await panel.boundingBox()).y).toBeCloseTo(after.y, 3);
   const other = await context.newPage();
-  await other.goto('/test/catalog');
+  await other.goto('/fixture/catalog');
   await drag(page, 50, 30);
   await expect.poll(async () => (await other.locator('#threadWatcher').boundingBox()).x).toBeCloseTo(after.x + 50, 3);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).unrelated)).toBe('keep');
@@ -103,9 +103,9 @@ test('dragged positions persist across reloads and tabs without changing unrelat
 
 test('a cross-tab position change cancels an active drag instead of being overwritten on release', async ({ page, context }) => {
   await seed(context);
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   const other = await context.newPage();
-  await other.goto('/test/catalog');
+  await other.goto('/fixture/catalog');
   await drag(page, 100, 50, false);
   await other.evaluate(() => {
     const settings = JSON.parse(localStorage.getItem('4chan-settings'));
@@ -119,7 +119,7 @@ test('a cross-tab position change cancels an active drag instead of being overwr
 
 test('invalid stored styles fall back safely and mobile placement leaves desktop coordinates intact', async ({ page, context }) => {
   await seed(context);
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   for (const raw of ['left: 0; top: 0; background: url(/position-denied.svg);', 'left: -10px; top: 0;', { left: '0px' }]) {
     await page.evaluate(raw => localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true, 'TW-position': raw })), raw);
     await page.reload();
@@ -141,7 +141,7 @@ test('invalid stored styles fall back safely and mobile placement leaves desktop
 
 test('dragging still works in the current tab when storage is unavailable', async ({ page, context }) => {
   await context.addInitScript(() => { for (const method of ['getItem', 'setItem', 'removeItem']) Storage.prototype[method] = () => { throw new Error('Unavailable'); }; });
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   await saveWatcherSettings(page, { threadWatcher: true }, { reload: false, tabOnly: true });
   const before = await page.locator('#threadWatcher').boundingBox();
   await drag(page, 200, 100);

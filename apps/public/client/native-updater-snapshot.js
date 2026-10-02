@@ -4,6 +4,7 @@ import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-c
 import { validatePostNumbers } from './native-post-numbers.js';
 import { postFileAssetUrl, validateFilePresentation } from './native-file-presentation.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
+import { isWordfilterMarkup, isWordfilterMarkupTag } from './native-wordfilter-markup.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
   depth: 32, requestMs: 10000, parseMs: 2000, intervalMs: 1000 });
@@ -79,12 +80,18 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   budget.chars ??= 0;
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report'].map(prefix => prefix + no));
-  function visit(node, depth, form = null) {
+  function visit(node, depth, form = null, comment = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
     exactKeys(node, ['tag', 'attrs', 'children']);
-    require(Object.hasOwn(attributes, node.tag) && Array.isArray(node.children));
+    require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag)) && Array.isArray(node.children));
     require(node.attrs && typeof node.attrs === 'object' && !Array.isArray(node.attrs));
+    if (comment && isWordfilterMarkup(node.tag, node.attrs)) {
+      for (const [key, value] of Object.entries(node.attrs)) { charge(key); charge(value); }
+      for (const child of node.children) visit(child, depth + 1, form, true);
+      return;
+    }
+    require(Object.hasOwn(attributes, node.tag));
     for (const [key, value] of Object.entries(node.attrs)) {
       // Rust permits 64 KiB of comment UTF-8; URL percent encoding can triple
       // that size. Preserve those valid links within the aggregate wire budget.
@@ -161,7 +168,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       require(typeof node.attrs.href === 'string');
       if (!node.attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(node.attrs.rel));
     }
-    for (const child of node.children) visit(child, depth + 1, form);
+    const message = node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`;
+    for (const child of node.children) visit(child, depth + 1, form, comment || message);
   }
   visit(tree, 0);
   validateCapcodeTree(tree, no);
@@ -182,7 +190,8 @@ export function parsePostRecipe(html, context, no, budget, limits) {
   function recipe(node, depth) {
     require(depth <= limits.depth);
     if (node.nodeName === '#text') return node.value;
-    require(node.namespaceURI === 'http://www.w3.org/1999/xhtml' && Object.hasOwn(attributes, node.tagName));
+    require(node.namespaceURI === 'http://www.w3.org/1999/xhtml'
+      && (Object.hasOwn(attributes, node.tagName) || isWordfilterMarkupTag(node.tagName)));
     return { tag: node.tagName, attrs: Object.fromEntries(node.attrs.map(a => {
       require(!a.namespace && !a.prefix); return [a.name, a.value];
     })), children: node.childNodes.map(child => recipe(child, depth + 1)) };

@@ -1,23 +1,21 @@
 # Dependency and update inventory
 
-The wordfilter core adds pinned [regex 1.13.1](https://docs.rs/regex/1.13.1/regex/)
-with default features disabled and `std`/`unicode` enabled. It reuses locked
-regex-automata 0.4.18, regex-syntax 0.8.11, aho-corasick and memchr; existing
-registry versions and checksums do not change. The inspected crate declares
-Rust 1.65 as its minimum, compatible with the workspace's Rust 1.94. Only two
-fixed, anchored, single-character Unicode classes are compiled, with explicit
-compiled/cache limits. This module does not accept operator or user regexes.
-The Rust scanner and literal substitutions bound field bytes and output.
+The wordfilter core uses fixed character-range tables extracted from the
+audited PHP/PCRE reference. It adds no matching library to a runtime. The
+prototype's direct `regex` dependency was removed after an exhaustive scan
+found different Unicode classes and one missing caseless character. Runtime
+matching uses binary search over the fixed ranges and ordered literal
+substitutions, with explicit field and output byte limits. Random choices use
+the already locked ring operating-system source.
 
-Downloaded upstream source was inspected on October 1, 2026. Regex-syntax
-forbids unsafe code, but regex-automata contains unsafe lazy-initialization,
-pool and other internals. Disabling optional performance features does not
-establish that all unsafe paths are absent or sound. This text-matching stack
-belongs to the runtime trust base once posting integration uses the domain
-module. No media decoder or native tool is added to a credential-bearing
-process. Requalify transformations, bounds and the application after updates;
-the [wordfilter record](source-wordfilters.md) states the current incomplete
-integration scope.
+PHP and PCRE are extraction tools, not deployment dependencies. The extractor
+pins the supplied source hash, records PHP 8.3.6/PCRE2 10.42, and checks five
+classes over all 1,112,064 Unicode scalars. Changing those tables requires
+regenerating the independent fixture and requalifying transformations and
+posting. Existing registry versions and checksums are unchanged. No media
+decoder or native parsing tool is added to a credential-bearing process. The
+[wordfilter record](source-wordfilters.md) states the unfinished admission-hook
+scope and qualification status.
 
 Country labels add pinned [maxminddb 0.30.3](https://docs.rs/maxminddb/0.30.3/maxminddb/)
 and locked ipnetwork 0.21.1. No existing registry versions change. The direct

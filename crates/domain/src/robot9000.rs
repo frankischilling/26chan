@@ -97,6 +97,10 @@ pub fn prepare_post(
                 Token::WordBreak => source.push_str("<wbr>"),
                 Token::OpenMarkup(tag) => source.push_str(markup(tag, true)),
                 Token::CloseMarkup(tag) => source.push_str(markup(tag, false)),
+                Token::FilteredDelimiter(delimiter) => {
+                    source.push_str(&delimiter.source_projection())
+                }
+                Token::ChangedEntity(entity) => source.push_str(entity.spelling()),
                 Token::OpenQuote => source.push_str("<span class=\"quote\">"),
                 Token::CloseQuote => source.push_str("</span>"),
                 Token::GeneratedBold(_) | Token::GeneratedFortune(_, _) => {
@@ -120,7 +124,7 @@ fn append_parts(parts: Vec<WordPart>, output: &mut String) {
     }
 }
 
-fn markup(tag: crate::comment_markup::Tag, open: bool) -> &'static str {
+pub(crate) fn markup(tag: crate::comment_markup::Tag, open: bool) -> &'static str {
     use crate::comment_markup::Tag;
     match (tag, open) {
         (Tag::Spoiler, true) => "<s>",

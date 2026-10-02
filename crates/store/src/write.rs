@@ -362,6 +362,77 @@ async fn create_post_in_context(
             },
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
+    let mut wordfiltered = if board.word_filter_enabled {
+        use board_domain::wordfilter::{LeetRolls, Profile};
+        let profile = match board.word_filter_profile {
+            0 => Profile::Global,
+            1 => Profile::Basic,
+            2 => Profile::Asp,
+            3 => Profile::Video,
+            4 => Profile::Test,
+            _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+        };
+        let rolls = if profile == Profile::Test {
+            Some(LeetRolls::generate().map_err(|_| StoreError::RandomnessUnavailable)?)
+        } else {
+            None
+        };
+        Some(
+            board_domain::wordfiltered_comment::prepare(
+                &comment,
+                board_domain::comment_markup::MarkupPolicy {
+                    spoilers: board.comment_spoiler_cleanup,
+                    code: board.comment_code_spacing,
+                    sjis: board.comment_sjis_spacing,
+                    op: op_markup,
+                },
+                profile,
+                rolls,
+            )
+            .map_err(|error| StoreError::Invalid(error.0))?,
+        )
+    } else {
+        None
+    };
+    if let Some(prepared) = &mut wordfiltered {
+        prepared.freeze_format(slug);
+    }
+    let wordfilter_payload = wordfiltered
+        .as_ref()
+        .map(board_domain::wordfiltered_comment::PreparedComment::encode)
+        .transpose()
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    let formatted = wordfiltered
+        .as_ref()
+        .map(|prepared| board_domain::filtered_formatting::lines(prepared, slug));
+    let wordfilter_search = formatted
+        .as_ref()
+        .map(|lines| board_domain::formatting::plain_text(lines));
+    if wordfilter_search
+        .as_ref()
+        .is_some_and(|text| text.len() > board_domain::wordfiltered_comment::MAX_STORED_BYTES)
+    {
+        return Err(StoreError::Invalid("Wordfilter output is too large."));
+    }
+    let comment = formatted.as_ref().map_or(comment, |lines| {
+        board_domain::filtered_formatting::source_projection(lines)
+    });
+    if comment.len() > board_domain::wordfilter::MAX_OUTPUT_BYTES {
+        return Err(StoreError::Invalid("Wordfilter output is too large."));
+    }
+    let encoded_payload = wordfilter_payload
+        .as_ref()
+        .map_or_else(String::new, |bytes| {
+            bytes
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        });
+    sqlx::query("SELECT set_config('board.wordfilter_payload',$1,true),set_config('board.wordfilter_search',$2,true)")
+        .bind(encoded_payload)
+        .bind(wordfilter_search.as_deref().unwrap_or_default())
+        .execute(&mut *tx)
+        .await?;
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.
     let robot_actor = if board.robot9000 && staff.is_none() {
@@ -504,7 +575,7 @@ async fn create_post_in_context(
         .await?;
     if let Some(authority) = &staff {
         sqlx::query(
-            "SELECT staff_identity.issue_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+            "SELECT staff_identity.issue_wordfiltered_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
         )
         .bind(authority.ticket_hash.as_slice())
         .bind(authority.session_hash)
@@ -518,6 +589,8 @@ async fn create_post_in_context(
         .bind(&subject)
         .bind(comment.as_str())
         .bind(posted_at)
+        .bind(wordfilter_payload.as_deref())
+        .bind(wordfilter_search.as_deref())
         .execute(authority.auth_pool)
         .await
         .map_err(staff_post_error)?;
@@ -574,16 +647,20 @@ async fn create_post_in_context(
             .await?;
     }
     if let Some(actor) = robot_actor {
-        let prepared = board_domain::robot9000::prepare_post(
-            &comment,
-            board_domain::comment_markup::MarkupPolicy {
-                spoilers: board.comment_spoiler_cleanup,
-                code: board.comment_code_spacing,
-                sjis: board.comment_sjis_spacing,
-                op: op_markup,
-            },
-            slug,
-        )
+        let prepared = if wordfiltered.is_some() {
+            board_domain::robot9000::prepare(&comment)
+        } else {
+            board_domain::robot9000::prepare_post(
+                &comment,
+                board_domain::comment_markup::MarkupPolicy {
+                    spoilers: board.comment_spoiler_cleanup,
+                    code: board.comment_code_spacing,
+                    sjis: board.comment_sjis_spacing,
+                    op: op_markup,
+                },
+                slug,
+            )
+        }
         .map_err(StoreError::Invalid)?;
         let now = Utc::now()
             .with_nanosecond(0)

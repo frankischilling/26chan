@@ -1,5 +1,3 @@
-use board_domain::parse_post_comment_on_board;
-
 // Preserve source tab expansion while bounding independent synthetic inputs.
 const SUBJECT_SCALARS: usize = board_domain::MAX_SUBJECT_BYTES;
 
@@ -31,23 +29,17 @@ pub(crate) fn compose(subject: &str, teaser: &str) -> String {
     output
 }
 
-pub(crate) fn from_post(
-    subject: &str,
-    comment: &str,
-    format: i16,
-    board: &board_store::Board,
-    dice: Option<&str>,
-    fortune: Option<&str>,
-    fortune_color: Option<&str>,
-) -> String {
+pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) -> String {
     compose(
-        subject,
+        &post.subject,
         &super::teaser::prepare_with_randomizers(
-            &parse_post_comment_on_board(comment, format, &board.slug),
+            &post.formatted_lines(),
             &board.slug,
-            super::teaser::Policy::for_post(board, format),
-            dice,
-            fortune.zip(fortune_color),
+            super::teaser::Policy::for_post(board, post.comment_format),
+            post.dice_result.as_deref(),
+            post.fortune_text
+                .as_deref()
+                .zip(post.fortune_color.as_deref()),
         )
         .serialized,
     )

@@ -1,7 +1,7 @@
 use crate::store::Report;
 use askama::Template;
 use board_domain::comment_markup::Tag;
-use board_domain::formatting::{Line, Token, parse_post_comment_on_board};
+use board_domain::formatting::{Line, Token, parse_saved_comment};
 use board_domain::word_break::WordPart;
 #[derive(Template)]
 #[template(path = "login.html")]
@@ -43,8 +43,12 @@ impl Preview {
 }
 impl From<Report> for Preview {
     fn from(report: Report) -> Self {
-        let lines =
-            parse_post_comment_on_board(&report.comment, report.comment_format, &report.board);
+        let lines = parse_saved_comment(
+            &report.comment,
+            report.comment_format,
+            &report.board,
+            report.wordfilter_payload.as_deref(),
+        );
         Self { report, lines }
     }
 }
@@ -80,6 +84,7 @@ mod tests {
             flag_name: None,
             subject: "<i>subject</i>".into(),
             comment_format: 0,
+            wordfilter_payload: None,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
                 .into(),
             state: "open".into(),
@@ -138,6 +143,7 @@ mod tests {
                 flag_name: None,
                 subject: String::new(),
                 comment_format: format,
+                wordfilter_payload: None,
                 comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b] https://www.4chan.org/faq https://example.org/path"
                     .into(),
                 state: "open".into(),
@@ -195,6 +201,7 @@ mod tests {
                 subject: String::new(),
                 comment: comment.clone(),
                 comment_format: format,
+                wordfilter_payload: None,
                 state: "open".into(),
                 closed: false,
                 sticky: false,

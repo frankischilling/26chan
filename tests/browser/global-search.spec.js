@@ -19,7 +19,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       });
     });
     async function post(subject, comment, thread = '0') {
-      const response = await context.request.post(`${origin}/test/imgboard.php`, {
+      const response = await context.request.post(`${origin}/fixture/imgboard.php`, {
         headers: { Origin: origin, Accept: 'application/json' },
         form: { mode: 'regist', pwd: password, sub: subject, com: comment, resto: thread },
         maxRedirects: 0,
@@ -36,17 +36,17 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const first = await post(`${marker} first`, 'Original thread context');
       const reply = await post('', `${'a'.repeat(1300)} ${marker} <img src=x onerror=alert(1)>`, first);
       const second = await post(`${marker} second`, 'Separate matching thread');
-      const response = await page.goto(`/globalsearch.php#/${marker}/test`);
+      const response = await page.goto(`/globalsearch.php#/${marker}/fixture`);
       expect(response.status()).toBe(200);
       expect(response.headers()['content-security-policy']).toContain("style-src 'self'");
       expect(response.headers()['content-security-policy']).toContain('/static/global-search.v1.js');
-      await expect(page.locator('#js-sf-bf')).toHaveValue('test');
+      await expect(page.locator('#js-sf-bf')).toHaveValue('fixture');
       await expect(page.locator('#js-sf-bf option[value="j"]')).toHaveCount(0);
       await expect(page.locator('#js-sf-results .thread')).toHaveCount(2);
       await expect(page.locator(`#t${first} #p${reply} .postMessage`)).toContainText(marker);
       await expect(page.locator(`#t${first} #p${reply} .postMessage`)).toContainText('<img src=x onerror=alert(1)>');
       await expect(page.locator(`#t${first} #p${reply} .postMessage img`)).toHaveCount(0);
-      await expect(page.locator(`#p${reply} .postNum > a`).first()).toHaveAttribute('href', `/test/thread/${first}#p${reply}`);
+      await expect(page.locator(`#p${reply} .postNum > a`).first()).toHaveAttribute('href', `/fixture/thread/${first}#p${reply}`);
       const excerpt = await page.locator(`#p${reply} .postMessage`).textContent();
       expect(excerpt.length).toBeLessThanOrEqual(1024);
       expect(excerpt).not.toContain('a'.repeat(1025));
@@ -64,7 +64,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(page.locator('#js-sf-qf')).toHaveValue(marker);
       await expect(page.locator('#js-sf-results .thread')).toHaveCount(2);
 
-      const removed = await context.request.post(`${origin}/test/delete`, {
+      const removed = await context.request.post(`${origin}/fixture/delete`, {
         headers: { Origin: origin }, form: { no: first, password }, maxRedirects: 0,
       });
       expect(removed.status()).toBe(303);
@@ -80,7 +80,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       expect(errors).toEqual([]);
     } finally {
       for (const thread of threads) {
-        const response = await context.request.post(`${origin}/test/delete`, {
+        const response = await context.request.post(`${origin}/fixture/delete`, {
           headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
         });
         expect(response.status()).toBe(303);
@@ -97,19 +97,19 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     const threads = [];
     try {
       for (let index = 0; index < 12; index++) {
-        const response = await context.request.post(`${origin}/test/post`, {
+        const response = await context.request.post(`${origin}/fixture/post`, {
           headers: { Origin: origin, Accept: 'application/json' },
           form: { pwd: password, sub: `${marker} ${index}`, com: 'Owned pagination fixture', resto: '0' },
         });
         expect(response.status(), await response.text()).toBe(200);
         threads.push(String((await response.json()).pid));
       }
-      await page.goto(`/globalsearch.php#/${marker}/test`);
+      await page.goto(`/globalsearch.php#/${marker}/fixture`);
       await expect(page.locator('#js-sf-results .thread')).toHaveCount(10);
       await expect(page.locator('#js-sf-pl .pages')).toHaveText('Page 1 / 2');
       const firstPage = await page.locator('#js-sf-results .thread').evaluateAll(nodes => nodes.map(node => node.id));
       await page.locator('#js-sf-pl').getByRole(viewport.width < 480 ? 'link' : 'button', { name: 'Next', exact: true }).click();
-      await expect(page).toHaveURL(new RegExp(`/globalsearch\\.php#/${marker}/test/2$`));
+      await expect(page).toHaveURL(new RegExp(`/globalsearch\\.php#/${marker}/fixture/2$`));
       await expect(page.locator('#js-sf-results .thread')).toHaveCount(2);
       await expect(page.locator('#js-sf-pl .pages')).toHaveText('Page 2 / 2');
       const secondPage = await page.locator('#js-sf-results .thread').evaluateAll(nodes => nodes.map(node => node.id));
@@ -132,7 +132,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     } finally {
       try {
         for (const thread of threads) {
-          expect((await context.request.post(`${origin}/test/delete`, {
+          expect((await context.request.post(`${origin}/fixture/delete`, {
             headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
           })).status()).toBe(303);
         }

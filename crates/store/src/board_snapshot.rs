@@ -109,6 +109,14 @@ async fn read_board_snapshot(
     // At most 1,000 selected threads, each with its OP and five latest replies.
     // Lateral limits keep unselected comment bodies out of the web process.
     let mut posts: Vec<Post> = if let Some(replies) = replies {
+        // Saved transformations share the former raw-comment memory ceiling
+        // for the selected OP/reply slots. Check inside this read snapshot.
+        let max_bytes = board_domain::MAX_COMMENT_BYTES * ids.len() * (replies as usize + 1);
+        let body_bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)),0)::bigint FROM unnest($2::bigint[]) AS selected(id) CROSS JOIN LATERAL ((SELECT comment,wordfilter_payload,wordfilter_search FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT comment,wordfilter_payload,wordfilter_search FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT $3)) p")
+            .bind(slug).bind(&ids).bind(replies).fetch_one(&mut *tx).await?;
+        if body_bytes > max_bytes as i64 {
+            return Err(StoreError::ReadLimit);
+        }
         sqlx::query_as("SELECT p.* FROM unnest($2::bigint[]) AS selected(id) CROSS JOIN LATERAL ((SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT $3)) p ORDER BY p.thread_id,p.id")
             .bind(slug).bind(&ids).bind(replies).fetch_all(&mut *tx).await?
     } else {

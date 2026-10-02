@@ -9,9 +9,9 @@ test('catalog Settings uses the actual board directory and disables navigation w
   await page.addInitScript(() => localStorage.setItem('4chan-settings', '{}'));
   page.on('request', request => { if (new URL(request.url()).pathname === '/_watch/boards') directoryRequests.push(request.url()); });
   const directory = await page.request.get('/_watch/boards'); expect(directory.status()).toBe(200);
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   const bar = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
-  await expect(bar).toBeVisible(); await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('test');
+  await expect(bar).toBeVisible(); await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('fixture');
   await expect(bar.locator('option[value="demo"]')).toHaveCount(1);
   expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual((await directory.json()).boards.map(entry => entry.board));
   let navigations = 0; page.on('framenavigated', () => navigations++);
@@ -30,7 +30,7 @@ test('persistent board navigation saves settings, uses the actual directory and 
     const url = new URL(request.url());
     if (url.origin !== 'http://127.0.0.1:3000') unexpected.push(url.origin);
   });
-  await page.goto('/test/0');
+  await page.goto('/fixture/0');
   await watcherSettingsOpener(page).click();
   const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
   await settings.locator('#settings-expand-all').click();
@@ -40,7 +40,7 @@ test('persistent board navigation saves settings, uses the actual directory and 
   await Promise.all([page.waitForEvent('load'), settings.getByRole('button', { name: 'Save Settings', exact: true }).click()]);
   const bar = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
   await expect(bar).toBeVisible();
-  await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('test');
+  await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('fixture');
   await expect(bar.locator('option[value="demo"]')).toHaveCount(1);
   await expect(page.getByRole('navigation', { name: 'Top page navigation', exact: true })).toBeVisible();
   const arrows = page.getByRole('navigation', { name: 'Page navigation arrows', exact: true });

@@ -139,6 +139,7 @@ impl Fixture {
         };
         let posts: Vec<_> = self.files.iter().enumerate().map(|(index, file)| views::PostView::new(Post {
             comment_format: 0,
+            wordfilter_payload: None,
             id: file.post_id,
             board: board.slug.clone(),
             thread_id: if separate_threads { file.post_id } else { thread.id },

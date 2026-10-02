@@ -14,6 +14,7 @@ use axum::{
 use board_store::Board;
 use serde::Deserialize;
 use serde_json::json;
+mod excerpt;
 
 pub(crate) const SCRIPT_PATH: &str = "/static/global-search.v1.js";
 const RESPONSE_LIMIT: usize = 1_048_576;
@@ -93,7 +94,18 @@ async fn api(
             tail_size: 0,
             latest_reply_id,
             thread: hit.thread,
-            posts: hit.posts.into_iter().map(PostView::new).collect(),
+            posts: hit
+                .posts
+                .into_iter()
+                .map(|post| {
+                    let filtered = post.wordfilter_payload.is_some();
+                    let mut view = PostView::new(post);
+                    if filtered {
+                        view.lines = excerpt::lines(&view.lines, &params.q, 1024);
+                    }
+                    view
+                })
+                .collect(),
             omitted: 0,
             image_replies: hit.visible_images,
         };

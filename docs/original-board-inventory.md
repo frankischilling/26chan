@@ -11,6 +11,13 @@ The migration upserts definitions without replacing posts, threads, credentials
 or saved formatter profiles. Existing synthetic boards remain available.
 Fresh setup runs these migrations before the optional demo seed.
 
+Migration 0063 imports the source wordfilter switches and fixed board profiles;
+79 definitions enable filtering and three disable it. Migration 0064 corrects
+the UTF-8 Pokémon title that the old Windows-default extractor decoded
+incorrectly. It preserves the applied import checksum and operator-edited
+titles. The extractor now reads board names explicitly as UTF-8 and verifies
+the historical import together with that additive correction.
+
 Installed policy includes comment character/line limits, spoilers, code/SJIS
 tags, required subjects, OP markup, forced anonymity, IDs, country flags,
 text-only behavior, bump/image limits, index capacity and pagination, archive
@@ -37,7 +44,9 @@ To compare the fixture and migration with the supplied checkout:
 
 ```bash
 python3 scripts/extract-board-reference.py 4chan-old fixtures/board-reference.json \
-  --migration migrations/0045_original_boards.sql --check
+  --migration migrations/0045_original_boards.sql --rss-migration migrations/0047_rss_feeds.sql \
+  --wordfilter-migration migrations/0063_post_wordfilters.sql \
+  --board-encoding-migration migrations/0064_board_reference_encoding.sql --check
 ```
 
 `board_inventory.rs` checks every installed field and public route with actual

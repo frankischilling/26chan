@@ -330,6 +330,8 @@ struct BoundPost {
     name: String,
     subject: String,
     comment: String,
+    wordfilter_payload: Option<Vec<u8>>,
+    wordfilter_search: Option<String>,
     time: chrono::DateTime<chrono::Utc>,
 }
 impl BoundPost {
@@ -345,12 +347,14 @@ impl BoundPost {
             name: "Bound staff".into(),
             subject: "Bound subject".into(),
             comment: "Bound synthetic comment".into(),
+            wordfilter_payload: None,
+            wordfilter_search: None,
             time: chrono::Utc::now().with_nanosecond(0).unwrap(),
         }
     }
     async fn issue(&self, case: &Fixture) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "SELECT staff_identity.issue_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10)",
+            "SELECT staff_identity.issue_wordfiltered_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
         )
         .bind(&self.ticket)
         .bind(auth::hash(&case.token))
@@ -362,6 +366,8 @@ impl BoundPost {
         .bind(&self.subject)
         .bind(&self.comment)
         .bind(self.time)
+        .bind(self.wordfilter_payload.as_deref())
+        .bind(self.wordfilter_search.as_deref())
         .execute(&case.state.auth)
         .await?;
         Ok(())
@@ -375,6 +381,20 @@ impl BoundPost {
             .collect::<String>();
         sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true)")
             .bind(ticket)
+            .execute(&mut *tx)
+            .await?;
+        let payload = self
+            .wordfilter_payload
+            .as_ref()
+            .map_or_else(String::new, |bytes| {
+                bytes
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            });
+        sqlx::query("SELECT set_config('board.wordfilter_payload',$1,true),set_config('board.wordfilter_search',$2,true)")
+            .bind(payload)
+            .bind(self.wordfilter_search.as_deref().unwrap_or_default())
             .execute(&mut *tx)
             .await?;
         let result=sqlx::query_scalar("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING capcode")
@@ -397,6 +417,48 @@ fn sql_code(error: &sqlx::Error) -> Option<String> {
         .as_database_error()
         .and_then(|error| error.code())
         .map(|code| code.into_owned())
+}
+
+#[tokio::test]
+async fn staff_wordfilters_bind_the_exact_saved_body_without_granting_html_authority() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let outcome=tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET word_filter_enabled=true,word_filter_profile=0 WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
+        let session_hash=auth::hash(&case.token); let csrf_hash=auth::hash(&case.csrf);
+        let id=board_store::create_staff_post(&case.state.staff,&case.board,0,&board_store::NewPost {
+            name:"soy fam CUCK#private suffix".into(),subject:"soy fam CUCK".into(),comment:"soy fam CUCK <script>literal</script>".into(),deletion_hash:String::new(),sage:false,
+        },chrono::Utc::now(),
+        board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false }).await.unwrap();
+        let public=pool("TEST_PUBLIC_DATABASE_URL").await;
+        let saved=board_store::find_post(&public,&case.board,id).await.unwrap();
+        assert_eq!(saved.name,"soy fam CUCK"); assert_eq!(saved.subject,"soy fam CUCK"); assert_eq!(saved.capcode.as_deref(),Some("mod"));
+        assert_eq!(saved.comment,"onions senpai KEK &lt;script&gt;literal&lt;/script&gt;");
+        assert!(saved.wordfilter_payload.is_some()); assert!(saved.trip.is_none());
+        let response=case.public.clone().oneshot(Request::get(format!("/{}/thread/{id}",case.board)).body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(response.status(),StatusCode::OK);
+        let html=String::from_utf8(to_bytes(response.into_body(),1_000_000).await.unwrap().to_vec()).unwrap();
+        assert!(html.contains("onions senpai KEK &#60;script&#62;literal&#60;/script&#62;"),"{html}"); assert!(!html.contains("<script>literal")); assert!(!html.contains("private suffix"));
+        sqlx::query("UPDATE content.boards SET word_filter_profile=4 WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
+        let mut typed=board_domain::wordfiltered_comment::prepare("bound & \" text",board_domain::comment_markup::MarkupPolicy::default(),board_domain::wordfilter::Profile::Test,Some(board_domain::wordfilter::LeetRolls::from_choices(0,3).unwrap())).unwrap();
+        typed.freeze_format(&case.board);
+        let mut bound=BoundPost::new(&case,id).await;
+        bound.comment=board_domain::filtered_formatting::source_projection(&board_domain::filtered_formatting::lines(&typed,&case.board));
+        bound.wordfilter_payload=Some(typed.encode().unwrap());
+        bound.wordfilter_search=Some(board_domain::formatting::plain_text(&board_domain::filtered_formatting::lines(&typed,&case.board)));
+        bound.issue(&case).await.unwrap();
+        let mut changed=bound.clone(); changed.wordfilter_payload.as_mut().unwrap()[10]^=1;
+        assert_eq!(sql_code(&changed.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
+        let mut changed_search=bound.clone(); changed_search.wordfilter_search.as_mut().unwrap().push('x');
+        assert_eq!(sql_code(&changed_search.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM post_secrets.staff_post_intents WHERE token_hash=$1").bind(&bound.ticket).fetch_one(&case.owner).await.unwrap(),1);
+        assert_eq!(bound.insert(&case).await.unwrap(),"mod");
+        let inserted=board_store::find_post(&public,&case.board,bound.id).await.unwrap();
+        assert_eq!(inserted.wordfilter_payload,bound.wordfilter_payload);
+        assert_eq!(sql_code(&bound.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
+    }).await;
+    fixture.cleanup().await;
+    outcome.unwrap();
 }
 
 #[tokio::test]

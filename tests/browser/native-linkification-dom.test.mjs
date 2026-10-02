@@ -6,8 +6,10 @@ import { nativeCommentText } from '../../apps/public/client/native-filter-html.j
 import { FILTER_LIMITS } from '../../apps/public/client/native-filter-limits.js';
 
 async function linkerSources() {
+  const wordfilters = await readFile(new URL('../../apps/public/client/native-wordfilter-markup.js', import.meta.url), 'utf8');
   return {
-    source: await readFile(new URL('../../apps/public/client/native-linkification.js', import.meta.url), 'utf8'),
+    source: (await readFile(new URL('../../apps/public/client/native-linkification.js', import.meta.url), 'utf8'))
+      .replace('./native-wordfilter-markup.js', `data:text/javascript;base64,${Buffer.from(wordfilters).toString('base64')}`),
     limits: await readFile(new URL('../../apps/public/client/native-filter-limits.js', import.meta.url), 'utf8'),
   };
 }

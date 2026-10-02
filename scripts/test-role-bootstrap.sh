@@ -45,27 +45,56 @@ SQL
   "${db[@]}" -d bootstrap_test --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
 done
 "${db[@]}" -d bootstrap_test <<'SQL'
+BEGIN;
+SET ROLE board_migrator;
+DO $$ BEGIN
+  IF (SELECT title FROM content.boards WHERE slug='vp') IS DISTINCT FROM 'Pokémon' THEN
+    RAISE EXCEPTION 'Imported source board name was decoded incorrectly';
+  END IF;
+END $$;
+UPDATE content.boards SET title='Owned operator title' WHERE slug='vp';
+\i migrations/0064_board_reference_encoding.sql
+DO $$ BEGIN
+  IF (SELECT title FROM content.boards WHERE slug='vp') IS DISTINCT FROM 'Owned operator title' THEN
+    RAISE EXCEPTION 'Board encoding correction overwrote an operator title';
+  END IF;
+END $$;
+ROLLBACK;
 DO $$
 BEGIN
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search'] FROM content.posts p)
      OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
      OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE NOTICE 'Historical upgrade diagnostics: %', (
       SELECT jsonb_build_object(
-        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
-        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color'] FROM content.posts p),
+        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
+        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search'] FROM content.posts p),
         'threads_forward_changed', EXISTS(SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before),
         'threads_reverse_changed', EXISTS(SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads),
-        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL),
+        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL),
         'poster_context_present', EXISTS(SELECT 1 FROM post_secrets.poster_contexts),
         'historical_count_known', content.unique_posters('countold',8800001) IS NOT NULL
       )
     );
     RAISE EXCEPTION 'Poster count upgrade changed history or invented identity';
+  END IF;
+  IF (SELECT count(*) FROM content.boards WHERE source_order<1000 AND word_filter_enabled)<>79
+     OR (SELECT count(*) FROM content.boards WHERE source_order<1000 AND NOT word_filter_enabled)<>3
+     OR NOT has_column_privilege('board_attachment_owner','content.boards','word_filter_enabled','SELECT')
+     OR NOT has_column_privilege('board_attachment_owner','content.boards','word_filter_profile','SELECT')
+     OR EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
+            'board_media_read','board_media_intake','board_monitor']) runtime(name)
+         WHERE has_column_privilege(name,'content.posts','wordfilter_payload','INSERT,UPDATE')
+            OR has_column_privilege(name,'content.posts','wordfilter_search','INSERT,UPDATE')
+            OR (name<>'board_auth' AND has_function_privilege(name,
+                'staff_identity.issue_wordfiltered_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,bytea,text)','EXECUTE')))
+     OR NOT has_function_privilege('board_auth',
+         'staff_identity.issue_wordfiltered_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,bytea,text)','EXECUTE') THEN
+    RAISE EXCEPTION 'Wordfilter policy or authority grants differ';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_robot9000_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))

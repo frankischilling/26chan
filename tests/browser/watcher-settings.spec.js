@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
 
 test('catalog settings discard cancelled edits and save the native watcher flag without navigation', async ({ page }) => {
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   let navigations = 0;
   page.on('request', request => { if (request.isNavigationRequest()) navigations++; });
   let dialog = await openWatcherSettings(page);
@@ -24,7 +24,7 @@ test('catalog settings discard cancelled edits and save the native watcher flag 
 });
 
 test('Monitoring saves auto-watch and fixed placement; Disable overrides checked options', async ({ page }) => {
-  await page.goto('/test/');
+  await page.goto('/fixture/');
   await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true, fixedThreadWatcher: true });
   const panel = page.locator('#threadWatcher');
   await expect(panel).toHaveCSS('position', 'fixed');
@@ -43,12 +43,12 @@ test('Monitoring saves auto-watch and fixed placement; Disable overrides checked
 });
 
 test('saving a draft merges only edited options with newer settings from another tab', async ({ page, context }) => {
-  await page.goto('/test/');
+  await page.goto('/fixture/');
   await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: false, unrelated: 'keep' })));
   const first = await openWatcherSettings(page);
   await first.getByLabel('Thread Watcher', { exact: true }).check();
   const other = await context.newPage();
-  await other.goto('/test/');
+  await other.goto('/fixture/');
   await saveWatcherSettings(other, { threadAutoWatcher: true });
   const loaded = page.waitForEvent('load');
   await first.getByRole('button', { name: 'Save Settings', exact: true }).click();
@@ -65,7 +65,7 @@ for (const failure of ['storage', 'writes', 'locks']) {
         Object.defineProperty(Storage.prototype, method, { value() { throw new DOMException('Unavailable', 'SecurityError'); } });
       }
     }, failure);
-    await page.goto('/test/');
+    await page.goto('/fixture/');
     let navigations = 0;
     page.on('request', request => { if (request.isNavigationRequest()) navigations++; });
     await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true, fixedThreadWatcher: true }, { reload: false });
@@ -84,7 +84,7 @@ for (const failure of ['storage', 'writes', 'locks']) {
 
 test('mobile TW opens and closes the enabled panel without disabling watched state', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/test/');
+  await page.goto('/fixture/');
   await expect(page.locator('#settingsWindowLink')).toBeHidden();
   await expect(page.locator('#settingsWindowLinkMobile')).toBeVisible();
   const dialog = await openWatcherSettings(page);
@@ -109,7 +109,7 @@ test('no-JavaScript pages retain their working style preference link without ine
   const context = await browser.newContext({ javaScriptEnabled: false });
   try {
     const page = await context.newPage();
-    await page.goto('http://127.0.0.1:3000/test/');
+    await page.goto('http://127.0.0.1:3000/fixture/');
     await expect(page.locator('[data-native-settings-ready], #thread-watcher-enable')).toHaveCount(0);
     await expect(page.locator('#settingsWindowLink, #settingsWindowLinkBot, #settingsWindowLinkMobile')).toHaveCount(3);
     await expect(page.locator('#settingsWindowLink')).toHaveAttribute('href', '/settings/theme?worksafe=true');

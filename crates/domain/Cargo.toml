@@ -10,7 +10,6 @@ url.workspace = true
 ring = "=0.17.14"
 base64 = "=0.22.1"
 maxminddb = { version = "=0.30.3", default-features = false }
-regex = { version = "=1.13.1", default-features = false, features = ["std", "unicode"] }
 
 [dev-dependencies]
 proptest.workspace = true

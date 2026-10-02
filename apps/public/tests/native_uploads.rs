@@ -371,7 +371,7 @@ impl Fixture {
                 allowed
             );
             assert!(!connect.contains(&"'self'"));
-            assert!(!connect.contains(&format!("{ORIGIN}/test/upload/").as_str()));
+            assert!(!connect.contains(&format!("{ORIGIN}/fixture/upload/").as_str()));
         }
     }
 }

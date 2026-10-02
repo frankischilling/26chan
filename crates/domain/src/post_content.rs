@@ -43,6 +43,10 @@ pub fn prepare_post_content(
     // Defer blank admission through sanitation as well. Bounds, controls,
     // spam and line checks still run before the source's final markup check.
     let comment = prepare_post_comment(name, "", comment, max_chars, true, spacing)?;
+    // The caller removes existing internal markers once before its admission
+    // filters and generated markup. A newly joined marker is left for the
+    // later formatter, matching the source's two separate passes.
+    let comment = crate::filtered_formatting::remove_source_markers(&comment);
     let blank = parse_markup(&comment, spacing.markup_policy())
         .iter()
         .all(|token| match token {

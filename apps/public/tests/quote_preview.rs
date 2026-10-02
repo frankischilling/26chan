@@ -30,7 +30,7 @@ async fn preview_route_has_strict_ids_no_queries_or_writes_and_no_api_listener_r
     let (web, api) = board_public::routers(pool, ORIGIN.into(), false);
     for key in ["0", "-1", "+1", "01", "1.json", "9223372036854775808"] {
         assert_eq!(
-            request(&web, "GET", &format!("/_watch/test/post/{key}"), None)
+            request(&web, "GET", &format!("/_watch/fixture/post/{key}"), None)
                 .await
                 .status(),
             404,
@@ -53,19 +53,19 @@ async fn preview_route_has_strict_ids_no_queries_or_writes_and_no_api_listener_r
         "?url=https://example.org",
     ] {
         assert_eq!(
-            request(&web, "GET", &format!("/_watch/test/post/1{query}"), None)
+            request(&web, "GET", &format!("/_watch/fixture/post/1{query}"), None)
                 .await
                 .status(),
             400
         );
     }
     for method in ["POST", "PUT", "PATCH", "DELETE"] {
-        let response = request(&web, method, "/_watch/test/post/1", None).await;
+        let response = request(&web, method, "/_watch/fixture/post/1", None).await;
         assert_eq!(response.status(), 405, "{method}");
         assert!(response.headers().get("set-cookie").is_none());
     }
     for method in ["GET", "HEAD"] {
-        let response = request(&api, method, "/_watch/test/post/1", None).await;
+        let response = request(&api, method, "/_watch/fixture/post/1", None).await;
         assert_eq!(response.status(), 404);
         assert!(response.headers().get("set-cookie").is_none());
         assert!(to_bytes(response.into_body(), 4096).await.is_ok());

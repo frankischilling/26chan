@@ -15,6 +15,28 @@ async fn pool(key: &str) -> PgPool {
     PgPool::connect(&std::env::var(key).unwrap()).await.unwrap()
 }
 
+async fn private_comment_context(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, comment: &str) {
+    let mut prepared = board_domain::wordfiltered_comment::prepare(
+        comment,
+        board_domain::comment_markup::MarkupPolicy::default(),
+        board_domain::wordfilter::Profile::Global,
+        None,
+    )
+    .unwrap();
+    prepared.freeze_format("j");
+    let payload = prepared
+        .encode()
+        .unwrap()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let search = board_domain::formatting::plain_text(&board_domain::filtered_formatting::lines(
+        &prepared, "j",
+    ));
+    sqlx::query("SELECT set_config('board.wordfilter_payload',$1,true),set_config('board.wordfilter_search',$2,true)")
+        .bind(payload).bind(search).execute(&mut **tx).await.unwrap();
+}
+
 #[tokio::test]
 async fn latest_reports_private_post_numbers_only_to_live_staff_sessions() {
     let owner = pool("MIGRATION_DATABASE_URL").await;
@@ -40,10 +62,11 @@ async fn latest_reports_private_post_numbers_only_to_live_staff_sessions() {
             .unwrap(),
         limits: Limits::default(),
     });
+    let mut tx = owner.begin().await.unwrap();
     let account: i64 = sqlx::query_scalar(
         "INSERT INTO staff_identity.accounts(role) VALUES('moderator') RETURNING id",
     )
-    .fetch_one(&owner)
+    .fetch_one(&mut *tx)
     .await
     .unwrap();
     let credential = uuid::Uuid::new_v4().as_bytes().to_vec();
@@ -52,22 +75,25 @@ async fn latest_reports_private_post_numbers_only_to_live_staff_sessions() {
     )
     .bind(&credential)
     .bind(account)
-    .execute(&owner)
+    .execute(&mut *tx)
     .await
     .unwrap();
     let token = auth::token();
     sqlx::query("INSERT INTO staff_identity.sessions(token_hash,csrf_hash,account_id,credential_id) VALUES($1,$2,$3,$4)")
         .bind(auth::hash(&token)).bind(auth::hash(&auth::token())).bind(account).bind(&credential)
-        .execute(&owner).await.unwrap();
+        .execute(&mut *tx).await.unwrap();
     let thread: i64 =
         sqlx::query_scalar("INSERT INTO content.threads(board) VALUES('j') RETURNING id")
-            .fetch_one(&owner)
+            .fetch_one(&mut *tx)
             .await
             .unwrap();
+    private_comment_context(&mut tx, "Owned private polling fixture").await;
     sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,'j',$1,'Anonymous','','Owned private polling fixture')")
-        .bind(thread).execute(&owner).await.unwrap();
+        .bind(thread).execute(&mut *tx).await.unwrap();
+    private_comment_context(&mut tx, "Owned private reply").await;
     let reply: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES('j',$1,'Anonymous','','Owned private reply') RETURNING id")
-        .bind(thread).fetch_one(&owner).await.unwrap();
+        .bind(thread).fetch_one(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
 
     let result = tokio::spawn({
         let owner = owner.clone();

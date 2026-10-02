@@ -10,6 +10,11 @@ impl ServerLink {
         &self.0
     }
 
+    pub(crate) fn without_source_markers(mut self) -> Self {
+        self.0 = crate::filtered_formatting::remove_source_markers(&self.0);
+        self
+    }
+
     pub(crate) fn parse(input: &str) -> Option<(Self, usize)> {
         let (_, _, host_end) = host(input)?;
         let mut end = host_end;
@@ -177,7 +182,15 @@ fn normalized(input: &str, current: &str) -> Option<(String, usize)> {
 }
 
 pub(crate) fn normalize<'a>(input: &'a str, current: &str) -> Cow<'a, str> {
-    if !source_probe(input) {
+    normalize_with_probe(input, current, source_probe(input))
+}
+
+pub(crate) fn normalize_with_probe<'a>(
+    input: &'a str,
+    current: &str,
+    enabled: bool,
+) -> Cow<'a, str> {
+    if !enabled {
         return Cow::Borrowed(input);
     }
     let mut output = String::with_capacity(input.len());

@@ -70,6 +70,7 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::Database(error) => AppError::Database(error),
         StoreError::UnsafeRole => AppError::Forbidden,
         StoreError::RandomnessUnavailable => AppError::Internal,
+        StoreError::ReadLimit => AppError::Capacity,
         StoreError::Robot9000Rejected(_) => AppError::Internal,
     }
 }
@@ -190,11 +191,7 @@ async fn build_page(
                 .into_iter()
                 .map(|post| {
                     let role = authors.get(&post.id).and_then(|role| Level::parse(role));
-                    let lines = board_domain::parse_post_comment_on_board(
-                        &post.comment,
-                        post.comment_format,
-                        "j",
-                    );
+                    let lines = post.formatted_lines();
                     let now = post
                         .created_at
                         .with_timezone(&chrono_tz::America::New_York)

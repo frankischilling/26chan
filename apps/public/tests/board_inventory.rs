@@ -41,6 +41,22 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
             expected["source_policy"]["ROBOT9000"] == "yes",
             "/{slug}/: Robot9000 policy"
         );
+        assert_eq!(
+            saved["word_filter_enabled"],
+            expected["source_policy"]["WORD_FILT"] == "yes",
+            "/{slug}/: wordfilter policy"
+        );
+        let filter_profile = match slug {
+            "ck" | "int" => 1,
+            "asp" => 2,
+            "v" => 3,
+            "test" => 4,
+            _ => 0,
+        };
+        assert_eq!(
+            saved["word_filter_profile"], filter_profile,
+            "/{slug}/: wordfilter profile"
+        );
         if !private {
             board_store::board_page_snapshot(
                 &public,
@@ -116,6 +132,25 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
     // Healthy private rows exist in the allowed context. A negative public
     // SELECT therefore proves a boundary rather than an empty destination.
     let mut tx = owner.begin().await.unwrap();
+    let mut private = board_domain::wordfiltered_comment::prepare(
+        "Owned private fixture",
+        board_domain::comment_markup::MarkupPolicy::default(),
+        board_domain::wordfilter::Profile::Global,
+        None,
+    )
+    .unwrap();
+    private.freeze_format("j");
+    let payload = private
+        .encode()
+        .unwrap()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let search = board_domain::formatting::plain_text(&board_domain::filtered_formatting::lines(
+        &private, "j",
+    ));
+    sqlx::query("SELECT set_config('board.wordfilter_payload',$1,true),set_config('board.wordfilter_search',$2,true)")
+        .bind(payload).bind(search).execute(&mut *tx).await.unwrap();
     let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES('j') RETURNING id")
         .fetch_one(&mut *tx)
         .await

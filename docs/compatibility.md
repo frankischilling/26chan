@@ -41,6 +41,15 @@ staff bypass. Anonymous staff bypass and administrative cleanup remain part
 of the remaining staff workflow. The implementation retains active source
 normalization and expiry behavior with bounded storage and private actor keys.
 
+[Built-in wordfilters](source-wordfilters.md) apply the source board-file
+selection and ordered comment transformations during posting. Names and
+subjects retain their source field scope. Saved typed results retain Test
+random choices across pages, JSON, search, catalog, RSS and staff reads.
+Independent fixtures cover caller cleanup, fixed Unicode classes and all
+36 Test choice pairs. [Verification](verification-wordfilters.md) records the
+checks and resource bounds. Configured admission hooks, private lists and
+classifiers remain open in #212.
+
 ## Earlier public-reference checkpoints
 
 The [public page navigation, titles and footer](public-page-chrome.md) use

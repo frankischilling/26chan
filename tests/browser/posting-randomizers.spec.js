@@ -37,7 +37,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     try {
       const dice = await post('tg', 'dice+2d1+3');
       const fortune = await post('b', 'SaGefortunesage');
-      const plain = await post('test', 'dice+0d0', `${marker}\n>>>/tg/${dice}\n>>>/b/${fortune}`);
+      const plain = await post('fixture', 'dice+0d0', `${marker}\n>>>/tg/${dice}\n>>>/b/${fortune}`);
       const expected = 'Rolled 1, 1 + 3 = 5 (2d1 + 3)';
       await page.goto(`/tg/thread/${dice}`);
       await expect(page.locator(`#m${dice} > b`)).toHaveText(expected);
@@ -76,10 +76,10 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(fortuneNode).toHaveText(text);
       expect(await fortuneNode.evaluate(node => getComputedStyle(node).color)).toBe(color);
       await page.screenshot({ path: testInfo.outputPath('fortune.png'), fullPage: true });
-      await page.goto(`/test/thread/${plain}`);
+      await page.goto(`/fixture/thread/${plain}`);
       await expect(page.locator(`#m${plain} > b, #m${plain} > .fortune`)).toHaveCount(0);
       for (const [board, id, generated] of [['tg', dice, expected], ['b', fortune, text]]) {
-        await page.goto(`/test/thread/${plain}`);
+        await page.goto(`/fixture/thread/${plain}`);
         const link = page.locator(`#m${plain} .quotelink[href="/${board}/post/${id}"]`);
         if (mobile) await link.tap(); else await link.hover();
         const preview = page.locator('#quote-preview .postMessage');

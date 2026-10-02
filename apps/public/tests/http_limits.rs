@@ -83,7 +83,7 @@ async fn configured_write_and_peer_caps_apply_to_actual_peer_identity() {
         let response = app
             .clone()
             .oneshot(
-                Request::post("/test/post")
+                Request::post("/fixture/post")
                     .extension(ConnectInfo(SocketAddr::from(([192, 0, 2, peer], 1234))))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("x-forwarded-for", format!("198.51.100.{sequence}"))
@@ -175,9 +175,9 @@ async fn retained_public_responses_keep_the_admission_budget() {
 #[tokio::test]
 async fn integer_page_extremes_are_rejected_without_panics() {
     for path in [
-        "/test/9223372036854775807",
-        "/test/-9223372036854775808",
-        "/test/1001",
+        "/fixture/9223372036854775807",
+        "/fixture/-9223372036854775808",
+        "/fixture/1001",
     ] {
         let response = offline_app()
             .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
@@ -203,7 +203,7 @@ async fn streamed_form_limit_applies_without_content_length() {
             // Transfer-Encoding keeps the body length unknown to the server.
             // Send multiple frames across the actual HTTP transport. A body
             // exactly at the limit reaches form validation (missing fields).
-            write!(socket, "POST /test/post HTTP/1.1\r\nHost: {address}\r\nOrigin: http://127.0.0.1:3000\r\nContent-Type: application/x-www-form-urlencoded\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n").unwrap();
+            write!(socket, "POST /fixture/post HTTP/1.1\r\nHost: {address}\r\nOrigin: http://127.0.0.1:3000\r\nContent-Type: application/x-www-form-urlencoded\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n").unwrap();
             for chunk in vec![b'x'; size].chunks(8192) {
                 write!(socket, "{:X}\r\n", chunk.len()).unwrap();
                 socket.write_all(chunk).unwrap();
@@ -233,7 +233,7 @@ async fn percent_encoded_comment_budget_reaches_form_validation() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/test/post")
+                .uri("/fixture/post")
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "application/x-www-form-urlencoded")
                 .body(Body::from(format!("com={}", "%F0%9F%98%80".repeat(16_000))))
@@ -253,7 +253,7 @@ async fn forwarding_headers_do_not_evade_write_rate_limits() {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/test/post")
+                    .uri("/fixture/post")
                     .header("origin", "http://127.0.0.1:3000")
                     .header("x-forwarded-for", format!("192.0.2.{i}"))
                     .header("content-type", "application/x-www-form-urlencoded")
@@ -282,7 +282,7 @@ async fn unavailable_storage_never_allows_deletion_and_staff_routes_are_absent()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/test/delete")
+                .uri("/fixture/delete")
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "application/x-www-form-urlencoded")
                 .body(Body::from("no=1&password=test-password"))
@@ -309,7 +309,7 @@ async fn unsupported_media_does_not_accept_bytes() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/test/upload")
+                .uri("/fixture/upload")
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "image/png")
                 .body(Body::from("harmless synthetic bytes"))

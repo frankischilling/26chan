@@ -45,6 +45,7 @@ if (($argv[3] ?? '') === '--worker') {
         'ésoy soyé 日本soy soy日本 soyéab',
         "soy\u{0301} \u{0301}soy soy\u{203F} \u{203F}soy soy² ²soy soy\u{200C}",
         'sᲿy sSoyoY ſoy ſOOY SοY SΟY',
+        "s\u{1c82}y \u{1c89}soy soy\u{1c89}\u{1c89} \u{1ccf0}soy",
         '&gt;soy<br><s>smh CUCK tbh</s> &amp;fam',
         '<pre class="prettyprint">soy fam CUCK</pre>',
         '[code]soy fam CUCK[/code] https://example.invalid/fam?soy=CUCK',

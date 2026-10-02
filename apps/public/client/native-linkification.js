@@ -1,4 +1,5 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
+import { isCommentElement } from './native-wordfilter-markup.js';
 
 // Public extension v1191 Linkify lexical rules. Offsets address a serialized text
 // run with <wbr> represented as ZWS; this module never parses strings as HTML.
@@ -38,7 +39,6 @@ export function sourceLinkSpans(serialized, probed = hasSourceLink(serialized)) 
   return output;
 }
 
-const tags = new Set(['SPAN', 'B', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const escapeText = ch => ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
 const generated = 'data-native-linkified';
 
@@ -83,7 +83,7 @@ function planMessage(message, projection) {
           run.text += '\u200b'; run.points.push([parent, index + 1]); characters++;
         }
         if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
-      } else if (node.nodeType === 1 && tags.has(node.tagName)) {
+      } else if (node.nodeType === 1 && isCommentElement(node, projection?.attributes(node) ?? node.attributes)) {
         run = null;
         if (node.tagName !== 'A') visit(node, depth + 1);
         else {
@@ -100,7 +100,7 @@ function planMessage(message, projection) {
       if (projection?.has(node)) continue;
       if (++nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
       if (node.nodeType === 3) characters += node.data.length * 5;
-      else if (node.nodeType === 1 && tags.has(node.tagName)) { attributes(node); charge(node, depth + 1); }
+      else if (node.nodeType === 1 && isCommentElement(node, projection?.attributes(node) ?? node.attributes)) { attributes(node); charge(node, depth + 1); }
       else throw new TypeError('link-node');
       if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
     }

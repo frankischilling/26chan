@@ -277,7 +277,7 @@ async fn rejected_posts_do_not_consume_an_approved_attachment() {
             upload,
             spoiler: false,
         };
-        sqlx::query("UPDATE content.boards SET robot9000=true,image_limit=100 WHERE slug=$1")
+        sqlx::query("UPDATE content.boards SET robot9000=true,image_limit=100,word_filter_enabled=true WHERE slug=$1")
             .bind(&b)
             .execute(&a)
             .await

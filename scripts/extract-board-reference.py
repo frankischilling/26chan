@@ -19,12 +19,12 @@ def policy(path):
     return values
 
 
-def extract(root):
-    slugs = (root / "boardlist.txt").read_text().split()
+def extract(root, names_encoding="utf-8"):
+    slugs = (root / "boardlist.txt").read_text(encoding="utf-8").split()
     if len(slugs) != len(set(slugs)) or any(not re.fullmatch(r"[a-z0-9]{1,10}", slug) for slug in slugs):
         raise ValueError("Board list has duplicate or invalid identifiers.")
     paths = [root / "boardlist.txt", root / "www.4chan/data/boards.php", root / "config/global_config.ini"]
-    names = dict(re.findall(r'"dir"=>"([a-z0-9]+)","name"=>"([^"]+)"', paths[1].read_text()))
+    names = dict(re.findall(r'"dir"=>"([a-z0-9]+)","name"=>"([^"]+)"', paths[1].read_text(encoding=names_encoding)))
     boards = []
     for position, slug in enumerate(slugs + sorted({p.name.split(".")[0] for p in (root / "config/boards").glob("*.config.ini")} - set(slugs))):
         path = root / f"config/boards/{slug}.config.ini"
@@ -95,30 +95,74 @@ def rss_migration(reference):
             ",\n".join(rows) + ") policy(slug,enabled) WHERE b.slug=policy.slug;\n")
 
 
+def board_encoding_migration(reference, historical):
+    rows = []
+    for board, original in zip(reference["boards"], historical["boards"], strict=True):
+        if board["slug"] != original["slug"]:
+            raise ValueError("Historical board order differs.")
+        if board["title"] != original["title"]:
+            quote = lambda value: "'" + value.replace("'", "''") + "'"
+            rows.append("UPDATE content.boards SET title=" + quote(board["title"]) +
+                        " WHERE slug=" + quote(board["slug"]) +
+                        " AND title=" + quote(original["title"]) + ";\n")
+    return ("-- Correct source board titles decoded with the historical Windows default.\n"
+            "-- Preserve the applied migration checksum and operator-edited titles.\n" + "".join(rows))
+
+
+def wordfilter_policy(reference, source):
+    profiles = {"global": 0, "ck": 1, "int": 1, "asp": 2, "v": 3, "test": 4, "vg": 0, "vp": 0}
+    rows = []
+    for board in reference["boards"]:
+        local = board["slug"] if (source / "wordfilters" / (board["slug"] + ".php")).is_file() else "global"
+        if local not in profiles:
+            raise SystemExit("An unaudited board wordfilter needs a fixed profile: " + local)
+        enabled = board["source_policy"]["WORD_FILT"].lower()
+        if enabled not in {"yes", "no"}:
+            raise SystemExit("Unknown source WORD_FILT switch.")
+        rows.append("('" + board["slug"] + "'," + ("true" if enabled == "yes" else "false") + "," + str(profiles[local]) + ")")
+    return ("-- Pinned source WORD_FILT switches and board-file replacement of the global filter.\n"
+            "UPDATE content.boards b SET word_filter_enabled=policy.enabled,word_filter_profile=policy.profile\n"
+            "FROM (VALUES\n" + ",\n".join(rows) + ") policy(slug,enabled,profile) WHERE b.slug=policy.slug;\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--migration", type=Path)
+    parser.add_argument("--migration", type=Path, help="Historical board import using the original Windows name decoding")
     parser.add_argument("--rss-migration", type=Path)
+    parser.add_argument("--wordfilter-migration", type=Path)
+    parser.add_argument("--board-encoding-migration", type=Path)
     args = parser.parse_args()
     reference = extract(args.source)
+    # Migration 0045 was generated with the old Windows cp1252 default. Keep
+    # that applied SQL unchanged and verify the additive UTF-8 correction.
+    historical = extract(args.source, names_encoding="cp1252")
     data = json.dumps(reference, ensure_ascii=False, indent=2) + "\n"
     if args.check:
         if args.output.read_text(encoding="utf-8") != data:
             raise SystemExit("Board reference differs from the supplied checkout.")
-        if args.migration and args.migration.read_text(encoding="utf-8") != migration(reference):
+        if args.migration and args.migration.read_text(encoding="utf-8") != migration(historical):
             raise SystemExit("Board migration differs from the extracted policy.")
         if args.rss_migration and args.rss_migration.read_text(encoding="utf-8") != rss_migration(reference):
             raise SystemExit("RSS migration differs from the extracted policy.")
+        if args.wordfilter_migration:
+            marker = "-- Pinned source WORD_FILT switches and board-file replacement of the global filter.\n"
+            actual = args.wordfilter_migration.read_text(encoding="utf-8")
+            if marker not in actual or actual[actual.index(marker):] != wordfilter_policy(reference, args.source):
+                raise SystemExit("Wordfilter migration differs from the extracted policy.")
+        if args.board_encoding_migration and args.board_encoding_migration.read_text(encoding="utf-8") != board_encoding_migration(reference, historical):
+            raise SystemExit("Board encoding migration differs from the extracted policy.")
         print("Board reference matches all listed and additional configuration files.")
     else:
         args.output.write_text(data, encoding="utf-8")
         if args.migration:
-            args.migration.write_text(migration(reference), encoding="utf-8")
+            args.migration.write_text(migration(historical), encoding="utf-8")
         if args.rss_migration:
             args.rss_migration.write_text(rss_migration(reference), encoding="utf-8")
+        if args.board_encoding_migration:
+            args.board_encoding_migration.write_text(board_encoding_migration(reference, historical), encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
-use board_domain::{Line, Token, parse_post_comment_on_board};
+use board_domain::{Line, Token};
 use board_store::{Board, Post, Thread};
 #[path = "views/file_label.rs"]
 mod file_label;
@@ -219,7 +219,7 @@ impl PostView {
         )
     }
     pub fn new(post: Post) -> Self {
-        let lines = parse_post_comment_on_board(&post.comment, post.comment_format, &post.board);
+        let lines = post.formatted_lines();
         let now = post
             .created_at
             .with_timezone(&chrono_tz::America::New_York)

@@ -107,5 +107,20 @@ retries:
 node node_modules/@playwright/test/cli.js test tests/browser/native-updater-notifications.spec.js
 ```
 
-This focused pass qualifies the fixture correction locally. Final current-head
-CI, including all previously skipped groups, remains required.
+The integrated checkpoint `3b380888c5455292730a9fa568c14475d9b89d09` passed
+[run 36931496972](https://github.com/frankischilling/26chan/actions/runs/36931496972)
+in full: Linux Rust/browser checks, the Windows visual job with all 1,173 theme
+cases, media/operations and the required aggregate gate.
+[Dependency advisories](https://github.com/frankischilling/26chan/actions/runs/36931496969)
+and [monitoring](https://github.com/frankischilling/26chan/actions/runs/36931496979)
+also passed on that checkpoint.
+
+Local checks passed 22 subsequent browser cases. Six tail cases stopped in
+setup because their owned fixture executable was unavailable; none reached
+the tail assertions. After building the existing helper, all six passed
+without assertion, retry or timeout changes.
+
+These results qualify that integrated checkpoint. New feature work needs its
+own current-head checks. Issue #228 remains open through complete rewrite
+qualification and merge; the intermittent Windows cause in #139/#142 remains
+unresolved.

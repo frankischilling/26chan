@@ -41,6 +41,8 @@ pub enum StoreError {
     UnsafeRole,
     #[error("Server randomness is unavailable.")]
     RandomnessUnavailable,
+    #[error("Snapshot content exceeds its read budget.")]
+    ReadLimit,
     #[error("{0}")]
     Robot9000Rejected(String),
 }
@@ -84,6 +86,8 @@ pub struct Board {
     pub fortune_trip: bool,
     pub robot9000: bool,
     pub robot9000_state_limit: i32,
+    pub word_filter_enabled: bool,
+    pub word_filter_profile: i16,
 }
 
 impl Board {
@@ -149,6 +153,7 @@ pub struct Post {
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,
+    pub wordfilter_payload: Option<Vec<u8>>,
     pub dice_result: Option<String>,
     pub fortune_text: Option<String>,
     pub fortune_color: Option<String>,
@@ -156,6 +161,17 @@ pub struct Post {
     pub deleted: bool,
     #[sqlx(skip)]
     pub attachment: Option<post_media::PostAttachment>,
+}
+
+impl Post {
+    pub fn formatted_lines(&self) -> Vec<board_domain::Line> {
+        board_domain::formatting::parse_saved_comment(
+            &self.comment,
+            self.comment_format,
+            &self.board,
+            self.wordfilter_payload.as_deref(),
+        )
+    }
 }
 
 pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {

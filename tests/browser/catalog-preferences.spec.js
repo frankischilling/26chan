@@ -1,7 +1,7 @@
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
-const catalog = '/test/catalog';
+const catalog = '/fixture/catalog';
 const key = 'catalog-settings';
 const saved = { orderby: 'r', large: true, extended: false };
 const stored = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)), key);
@@ -146,7 +146,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   expect(alternateRequests).toBe(1);
   await page.locator('#size-ctrl').selectOption('large');
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
-  const index = await page.goto('/test/');
+  const index = await page.goto('/fixture/');
   expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual(pageScripts);
   expect(await page.locator('script').evaluateAll(nodes => nodes.map(node => ({
     src: node.getAttribute('src'), type: node.type,

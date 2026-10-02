@@ -20,17 +20,17 @@ for (const catalog of [false, true]) {
   test(`script-free ${catalog ? 'catalog' : 'index'} navigation uses the real board directory and Settings fallback`, async ({ browser, request }) => {
     const response = await request.get('/_watch/boards'); expect(response.status()).toBe(200);
     const directory = (await response.json()).boards;
-    expect(directory.some(board => board.board === 'test')).toBe(true);
+    expect(directory.some(board => board.board === 'fixture')).toBe(true);
     const context = await browser.newContext({ javaScriptEnabled: false });
     try {
-      const page = await context.newPage(); await page.goto(`${origin}/test/${catalog ? 'catalog' : ''}`);
+      const page = await context.newPage(); await page.goto(`${origin}/fixture/${catalog ? 'catalog' : ''}`);
       const expected = directory.map(board => `/${board.board}/${catalog && board.board !== 'f' ? 'catalog' : ''}`);
       for (const selector of ['#boardNavDesktop .boardList a', '#boardNavDesktopFoot .boardList a']) {
         expect(await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual(expected);
         expect(await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.title))).toEqual(directory.map(board => board.title));
       }
       expect(await page.locator('#boardSelectMobile option').evaluateAll(nodes => nodes.map(node => node.value))).toEqual(directory.map(board => board.board));
-      await expect(page.locator('#boardSelectMobile')).toHaveValue('test');
+      await expect(page.locator('#boardSelectMobile')).toHaveValue('fixture');
       for (const id of ['boardNavDesktop', 'boardNavMobile', 'boardNavDesktopFoot', 'navtopright', 'navbotright', 'settingsWindowLink', 'settingsWindowLinkMobile', 'settingsWindowLinkBot', 'bottom']) {
         await expect(page.locator(`#${id}`)).toHaveCount(1);
       }
@@ -47,7 +47,7 @@ for (const catalog of [false, true]) {
 test('thread Settings reuses all three server links without duplicate handlers or storage writes', async ({ page, context, request }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const password = 'owned-chrome-thread-password';
-  const created = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
+  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
     form: { resto: '0', sub: 'Owned navigation thread', com: 'Owned page navigation fixture.', password } });
   expect(created.status()).toBe(303);
   const location = created.headers().location.split('#')[0], id = location.split('/').at(-1);
@@ -67,7 +67,7 @@ test('thread Settings reuses all three server links without duplicate handlers o
     expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(before);
     expect(errors).toEqual([]);
   } finally {
-    expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
   }
 });
 
@@ -75,7 +75,7 @@ test('mobile catalog navigation preserves the view, reloads the saved mode and f
   const errors = [], external = []; page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (new URL(request.url()).origin !== origin) external.push(request.url()); });
   await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true })));
-  await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/test/catalog');
+  await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/fixture/catalog');
   await expect(page.locator('body')).toHaveAttribute('data-native-never-mobile', 'false');
   await page.locator('#boardSelectMobile').selectOption('demo'); await expect(page).toHaveURL(`${origin}/demo/catalog`);
   await expect(page.locator('#settingsWindowLink')).toHaveAttribute('data-native-settings-ready', '');

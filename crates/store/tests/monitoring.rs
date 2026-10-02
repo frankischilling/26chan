@@ -6,11 +6,21 @@ use board_store::{
 };
 use sqlx::{Executor, PgPool};
 
+fn owned_development_cluster(path: &str) -> bool {
+    // Disposable setup uses /tmp; retained qualification clusters use /opt.
+    // Both names require exactly the generated eight-character directory tag.
+    path.strip_prefix("/tmp/board-postgres.")
+        .or_else(|| {
+            path.strip_prefix("/opt/26chan-wordfilters.")
+                .and_then(|suffix| suffix.strip_suffix("/cluster"))
+        })
+        .is_some_and(|tag| tag.len() == 8 && tag.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+}
+
 #[tokio::test]
 async fn aggregate_only_login_observes_queue_windows_and_rejects_unsafe_grants() {
     assert!(
-        std::env::var("BOARD_TEST_CLUSTER")
-            .is_ok_and(|path| path.starts_with("/tmp/board-postgres.")),
+        std::env::var("BOARD_TEST_CLUSTER").is_ok_and(|path| owned_development_cluster(&path)),
         "Requires the explicit owned development cluster marker"
     );
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
