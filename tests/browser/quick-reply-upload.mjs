@@ -2,6 +2,7 @@
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
+import { ownedUploadResponse } from './owned-upload-response.mjs';
 
 const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], inline = process.argv[5] === '--inline';
 assert.equal(process.argv.length, inline ? 6 : 5); assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
@@ -28,10 +29,10 @@ try {
     qr = page.locator('#quickReply');
     await expect(qr.locator('#qrFile')).toBeVisible();
     const queued = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/upload`))
-      .then(async response => ({ status: response.status(), receipt: await response.json() }));
+      .then(response => ownedUploadResponse(response, 'upload'));
     await qr.locator('#qrFile').setInputFiles(source);
     const queuedResponse = await queued; assert.equal(queuedResponse.status, 200);
-    const receipt = queuedResponse.receipt;
+    const receipt = queuedResponse.result;
     assert.equal(receipt.resto, thread); assert.equal(receipt.state, 'queued');
     uploadId = receipt.upload_id; capability = receipt.upload_capability;
     assert.match(uploadId, /^[0-9a-f]{32}$/); assert.match(capability, /^[0-9a-f]{64}$/);
@@ -62,18 +63,7 @@ try {
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
   await qr.locator('[name=spoiler]').check(); await expect(page.locator('#qr-pwd')).toHaveValue('');
   const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`))
-    .then(async response => {
-      const status = response.status();
-      const contentType = response.headers()['content-type'] || '';
-      const type = contentType.startsWith('application/json') ? 'json'
-        : contentType.startsWith('text/html') ? 'html'
-          : contentType.startsWith('text/plain') ? 'plain' : 'other';
-      if (status !== 200 || type !== 'json') {
-        // Never include URLs, headers, response bodies or upload capabilities.
-        console.error(`OWNED_UPLOAD_RESPONSE status=${status} type=${type}`);
-      }
-      return { status, result: await response.json() };
-    });
+    .then(response => ownedUploadResponse(response, 'post'));
   await qr.locator('input[type=submit]').click(); const response = await posted;
   assert.equal(response.status, 200); const result = response.result;
   assert.equal(String(result.tid), thread); assert.ok(result.pid > result.tid);

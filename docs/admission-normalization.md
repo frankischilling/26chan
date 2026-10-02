@@ -2,8 +2,9 @@
 
 Issue [#212](https://github.com/frankischilling/26chan/issues/212) remains open.
 The domain module supplies the three normalization projections used by the
-configured content rules. It is not yet connected to persisted rules, posting,
-hit records or ban actions. No private operator rules are imported or invented.
+configured content rules. [Persisted content admission](content-admission.md)
+now connects these projections to posting, hit records and rule actions.
+No private operator rules are imported or invented.
 
 The reference is the supplied revision
 `545b7812d1849f7958d914950c91fdbbe38f6b22`, specifically the hash-pinned
@@ -45,8 +46,9 @@ Windows. The guarded checks reject that workload before ICU. Tests separately
 exercise compatibility expansion, the native scalar ceiling and an accepted
 18,000-scalar accented input. No wall-clock timing assertion or retry is added.
 These counters do not establish a native allocation sandbox or a universal
-execution deadline. Integration still needs bounded scheduling and failure
-behavior before the module can serve configured posting rules.
+execution deadline. Posting permits at most two native rule evaluations at
+once and rejects excess work or unavailable policy state. The blocking task
+retains its permit until native processing ends, including after cancellation.
 
 Construction, input, work and output failures return explicit errors. The
 source's fallback when ICU construction fails is not used; an unavailable
@@ -71,11 +73,13 @@ Windows test distribution is not a maintained production deployment profile.
 On October 2, 2026, all four projections match every extracted case on Linux
 and Windows with Rust 1.94.0. The final three normalization tests pass, including
 128 bounded Unicode property cases. Linux's complete domain suite passes all
-125 tests without failures or ignored tests. The original transform-chain
+125 tests at the normalization checkpoint without failures or ignored tests.
+The content-rule addition brings the Windows domain total to 131 passing tests.
+The original transform-chain
 prototype had 174 corpus mismatches and was kept outside the application.
 Windows CI now runs the normalization checks explicitly; that changed workflow
-has not yet run. Full workspace and integrated admission qualification remain
-required for this slice.
+has not yet run. The later integrated admission checkpoint passes all 670
+workspace tests and strict Clippy; current-head CI remains required.
 
 ```text
 php scripts/extract-admission-normalization-reference.php SOURCE crates/domain/tests/fixtures/admission-normalization.json --check

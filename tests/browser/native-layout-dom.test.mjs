@@ -195,8 +195,10 @@ test('BFCache recomputes on persisted restore and teardown restores only owned s
   await page.evaluate(() => {
     localStorage.setItem('4chan-settings', JSON.stringify({ compactThreads: true, darkTheme: true }));
     document.dispatchEvent(new CustomEvent('4chanSettingsSaved'));
+    // Teardown must run in the same browser task to cancel the pending theme
+    // notification. Separate evaluate calls permit it to settle between them.
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
   });
-  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
   assert.equal((await state(page)).layout, 'host-state');
   assert.equal((await state(page)).href, '/static/theme.css?worksafe=true');
   assert.deepEqual((await state(page)).themeChanges, ['tomorrow', 'photon']);

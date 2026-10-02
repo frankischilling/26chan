@@ -71,7 +71,9 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::UnsafeRole => AppError::Forbidden,
         StoreError::RandomnessUnavailable => AppError::Internal,
         StoreError::ReadLimit => AppError::Capacity,
-        StoreError::Robot9000Rejected(_) => AppError::Internal,
+        StoreError::Robot9000Rejected(_)
+        | StoreError::ContentRejected(_)
+        | StoreError::ContentQuiet { .. } => AppError::Internal,
     }
 }
 

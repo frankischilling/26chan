@@ -284,6 +284,13 @@ async fn create_post_in_context(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
+    // Acquire policy, peer and activity locks before OP membership checks.
+    // Authenticated staff bypass remains isolated from public rule authority.
+    let admission = if staff.is_none() {
+        Some(crate::content_admission::begin(&mut tx, slug, context.peer, anonymous).await?)
+    } else {
+        None
+    };
     let special = board_domain::posting_randomizers::request(
         metadata.options,
         board.dice_roll,
@@ -394,6 +401,23 @@ async fn create_post_in_context(
     } else {
         (post.name.as_str(), post.subject.as_str())
     };
+    let identity = if staff.is_some() {
+        // Staff badges replace trips. Never publish a suffix entered using the
+        // public form's private trip-password syntax.
+        let display = post_name.split('#').next().unwrap_or("").trim();
+        board_domain::identity::Identity {
+            name: if display.is_empty() {
+                "Anonymous"
+            } else {
+                display
+            }
+            .into(),
+            trip: None,
+        }
+    } else {
+        board_domain::identity::prepare(post_name, keys.tripcode)
+            .map_err(|error| StoreError::Invalid(error.0))?
+    };
     let board_domain::PreparedPostContent { comment, subject } =
         board_domain::prepare_post_content(
             post_name,
@@ -412,6 +436,66 @@ async fn create_post_in_context(
             },
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
+    // Invalid, closed or full targets cannot create filter effects or fake
+    // success. The board lock keeps this snapshot valid until the later insert.
+    let reply_target = if parent > 0 {
+        let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
+            .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
+        if thread.archived_at.is_some() || thread.closed || thread.reply_count >= board.reply_limit
+        {
+            return Err(StoreError::Conflict(
+                "This thread is closed or has reached its reply limit.",
+            ));
+        }
+        Some(thread)
+    } else {
+        None
+    };
+    let mut autosage_proof = None;
+    if let Some(admission) = admission {
+        let filename = if let Some(attachment) = attachment {
+            sqlx::query_scalar("SELECT content.attachment_upload_filename($1,$2)")
+                .bind(&attachment.upload.id)
+                .bind(&attachment.upload.capability)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(post_media::scoped_error)?
+        } else {
+            String::new()
+        };
+        let evaluated = admission
+            .evaluate(crate::content_admission::Input {
+                board: slug.into(),
+                parent,
+                // The source hook receives escaped display text and the public
+                // trip span after hashing, never the private trip password.
+                name: match &identity.trip {
+                    Some(trip) => format!(
+                        "{}</span> <span class=\"postertrip\">{trip}",
+                        board_domain::source_html_entities(&identity.name)
+                    ),
+                    None => board_domain::source_html_entities(&identity.name),
+                },
+                subject: board_domain::source_html_entities(&subject),
+                comment: board_domain::source_html_entities(&comment),
+                filename,
+            })
+            .await?;
+        evaluated.record(&mut tx).await?;
+        if let Some(message) = evaluated.rejection() {
+            tx.commit().await?;
+            return Err(StoreError::ContentRejected(message));
+        }
+        if matches!(
+            evaluated.decision,
+            board_domain::content_admission::Decision::Reject { quiet: true, .. }
+        ) {
+            let post = crate::content_admission::quiet_post(&mut tx, slug, parent).await?;
+            tx.commit().await?;
+            return Err(StoreError::ContentQuiet { post });
+        }
+        autosage_proof = evaluated.autosage_proof();
+    }
     let mut wordfiltered = if board.word_filter_enabled {
         use board_domain::wordfilter::{LeetRolls, Profile};
         let profile = match board.word_filter_profile {
@@ -504,6 +588,11 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
     }
+    sqlx::query("SELECT set_config('board.content_autosage',$1,true),set_config('board.content_admission_revision',$2,true),set_config('board.content_admission_peer',$3,true)")
+        .bind(autosage_proof.map(|(rule,_)| rule.to_string()).unwrap_or_default())
+        .bind(autosage_proof.map(|(_,revision)| revision.to_string()).unwrap_or_default())
+        .bind(context.peer.map(|peer| peer.to_canonical().to_string()).unwrap_or_default())
+        .execute(&mut *tx).await?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await?;
@@ -519,20 +608,7 @@ async fn create_post_in_context(
         .await?;
         id
     } else {
-        let thread: Thread = sqlx::query_as(
-            "SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE",
-        )
-        .bind(slug)
-        .bind(parent)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(StoreError::NotFound)?;
-        if thread.archived_at.is_some() || thread.closed || thread.reply_count >= board.reply_limit
-        {
-            return Err(StoreError::Conflict(
-                "This thread is closed or has reached its reply limit.",
-            ));
-        }
+        let thread = reply_target.expect("validated locked reply target");
         // Count under the same board lock as posting/deletion. The incoming
         // row is not inserted yet; the source's decision includes that reply.
         let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
@@ -594,23 +670,6 @@ async fn create_post_in_context(
         .bind(count_context.as_ref().map_or("", |value| value.fingerprint.as_str()))
         .bind(count_context.as_ref().map_or("", |value| value.epoch.as_str()))
         .execute(&mut *tx).await?;
-    let identity = if staff.is_some() {
-        // Staff badges replace trips. Never publish a suffix entered using the
-        // public form's private trip-password syntax.
-        let display = post_name.split('#').next().unwrap_or("").trim();
-        board_domain::identity::Identity {
-            name: if display.is_empty() {
-                "Anonymous"
-            } else {
-                display
-            }
-            .into(),
-            trip: None,
-        }
-    } else {
-        board_domain::identity::prepare(post_name, keys.tripcode)
-            .map_err(|error| StoreError::Invalid(error.0))?
-    };
     sqlx::query("SELECT set_config('board.post_trip', $1, true)")
         .bind(identity.trip.as_deref().unwrap_or(""))
         .execute(&mut *tx)

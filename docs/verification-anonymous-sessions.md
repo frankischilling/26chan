@@ -256,3 +256,15 @@ The earlier integrated checkpoint `3b6300a` passed all required jobs in
 [run 36966578661](https://github.com/frankischilling/26chan/actions/runs/36966578661).
 This newer slice still requires its own complete current-head CI. PR #227
 remains a draft until the full rewrite scope and final checks are complete.
+
+The later [run on `9869066`](https://github.com/frankischilling/26chan/actions/runs/37001161463)
+passes the complete Linux job and Windows visuals. Media/operations fails while
+reading the inline Quick Reply upload receipt body, after all six earlier
+upload workflows pass. The aggregate gate consequently fails. The former
+diagnostic covered only the posting response, so it did not classify this
+receipt failure. The shared redacted reader now covers both stages and reports
+only fixed stage, HTTP/content-type and JSON/body failure categories. It adds
+no retries or fallback parsing. Eight supervisor redaction tests and four
+Node reader tests pass; a streamed 100-attempt local transport probe does not
+reproduce the failure. That probe is diagnostic evidence, not isolated media
+qualification or an explanation of the hosted failure.

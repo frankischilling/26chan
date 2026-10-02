@@ -3,11 +3,12 @@
 Issue [#212](https://github.com/frankischilling/26chan/issues/212) remains open.
 The implementation applies the built-in transformations during posting
 and retains a bounded typed result for subsequent rendering. Local database,
-public-route and staff authorization checks pass. All 626 workspace tests and
-workspace Clippy pass, along with the selected desktop/mobile browser checks.
-The pushed rewrite head including these changes still needs CI.
-Configured admission hooks and the wider issue scope remain
-unfinished.
+public-route and staff authorization checks pass. The built-in filter
+checkpoint passed CI; its results remain in [the verification record](verification-wordfilters.md).
+[Configured content rules](content-admission.md) now run during public posting
+with bounded evaluation and private transactional effects. Complete caller
+ordering, staff exceptions, IP/ASN policy and file blacklist interfaces remain
+unfinished under this issue. Each later checkpoint still requires its own CI.
 
 The reference is the supplied `4chan-old` revision
 `545b7812d1849f7958d914950c91fdbbe38f6b22`. The audit reads source code and
@@ -111,7 +112,7 @@ original MD5, board/global/work-safe scope, reject, auto-ban, DMCA-repeat and
 quiet fake-success branches. Source security code and raw MD5 authority are
 not a safe runtime extension mechanism for the Rust services.
 
-## Configured admission behavior still to implement
+## Configured admission behavior
 
 `spam_filter_post_content_new` reads active global or board-specific rules from
 the external `postfilter` table. It strips selected BBCode for matching and
@@ -122,6 +123,15 @@ or report fake success without posting. The query has no explicit ordering;
 the replacement policy needs a defined order instead of inheriting database
 row order. Database-query failure returns false in the source; the replacement
 must specify and test its failure policy explicitly.
+
+The Rust content-rule path uses operator-owned `admission.rules`, ordered by
+`position,id`. It supports the audited literal/regexp decisions, minimum counts,
+lenient activity and OP scope, then records only the selected hit, log or ban.
+The policy lock remains held until commit. Updates wait for readers; stale
+effect generations fail. Explicit rejection and quiet success retain those
+effects without allocating a post. Ordinary post failures roll them back.
+The source's unavailable-query allow branch is replaced by an error response.
+See [the implementation and remaining scope](content-admission.md).
 
 The filename proxy check runs before that query. A query failure also skips
 the fixed subject checks that follow the rule loop. An OP autosage rule that

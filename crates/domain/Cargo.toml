@@ -10,6 +10,7 @@ url.workspace = true
 ring = "=0.17.14"
 base64 = "=0.22.1"
 maxminddb = { version = "=0.30.3", default-features = false }
+pcre2 = "=0.2.11"
 rust_icu_utrans = { version = "=5.8.0", default-features = false, features = ["renaming", "icu_version_in_env"] }
 rust_icu_sys = { version = "=5.8.0", default-features = false, features = ["renaming", "icu_version_in_env"] }
 icu_normalizer = { version = "=2.3.0", default-features = false, features = ["compiled_data"] }

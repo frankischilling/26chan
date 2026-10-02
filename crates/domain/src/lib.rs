@@ -2,6 +2,7 @@
 pub mod admission_normalization;
 pub mod anonymous_session;
 pub mod capcode;
+pub mod content_admission;
 pub mod country;
 pub mod identity;
 pub mod poster_id;

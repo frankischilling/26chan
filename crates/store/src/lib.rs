@@ -3,6 +3,7 @@
 pub mod anonymous_session;
 mod archives;
 mod board_snapshot;
+mod content_admission;
 pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_page_snapshot, archive_snapshot};
 pub mod legacy_media;
 pub mod media;
@@ -36,6 +37,10 @@ pub enum StoreError {
     Conflict(&'static str),
     #[error("Authorization is no longer valid.")]
     AuthorizationChanged,
+    #[error("{0}")]
+    ContentRejected(String),
+    #[error("Post accepted.")]
+    ContentQuiet { post: i64 },
     #[error("Database unavailable.")]
     Database(#[from] sqlx::Error),
     #[error("Unsafe database role.")]

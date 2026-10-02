@@ -47,8 +47,10 @@ subjects retain their source field scope. Saved typed results retain Test
 random choices across pages, JSON, search, catalog, RSS and staff reads.
 Independent fixtures cover caller cleanup, fixed Unicode classes and all
 36 Test choice pairs. [Verification](verification-wordfilters.md) records the
-checks and resource bounds. Configured admission hooks, private lists and
-classifiers remain open in #212.
+checks and resource bounds. [Configured content rules](content-admission.md)
+now apply bounded literal/regexp decisions and private transactional effects
+to public posting. Complete caller ordering and staff exceptions, private-list
+interfaces and classifiers remain open in #212.
 
 ## Earlier public-reference checkpoints
 

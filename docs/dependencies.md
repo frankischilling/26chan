@@ -1,5 +1,25 @@
 # Dependency and update inventory
 
+Configured content admission adds pinned
+[pcre2 0.2.11](https://docs.rs/pcre2/0.2.11/pcre2/) and locked pcre2-sys 0.2.10
+and jobserver 0.1.35. Native PCRE2 is a text-processing dependency in the
+credential-bearing applications. The private wrapper permits bounded patterns
+from operator policy; requests cannot select patterns or engine options.
+Matching disables JIT and lowers native match, depth and heap limits.
+The dependency contains unsafe code; first-party Rust retains its prohibition.
+This bounded interface does not prove complete native soundness.
+
+Ubuntu 24.04 uses maintained `libpcre2-dev`/runtime packages and PCRE2 10.42.
+Windows uses pcre2-sys's vendored 10.46 for development. Both match the 414
+recorded source decision cases. This corpus does not establish equivalence for
+every operator regexp: native Unicode classes can change between releases.
+Requalify configured patterns after native updates. PHP remains an extraction
+tool; it is not a deployment dependency. [Content admission](content-admission.md)
+records unsupported modifiers and the remaining caller work. A fresh scan on
+October 2 checked all 361 locked dependencies against 1,280 fetched advisories
+and exited successfully with the same unsuppressed `paste` maintenance warning
+described below. The earlier 358-dependency result predates these additions.
+
 The [admission normalizer](admission-normalization.md) adds pinned
 [rust_icu_utrans 5.8.0](https://docs.rs/rust_icu_utrans/5.8.0/rust_icu_utrans/)
 and rust_icu_sys 5.8.0. Six rust_icu packages, anyhow 1.0.104 and paste 1.0.15
@@ -36,7 +56,8 @@ matching uses binary search over the fixed ranges and ordered literal
 substitutions, with explicit field and output byte limits. Random choices use
 the already locked ring operating-system source.
 
-PHP and PCRE are extraction tools, not deployment dependencies. The extractor
+PHP and the source PCRE process are extraction tools for the fixed wordfilter
+tables; configurable content rules additionally link native PCRE2. The extractor
 pins the supplied source hash, records PHP 8.3.6/PCRE2 10.42, and checks five
 classes over all 1,112,064 Unicode scalars. Changing those tables requires
 regenerating the independent fixture and requalifying transformations and

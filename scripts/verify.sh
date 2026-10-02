@@ -12,6 +12,7 @@ if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium
 fi
 npm run check:generated
+node --test tests/browser/owned-upload-response.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py

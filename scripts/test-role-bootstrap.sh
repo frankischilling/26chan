@@ -96,6 +96,42 @@ BEGIN
          'staff_identity.issue_wordfiltered_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,bytea,text)','EXECUTE') THEN
     RAISE EXCEPTION 'Wordfilter policy or authority grants differ';
   END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_admission_owner'
+      AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+     OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_admission_owner')
+     OR has_schema_privilege('board_admission_owner','content','CREATE')
+     OR has_schema_privilege('board_admission_owner','admission','CREATE')
+     OR has_schema_privilege('board_admission_owner','staff_identity','USAGE')
+     OR has_schema_privilege('board_admission_owner','post_secrets','USAGE')
+     OR has_schema_privilege('board_admission_owner','deployment','USAGE')
+     OR has_schema_privilege('board_admission_owner','media','USAGE')
+     OR has_any_column_privilege('board_admission_owner','content.posts','SELECT,INSERT,UPDATE,REFERENCES')
+     OR has_any_column_privilege('board_admission_owner','content.threads','SELECT,INSERT,UPDATE,REFERENCES')
+     OR has_table_privilege('board_admission_owner','admission.rules','INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+     OR has_table_privilege('board_admission_owner','admission.logs','UPDATE,DELETE,TRUNCATE,TRIGGER')
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
+          AND c.column_name NOT IN ('slug','staff_only') AND has_column_privilege('board_admission_owner','content.boards',c.column_name,'SELECT')) THEN
+    RAISE EXCEPTION 'Content admission function owner exceeds required authority';
+  END IF;
+  IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
+       'board_media_read','board_media_intake','board_monitor']) runtime(name)
+       WHERE has_schema_privilege(name,'admission','USAGE')
+          OR has_any_column_privilege(name,'admission.rules','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_any_column_privilege(name,'admission.hits','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_any_column_privilege(name,'admission.logs','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_any_column_privilege(name,'admission.bans','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_table_privilege(name,'admission.capacity','SELECT,UPDATE')
+          OR (name<>'board_public' AND has_function_privilege(name,
+              'content.record_content_admission(text,text,bigint,bigint,text,bigint,text,text,text,text)','EXECUTE')))
+     OR NOT has_function_privilege('board_public',
+          'content.record_content_admission(text,text,bigint,bigint,text,bigint,text,text,text,text)','EXECUTE')
+     OR has_function_privilege('board_public','content.stamp_content_autosage()','EXECUTE')
+     OR EXISTS(SELECT 1 FROM admission.rules)
+     OR EXISTS(SELECT 1 FROM admission.hits)
+     OR EXISTS(SELECT 1 FROM admission.logs)
+     OR EXISTS(SELECT 1 FROM admission.bans) THEN
+    RAISE EXCEPTION 'Content admission runtime grants or initial private state differ';
+  END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_robot9000_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
      OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='board_robot9000_owner')
@@ -322,4 +358,4 @@ SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
 cleanup
 trap - EXIT
-printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; staff-post, poster-count and Robot9000 owners, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'
+printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; content admission, staff-post, poster-count and Robot9000 owners, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'

@@ -152,3 +152,14 @@ and the aggregate gate. Its
 [dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/36966578669)
 and [monitoring run](https://github.com/frankischilling/26chan/actions/runs/36966578657)
 also passed. Subsequent feature changes still require their own qualification.
+
+The October 2 client repeat exposed a separate BFCache test assumption in
+`native-layout-dom.test.mjs`. A settings save and immediate teardown used two
+Playwright `evaluate` calls. A valid pending theme notification could settle
+between those browser tasks, producing `tomorrow,photon,tomorrow` where the test
+expected the pending notification to be cancelled. Both events now run within
+one browser task so the fixture actually exercises cancellation. No product
+code, event assertions, deadlines, retries or visual expectations changed.
+All seven layout DOM cases and the complete 481-test client repeat pass.
+The failed repeat remains in the local qualification record. This fixture fix
+does not explain the earlier `ERR_NO_BUFFER_SPACE` or upload-body CI failures.

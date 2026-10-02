@@ -108,6 +108,17 @@ pub async fn snapshot(pool: &PgPool, token: &[u8; 32]) -> Result<Option<Snapshot
     row.map(Snapshot::try_from).transpose()
 }
 
+pub(crate) async fn locked_snapshot(
+    connection: &mut PgConnection,
+    token: &[u8; 32],
+) -> Result<Option<Snapshot>, StoreError> {
+    let row: Option<Row> = sqlx::query_as("SELECT * FROM content.lock_anonymous_session($1)")
+        .bind(token.as_slice())
+        .fetch_optional(connection)
+        .await?;
+    row.map(Snapshot::try_from).transpose()
+}
+
 fn proof(value: Option<Vec<u8>>) -> Result<Option<[u8; 32]>, StoreError> {
     value
         .map(|value| value.try_into().map_err(|_| invalid()))

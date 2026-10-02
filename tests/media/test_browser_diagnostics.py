@@ -53,6 +53,25 @@ class BrowserDiagnostics(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at quick-reply-upload\.mjs$'):
                     finish_browser(self.process(marker + b'\n'), 'quick-reply-upload.mjs')
 
+    def test_read_failures_identify_stage_without_leaking_response_details(self):
+        for stage in (b'upload', b'post'):
+            for failure in (b'http', b'json', b'body'):
+                error = (b'private url and capability\nOWNED_UPLOAD_RESPONSE status=200 type=json stage='
+                         + stage + b' failure=' + failure + b'\n')
+                with self.subTest(stage=stage, failure=failure):
+                    with self.assertRaises(AssertionError) as result:
+                        finish_browser(self.process(error), 'quick-reply-upload.mjs')
+                    self.assertEqual(str(result.exception), 'owned upload browser rejected at quick-reply-upload.mjs'
+                                     + f' (HTTP 200, json, {stage.decode()}, {failure.decode()})')
+
+    def test_stage_classifications_reject_extra_or_unlisted_details(self):
+        for marker in (b'OWNED_UPLOAD_RESPONSE status=200 type=json stage=private failure=body',
+                       b'OWNED_UPLOAD_RESPONSE status=200 type=json stage=upload failure=private',
+                       b'OWNED_UPLOAD_RESPONSE status=200 type=json stage=upload failure=body secret=value'):
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at quick-reply-upload\.mjs$'):
+                    finish_browser(self.process(marker + b'\n'), 'quick-reply-upload.mjs')
+
     def test_unknown_diagnostic_script_is_rejected_before_child_access(self):
         with self.assertRaises(AssertionError):
             finish_browser(None, 'private-script.mjs')

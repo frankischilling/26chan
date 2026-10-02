@@ -602,7 +602,31 @@ async fn submit_post(
     .await;
     let id = match id {
         Ok(id) => id,
-        Err(StoreError::Robot9000Rejected(message)) => return Ok(format.rule_error(&message)),
+        Err(StoreError::Robot9000Rejected(message) | StoreError::ContentRejected(message)) => {
+            return Ok(format.rule_error(&message));
+        }
+        Err(StoreError::ContentQuiet { post: quiet }) => {
+            let thread = if form.resto == 0 { quiet } else { form.resto };
+            let location = if options.return_to_board {
+                format!("/{board}/")
+            } else {
+                format!("/{board}/thread/{thread}#p{quiet}")
+            };
+            let mut response = format.success(form.resto, quiet, &location);
+            session.append(response.headers_mut(), state.production);
+            crate::post_preferences::append(
+                response.headers_mut(),
+                &headers,
+                if settings.forced_anon {
+                    None
+                } else {
+                    Some(&post.name)
+                },
+                if options.anonymous { "" } else { &form.email },
+                state.production,
+            );
+            return Ok(response);
+        }
         Err(error) => return Err(error.into()),
     };
     let thread = if form.resto == 0 { id } else { form.resto };

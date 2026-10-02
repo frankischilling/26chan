@@ -25,6 +25,10 @@ def finish_browser(process, script):
         location = ':' + ':'.join(value.decode('ascii') for value in locations[0]) if locations else ''
         responses = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other)\r?$', error, re.MULTILINE)
         response = (' (HTTP ' + responses[0][0].decode('ascii') + ', ' + responses[0][1].decode('ascii') + ')') if responses else ''
+        classified = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=(upload|post) failure=(http|json|body)\r?$', error, re.MULTILINE)
+        if classified:
+            status, category, stage, failure = (value.decode('ascii') for value in classified[-1])
+            response = f' (HTTP {status}, {category}, {stage}, {failure})'
         raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 

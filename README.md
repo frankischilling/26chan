@@ -50,12 +50,12 @@ Requirements:
 
 - Rust installed through rustup; `rust-toolchain.toml` selects Rust 1.94.0.
 - PostgreSQL 16 and its command-line tools.
-- ICU 74.2, supplied by maintained Ubuntu 24.04 packages for development and deployment.
+- ICU 74.2 and PCRE2, supplied by maintained Ubuntu 24.04 packages for development and deployment.
 - Node.js 24 or newer and npm for browser tests.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light libicu-dev
+sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light libicu-dev libpcre2-dev
 
 git clone https://github.com/frankischilling/26chan.git
 cd 26chan
