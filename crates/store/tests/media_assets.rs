@@ -523,8 +523,18 @@ async fn exercise_approval(f: Fixture) {
         let (job, token) = f.claim().await;
         let asset = f.queue.prepare_output(&job, &token, &meta).await.unwrap();
         let mut blocker = f.admin.begin().await.unwrap();
-        sqlx::query("UPDATE media.jobs SET expires_at = clock_timestamp() + interval '1 second' WHERE id = $1")
-            .bind(&job).execute(&mut *blocker).await.unwrap();
+        let blocker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *blocker)
+            .await
+            .unwrap();
+        let valid: bool = sqlx::query_scalar(
+            "SELECT expires_at>clock_timestamp() FROM media.jobs WHERE id=$1 FOR UPDATE",
+        )
+        .bind(&job)
+        .fetch_one(&mut *blocker)
+        .await
+        .unwrap();
+        assert!(valid, "Media lease must be valid before the lock wait");
         let waiting_queue = f.queue.clone();
         let waiting_job = job.clone();
         let waiting_asset = asset.id.clone();
@@ -539,12 +549,63 @@ async fn exercise_approval(f: Fixture) {
                     .await
             }
         });
-        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        // Witness the actual wait before shortening the lease. This ensures a
+        // transaction-timestamp check would see the still-valid earlier lease.
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                let blocked: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))",
+                )
+                .bind(blocker_pid)
+                .fetch_one(&f.admin)
+                .await
+                .unwrap();
+                assert!(!waiting.is_finished(), "Media operation left the held job lock");
+                if blocked {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("Media operation must reach the actual job-row lock");
+        sqlx::query("UPDATE media.jobs SET expires_at=clock_timestamp()+interval '100 milliseconds' WHERE id=$1")
+            .bind(&job).execute(&mut *blocker).await.unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                let expired: bool = sqlx::query_scalar(
+                    "SELECT expires_at<=clock_timestamp() FROM media.jobs WHERE id=$1",
+                )
+                .bind(&job)
+                .fetch_one(&mut *blocker)
+                .await
+                .unwrap();
+                assert!(
+                    !waiting.is_finished(),
+                    "Media operation must still wait for the job lock"
+                );
+                if expired {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("Media lease must expire on the PostgreSQL wall clock");
         blocker.commit().await.unwrap();
-        assert!(matches!(
-            waiting.await.unwrap(),
-            Err(StoreError::Conflict(_))
-        ));
+        let result = waiting.await.unwrap();
+        let database_code = match &result {
+            Err(StoreError::Database(error)) => error
+                .as_database_error()
+                .and_then(|error| error.code())
+                .map(|code| code.into_owned()),
+            _ => None,
+        };
+        assert!(
+            matches!(&result, Err(StoreError::Conflict(_))),
+            "Expired media lease: approve={approve}, accepted={}, database_code={database_code:?}",
+            result.is_ok()
+        );
         assert_eq!(f.queue.get(&job).await.unwrap().state, "processing");
         assert!(matches!(
             reader.get(&asset.id).await,

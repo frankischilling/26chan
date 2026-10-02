@@ -25,9 +25,30 @@ async fn submit_with_subject(
     comment: &str,
     accept: &str,
 ) -> axum::response::Response {
+    submit_with_identity(
+        app,
+        board,
+        parent,
+        "Alice#password",
+        subject,
+        comment,
+        accept,
+    )
+    .await
+}
+
+async fn submit_with_identity(
+    app: &axum::Router,
+    board: &str,
+    parent: i64,
+    name: &str,
+    subject: &str,
+    comment: &str,
+    accept: &str,
+) -> axum::response::Response {
     let fields = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("resto", &parent.to_string())
-        .append_pair("name", "Alice#password")
+        .append_pair("name", name)
         .append_pair("sub", subject)
         .append_pair("com", comment)
         .append_pair("email", "sage")
@@ -157,6 +178,20 @@ async fn real_forms_preserve_rule_errors_quiet_success_and_fail_closed_storage()
             serde_json::json!({"error":"Storage is unavailable. Try again later."}));
         assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.posts WHERE board=$1")
             .bind(&b).fetch_one(&a).await.unwrap(),2);
+        sqlx::query("UPDATE admission.rules SET active=false WHERE id=$1").bind(rule).execute(&a).await.unwrap();
+        for name in ["moot Ep8pui8Vw2","mοоt Ep8pui8Vw2"] {
+            let response = submit_with_identity(&app,&b,0,name,"","","application/json").await;
+            assert!(!response.headers().contains_key("set-cookie"));
+            assert_eq!(json(response,StatusCode::OK).await,serde_json::json!({"error":"Error: Upload failed."}));
+        }
+        let html = submit_with_identity(&app,&b,0,"moot Ep8pui8Vw2","","","text/html").await;
+        assert_eq!(html.status(),StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(String::from_utf8(to_bytes(html.into_body(),8192).await.unwrap().to_vec()).unwrap().contains("Error: Upload failed."));
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.posts WHERE board=$1")
+            .bind(&b).fetch_one(&a).await.unwrap(),2);
+        // The raw suffix is hashed before this stage and cannot match as a trip.
+        let allowed = json(submit_with_identity(&app,&b,0,"moot#Ep8pui8Vw2","","ordinary","application/json").await,StatusCode::OK).await;
+        assert!(allowed["pid"].as_i64().unwrap() > highest);
     }).await;
     for query in [
         "DELETE FROM admission.rules WHERE board=$1",

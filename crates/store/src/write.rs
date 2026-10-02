@@ -475,6 +475,15 @@ async fn create_post_in_context(
                     ),
                     None => board_domain::source_html_entities(&identity.name),
                 },
+                // The source's separate $trip is the derived legacy hash;
+                // secure trip displays leave it empty. Never pass raw secrets.
+                legacy_trip: identity
+                    .trip
+                    .as_deref()
+                    .filter(|trip| !trip.starts_with("!!"))
+                    .and_then(|trip| trip.strip_prefix('!'))
+                    .unwrap_or("")
+                    .into(),
                 subject: board_domain::source_html_entities(content.subject()),
                 comment: board_domain::source_html_entities(content.comment()),
                 filename,
@@ -494,6 +503,11 @@ async fn create_post_in_context(
             return Err(StoreError::ContentQuiet { post });
         }
         autosage_proof = evaluated.autosage_proof();
+        if let Some(message) = evaluated.trip_rejection() {
+            // Later admission failures share the posting transaction. Do not
+            // retain a preceding log/autosage hit from an incomplete post.
+            return Err(StoreError::ContentRejected(message.into()));
+        }
     }
     let board_domain::PreparedPostContent { comment, subject } = content
         .finish()

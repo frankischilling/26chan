@@ -5,6 +5,7 @@ pub mod capcode;
 pub mod content_admission;
 pub mod country;
 pub mod identity;
+pub mod name_trip_admission;
 pub mod poster_id;
 pub mod word_break;
 

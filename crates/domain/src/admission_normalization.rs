@@ -76,16 +76,32 @@ impl Normalizer {
 
     pub fn text(&self, input: &str) -> Result<String, NormalizationError> {
         let mut output = self.ascii(input, false)?;
-        output.retain(|ch| {
-            !crate::comment_spacing::zero_width(ch)
-                && (ch.is_ascii_alphanumeric()
-                    || matches!(
-                        ch,
-                        '.' | ',' | '/' | '&' | ':' | ';' | '?' | '=' | '~' | '_' | '-'
-                    ))
-        });
+        retain_text(&mut output);
         Ok(output)
     }
+}
+
+/// ASCII needs no native handle; non-ASCII retains the fixed ICU projection.
+pub fn text(input: &str) -> Result<String, NormalizationError> {
+    check_input(input)?;
+    if input.is_ascii() {
+        let mut output = replace_dots(input).to_ascii_lowercase();
+        retain_text(&mut output);
+        Ok(output)
+    } else {
+        Normalizer::new()?.text(input)
+    }
+}
+
+fn retain_text(output: &mut String) {
+    output.retain(|ch| {
+        !crate::comment_spacing::zero_width(ch)
+            && (ch.is_ascii_alphanumeric()
+                || matches!(
+                    ch,
+                    '.' | ',' | '/' | '&' | ':' | ';' | '?' | '=' | '~' | '_' | '-'
+                ))
+    });
 }
 
 pub fn strip_zero_width(input: &str) -> Result<String, NormalizationError> {
@@ -157,6 +173,11 @@ mod tests {
                 normalizer.text(input).unwrap(),
                 case["text"],
                 "text {index}"
+            );
+            assert_eq!(
+                text(input).unwrap(),
+                case["text"],
+                "standalone projection {index}"
             );
             assert_eq!(
                 strip_zero_width(input).unwrap(),

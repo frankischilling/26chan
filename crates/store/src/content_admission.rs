@@ -1,5 +1,6 @@
 use crate::{StoreError, anonymous_session};
 use board_domain::content_admission::{Actor, Decision, Policy, Post, Rule};
+use board_domain::name_trip_admission::{self, Rejection as TripRejection};
 use sqlx::PgConnection;
 use std::net::IpAddr;
 use std::sync::{Arc, LazyLock};
@@ -102,6 +103,7 @@ pub(crate) struct Input {
     pub board: String,
     pub parent: i64,
     pub name: String,
+    pub legacy_trip: String,
     pub subject: String,
     pub comment: String,
     pub filename: String,
@@ -111,29 +113,18 @@ pub(crate) struct Evaluation {
     snapshot: Snapshot,
     input: Input,
     pub decision: Decision,
+    trip_rejection: Option<TripRejection>,
 }
 
 impl Snapshot {
     pub(crate) async fn evaluate(mut self, input: Input) -> Result<Evaluation, StoreError> {
-        if self.rules.is_empty() {
-            let decision = Policy::compile(Vec::new())
-                .map_err(unavailable)?
-                .evaluate(
-                    Post {
-                        board: &input.board,
-                        reply: input.parent > 0,
-                        name: &input.name,
-                        subject: &input.subject,
-                        comment: &input.comment,
-                        filename: &input.filename,
-                    },
-                    self.actor,
-                )
-                .map_err(unavailable)?;
+        if self.rules.is_empty() && input.name.is_ascii() {
+            let (decision, trip_rejection) = evaluate(Vec::new(), self.actor, &input)?;
             return Ok(Evaluation {
                 snapshot: self,
                 input,
                 decision,
+                trip_rejection,
             });
         }
         let permit = WORK
@@ -144,29 +135,48 @@ impl Snapshot {
         let actor = self.actor;
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            let policy = Policy::compile(rules).map_err(unavailable)?;
-            let decision = policy
-                .evaluate(
-                    Post {
-                        board: &input.board,
-                        reply: input.parent > 0,
-                        name: &input.name,
-                        subject: &input.subject,
-                        comment: &input.comment,
-                        filename: &input.filename,
-                    },
-                    actor,
-                )
-                .map_err(unavailable)?;
+            let (decision, trip_rejection) = evaluate(rules, actor, &input)?;
             Ok(Evaluation {
                 snapshot: self,
                 input,
                 decision,
+                trip_rejection,
             })
         })
         .await
         .map_err(|_| unavailable(()))?
     }
+}
+
+fn evaluate(
+    rules: Vec<Rule>,
+    actor: Actor,
+    input: &Input,
+) -> Result<(Decision, Option<TripRejection>), StoreError> {
+    let decision = Policy::compile(rules)
+        .map_err(unavailable)?
+        .evaluate(
+            Post {
+                board: &input.board,
+                reply: input.parent > 0,
+                name: &input.name,
+                subject: &input.subject,
+                comment: &input.comment,
+                filename: &input.filename,
+            },
+            actor,
+        )
+        .map_err(unavailable)?;
+    let trip_rejection = if matches!(
+        decision,
+        Decision::Allow | Decision::Log { .. } | Decision::Autosage { .. }
+    ) {
+        name_trip_admission::evaluate(&input.name, &input.legacy_trip, false)
+            .map_err(unavailable)?
+    } else {
+        None
+    };
+    Ok((decision, trip_rejection))
 }
 
 fn unavailable(_: impl Sized) -> StoreError {
@@ -178,6 +188,10 @@ fn unavailable(_: impl Sized) -> StoreError {
 }
 
 impl Evaluation {
+    pub(crate) fn trip_rejection(&self) -> Option<&'static str> {
+        self.trip_rejection.map(TripRejection::message)
+    }
+
     pub(crate) fn autosage_proof(&self) -> Option<(i64, i64)> {
         match self.decision {
             Decision::Autosage { rule } => Some((rule, self.snapshot.revision)),

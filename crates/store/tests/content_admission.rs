@@ -142,6 +142,90 @@ impl Fixture {
 }
 
 #[tokio::test]
+async fn fixed_trip_checks_follow_configured_actions_without_reading_private_passwords() {
+    let _guard = POLICY_TEST.lock().await;
+    let f = Fixture::new().await;
+    for name in ["moot Ep8pui8Vw2", "mοоt Ep8pui8Vw2"] {
+        assert!(matches!(f.create_named(0,0,name,"","").await,
+            Err(StoreError::ContentRejected(message)) if message == "Error: Upload failed."));
+    }
+    assert_eq!(f.count("posts").await, 0);
+    for name in ["moot#Ep8pui8Vw2", "moot#l0l1c0m"] {
+        f.create_named(0, 0, name, "", "ordinary content")
+            .await
+            .unwrap();
+    }
+    // The earlier fixed subject decision wins over the later name/trip stage.
+    assert!(
+        matches!(f.create_named(0,0,"moot Ep8pui8Vw2","Administrator","ordinary").await,
+        Err(StoreError::ContentRejected(message)) if message == "You can't post with that subject.")
+    );
+    let rule = f.rule("moot").await;
+    assert!(matches!(f.create_named(0,0,"moot Ep8pui8Vw2","","").await,
+        Err(StoreError::ContentRejected(message)) if message.contains("Please reformat and try again.")));
+    sqlx::query("UPDATE admission.rules SET quiet=true WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.create_named(0, 0, "moot Ep8pui8Vw2", "", "").await,
+        Err(StoreError::ContentQuiet { .. })
+    ));
+    assert_eq!(f.count("posts").await, 2);
+    for autosage in [false, true] {
+        sqlx::query("UPDATE admission.rules SET quiet=false,log=true,autosage=$2 WHERE id=$1")
+            .bind(rule)
+            .bind(autosage)
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        let allowed = f.create_named(0, 0, "moot", "", "ordinary").await.unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, bool>("SELECT permasage FROM content.threads WHERE id=$1")
+                .bind(allowed)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            autosage
+        );
+        for query in [
+            "DELETE FROM admission.hits WHERE rule_id=$1",
+            "DELETE FROM admission.logs WHERE rule_id=$1",
+        ] {
+            sqlx::query(query)
+                .bind(rule)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+        }
+        let posts = f.count("posts").await;
+        let threads = f.count("threads").await;
+        assert!(matches!(f.create_named(0,0,"moot Ep8pui8Vw2","","").await,
+            Err(StoreError::ContentRejected(message)) if message == "Error: Upload failed."));
+        assert_eq!(f.count("posts").await, posts);
+        assert_eq!(f.count("threads").await, threads);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admission.hits WHERE rule_id=$1")
+                .bind(rule)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admission.logs WHERE rule_id=$1")
+                .bind(rule)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            0
+        );
+    }
+    f.cleanup().await;
+}
+
+#[tokio::test]
 async fn rules_precede_final_blank_checks_but_follow_required_subject_and_line_checks() {
     let _guard = POLICY_TEST.lock().await;
     let f = Fixture::new().await;

@@ -6,7 +6,8 @@ wordfilters and Robot9000 handling. Supported actions are OP autosage, private
 logging, rejection, global automatic ban and quiet success without a post.
 The supplied source has no private operator rule rows. The migration starts
 with no configured rules; synthetic test policy is never imported as production
-policy. Fixed subject and filename checks still apply with an empty policy.
+policy. Fixed subject, filename and public name/trip checks still apply with an
+empty policy.
 
 The source reference is `lib/postfilter.php:689-876` in revision
 `545b7812d1849f7958d914950c91fdbbe38f6b22`. The extractor checks the complete
@@ -36,6 +37,17 @@ and text-only subject admission, as in `imgboard.php:5733-5804`. A blank OP or
 fileless reply can therefore receive a rule rejection or quiet response before
 its ordinary missing-content error. With no matching rejection, the established
 missing-content checks still apply.
+
+The fixed public name/trip stage follows configured decisions and precedes final
+markup admission, as in `imgboard.php:5748`. It retains the source's normalized
+display-name check, exact legacy-trip comparison and fixed ASCII trip pattern,
+including literal pipe characters in the source classes. The input is escaped
+public display text and the derived legacy hash. A secure trip display leaves
+the separate legacy value empty, as in the source. Raw trip passwords are never
+passed to this stage. ASCII names use the same dot/case/character projection
+without a native handle; non-ASCII names run within the existing worker limit.
+Independent extraction records 352 name/trip cases, including both source
+moderator decisions. Authenticated staff call-site exceptions remain unfinished.
 
 The actual anonymous activity row is locked before known-user evaluation. Lenient
 rules require the source's 24-hour known-or-verified decision and more than ten
@@ -75,8 +87,8 @@ Explicit rule rejection commits its intended hit/ban, and quiet rejection
 returns the ordinary success envelope without a post, thread, attachment,
 deletion proof or consumed posting receipt. A log or autosage effect shares the
 eventual posting transaction. Unexpected failures roll back the post and its
-effects. Final missing-content rejection also rolls back a preceding log or
-autosage hit. This deliberately avoids retaining incomplete posting effects;
+effects. Final missing-content or fixed name/trip rejection also rolls back a
+preceding log or autosage hit. This deliberately avoids retaining incomplete posting effects;
 the source's separate database writes can survive that later rejection.
 Robot9000's intentional rejection retains preceding admission effects
 while rolling back its post savepoint, matching the established caller order.
@@ -117,11 +129,13 @@ when those rules are required. Do not edit an applied migration or its checksum.
 ## Qualification and remaining work
 
 The recorded source decisions and effects match on Linux PCRE2 10.42 and
-Windows's vendored 10.46. All 131 Windows domain tests pass. Nine focused Linux
+Windows's vendored 10.46. All 133 Windows domain tests pass. Ten focused Linux
 database tests pass for action precedence, global ban expiry, known-user state,
 cross-board posting, actual permission denials, trip secrecy, malformed policy,
 SQL lock timeout, capacity rollback, generation locking, NULL-argument denials
-and approved upload metadata. The `phpé` proxy case preserves the source's byte
+and approved upload metadata. The fixed name/trip stage matches all 352 source
+cases and actual public responses, including Unicode, earlier-rule precedence
+and later effect rollback. The `phpé` proxy case preserves the source's byte
 count rather than PostgreSQL's Unicode regexp count. Fresh restricted-role
 bootstrap passes
 all migrations, historical preservation and owner/runtime grant checks.
@@ -130,7 +144,7 @@ source error messages, early-validation versus final-content precedence,
 quiet success with no saved post, display preferences
 without trip secrets and unavailable-policy errors. All 481 client tests pass;
 the BFCache fixture correction is recorded in [CI fixture verification](verification-ci-board-fixtures.md).
-The complete workspace repeat passes all 671 tests, with no failures or ignored
+The complete workspace repeat passes all 674 tests, with no failures or ignored
 tests. All 19 selected browser cases pass for anonymous ownership, script-free
 posting, trips, wordfilters and randomizers across desktop/mobile layouts.
 Current-head CI and the isolated upload qualification remain required.
@@ -145,7 +159,9 @@ behavior. Browser and isolated upload regression checks remain required.
 
 ```text
 php scripts/extract-content-admission-reference.php SOURCE crates/domain/tests/fixtures/content-admission.json --check
+php scripts/extract-name-trip-admission-reference.php SOURCE crates/domain/tests/fixtures/name-trip-admission.json --check
 cargo test -p board-domain content_admission --lib --locked
+cargo test -p board-domain name_trip_admission --lib --locked
 cargo test -p board-store -p board-public --test content_admission --all-features --locked
 bash scripts/test-role-bootstrap.sh
 ```

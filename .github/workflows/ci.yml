@@ -340,11 +340,12 @@ jobs:
       - name: Verify public configuration budgets
         shell: pwsh
         run: cargo test -p board-config --locked
-      - name: Verify source Unicode normalization and content rule work bounds
+      - name: Verify source admission projections and work bounds
         shell: pwsh
         run: |
           cargo test -p board-domain admission_normalization --lib --locked
           cargo test -p board-domain content_admission --lib --locked
+          cargo test -p board-domain name_trip_admission --lib --locked
           node --test tests/browser/owned-upload-response.test.mjs
       - name: Verify public TCP transport budgets
         shell: pwsh

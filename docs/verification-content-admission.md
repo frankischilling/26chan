@@ -13,10 +13,11 @@ On October 2, 2026, local qualification passes:
 | --- | --- |
 | Original normalization extractor `--check` | 1,849 inputs, four projections each, ICU 74.2 |
 | Original content extractor `--check` | 434 cases; 414 decision/effect comparisons and 20 recorded unavailable-query cases |
-| Windows domain suite | 131 passed, including native work guards and Unicode properties |
-| Linux workspace with all features | 671 passed, zero failed or ignored |
+| Original fixed name/trip extractor `--check` | 352 cases, including ASCII/Unicode display text, exact trips, literal pipe classes and moderator decisions |
+| Windows domain suite | 133 passed, including native work guards, fixed name/trip checks and Unicode properties |
+| Linux workspace with all features | 674 passed, zero failed or ignored |
 | Workspace Clippy and formatting | Passed with warnings denied |
-| Focused database and HTTP rules | Nine database cases and one real-router case passed |
+| Focused database and HTTP rules | Ten database cases and one real-router case passed |
 | Public startup and paired listeners | Ten startup and two paired-listener cases passed on Linux and Windows |
 | Restricted-role bootstrap | All 66 migrations, historical preservation and owner/runtime grants passed |
 | Client tests and generated bundles | 481 passed; all generated bundles match their pinned sources |
@@ -46,6 +47,26 @@ HTML/JSON error behavior, quiet-success IDs, preference cookies without trip
 secrets, actual socket identity despite spoofed forwarding headers and
 unavailable-policy responses. No configured operator patterns, logs, addresses
 or action metadata are exposed through public HTTP reads.
+
+The fixed public name/trip follow-up passes two focused domain cases on Linux
+and Windows, all ten database admission cases and the expanded real HTTP case.
+It checks Unicode display names, configured rejection/quiet precedence, later
+log/autosage rollback, the earlier fixed-subject decision and raw-password
+exclusion. This qualifies the public caller; the source moderator decision is
+supplied only by the independent pure fixture until staff exceptions are wired.
+The first standalone ASCII projection omitted source dot substitutions and
+failed normalization fixture input 3. Reusing the established dot scanner
+restores all 1,849 projections; the failed attempt is retained locally.
+
+The broader follow-up run failed the media lease/approval concurrency assertion.
+A focused diagnostic passed that assertion, so the original cause remains
+unconfirmed. The test now witnesses an actual job-row lock wait before shortening
+the lease, then requires expiry on PostgreSQL's wall clock before releasing the
+lock. Both reservation and approval must still reject with `Conflict` and leave
+the output unpublished. Changing either final lease predicate to use a
+transaction timestamp makes its case fail for accepting the expired lease.
+Those temporary mutations were reverted, and all four media approval tests pass.
+No runtime media code, role timeout or approval assertion was weakened.
 
 Earlier attempts remain part of the record. An integrated build caught
 a shadowed quiet-post ID before tests ran. The initial database fixture cleanup
@@ -84,6 +105,15 @@ passes Linux Rust/browser checks, media/operations and the aggregate gate.
 Advisory and monitoring runs also pass. Windows startup fails before the visual
 groups, so the complete run fails. The Windows failure and its loader-path correction are recorded in
 [CI fixture verification](verification-ci-board-fixtures.md).
+
+The corrected checkpoint `a6fe0f32eb2a71945bed72d68f57a0725b5fa3ca` passes
+[build/test run 37028174415](https://github.com/frankischilling/26chan/actions/runs/37028174415)
+in full: Linux Rust/browser checks, Windows visual checks, media/operations and
+the required aggregate gate. Its
+[dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/37028174884)
+and [monitoring run](https://github.com/frankischilling/26chan/actions/runs/37028174423)
+also pass. This qualifies that checkpoint; the fixed public name/trip follow-up
+requires its own complete hosted checks before integration.
 
 Complete caller ordering, the staff `/test/` exception, remaining name and
 randomizer scope, unsupported regexp modifiers, IP/ASN rules, file blacklists

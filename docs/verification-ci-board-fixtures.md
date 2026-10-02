@@ -184,3 +184,21 @@ gate have now passed; the run fails solely at Windows startup, preventing this
 head from qualifying. A later passing upload does
 not establish the cause of the earlier response-body failure. The corrected
 head still needs every hosted check.
+
+The corrected startup checkpoint `a6fe0f3` passes
+[run 37028174415](https://github.com/frankischilling/26chan/actions/runs/37028174415)
+in full, including Linux Rust/browser checks, all Windows visual groups,
+media/operations and the aggregate gate. Its
+[advisory](https://github.com/frankischilling/26chan/actions/runs/37028174884)
+and [monitoring](https://github.com/frankischilling/26chan/actions/runs/37028174423)
+runs also pass. Later changes still require complete checks at their own head.
+
+The fixed name/trip follow-up encountered a local media lease assertion failure.
+Its focused diagnostic passed the assertion, leaving the original cause
+unconfirmed. The revised fixture witnesses an actual job-row lock wait before
+shortening the lease and waits for PostgreSQL to observe expiry before releasing
+the lock. Reservation and approval still require `Conflict`, an unchanged
+processing job and no approved output. Separate negative controls replaced each
+final wall-clock predicate with a transaction timestamp; both fail for accepting
+the expired lease. The mutations were reverted and all four media approval cases
+pass. Application media code and runtime role limits are unchanged.

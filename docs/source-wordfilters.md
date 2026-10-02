@@ -7,7 +7,8 @@ public-route and staff authorization checks pass. The built-in filter
 checkpoint passed CI; its results remain in [the verification record](verification-wordfilters.md).
 [Configured content rules](content-admission.md) now run during public posting
 with bounded evaluation and private transactional effects, after raw/line and
-required-subject checks and before final blank-content admission. Complete caller
+required-subject checks and before the fixed public name/trip and final
+blank-content stages. Complete caller
 ordering, staff exceptions, IP/ASN policy and file blacklist interfaces remain
 unfinished under this issue. Each later checkpoint still requires its own CI.
 
