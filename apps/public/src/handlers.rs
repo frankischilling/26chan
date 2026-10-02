@@ -496,7 +496,7 @@ async fn submit_post(
         }
     };
     settings.check_attachment_allowed(form.resto, attachment.is_some())?;
-    board_domain::prepare_post_content(
+    board_domain::prepare_post_content_input(
         &form.name,
         &form.sub,
         &form.com,

@@ -24,7 +24,10 @@ mod post_content;
 pub mod post_quote;
 pub mod server_link;
 pub mod static_quote;
-pub use post_content::{PostKind, PreparedPostContent, prepare_post_content};
+pub use post_content::{
+    PostContentInput, PostKind, PreparedPostContent, prepare_post_content,
+    prepare_post_content_input,
+};
 pub mod posting_options;
 pub mod posting_randomizers;
 pub mod robot9000;

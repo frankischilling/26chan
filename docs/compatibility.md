@@ -49,7 +49,8 @@ Independent fixtures cover caller cleanup, fixed Unicode classes and all
 36 Test choice pairs. [Verification](verification-wordfilters.md) records the
 checks and resource bounds. [Configured content rules](content-admission.md)
 now apply bounded literal/regexp decisions and private transactional effects
-to public posting. Complete caller ordering and staff exceptions, private-list
+to public posting before final blank-content admission, while raw/line and
+required-subject checks remain earlier. Complete caller ordering and staff exceptions, private-list
 interfaces and classifiers remain open in #212.
 
 ## Earlier public-reference checkpoints

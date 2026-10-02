@@ -142,6 +142,158 @@ impl Fixture {
 }
 
 #[tokio::test]
+async fn rules_precede_final_blank_checks_but_follow_required_subject_and_line_checks() {
+    let _guard = POLICY_TEST.lock().await;
+    let f = Fixture::new().await;
+    let thread = f.create(0, 0, "", "existing thread").await.unwrap();
+    let rule = f.rule("anonymous").await;
+    for comment in ["", "[spoiler] [/spoiler]", "😀", "~?rep?~"] {
+        for parent in [0, thread] {
+            assert!(matches!(
+                f.create(0, parent, "", comment).await,
+                Err(StoreError::ContentRejected(_))
+            ));
+        }
+    }
+    assert_eq!(f.count("posts").await, 1);
+    assert_eq!(f.count("threads").await, 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count FROM admission.hits WHERE rule_id=$1")
+            .bind(rule)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap(),
+        1
+    );
+    sqlx::query("UPDATE content.boards SET text_only=true WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.create(0, 0, "", "nonblank text-only OP").await,
+        Err(StoreError::ContentRejected(_))
+    ));
+    sqlx::query("DELETE FROM admission.hits WHERE rule_id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET require_subject=true,comment_max_lines=1 WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    for (subject, comment, error) in [
+        ("##", "".into(), "Error: New threads require a subject."),
+        (
+            "valid",
+            "x".repeat(2001),
+            "Enter a comment within this board's character limit.",
+        ),
+        ("valid", "a\nb\nc".into(), "Error: Too many lines."),
+        (
+            "valid",
+            "x\n".repeat(7) + "end",
+            "Error: Our system thinks your post is spam.",
+        ),
+    ] {
+        assert!(matches!(f.create(0, 0, subject, &comment).await,
+            Err(StoreError::Invalid(actual)) if actual == error));
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admission.hits WHERE rule_id=$1")
+            .bind(rule)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap(),
+        0
+    );
+    sqlx::query("UPDATE content.boards SET require_subject=false,text_only=false,comment_max_lines=100 WHERE slug=$1")
+        .bind(&f.boards[0]).execute(&f.owner).await.unwrap();
+    // Allowing actions remain transactional if final content admission fails.
+    for autosage in [false, true] {
+        sqlx::query("UPDATE admission.rules SET log=true,autosage=$2 WHERE id=$1")
+            .bind(rule)
+            .bind(autosage)
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        let allowed = f.create(0, 0, "", "valid content").await.unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, bool>("SELECT permasage FROM content.threads WHERE id=$1")
+                .bind(allowed)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            autosage
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admission.logs WHERE board=$1")
+                .bind(&f.boards[0])
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            i64::from(!autosage)
+        );
+        for query in [
+            "DELETE FROM admission.hits WHERE rule_id=$1",
+            "DELETE FROM admission.logs WHERE rule_id=$1",
+        ] {
+            sqlx::query(query)
+                .bind(rule)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+        }
+        for (parent, error) in [
+            (0, "Error: New threads require a subject or comment."),
+            (thread, "Error: No text entered."),
+        ] {
+            assert!(matches!(f.create(0,parent,"","[spoiler] [/spoiler]").await,
+                Err(StoreError::Invalid(actual)) if actual == error));
+        }
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admission.hits WHERE rule_id=$1")
+                .bind(rule)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admission.logs WHERE board=$1")
+                .bind(&f.boards[0])
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            0
+        );
+    }
+    sqlx::query("UPDATE admission.rules SET log=false,autosage=false,quiet=true WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    for parent in [0, thread] {
+        assert!(matches!(
+            f.create(0, parent, "", "").await,
+            Err(StoreError::ContentQuiet { .. })
+        ));
+    }
+    assert_eq!(f.count("posts").await, 3);
+    assert_eq!(f.count("threads").await, 3);
+    assert!(
+        !sqlx::query_scalar::<_, bool>("SELECT permasage FROM content.threads WHERE id=$1")
+            .bind(thread)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap()
+    );
+    f.cleanup().await;
+}
+
+#[tokio::test]
 async fn rules_receive_escaped_public_identity_without_private_trip_input() {
     let _guard = POLICY_TEST.lock().await;
     let f = Fixture::new().await;

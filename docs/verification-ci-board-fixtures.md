@@ -163,3 +163,24 @@ code, event assertions, deadlines, retries or visual expectations changed.
 All seven layout DOM cases and the complete 481-test client repeat pass.
 The failed repeat remains in the local qualification record. This fixture fix
 does not explain the earlier `ERR_NO_BUFFER_SPACE` or upload-body CI failures.
+
+The next content-admission checkpoint, `8195d65`, exposed a Windows startup
+fixture dependency in
+[run 37022763521](https://github.com/frankischilling/26chan/actions/runs/37022763521).
+Nine child-process checks failed with empty application error output because
+their cleared environments omitted ICU's DLL directory. The same nine failures
+reproduce locally. A child launched without the loader path exits with
+`-1073741515` and no stderr; restoring that path reaches Rust's expected media
+configuration error. Startup children now retain only Windows `PATH` and
+`SystemRoot`, with application configuration and credentials supplied explicitly.
+All ten Windows startup cases and both paired-listener cases pass locally.
+The metrics case also requires its intended configuration/bind error, so an
+unrelated startup failure cannot satisfy its socket assertions.
+
+That hosted checkpoint passes media/operations, including the actual isolated
+Quick Reply upload, restoration and maintenance outcomes. Dependency advisory
+and monitoring checks also pass. Linux Rust/browser checks and the aggregate
+gate have now passed; the run fails solely at Windows startup, preventing this
+head from qualifying. A later passing upload does
+not establish the cause of the earlier response-body failure. The corrected
+head still needs every hosted check.

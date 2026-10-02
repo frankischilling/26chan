@@ -14,9 +14,21 @@ async fn submit(
     comment: &str,
     accept: &str,
 ) -> axum::response::Response {
+    submit_with_subject(app, board, parent, "", comment, accept).await
+}
+
+async fn submit_with_subject(
+    app: &axum::Router,
+    board: &str,
+    parent: i64,
+    subject: &str,
+    comment: &str,
+    accept: &str,
+) -> axum::response::Response {
     let fields = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("resto", &parent.to_string())
         .append_pair("name", "Alice#password")
+        .append_pair("sub", subject)
         .append_pair("com", comment)
         .append_pair("email", "sage")
         .finish();
@@ -99,7 +111,47 @@ async fn real_forms_preserve_rule_errors_quiet_success_and_fail_closed_storage()
         let peer:String = sqlx::query_scalar("SELECT host(peer) FROM admission.hits WHERE rule_id=$1")
             .bind(rule).fetch_one(&a).await.unwrap();
         assert_eq!(peer,"192.0.2.71");
-        sqlx::query("UPDATE admission.rules SET quiet=false,regex=true,pattern='/incomplete' WHERE id=$1")
+        sqlx::query("UPDATE admission.rules SET quiet=false,pattern='alice' WHERE id=$1")
+            .bind(rule).execute(&a).await.unwrap();
+        // Matching display names still reach rules when final markup is blank.
+        for comment in ["","[spoiler] [/spoiler]"] {
+            for parent in [0,thread] {
+                assert_eq!(json(submit(&app,&b,parent,comment,"application/json").await,StatusCode::OK).await,
+                    serde_json::json!({"error":"Error: Our system thinks your post is spam. Please reformat and try again."}));
+            }
+        }
+        sqlx::query("DELETE FROM admission.hits WHERE rule_id=$1").bind(rule).execute(&a).await.unwrap();
+        sqlx::query("UPDATE content.boards SET require_subject=true WHERE slug=$1").bind(&b).execute(&a).await.unwrap();
+        assert_eq!(json(submit_with_subject(&app,&b,0,"##","","application/json").await,StatusCode::OK).await,
+            serde_json::json!({"error":"Error: New threads require a subject."}));
+        let required_html = submit_with_subject(&app,&b,0,"##","","text/html").await;
+        assert_eq!(required_html.status(),StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(String::from_utf8(to_bytes(required_html.into_body(),8192).await.unwrap().to_vec()).unwrap()
+            .contains("Error: New threads require a subject."));
+        sqlx::query("UPDATE content.boards SET require_subject=false,comment_max_lines=1 WHERE slug=$1")
+            .bind(&b).execute(&a).await.unwrap();
+        for (comment,error) in [
+            ("x".repeat(1001),"Enter a comment within this board's character limit."),
+            ("a\nb\nc".into(),"Error: Too many lines."),
+        ] {
+            assert_eq!(json(submit(&app,&b,0,&comment,"application/json").await,StatusCode::OK).await,
+                serde_json::json!({"error":error}));
+        }
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM admission.hits WHERE rule_id=$1")
+            .bind(rule).fetch_one(&a).await.unwrap(),0);
+        sqlx::query("UPDATE admission.rules SET quiet=true WHERE id=$1").bind(rule).execute(&a).await.unwrap();
+        assert_eq!(json(submit(&app,&b,thread,"","application/json").await,StatusCode::OK).await,
+            serde_json::json!({"tid":thread,"pid":highest+1}));
+        assert_eq!(json(submit(&app,&b,0,"","application/json").await,StatusCode::OK).await,
+            serde_json::json!({"tid":0,"pid":thread}));
+        sqlx::query("UPDATE admission.rules SET active=false WHERE id=$1").bind(rule).execute(&a).await.unwrap();
+        for (parent,error) in [(0,"Error: New threads require a subject or comment."),(thread,"Error: No text entered.")] {
+            assert_eq!(json(submit(&app,&b,parent,"","application/json").await,StatusCode::OK).await,
+                serde_json::json!({"error":error}));
+        }
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.posts WHERE board=$1")
+            .bind(&b).fetch_one(&a).await.unwrap(),2);
+        sqlx::query("UPDATE admission.rules SET active=true,quiet=false,regex=true,pattern='/incomplete' WHERE id=$1")
             .bind(rule).execute(&a).await.unwrap();
         assert_eq!(json(submit(&app,&b,0,"ordinary after broken policy","application/json").await,StatusCode::SERVICE_UNAVAILABLE).await,
             serde_json::json!({"error":"Storage is unavailable. Try again later."}));

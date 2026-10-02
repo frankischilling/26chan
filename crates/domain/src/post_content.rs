@@ -16,7 +16,38 @@ pub struct PreparedPostContent {
     pub comment: String,
 }
 
-/// Check raw bounds before cleanup and S_NOSUB before comment line admission.
+/// Sanitized fields before configured rules and final markup admission.
+/// The policy and fields stay paired until final admission completes.
+pub struct PostContentInput {
+    subject: String,
+    comment: String,
+    has_attachment: bool,
+    markup: crate::comment_markup::MarkupPolicy,
+    kind: PostKind,
+}
+
+impl PostContentInput {
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+
+    pub fn comment(&self) -> &str {
+        &self.comment
+    }
+
+    pub fn finish(self) -> Result<PreparedPostContent, ValidationError> {
+        let Self {
+            subject,
+            comment,
+            has_attachment,
+            markup,
+            kind,
+        } = self;
+        final_admission(subject, comment, has_attachment, markup, kind)
+    }
+}
+
+/// Convenience path for callers without intervening admission hooks.
 pub fn prepare_post_content(
     name: &str,
     subject: &str,
@@ -26,6 +57,28 @@ pub fn prepare_post_content(
     spacing: CommentSpacing<'_>,
     kind: PostKind,
 ) -> Result<PreparedPostContent, ValidationError> {
+    prepare_post_content_input(
+        name,
+        subject,
+        comment,
+        max_chars,
+        has_attachment,
+        spacing,
+        kind,
+    )?
+    .finish()
+}
+
+/// Check raw bounds, required subject, sanitation and line rules before hooks.
+pub fn prepare_post_content_input(
+    name: &str,
+    subject: &str,
+    comment: &str,
+    max_chars: usize,
+    has_attachment: bool,
+    spacing: CommentSpacing<'_>,
+    kind: PostKind,
+) -> Result<PostContentInput, ValidationError> {
     // Defer empty-comment admission, not raw limits or control rejection.
     // This does not assert attachment authority; final admission follows below.
     crate::validate_post_with_attachment(name, subject, comment, max_chars, true)?;
@@ -47,7 +100,23 @@ pub fn prepare_post_content(
     // filters and generated markup. A newly joined marker is left for the
     // later formatter, matching the source's two separate passes.
     let comment = crate::filtered_formatting::remove_source_markers(&comment);
-    let blank = parse_markup(&comment, spacing.markup_policy())
+    Ok(PostContentInput {
+        subject,
+        comment,
+        has_attachment,
+        markup: spacing.markup_policy(),
+        kind,
+    })
+}
+
+fn final_admission(
+    subject: String,
+    comment: String,
+    has_attachment: bool,
+    markup: crate::comment_markup::MarkupPolicy,
+    kind: PostKind,
+) -> Result<PreparedPostContent, ValidationError> {
+    let blank = parse_markup(&comment, markup)
         .iter()
         .all(|token| match token {
             MarkupToken::Break => true,

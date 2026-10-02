@@ -30,7 +30,14 @@ uses its distinct title-cased projection and preserves ordinary-rule fallthrough
 
 The caller provides escaped display text and public trip markup after trip
 hashing. Private trip input is neither matched nor stored in rule logs. The
-actual anonymous activity row is locked before known-user evaluation. Lenient
+caller checks raw bounds, cleaned required subjects, repeated-line spam and
+line limits before configured rules. Rules then precede final blank-comment
+and text-only subject admission, as in `imgboard.php:5733-5804`. A blank OP or
+fileless reply can therefore receive a rule rejection or quiet response before
+its ordinary missing-content error. With no matching rejection, the established
+missing-content checks still apply.
+
+The actual anonymous activity row is locked before known-user evaluation. Lenient
 rules require the source's 24-hour known-or-verified decision and more than ten
 posts; cookie age alone cannot confer that status. Autosage takes precedence
 over logging and rejection. Logging proceeds to the fixed subject checks.
@@ -68,7 +75,10 @@ Explicit rule rejection commits its intended hit/ban, and quiet rejection
 returns the ordinary success envelope without a post, thread, attachment,
 deletion proof or consumed posting receipt. A log or autosage effect shares the
 eventual posting transaction. Unexpected failures roll back the post and its
-effects. Robot9000's intentional rejection retains preceding admission effects
+effects. Final missing-content rejection also rolls back a preceding log or
+autosage hit. This deliberately avoids retaining incomplete posting effects;
+the source's separate database writes can survive that later rejection.
+Robot9000's intentional rejection retains preceding admission effects
 while rolling back its post savepoint, matching the established caller order.
 
 Hits suppress repeated rule/peer records for one rolling hour, across boards.
@@ -107,7 +117,7 @@ when those rules are required. Do not edit an applied migration or its checksum.
 ## Qualification and remaining work
 
 The recorded source decisions and effects match on Linux PCRE2 10.42 and
-Windows's vendored 10.46. All 131 Windows domain tests pass. Eight focused Linux
+Windows's vendored 10.46. All 131 Windows domain tests pass. Nine focused Linux
 database tests pass for action precedence, global ban expiry, known-user state,
 cross-board posting, actual permission denials, trip secrecy, malformed policy,
 SQL lock timeout, capacity rollback, generation locking, NULL-argument denials
@@ -116,16 +126,16 @@ count rather than PostgreSQL's Unicode regexp count. Fresh restricted-role
 bootstrap passes
 all migrations, historical preservation and owner/runtime grant checks.
 Workspace Clippy passes with warnings denied. The real HTTP case verifies
-source error messages, quiet success with no saved post, display preferences
+source error messages, early-validation versus final-content precedence,
+quiet success with no saved post, display preferences
 without trip secrets and unavailable-policy errors. All 481 client tests pass;
 the BFCache fixture correction is recorded in [CI fixture verification](verification-ci-board-fixtures.md).
-The complete workspace repeat passes all 670 tests, with no failures or ignored
+The complete workspace repeat passes all 671 tests, with no failures or ignored
 tests. All 19 selected browser cases pass for anonymous ownership, script-free
 posting, trips, wordfilters and randomizers across desktop/mobile layouts.
 Current-head CI and the isolated upload qualification remain required.
 
-Final blank/markup admission still precedes these hooks in the Rust caller where the
-source applies it later. The current caller bypasses authenticated staff;
+The current caller bypasses authenticated staff;
 the source `/test/` exception and anonymous staff posting are unfinished.
 Full name preparation, generated fortune/dice scope, arbitrary regexp
 compatibility, `D`/`X` modifiers, IP/ASN policy, normalized/original file

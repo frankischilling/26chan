@@ -418,24 +418,23 @@ async fn create_post_in_context(
         board_domain::identity::prepare(post_name, keys.tripcode)
             .map_err(|error| StoreError::Invalid(error.0))?
     };
-    let board_domain::PreparedPostContent { comment, subject } =
-        board_domain::prepare_post_content(
-            post_name,
-            post_subject,
-            &comment,
-            board.max_comment_chars as usize,
-            attachment.is_some(),
-            board.comment_spacing().with_op_markup(op_markup),
-            if parent == 0 {
-                board_domain::PostKind::Thread {
-                    subject_required: board.require_subject,
-                    text_only: board.text_only,
-                }
-            } else {
-                board_domain::PostKind::Reply
-            },
-        )
-        .map_err(|error| StoreError::Invalid(error.0))?;
+    let content = board_domain::prepare_post_content_input(
+        post_name,
+        post_subject,
+        &comment,
+        board.max_comment_chars as usize,
+        attachment.is_some(),
+        board.comment_spacing().with_op_markup(op_markup),
+        if parent == 0 {
+            board_domain::PostKind::Thread {
+                subject_required: board.require_subject,
+                text_only: board.text_only,
+            }
+        } else {
+            board_domain::PostKind::Reply
+        },
+    )
+    .map_err(|error| StoreError::Invalid(error.0))?;
     // Invalid, closed or full targets cannot create filter effects or fake
     // success. The board lock keeps this snapshot valid until the later insert.
     let reply_target = if parent > 0 {
@@ -476,8 +475,8 @@ async fn create_post_in_context(
                     ),
                     None => board_domain::source_html_entities(&identity.name),
                 },
-                subject: board_domain::source_html_entities(&subject),
-                comment: board_domain::source_html_entities(&comment),
+                subject: board_domain::source_html_entities(content.subject()),
+                comment: board_domain::source_html_entities(content.comment()),
                 filename,
             })
             .await?;
@@ -496,6 +495,9 @@ async fn create_post_in_context(
         }
         autosage_proof = evaluated.autosage_proof();
     }
+    let board_domain::PreparedPostContent { comment, subject } = content
+        .finish()
+        .map_err(|error| StoreError::Invalid(error.0))?;
     let mut wordfiltered = if board.word_filter_enabled {
         use board_domain::wordfilter::{LeetRolls, Profile};
         let profile = match board.word_filter_profile {

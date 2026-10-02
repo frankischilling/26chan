@@ -14,9 +14,10 @@ On October 2, 2026, local qualification passes:
 | Original normalization extractor `--check` | 1,849 inputs, four projections each, ICU 74.2 |
 | Original content extractor `--check` | 434 cases; 414 decision/effect comparisons and 20 recorded unavailable-query cases |
 | Windows domain suite | 131 passed, including native work guards and Unicode properties |
-| Linux workspace with all features | 670 passed, zero failed or ignored |
+| Linux workspace with all features | 671 passed, zero failed or ignored |
 | Workspace Clippy and formatting | Passed with warnings denied |
-| Focused database and HTTP rules | Eight database cases and one real-router case passed |
+| Focused database and HTTP rules | Nine database cases and one real-router case passed |
+| Public startup and paired listeners | Ten startup and two paired-listener cases passed on Linux and Windows |
 | Restricted-role bootstrap | All 66 migrations, historical preservation and owner/runtime grants passed |
 | Client tests and generated bundles | 481 passed; all generated bundles match their pinned sources |
 | Actual posting browser regressions | 19 passed: anonymous ownership, script-free forms, trips, wordfilters and randomizers |
@@ -30,7 +31,12 @@ success with no post or proof consumption, hit deduplication, expiry and global
 ban scope. They also cover trip-secret exclusion, bounded capacity rollback,
 NULL-argument rejection, actual runtime permission denials, known-user
 thresholds, cross-board activity locking, policy-update waiting and obsolete
-generation denial. The filename case authenticates an intake capability,
+generation denial. Rule rejection and quiet success now precede final blank
+and text-only subject checks. Raw limits, repeated-line spam, required subjects
+and line counts stay earlier. Positive logging/autosage controls establish that
+the same matching rules work, while a later blank-content failure leaves no hit,
+log or new thread. That rollback is a deliberate security difference from the
+source's separate writes. The filename case authenticates an intake capability,
 requires approval, rejects unready metadata and preserves the non-UTF source
 regexp's `phpé` byte count. Its queue exercise uses synthetic metadata, so it
 does not establish decoder, file publication or VM containment qualification.
@@ -67,6 +73,17 @@ URL, header or capability. A streamed 100-attempt transport probe did not
 reproduce the failure. Its cause remains unresolved; the next head requires
 the real isolated upload and complete CI checks. Existing assertions,
 deadlines, retries and screenshot expectations are retained.
+
+The first call-order HTTP attempt expected status 422 for ordinary JSON
+validation errors. The established source response is status 200 with an
+`error` body; the corrected case requires that status and exact message,
+alongside the HTML 422 response. The failed attempt is retained locally.
+On `8195d65`,
+[run 37022763521](https://github.com/frankischilling/26chan/actions/runs/37022763521)
+passes Linux Rust/browser checks, media/operations and the aggregate gate.
+Advisory and monitoring runs also pass. Windows startup fails before the visual
+groups, so the complete run fails. The Windows failure and its loader-path correction are recorded in
+[CI fixture verification](verification-ci-board-fixtures.md).
 
 Complete caller ordering, the staff `/test/` exception, remaining name and
 randomizer scope, unsupported regexp modifiers, IP/ASN rules, file blacklists
