@@ -235,3 +235,12 @@ suite was still progressing; GitHub's check annotation confirms the timeout.
 The aggregate gate failed. The Linux job limit is now 60 minutes, with all
 assertions and required checks retained. This newer checkpoint still requires
 its own full CI qualification.
+
+Checkpoint `3b6300a` has since passed the full required
+[build/test run 36966578661](https://github.com/frankischilling/26chan/actions/runs/36966578661):
+Linux Rust/browser checks, Windows visual checks, media/operations and the
+aggregate gate. [Dependency advisories](https://github.com/frankischilling/26chan/actions/runs/36966578669)
+and [monitoring](https://github.com/frankischilling/26chan/actions/runs/36966578657)
+also passed. This qualifies the integrated built-in filter checkpoint.
+External admission hooks remain unfinished under #212, and later feature
+changes need their own full current-head checks.

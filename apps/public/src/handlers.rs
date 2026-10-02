@@ -390,7 +390,7 @@ pub struct PostForm {
     sub: String,
     #[serde(default)]
     com: String,
-    #[serde(alias = "pwd")]
+    #[serde(default, alias = "pwd")]
     password: String,
     #[serde(default)]
     resto: i64,
@@ -515,12 +515,15 @@ async fn submit_post(
     .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e.0))?;
     let options = board_domain::posting_options::parse(&form.email)
         .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.0))?;
-    if !(8..=128).contains(&form.password.len()) {
+    if !form.password.is_empty() && !(8..=128).contains(&form.password.len()) {
         return Err(AppError(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Deletion password must contain 8 to 128 bytes.",
         ));
     }
+    let session =
+        crate::anonymous_session::Session::resolve(&state, &headers, context.peer).await?;
+    let password = session.password(&form.password);
     // The operator may enable OP markup while this request waits on the board
     // lock. Capture proof independently of the earlier policy snapshot.
     let op_hash = if form.resto > 0 {
@@ -543,10 +546,12 @@ async fn submit_post(
         let _permit = permit;
         let proof = op_hash
             .as_deref()
-            .filter(|hash| verify_deletion_password(&form.password, hash))
+            .filter(|hash| {
+                !form.password.is_empty() && verify_deletion_password(&form.password, hash)
+            })
             .map(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())));
         Argon2::default()
-            .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
+            .hash_password(password.as_bytes(), &SaltString::generate(&mut OsRng))
             .map(|hash| (hash.to_string(), proof))
     })
     .await
@@ -574,13 +579,16 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_metadata(
+    let id = board_store::create_post_with_anonymous_session(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
-        context,
+        board_store::AnonymousPostingContext {
+            posting: context,
+            session: session.posting,
+        },
         board_store::PostMetadata {
             country_database: state.country_database.as_deref(),
             flag: &form.flag,
@@ -604,6 +612,7 @@ async fn submit_post(
         format!("/{board}/thread/{thread}#p{id}")
     };
     let mut response = format.success(form.resto, id, &location);
+    session.append(response.headers_mut(), state.production);
     crate::post_preferences::append(
         response.headers_mut(),
         &headers,
@@ -631,6 +640,7 @@ async fn submit_post(
 #[serde(deny_unknown_fields)]
 pub struct DeleteForm {
     pub(crate) no: i64,
+    #[serde(default)]
     pub(crate) password: String,
     #[serde(default)]
     pub(crate) file_only: bool,
@@ -638,8 +648,26 @@ pub struct DeleteForm {
 pub async fn delete(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    headers: HeaderMap,
     Form(form): Form<DeleteForm>,
 ) -> Result<Redirect, AppError> {
+    if let Some(capability) = crate::anonymous_session::Session::existing(&state, &headers).await? {
+        let token = capability.storage_hash();
+        if let Some(proof) =
+            board_store::anonymous_session::post_proof(&state.pool, &token, &board, form.no).await?
+        {
+            board_store::delete_with_anonymous_proof(
+                &state.pool,
+                &board,
+                form.no,
+                token,
+                proof,
+                form.file_only,
+            )
+            .await?;
+            return Ok(Redirect::to(&format!("/{board}/")));
+        }
+    }
     if !(8..=128).contains(&form.password.len()) {
         return Err(AppError(
             StatusCode::FORBIDDEN,
@@ -685,16 +713,35 @@ pub struct ReportForm {
 pub async fn report(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    headers: HeaderMap,
     Form(form): Form<ReportForm>,
-) -> Result<Html<String>, AppError> {
-    board_store::report(&state.pool, &board, form.no, &form.reason).await?;
-    Ok(Html(
+) -> Result<Response, AppError> {
+    if state.production && peer.0.is_none() {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Posting transport identity is unavailable.",
+        ));
+    }
+    let session = crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await?;
+    board_store::report_with_anonymous_session(
+        &state.pool,
+        &board,
+        form.no,
+        &form.reason,
+        Some(session.posting),
+    )
+    .await?;
+    let mut response = Html(
         Message {
             title: "Report received",
             message: "Your report was saved.",
         }
         .render()?,
-    ))
+    )
+    .into_response();
+    session.append(response.headers_mut(), state.production);
+    Ok(response)
 }
 
 #[cfg(test)]

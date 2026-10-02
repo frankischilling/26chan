@@ -14,12 +14,14 @@ uses those two cookie names in `QR.show`, with percent decoding through
 [The reference manifest](public-watcher-navigation-reference.json) records the
 release's SHA-256. Only released client text was used for this addition.
 
-That client establishes restoration, not every server cookie-writing rule.
-The local writer uses a one-year maximum age and updates preferences only after
+The supplied `4chan-old/imgboard.php` establishes the server writers: options
+at 5634 and name at 6795 both use seven days. The local writer now uses that
+seven-day maximum age and updates preferences only after
 a committed post. Failed requests do not change them. A blank value clears an
 existing preference. Forced-anonymous posts leave the remembered name from
-other boards alone. Remaining original server timing and cookie rules are
-unqualified; these checks do not establish full original posting parity.
+other boards alone. The [anonymous session](anonymous-sessions.md) uses a
+separate one-year HttpOnly cookie. These checks do not establish full original
+posting parity.
 
 ## Security restrictions
 

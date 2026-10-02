@@ -29,7 +29,7 @@ for (const [profile, name] of [[0, 'global'], [1, 'ck'], [2, 'asp'], [3, 'v'], [
         await page.goto(`${origin}/${slug}/`);
         await page.locator(width === 390 ? '#mpostform .mobilePostFormToggle' : '#togglePostFormLink a').click();
         await page.locator('#name').fill('soy fam CUCK'); await page.locator('#sub').fill('Owned source wordfilter');
-        await page.locator('#com').fill(input); await page.locator('#password').fill(password);
+        await page.locator('#com').fill(input); await expect(page.locator('#postPassword')).toHaveValue('');
         await page.getByRole('button', { name: 'Post', exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
         const id = /#p(\d+)$/.exec(page.url())[1];
@@ -40,7 +40,7 @@ for (const [profile, name] of [[0, 'global'], [1, 'ck'], [2, 'asp'], [3, 'v'], [
         await expect(page.locator(`#m${id}`)).toHaveText(visible);
         const header = width === 390 ? `#pim${id}` : `#pi${id}`;
         await page.locator(`${header} > .postNum > a[title="Reply to this post"]`).click();
-        await page.locator('#qrCom').fill(replyInput); await page.locator('#qr-pwd').fill(password);
+        await page.locator('#qrCom').fill(replyInput); await expect(page.locator('#qr-pwd')).toHaveValue('');
         await page.locator('#quickReply input[type=submit]').click();
         await expect(page.locator('.reply .postMessage')).toHaveCount(1);
         await expect(page.locator('#qrCom')).toHaveValue('');

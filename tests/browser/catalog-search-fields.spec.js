@@ -72,7 +72,7 @@ test('server GET and release live search agree on escaped formatted fields from 
       await server.goto(`${origin}/fixture/`);
       await server.locator('#sub').fill(entry.subject);
       await server.locator('#com').fill(entry.comment);
-      await server.locator('#password').fill(password);
+      await expect(server.locator('#postPassword')).toHaveValue('');
       const submitted = server.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
       await server.getByRole('button', { name: 'Post', exact: true }).click();
       const response = await submitted;
@@ -117,7 +117,7 @@ test('server GET and release live search agree on escaped formatted fields from 
       await server.goto(`${origin}/fixture/thread/${id}`);
       const actions = server.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
-      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
+      await expect(actions.locator('input[name=password]')).toHaveValue('');
       await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
     }
     await liveContext.close();

@@ -22,7 +22,7 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.locator('#name, #sub')).toHaveCount(0);
       await expect(page.locator('form.postEditor input[name=name]')).toHaveAttribute('type', 'hidden');
       await page.screenshot({ path: info.outputPath('forced-anonymous-form.png'), fullPage: true });
-      await page.locator('#com').fill('Owned anonymous OP'); await page.locator('#password').fill(password);
+      await page.locator('#com').fill('Owned anonymous OP'); await expect(page.locator('#postPassword')).toHaveValue('');
       await page.getByRole('button', { name: 'Post', exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
       const op = /#p(\d+)$/.exec(page.url())[1];
@@ -31,11 +31,11 @@ for (const javaScriptEnabled of [false, true]) {
         await page.locator(`#p${op} .postInfo > .postNum > a[title="Reply to this post"]`).click();
         await expect(page.locator('#qr-name')).toHaveCount(0);
         await expect(page.locator('#quickReply input[name=name]')).toHaveAttribute('type', 'hidden');
-        await page.locator('#qrCom').fill('Owned anonymous reply'); await page.locator('#qr-pwd').fill(password);
+        await page.locator('#qrCom').fill('Owned anonymous reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
         const url = page.url(); await page.locator('#quickReply input[type=submit]').click();
         await expect(page.locator('.reply .postMessage')).toHaveText('Owned anonymous reply'); expect(page.url()).toBe(url);
       } else {
-        await page.locator('#com').fill('Owned anonymous reply'); await page.locator('#password').fill(password);
+        await page.locator('#com').fill('Owned anonymous reply'); await expect(page.locator('#postPassword')).toHaveValue('');
         await page.getByRole('button', { name: 'Post', exact: true }).click();
       }
       await expect(page.locator('.reply .postInfo .name')).toHaveText('Anonymous');

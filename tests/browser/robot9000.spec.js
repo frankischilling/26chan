@@ -27,13 +27,13 @@ test('desktop and mobile posting retain robot errors and Quick Reply drafts with
         // The ordinary form uses the real HTML response.
         await page.locator(`#${mobile ? 'pim' : 'pi'}${id} > .postNum > a[title="Reply to this post"]`).click();
         await page.locator('#com').fill('café');
-        await page.locator('#password').fill(password);
+        await expect(page.locator('#postPassword')).toHaveValue('');
         await page.locator('form.postEditor button[type="submit"]').click();
         await expect(page.getByText('Non-ASCII text is not allowed.', { exact: true })).toBeVisible();
         await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: true, persistentQR: true, threadWatcher: false })));
         await page.goto(`${origin}/r9k/thread/${id}`);
         await page.locator(`#${mobile ? 'pim' : 'pi'}${id} > .postNum > a[title="Reply to this post"]`).click();
-        await page.locator('#qr-pwd').fill(password);
+        await expect(page.locator('#qr-pwd')).toHaveValue('');
         await page.locator('#qrCom').fill('café');
         await page.locator('#quickReply input[type=submit]').click();
         await expect(page.locator('#qrError')).toHaveText('Non-ASCII text is not allowed.');

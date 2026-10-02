@@ -227,7 +227,7 @@ async fn streamed_form_limit_applies_without_content_length() {
 
 #[tokio::test]
 async fn percent_encoded_comment_budget_reaches_form_validation() {
-    // A missing password must reach form validation even with a comment that
+    // A malformed thread ID must reach form validation even with a comment that
     // needs the full 192,000-byte URL-encoding budget. No database is needed.
     let response = offline_app()
         .oneshot(
@@ -236,7 +236,10 @@ async fn percent_encoded_comment_budget_reaches_form_validation() {
                 .uri("/fixture/post")
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "application/x-www-form-urlencoded")
-                .body(Body::from(format!("com={}", "%F0%9F%98%80".repeat(16_000))))
+                .body(Body::from(format!(
+                    "com={}&resto=not-an-id",
+                    "%F0%9F%98%80".repeat(16_000)
+                )))
                 .unwrap(),
         )
         .await

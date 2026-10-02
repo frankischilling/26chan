@@ -1,5 +1,6 @@
 {% macro fields(parent, image, text_only, forced_anon, flag_options, quote) %}
 <input type="hidden" name="mode" value="regist">
+<input id="postPassword" name="pwd" type="hidden">
 {% if forced_anon %}<input type="hidden" name="name">{% endif %}
 <table id="postForm" class="postForm" role="presentation"><tbody>
 {% if !forced_anon %}
@@ -10,6 +11,5 @@
 {% if !flag_options.is_empty() %}<tr><td><label for="flag">Flag</label></td><td><select id="flag" name="flag" class="flagSelector"><option value="0">Geographic Location</option>{% for option in flag_options %}<option value="{{ option.0 }}">{{ option.1 }}</option>{% endfor %}</select></td></tr>{% endif %}
 <tr><td><label for="com">Comment</label></td><td><textarea id="com" name="com" cols="48" rows="4"{% if !image && parent != 0 %} required{% endif %} aria-describedby="postHelp">{{ quote }}</textarea></td></tr>
 {% if image %}<tr><td><label for="spoiler">Spoiler image</label></td><td><input id="spoiler" name="spoiler" type="checkbox" value="on"></td></tr>{% endif %}
-<tr><td><label for="password">Deletion password</label></td><td><input id="password" type="password" name="pwd" minlength="8" maxlength="128" autocomplete="new-password" required></td></tr>
 </tbody></table>
 {% endmacro %}

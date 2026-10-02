@@ -14,7 +14,7 @@ try {
   assert.deepEqual(await page.locator('select[name=flag] option').evaluateAll(options => options.map(o => [o.value, o.textContent])),
     [['0', 'Geographic Location'], ['AC', 'Anarcho-Capitalist'], ['UN', 'United Nations']]);
   await page.locator('#sub').fill('Owned flags browser'); await page.locator('#com').fill('Owned geographic post');
-  await page.locator('#password').fill('owned-flags-browser-password');
+  assert.equal(await page.locator('#postPassword').inputValue(), '');
   await Promise.all([page.waitForURL(/\/thread\/[0-9]+#p[0-9]+$/), page.locator('#sub').locator('..').locator('button').click()]);
   const thread = new URL(page.url()).pathname.split('/').pop();
   const country = page.locator('.postInfo .flag-xx'); assert.equal(await country.count(), 1);
@@ -31,7 +31,7 @@ try {
   await live.locator('.postInfo .postNum > a[title="Reply to this post"]').first().click();
   await live.locator('#quickReply #qrFlag').selectOption('UN');
   await live.locator('#qrCom').fill('Owned selected board flag');
-  await live.locator('#quickReply input[name=pwd]').fill('owned-flags-browser-password');
+  assert.equal(await live.locator('#quickReply input[name=pwd]').inputValue(), '');
   const posted = live.waitForResponse(response => new URL(response.url()).pathname === `/${board}/imgboard.php`)
     .then(async response => ({ status: response.status(), receipt: await response.json() }));
   await live.locator('#quickReply input[type=submit]').click();

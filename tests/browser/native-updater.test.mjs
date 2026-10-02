@@ -16,6 +16,28 @@ function snapshot(inside) {
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
 
+test('automatic deletion fields remain empty and bound to their own post and action', () => {
+  const positive = snapshot(), no = positive.posts[1].no;
+  for (const post of positive.posts) {
+    post.html = post.html.replace(`<label for="delete${post.no}">Deletion password</label>`, '')
+      .replace('type="password" minlength="8" maxlength="128" autocomplete="off" required', 'type="hidden"');
+  }
+  assert.equal(parse(positive).status, 'ok');
+  for (const [from, to] of [
+    [`id="delete${no}"`, `id="delete${context.thread}"`],
+    ['name="password" type="hidden"', 'name="password" type="hidden" value=""'],
+    ['name="password" type="hidden"', 'name="password" type="hidden" value="private-capability"'],
+    ['name="password" type="hidden"', 'name="anonymous_capability" type="hidden"'],
+    ['name="password" type="hidden"', 'name="password" type="text"'],
+    ['action="/demo/delete"', 'action="/demo/report"'],
+  ]) {
+    const candidate = structuredClone(positive);
+    candidate.posts[1].html = candidate.posts[1].html.replace(from, to);
+    assert.notEqual(candidate.posts[1].html, positive.posts[1].html);
+    assert.equal(parse(candidate).status, 'invalid-snapshot', to);
+  }
+});
+
 test('source board, catalog search and rules links survive the bounded recipe without opening other routes', () => {
   for (const href of ['/po/', '/g/catalog', '/g/catalog#s=a+b%2Fc%2Cd-e', '/rules#g3', '/rules#unknown4']) {
     const inside = `<a class="quotelink" href="${href}">&gt;&gt;&gt;/g/catalog</a>`;

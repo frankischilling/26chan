@@ -144,7 +144,7 @@ test.describe('unmodified persisted inline quotes', () => {
     const source = await owned.reply(`>>${target.id}\nLocal source`);
     await initialize(page, owned.url);
     await page.locator(`#p${target.id} .postActions > summary`).click();
-    await page.locator(`#delete${target.id}`).fill('owned-inline-private-value');
+    await page.locator(`#delete${target.id}`).evaluate(node => { node.value = 'owned-inline-private-value'; });
     await page.locator(`#report${target.id}`).fill('Owned unsent report value');
     await page.locator(`#p${target.id}`).evaluate(node => {
       window.inlineOriginalPost = node;

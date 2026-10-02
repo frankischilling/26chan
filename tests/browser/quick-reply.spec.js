@@ -47,7 +47,7 @@ test('the reply link prefills and submits a real quote without JavaScript on des
       await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);
       await expect(page.locator('#com')).toBeVisible();
       await page.locator('#com').fill(`>>${id}\nOwned script-free quote at ${width}`);
-      await page.locator('#password').fill(password);
+      await expect(page.locator('#postPassword')).toHaveValue('');
       await page.locator('form.postEditor button[type="submit"]').click();
       await expect(page).toHaveURL(new RegExp(`/fixture/thread/${id}#p[1-9][0-9]*$`));
       await expect(page.locator('.postMessage').filter({ hasText: `Owned script-free quote at ${width}` })).toHaveCount(1);
@@ -119,10 +119,10 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Unsubmitted native draft');
     await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q');
     await expect(page.locator('#quickReply')).toBeVisible();
-    await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('');
+    await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('');
     await page.locator('#quickReply input[type=submit]').click();
     await expect(page.locator('#qrError')).toHaveText('Error: No text entered.');
-    await expect(page.locator('#qr-pwd')).toHaveValue(password);
+    await expect(page.locator('#qr-pwd')).toHaveValue('');
     await page.locator('#qrCom').fill(`>>${id}\nOwned Quick Reply result`);
     await observePostingBody(page);
     const posted = page.evaluate(() => window.ownedPostingResponse);
@@ -147,7 +147,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await page.unroute('**/fixture/imgboard.php');
     await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
     await context.clearCookies(); await page.reload();
-    await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q'); await page.locator('#qrCom').fill('Second owned reply'); await page.locator('#qr-pwd').fill(password);
+    await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q'); await page.locator('#qrCom').fill('Second owned reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
     await page.locator('#quickReply input[type=submit]').click();
     await expect(page.locator('.postMessage').filter({ hasText: 'Second owned reply' })).toBeVisible();
   } finally {
@@ -181,7 +181,7 @@ for (const additional of [false, true]) {
       const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
       await page.locator('.threadNav.desktop input[data-cmd="auto"]').first().check(); await page.clock.runFor(9800);
       await page.locator('.open-qr-link').click();
-      await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await page.locator('#qr-pwd').fill(password);
+      await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
       await observePostingBody(page);
       const posted = page.evaluate(() => window.ownedPostingResponse);
       const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
@@ -211,7 +211,7 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
     await page.route(`**${path}`, route => { calls++; if (calls === 1) held = route; else return route.continue(); });
     await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click(); await expect.poll(() => calls).toBe(1);
     await page.locator('.open-qr-link').click();
-    await page.locator('#qrCom').fill('Committed while updater was busy'); await page.locator('#qr-pwd').fill(password);
+    await page.locator('#qrCom').fill('Committed while updater was busy'); await expect(page.locator('#qr-pwd')).toHaveValue('');
     await page.locator('#quickReply input[type=submit]').click(); await expect(page.locator('#quickReply')).toHaveCount(0);
     await page.clock.runFor(600); expect(calls).toBe(1);
     await held.fulfill({ contentType: 'application/json', body: snapshot });
@@ -230,7 +230,7 @@ test('the source byte advisory does not block a Unicode reply within the server 
     const value = '𠮷'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
     await page.locator('.open-qr-link').click();
     await expect(page.locator('#qrResto')).toHaveValue(id);
-    await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill(value); await page.locator('#qrCom').press('ArrowLeft');
+    await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill(value); await page.locator('#qrCom').press('ArrowLeft');
     await expect(page.locator('#qrError')).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
     await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
     await observePostingBody(page);
@@ -256,7 +256,7 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: true }))); await page.reload();
     await page.locator(`#m${id}`).evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); getSelection().removeAllRanges(); getSelection().addRange(range); });
     await page.keyboard.press('q'); await expect(page.locator('#qrCom')).toHaveValue(`>${selected}\n`);
-    await page.locator('#qr-pwd').fill(password);
+    await expect(page.locator('#qr-pwd')).toHaveValue('');
     await observePostingBody(page);
     const posted = page.evaluate(() => window.ownedPostingResponse);
     const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
@@ -267,7 +267,7 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ keyBinds: false }))); await page.reload();
     await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click({ modifiers: ['Control'] });
     await expect(page.locator('#qrCom')).toHaveValue(''); expect(context.pages()).toHaveLength(1);
-    await page.locator('#qrCom').fill('Posted after Ctrl-click'); await page.locator('#qr-pwd').fill(password);
+    await page.locator('#qrCom').fill('Posted after Ctrl-click'); await expect(page.locator('#qr-pwd')).toHaveValue('');
     await page.locator('#quickReply input[type=submit]').click();
     await expect(page.locator('.postMessage').filter({ hasText: 'Posted after Ctrl-click' })).toBeVisible();
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(3);

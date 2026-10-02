@@ -163,7 +163,7 @@ test.describe('unmodified persisted backlink graph', () => {
     await initialize(page, owned.url);
     await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill(`>>${owned.id}\nBacklink created through the ordinary posting form`);
-    await page.locator('#password').fill(owned.password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
     const action = await page.locator('form.postEditor').getAttribute('action');
     const posted = page.waitForResponse(response => response.request().method() === 'POST'
       && response.url() === new URL(action, origin).href);

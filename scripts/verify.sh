@@ -17,6 +17,7 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
+npx playwright test tests/browser/anonymous-session.spec.js
 npm run test:global-search
 npm run test:posting-randomizers
 npm run test:robot9000

@@ -240,6 +240,8 @@ jobs:
         run: sudo bash scripts/test-media-approval-migration.sh
       - name: Upgrade existing media jobs to capability-scoped intake
         run: sudo bash scripts/test-media-intake-migration.sh
+      - name: Upgrade anonymous sessions without changing historical ownership
+        run: sudo bash scripts/test-anonymous-session-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
       - name: Restore populated attachments and normalized files

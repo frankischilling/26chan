@@ -60,7 +60,7 @@ try {
   }
   await expect(qr.locator('[name=upload_id]')).toHaveValue(uploadId);
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
-  await qr.locator('[name=spoiler]').check(); await page.locator('#qr-pwd').fill(password);
+  await qr.locator('[name=spoiler]').check(); await expect(page.locator('#qr-pwd')).toHaveValue('');
   const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`))
     .then(async response => ({ status: response.status(), result: await response.json() }));
   await qr.locator('input[type=submit]').click(); const response = await posted;
@@ -84,7 +84,7 @@ try {
   await expect(qr.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
   if (inline) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
   else await expect(qr.locator('[name=spoiler]')).toHaveCount(0);
-  await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('Text after the consumed image');
+  await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('Text after the consumed image');
   const next = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`));
   await qr.locator('input[type=submit]').click(); assert.equal((await next).status(), 200);
   await expect(page.locator('#qrCom')).toHaveValue('');
@@ -112,7 +112,7 @@ try {
   await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
   await page.locator(`#p${post} .postActions summary`).click();
-  await deletion.locator('[name=password]').fill(password); await deletion.locator('[name=file_only]').check();
+  await expect(deletion.locator('[name=password]')).toHaveValue(''); await deletion.locator('[name=file_only]').check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
   await expect(page.locator(`#p${post} .file img.fileDeletedRes`)).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
   await expect(page.locator(`#p${post} .file a`)).toHaveCount(0);

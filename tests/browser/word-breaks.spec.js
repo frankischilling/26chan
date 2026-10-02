@@ -11,7 +11,7 @@ for (const javaScriptEnabled of [false, true]) {
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await page.locator('#sub').fill('Owned word breaks');
       await page.locator('#com').fill(`[b]${long}[/b]\n${'界'.repeat(35)}\n${destination}\nleft{{w_br}}right <script>`);
-      await page.locator('#password').fill(password);
+      await expect(page.locator('#postPassword')).toHaveValue('');
       await page.getByRole('button', { name: 'Post', exact: true }).click();
       await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
       op = /#p(\d+)$/.exec(page.url())[1];
@@ -34,14 +34,14 @@ for (const javaScriptEnabled of [false, true]) {
       if (javaScriptEnabled) {
         await page.locator(`#p${op} :is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible`).click();
         await page.locator('#qrCom').fill(reply);
-        await page.locator('#qr-pwd').fill(password);
+        await expect(page.locator('#qr-pwd')).toHaveValue('');
         const before = page.url();
         await page.locator('#quickReply input[type=submit]').click();
         await expect(page.locator('.reply .mu-s wbr')).toHaveCount(2);
         expect(page.url()).toBe(before);
       } else {
         await page.locator('#com').fill(reply);
-        await page.locator('#password').fill(password);
+        await expect(page.locator('#postPassword')).toHaveValue('');
         await page.getByRole('button', { name: 'Post', exact: true }).click();
         await expect(page.locator('.reply .mu-s wbr')).toHaveCount(2);
       }

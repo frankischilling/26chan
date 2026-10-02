@@ -5,21 +5,28 @@ const origin = 'http://127.0.0.1:3000';
 const password = 'owned-post-tracking-password';
 const owned = [];
 test.afterEach(async ({ request }) => {
-  for (const id of owned.splice(0)) {
-    const deleted = await request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: id, password }, maxRedirects: 0 });
+  for (const { id, cookie } of owned.splice(0)) {
+    const deleted = await request.post('/fixture/delete', { headers: { Origin: origin, Cookie: cookie }, form: { no: id }, maxRedirects: 0 });
     expect(deleted.status()).toBe(303);
     expect((await request.get(`/fixture/thread/${id}.json`)).status()).toBe(404);
   }
 });
+async function ownerCookie(response) {
+  const cookies = (await response.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie' && header.value.startsWith('board-anon='));
+  expect(cookies.length).toBe(1);
+  return cookies[0].value.split(';', 1)[0];
+}
 async function post(page, comment, { subject = '', option = '', nativeControls = true } = {}) {
   if (nativeControls) await page.locator('#togglePostFormLink a').click();
   await page.locator('#com').fill(comment);
-  await page.locator('#password').fill(password);
+  await expect(page.locator('#postPassword')).toHaveValue('');
   if (subject) await page.locator('#sub').fill(subject);
   await page.locator('#email').fill(option);
   const response = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/imgboard.php'));
   await page.getByRole('button', { name: 'Post', exact: true }).click();
-  expect((await response).status()).toBe(303);
+  const posted = await response;
+  expect(posted.status()).toBe(303);
+  return ownerCookie(posted);
 }
 async function autoWatch(page) {
   await page.goto('/fixture/');
@@ -29,10 +36,10 @@ async function autoWatch(page) {
 test('successful ordinary and board-return posts auto-watch, track own replies and clear receipts', async ({ page, context, request }) => {
   await page.clock.install();
   await autoWatch(page);
-  await post(page, 'Owned new thread', { subject: 'Automatically watched paper model' });
+  const cookie = await post(page, 'Owned new thread', { subject: 'Automatically watched paper model' });
   await expect(page).toHaveURL(/\/fixture\/thread\/(\d+)#p\d+$/);
   const thread = page.url().match(/thread\/(\d+)/)[1];
-  owned.push(thread);
+  owned.push({ id: thread, cookie });
   await expect(page.locator(`#watch-${thread}-fixture`)).toContainText('Automatically watched paper model');
   await expect.poll(() => page.evaluate(thread => JSON.parse(localStorage.getItem(`4chan-track-fixture-${thread}`))?.[`>>${thread}`], thread)).toBe(1);
   await post(page, 'My reply', { option: 'nonoko' });
@@ -60,7 +67,7 @@ test('concurrent successful posts use distinct receipts and failed posts create 
     headers: { Origin: origin }, form: { sub, com: 'Owned concurrent fixture', password, track: '1', awt: '1' }, maxRedirects: 0,
   })));
   const ids = results.map(response => { expect(response.status()).toBe(303); return response.headers().location.match(/thread\/(\d+)/)[1]; });
-  owned.push(...ids);
+  for (const [index, id] of ids.entries()) owned.push({ id, cookie: await ownerCookie(results[index]) });
   const cookies = (await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-'));
   expect(cookies.map(cookie => cookie.name).sort()).toEqual(ids.map(id => `board-posted-${id}`).sort());
   for (const cookie of cookies) { expect(cookie.path).toBe('/fixture/'); expect(cookie.sameSite).toBe('Strict'); expect(cookie.httpOnly).toBe(false); }
@@ -87,10 +94,10 @@ test('disabled document cookie access preserves posting and defers receipt consu
     try { return document.cookie.includes('owned-watch-cookie-control=1'); }
     catch { return false; }
   })).toBe(false);
-  await post(page, 'Owned post while cookie access is disabled', { subject: 'Deferred receipt fixture' });
+  const cookie = await post(page, 'Owned post while cookie access is disabled', { subject: 'Deferred receipt fixture' });
   await expect(page).toHaveURL(/\/fixture\/thread\/(\d+)#p\d+$/);
   const thread = page.url().match(/thread\/(\d+)/)[1];
-  owned.push(thread);
+  owned.push({ id: thread, cookie });
   await expect(page.locator(`#m${thread}`)).toHaveText('Owned post while cookie access is disabled');
   await expect(page.locator('input[name=track]')).toHaveValue('1');
   expect((await request.get(`/fixture/thread/${thread}.json`)).status()).toBe(200);
@@ -115,9 +122,9 @@ test('disabled extension and no-JavaScript posting keep ordinary forms and redir
     const plain = await context.newPage();
     await plain.goto(origin + '/fixture/');
     await expect(plain.locator('input[name=track], input[name=awt]')).toHaveCount(0);
-    await post(plain, 'Owned no-JavaScript tracking control', { nativeControls: false });
+    const cookie = await post(plain, 'Owned no-JavaScript tracking control', { nativeControls: false });
     await expect(plain).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
-    owned.push(plain.url().match(/thread\/(\d+)/)[1]);
+    owned.push({ id: plain.url().match(/thread\/(\d+)/)[1], cookie });
     expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual([]);
   } finally { await context.close(); }
 });

@@ -13,7 +13,7 @@
 <blockquote class="postMessage" id="m{{ item.post.id }}">{% if let Some(dice) = item.post.dice_result %}<b>{{ dice }}<br><br></b>{% endif %}{% call formatting::comment(item.lines.as_slice(), board.slug) %}{% endcall %}{% if let Some(fortune) = item.post.fortune_text %}{% if let Some(class) = item.fortune_class() %}<span class="{{ class }}"><br><br><b>Your fortune: {{ fortune }}</b></span>{% endif %}{% endif %}</blockquote>
 {% if !catalog %}
 <details class="postActions"><summary>Delete or report</summary>
-<form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="delete{{ item.post.id }}">Deletion password</label> <input id="delete{{ item.post.id }}" name="password" type="password" minlength="8" maxlength="128" autocomplete="off" required>{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %} <label><input type="checkbox" name="file_only" value="true">File only</label>{% endif %}{% endif %} <button>Delete post</button></form>
+<form method="post" action="/{{ board.slug }}/delete"><input type="hidden" name="no" value="{{ item.post.id }}"><input id="delete{{ item.post.id }}" name="password" type="hidden">{% if let Some(file) = item.post.attachment %}{% if !file.file_deleted %} <label><input type="checkbox" name="file_only" value="true">File only</label>{% endif %}{% endif %} <button>Delete post</button></form>
 <form method="post" action="/{{ board.slug }}/report"><input type="hidden" name="no" value="{{ item.post.id }}"><label for="report{{ item.post.id }}">Report reason</label> <input id="report{{ item.post.id }}" name="reason" maxlength="1000" required> <button>Report post</button></form>
 </details>
 {% endif %}

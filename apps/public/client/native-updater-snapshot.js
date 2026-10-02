@@ -150,6 +150,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       const a = node.attrs;
       require(form !== null);
       require((a.type === 'hidden' && a.name === 'no' && a.value === no && !a.id)
+        || (form.endsWith('/delete') && a.type === 'hidden' && a.name === 'password' && a.id === `delete${no}`
+          && Object.keys(a).sort().join(',') === 'id,name,type')
         || (form.endsWith('/delete') && a.type === 'password' && a.name === 'password' && a.id === `delete${no}` && a.value === undefined)
         || (form.endsWith('/delete') && a.type === 'checkbox' && a.name === 'file_only' && a.value === 'true' && !a.id)
         || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));

@@ -802,7 +802,8 @@ function start(context) {
     }
     const details = form.closest('details');
     if (details) details.open = true;
-    form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]')?.focus();
+    const field = form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]');
+    (field?.type === 'hidden' ? form.querySelector('button') : field)?.focus();
   }
   function syncOpenPostMenu(position = true) {
     const menu = activePostMenu;

@@ -48,7 +48,7 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
       await writer.goto('/fixture/');
       await writer.locator('#sub').fill(`Owned catalog transfer ${index}`);
       await writer.locator('#com').fill('Paper fixture for preference restoration.');
-      await writer.locator('#password').fill(password);
+      await expect(writer.locator('#postPassword')).toHaveValue('');
       const response = writer.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
       await writer.getByRole('button', { name: 'Post', exact: true }).click();
       expect((await response).status()).toBe(303);
@@ -100,7 +100,7 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
       await writer.goto(`/fixture/thread/${id}`);
       const actions = writer.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
-      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
+      await expect(actions.locator('input[name=password]')).toHaveValue('');
       await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
     }
     await writerContext.close();

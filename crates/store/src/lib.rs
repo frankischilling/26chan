@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod anonymous_session;
 mod archives;
 mod board_snapshot;
 pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_page_snapshot, archive_snapshot};

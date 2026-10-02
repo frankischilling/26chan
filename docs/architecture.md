@@ -1,5 +1,12 @@
 # Architecture and threat model
 
+Anonymous browser ownership uses a private, bounded capability store described
+in [anonymous-sessions.md](anonymous-sessions.md). Its NOLOGIN function owner
+has no staff, deployment or processing authority. Public actions register
+canonical activity in their content/report transaction; deletion locks and
+rechecks private ownership after the board mutation lock. Cacheable pages and
+JSON contain no anonymous state.
+
 [Robot9000](source-robot9000.md) keeps text history and board-specific actor
 keys in private tables. Runtime roles have no direct grants on them. A bounded,
 fixed-search-path function owned by a restricted NOLOGIN role applies state

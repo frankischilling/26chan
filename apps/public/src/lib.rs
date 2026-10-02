@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod anonymous_session;
 mod api;
 mod api_http;
 pub mod catalog;

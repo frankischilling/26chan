@@ -25,7 +25,11 @@ test('successful posting restores display preferences into both editors and keep
     expect(cookies.some(cookie => cookie.value.includes('password'))).toBe(false);
     await page.goto(`/demo/thread/${thread}`);
     await expect(page.locator('#name')).toHaveValue('<owned name>');
-    await expect(page.locator('#email')).toHaveValue('sage'); await expect(page.locator('#password')).toHaveValue('');
+    await expect(page.locator('#email')).toHaveValue('sage'); await expect(page.locator('#postPassword')).toHaveValue('');
+    for (const cookie of cookies.filter(cookie => ['4chan_name', 'options'].includes(cookie.name))) {
+      expect(cookie.expires - Date.now() / 1000).toBeGreaterThan(604700);
+      expect(cookie.expires - Date.now() / 1000).toBeLessThanOrEqual(604800);
+    }
     await expect(page.locator('owned')).toHaveCount(0);
     await page.locator('.open-qr-link').click();
     await expect(page.locator('#qr-name')).toHaveValue('<owned name>'); await expect(page.locator('#qrEmail')).toHaveValue('sage');
@@ -68,7 +72,7 @@ test('an unavailable cookie reader leaves posting controls usable', async ({ pag
     await page.goto(`/demo/thread/${thread}`);
     await page.locator('.open-qr-link').click(); await expect(page.locator('#quickReply')).toBeVisible();
     await expect(page.locator('#qr-name')).toHaveValue('');
-    await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('Owned cookie-reader-denied reply');
+    await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('Owned cookie-reader-denied reply');
     await page.locator('#quickReply input[type=submit]').click(); await expect(page.locator('#quickReply')).toHaveCount(0);
     const posts = (await (await context.request.get(`/demo/thread/${thread}.json`)).json()).posts;
     expect(posts).toHaveLength(2); expect(posts[1].name).toBe('Anonymous');

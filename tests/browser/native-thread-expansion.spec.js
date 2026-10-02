@@ -14,6 +14,7 @@ test('index expansion preserves the tail and drafts while fetched replies retain
       const id = response.headers().location.split('#p')[1];
       if (index) replies.push(id); else thread = id;
     }
+    await page.context().addCookies((await request.storageState()).cookies);
     await page.addInitScript(id => {
       localStorage.setItem('4chan-settings', JSON.stringify({ filter: true }));
       localStorage.setItem('4chan-filters', JSON.stringify([{ type: 2, pattern: '"Owned expansion post 2."', boards: 'fixture', active: true, color: '#ff0000' }]));
@@ -24,7 +25,7 @@ test('index expansion preserves the tail and drafts while fetched replies retain
     const section = page.locator(`#t${thread}`);
     await expect(section.locator(':scope > .replyContainer')).toHaveCount(3);
     await section.locator(`#pc${replies.at(-1)} details.postActions`).evaluate(element => { element.open = true; });
-    await section.locator(`#delete${replies.at(-1)}`).fill('owned-tail-form-draft');
+    await section.locator(`#report${replies.at(-1)}`).fill('owned-tail-form-draft');
     await page.evaluate(thread => { window.ownedTail = [...document.getElementById(`t${thread}`).querySelectorAll(':scope > .postContainer')]; }, thread);
     const snapshots = []; let lastStarted = 0;
     page.on('request', request => { if (request.url().endsWith(`/_watch/fixture/thread/${thread}/posts`)) {
@@ -36,7 +37,7 @@ test('index expansion preserves the tail and drafts while fetched replies retain
     await expect.poll(() => page.evaluate(() => expansionStates)).toEqual([true]);
     await expect(section.locator(`#p${replies[1]}`)).toHaveClass(/filter-hl/);
     expect(await page.evaluate(() => ownedTail.every(node => document.getElementById(node.id) === node))).toBe(true);
-    await expect(section.locator(`#delete${replies.at(-1)}`)).toHaveValue('owned-tail-form-draft');
+    await expect(section.locator(`#report${replies.at(-1)}`)).toHaveValue('owned-tail-form-draft');
     for (const id of replies.slice(0, 5)) {
       await expect(section.locator(`#m${id}`)).toBeVisible();
       await expect(section.locator(`#pi${id} > [data-post-menu]`)).toHaveCount(1);
@@ -66,7 +67,7 @@ test('index expansion preserves the tail and drafts while fetched replies retain
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const earlier = section.locator(`#pc${replies[0]}`);
     await earlier.locator('details.postActions').evaluate(element => { element.open = true; });
-    await earlier.locator(`#delete${replies[0]}`).fill(password);
+    await expect(earlier.locator(`#delete${replies[0]}`)).toHaveValue('');
     await earlier.getByRole('button', { name: 'Delete post', exact: true }).click();
     await expect(page).toHaveURL(`${origin}/fixture/`);
     const body = await (await request.get(`/fixture/thread/${thread}.json`)).json();

@@ -99,7 +99,7 @@ test('synthetic visual state excludes form, cookie and storage contents', async 
   await context.addCookies([{ name: 'owned-private', value: 'COOKIE_SENTINEL', url: 'http://127.0.0.1:3000' }]);
   await page.goto('/demo/');
   await page.evaluate(() => {
-    document.querySelector('#password').value = 'PASSWORD_SENTINEL';
+    document.querySelector('#postPassword').value = 'PASSWORD_SENTINEL';
     document.querySelector('#com').value = 'COMMENT_SENTINEL';
     localStorage.setItem('owned-private', 'STORAGE_SENTINEL');
     history.replaceState(null, '', '?private=QUERY_SENTINEL#FRAGMENT_SENTINEL');

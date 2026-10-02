@@ -20,6 +20,12 @@ pub struct PostingContext {
     pub op_password_proof: Option<[u8; 32]>,
 }
 
+#[derive(Clone, Copy)]
+pub struct AnonymousPostingContext {
+    pub posting: PostingContext,
+    pub session: anonymous_session::PostingSession,
+}
+
 pub async fn create_post(
     pool: &PgPool,
     slug: &str,
@@ -160,6 +166,32 @@ pub async fn create_post_with_metadata(
         PostWriteOptions {
             metadata,
             staff: None,
+            anonymous: None,
+        },
+    )
+    .await
+}
+
+pub async fn create_post_with_anonymous_session(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: AnonymousPostingContext,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context.posting,
+        PostWriteOptions {
+            metadata,
+            staff: None,
+            anonymous: Some(context.session),
         },
     )
     .await
@@ -205,6 +237,7 @@ pub async fn create_staff_post(
                 options: "",
             },
             staff: Some(authority),
+            anonymous: None,
         },
     )
     .await
@@ -213,6 +246,7 @@ pub async fn create_staff_post(
 struct PostWriteOptions<'a> {
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
+    anonymous: Option<anonymous_session::PostingSession>,
 }
 
 async fn create_post_in_context(
@@ -224,7 +258,11 @@ async fn create_post_in_context(
     context: PostingContext,
     options: PostWriteOptions<'_>,
 ) -> Result<i64, StoreError> {
-    let PostWriteOptions { metadata, staff } = options;
+    let PostWriteOptions {
+        metadata,
+        staff,
+        anonymous,
+    } = options;
     let keys = metadata.keys;
     let comment = board_domain::normalize_comment(&post.comment)
         .map_err(|error| StoreError::Invalid(error.0))?;
@@ -328,7 +366,19 @@ async fn create_post_in_context(
     } else {
         false
     };
-    let op_markup = board.op_markup && (parent == 0 || own_reply || password_matches);
+    let session_matches = if staff.is_none() && board.op_markup && parent > 0 {
+        if let Some(session) = anonymous {
+            anonymous_session::locked_post_proof(&mut tx, &session.fingerprints.token, slug, parent)
+                .await?
+                .is_some()
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    let op_markup =
+        board.op_markup && (parent == 0 || own_reply || password_matches || session_matches);
     // Source clears identity before required-subject and final content checks.
     // Retain the raw input bounds even when these fields will be discarded.
     let (post_name, post_subject) = if board.forced_anon {
@@ -681,6 +731,9 @@ async fn create_post_in_context(
             return Err(StoreError::Robot9000Rejected(message.clone()));
         }
     }
+    if let Some(session) = anonymous {
+        anonymous_session::record_post(&mut tx, session, slug, id).await?;
+    }
     tx.commit().await?;
     Ok(id)
 }
@@ -726,6 +779,30 @@ pub async fn delete_with_password_proof(
         .fetch_optional(&mut *tx)
         .await?;
     if current.is_none_or(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) != proof) {
+        return Err(StoreError::AuthorizationChanged);
+    }
+    if file_only {
+        post_media::delete_attachment(&mut *tx, slug, id).await?;
+    } else {
+        delete_post_in(&mut tx, slug, id).await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Recheck and lock the private session membership under the board mutation
+/// lock. Revocation or password rotation during the earlier read fails closed.
+pub async fn delete_with_anonymous_proof(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    token: [u8; 32],
+    proof: [u8; 32],
+    file_only: bool,
+) -> Result<(), StoreError> {
+    let mut tx = pool.begin().await?;
+    lock_deletion_board(&mut tx, slug).await?;
+    if anonymous_session::locked_post_proof(&mut tx, &token, slug, id).await? != Some(proof) {
         return Err(StoreError::AuthorizationChanged);
     }
     if file_only {
@@ -792,6 +869,16 @@ async fn delete_post_in(
 }
 
 pub async fn report(pool: &PgPool, slug: &str, id: i64, reason: &str) -> Result<(), StoreError> {
+    report_with_anonymous_session(pool, slug, id, reason, None).await
+}
+
+pub async fn report_with_anonymous_session(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    session: Option<anonymous_session::PostingSession>,
+) -> Result<(), StoreError> {
     if reason.trim().is_empty() || reason.len() > 1000 || reason.contains('\0') {
         return Err(StoreError::Invalid(
             "Report reason must contain 1 to 1000 bytes.",
@@ -811,6 +898,14 @@ pub async fn report(pool: &PgPool, slug: &str, id: i64, reason: &str) -> Result<
         .bind(reason)
         .execute(&mut *tx)
         .await?;
+    if let Some(session) = session {
+        // The INSERT and this sequence read use the same transaction connection.
+        // No SELECT privilege on private report rows is added to the runtime.
+        let report = sqlx::query_scalar("SELECT currval('content.reports_id_seq')::bigint")
+            .fetch_one(&mut *tx)
+            .await?;
+        anonymous_session::record_report(&mut tx, session, slug, report).await?;
+    }
     tx.commit().await?;
     Ok(())
 }

@@ -144,3 +144,11 @@ reports that execution limit. The aggregate gate consequently failed, so
 this head is unqualified. The Linux job now permits 60 minutes for the full
 suite; test assertions, per-test limits, retries and required jobs are
 unchanged. The corrected head requires its own completed CI run.
+
+The corrected checkpoint `3b6300a` passed
+[run 36966578661](https://github.com/frankischilling/26chan/actions/runs/36966578661)
+in full: Linux Rust/browser checks, Windows visual checks, media/operations
+and the aggregate gate. Its
+[dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/36966578669)
+and [monitoring run](https://github.com/frankischilling/26chan/actions/runs/36966578657)
+also passed. Subsequent feature changes still require their own qualification.

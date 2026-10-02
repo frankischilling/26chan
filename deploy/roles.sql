@@ -20,6 +20,8 @@ CREATE ROLE board_media_retention_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATER
 GRANT board_media_retention_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 CREATE ROLE board_robot9000_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_robot9000_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+CREATE ROLE board_anonymous_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_anonymous_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 ALTER ROLE board_media_intake SET statement_timeout = '5s';
 ALTER ROLE board_media_intake SET lock_timeout = '2s';
 ALTER ROLE board_media_intake SET idle_in_transaction_session_timeout = '5s';

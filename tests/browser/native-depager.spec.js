@@ -64,7 +64,7 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
 
     await page.locator('#togglePostFormLink a').click();
     const postForm = page.locator('form.postEditor');
-    await postForm.getByLabel('Deletion password', { exact: true }).fill('preserve-board-draft');
+    await postForm.locator('#com').fill('preserve-board-draft');
     await page.evaluate(() => {
       window.ownedDepagerOriginals = [...document.querySelectorAll('.board > .thread')];
       window.ownedNext = document.querySelector('nav.pages a[rel="next"]');
@@ -75,7 +75,7 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
     await expect(status).toHaveText(pageOne.next_page === null ? ' Done.' : '');
     expect(snapshots.map(entry => entry.url)).toEqual([`${origin}/_watch/${board}/page/1`]);
     expect(snapshots[0].headers.cookie).toBeUndefined();
-    await expect(postForm.getByLabel('Deletion password', { exact: true })).toHaveValue('preserve-board-draft');
+    await expect(postForm.locator('#com')).toHaveValue('preserve-board-draft');
     expect(await page.evaluate(() => ownedDepagerOriginals.every(node => node.isConnected && document.getElementById(node.id) === node))).toBe(true);
     expect(await page.evaluate(() => document.querySelector('nav.pages a[rel="next"]') === ownedNext)).toBe(true);
 

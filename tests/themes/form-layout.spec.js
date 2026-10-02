@@ -47,8 +47,8 @@ for (const [theme, value] of Object.entries(reference.themes)) {
       await page.getByLabel('Name', { exact: true }).fill('Synthetic author');
       await page.getByLabel('Comment', { exact: true }).fill('Synthetic mobile draft');
       await expect(page.getByLabel('Comment', { exact: true })).toHaveCSS('outline-width', '2px');
-      expect(await page.locator('form.postEditor').evaluate(node => node.checkValidity())).toBe(false);
-      await page.locator('form.postEditor').getByLabel('Deletion password', { exact: true }).fill('synthetic-form-password');
+      await expect(page.locator('#postPassword')).toHaveAttribute('type', 'hidden');
+      await expect(page.locator('form.postEditor input[type=password]')).toHaveCount(0);
       expect(await page.locator('form.postEditor').evaluate(node => node.checkValidity())).toBe(true);
       await expect(page.locator('form.postEditor button[type=submit]')).toHaveCount(1);
       const submitRow = page.locator('form.postEditor button[type=submit]').locator('xpath=ancestor::tr');

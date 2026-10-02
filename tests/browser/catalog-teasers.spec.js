@@ -21,7 +21,7 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       await server.goto(`${origin}/${entry.board}/`);
       await server.locator('#sub').fill(title);
       await server.locator('#com').fill(entry.comment);
-      await server.locator('#password').fill(password);
+      await expect(server.locator('#postPassword')).toHaveValue('');
       await server.getByRole('button', { name: 'Post', exact: true }).click();
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);
       entry.id = /#p(\d+)$/.exec(server.url())[1];

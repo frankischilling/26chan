@@ -46,7 +46,7 @@ test('persisted script-free mobile headers escape shortened labels and keep nati
     await expect(page.locator('#com')).toBeVisible(); await expect(page.locator('#com')).toHaveValue(`>>${owned.reply}\n`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.locator('#com').fill(`>>${owned.reply}\nOwned script-free mobile submission`);
-    await page.locator('#password').fill('owned-mobile-header-password');
+    await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('form.postEditor button[type=submit]').click();
     await expect(page.locator('.postMessage').filter({ hasText: 'Owned script-free mobile submission' })).toHaveCount(1);
     const data = await (await request.get(`${owned.url}.json`)).json();
