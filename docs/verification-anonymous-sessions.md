@@ -231,6 +231,27 @@ browser state and captured error bodies. The native focused run verifies that
 the reporter starts, emits the aggregate snapshot and finishes with both cases
 passing. The diagnostic change still requires its own complete CI run.
 
+On `c73fa02`, [run 36997094912](https://github.com/frankischilling/26chan/actions/runs/36997094912)
+passes the complete media/operations job, including the real Quick Reply upload.
+Windows passes the main, archive and media visuals and all 1,173 theme cases.
+Its final public-state suite passes eight cases and fails the two empty-board
+screenshots. Both checked-in images still show the former visible password
+row and password-saving help text. Their expected-image hashes match the
+checked-in files, and both desktop/mobile diffs were reviewed before updating
+only these two PNGs. The narrower desktop label column and upward movement
+follow removal of that row. The other eight public-state images are unchanged.
+
+The native repeat uses the same pinned tools and passes all ten public-state
+cases at zero-pixel tolerance. Both empty-board forms explicitly check the
+empty hidden `pwd` field. Application code, fixture content, deadlines and
+retries are unchanged. The earlier failures and aggregate diagnostics remain
+retained; a passing repeat does not establish the cause of the preceding
+Windows navigation or media-response failures. The Linux job on `c73fa02`
+passes the complete Rust/database/concurrency/browser qualification, and the
+aggregate Rust/PostgreSQL gate passes. Its overall run fails only the two
+obsolete empty-board images. The next pushed head requires complete CI, and
+the full feature scope of PR #227 remains unfinished.
+
 The earlier integrated checkpoint `3b6300a` passed all required jobs in
 [run 36966578661](https://github.com/frankischilling/26chan/actions/runs/36966578661).
 This newer slice still requires its own complete current-head CI. PR #227

@@ -12,6 +12,12 @@ for (const [name, viewport] of [
       expect(response.status()).toBe(200);
       await expect(page.locator('.thread')).toHaveCount(0);
       await expect(page.locator('#postForm')).toHaveCount(catalog ? 0 : 1);
+      if (!catalog) {
+        await expect(page.locator('#postPassword')).toHaveAttribute('type', 'hidden');
+        await expect(page.locator('#postPassword')).toHaveAttribute('name', 'pwd');
+        await expect(page.locator('#postPassword')).toHaveValue('');
+        await expect(page.locator('#postPassword')).not.toBeVisible();
+      }
       await expect(page.locator('.empty')).toContainText('No threads yet.');
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
       await expect(page).toHaveScreenshot(`empty-${catalog ? 'catalog' : 'board'}-${name}.png`, { fullPage: true });
