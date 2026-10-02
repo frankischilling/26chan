@@ -6,6 +6,20 @@ not qualify the external
 postfilter, blacklist, classifier or known-user admission branches, or the
 complete rewrite. The pushed rewrite head including these changes still needs CI.
 
+On integrated head `9ad321e`, the Windows visual job passed, including all
+1,173 theme cases. The media/operations job failed while setting up the restore
+exercise: its direct historical-fixture insert used the original `/test/`
+board without supplying the now-required wordfilter result. The runtime guard
+correctly rejected that insert. The fixture now uses the separate unfiltered
+`/fixture/` board. The corrected restore exercise passes locally against fresh
+PostgreSQL 16.15, with actual SQLx migration records, data fingerprints, restored
+capabilities and existing restricted-role denials. It accepts a validated test
+port so this disposable exercise can run beside the retained qualification
+cluster; the default port and cluster-ownership check are preserved. Local
+setup attempts with an incorrect operator command and an incorrect expected
+migration count stopped before the restore checks and are retained. CI must
+qualify the pushed correction.
+
 ## Reference and comparison
 
 The operator-supplied source is pinned to revision

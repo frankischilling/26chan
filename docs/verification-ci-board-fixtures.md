@@ -124,3 +124,14 @@ These results qualify that integrated checkpoint. New feature work needs its
 own current-head checks. Issue #228 remains open through complete rewrite
 qualification and merge; the intermittent Windows cause in #139/#142 remains
 unresolved.
+
+The wordfilter checkpoint `9ad321e` passed its Windows visual job, including
+all 1,173 theme cases. Its media/operations job passed the media qualification
+and migration checks before failing at restore-fixture setup. That fixture
+inserted raw historical comments on the original `/test/` board, whose imported
+filter policy now requires a retained result. It now uses the separate
+unfiltered `/fixture/` board. The filter guard and restore assertions are
+unchanged. A local rerun against a fresh PostgreSQL 16.15 cluster passes the
+complete restore exercise. The selected test port is validated, and the script
+still verifies that it belongs to its generated disposable cluster. The next
+pushed head requires its own full CI result.

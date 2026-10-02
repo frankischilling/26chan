@@ -10,10 +10,12 @@ source .local/intake.env
 source .local/monitor.env
 source .local/staff.env
 pg_bin=/usr/lib/postgresql/16/bin
+port=${BOARD_TEST_PG_PORT:-55432}
+[[ $port =~ ^[1-9][0-9]{0,4}$ && $port -le 65535 ]] || exit 1
 cluster=$(cat .local/cluster-path)
 [[ $cluster =~ ^/tmp/board-postgres\.[[:alnum:]]+$ && -d $cluster ]] || { echo 'Expected a disposable cluster path.' >&2; exit 1; }
-actual=$(runuser -u postgres -- "$pg_bin/psql" -XAt -h /tmp -p 55432 -d postgres -c 'SHOW data_directory')
-[[ $actual = "$cluster" ]] || { echo 'Port 55432 belongs to a different cluster.' >&2; exit 1; }
+actual=$(runuser -u postgres -- "$pg_bin/psql" -XAt -h /tmp -p "$port" -d postgres -c 'SHOW data_directory')
+[[ $actual = "$cluster" ]] || { echo 'The selected port belongs to a different cluster.' >&2; exit 1; }
 fixture_job=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT replace(gen_random_uuid()::text, '-', '')")
 [[ $fixture_job =~ ^[0-9a-f]{32}$ ]] || exit 1
 fixture_intake=''
@@ -30,10 +32,10 @@ trap cleanup_media_fixture EXIT
 fixture_op=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 SELECT nextval('content.post_number') AS fixture_op, nextval('content.post_number') AS fixture_reply \gset
-INSERT INTO content.threads(id,board,reply_count) VALUES(:fixture_op,'test',1);
+INSERT INTO content.threads(id,board,reply_count) VALUES(:fixture_op,'fixture',1);
 INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
-VALUES(:fixture_op,'test',:fixture_op,'Anonymous','Owned subject-only restore OP',''),
-      (:fixture_reply,'test',:fixture_op,'Anonymous','','Owned restore reply');
+VALUES(:fixture_op,'fixture',:fixture_op,'Anonymous','Owned subject-only restore OP',''),
+      (:fixture_reply,'fixture',:fixture_op,'Anonymous','','Owned restore reply');
 -- Operator-owned history represents different past formatter/policy versions.
 -- Restoring it must retain those stamps, not apply today's board settings.
 UPDATE content.posts SET comment_format=0 WHERE id=:fixture_op;
@@ -64,17 +66,17 @@ restore_db="imageboard_restore_$(date +%s)_$RANDOM"
 mkdir -p .local/backups
 backup=".local/backups/$restore_db.dump"
 "$pg_bin/pg_dump" "$MIGRATION_DATABASE_URL" --format=custom --file="$backup"
-admin=(runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h /tmp -p 55432)
+admin=(runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h /tmp -p "$port")
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 CREATE DATABASE :"restore_db" OWNER board_migrator;
 REVOKE ALL ON DATABASE :"restore_db" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"restore_db" TO board_public, board_migrator, board_media, board_media_read, board_media_intake, board_monitor, board_staff, board_auth;
 SQL
-restore_url="${MIGRATION_DATABASE_URL%/imageboard}/$restore_db"
+restore_url="${MIGRATION_DATABASE_URL%/*}/$restore_db"
 # Restoring the NOLOGIN function owner requires bootstrap authority; the owner
 # deliberately has no schema CREATE grant. The root operator opens the private
 # archive, and peer-authenticated bootstrap restores ownership and ACLs atomically.
-runuser -u postgres -- "$pg_bin/pg_restore" -h /tmp -p 55432 \
+runuser -u postgres -- "$pg_bin/pg_restore" -h /tmp -p "$port" \
   --dbname="$restore_db" --single-transaction --exit-on-error < "$backup"
 fingerprint_sql="SELECT md5(string_agg(row_to_json(p)::text, '' ORDER BY id)) FROM content.posts p;"
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint_sql")
@@ -99,7 +101,7 @@ handle_fingerprint="SELECT md5(string_agg(row_to_json(h)::text, '' ORDER BY job_
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")
 after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")
 [[ -n $before && $before = "$after" ]] || { echo 'Restored intake capabilities or claims differ.' >&2; exit 1; }
-intake_restore="${INTAKE_DATABASE_URL%/imageboard}/$restore_db"
+intake_restore="${INTAKE_DATABASE_URL%/*}/$restore_db"
 "$pg_bin/psql" "$intake_restore" -XAt -v ON_ERROR_STOP=1 -v fixture_intake="$fixture_intake" > .local/restored-intake-check.txt 2>&1 <<'SQL'
 \getenv capability INTAKE_RESTORE_CAPABILITY
 SELECT media_intake.ready();
@@ -126,13 +128,13 @@ for query in 'SELECT * FROM media.jobs' 'SELECT * FROM media_intake.handles' 'SE
   grep -q 'permission denied' .local/restored-intake-denial.txt
 done
 unset INTAKE_RESTORE_CAPABILITY
-public_restore="${TEST_PUBLIC_DATABASE_URL%/imageboard}/$restore_db"
+public_restore="${TEST_PUBLIC_DATABASE_URL%/*}/$restore_db"
 "$pg_bin/psql" "$public_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM content.boards' > .local/restored-public-check.txt
 if "$pg_bin/psql" "$public_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT * FROM staff_identity.credentials' > .local/restored-denial.txt 2>&1; then
   echo 'Restored public login could read protected staff data.' >&2; exit 1
 fi
 grep -q 'permission denied' .local/restored-denial.txt
-media_restore="${MEDIA_DATABASE_URL%/imageboard}/$restore_db"
+media_restore="${MEDIA_DATABASE_URL%/*}/$restore_db"
 "$pg_bin/psql" "$media_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT capacity FROM media.queue_policy' > .local/restored-media-check.txt
 if "$pg_bin/psql" "$media_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT * FROM content.posts' > .local/restored-media-denial.txt 2>&1; then
   echo 'Restored media login could read public content.' >&2; exit 1
@@ -142,7 +144,7 @@ asset_fingerprint="SELECT md5(string_agg(row_to_json(a)::text, '' ORDER BY id)) 
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$asset_fingerprint")
 after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$asset_fingerprint")
 [[ -n $before && $before = "$after" ]] || { echo 'Restored asset data differs.' >&2; exit 1; }
-reader_restore="${MEDIA_READ_DATABASE_URL%/imageboard}/$restore_db"
+reader_restore="${MEDIA_READ_DATABASE_URL%/*}/$restore_db"
 "$pg_bin/psql" "$reader_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT id,sha256,bytes,width,height FROM media.approved_assets ORDER BY id' > .local/restored-reader-check.txt
 "$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "SELECT id,sha256,bytes,width,height FROM media.assets WHERE state='approved' ORDER BY id" > .local/restored-reader-expected.txt
 cmp .local/restored-reader-check.txt .local/restored-reader-expected.txt
@@ -152,7 +154,7 @@ for query in 'SELECT * FROM media.assets' 'SELECT lease_token FROM media.jobs' '
   fi
   grep -q 'permission denied' .local/restored-reader-denial.txt
 done
-monitor_restore="${MONITOR_DATABASE_URL%/imageboard}/$restore_db"
+monitor_restore="${MONITOR_DATABASE_URL%/*}/$restore_db"
 "$pg_bin/psql" "$monitor_restore" -XAt -v ON_ERROR_STOP=1 -c 'SELECT capacity FROM monitoring.media_queue' > .local/restored-monitor-check.txt
 "$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c 'SELECT capacity FROM media.queue_policy WHERE singleton' > .local/restored-monitor-expected.txt
 cmp .local/restored-monitor-check.txt .local/restored-monitor-expected.txt
@@ -162,8 +164,8 @@ for query in 'SELECT * FROM media.jobs' 'SELECT * FROM content.posts' 'SELECT * 
   fi
   grep -Eq 'permission denied|cannot update view' .local/restored-monitor-denial.txt
 done
-auth_restore="${AUTH_DATABASE_URL%/imageboard}/$restore_db"
-staff_restore="${STAFF_DATABASE_URL%/imageboard}/$restore_db"
+auth_restore="${AUTH_DATABASE_URL%/*}/$restore_db"
+staff_restore="${STAFF_DATABASE_URL%/*}/$restore_db"
 for denied_role_url in "$staff_restore" "$media_restore" "$reader_restore" "$monitor_restore" "$auth_restore"; do
   "$pg_bin/psql" "$denied_role_url" -Xq -v ON_ERROR_STOP=1 <<'SQL'
 DO $$ BEGIN
