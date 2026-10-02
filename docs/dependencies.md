@@ -1,5 +1,33 @@
 # Dependency and update inventory
 
+The [admission normalizer](admission-normalization.md) adds pinned
+[rust_icu_utrans 5.8.0](https://docs.rs/rust_icu_utrans/5.8.0/rust_icu_utrans/)
+and rust_icu_sys 5.8.0. Six rust_icu packages, anyhow 1.0.104 and paste 1.0.15
+are new locked entries; existing registry versions and checksums do not change.
+The binding uses its ICU 74 declarations without bindgen or default features.
+Native ICU 74.2, including its transliteration/word-break data, is a runtime
+dependency. It processes bounded text through one fixed transform, not media,
+custom operator ICU rules or runtime library paths from public requests.
+The binding and native implementation contain unsafe code. First-party code
+keeps its prohibition and restricts the dependency to a reviewed private-handle
+surface. This restriction and the work guards do not prove complete soundness.
+
+The work estimate directly pins already locked ICU4X icu_normalizer 2.3.0 with
+default features disabled and `compiled_data` enabled. It uses streaming NFKC
+only to reject excessive work; its newer Unicode data never determines source
+matching text. Source projections still require native ICU 74 qualification.
+
+Cargo-audit scanned 358 locked dependencies against 1,280 fetched advisories
+on October 2 and exited successfully with one informational warning:
+[RUSTSEC-2024-0436](https://rustsec.org/advisories/RUSTSEC-2024-0436.html),
+the unmaintained `paste` build macro used by the binding. The warning remains
+enabled and is not suppressed. It does not name a known vulnerability, but it
+adds a maintenance obligation: review this dependency and the binding at each
+patch cycle, and replace the macro dependency when an upstream release allows
+it. This scan is not an independent security review. Windows uses a pinned
+development archive; production must use maintained OS ICU packages and
+requalify after native patches or Unicode data changes.
+
 The wordfilter core uses fixed character-range tables extracted from the
 audited PHP/PCRE reference. It adds no matching library to a runtime. The
 prototype's direct `regex` dependency was removed after an exhaustive scan

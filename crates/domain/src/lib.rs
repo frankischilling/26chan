@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod admission_normalization;
 pub mod anonymous_session;
 pub mod capcode;
 pub mod country;

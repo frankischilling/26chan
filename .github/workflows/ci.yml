@@ -38,7 +38,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -106,7 +106,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl libicu-dev
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -320,6 +320,9 @@ jobs:
       - name: Install pinned Rust
         shell: pwsh
         run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -337,6 +340,9 @@ jobs:
       - name: Verify public configuration budgets
         shell: pwsh
         run: cargo test -p board-config --locked
+      - name: Verify source Unicode normalization and work bounds
+        shell: pwsh
+        run: cargo test -p board-domain admission_normalization --lib --locked
       - name: Verify public TCP transport budgets
         shell: pwsh
         run: |

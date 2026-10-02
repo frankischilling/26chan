@@ -50,11 +50,12 @@ Requirements:
 
 - Rust installed through rustup; `rust-toolchain.toml` selects Rust 1.94.0.
 - PostgreSQL 16 and its command-line tools.
+- ICU 74.2, supplied by maintained Ubuntu 24.04 packages for development and deployment.
 - Node.js 24 or newer and npm for browser tests.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light
+sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light libicu-dev
 
 git clone https://github.com/frankischilling/26chan.git
 cd 26chan
@@ -125,6 +126,7 @@ Database tests require the migrated, seeded development database and fail if it 
 Screenshot baselines currently target Windows and the pinned Chromium 151.0.7922.34. Linux runs browser behavior tests. To compare screenshots on Windows without a database, install the Rust and Node prerequisites, then run from the checkout in PowerShell:
 
 ```powershell
+./scripts/install-windows-icu.ps1
 npm ci --ignore-scripts
 npx playwright install chromium
 cargo build -p board-public --example visual-fixtures --locked

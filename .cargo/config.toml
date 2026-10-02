@@ -1,0 +1,3 @@
+[env]
+# Source normalization qualification uses the ICU 74 ABI and ICU 74.2 data.
+RUST_ICU_MAJOR_VERSION_NUMBER = "74"
