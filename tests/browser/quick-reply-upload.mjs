@@ -62,7 +62,18 @@ try {
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
   await qr.locator('[name=spoiler]').check(); await expect(page.locator('#qr-pwd')).toHaveValue('');
   const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`))
-    .then(async response => ({ status: response.status(), result: await response.json() }));
+    .then(async response => {
+      const status = response.status();
+      const contentType = response.headers()['content-type'] || '';
+      const type = contentType.startsWith('application/json') ? 'json'
+        : contentType.startsWith('text/html') ? 'html'
+          : contentType.startsWith('text/plain') ? 'plain' : 'other';
+      if (status !== 200 || type !== 'json') {
+        // Never include URLs, headers, response bodies or upload capabilities.
+        console.error(`OWNED_UPLOAD_RESPONSE status=${status} type=${type}`);
+      }
+      return { status, result: await response.json() };
+    });
   await qr.locator('input[type=submit]').click(); const response = await posted;
   assert.equal(response.status, 200); const result = response.result;
   assert.equal(String(result.tid), thread); assert.ok(result.pid > result.tid);

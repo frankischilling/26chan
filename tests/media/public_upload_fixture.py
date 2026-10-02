@@ -17,13 +17,15 @@ from test_vm import red_png
 
 def finish_browser(process, script):
     # Browser stderr can include one-use capabilities in page/response details.
-    # Emit only a fixed script name and its numeric source location on failure.
+    # Emit only a fixed script/location and an allowlisted HTTP response category.
     assert script in ('public-upload.mjs', 'quick-reply-upload.mjs')
     output, error = process.communicate(timeout=35)
     if process.returncode != 0:
         locations = re.findall(rb'/' + re.escape(script.encode()) + rb':([0-9]{1,6}):([0-9]{1,6})\b', error)
         location = ':' + ':'.join(value.decode('ascii') for value in locations[0]) if locations else ''
-        raise AssertionError('owned upload browser rejected at ' + script + location)
+        responses = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other)\r?$', error, re.MULTILINE)
+        response = (' (HTTP ' + responses[0][0].decode('ascii') + ', ' + responses[0][1].decode('ascii') + ')') if responses else ''
+        raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 
 

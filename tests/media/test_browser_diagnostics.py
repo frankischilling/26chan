@@ -30,6 +30,29 @@ class BrowserDiagnostics(unittest.TestCase):
     def test_success_returns_the_original_protocol_output(self):
         self.assertEqual(finish_browser(self.process(b'private warning', 0), 'public-upload.mjs'), b'')
 
+    def test_http_status_and_allowlisted_category_exclude_response_data(self):
+        secret = b'a' * 64
+        for status, category in [(b'429', b'plain'), (b'500', b'html'), (b'403', b'json'), (b'408', b'other')]:
+            with self.subTest(status=status, category=category):
+                error = (b'private response ' + secret + b'\nOWNED_UPLOAD_RESPONSE status='
+                         + status + b' type=' + category
+                         + b'\n at file:///owned/quick-reply-upload.mjs:65:82\n')
+                expected = ('owned upload browser rejected at quick-reply-upload.mjs:65:82'
+                            + ' (HTTP ' + status.decode() + ', ' + category.decode() + ')')
+                with self.assertRaises(AssertionError) as result:
+                    finish_browser(self.process(error), 'quick-reply-upload.mjs')
+                self.assertEqual(str(result.exception), expected)
+
+    def test_response_diagnostic_rejects_unbounded_or_unlisted_details(self):
+        for marker in (b'OWNED_UPLOAD_RESPONSE status=999 type=plain',
+                       b'OWNED_UPLOAD_RESPONSE status=2000 type=json',
+                       b'OWNED_UPLOAD_RESPONSE status=500 type=private',
+                       b'OWNED_UPLOAD_RESPONSE status=500 type=html secret=value',
+                       b'prefix OWNED_UPLOAD_RESPONSE status=500 type=html'):
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at quick-reply-upload\.mjs$'):
+                    finish_browser(self.process(marker + b'\n'), 'quick-reply-upload.mjs')
+
     def test_unknown_diagnostic_script_is_rejected_before_child_access(self):
         with self.assertRaises(AssertionError):
             finish_browser(None, 'private-script.mjs')

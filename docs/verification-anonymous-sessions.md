@@ -205,6 +205,32 @@ No application code, fixture content, screenshot tolerance, deadline or retry
 setting changed during this recovery. This targeted result does not replace
 complete current-head CI or the original-page comparison in #193.
 
+On `05ae319`, [run 36994433032](https://github.com/frankischilling/26chan/actions/runs/36994433032)
+passes the complete Linux Rust/database/concurrency/browser job. Windows passes
+the three main visual cases, all six archive cases, all sixty-eight media cases,
+and 1,172 of 1,173 theme cases. Its remaining failure is `ERR_NO_BUFFER_SPACE`
+while navigating the Photon mobile reply/spoiler case at 2x density. The failure
+images and job log are retained. There is no screenshot mismatch in that case.
+Before/after aggregate snapshots do not establish its cause; #139/#142 remain
+open. Both 1x and 2x variants pass in the focused native repeat.
+
+The privileged media job in that run fails while parsing the real Quick Reply
+posting response as JSON, after the PNG, baseline/progressive JPEG, static GIF
+and tracking workflows pass. That qualification passed on the preceding
+application-identical commit. The response's status and content type were not
+included in the earlier redacted diagnostic, so its cause is still unresolved.
+The fixture now emits only a numeric HTTP status and one of four fixed response
+categories on that failure path. All six redaction tests pass, including
+captured-capability exclusion and malformed-diagnostic rejection. Browser
+assertions and the real processing path are unchanged.
+
+Optional Windows diagnostics now collect the existing aggregate resource
+schema while the theme suite is active, after every 64 completed cases and on
+failure. They exclude test titles, endpoints, process IDs, command lines,
+browser state and captured error bodies. The native focused run verifies that
+the reporter starts, emits the aggregate snapshot and finishes with both cases
+passing. The diagnostic change still requires its own complete CI run.
+
 The earlier integrated checkpoint `3b6300a` passed all required jobs in
 [run 36966578661](https://github.com/frankischilling/26chan/actions/runs/36966578661).
 This newer slice still requires its own complete current-head CI. PR #227
