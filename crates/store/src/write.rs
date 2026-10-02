@@ -415,10 +415,11 @@ async fn create_post_in_context(
             trip: None,
         }
     } else {
-        board_domain::identity::prepare_with_spacing(
+        board_domain::identity::prepare_for_board(
             post_name,
             keys.tripcode,
             board.comment_spacing(),
+            board.strip_tripcode,
         )
         .map_err(|error| StoreError::Invalid(error.0))?
     };
@@ -479,8 +480,9 @@ async fn create_post_in_context(
                     ),
                     None => board_domain::source_html_entities(&identity.name),
                 },
-                // The source's separate $trip is the derived legacy hash;
-                // secure trip displays leave it empty. Never pass raw secrets.
+                // Admit only a derived legacy hash. The source leaves its raw
+                // second field in $trip when suppression skips hashing; this
+                // backend excludes that secret from admission and logging.
                 legacy_trip: identity
                     .trip
                     .as_deref()

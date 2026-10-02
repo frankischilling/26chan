@@ -516,6 +516,7 @@ async fn exercise(f: &Fixture) {
     image_admission_flags(f).await;
     comment_spacing(f).await;
     tripcodes(f).await;
+    suppressed_trip_attachments(f).await;
     source_prepared_names(f).await;
     poster_counts(f).await;
     final_content_admission(f).await;
@@ -749,6 +750,63 @@ async fn source_prepared_names(f: &Fixture) {
     sqlx::query("UPDATE content.boards SET comment_code_spacing=$2 WHERE slug=$1")
         .bind(&f.board)
         .bind(previous)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+}
+
+async fn suppressed_trip_attachments(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET strip_tripcode=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let mut parent = 0;
+    for (raw, name) in [
+        ("Name#password", "Name"),
+        ("Name##owned-private-secret", "Name"),
+        ("#かみ", "Anonymous"),
+    ] {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        let mut draft = post();
+        draft.name = raw.into();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        parent = id;
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.name, name);
+        assert_eq!(saved.trip, None);
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+    }
+    let direct = f.reserve().await;
+    f.approve(&direct).await;
+    let mut tx = f.public.begin().await.unwrap();
+    sqlx::query("SELECT set_config('board.post_trip','!ozOtJW9BFA',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'','','Owned direct suppressed identity',$4,$5,false,date_trunc('second',clock_timestamp()))")
+        .bind(id).bind(&f.board).bind(parent).bind(&direct.upload.id).bind(&direct.upload.capability)
+        .execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!((saved.name.as_str(), saved.trip), ("Anonymous", None));
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET strip_tripcode=false WHERE slug=$1")
+        .bind(&f.board)
         .execute(&f.admin)
         .await
         .unwrap();

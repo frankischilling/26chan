@@ -8,9 +8,11 @@ if ($argc < 3) {
 $root = realpath($argv[1]);
 $hashes = ['imgboard.php' => 'caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445',
     'lib/postfilter.php' => 'd0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207'];
-$policies = [['g', false, false], ['a', false, false], ['b', false, false],
-    ['g', true, false], ['jp', false, true]];
-if (!$root || !extension_loaded('mbstring') || mb_substitute_character() !== 63) {
+$policies = [['g', false, false, false], ['a', false, false, false], ['b', false, false, false],
+    ['g', true, false, false], ['jp', false, true, false],
+    ['b', false, false, true], ['s4s', false, false, true]];
+if (!$root || !extension_loaded('mbstring') || mb_substitute_character() !== 63
+    || mb_internal_encoding() !== 'UTF-8' || ini_get('default_charset') !== 'UTF-8') {
     throw new RuntimeException('Pinned source and conversion policy are required.');
 }
 $sources = [];
@@ -44,9 +46,9 @@ function selected_functions($source, $names) {
 if (($argv[3] ?? '') === '--worker') {
     $index = (int)($argv[4] ?? '-1');
     if (!isset($policies[$index])) { throw new RuntimeException('Unknown synthetic policy.'); }
-    [$board, $code, $sjis] = $policies[$index];
+    [$board, $code, $sjis, $strip] = $policies[$index];
     define('BOARD_DIR', $board); define('CODE_TAGS', $code); define('SJIS_TAGS', $sjis);
-    define('STRIP_TRIPCODE', 0); define('S_TOOLONG', 'too_long'); define('S_ANONAME', 'Anonymous');
+    define('STRIP_TRIPCODE', $strip); define('S_TOOLONG', 'too_long'); define('S_ANONAME', 'Anonymous');
     define('SALTFILE', 'owned-synthetic-salt-never-opened');
     class OwnedNameStop extends Exception {}
     function error($message, $destination) { throw new OwnedNameStop($message); }
@@ -124,7 +126,7 @@ if (($argv[3] ?? '') === '--worker') {
                 'missing_secure_field_warnings' => $GLOBALS['owned_name_warnings']];
         }
     }
-    echo json_encode(compact('board', 'code', 'sjis', 'cases'), JSON_THROW_ON_ERROR);
+    echo json_encode(compact('board', 'code', 'sjis', 'strip', 'cases'), JSON_THROW_ON_ERROR);
     exit(0);
 }
 $groups = [];
@@ -153,6 +155,7 @@ foreach (array_keys($policies) as $index) {
 }
 $fixture = ['reference' => 'operator-supplied 4chan-old checkout', 'files' => $hashes,
     'extractor_php' => PHP_VERSION, 'extractor_pcre' => PCRE_VERSION,
+    'extractor_mb_encoding' => mb_internal_encoding(), 'extractor_default_charset' => ini_get('default_charset'),
     'boundary_stubs' => ['fixed synthetic board constants', 'disabled magic quotes', 'terminal error',
         'synthetic source secure-trip salt, never read from disk'],
     'security_replacement' => 'modern_trip uses HMAC-SHA256 with synthetic key 0x11 repeated 32 times and cleaned UTF-8 secret bytes',

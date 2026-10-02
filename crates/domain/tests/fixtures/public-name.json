@@ -6,6 +6,8 @@
     },
     "extractor_php": "8.3.6",
     "extractor_pcre": "10.42 2022-12-11",
+    "extractor_mb_encoding": "UTF-8",
+    "extractor_default_charset": "UTF-8",
     "boundary_stubs": [
         "fixed synthetic board constants",
         "disabled magic quotes",
@@ -18,6 +20,7 @@
             "board": "g",
             "code": false,
             "sjis": false,
+            "strip": false,
             "cases": [
                 {
                     "input": "",
@@ -608,6 +611,7 @@
             "board": "a",
             "code": false,
             "sjis": false,
+            "strip": false,
             "cases": [
                 {
                     "input": "",
@@ -1198,6 +1202,7 @@
             "board": "b",
             "code": false,
             "sjis": false,
+            "strip": false,
             "cases": [
                 {
                     "input": "",
@@ -1788,6 +1793,7 @@
             "board": "g",
             "code": true,
             "sjis": false,
+            "strip": false,
             "cases": [
                 {
                     "input": "",
@@ -2374,6 +2380,7 @@
             "board": "jp",
             "code": false,
             "sjis": true,
+            "strip": false,
             "cases": [
                 {
                     "input": "",
@@ -2952,6 +2959,1204 @@
                 {
                     "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"#password",
                     "outcome": "too_long",
+                    "missing_secure_field_warnings": 1
+                }
+            ]
+        },
+        {
+            "board": "b",
+            "code": false,
+            "sjis": false,
+            "strip": true,
+            "cases": [
+                {
+                    "input": "",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Anonymous",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " Name ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "  |　| ",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "!Admin!!",
+                    "name": "Admin",
+                    "name_html": "Admin",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " ! ! ",
+                    "name": " ",
+                    "name_html": " ",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " A! ",
+                    "name": "A",
+                    "name_html": "A",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "＃Name﹟!",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "ｋａｍｉ",
+                    "name": "kami",
+                    "name_html": "kami",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "①Name😀",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A│B",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\\tB",
+                    "name": "A\\tB",
+                    "name_html": "A\\tB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\tB",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\r\nB",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A​B",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A B",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A　B",
+                    "name": "A　B",
+                    "name_html": "A　B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " A󰀀 ",
+                    "name": "A",
+                    "name_html": "A",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "𱍏",
+                    "name": "𱍏",
+                    "name_html": "𱍏",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "𱍐",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "<owned>&\"'",
+                    "name": "<owned>&\"'",
+                    "name_html": "&lt;owned&gt;&amp;&quot;&#039;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "&#8238;",
+                    "name": "&",
+                    "name_html": "&amp;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "#password",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "###",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#password###",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name##password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#discarded#password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name###password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##password###",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#かみ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#ｋａｍｉ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#漢字",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#ééé",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#¥",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#‾",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#ソソソソソ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#日本語&\"<>",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#①a😀",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#p​ass\r\nword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#passㅤword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#pa\tssword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name##pa\tssword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#＃password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#p#q#r",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##p#q",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#A│B",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name##é",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##€",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##漢字",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##&\"<>",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#a&#65;",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "#password",
+                    "name": "",
+                    "name_html": "",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "moot#4chan",
+                    "name": "moot",
+                    "name_html": "moot",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "name_html": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "outcome": "too_long",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "name": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "name_html": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "outcome": "too_long",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name_html": "&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name_html": "&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name_html": "&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "outcome": "too_long",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tB",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tB",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"#password",
+                    "name": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name_html": "&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"#password",
+                    "name": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name_html": "&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                }
+            ]
+        },
+        {
+            "board": "s4s",
+            "code": false,
+            "sjis": false,
+            "strip": true,
+            "cases": [
+                {
+                    "input": "",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Anonymous",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " Name ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "  |　| ",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "!Admin!!",
+                    "name": "Admin",
+                    "name_html": "Admin",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " ! ! ",
+                    "name": " ",
+                    "name_html": " ",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " A! ",
+                    "name": "A",
+                    "name_html": "A",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "＃Name﹟!",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "ｋａｍｉ",
+                    "name": "kami",
+                    "name_html": "kami",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "①Name😀",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A│B",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\\tB",
+                    "name": "A\\tB",
+                    "name_html": "A\\tB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\tB",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\r\nB",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A​B",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A B",
+                    "name": "AB",
+                    "name_html": "AB",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A　B",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": " A󰀀 ",
+                    "name": "A",
+                    "name_html": "A",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "𱍏",
+                    "name": "𱍏",
+                    "name_html": "𱍏",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "𱍐",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "<owned>&\"'",
+                    "name": "<owned>&\"'",
+                    "name_html": "&lt;owned&gt;&amp;&quot;&#039;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "&#8238;",
+                    "name": "&",
+                    "name_html": "&amp;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "#password",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "###",
+                    "name": "Anonymous",
+                    "name_html": "Anonymous",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#password###",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name##password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#discarded#password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name###password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##password###",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#かみ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#ｋａｍｉ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#漢字",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#ééé",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#¥",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#‾",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#ソソソソソ",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#日本語&\"<>",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#①a😀",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#p​ass\r\nword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#passㅤword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#pa\tssword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name##pa\tssword",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#＃password",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name#p#q#r",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##p#q",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#A│B",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "Name##é",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##€",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##漢字",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name##&\"<>",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "Name#a&#65;",
+                    "name": "Name",
+                    "name_html": "Name",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "#password",
+                    "name": "",
+                    "name_html": "",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "moot#4chan",
+                    "name": "moot",
+                    "name_html": "moot",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "name_html": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                    "outcome": "too_long",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "name": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "name_html": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+                    "outcome": "too_long",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name_html": "&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name": "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",
+                    "name_html": "&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name_html": "&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "outcome": "too_long",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tB",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "A\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tB",
+                    "name": "A B",
+                    "name_html": "A B",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 0
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"#password",
+                    "name": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name_html": "&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
+                    "missing_secure_field_warnings": 1
+                },
+                {
+                    "input": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"#password",
+                    "name": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"",
+                    "name_html": "&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;&quot;",
+                    "trip": null,
+                    "modern_trip": null,
+                    "outcome": "allow",
                     "missing_secure_field_warnings": 1
                 }
             ]

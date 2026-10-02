@@ -4,6 +4,53 @@ import { readFileSync } from 'node:fs';
 const origin = 'http://127.0.0.1:3000', password = 'owned-identity-browser-password';
 const encoding = JSON.parse(readFileSync(new URL('../../crates/domain/tests/fixtures/trip-encoding.json', import.meta.url), 'utf8'));
 
+test('source boards suppress both trip types in native and Quick Reply posts', async ({ browser, request }) => {
+  for (const board of ['b', 's4s']) {
+    for (const width of [1280, 390]) {
+      const created = await request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
+        form: { name: '#password', com: 'Owned source suppression thread', password } });
+      expect(created.status()).toBe(303);
+      const thread = /#p(\d+)$/.exec(created.headers().location)[1];
+      const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width === 390,
+        hasTouch: width === 390, javaScriptEnabled: width === 390 });
+      try {
+        if (width === 390) {
+          await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: true, threadStats: false })));
+        }
+        const page = await context.newPage();
+        await page.goto(`/${board}/thread/${thread}?quote=${thread}`);
+        const info = page.locator(`#${width === 390 ? 'pim' : 'pi'}${thread}`);
+        await expect(info.locator('.name')).toHaveText('Anonymous');
+        await expect(page.locator('.postertrip')).toHaveCount(0);
+        if (width === 390) {
+          await info.locator('a[title="Reply to this post"]').click();
+          await expect(page.locator('#quickReply')).toBeVisible();
+          await page.locator('#qr-name').fill('Named##password');
+          await page.locator('#qrCom').fill('Owned suppressed secure reply');
+          await page.locator('#quickReply input[type=submit]').click();
+          await expect(page.locator('.postMessage').filter({ hasText: 'Owned suppressed secure reply' })).toHaveCount(1);
+        } else {
+          const form = page.locator('form[name=post]');
+          await form.locator('[name=name]').fill('Named##password');
+          await form.locator('[name=com]').fill('Owned suppressed secure reply');
+          await form.locator('button[type=submit]').click();
+          await expect(page).toHaveURL(new RegExp(`/thread/${thread}#p[0-9]+$`));
+        }
+        const data = await (await request.get(`/${board}/thread/${thread}.json`)).json();
+        expect(data.posts).toHaveLength(2);
+        expect(data.posts.map(post => post.name)).toEqual(['Anonymous', 'Named']);
+        expect(data.posts.every(post => !Object.hasOwn(post, 'trip'))).toBe(true);
+        await expect(page.locator(`#pi${data.posts[1].no} .name`)).toHaveText('Named');
+        await expect(page.locator('.postertrip')).toHaveCount(0);
+      } finally {
+        await context.close();
+        expect((await request.post(`/${board}/delete`, { headers: { Origin: origin }, maxRedirects: 0,
+          form: { no: thread, password } })).status()).toBe(303);
+      }
+    }
+  }
+});
+
 test('persisted tripcodes survive browser previews, filters and ordinary rendering', async ({ page, context, request }) => {
   const threads = [];
   const post = async (parent, name, com) => {

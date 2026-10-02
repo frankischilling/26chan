@@ -42,6 +42,15 @@ pub fn prepare_with_spacing(
     key: Option<&SecureKey>,
     spacing: crate::CommentSpacing<'_>,
 ) -> Result<Identity, crate::ValidationError> {
+    prepare_for_board(raw, key, spacing, false)
+}
+
+pub fn prepare_for_board(
+    raw: &str,
+    key: Option<&SecureKey>,
+    spacing: crate::CommentSpacing<'_>,
+    strip_tripcode: bool,
+) -> Result<Identity, crate::ValidationError> {
     if raw.len() > crate::MAX_PUBLIC_FIELD_BYTES
         || raw
             .chars()
@@ -88,29 +97,33 @@ pub fn prepare_with_spacing(
     parts.next();
     let normal = parts.next();
     let secure = parts.next();
-    let trip = match (normal, secure) {
-        (_, Some(password)) if !password.is_empty() => {
-            let key = key.ok_or(crate::ValidationError("Secure tripcodes are unavailable."))?;
-            // Keep secure secrets in UTF-8 so unmappable CP932 characters cannot
-            // collapse distinct modern credentials into the same key preimage.
-            let password = field
-                .trim_end_matches('#')
-                .splitn(3, '#')
-                .nth(2)
-                .ok_or(crate::ValidationError("Invalid name."))?;
-            let password = crate::trip_cp932::escape_compat(password.as_bytes());
-            let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &key.0);
-            let signature = ring::hmac::sign(&signing, &password);
-            Some(format!("!!{}", &STANDARD.encode(signature.as_ref())[..11]))
+    let trip = if strip_tripcode {
+        None
+    } else {
+        match (normal, secure) {
+            (_, Some(password)) if !password.is_empty() => {
+                let key = key.ok_or(crate::ValidationError("Secure tripcodes are unavailable."))?;
+                // Keep secure secrets in UTF-8 so unmappable CP932 characters cannot
+                // collapse distinct modern credentials into the same key preimage.
+                let password = field
+                    .trim_end_matches('#')
+                    .splitn(3, '#')
+                    .nth(2)
+                    .ok_or(crate::ValidationError("Invalid name."))?;
+                let password = crate::trip_cp932::escape_compat(password.as_bytes());
+                let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &key.0);
+                let signature = ring::hmac::sign(&signing, &password);
+                Some(format!("!!{}", &STANDARD.encode(signature.as_ref())[..11]))
+            }
+            (Some(password), _) if !password.is_empty() => {
+                Some(format!("!{}", legacy_trip_bytes(password)))
+            }
+            _ => None,
         }
-        (Some(password), _) if !password.is_empty() => {
-            Some(format!("!{}", legacy_trip_bytes(password)))
-        }
-        _ => None,
     };
 
     // Source's second bound includes escaped text and its generated trip wrapper.
-    let wrapper = if normal.is_some() {
+    let wrapper = if !strip_tripcode && normal.is_some() {
         "</span>".len()
             + trip
                 .as_ref()
@@ -121,7 +134,7 @@ pub fn prepare_with_spacing(
     if crate::source_html_entities(&name).len() + wrapper > MAX_DISPLAY_NAME_BYTES {
         return Err(crate::ValidationError("Name or subject is too long."));
     }
-    if name.is_empty() && normal.is_none() {
+    if name.is_empty() && (strip_tripcode || normal.is_none()) {
         name = "Anonymous".into();
     }
     Ok(Identity { name, trip })
@@ -414,8 +427,12 @@ mod tests {
             );
             for case in group["cases"].as_array().unwrap() {
                 count += 1;
-                let result =
-                    prepare_with_spacing(case["input"].as_str().unwrap(), Some(&key), spacing);
+                let result = prepare_for_board(
+                    case["input"].as_str().unwrap(),
+                    Some(&key),
+                    spacing,
+                    group["strip"].as_bool().unwrap(),
+                );
                 if case["outcome"] == "too_long" {
                     assert!(result.is_err(), "{}", case["input"]);
                 } else {
@@ -439,7 +456,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(count, 335);
+        assert_eq!(count, 469);
     }
 
     #[test]
@@ -477,6 +494,30 @@ mod tests {
             prepare("User#password", None).unwrap().trip
         );
         assert_eq!(prepare("User##", None).unwrap().trip, None);
+    }
+
+    #[test]
+    fn suppressed_trips_skip_keys_and_wrappers_but_keep_input_and_display_bounds() {
+        let spacing = crate::CommentSpacing::for_board("b", false, false);
+        for (raw, name) in [
+            ("#password", "Anonymous"),
+            ("#かみ", "Anonymous"),
+            ("Name#password", "Name"),
+            ("Name##owned-private-secret", "Name"),
+            ("Name#ignored#owned-private-secret", "Name"),
+        ] {
+            let identity = prepare_for_board(raw, None, spacing, true).unwrap();
+            assert_eq!(identity.name, name);
+            assert_eq!(identity.trip, None);
+        }
+        let name = format!("{}#password", "\"".repeat(37));
+        assert!(prepare_for_board(&name, None, spacing, false).is_err());
+        let identity = prepare_for_board(&name, None, spacing, true).unwrap();
+        assert_eq!(identity.name, "\"".repeat(37));
+        assert_eq!(identity.trip, None);
+        assert!(prepare_for_board(&"n".repeat(101), None, spacing, true).is_err());
+        assert!(prepare_for_board(&"\"".repeat(43), None, spacing, true).is_err());
+        assert!(prepare_for_board("Name#\0private", None, spacing, true).is_err());
     }
 
     proptest::proptest! {

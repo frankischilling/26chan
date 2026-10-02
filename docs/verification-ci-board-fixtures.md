@@ -249,3 +249,17 @@ and [advisory run 37040774637](https://github.com/frankischilling/26chan/actions
 also pass. Hosted monitoring includes the actual resource and maintenance
 exercises that require cgroup v2. These results qualify that checkpoint;
 later feature work still requires checks at its own head.
+
+The public-name checkpoint `f2d1b62a1cf6515985d711ef637a60e9f9a93609` fails
+[build/test run 37054194081](https://github.com/frankischilling/26chan/actions/runs/37054194081).
+Media/operations and every Windows visual group pass. Linux Rust checks pass,
+but the mobile-header browser case still expects a raw name in JSON instead
+of the newly matched source HTML entities. Its decoded rendered-name checks
+pass. The required aggregate gate fails. The next follow-up corrects the exact
+JSON expectation without changing the response contract or browser deadline.
+The failed log and synthetic browser artifacts are retained locally.
+
+That head's [monitoring run 37054194030](https://github.com/frankischilling/26chan/actions/runs/37054194030)
+and [advisory run 37054194191](https://github.com/frankischilling/26chan/actions/runs/37054194191)
+pass. This partial result does not qualify the later board trip-suppression
+change; it still needs complete hosted checks at its own head.

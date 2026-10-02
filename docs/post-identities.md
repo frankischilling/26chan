@@ -2,7 +2,9 @@
 
 Enter `User#password` in Name to post as `User !ozOtJW9BFA`. Leave the display
 name before `#` empty to display only the tripcode in thread headers. A name without a password
-has no tripcode; an empty ordinary name becomes `Anonymous`.
+has no tripcode; an empty ordinary name becomes `Anonymous`. The supplied `/b/`
+and `/s4s/` policies discard new tripcodes while retaining the prepared display
+name. On those boards, `#password` becomes `Anonymous`.
 Normal tripcodes are public pseudonyms with a weak legacy
 hash. They never authorize deletion, moderation or access to a staff account.
 
@@ -27,7 +29,7 @@ The [public-name verification record](verification-public-names.md) pins the
 source and conversion environment. Its independent fixture covers every
 Unicode scalar, 9,278 non-ASCII CP932 mappings and 48 conversion cases, including
 47 DES results and the empty field that skips hashing. The complete ordinary
-name block has 335 cases across five board/spacing policies. ASCII libxcrypt
+name block has 469 cases across seven board/spacing/suppression policies. ASCII libxcrypt
 vectors remain an additional check on the DES implementation.
 
 Secure trips use HMAC-SHA256 with a private 32-byte deployment key. The display
@@ -57,7 +59,9 @@ of source control, worker environments, logs, screenshots and staff enrollment
 configuration. Back it up privately if secure identities must survive a
 restore. An unset key disables secure trips with a fixed error. An empty,
 malformed or all-zero key fails startup before listeners or database access.
-The application does not generate a different key on each restart.
+The application does not generate a different key on each restart. A board
+that suppresses trips accepts either password syntax without accessing this
+key, because it publishes no trip.
 
 ## Storage and rendering
 
@@ -75,7 +79,7 @@ parts before admission.
 Migration 0038 adds a nullable, format-constrained `trip` column and an insert
 trigger. A transaction-local value carries the pseudonym through ordinary
 inserts and the existing attachment function. The trigger checks forced
-anonymity under the board lock. Reusing a pooled connection cannot carry a trip
+anonymity and trip suppression under the board lock. Reusing a pooled connection cannot carry a trip
 to a later plain-name post. Public SQL cannot insert or update the trip column
 directly or execute the trigger function. A compromised public writer can
 already publish content; a trip string grants no additional authority.
@@ -87,6 +91,20 @@ intended as tripcodes. Migration 0067 admits empty display names and expands
 the stored name bound to 255 bytes for source spacing results. It changes only
 that constraint. Apply it before this binary; keep it during binary rollback.
 It does not rewrite rows, trip strings, timestamps or role grants.
+
+Migration 0068 imports `strip_tripcode` for all 82 source definitions: only
+`b` and `s4s` enable it. Future boards default to false. The insert trigger
+discards new trips under the same policy lock and converts an empty suppressed
+display name to `Anonymous`, including direct approved-attachment inserts and
+older binaries. Existing trips remain visible after policy changes. Apply
+0068 before this binary and retain it during rollback. The attachment function
+owner gains read access to this one board column; runtime policy writes and
+saved-trip mutations remain denied.
+
+Suppressed password suffixes never enter content admission or its logs. The
+source's separate trip hook can inspect an unhashed second field when
+suppression skips hashing; excluding that private secret is a backend security
+difference, documented in [trip suppression verification](verification-trip-suppression.md).
 
 Board/thread HTML, catalog hover details, staff previews and native post
 projections escape identities. Tripcodes render in a `postertrip` span using
@@ -115,6 +133,7 @@ Browser coverage uses persisted posts for remote previews, ordinary rendering
 and exact trip filters. The parser regression also rejects event handlers and
 inline style on a trip span. [The combined verification record](verification-rewrite-completion.md)
 records earlier commands and CI results. The [public-name record](verification-public-names.md)
-records this source preparation and encoding checkpoint. Staff-specific name
+records this source preparation and encoding checkpoint. The [suppression record](verification-trip-suppression.md)
+covers source board defaults, locked policy changes and retained identities. Staff-specific name
 preparation, its 255-byte raw-input limit and privileged posting exceptions
 remain unfinished; this scope covers ordinary public posting.

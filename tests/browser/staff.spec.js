@@ -4,8 +4,9 @@ import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 const binary = process.platform === 'win32' ? '.exe' : '';
+const debugDir = path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug');
 function run(name, args, input, expected = 0) {
-  const result = spawnSync(path.resolve(`target/debug/${name}${binary}`), args, {
+  const result = spawnSync(path.join(debugDir, `${name}${binary}`), args, {
     encoding: 'utf8', timeout: 15_000, input,
     env: { MIGRATION_DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PATH: process.env.PATH, SystemRoot: process.env.SystemRoot },
   });
@@ -21,7 +22,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
   const data = fixture('setup', board);
   const mediaRoot = path.resolve(`.local/staff-media-${board}`);
   expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
-  const reader = spawn(path.resolve(`target/debug/board-media-http${binary}`), [], {
+  const reader = spawn(path.join(debugDir, `board-media-http${binary}`), [], {
     windowsHide: true, stdio: 'ignore',
     env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
       APP_ENV: 'development', MEDIA_ENABLED: 'false',
@@ -99,7 +100,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const changedStaffPost = await page.request.get(staffThreadUrl + '.json', { headers: { 'If-None-Match': beforeStaffPost.headers().etag } });
     expect(changedStaffPost.status()).toBe(200);
     const persistedModerator = (await changedStaffPost.json()).posts.find(post => String(post.no) === moderatorPost);
-    expect(persistedModerator.capcode).toBe('mod'); expect(persistedModerator.name).toBe('Owned <staff>');
+    expect(persistedModerator.capcode).toBe('mod'); expect(persistedModerator.name).toBe('Owned &lt;staff&gt;');
     expect(persistedModerator.com).not.toContain('<script>'); expect(persistedModerator.id).toBeUndefined();
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
     const publicStaffPage = await context.newPage(), publicStaffErrors = [];

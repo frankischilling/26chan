@@ -143,26 +143,26 @@ def main():
     if args.check:
         if args.output.read_text(encoding="utf-8") != data:
             raise SystemExit("Board reference differs from the supplied checkout.")
-        if args.migration and args.migration.read_text(encoding="utf-8") != migration(historical):
+        if args.migration and args.migration.read_bytes() != migration(historical).encode("utf-8"):
             raise SystemExit("Board migration differs from the extracted policy.")
-        if args.rss_migration and args.rss_migration.read_text(encoding="utf-8") != rss_migration(reference):
+        if args.rss_migration and args.rss_migration.read_bytes() != rss_migration(reference).encode("utf-8"):
             raise SystemExit("RSS migration differs from the extracted policy.")
         if args.wordfilter_migration:
             marker = "-- Pinned source WORD_FILT switches and board-file replacement of the global filter.\n"
             actual = args.wordfilter_migration.read_text(encoding="utf-8")
             if marker not in actual or actual[actual.index(marker):] != wordfilter_policy(reference, args.source):
                 raise SystemExit("Wordfilter migration differs from the extracted policy.")
-        if args.board_encoding_migration and args.board_encoding_migration.read_text(encoding="utf-8") != board_encoding_migration(reference, historical):
+        if args.board_encoding_migration and args.board_encoding_migration.read_bytes() != board_encoding_migration(reference, historical).encode("utf-8"):
             raise SystemExit("Board encoding migration differs from the extracted policy.")
         print("Board reference matches all listed and additional configuration files.")
     else:
-        args.output.write_text(data, encoding="utf-8")
+        args.output.write_bytes(data.encode("utf-8"))
         if args.migration:
-            args.migration.write_text(migration(historical), encoding="utf-8")
+            args.migration.write_bytes(migration(historical).encode("utf-8"))
         if args.rss_migration:
-            args.rss_migration.write_text(rss_migration(reference), encoding="utf-8")
+            args.rss_migration.write_bytes(rss_migration(reference).encode("utf-8"))
         if args.board_encoding_migration:
-            args.board_encoding_migration.write_text(board_encoding_migration(reference, historical), encoding="utf-8")
+            args.board_encoding_migration.write_bytes(board_encoding_migration(reference, historical).encode("utf-8"))
 
 
 if __name__ == "__main__":

@@ -32,8 +32,8 @@ the multi-scalar byte sequences with that fixture.
 
 `extract-public-name-reference.php` evaluates selected pure helpers, four
 audited preprocessing statements and the bounded name block ending before
-cookies. Five synthetic policies cover ordinary `/g/`, `/a/`, `/b/`, code
-spacing and `/jp/` SJIS spacing. Its 335 cases record display text, escaped
+cookies. This checkpoint qualified five synthetic policies covering ordinary
+`/g/`, `/a/`, `/b/`, code spacing and `/jp/` SJIS spacing. Its 335 cases record display text, escaped
 text, delimiter decisions, normal trips, secure-trip selection and length
 rejection. Constants, errors, magic quotes and the source secure salt have
 fixed synthetic substitutes. No application bootstrap, private configuration,
@@ -61,9 +61,10 @@ remain distinct. This security replacement does not reproduce the original
 server's secure identities. Corrected preparation may change future trips
 even without key rotation; historical trips remain unchanged.
 
-These fixtures fix `STRIP_TRIPCODE` to zero. The supplied `/b/` and `/s4s/`
-overrides that suppress new trips are a separate board-policy gap and remain
-open; the five name/spacing profiles do not qualify those overrides.
+This checkpoint fixed `STRIP_TRIPCODE` to zero. The later
+[trip suppression change](verification-trip-suppression.md) extends the current
+fixture to 469 cases across seven policies and imports the supplied `/b/` and
+`/s4s/` overrides. The five original profiles alone do not qualify suppression.
 
 Migration 0067 changes only `posts_name_check`: stored names may be empty and
 may contain up to 255 bytes after source spacing. The populated upgrade
@@ -85,15 +86,16 @@ uses the source-encoded name, including an empty trip-only field.
 
 Local Linux domain tests and all 138 native Windows domain tests pass,
 including the exhaustive conversion fixture. Both extractors' `--check`
-commands pass. A fresh owned PostgreSQL database applies all 67 migrations
+commands pass. A fresh owned PostgreSQL database applies all 58 migrations through 0067
 and seeds successfully; the populated display-name upgrade exercise passes.
 The complete Linux workspace run passes all 680 tests with no failures or
 ignored tests. Strict workspace Clippy for all targets/features and formatting
 pass. All 34 affected browser cases pass, including real desktop/mobile
 CP932 trip-only authors, cleaned Quick Reply names, catalog filters, remote
 previews, preferences, anonymous ownership, wordfilters and randomizers.
-PHP, shell and JavaScript syntax checks pass. Complete hosted checks at this
-checkpoint's pushed head remain required.
+PHP, shell and JavaScript syntax checks pass. Hosted checks at this checkpoint's
+head are recorded below; its full build run fails at a stale browser JSON
+expectation.
 
 The attachment exercise passes with both comment-plus-file and file-only
 posts. It saves a CP932 trip-only author and a source-expanded display name
@@ -156,6 +158,14 @@ as other large HTTP matrices already do. The production default and
 
 The preceding `b4f0ef6` checkpoint passes all hosted build/test, monitoring and
 advisory jobs, recorded in [CI fixture verification](verification-ci-board-fixtures.md).
-That result does not qualify these later name changes. Staff-specific raw
-limits/preparation, privileged exceptions, source trip suppression and
-generated-randomizer filter scope remain open.
+That result does not qualify these later name changes. The `f2d1b62` name
+checkpoint's [build run 37054194081](https://github.com/frankischilling/26chan/actions/runs/37054194081)
+passes media/operations and every Windows visual group. Linux Rust checks
+pass, but the mobile-header browser test expects ten raw `<` characters in
+JSON instead of the source's ten `&lt;` entities; the aggregate gate fails.
+The rendered-name assertions pass. The later suppression change corrects this
+expectation and still requires a complete hosted run at its own head.
+
+Staff-specific raw limits/preparation, privileged exceptions and
+generated-randomizer filter scope remain open. Source suppression is covered
+by its separate verification record.

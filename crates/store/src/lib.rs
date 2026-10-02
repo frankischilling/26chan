@@ -72,6 +72,7 @@ pub struct Board {
     pub require_subject: bool,
     pub op_markup: bool,
     pub forced_anon: bool,
+    pub strip_tripcode: bool,
     pub user_ids: bool,
     pub country_flags: bool,
     pub board_flags: Vec<String>,

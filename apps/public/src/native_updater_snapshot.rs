@@ -420,6 +420,7 @@ mod tests {
             require_subject: false,
             op_markup: false,
             forced_anon: false,
+            strip_tripcode: false,
             user_ids: false,
             country_flags: false,
             board_flags: vec![],
