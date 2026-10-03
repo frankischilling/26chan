@@ -8,7 +8,8 @@ test('ID colors retain the released client hash and finite alphabet', () => {
   // Fixed vectors independently calculated as sum(codepoint * 31**position).
   assert.deepEqual(posterIdColor('AAAAAAAA'), { background: 'rgb(65, 62, 240)', color: 'white' });
   assert.deepEqual(posterIdColor('12345678'), { background: 'rgb(145, 14, 0)', color: 'white' });
-  for (const id of [null, {}, 12345678, '', '1234567', '123456789', '1234567\n', '1234567<', 'é2345678']) {
+  assert.deepEqual(posterIdColor('Heaven'), { background: 'rgb(128, 154, 18)', color: 'black' });
+  for (const id of [null, {}, 12345678, '', '1234567', '123456789', '1234567\n', '12345678\n', '1234567<', 'é2345678', 'heaven', 'Heaven\n', 'Heaven ', 'Mod', 'Admin']) {
     assert.equal(posterIdColor(id), null);
   }
 });
@@ -38,11 +39,12 @@ test('actual browser colors survive CSP, settings, live labels, preview insertio
     await page.evaluate(() => {
       document.getElementById('first').textContent = '12345678';
       const label = document.createElement('span'); label.className = 'posteruid';
-      const text = document.createElement('span'); text.className = 'hand'; text.id = 'preview'; text.textContent = 'AAAAAAAA';
+      const text = document.createElement('span'); text.className = 'hand'; text.id = 'preview'; text.textContent = 'Heaven';
       label.append(text); root.append(label);
     });
     assert.equal(await page.locator('#first').evaluate(element => element.style.backgroundColor), 'rgb(145, 14, 0)');
-    assert.equal(await page.locator('#preview').evaluate(element => element.style.backgroundColor), 'rgb(65, 62, 240)');
+    assert.equal(await page.locator('#preview').evaluate(element => element.style.backgroundColor), 'rgb(128, 154, 18)');
+    assert.equal(await page.locator('#preview').evaluate(element => element.style.color), 'black');
     await page.evaluate(() => { config.IDColor = false; document.dispatchEvent(new Event('4chanSettingsSaved')); });
     assert.equal(await page.locator('#first').evaluate(element => element.style.backgroundColor), '');
     await page.evaluate(() => { config.IDColor = true; document.dispatchEvent(new Event('4chanPreferencesRestored')); });

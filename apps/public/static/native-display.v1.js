@@ -201,9 +201,13 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   } };
 }
 
+function ordinaryPosterId(id) {
+  return typeof id === 'string' && (id === 'Heaven' || (id.length === 8 && /^[+/0-9A-Za-z]{8}$/.test(id)));
+}
+
 // Public v1191 IDColor uses the signed 31-based string hash's high three bytes.
 export function posterIdColor(id) {
-  if (typeof id !== 'string' || !/^[+/0-9A-Za-z]{8}$/.test(id)) return null;
+  if (!ordinaryPosterId(id)) return null;
   let hash = 0;
   for (const character of id) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) | 0;
   const red = (hash >>> 24) & 255, green = (hash >>> 16) & 255, blue = (hash >>> 8) & 255;
@@ -354,7 +358,7 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
         && element.className === `capcode hand ${group}` && element.title === title
         && element.parentElement?.className === `nameBlock ${nameClass}`
         && element.parentElement.parentElement?.matches('.postInfo,.postInfoM'));
-      const ordinary = element.matches('.posteruid > .hand') && /^[+/0-9A-Za-z]{8}$/.test(element.textContent);
+      const ordinary = element.matches('.posteruid > .hand') && ordinaryPosterId(element.textContent);
       if (!badge && !ordinary) continue;
       const info = element.closest('.postInfo,.postInfoM'), post = info?.parentElement, section = post?.closest('.thread');
       if (!post?.matches('.post') || !/^p[1-9][0-9]{0,18}$/.test(post.id)

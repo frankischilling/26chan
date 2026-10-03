@@ -42,6 +42,12 @@ projection for that historical case. Both upgrades preserve prior post and
 thread fields, posting proofs, privacy policies, function OIDs, owners and
 grants.
 
+Migration 0076 grants read access to `meta_board` and `poster_id_no_heaven`
+to the existing NOLOGIN attachment function owner. Attachment insertion runs
+under that owner and needs the same policy read as plain posting. Runtime
+grants, policy write access and the function's metadata remain unchanged.
+Public readiness verifies these reads before accepting traffic.
+
 The reference pins `imgboard.php` at revision
 `545b7812d1849f7958d914950c91fdbbe38f6b22`, SHA-256
 `caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445`.
@@ -71,16 +77,25 @@ combinations, both JSON listeners, HTML, complete private poster counts,
 policy changes, archives and an actual board-lock wait. The existing staff
 posting suite covers static badge IDs.
 
+The native color and click controllers accept the exact `Heaven` label beside
+the ordinary eight-character alphabet. Near matches and staff labels in an
+ordinary ID span remain rejected. The released client hash gives `Heaven`
+the color `rgb(128, 154, 18)` with black text. Browser checks cover dynamically
+inserted labels, loaded-post counts and keyboard highlighting. The public
+browser fixture covers both network and sage posts through previews, updates,
+color settings and ID filters.
+
 ```text
 python3 scripts/extract-poster-id-display-reference.py SOURCE fixtures/poster-id-display-reference.json --check
 python3 scripts/extract-poster-id-json-reference.py SOURCE fixtures/poster-id-display-reference.json fixtures/poster-id-json-reference.json --check
 bash scripts/test-poster-id-heaven-migration.sh
 bash scripts/test-json-op-poster-id-migration.sh
+bash scripts/test-attachment-poster-id-policy-migration.sh
 cargo test -p board-public --test poster_ids --test poster_counts --test board_inventory --all-features --locked
 ```
 
-Apply migrations 0074 and 0075 before running the updated public application;
-its readiness check requires both new columns. See
+Apply migrations 0074 through 0076 before running the updated public application;
+its readiness check requires both new columns and the attachment-owner reads. See
 [verification](verification-poster-id-display.md) for results and limits.
 Unbadged authorized posting, remaining source admission/option rules and the
 complete board, media and frontend scope remain unfinished.

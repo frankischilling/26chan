@@ -16,8 +16,14 @@ Migration 0075 has SHA-384:
 b711c8a54501209c5395349c623ec86781f1b5606b86d8a0782c4931b7568f06729c88c32a655a058e31694124b6017b
 ```
 
-Both files were applied to the owned qualification database and remain
-unchanged. The database has 66 successful migration files through version 75.
+Migration 0076 has SHA-384:
+
+```text
+34addb2ceeb20704844fcdd72fdaa5fc6c970fdce0f127f5b43cebb37bdb4db29f9351389c9f94c13ce92e3c18dcdac6
+```
+
+All three files were applied to the owned qualification database and remain
+unchanged. The database has 67 successful migration files through version 76.
 The historical 0045 board import and 0047 RSS migrations still regenerate
 byte for byte after adding the new source policy to the reference.
 
@@ -30,12 +36,34 @@ byte for byte after adding the new source policy to the reference.
 | Populated 0075 upgrade | Passed; 112 OP and 112 reply cases, public network capture, unchanged history/proofs/privacy policies/owners/grants, runtime column denials |
 | Public unit suite | Passed; 114 cases, including every independent JSON projection case |
 | Public ID, poster-count and inventory HTTP/PostgreSQL suites | Passed; 4 cases, including both JSON listeners, HTML, policy lock wait and archives |
-| Staff HTTP/PostgreSQL suite | Passed; 18 cases in 3.69 seconds |
-| Fresh role bootstrap | Passed; all 66 files, ownership and runtime/private access guards retained |
-| Strict workspace Clippy | Passed in 44.27 seconds; all targets/features, warnings denied |
+| Staff HTTP/PostgreSQL suite | Passed; 18 cases in 3.02 seconds |
+| Populated 0076 upgrade | Passed; reproduced the denied owner insert before the grant, preserved history and metadata, enabled only two policy reads |
+| Real attachment store suite | Passed in 12.49 seconds; atomic upload use, source labels, OP network capture, suppression switches and private counts |
+| Focused client unit/DOM/browser suite | Passed; 97 cases including Heaven colors, highlighting and loaded-post counts |
+| Fresh role bootstrap | Passed; all 67 files, ownership and runtime/private access guards retained |
+| Strict workspace Clippy | Passed in 47.54 seconds; all targets/features, warnings denied |
 | Complete workspace and remaining regression gates | Incomplete locally; the foreground scope disappeared during compilation |
 | Ordinary sage OP's JSON network-label exception | Passed; both listeners expose the network label while HTML retains Heaven |
 | Hosted checks at the follow-up head | Required after publication |
+
+The first published `fdb6f2c` head failed hosted build/test. Linux backfill and
+the real upload qualification exposed missing board-column reads for the
+restricted attachment function owner. Migration 0076 adds only those reads;
+the populated upgrade and real attachment store rerun pass. Readiness now
+checks the grants. Monitoring and dependency advisories passed at that head.
+
+Windows media visuals passed 67 cases and failed the catalog's large-teaser
+case while loading the file-deleted placeholder. The retained failure image
+shows that broken image; the original artifact omitted the network trace, so
+its cause remains unresolved. Failure artifacts now include traces and error
+context. Screenshot baselines, retries and deadlines remain unchanged, and
+the next hosted run must qualify the complete Windows suite.
+
+The new Heaven color/action tests first failed against the prior controller,
+which accepted only eight-character IDs. After adding the exact source label,
+all 97 focused client checks pass. Invalid case, trailing whitespace and line
+break variants remain rejected. The real public browser fixture now runs both
+network and sage cases; its end-to-end result is required from hosted CI.
 
 The first HTTP fixture requested a tail size of 20 for a thread with fewer
 replies. The existing endpoint correctly returned 404. The fixture now uses

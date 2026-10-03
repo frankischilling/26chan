@@ -108,6 +108,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
+    let attachment_policy: bool = sqlx::query_scalar("SELECT has_column_privilege('board_attachment_owner','content.boards','meta_board','SELECT') AND has_column_privilege('board_attachment_owner','content.boards','poster_id_no_heaven','SELECT')")
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !attachment_policy {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Service unavailable.",
+        ));
+    }
     if let Some(media) = &state.media {
         media.ready().await?;
     }

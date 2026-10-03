@@ -534,7 +534,7 @@ async fn poster_counts(f: &Fixture) {
     // Approval probes use the fixture's ordinary posting context. Finish those
     // controls before enabling the ID policy for the keyed attachment writes.
     let mut uploads = Vec::new();
-    for _ in 0..3 {
+    for _ in 0..5 {
         let upload = f.reserve().await;
         f.approve(&upload).await;
         uploads.push(upload);
@@ -550,16 +550,31 @@ async fn poster_counts(f: &Fixture) {
     )
     .unwrap();
     let mut thread = 0;
-    for ((peer, expected), upload) in [
-        ("192.0.2.10", 1),
-        ("::ffff:192.0.2.10", 1),
-        ("192.0.2.11", 2),
+    let display: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/poster-id-display-reference.json"
+    ))
+    .unwrap();
+    assert_eq!(display["cases"].as_array().unwrap().len(), 112);
+    for ((peer, expected, sage, meta, no_heaven), upload) in [
+        ("192.0.2.10", 1, true, false, false),
+        ("::ffff:192.0.2.10", 1, false, false, false),
+        ("192.0.2.11", 2, true, false, false),
+        ("192.0.2.11", 2, true, false, true),
+        ("192.0.2.11", 2, true, true, false),
     ]
     .into_iter()
     .zip(uploads)
     {
         let mut draft = post();
         draft.name = "User#password".into();
+        draft.sage = sage;
+        sqlx::query("UPDATE content.boards SET meta_board=$2,poster_id_no_heaven=$3 WHERE slug=$1")
+            .bind(&f.board)
+            .bind(meta)
+            .bind(no_heaven)
+            .execute(&f.admin)
+            .await
+            .unwrap();
         if f.attachment_only {
             draft.comment.clear();
         }
@@ -607,13 +622,31 @@ async fn poster_counts(f: &Fixture) {
             assert_eq!(saved.country_name.as_deref(), Some("Unknown"));
             assert!(saved.board_flag.is_none());
         }
+        let network = key.label(&f.board, thread, peer.parse().unwrap()).unwrap();
+        let source = display["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| {
+                case["enabled"] == true
+                    && case["capcode"] == "none"
+                    && case["sage"] == sage
+                    && case["meta_board"] == meta
+                    && case["no_heaven"] == no_heaven
+            })
+            .unwrap();
         assert_eq!(
             saved.poster_id.as_deref(),
-            Some(
-                key.label(&f.board, thread, peer.parse().unwrap())
-                    .unwrap()
-                    .as_str()
-            )
+            Some(if source["expected"] == "Heaven" {
+                "Heaven"
+            } else {
+                assert_eq!(source["expected"], display["network_label_stub"]);
+                network.as_str()
+            })
+        );
+        assert_eq!(
+            saved.json_op_poster_id.as_deref(),
+            (id == thread).then_some(network.as_str())
         );
         assert!(attachment(&f.public, id).await.unwrap().is_some());
         let count: Option<i32> = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
@@ -624,7 +657,7 @@ async fn poster_counts(f: &Fixture) {
             .unwrap();
         assert_eq!(count, Some(expected));
     }
-    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}' WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}',meta_board=false,poster_id_no_heaven=false WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
