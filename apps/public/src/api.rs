@@ -156,12 +156,7 @@ fn post_json(
     if let Some(name) = identity.name {
         value["name"] = json!(board_domain::source_html_entities(name));
     }
-    if let Some(id) = post
-        .post
-        .poster_id
-        .as_ref()
-        .filter(|_| thread.archived_at.is_none())
-    {
+    if let Some(id) = json_poster_id(&post.post, op, thread.archived_at.is_some()) {
         value["id"] = json!(id);
     }
     if let Some(trip) = identity.trip {
@@ -261,6 +256,19 @@ fn semantic_url(subject: &str) -> String {
         .chars()
         .take(80)
         .collect()
+}
+
+fn json_poster_id(post: &board_store::Post, op: bool, archived: bool) -> Option<&str> {
+    if archived || post.poster_id.is_none() {
+        return None;
+    }
+    if op && post.capcode.is_none() {
+        post.json_op_poster_id
+            .as_deref()
+            .or_else(|| post.poster_id.as_deref().filter(|id| *id != "Heaven"))
+    } else {
+        post.poster_id.as_deref()
+    }
 }
 
 // A read-only alias lets browser CSP allow watcher requests by path without
@@ -520,6 +528,77 @@ fn require_json(board: &Board, catalog: bool) -> Result<(), AppError> {
         return Err(AppError(StatusCode::NOT_FOUND, "JSON resource not found."));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod poster_id_projection_tests {
+    use super::json_poster_id;
+    use serde_json::Value;
+
+    #[test]
+    fn id_projection_matches_every_independent_source_case() {
+        let display: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/poster-id-display-reference.json"
+        ))
+        .unwrap();
+        let reference: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/poster-id-json-reference.json"
+        ))
+        .unwrap();
+        let cases = reference["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 448);
+        for case in cases {
+            let row = &display["cases"][case["display_case"].as_u64().unwrap() as usize];
+            let ordinary = row["capcode"] == "none";
+            let op = case["op"].as_bool().unwrap();
+            let archived = case["archived"].as_bool().unwrap();
+            let saved = row["expected"].as_str().map(str::to_owned);
+            let post = board_store::Post {
+                id: if op { 42 } else { 43 },
+                board: "test".into(),
+                thread_id: 42,
+                name: "Owned source ID".into(),
+                trip: None,
+                json_op_poster_id: (ordinary && op && saved.is_some()).then(|| "Ab12+/CD".into()),
+                poster_id: saved,
+                capcode: (!ordinary).then(|| row["capcode"].as_str().unwrap().into()),
+                country: None,
+                country_name: None,
+                board_flag: None,
+                flag_name: None,
+                subject: String::new(),
+                comment: String::new(),
+                comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                created_at: chrono::DateTime::from_timestamp(1, 0).unwrap(),
+                deleted: false,
+                attachment: None,
+            };
+            assert_eq!(
+                json_poster_id(&post, op, archived),
+                case["expected"].as_str(),
+                "{row}: {case}"
+            );
+            if ordinary && op && row["expected"] == reference["network_label_stub"] {
+                let mut historical = post.clone();
+                historical.json_op_poster_id = None;
+                assert_eq!(
+                    json_poster_id(&historical, op, archived),
+                    case["expected"].as_str()
+                );
+            }
+            if ordinary && op && row["expected"] == "Heaven" {
+                let mut historical = post.clone();
+                historical.json_op_poster_id = None;
+                assert_eq!(json_poster_id(&historical, op, archived), None);
+                assert_eq!(historical.poster_id.as_deref(), Some("Heaven"));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

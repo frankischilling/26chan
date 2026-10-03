@@ -154,6 +154,8 @@ pub struct Post {
     pub name: String,
     pub trip: Option<String>,
     pub poster_id: Option<String>,
+    #[sqlx(default)]
+    pub json_op_poster_id: Option<String>,
     pub capcode: Option<String>,
     pub country: Option<String>,
     pub country_name: Option<String>,

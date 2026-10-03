@@ -475,6 +475,7 @@ mod tests {
                 name: "<img src=x onerror=alert(1)>".into(),
                 trip: None,
                 poster_id: None,
+                json_op_poster_id: None,
                 capcode: None,
                 country: None,
                 country_name: None,

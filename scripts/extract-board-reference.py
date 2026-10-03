@@ -11,6 +11,7 @@ POLICY_KEYS = set("CATEGORY TITLE META_DESCRIPTION MAX_COM_CHARS MAX_LINES CODE_
 
 
 POLICY_KEYS.add("META_BOARD")
+POLICY_KEYS.add("DISP_ID_NO_HEAVEN")
 
 
 def policy(path):
@@ -67,6 +68,7 @@ def extract(root, names_encoding="utf-8"):
             "catalog_enabled": boolean("ENABLE_CATALOG"), "json_enabled": boolean("ENABLE_JSON"),
             "staff_only": boolean("JANITOR_BOARD"), "upload_board": boolean("UPLOAD_BOARD"),
             "meta_board": boolean("META_BOARD"),
+            "poster_id_no_heaven": boolean("DISP_ID_NO_HEAVEN"),
             "source_policy": values,
         }
         boards.append(board)
@@ -75,7 +77,7 @@ def extract(root, names_encoding="utf-8"):
 
 
 def migration(reference):
-    columns = [key for key in reference["boards"][0] if key not in {"listed", "source_policy", "meta_board"}]
+    columns = [key for key in reference["boards"][0] if key not in {"listed", "source_policy", "meta_board", "poster_id_no_heaven"}]
     def sql(value):
         if isinstance(value, bool):
             return "true" if value else "false"

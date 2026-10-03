@@ -236,6 +236,10 @@ jobs:
         run: sudo bash scripts/test-staff-identity-migration.sh
       - name: Upgrade static staff IDs while preserving saved IDs, source proofs and runtime grants
         run: sudo bash scripts/test-staff-poster-id-migration.sh
+      - name: Upgrade source sage IDs while preserving history and matching all display policies
+        run: sudo bash scripts/test-poster-id-heaven-migration.sh
+      - name: Upgrade ordinary OP JSON IDs without retaining addresses or changing history
+        run: sudo bash scripts/test-json-op-poster-id-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

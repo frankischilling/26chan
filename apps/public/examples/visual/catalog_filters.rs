@@ -72,6 +72,7 @@ fn page(slug: &str, sorted: bool) -> String {
                 name: name.into(),
                 trip: trip.map(str::to_owned),
                 poster_id: None,
+                json_op_poster_id: None,
                 capcode: capcode.map(str::to_owned),
                 country: None,
                 country_name: None,

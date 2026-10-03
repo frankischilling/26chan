@@ -745,10 +745,13 @@ async fn create_post_in_context(
     } else {
         None
     };
-    sqlx::query("SELECT set_config('board.poster_id', $1, true)")
-        .bind(poster_id.as_deref().unwrap_or(""))
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "SELECT set_config('board.poster_id', $1, true),set_config('board.post_sage', $2, true)",
+    )
+    .bind(poster_id.as_deref().unwrap_or(""))
+    .bind(post.sage.to_string())
+    .execute(&mut *tx)
+    .await?;
     let count_context = keys
         .poster_id
         .zip(context.peer)

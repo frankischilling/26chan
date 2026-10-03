@@ -40,7 +40,8 @@ function OIDs, owners and ACLs. Apply it before running the posting service.
 | Full Linux workspace | Incomplete locally; WSL restarted during the restored-browser run |
 | Generated assets and client regressions | Passed separately; 109 client unit/DOM checks, no failures or skipped tests |
 | Public and separate staff browser regressions | Not completed for this follow-up locally |
-| Hosted checks at the next published head | Required after publication |
+| Hosted build/test at `fb95886` | Passed; complete Linux Rust/browser checks, Windows visuals and media/operations |
+| Hosted monitoring and dependency advisories at `fb95886` | Passed |
 
 The HTTP regression posts every badge with IDs on and off, without a poster
 key or peer address. It checks saved fields through policy changes, both JSON
@@ -101,6 +102,14 @@ service disappeared and no final exit record was written. The partial test log
 is retained and is not counted as a workspace pass. Hosted build/test must
 qualify the complete Rust and browser suites at the published follow-up head;
 the preceding green head is only historical evidence.
+
+After publication, [build/test](https://github.com/frankischilling/26chan/actions/runs/37110899518),
+[monitoring](https://github.com/frankischilling/26chan/actions/runs/37110899513)
+and [dependency advisories](https://github.com/frankischilling/26chan/actions/runs/37110899517)
+all completed successfully at
+`fb95886f2dd4bf7ecc647140e98414eb159c5d08`. These qualify the published static-ID
+checkpoint. They do not turn its interrupted local runs into successful runs
+or qualify later source changes.
 
 The separate client run initially selected the empty default browser cache.
 After selecting the restored qualification cache, all 109 unit/DOM checks and
