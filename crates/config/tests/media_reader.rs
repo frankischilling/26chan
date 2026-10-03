@@ -1,4 +1,4 @@
-use board_config::{MediaAdminSettings, MediaReaderSettings, Settings};
+use board_config::{MediaAdminSettings, MediaReaderSettings, MonitorSettings, Settings};
 use std::process::Command;
 
 #[test]
@@ -14,6 +14,13 @@ fn separated_media_configuration_is_checked_before_connecting() {
         "owner",
         "staff",
         "auth",
+        "staff-trip-key",
+        "public-staff-trip-key",
+        "writer-staff-trip-key",
+        "public-identity-clean",
+        "writer-identity-clean",
+        "observer-staff-trip-key",
+        "observer-identity-clean",
         "test-public",
         "enabled",
         "public-inherits-reader",
@@ -81,6 +88,39 @@ fn separated_media_configuration_is_checked_before_connecting() {
             "auth" => {
                 command.env("AUTH_DATABASE_URL", "synthetic-secret");
             }
+            "staff-trip-key"
+            | "public-staff-trip-key"
+            | "writer-staff-trip-key"
+            | "public-identity-clean"
+            | "writer-identity-clean" => {
+                if case.ends_with("trip-key") {
+                    command.env("STAFF_TRIPCODE_KEY", "11".repeat(32));
+                }
+                if case != "staff-trip-key" {
+                    command.env_remove("MEDIA_READ_DATABASE_URL");
+                }
+                if case.starts_with("public-") {
+                    command.env(
+                        "DATABASE_URL",
+                        "postgres://board_public:synthetic@127.0.0.1:55432/imageboard",
+                    );
+                } else if case.starts_with("writer-") {
+                    command.env(
+                        "MEDIA_DATABASE_URL",
+                        "postgres://board_media:synthetic@127.0.0.1:55432/imageboard",
+                    );
+                }
+            }
+            "observer-staff-trip-key" | "observer-identity-clean" => {
+                command.env_remove("MEDIA_READ_DATABASE_URL");
+                command.env(
+                    "MONITOR_DATABASE_URL",
+                    "postgres://board_monitor:synthetic@127.0.0.1:55432/imageboard",
+                );
+                if case.ends_with("trip-key") {
+                    command.env("STAFF_TRIPCODE_KEY", "11".repeat(32));
+                }
+            }
             "test-public" => {
                 command.env("TEST_PUBLIC_DATABASE_URL", "synthetic-secret");
             }
@@ -137,9 +177,23 @@ fn media_reader_config_child() {
     };
     if case == "valid" {
         assert!(MediaReaderSettings::from_env().is_ok());
-    } else if case == "public-inherits-reader" {
+    } else if case == "public-identity-clean" {
+        assert!(Settings::from_env().is_ok());
+    } else if case == "writer-identity-clean" {
+        assert!(MediaAdminSettings::from_env().is_ok());
+    } else if case == "observer-identity-clean" {
+        assert!(MonitorSettings::from_env().is_ok());
+    } else if case == "observer-staff-trip-key" {
+        assert!(MonitorSettings::from_env().is_err());
+    } else if ["public-inherits-reader", "public-staff-trip-key"].contains(&case.as_str()) {
         assert!(Settings::from_env().is_err());
-    } else if ["writer-inherits-reader", "writer-query", "writer-fragment"].contains(&case.as_str())
+    } else if [
+        "writer-inherits-reader",
+        "writer-query",
+        "writer-fragment",
+        "writer-staff-trip-key",
+    ]
+    .contains(&case.as_str())
     {
         assert!(MediaAdminSettings::from_env().is_err());
     } else {

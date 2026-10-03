@@ -6,13 +6,13 @@ for (const javaScriptEnabled of [false, true]) {
     const context = await browser.newContext({ javaScriptEnabled });
     const page = await context.newPage(); let op;
     try {
-      await page.goto(`${origin}/test/`);
+      await page.goto(`${origin}/fixture/`);
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await page.locator('#sub').fill('Owned OP markup');
       await page.locator('#com').fill('[b]bold[/b] [red]red[/red]');
-      await page.locator('#password').fill(password);
+      await expect(page.locator('#postPassword')).toHaveValue('');
       await page.getByRole('button', { name: 'Post', exact: true }).click();
-      await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+      await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
       op = /#p(\d+)$/.exec(page.url())[1];
       await expect(page.locator(`#m${op} .mu-s`)).toHaveText('bold');
       await expect(page.locator(`#m${op} .mu-r`)).toHaveCSS('color', 'rgb(196, 30, 58)');
@@ -20,14 +20,14 @@ for (const javaScriptEnabled of [false, true]) {
       if (javaScriptEnabled) {
         await page.locator(`#p${op} .postInfo > .postNum > a[title="Reply to this post"]`).click();
         await page.locator('#qrCom').fill(comment);
-        await page.locator('#qr-pwd').fill(password);
+        await expect(page.locator('#qr-pwd')).toHaveValue('');
         const before = page.url();
         await page.locator('#quickReply input[type=submit]').click();
         await expect(page.locator('.postMessage .mu-g')).toHaveText('green');
         expect(page.url()).toBe(before);
       } else {
         await page.locator('#com').fill(comment);
-        await page.locator('#password').fill(password);
+        await expect(page.locator('#postPassword')).toHaveValue('');
         await page.getByRole('button', { name: 'Post', exact: true }).click();
         await expect(page.locator('.postMessage .mu-g')).toHaveText('green');
       }
@@ -36,15 +36,15 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.locator('.postMessage img, .postMessage script')).toHaveCount(0);
       await page.reload();
       await expect(page.locator('.postMessage .mu-g')).toHaveText('green');
-      const json = await (await context.request.get(`${origin}/test/thread/${op}.json`)).json();
+      const json = await (await context.request.get(`${origin}/fixture/thread/${op}.json`)).json();
       expect(json.posts).toHaveLength(2);
       expect(json.posts[1].com).toContain('class="mu-i"');
-      await page.goto(`${origin}/test/catalog?teaser=on`);
+      await page.goto(`${origin}/fixture/catalog?teaser=on`);
       const teaser = page.locator(`#thread-${op} .teaser`);
       await expect(teaser).toContainText('bold');
       await expect(teaser).not.toContainText('[b]');
     } finally {
-      try { if (op) expect((await context.request.post(`${origin}/test/delete`, { headers: { origin }, form: { no: op, password }, maxRedirects: 0 })).status()).toBe(303); }
+      try { if (op) expect((await context.request.post(`${origin}/fixture/delete`, { headers: { origin }, form: { no: op, password }, maxRedirects: 0 })).status()).toBe(303); }
       finally { await context.close(); }
     }
   });

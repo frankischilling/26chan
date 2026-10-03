@@ -22,8 +22,8 @@ struct Posted {
 }
 
 #[derive(Serialize)]
-struct Failed {
-    error: &'static str,
+struct Failed<'a> {
+    error: &'a str,
 }
 
 impl Format {
@@ -65,6 +65,15 @@ impl Format {
                 };
                 (status, Json(Failed { error: error.1 })).into_response()
             }
+        }
+    }
+
+    pub(crate) fn rule_error(self, message: &str) -> Response {
+        match self {
+            Self::Html => {
+                crate::handlers::message_response(StatusCode::UNPROCESSABLE_ENTITY, message)
+            }
+            Self::Json => Json(Failed { error: message }).into_response(),
         }
     }
 
@@ -234,6 +243,25 @@ mod tests {
                 .unwrap()
                 .status(),
             StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+
+    #[tokio::test]
+    async fn dynamic_rule_errors_escape_html_and_preserve_json_text() {
+        use http_body_util::BodyExt;
+        let message = "Owned <script>harmless</script> & \"quote\"";
+        let html = Format::Html.rule_error(message);
+        assert_eq!(html.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let bytes = html.into_body().collect().await.unwrap().to_bytes();
+        let text = std::str::from_utf8(&bytes).unwrap();
+        assert!(text.contains("&#60;script&#62;harmless&#60;/script&#62;"));
+        assert!(!text.contains("<script>harmless"));
+        let json = Format::Json.rule_error(message);
+        assert_eq!(json.status(), StatusCode::OK);
+        let bytes = json.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+            serde_json::json!({"error":message})
         );
     }
 }

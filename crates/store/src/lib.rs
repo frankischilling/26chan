@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
+pub mod anonymous_session;
 mod archives;
 mod board_snapshot;
+mod content_admission;
 pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_page_snapshot, archive_snapshot};
 pub mod legacy_media;
 pub mod media;
@@ -10,11 +12,14 @@ pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
 mod read;
+mod robot9000;
+mod rss;
 mod thread_statistics;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
+pub use rss::{RssSnapshot, rss_snapshot};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 pub use thread_statistics::{ThreadStatistics, thread_statistics};
@@ -32,18 +37,36 @@ pub enum StoreError {
     Conflict(&'static str),
     #[error("Authorization is no longer valid.")]
     AuthorizationChanged,
+    #[error("{0}")]
+    ContentRejected(String),
+    #[error("Post accepted.")]
+    ContentQuiet { post: i64 },
     #[error("Database unavailable.")]
     Database(#[from] sqlx::Error),
     #[error("Unsafe database role.")]
     UnsafeRole,
+    #[error("Server randomness is unavailable.")]
+    RandomnessUnavailable,
+    #[error("Snapshot content exceeds its read budget.")]
+    ReadLimit,
+    #[error("{0}")]
+    Robot9000Rejected(String),
 }
 
 #[derive(Clone, sqlx::FromRow)]
 pub struct Board {
     pub slug: String,
+    pub source_order: i32,
+    pub catalog_enabled: bool,
+    pub json_enabled: bool,
+    pub staff_only: bool,
+    pub meta_board: bool,
+    pub upload_board: bool,
+    pub rss_enabled: bool,
     pub title: String,
     pub description: String,
     pub max_comment_chars: i32,
+    pub max_authorized_comment_chars: i32,
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
     pub comment_max_lines: i32,
@@ -51,6 +74,7 @@ pub struct Board {
     pub require_subject: bool,
     pub op_markup: bool,
     pub forced_anon: bool,
+    pub strip_tripcode: bool,
     pub user_ids: bool,
     pub country_flags: bool,
     pub board_flags: Vec<String>,
@@ -67,6 +91,12 @@ pub struct Board {
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
     pub image_limit: i32,
+    pub dice_roll: bool,
+    pub fortune_trip: bool,
+    pub robot9000: bool,
+    pub robot9000_state_limit: i32,
+    pub word_filter_enabled: bool,
+    pub word_filter_profile: i16,
 }
 
 impl Board {
@@ -124,6 +154,8 @@ pub struct Post {
     pub name: String,
     pub trip: Option<String>,
     pub poster_id: Option<String>,
+    #[sqlx(default)]
+    pub json_op_poster_id: Option<String>,
     pub capcode: Option<String>,
     pub country: Option<String>,
     pub country_name: Option<String>,
@@ -132,10 +164,32 @@ pub struct Post {
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,
+    pub staff_authorized_limits: bool,
+    pub wordfilter_payload: Option<Vec<u8>>,
+    pub dice_result: Option<String>,
+    pub fortune_text: Option<String>,
+    pub fortune_color: Option<String>,
     pub created_at: DateTime<Utc>,
     pub deleted: bool,
     #[sqlx(skip)]
     pub attachment: Option<post_media::PostAttachment>,
+}
+
+impl Post {
+    pub fn formatted_lines(&self) -> Vec<board_domain::Line> {
+        board_domain::formatting::parse_saved_comment_with_limits(
+            &self.comment,
+            self.comment_format,
+            &self.board,
+            self.wordfilter_payload.as_deref(),
+            if self.staff_authorized_limits {
+                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+                    .expect("finite persisted staff bound")
+            } else {
+                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+            },
+        )
+    }
 }
 
 pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {

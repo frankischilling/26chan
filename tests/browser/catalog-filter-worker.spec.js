@@ -4,7 +4,7 @@ const workerPath = '/static/catalog-filter-core.v1.js';
 
 test('production catalog CSP admits only the fixed filter worker and its bounded jobs keep the page responsive', async ({ page }) => {
   const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
-  const response = await page.goto('/test/catalog');
+  const response = await page.goto('/fixture/catalog');
   const origin = new URL(page.url()).origin;
   expect(response.headers()['content-security-policy']).toContain('worker-src '+origin+'/static/native-filter.v1.js '+origin+workerPath+';');
   const outcome = await page.evaluate(async path => {
@@ -16,18 +16,18 @@ test('production catalog CSP admits only the fixed filter worker and its bounded
     };
     const matcher = new CatalogFilterMatcher({ createWorker });
     const rule = { active: 1, pattern: 'paper', boards: '', hidden: 1, top: 0 };
-    const matched = await matcher.match([rule], 'test', [
+    const matched = await matcher.match([rule], 'fixture', [
       { id: '9007199254740992', text: 'PAPER' }, { id: '9007199254740993', text: 'other' },
       { id: '9223372036854775807', text: 'paper' },
     ]);
     const timer = setInterval(() => ticks++, 10);
     const slow = { ...rule, pattern: '/^(a+)+$/' };
     const cards = [{ id: '1', text: 'a'.repeat(50000) + '!' }];
-    const timed = await matcher.match([slow], 'test', cards); clearInterval(timer);
+    const timed = await matcher.match([slow], 'fixture', cards); clearInterval(timer);
     const controller = new AbortController();
-    const pending = matcher.match([slow], 'test', cards, { signal: controller.signal }); controller.abort();
+    const pending = matcher.match([slow], 'fixture', cards, { signal: controller.signal }); controller.abort();
     const cancelled = await pending;
-    const healthy = await matcher.match([rule], 'test', [{ id: '1', text: 'paper' }]);
+    const healthy = await matcher.match([rule], 'fixture', [{ id: '1', text: 'paper' }]);
     return { matched, timed, cancelled, healthy, ticks, created, terminated };
   }, workerPath);
   expect(outcome.matched).toEqual({ status: 'ok', matches: [{ id: '9007199254740992', filter: 0 }, { id: '9223372036854775807', filter: 0 }] });
@@ -101,7 +101,7 @@ test('catalog worker response CSP denies network, imports and nested workers wit
       }
     ` + (await response.text()) });
   });
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   const origin = new URL(page.url()).origin;
   const outcome = await page.evaluate(async path => {
     const denied = [];

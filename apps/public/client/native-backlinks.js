@@ -1,12 +1,12 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
+import { isCommentElement } from './native-wordfilter-markup.js';
 
 export const BACKLINK_LIMITS = Object.freeze({ posts: 20001, linksPerPost: 512,
   links: 16384, edges: 4096, nodes: 16384, depth: 32,
   html: FILTER_LIMITS.html, text: FILTER_LIMITS.field,
   previewRows: 128, previewNodes: 1024, previewChars: 32768 });
 
-const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
 const id = value => typeof value === 'string' && !/\D/.test(value) && postId(value) === value;
 const escapeText = text => text.replace(/[&<>\u00a0]/g,
   ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\u00a0': '&nbsp;' })[ch]);
@@ -74,7 +74,8 @@ export function mountNativeBacklinks({ root, board, thread = null,
       if (++nodes > BACKLINK_LIMITS.nodes || depth > BACKLINK_LIMITS.depth) throw new RangeError('backlink-nodes');
       if (node.nodeType === 3) { text(node.data); return; }
       if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml'
-        || !tags.has(node.tagName) || node.attributes.length > 64) throw new TypeError('backlink-node');
+        || !isCommentElement(node, projection?.attributes(node) ?? node.attributes)
+        || node.attributes.length > 64) throw new TypeError('backlink-node');
       const tag = node.localName, leaf = tag === 'br' || tag === 'wbr';
       emit(`<${tag}`);
       for (const { name, value } of projection?.attributes(node) ?? node.attributes) {

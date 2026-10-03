@@ -51,7 +51,13 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
     let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
     let mut accepted = 0_i64;
     for route in ["post", "imgboard.php"] {
-        for value in ["<&".repeat(50), "é".repeat(50), "😀".repeat(25)] {
+        for value in [
+            "x".repeat(100),
+            "é".repeat(50),
+            format!("{}x", "界".repeat(33)),
+            "😀".repeat(25),
+        ] {
+            assert_eq!(value.len(), 100);
             let path = format!("/{board}/{route}");
             let response = app
                 .clone()
@@ -63,7 +69,12 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
             let id: i64 = location.split("#p").nth(1).unwrap().parse().unwrap();
             accepted += 1;
             let stored = board_store::find_post(&public, &board, id).await.unwrap();
-            assert_eq!(stored.name, value);
+            let expected_name = if value.contains('😀') {
+                "Anonymous"
+            } else {
+                &value
+            };
+            assert_eq!(stored.name, expected_name);
             let expected_subject = if value.contains('😀') { "" } else { &value };
             assert_eq!(stored.subject, expected_subject);
             let response = app
@@ -79,7 +90,7 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
             assert_eq!(response.status(), StatusCode::OK);
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-            assert_eq!(json["posts"][0]["name"], value);
+            assert_eq!(json["posts"][0]["name"], expected_name);
             if expected_subject.is_empty() {
                 assert!(json["posts"][0].get("sub").is_none());
             } else {
@@ -109,6 +120,22 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
                     .unwrap();
             assert_eq!(count, accepted);
         }
+        let expanded_name = "<&".repeat(50);
+        assert_eq!(expanded_name.len(), 100);
+        assert_eq!(
+            app.clone()
+                .oneshot(form(&format!("/{board}/{route}"), &expanded_name, ""))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+            .bind(&board)
+            .fetch_one(&public)
+            .await
+            .unwrap();
+        assert_eq!(count, accepted);
     }
     for query in [
         "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",

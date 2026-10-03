@@ -1,0 +1,178 @@
+{
+    "reference": "operator-supplied 4chan-old checkout",
+    "files": {
+        "plugins/robot9000.php": "a3506dbe3fcd53bc858e611ee2fb0cecd698e993b29c13cbe815987a5022e2bd",
+        "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+    },
+    "normalization": [
+        {
+            "input": "",
+            "error": "Textless posts are not allowed."
+        },
+        {
+            "input": "café",
+            "error": "Non-ASCII text is not allowed."
+        },
+        {
+            "input": "abc",
+            "normalized": "abc",
+            "reason": null
+        },
+        {
+            "input": "111abc222",
+            "normalized": "abc2",
+            "reason": null
+        },
+        {
+            "input": "aabbbccccdd",
+            "normalized": "aabcdd",
+            "reason": null
+        },
+        {
+            "input": "123ABC456 <b>AAA</b> &gt;&gt;42 &amp; -- XXxxx!!!",
+            "normalized": "abc456a--x",
+            "reason": null
+        },
+        {
+            "input": "before <a>inside</a> after",
+            "normalized": "beforeinsideafter",
+            "reason": null
+        },
+        {
+            "input": "words >>123 remain",
+            "normalized": "words123remain",
+            "reason": null
+        },
+        {
+            "input": "words &gt;&gt;123 remain",
+            "normalized": "wordsremain",
+            "reason": null
+        },
+        {
+            "input": "!!!!!!!!!!!a",
+            "normalized": "a",
+            "reason": "your comment was too low in content (8.33% content)."
+        },
+        {
+            "input": "!!!!!!!!!a",
+            "normalized": "a",
+            "reason": null
+        },
+        {
+            "input": "abcdefghijk",
+            "normalized": "abcdefghijk",
+            "reason": null
+        },
+        {
+            "input": "12345678901",
+            "normalized": "",
+            "reason": "your comment was too low in content (0.00% content)."
+        },
+        {
+            "input": "&amp; &unknown; &#039; &#123; &_word; content",
+            "normalized": "content",
+            "reason": null
+        },
+        {
+            "input": "&gt;&gt;&gt;/r9k/123 trailing",
+            "normalized": "r9k123trailing",
+            "reason": null
+        },
+        {
+            "input": "<a data-x=\">\">two</a>",
+            "normalized": "two",
+            "reason": null
+        },
+        {
+            "input": "left <unfinished",
+            "normalized": "leftunfinished",
+            "reason": null
+        },
+        {
+            "input": "AAA---BBB---",
+            "normalized": "a-b-",
+            "reason": null
+        },
+        {
+            "input": "<b></b>",
+            "normalized": "",
+            "reason": null
+        },
+        {
+            "input": "123abc456789",
+            "normalized": "abc456789",
+            "reason": null
+        },
+        {
+            "input": "aabbaa---cccc",
+            "normalized": "aabbaa-c",
+            "reason": null
+        },
+        {
+            "input": "<span class=\"quote\">&gt;!!!!!</span>",
+            "normalized": "",
+            "reason": "your comment was too low in content (0.00% content)."
+        },
+        {
+            "input": "&gt;<br>&gt;",
+            "normalized": "",
+            "reason": "your comment was too low in content (0.00% content)."
+        },
+        {
+            "input": "<s>&gt;&gt;42</s>",
+            "normalized": "",
+            "reason": "your comment was too low in content (0.00% content)."
+        },
+        {
+            "input": "      a      ",
+            "normalized": "a",
+            "reason": "your comment was too low in content (7.69% content)."
+        }
+    ],
+    "durations": [
+        {
+            "seconds": 0,
+            "text": ""
+        },
+        {
+            "seconds": 1,
+            "text": "1 second"
+        },
+        {
+            "seconds": 2,
+            "text": "2 seconds"
+        },
+        {
+            "seconds": 59,
+            "text": "59 seconds"
+        },
+        {
+            "seconds": 60,
+            "text": "1 minute"
+        },
+        {
+            "seconds": 61,
+            "text": "1 minute 1 second"
+        },
+        {
+            "seconds": 3600,
+            "text": "1 hour"
+        },
+        {
+            "seconds": 86400,
+            "text": "1 day"
+        },
+        {
+            "seconds": 604800,
+            "text": "1 week"
+        },
+        {
+            "seconds": 694861,
+            "text": "1 week 1 day 1 hour 1 minute 1 second"
+        },
+        {
+            "seconds": 31536000,
+            "text": "52 weeks 1 day"
+        }
+    ]
+}

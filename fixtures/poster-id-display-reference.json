@@ -1,0 +1,906 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+  },
+  "network_label_stub": "Ab12+/CD",
+  "php": "8.3.6",
+  "cases": [
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": null
+    },
+    {
+      "enabled": false,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": null
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": false,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": "Heaven"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": false,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": false,
+      "capcode": "founder",
+      "expected": "Founder"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "none",
+      "expected": "Ab12+/CD"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "mod",
+      "expected": "Mod"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "admin_highlight",
+      "expected": "Admin"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "manager",
+      "expected": "Manager"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "developer",
+      "expected": "Developer"
+    },
+    {
+      "enabled": true,
+      "sage": true,
+      "meta_board": true,
+      "no_heaven": true,
+      "capcode": "founder",
+      "expected": "Founder"
+    }
+  ]
+}

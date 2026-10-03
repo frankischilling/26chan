@@ -19,12 +19,16 @@ pub struct Report {
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,
+    pub staff_authorized_limits: bool,
+    pub wordfilter_payload: Option<Vec<u8>>,
     pub state: String,
     pub closed: bool,
     pub sticky: bool,
     pub permasage: bool,
     pub permaage: bool,
     pub deleted: bool,
+    pub spoilers_enabled: bool,
+    pub image_spoiler: bool,
     #[sqlx(skip)]
     pub attachment: Option<Attachment>,
 }
@@ -41,12 +45,17 @@ pub struct Attachment {
     pub thumbnail_height: Option<i32>,
     pub available: bool,
 }
-pub async fn reports(pool: &PgPool) -> Result<Vec<Report>, AppError> {
+pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, AppError> {
+    if !session.at_least(crate::access::Level::Janitor) {
+        return Err(AppError::Forbidden);
+    }
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.flag_name,p.subject,p.comment,p.comment_format,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,(p.deleted OR t.deleted) AS deleted FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100").fetch_all(&mut *tx).await?;
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
+        .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
+        .fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
     let attachments: Vec<Attachment> =
         sqlx::query_as("SELECT * FROM content.staff_post_media WHERE post_id=ANY($1)")
@@ -62,14 +71,14 @@ pub async fn reports(pool: &PgPool) -> Result<Vec<Report>, AppError> {
     tx.commit().await?;
     Ok(reports)
 }
-pub async fn moderate(
+pub(crate) async fn prepare_moderation(
     pool: &PgPool,
     session: &Session,
     board: &str,
     target: i64,
     action: &str,
-) -> Result<(), AppError> {
-    if !matches!(session.role.as_str(), "moderator" | "admin") {
+) -> Result<sqlx::Transaction<'static, sqlx::Postgres>, AppError> {
+    if !session.at_least(crate::access::Level::Janitor) {
         return Err(AppError::Forbidden);
     }
     if !session.recent {
@@ -90,6 +99,8 @@ pub async fn moderate(
             | "unpermaage"
             | "remove-post"
             | "remove-file"
+            | "spoiler"
+            | "unspoiler"
             | "remove-thread"
             | "resolve"
             | "dismiss"
@@ -97,13 +108,36 @@ pub async fn moderate(
     {
         return Err(AppError::Invalid);
     }
+    if !session
+        .permissions
+        .action_allowed(&session.role, board, action)
+    {
+        return Err(AppError::Forbidden);
+    }
     let mut tx = pool.begin().await?;
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(board)
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(AppError::NotFound)?;
-    if action == "remove-file" {
+    if matches!(action, "spoiler" | "unspoiler") {
+        let changed: bool = sqlx::query_scalar("SELECT content.set_post_image_spoiler($1,$2,$3)")
+            .bind(board)
+            .bind(target)
+            .bind(action == "spoiler")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(
+                |error| match error.as_database_error().and_then(|e| e.code()).as_deref() {
+                    Some("P0002") => AppError::NotFound,
+                    Some("22023") => AppError::Invalid,
+                    _ => AppError::Database(error),
+                },
+            )?;
+        if !changed {
+            return Ok(tx);
+        }
+    } else if action == "remove-file" {
         sqlx::query("SELECT content.delete_post_attachment($1,$2)")
             .bind(board)
             .bind(target)
@@ -179,6 +213,20 @@ pub async fn moderate(
         }
     }
     sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES ($1,$2,$3,$4)").bind(session.account_id).bind(board).bind(target).bind(action).execute(&mut *tx).await?;
-    tx.commit().await?;
+    Ok(tx)
+}
+
+#[cfg(feature = "database-tests")]
+pub async fn moderate(
+    pool: &PgPool,
+    session: &Session,
+    board: &str,
+    target: i64,
+    action: &str,
+) -> Result<(), AppError> {
+    prepare_moderation(pool, session, board, target, action)
+        .await?
+        .commit()
+        .await?;
     Ok(())
 }

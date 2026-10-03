@@ -43,7 +43,7 @@ fn form(
 async fn thread_status(app: &Router, id: &str) -> StatusCode {
     app.clone()
         .oneshot(
-            Request::get(format!("/test/thread/{id}.json"))
+            Request::get(format!("/fixture/thread/{id}.json"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -67,7 +67,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let response = app
             .clone()
             .oneshot(form(
-                "/test/imgboard.php",
+                "/fixture/imgboard.php",
                 &[
                     ("mode", "regist"),
                     ("sub", "Owned legacy deletion"),
@@ -93,7 +93,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let popup = app
             .clone()
             .oneshot(
-                Request::get(format!("/test/imgboard.php?mode=report&no={id}"))
+                Request::get(format!("/fixture/imgboard.php?mode=report&no={id}"))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -103,13 +103,13 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         assert_eq!(popup.headers()["x-frame-options"], "DENY");
         let popup = popup.into_body().collect().await.unwrap().to_bytes();
         let popup = std::str::from_utf8(&popup).unwrap();
-        assert!(popup.contains("action=\"/test/report\""));
+        assert!(popup.contains("action=\"/fixture/report\""));
         assert!(popup.contains(&format!("name=\"no\" value=\"{id}\"")));
         assert!(popup.contains("name=\"reason\""));
         let report = app
             .clone()
             .oneshot(form(
-                "/test/report",
+                "/fixture/report",
                 &[
                     ("no", id.as_str()),
                     ("reason", "Owned legacy report <literal>"),
@@ -121,7 +121,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             .unwrap();
         assert_eq!(report.status(), StatusCode::OK);
         let reason: String = sqlx::query_scalar(
-            "SELECT reason FROM content.reports WHERE board='test' AND post_id=$1",
+            "SELECT reason FROM content.reports WHERE board='fixture' AND post_id=$1",
         )
         .bind(id.parse::<i64>().unwrap())
         .fetch_one(&admin)
@@ -146,7 +146,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         for origin in [None, Some("null"), Some("https://untrusted.example")] {
             let response = app
                 .clone()
-                .oneshot(form("/test/imgboard.php", &fields, origin, multipart))
+                .oneshot(form("/fixture/imgboard.php", &fields, origin, multipart))
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -161,7 +161,12 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         wrong[2].1 = "wrong-password";
         let response = app
             .clone()
-            .oneshot(form("/test/imgboard.php", &wrong, Some(ORIGIN), multipart))
+            .oneshot(form(
+                "/fixture/imgboard.php",
+                &wrong,
+                Some(ORIGIN),
+                multipart,
+            ))
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -170,7 +175,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let response = app
             .clone()
             .oneshot(form(
-                "/test/imgboard.php?mode=usrdel",
+                "/fixture/imgboard.php?mode=usrdel",
                 &fields[1..],
                 Some(ORIGIN),
                 multipart,
@@ -187,20 +192,20 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let html = std::str::from_utf8(&body).unwrap();
         assert!(html.contains("Updating index"));
-        assert!(html.contains("href=\"/test/\""));
+        assert!(html.contains("href=\"/fixture/\""));
         assert!(!html.contains(PASSWORD));
         assert_eq!(thread_status(&app, &id).await, StatusCode::NOT_FOUND);
         let popup = app
             .clone()
             .oneshot(
-                Request::get(format!("/test/imgboard.php?mode=report&no={id}"))
+                Request::get(format!("/fixture/imgboard.php?mode=report&no={id}"))
                     .body(Body::empty())
                     .unwrap(),
             )
             .await
             .unwrap();
         assert_eq!(popup.status(), StatusCode::NOT_FOUND);
-        sqlx::query("DELETE FROM content.reports WHERE board='test' AND post_id=$1")
+        sqlx::query("DELETE FROM content.reports WHERE board='fixture' AND post_id=$1")
             .bind(id.parse::<i64>().unwrap())
             .execute(&admin)
             .await

@@ -1,0 +1,797 @@
+{
+    "reference": "operator-supplied 4chan-old checkout",
+    "runtime": "PHP 8.3.6, UTF-8 mbstring",
+    "board": "g",
+    "sjis": true,
+    "files": {
+        "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+        "catalog.php": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946",
+        "lib/util.php": "5307cea255e2d3eb243c7549e1a6521281bf6253c47e010476412b9a4c63a70c"
+    },
+    "link_cases": [
+        {
+            "input": "https://boards.4chan.org/g/thread/42",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "http://boards.4channel.org/G/res/42/a-slug#p43",
+            "normalized": ">>43",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/po/thread/42#q43",
+            "normalized": ">>>/po/43",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/imgboard.php?res=42#43",
+            "normalized": ">>43",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42#p",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/catalog#s=a+b",
+            "normalized": ">>>/g/a+b",
+            "links": [
+                {
+                    "href": "/g/catalog#s=a+b",
+                    "label": ">>>/g/a+b",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/catalog#s=ABC",
+            "normalized": ">>>/g/ABC",
+            "links": [
+                {
+                    "href": "/g/",
+                    "label": ">>>/g/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/",
+            "normalized": ">>>/g/",
+            "links": [
+                {
+                    "href": "/g/",
+                    "label": ">>>/g/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": [
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "Undefined variable $no"
+            ]
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42!!!",
+            "normalized": ">>42!!!",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42/slug!tail",
+            "normalized": ">>42!tail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "normalized": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "4chan HTTPS://boards.4CHAN.ORG/g/thread/42",
+            "normalized": "4chan >>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "4chan HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "normalized": "4chan HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "links": [
+                {
+                    "href": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+                    "label": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42#bad",
+            "normalized": "https://boards.4chan.org/g/thread/42#bad",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42#bad",
+                    "label": "https://boards.4chan.org/g/thread/42#bad",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42/no.valid",
+            "normalized": ">>42.valid",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42/slug/more",
+            "normalized": "https://boards.4chan.org/g/thread/42/slug/more",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42/slug/more",
+                    "label": "https://boards.4chan.org/g/thread/42/slug/more",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42?query=1",
+            "normalized": ">>42?query=1",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/faq https://example.org/elsewhere",
+            "normalized": "https://www.4chan.org/faq https://example.org/elsewhere",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/faq",
+                    "label": "https://www.4chan.org/faq",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://i.4cdn.org/g/1234567.jpg",
+            "normalized": "https://i.4cdn.org/g/1234567.jpg",
+            "links": [
+                {
+                    "href": "https://i.4cdn.org/g/1234567.jpg",
+                    "label": "https://i.4cdn.org/g/1234567.jpg",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "http://4chan.org http://www.4channel.org/rules?x=1&y=2.",
+            "normalized": "http://4chan.org http://www.4channel.org/rules?x=1&y=2.",
+            "links": [
+                {
+                    "href": "http://4chan.org",
+                    "label": "http://4chan.org",
+                    "new_tab": true
+                },
+                {
+                    "href": "http://www.4channel.org/rules?x=1&y=2",
+                    "label": "http://www.4channel.org/rules?x=1&y=2",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/faq/(test).,",
+            "normalized": "https://www.4chan.org/faq/(test).,",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/faq/(test",
+                    "label": "https://www.4chan.org/faq/(test",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/derefer?url=https://example.org/a",
+            "normalized": "https://www.4chan.org/derefer?url=https://example.org/a",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/derefer https://i.4cdn.org/g/1.jpg",
+            "normalized": "https://www.4chan.org/derefer https://i.4cdn.org/g/1.jpg",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/derefer",
+                    "label": "https://www.4chan.org/derefer",
+                    "new_tab": true
+                },
+                {
+                    "href": "https://i.4cdn.org/g/1.jpg",
+                    "label": "https://i.4cdn.org/g/1.jpg",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://example.org/ https://EXAMPLE.org/Path?x=1&y=2",
+            "normalized": "https://example.org/ https://EXAMPLE.org/Path?x=1&y=2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://user:password@www.4chan.org/faq",
+            "normalized": "https://user:password@www.4chan.org/faq",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org.evil.test/path",
+            "normalized": "https://www.4chan.org.evil.test/path",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/ >>>/g/catalog >>>/g/a+b/c,d-e",
+            "normalized": ">>>/po/ >>>/g/catalog >>>/g/a+b/c,d-e",
+            "links": [
+                {
+                    "href": "/po/",
+                    "label": ">>>/po/",
+                    "new_tab": false
+                },
+                {
+                    "href": "/g/catalog",
+                    "label": ">>>/g/catalog",
+                    "new_tab": false
+                },
+                {
+                    "href": "/g/catalog#s=a+b%2Fc%2Cd-e",
+                    "label": ">>>/g/a+b/c,d-e",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/unknown/catalog >>>/j/ >>>/test/ >>>/asp/",
+            "normalized": ">>>/unknown/catalog >>>/j/ >>>/test/ >>>/asp/",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/g/rules >>>/g/rules/3 >>>/unknown/rules/4",
+            "normalized": ">>>/g/rules >>>/g/rules/3 >>>/unknown/rules/4",
+            "links": [
+                {
+                    "href": "/rules#g",
+                    "label": ">>>/g/rules",
+                    "new_tab": true
+                },
+                {
+                    "href": "/rules#g3",
+                    "label": ">>>/g/rules/3",
+                    "new_tab": true
+                },
+                {
+                    "href": "/rules#unknown4",
+                    "label": ">>>/unknown/rules/4",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/f/catalog >>>/g/42 >>>/g/+42 >>>/g/-42 >>>/g/123abc",
+            "normalized": ">>>/f/catalog >>>/g/42 >>>/g/+42 >>>/g/-42 >>>/g/123abc",
+            "links": [
+                {
+                    "href": "/g/catalog#s=123abc",
+                    "label": ">>>/g/123abc",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/g/rulesbad >>>/g/CATALOG >>>/G/catalog",
+            "normalized": ">>>/g/rulesbad >>>/g/CATALOG >>>/G/catalog",
+            "links": [
+                {
+                    "href": "/rules#g",
+                    "label": ">>>/g/rulesbad",
+                    "new_tab": true
+                },
+                {
+                    "href": "/g/",
+                    "label": ">>>/g/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "normalized": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/g/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "normalized": ">>>/g/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "links": [
+                {
+                    "href": "/g/catalog#s=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                    "label": ">>>/g/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "normalized": "https://www.4chan.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                    "label": "https://www.4chan.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "<script>alert(\"owned\")</script> https://www.4chan.org/faq",
+            "normalized": "<script>alert(\"owned\")</script> https://www.4chan.org/faq",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/faq",
+                    "label": "https://www.4chan.org/faq",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        }
+    ],
+    "teaser_cases": [
+        {
+            "input": "[spoiler]hidden[/spoiler]\n\n> green  <script>&'\"",
+            "format": 125,
+            "comment": "<s>hidden</s><br><br><span class=\"quote\">&gt; green  &lt;script&gt;&amp;&#039;&quot;</span>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "<s>hidden</s> &gt; green  &lt;script&gt;&amp;&#039;&quot;"
+        },
+        {
+            "input": "[spoiler]hidden[/spoiler]\n\n> green  <script>&'\"",
+            "format": 125,
+            "comment": "<s>hidden</s><br><br><span class=\"quote\">&gt; green  &lt;script&gt;&amp;&#039;&quot;</span>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "<s>hidden</s> <span class=\"quote\">&gt; green  &lt;script&gt;&amp;&#039;&quot;</span>"
+        },
+        {
+            "input": "[spoiler]hidden[/spoiler]\n\n> green  <script>&'\"",
+            "format": 125,
+            "comment": "<s>hidden</s><br><br><span class=\"quote\">&gt; green  &lt;script&gt;&amp;&#039;&quot;</span>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "<s>hidden</s>\n&gt; green  &lt;script&gt;&amp;&#039;&quot;"
+        },
+        {
+            "input": "[spoiler]hidden[/spoiler]\n\n> green  <script>&'\"",
+            "format": 125,
+            "comment": "<s>hidden</s><br><br><span class=\"quote\">&gt; green  &lt;script&gt;&amp;&#039;&quot;</span>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "<s>hidden</s>\n<span class=\"quote\">&gt; green  &lt;script&gt;&amp;&#039;&quot;</span>"
+        },
+        {
+            "input": "[sjis]a\nb[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<br>b</span> tail",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "[SJIS] tail"
+        },
+        {
+            "input": "[sjis]a\nb[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<br>b</span> tail",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "[SJIS] tail"
+        },
+        {
+            "input": "[sjis]a\nb[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<br>b</span> tail",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "a\nb tail"
+        },
+        {
+            "input": "[sjis]a\nb[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<br>b</span> tail",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "<span class=\"sjis\">a\nb</span> tail"
+        },
+        {
+            "input": "[sjis]a[b]b[/b]c[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<span class=\"mu-s\">b</span>c</span> tail",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "[SJIS]c tail"
+        },
+        {
+            "input": "[sjis]a[b]b[/b]c[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<span class=\"mu-s\">b</span>c</span> tail",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "[SJIS]c</span> tail"
+        },
+        {
+            "input": "[sjis]a[b]b[/b]c[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<span class=\"mu-s\">b</span>c</span> tail",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "[SJIS]c tail"
+        },
+        {
+            "input": "[sjis]a[b]b[/b]c[/sjis] tail",
+            "format": 125,
+            "comment": "<span class=\"sjis\">a<span class=\"mu-s\">b</span>c</span> tail",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "[SJIS]c</span> tail"
+        },
+        {
+            "input": "[b]short[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">short</span>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "short"
+        },
+        {
+            "input": "[b]short[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">short</span>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "<span class=\"mu-s\">short</span>"
+        },
+        {
+            "input": "[b]short[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">short</span>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "short"
+        },
+        {
+            "input": "[b]short[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">short</span>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "<span class=\"mu-s\">short</span>"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxx",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxx",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxx",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxx",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxx",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxx",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxx",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxx",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&tail",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxx&amp;tail",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&amp;tail"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&tail",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxx&amp;tail",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&tail",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxx&amp;tail",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&amp;tail"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&tail",
+            "format": 125,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>xxxxxxxxxxxxxxxxxx&amp;tail",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "input": "[spoiler]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/spoiler]",
+            "format": 125,
+            "comment": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界</s>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界</s>"
+        },
+        {
+            "input": "[spoiler]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/spoiler]",
+            "format": 125,
+            "comment": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界</s>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界</s>…"
+        },
+        {
+            "input": "[spoiler]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/spoiler]",
+            "format": 125,
+            "comment": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界</s>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界</s>"
+        },
+        {
+            "input": "[spoiler]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/spoiler]",
+            "format": 125,
+            "comment": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界</s>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "<s>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界</s>…"
+        },
+        {
+            "input": "[b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "aaaaaaaaaaaa"
+        },
+        {
+            "input": "[b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "aaaaaaaaaaaa…"
+        },
+        {
+            "input": "[b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "aaaaaaaaaaaa"
+        },
+        {
+            "input": "[b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b][b]a[/b]",
+            "format": 125,
+            "comment": "<span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span><span class=\"mu-s\">a</span>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "aaaaaaaaaaaa…"
+        },
+        {
+            "input": "[sjis]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/sjis]",
+            "format": 125,
+            "comment": "<span class=\"sjis\">界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界</span>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "[SJIS]"
+        },
+        {
+            "input": "[sjis]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/sjis]",
+            "format": 125,
+            "comment": "<span class=\"sjis\">界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界</span>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "[SJIS]"
+        },
+        {
+            "input": "[sjis]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/sjis]",
+            "format": 125,
+            "comment": "<span class=\"sjis\">界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界</span>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "[SJIS]"
+        },
+        {
+            "input": "[sjis]界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界[/sjis]",
+            "format": 125,
+            "comment": "<span class=\"sjis\">界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界<wbr>界界界界界界界界界界界界界界界</span>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "[SJIS]"
+        },
+        {
+            "input": ">>>/g/catalog",
+            "format": 125,
+            "comment": "<a href=\"//boards.4chan.org/g/catalog\" class=\"quotelink\">&gt;&gt;&gt;/g/catalog</a>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "&gt;&gt;&gt;/g/catalog"
+        },
+        {
+            "input": ">>>/g/catalog",
+            "format": 125,
+            "comment": "<a href=\"//boards.4chan.org/g/catalog\" class=\"quotelink\">&gt;&gt;&gt;/g/catalog</a>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "<a href=\"//boards.4chan.org/g/catalog\" class=\"quotelink\">&gt;&gt;&gt;/g/catalog</a>"
+        },
+        {
+            "input": ">>>/g/catalog",
+            "format": 125,
+            "comment": "<a href=\"//boards.4chan.org/g/catalog\" class=\"quotelink\">&gt;&gt;&gt;/g/catalog</a>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "&gt;&gt;&gt;/g/catalog"
+        },
+        {
+            "input": ">>>/g/catalog",
+            "format": 125,
+            "comment": "<a href=\"//boards.4chan.org/g/catalog\" class=\"quotelink\">&gt;&gt;&gt;/g/catalog</a>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "<a href=\"//boards.4chan.org/g/catalog\" class=\"quotelink\">&gt;&gt;&gt;/g/catalog</a>"
+        },
+        {
+            "input": "https://www.4chan.org/faq",
+            "format": 125,
+            "comment": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a>",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "https://www.4chan.org/faq"
+        },
+        {
+            "input": "https://www.4chan.org/faq",
+            "format": 125,
+            "comment": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a>",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a>"
+        },
+        {
+            "input": "https://www.4chan.org/faq",
+            "format": 125,
+            "comment": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a>",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "https://www.4chan.org/faq"
+        },
+        {
+            "input": "https://www.4chan.org/faq",
+            "format": 125,
+            "comment": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a>",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a>"
+        },
+        {
+            "input": ">>42 >>>/po/43",
+            "format": 125,
+            "comment": "&gt;&gt;42 &gt;&gt;&gt;/po/43",
+            "text_only": false,
+            "truncate": false,
+            "teaser": "&gt;&gt;42 &gt;&gt;&gt;/po/43"
+        },
+        {
+            "input": ">>42 >>>/po/43",
+            "format": 125,
+            "comment": "&gt;&gt;42 &gt;&gt;&gt;/po/43",
+            "text_only": false,
+            "truncate": true,
+            "teaser": "&gt;&gt;42 &gt;&gt;&gt;/po/43"
+        },
+        {
+            "input": ">>42 >>>/po/43",
+            "format": 125,
+            "comment": "&gt;&gt;42 &gt;&gt;&gt;/po/43",
+            "text_only": true,
+            "truncate": false,
+            "teaser": "&gt;&gt;42 &gt;&gt;&gt;/po/43"
+        },
+        {
+            "input": ">>42 >>>/po/43",
+            "format": 125,
+            "comment": "&gt;&gt;42 &gt;&gt;&gt;/po/43",
+            "text_only": true,
+            "truncate": true,
+            "teaser": "&gt;&gt;42 &gt;&gt;&gt;/po/43"
+        }
+    ]
+}

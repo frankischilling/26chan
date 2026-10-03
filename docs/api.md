@@ -37,6 +37,12 @@ The public process rejects staff, media and migration credentials. Use separate 
 
 ## Origin and method contract
 
+[Source staff JSON projections](source-staff-json.md) cover conditional
+name/trip masking, badge reply groups, saved-label archive omission and
+meta-board policy. [Static staff IDs](source-staff-poster-ids.md) retain saved
+labels through policy changes. Complete source JSON and navigation parity remains tracked
+in issue #216.
+
 The pinned [API README](https://github.com/4chan/4chan-API/blob/2bd670d507ba2daa37a3961a661e088cf6f89d57/README.md) documents CORS from board origins for GET, HEAD and OPTIONS. This project maps that role to the exact configured `PUBLIC_ORIGIN`. It does not grant access to the original service's domains or arbitrary browser origins.
 
 Browser clients use `credentials: 'omit'`. There is no wildcard origin or credentialed CORS grant. GET and HEAD responses expose `ETag` and `Last-Modified`, including conditional responses. Preflight requests may ask for `If-None-Match` and `If-Modified-Since`; other requested headers and write methods are rejected. Cache variation includes Origin even when a request supplies no Origin or an unapproved one. Explicit cache-header exposure, preflight errors and JSON error bodies on this listener are project-defined behavior, not verified replicas of undocumented responses.

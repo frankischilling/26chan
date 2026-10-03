@@ -43,11 +43,11 @@ test('mobile file actions select but never submit the actual deletion form', asy
   await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
   const form = page.locator(`#p${id} form[action="/img/delete"]`);
   await expect(form.locator('[name=file_only]')).toBeChecked();
-  await expect(form.locator('[name=password]')).toBeFocused();
+  await expect(form.getByRole('button', { name: 'Delete post', exact: true })).toBeFocused();
   await expect(page).toHaveURL(/\/img\/thread\/1000201$/);
   await trigger(page).click(); await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
   await expect(form.locator('[name=file_only]')).not.toBeChecked();
-  await expect(form.locator('[name=password]')).toBeFocused();
+  await expect(form.getByRole('button', { name: 'Delete post', exact: true })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Post menu for post 1000206', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toHaveCount(0);

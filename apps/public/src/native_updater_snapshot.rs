@@ -140,11 +140,20 @@ fn encode(
             .filter(|post| post.id != thread.id)
             .map(|post| post.id),
         thread,
-        posts: posts.into_iter().map(PostView::new).collect(),
+        posts: Vec::new(),
         omitted,
         image_replies: images as i64,
     };
-    let rendered = render_posts(&view, &board, media_origin, limit)?;
+    // Decode and format one bounded post at a time. A large saved thread must
+    // not allocate all token vectors before the output writer enforces its cap.
+    let mut rendered = Vec::with_capacity(posts.len());
+    let mut remaining = limit;
+    for post in posts {
+        let item = PostView::new(post);
+        let result = render_post(&item, &view, &board, media_origin, remaining)?;
+        remaining -= result.html.len();
+        rendered.push(result);
+    }
     let result = Snapshot {
         version: 2,
         board: board.slug,
@@ -170,28 +179,39 @@ pub(crate) fn render_posts(
     let mut rendered = Vec::with_capacity(view.posts.len());
     let mut remaining = limit;
     for item in &view.posts {
-        let mut output = LimitedOutput::new(remaining);
-        PostFragment {
-            item,
-            view,
-            board,
-            media_origin,
-            catalog: false,
-        }
-        .render_into(&mut output)
-        .map_err(|_| unavailable())?;
-        remaining -= output.bytes.len();
-        rendered.push(RenderedPost {
-            no: item.post.id.to_string(),
-            file_deleted: item
-                .post
-                .attachment
-                .as_ref()
-                .is_some_and(|file| file.file_deleted),
-            html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
-        });
+        let result = render_post(item, view, board, media_origin, remaining)?;
+        remaining -= result.html.len();
+        rendered.push(result);
     }
     Ok(rendered)
+}
+
+fn render_post(
+    item: &PostView,
+    view: &ThreadView,
+    board: &board_store::Board,
+    media_origin: &str,
+    limit: usize,
+) -> Result<RenderedPost, AppError> {
+    let mut output = LimitedOutput::new(limit);
+    PostFragment {
+        item,
+        view,
+        board,
+        media_origin,
+        catalog: false,
+    }
+    .render_into(&mut output)
+    .map_err(|_| unavailable())?;
+    Ok(RenderedPost {
+        no: item.post.id.to_string(),
+        file_deleted: item
+            .post
+            .attachment
+            .as_ref()
+            .is_some_and(|file| file.file_deleted),
+        html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
+    })
 }
 
 impl RenderedPost {
@@ -330,14 +350,19 @@ async fn selected(
         .ok()
         .filter(|id| *id > 0 && id.to_string() == key)
         .ok_or(AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-    let snapshot = board_store::thread_snapshot_selection(&state.pool, &board, id, tail).await?;
+    let limit = state.limits.response_limit(MAX_BYTES);
+    let read_limit = limit
+        .saturating_mul(2)
+        .min(board_store::MAX_THREAD_READ_BYTES);
+    let snapshot =
+        board_store::thread_snapshot_selection_bounded(&state.pool, &board, id, tail, read_limit)
+            .await?;
     let modified = snapshot.thread.http_modified_at;
     let media_origin = state
         .media
         .as_ref()
         .map(|media| media.settings.origin.as_string())
         .unwrap_or_default();
-    let limit = state.limits.response_limit(MAX_BYTES);
     let bytes = encode(
         snapshot,
         &media_origin,
@@ -378,10 +403,18 @@ mod tests {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();
         let id = i64::MAX - 1;
         let board = Board {
+            source_order: 1000,
+            catalog_enabled: true,
+            json_enabled: true,
+            staff_only: false,
+            meta_board: false,
+            upload_board: false,
+            rss_enabled: true,
             slug: "test".into(),
             title: "Test".into(),
             description: String::new(),
             max_comment_chars: 16_000,
+            max_authorized_comment_chars: 10000,
             comment_code_spacing: true,
             comment_sjis_spacing: false,
             comment_max_lines: 100,
@@ -389,6 +422,7 @@ mod tests {
             require_subject: false,
             op_markup: false,
             forced_anon: false,
+            strip_tripcode: false,
             user_ids: false,
             country_flags: false,
             board_flags: vec![],
@@ -405,6 +439,12 @@ mod tests {
             archive_retention_seconds: 0,
             archive_limit: 0,
             image_limit: 100,
+            dice_roll: false,
+            fortune_trip: false,
+            robot9000: false,
+            robot9000_state_limit: 100000,
+            word_filter_enabled: false,
+            word_filter_profile: 0,
         };
         let thread = Thread {
             id,
@@ -427,12 +467,15 @@ mod tests {
             .into_iter()
             .map(|no| Post {
                 comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
                 id: no,
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "<img src=x onerror=alert(1)>".into(),
                 trip: None,
                 poster_id: None,
+                json_op_poster_id: None,
                 capcode: None,
                 country: None,
                 country_name: None,
@@ -440,6 +483,9 @@ mod tests {
                 flag_name: None,
                 subject: "<script>subject</script>".into(),
                 comment: "<script>alert(1)</script>\n>>9223372036854775806".into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: now,
                 deleted: false,
                 attachment: None,
@@ -523,6 +569,9 @@ mod tests {
                 let expected = crate::views::Comment {
                     lines: &board_domain::parse_post_comment(&snapshot.post.comment, format),
                     board: "test",
+                    dice_result: None,
+                    fortune_text: None,
+                    fortune_color: None,
                 }
                 .render()
                 .unwrap();
@@ -608,6 +657,23 @@ mod tests {
     }
 
     #[test]
+    fn randomizer_projection_uses_csp_safe_fortune_palette_and_retained_dice() {
+        let mut snapshot = fixture();
+        snapshot.posts[1].dice_result = Some("Rolled 6, 6 = 12 (2d6)".into());
+        snapshot.posts[1].fortune_text = Some("Outlook good".into());
+        snapshot.posts[1].fortune_color = Some("#00cbb0".into());
+        let value: serde_json::Value =
+            serde_json::from_slice(&encode(snapshot, "", MAX_BYTES).unwrap()).unwrap();
+        let html = value["posts"][1]["html"].as_str().unwrap();
+        assert!(html.contains("<b>Rolled 6, 6 = 12 (2d6)<br><br></b>"));
+        assert!(html.contains(
+            r#"<span class="fortune fortune-10"><br><br><b>Your fortune: Outlook good</b></span>"#
+        ));
+        assert!(!html.contains("style="));
+        assert!(!html.contains("#00cbb0"));
+    }
+
+    #[test]
     fn snapshot_uses_each_post_stamp_not_current_board_policy() {
         for format in [0, 8, 9, 15] {
             let mut snapshot = fixture();
@@ -617,6 +683,9 @@ mod tests {
             let expected = crate::views::Comment {
                 lines: &board_domain::parse_post_comment(&snapshot.posts[1].comment, format),
                 board: "test",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
             }
             .render()
             .unwrap();

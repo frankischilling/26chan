@@ -1,7 +1,11 @@
 #![forbid(unsafe_code)]
+pub mod access;
 pub mod auth;
 pub mod config;
+mod discussion;
 mod handlers;
+mod latest;
+mod posting_password;
 pub mod store;
 mod views;
 use axum::{
@@ -13,6 +17,7 @@ use axum::{
     routing::{get, post},
 };
 pub use config::{Config, valid_origin};
+pub use handlers::StaffRequestPeer;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use webauthn_rs::prelude::*;
@@ -27,12 +32,15 @@ pub struct AppState {
 pub struct Limits {
     pub permits: Arc<tokio::sync::Semaphore>,
     pub attempts: std::sync::Mutex<(std::time::Instant, u32)>,
+    pub response_output: board_http::ResponseBudget,
 }
 impl Default for Limits {
     fn default() -> Self {
         Self {
             permits: Arc::new(tokio::sync::Semaphore::new(16)),
             attempts: std::sync::Mutex::new((std::time::Instant::now(), 0)),
+            response_output: board_http::ResponseBudget::new(64 * 1024 * 1024)
+                .expect("fixed staff output budget"),
         }
     }
 }
@@ -46,6 +54,8 @@ pub enum AppError {
     Recent,
     #[error("Invalid request")]
     Invalid,
+    #[error("{0}")]
+    Posting(String),
     #[error("Object unavailable")]
     NotFound,
     #[error("Service unavailable")]
@@ -60,7 +70,7 @@ impl IntoResponse for AppError {
         let code = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,
-            Self::Invalid => StatusCode::BAD_REQUEST,
+            Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::SERVICE_UNAVAILABLE,
@@ -121,10 +131,33 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(handlers::landing))
         .route("/staff.js", get(handlers::javascript))
+        .route("/post-limits.js", get(handlers::post_limits_javascript))
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
-        .route("/post", get(handlers::posting).post(handlers::post_message))
+        .route("/latest.php", get(latest::latest))
+        .route("/j", get(discussion::index))
+        .route("/j/", get(discussion::index))
+        .route("/j/index.php", get(discussion::index))
+        .route("/j/thread/{thread}", get(discussion::thread))
+        .route("/j/res/{thread}", get(discussion::legacy_thread))
+        .route("/j/post/{post}", get(discussion::post_link))
+        .route("/j/{page}", get(discussion::page))
+        .route("/discussion.css", get(discussion::stylesheet))
+        .route("/j/latest.php", get(latest::latest))
+        .route("/imgboard.php", get(latest::legacy))
+        .route(
+            "/j/imgboard.php",
+            get(latest::legacy)
+                .post(discussion::submit)
+                .layer(DefaultBodyLimit::max(1_048_576)),
+        )
+        .route(
+            "/post",
+            get(handlers::posting)
+                .post(handlers::post_message)
+                .layer(DefaultBodyLimit::max(1_048_576)),
+        )
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))
         .route("/login/start", post(handlers::login_start))
@@ -181,6 +214,7 @@ mod tests {
             role: "moderator".into(),
             csrf_hash: auth::hash(&t),
             recent: true,
+            permissions: access::Permissions::all_boards(),
         };
         assert!(auth::csrf(&s, &t).is_ok());
         assert!(auth::csrf(&s, &auth::token()).is_err());

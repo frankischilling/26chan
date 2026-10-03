@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 const origin = 'http://127.0.0.1:3000';
 function fixture(command, slug) {
-  const executable = path.resolve(`target/debug/examples/tail-fixture${process.platform === 'win32' ? '.exe' : ''}`);
+  const executable = path.resolve(process.env.CARGO_TARGET_DIR || 'target', `debug/examples/tail-fixture${process.platform === 'win32' ? '.exe' : ''}`);
   const result = spawnSync(executable, [command, slug], { encoding: 'utf8', timeout: 15000,
     env: { MIGRATION_DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PATH: process.env.PATH, SystemRoot: process.env.SystemRoot } });
   expect(result.status, 'Owned tail fixture helper must succeed').toBe(0);

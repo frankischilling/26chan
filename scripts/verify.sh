@@ -12,12 +12,19 @@ if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium
 fi
 npm run check:generated
+node --test tests/browser/owned-upload-response.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
+npx playwright test tests/browser/anonymous-session.spec.js
+npm run test:global-search
+npm run test:posting-randomizers
+npm run test:robot9000
+npm run test:wordfilters
 npm run test:linkification
+npx playwright test tests/browser/static-quotes.spec.js
 npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes

@@ -20,6 +20,12 @@ pub struct PostingContext {
     pub op_password_proof: Option<[u8; 32]>,
 }
 
+#[derive(Clone, Copy)]
+pub struct AnonymousPostingContext {
+    pub posting: PostingContext,
+    pub session: anonymous_session::PostingSession,
+}
+
 pub async fn create_post(
     pool: &PgPool,
     slug: &str,
@@ -125,6 +131,7 @@ pub async fn create_post_with_identity_keys(
             keys,
             country_database: None,
             flag: "",
+            options: "",
         },
     )
     .await
@@ -135,6 +142,9 @@ pub struct PostMetadata<'a> {
     pub country_database: Option<&'a board_domain::country::CountryDatabase>,
     /// Public choice, validated against the locked operator-owned board policy.
     pub flag: &'a str,
+    /// Raw public options text. Operator-owned board policy decides whether a
+    /// dice or fortune request is meaningful after the board row is locked.
+    pub options: &'a str,
 }
 
 pub async fn create_post_with_metadata(
@@ -156,9 +166,44 @@ pub async fn create_post_with_metadata(
         PostWriteOptions {
             metadata,
             staff: None,
+            anonymous: None,
         },
     )
     .await
+}
+
+pub async fn create_post_with_anonymous_session(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: AnonymousPostingContext,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context.posting,
+        PostWriteOptions {
+            metadata,
+            staff: None,
+            anonymous: Some(context.session),
+        },
+    )
+    .await
+}
+
+/// Prepared source identity policy; the proof issuer independently checks it.
+#[derive(Clone, Copy)]
+pub struct StaffPostIdentity<'a> {
+    pub capcode: Option<board_domain::capcode::Capcode>,
+    pub name_allowed: bool,
+    pub administrator: bool,
+    pub tripcode_key: Option<&'a board_domain::identity::SecureKey>,
 }
 
 /// Server-owned WebAuthn session proof. Request bodies cannot supply this value.
@@ -169,6 +214,8 @@ pub struct StaffPostAuthority<'a> {
     pub ticket_hash: &'a [u8; 32],
     pub idle_seconds: i32,
     pub highlight: bool,
+    pub authorized_limits: bool,
+    pub identity: Option<StaffPostIdentity<'a>>,
 }
 
 pub async fn create_staff_post(
@@ -179,6 +226,17 @@ pub async fn create_staff_post(
     request_start: DateTime<Utc>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    if authority
+        .identity
+        .is_some_and(|identity| identity.capcode.is_none())
+    {
+        return Err(StoreError::Invalid(
+            "Ordinary staff posting context is required.",
+        ));
+    }
+    let tripcode = authority
+        .identity
+        .and_then(|identity| identity.tripcode_key);
     create_post_in_context(
         pool,
         slug,
@@ -193,21 +251,91 @@ pub async fn create_staff_post(
         PostWriteOptions {
             metadata: PostMetadata {
                 keys: PostIdentityKeys {
-                    tripcode: None,
+                    tripcode,
                     poster_id: None,
                 },
                 country_database: None,
                 flag: "",
+                options: "",
             },
             staff: Some(authority),
+            anonymous: None,
         },
     )
     .await
 }
 
+/// Ordinary staff posts retain public metadata and admission behavior. The
+/// independent authority issuer binds every derived value to the saved post.
+pub async fn create_ordinary_staff_post(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    context: PostingContext,
+    metadata: PostMetadata<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    if authority
+        .identity
+        .is_none_or(|identity| identity.capcode.is_some())
+        || context.peer.is_none()
+        || metadata.keys.poster_id.is_none()
+        || post.deletion_hash.is_empty()
+        || post.deletion_hash.len() > 256
+        || authority.highlight
+    {
+        return Err(StoreError::Invalid(
+            "Ordinary staff posting context is unavailable.",
+        ));
+    }
+    let auth_pool = authority.auth_pool;
+    let ticket = authority.ticket_hash;
+    let session = authority.session_hash;
+    let result = create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        None,
+        context,
+        PostWriteOptions {
+            metadata,
+            staff: Some(authority),
+            anonymous: None,
+        },
+    )
+    .await;
+    if result.is_err() {
+        // A failed insert or Robot9000 savepoint rollback leaves the separate
+        // auth-pool proof unused. Remove only this request's ordinary proof.
+        sqlx::query("SELECT staff_identity.discard_ordinary_post_authority($1,$2)")
+            .bind(ticket.as_slice())
+            .bind(session)
+            .execute(auth_pool)
+            .await?;
+    }
+    result
+}
+
+pub async fn staff_op_deletion_hash(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+) -> Result<Option<String>, StoreError> {
+    Ok(
+        sqlx::query_scalar("SELECT content.staff_op_deletion_hash($1,$2)")
+            .bind(slug)
+            .bind(parent)
+            .fetch_one(pool)
+            .await?,
+    )
+}
+
 struct PostWriteOptions<'a> {
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
+    anonymous: Option<anonymous_session::PostingSession>,
 }
 
 async fn create_post_in_context(
@@ -219,9 +347,31 @@ async fn create_post_in_context(
     context: PostingContext,
     options: PostWriteOptions<'_>,
 ) -> Result<i64, StoreError> {
-    let PostWriteOptions { metadata, staff } = options;
+    let PostWriteOptions {
+        metadata,
+        staff,
+        anonymous,
+    } = options;
     let keys = metadata.keys;
-    let comment = board_domain::normalize_comment(&post.comment)
+    let ordinary_staff = staff
+        .as_ref()
+        .and_then(|authority| authority.identity)
+        .is_some_and(|identity| identity.capcode.is_none());
+    let ordinary = staff.is_none() || ordinary_staff;
+    let authorized_staff = staff
+        .as_ref()
+        .is_some_and(|authority| authority.authorized_limits);
+    let prepared_options = board_domain::posting_options::without_sage(metadata.options);
+    let preliminary_limits = if staff
+        .as_ref()
+        .is_some_and(|authority| authority.authorized_limits)
+    {
+        board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+            .map_err(|error| StoreError::Invalid(error.0))?
+    } else {
+        board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+    };
+    let comment = board_domain::normalize_comment_with_limits(&post.comment, preliminary_limits)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let posted_at = context
         .request_start
@@ -241,6 +391,50 @@ async fn create_post_in_context(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
+    let post_limits = if staff
+        .as_ref()
+        .is_some_and(|authority| authority.authorized_limits)
+    {
+        board_domain::PostLimits::authorized(board.max_authorized_comment_chars as usize)
+            .map_err(|error| StoreError::Invalid(error.0))?
+    } else {
+        board_domain::PostLimits::ordinary(board.max_comment_chars as usize)
+    };
+    let wordfilter_limits = board_domain::WordfilterLimits::for_post(post_limits);
+    // Acquire policy, peer and activity locks before OP membership checks.
+    // Source filters ordinary staff posts too; cosmetic badges do not confer
+    // public identity or bypass authority on an unbadged post.
+    let admission = if ordinary || slug == "test" {
+        Some(crate::content_admission::begin(&mut tx, slug, context.peer, anonymous).await?)
+    } else {
+        None
+    };
+    let special = board_domain::posting_randomizers::request(
+        metadata.options,
+        board.dice_roll,
+        board.fortune_trip,
+    )
+    .map_err(|error| StoreError::Invalid(error.0))?
+    .map(|request| {
+        board_domain::posting_randomizers::generate(&request)
+            .map_err(|_| StoreError::RandomnessUnavailable)
+    })
+    .transpose()?;
+    let (dice_result, fortune_text, fortune_color) = match special {
+        Some(board_domain::posting_randomizers::Outcome::Dice(result)) => {
+            (Some(result), None, None)
+        }
+        Some(board_domain::posting_randomizers::Outcome::Fortune { text, color }) => {
+            (None, Some(text), Some(color))
+        }
+        None => (None, None, None),
+    };
+    sqlx::query("SELECT set_config('board.dice_result',$1,true),set_config('board.fortune_text',$2,true),set_config('board.fortune_color',$3,true)")
+        .bind(dice_result.as_deref().unwrap_or(""))
+        .bind(fortune_text.unwrap_or(""))
+        .bind(fortune_color.as_deref().unwrap_or(""))
+        .execute(&mut *tx)
+        .await?;
     board.check_attachment_allowed(parent, attachment.is_some())?;
     let flag = if metadata.flag == "0" {
         ""
@@ -253,7 +447,7 @@ async fn create_post_in_context(
     {
         return Err(StoreError::Invalid("Invalid board flag."));
     }
-    let country = if staff.is_none() && board.country_flags && flag.is_empty() {
+    let country = if ordinary && board.country_flags && flag.is_empty() {
         let database = metadata
             .country_database
             .ok_or(StoreError::Invalid("Country flags are unavailable."))?;
@@ -273,7 +467,19 @@ async fn create_post_in_context(
         .bind(country.as_ref().map_or("", |value| value.name.as_str()))
         .bind(flag).execute(&mut *tx).await?;
     let peer = context.peer.map(|peer| peer.to_canonical().to_string());
-    let own_reply = if parent > 0 {
+    let staff_op: Option<(bool, Option<DateTime<Utc>>)> = if ordinary_staff && parent > 0 {
+        sqlx::query_as("SELECT * FROM content.staff_op_context($1,$2,$3)")
+            .bind(slug)
+            .bind(parent)
+            .bind(&peer)
+            .fetch_optional(&mut *tx)
+            .await?
+    } else {
+        None
+    };
+    let own_reply = if ordinary_staff {
+        staff_op.as_ref().is_some_and(|(own, _)| *own)
+    } else if parent > 0 {
         if let Some(peer) = &peer {
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.op_peers WHERE thread_id=$1 AND peer=$2::text::inet)")
                 .bind(parent).bind(peer).fetch_one(&mut *tx).await?
@@ -283,13 +489,21 @@ async fn create_post_in_context(
     } else {
         false
     };
-    let password_matches = if staff.is_none() && board.op_markup && parent > 0 {
+    let password_matches = if ordinary && board.op_markup && parent > 0 {
         if let Some(proof) = context.op_password_proof {
-            let hash: Option<String> = sqlx::query_scalar(crate::read::OP_DELETION_HASH)
-                .bind(slug)
-                .bind(parent)
-                .fetch_optional(&mut *tx)
-                .await?;
+            let hash: Option<String> = if ordinary_staff {
+                sqlx::query_scalar("SELECT content.staff_op_deletion_hash($1,$2)")
+                    .bind(slug)
+                    .bind(parent)
+                    .fetch_one(&mut *tx)
+                    .await?
+            } else {
+                sqlx::query_scalar(crate::read::OP_DELETION_HASH)
+                    .bind(slug)
+                    .bind(parent)
+                    .fetch_optional(&mut *tx)
+                    .await?
+            };
             hash.is_some_and(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) == proof)
         } else {
             false
@@ -297,40 +511,296 @@ async fn create_post_in_context(
     } else {
         false
     };
-    let op_markup = board.op_markup && (parent == 0 || own_reply || password_matches);
+    let session_matches = if staff.is_none() && board.op_markup && parent > 0 {
+        if let Some(session) = anonymous {
+            anonymous_session::locked_post_proof(&mut tx, &session.fingerprints.token, slug, parent)
+                .await?
+                .is_some()
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    let op_markup =
+        board.op_markup && (parent == 0 || own_reply || password_matches || session_matches);
     // Source clears identity before required-subject and final content checks.
     // Retain the raw input bounds even when these fields will be discarded.
     let (post_name, post_subject) = if board.forced_anon {
-        board_domain::validate_post_with_attachment(
+        board_domain::validate_post_with_limits(
             &post.name,
             &post.subject,
             &comment,
-            board.max_comment_chars as usize,
+            post_limits,
             true,
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
-        ("Anonymous", "")
+        (
+            if staff
+                .as_ref()
+                .and_then(|authority| authority.identity)
+                .is_some_and(|identity| identity.administrator)
+            {
+                post.name.as_str()
+            } else {
+                "Anonymous"
+            },
+            "",
+        )
     } else {
         (post.name.as_str(), post.subject.as_str())
     };
-    let board_domain::PreparedPostContent { comment, subject } =
-        board_domain::prepare_post_content(
+    let identity = if let Some(source) = staff.as_ref().and_then(|authority| authority.identity) {
+        let prepared = board_domain::identity::prepare_for_board_with_limits(
             post_name,
-            post_subject,
-            &comment,
-            board.max_comment_chars as usize,
-            attachment.is_some(),
-            board.comment_spacing().with_op_markup(op_markup),
-            if parent == 0 {
-                board_domain::PostKind::Thread {
-                    subject_required: board.require_subject,
-                    text_only: board.text_only,
-                }
-            } else {
-                board_domain::PostKind::Reply
-            },
+            keys.tripcode,
+            board.comment_spacing(),
+            board.strip_tripcode,
+            post_limits,
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
+        // Source checks the finished name/trip bound before masking the name.
+        if source.name_allowed {
+            prepared
+        } else {
+            board_domain::identity::Identity {
+                name: "Anonymous".into(),
+                trip: None,
+            }
+        }
+    } else if staff.is_some() {
+        // Legacy proofs and private discussion never publish a raw trip secret.
+        let display = post_name.split('#').next().unwrap_or("").trim();
+        if board_domain::source_html_entities(display).len()
+            > board_domain::identity::MAX_DISPLAY_NAME_BYTES
+        {
+            return Err(StoreError::Invalid("Name or subject is too long."));
+        }
+        board_domain::identity::Identity {
+            name: if display.is_empty() {
+                "Anonymous"
+            } else {
+                display
+            }
+            .into(),
+            trip: None,
+        }
+    } else {
+        board_domain::identity::prepare_for_board(
+            post_name,
+            keys.tripcode,
+            board.comment_spacing(),
+            board.strip_tripcode,
+        )
+        .map_err(|error| StoreError::Invalid(error.0))?
+    };
+    let content = board_domain::prepare_post_content_input_with_limits(
+        post_name,
+        post_subject,
+        &comment,
+        post_limits,
+        attachment.is_some(),
+        board.comment_spacing().with_op_markup(op_markup),
+        if parent == 0 {
+            board_domain::PostKind::Thread {
+                subject_required: board.require_subject,
+                text_only: board.text_only,
+            }
+        } else {
+            board_domain::PostKind::Reply
+        },
+    )
+    .map_err(|error| StoreError::Invalid(error.0))?;
+    // Invalid, closed or full targets cannot create filter effects or fake
+    // success. The board lock keeps this snapshot valid until the later insert.
+    let reply_target = if parent > 0 {
+        let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
+            .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
+        if thread.archived_at.is_some()
+            || (!authorized_staff && (thread.closed || thread.reply_count >= board.reply_limit))
+        {
+            return Err(StoreError::Conflict(
+                "This thread is closed or has reached its reply limit.",
+            ));
+        }
+        Some(thread)
+    } else {
+        None
+    };
+    let mut autosage_proof = None;
+    if let Some(admission) = admission {
+        let filename = if let Some(attachment) = attachment {
+            sqlx::query_scalar("SELECT content.attachment_upload_filename($1,$2)")
+                .bind(&attachment.upload.id)
+                .bind(&attachment.upload.capability)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(post_media::scoped_error)?
+        } else {
+            String::new()
+        };
+        let evaluated = admission
+            .evaluate(crate::content_admission::Input {
+                board: slug.into(),
+                parent,
+                // The source hook receives escaped display text and the public
+                // trip span after hashing, never the private trip password.
+                name: match &identity.trip {
+                    Some(trip) => format!(
+                        "{}</span> <span class=\"postertrip\">{trip}",
+                        board_domain::source_html_entities(&identity.name)
+                    ),
+                    None => board_domain::source_html_entities(&identity.name),
+                },
+                // Admit only a derived legacy hash. The source leaves its raw
+                // second field in $trip when suppression skips hashing; this
+                // backend excludes that secret from admission and logging.
+                legacy_trip: identity
+                    .trip
+                    .as_deref()
+                    .filter(|trip| !trip.starts_with("!!"))
+                    .and_then(|trip| trip.strip_prefix('!'))
+                    .unwrap_or("")
+                    .into(),
+                subject: board_domain::source_html_entities(content.subject()),
+                comment: board_domain::source_html_entities(content.comment()),
+                filename,
+            })
+            .await?;
+        evaluated.record(&mut tx).await?;
+        if let Some(message) = evaluated.rejection() {
+            tx.commit().await?;
+            return Err(StoreError::ContentRejected(message));
+        }
+        if matches!(
+            evaluated.decision,
+            board_domain::content_admission::Decision::Reject { quiet: true, .. }
+        ) {
+            let post = crate::content_admission::quiet_post(&mut tx, slug, parent).await?;
+            tx.commit().await?;
+            return Err(StoreError::ContentQuiet { post });
+        }
+        autosage_proof = evaluated.autosage_proof();
+        if let Some(message) = evaluated.trip_rejection() {
+            // Later admission failures share the posting transaction. Do not
+            // retain a preceding log/autosage hit from an incomplete post.
+            return Err(StoreError::ContentRejected(message.into()));
+        }
+    }
+    let board_domain::PreparedPostContent { comment, subject } = content
+        .finish()
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    let mut wordfiltered = if board.word_filter_enabled {
+        use board_domain::wordfilter::{LeetRolls, Profile};
+        let profile = match board.word_filter_profile {
+            0 => Profile::Global,
+            1 => Profile::Basic,
+            2 => Profile::Asp,
+            3 => Profile::Video,
+            4 => Profile::Test,
+            _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+        };
+        let rolls = if profile == Profile::Test {
+            Some(LeetRolls::generate().map_err(|_| StoreError::RandomnessUnavailable)?)
+        } else {
+            None
+        };
+        Some(
+            board_domain::wordfiltered_comment::prepare_with_limits(
+                &comment,
+                board_domain::comment_markup::MarkupPolicy {
+                    spoilers: board.comment_spoiler_cleanup,
+                    code: board.comment_code_spacing,
+                    sjis: board.comment_sjis_spacing,
+                    op: op_markup,
+                },
+                profile,
+                rolls,
+                post_limits,
+            )
+            .map_err(|error| StoreError::Invalid(error.0))?,
+        )
+    } else {
+        None
+    };
+    if let Some(prepared) = &mut wordfiltered {
+        prepared.freeze_format(slug);
+    }
+    let wordfilter_payload = wordfiltered
+        .as_ref()
+        .map(board_domain::wordfiltered_comment::PreparedComment::encode)
+        .transpose()
+        .map_err(|error| StoreError::Invalid(error.0))?;
+    let formatted = wordfiltered
+        .as_ref()
+        .map(|prepared| board_domain::filtered_formatting::lines(prepared, slug));
+    let wordfilter_search = formatted
+        .as_ref()
+        .map(|lines| board_domain::formatting::plain_text(lines));
+    if wordfilter_search
+        .as_ref()
+        .is_some_and(|text| text.len() > wordfilter_limits.stored_bytes())
+    {
+        return Err(StoreError::Invalid("Wordfilter output is too large."));
+    }
+    let comment = formatted.as_ref().map_or(comment, |lines| {
+        board_domain::filtered_formatting::source_projection(lines)
+    });
+    if comment.len() > wordfilter_limits.output_bytes() {
+        return Err(StoreError::Invalid("Wordfilter output is too large."));
+    }
+    let encoded_payload = wordfilter_payload
+        .as_ref()
+        .map_or_else(String::new, |bytes| {
+            bytes
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        });
+    sqlx::query("SELECT set_config('board.wordfilter_payload',$1,true),set_config('board.wordfilter_search',$2,true)")
+        .bind(encoded_payload)
+        .bind(wordfilter_search.as_deref().unwrap_or_default())
+        .execute(&mut *tx)
+        .await?;
+    // Keep the locked policy outside the savepoint. A rejected post rolls back
+    // rollover, counters, attachments and secrets, then persists only its mute.
+    let robot_applies = match staff.as_ref() {
+        None => {
+            board_domain::robot9000::applies_to_post(board.robot9000, None, metadata.options, false)
+        }
+        Some(authority) => authority.identity.is_some_and(|identity| {
+            board_domain::robot9000::applies_to_post(
+                board.robot9000,
+                identity.capcode,
+                &prepared_options,
+                true,
+            )
+        }),
+    };
+    let robot_actor = if robot_applies {
+        let key = keys
+            .poster_id
+            .ok_or(StoreError::Invalid("Robot9000 identity is unavailable."))?;
+        let peer = context
+            .peer
+            .ok_or(StoreError::Invalid("Robot9000 identity is unavailable."))?;
+        Some(
+            key.robot9000_fingerprint(slug, peer)
+                .map_err(|error| StoreError::Invalid(error.0))?,
+        )
+    } else {
+        None
+    };
+    if robot_actor.is_some() {
+        sqlx::query("SAVEPOINT robot9000_post")
+            .execute(&mut *tx)
+            .await?;
+    }
+    sqlx::query("SELECT set_config('board.content_autosage',$1,true),set_config('board.content_admission_revision',$2,true),set_config('board.content_admission_peer',$3,true)")
+        .bind(autosage_proof.map(|(rule,_)| rule.to_string()).unwrap_or_default())
+        .bind(autosage_proof.map(|(_,revision)| revision.to_string()).unwrap_or_default())
+        .bind(context.peer.map(|peer| peer.to_canonical().to_string()).unwrap_or_default())
+        .execute(&mut *tx).await?;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await?;
@@ -346,28 +816,19 @@ async fn create_post_in_context(
         .await?;
         id
     } else {
-        let thread: Thread = sqlx::query_as(
-            "SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS (SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE",
-        )
-        .bind(slug)
-        .bind(parent)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(StoreError::NotFound)?;
-        if thread.archived_at.is_some() || thread.closed || thread.reply_count >= board.reply_limit
-        {
-            return Err(StoreError::Conflict(
-                "This thread is closed or has reached its reply limit.",
-            ));
-        }
+        let thread = reply_target.expect("validated locked reply target");
         // Count under the same board lock as posting/deletion. The incoming
         // row is not inserted yet; the source's decision includes that reply.
         let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
             .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
         let mut self_sage = false;
         if own_reply && board.op_bump_limit {
-            let latest: Option<DateTime<Utc>> = sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
-                .bind(parent).bind(slug).fetch_optional(&mut *tx).await?;
+            let latest: Option<DateTime<Utc>> = if ordinary_staff {
+                staff_op.as_ref().and_then(|(_, time)| *time)
+            } else {
+                sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
+                    .bind(parent).bind(slug).fetch_optional(&mut *tx).await?
+            };
             self_sage = board_domain::op_bump::limited(
                 true,
                 context.request_start.timestamp(),
@@ -393,7 +854,7 @@ async fn create_post_in_context(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let poster_id = if staff.is_none() && board.user_ids {
+    let poster_id = if ordinary && board.user_ids {
         let key = keys
             .poster_id
             .ok_or(StoreError::Invalid("Poster IDs are unavailable."))?;
@@ -407,10 +868,13 @@ async fn create_post_in_context(
     } else {
         None
     };
-    sqlx::query("SELECT set_config('board.poster_id', $1, true)")
-        .bind(poster_id.as_deref().unwrap_or(""))
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "SELECT set_config('board.poster_id', $1, true),set_config('board.post_sage', $2, true)",
+    )
+    .bind(poster_id.as_deref().unwrap_or(""))
+    .bind(post.sage.to_string())
+    .execute(&mut *tx)
+    .await?;
     let count_context = keys
         .poster_id
         .zip(context.peer)
@@ -421,23 +885,6 @@ async fn create_post_in_context(
         .bind(count_context.as_ref().map_or("", |value| value.fingerprint.as_str()))
         .bind(count_context.as_ref().map_or("", |value| value.epoch.as_str()))
         .execute(&mut *tx).await?;
-    let identity = if staff.is_some() {
-        // Staff badges replace trips. Never publish a suffix entered using the
-        // public form's private trip-password syntax.
-        let display = post_name.split('#').next().unwrap_or("").trim();
-        board_domain::identity::Identity {
-            name: if display.is_empty() {
-                "Anonymous"
-            } else {
-                display
-            }
-            .into(),
-            trip: None,
-        }
-    } else {
-        board_domain::identity::prepare(post_name, keys.tripcode)
-            .map_err(|error| StoreError::Invalid(error.0))?
-    };
     sqlx::query("SELECT set_config('board.post_trip', $1, true)")
         .bind(identity.trip.as_deref().unwrap_or(""))
         .execute(&mut *tx)
@@ -451,24 +898,70 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     if let Some(authority) = &staff {
-        sqlx::query(
-            "SELECT staff_identity.issue_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-        )
-        .bind(authority.ticket_hash.as_slice())
-        .bind(authority.session_hash)
-        .bind(authority.csrf_hash)
-        .bind(authority.idle_seconds)
-        .bind(authority.highlight)
-        .bind(id)
-        .bind(slug)
-        .bind(thread_id)
-        .bind(name)
-        .bind(&subject)
-        .bind(comment.as_str())
-        .bind(posted_at)
-        .execute(authority.auth_pool)
-        .await
-        .map_err(staff_post_error)?;
+        if ordinary_staff {
+            let proof = context
+                .op_password_proof
+                .map(|proof| {
+                    proof
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect::<String>()
+                })
+                .unwrap_or_default();
+            sqlx::query("SELECT set_config('board.peer',$1,true),set_config('board.deletion_hash',$2,true),set_config('board.op_password_proof',$3,true),set_config('board.staff_post_options',$4,true)")
+                .bind(&peer).bind(&post.deletion_hash).bind(proof).bind(&prepared_options)
+                .execute(&mut *tx).await?;
+            let bound_context: sqlx::types::JsonValue =
+                sqlx::query_scalar("SELECT content.staff_ordinary_context()")
+                    .fetch_one(&mut *tx)
+                    .await?;
+            sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)")
+                .bind(authority.ticket_hash.as_slice()).bind(authority.session_hash).bind(authority.csrf_hash)
+                .bind(authority.idle_seconds).bind(id).bind(slug).bind(thread_id).bind(name)
+                .bind(&subject).bind(comment.as_str()).bind(posted_at).bind(authority.authorized_limits)
+                .bind(post_limits.comment_chars() as i32).bind(wordfilter_payload.as_deref())
+                .bind(wordfilter_search.as_deref()).bind(&prepared_options).bind(identity.trip.as_deref())
+                .bind(authority.identity.expect("ordinary identity").name_allowed).bind(bound_context)
+                .execute(authority.auth_pool).await.map_err(staff_post_error)?;
+        } else {
+            let issuer = if authority.identity.is_some() {
+                "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)"
+            } else {
+                "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)"
+            };
+            let mut proof = sqlx::query(issuer)
+                .bind(authority.ticket_hash.as_slice())
+                .bind(authority.session_hash)
+                .bind(authority.csrf_hash)
+                .bind(authority.idle_seconds)
+                .bind(authority.highlight)
+                .bind(id)
+                .bind(slug)
+                .bind(thread_id)
+                .bind(name)
+                .bind(&subject)
+                .bind(comment.as_str())
+                .bind(posted_at)
+                .bind(authority.authorized_limits)
+                .bind(post_limits.comment_chars() as i32)
+                .bind(wordfilter_payload.as_deref())
+                .bind(wordfilter_search.as_deref());
+            if let Some(source) = authority.identity {
+                proof = proof
+                    .bind(
+                        source
+                            .capcode
+                            .expect("validated badge identity")
+                            .source_option(),
+                    )
+                    .bind(identity.trip.as_deref())
+                    .bind(source.name_allowed);
+            }
+            proof
+                .execute(authority.auth_pool)
+                .await
+                .map_err(staff_post_error)?;
+        }
         let ticket = authority
             .ticket_hash
             .iter()
@@ -504,7 +997,7 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
     }
-    if parent == 0 {
+    if !ordinary_staff && parent == 0 {
         if let Some(peer) = peer {
             sqlx::query(
                 "INSERT INTO post_secrets.op_peers(thread_id,peer) VALUES($1,$2::text::inet)",
@@ -514,12 +1007,50 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
         }
-    } else if own_reply {
+    } else if !ordinary_staff && own_reply {
         sqlx::query("INSERT INTO post_secrets.op_replies(post_id,thread_id) VALUES($1,$2)")
             .bind(id)
             .bind(parent)
             .execute(&mut *tx)
             .await?;
+    }
+    if let Some(actor) = robot_actor {
+        let prepared = if wordfiltered.is_some() {
+            board_domain::robot9000::prepare(&comment)
+        } else {
+            board_domain::robot9000::prepare_post(
+                &comment,
+                board_domain::comment_markup::MarkupPolicy {
+                    spoilers: board.comment_spoiler_cleanup,
+                    code: board.comment_code_spacing,
+                    sjis: board.comment_sjis_spacing,
+                    op: op_markup,
+                },
+                slug,
+            )
+        }
+        .map_err(StoreError::Invalid)?;
+        let now = Utc::now()
+            .with_nanosecond(0)
+            .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
+        let decision = crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await?;
+        if let crate::robot9000::Decision::Reject(message) = &decision {
+            sqlx::query("ROLLBACK TO SAVEPOINT robot9000_post")
+                .execute(&mut *tx)
+                .await?;
+            // The pre-savepoint board lock prevents another writer changing
+            // the decision between rollback and the state-only commit.
+            if crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await? != decision {
+                return Err(StoreError::Database(sqlx::Error::Protocol(
+                    "Robot9000 decision changed under the board lock.".into(),
+                )));
+            }
+            tx.commit().await?;
+            return Err(StoreError::Robot9000Rejected(message.clone()));
+        }
+    }
+    if let Some(session) = anonymous {
+        anonymous_session::record_post(&mut tx, session, slug, id).await?;
     }
     tx.commit().await?;
     Ok(id)
@@ -566,6 +1097,30 @@ pub async fn delete_with_password_proof(
         .fetch_optional(&mut *tx)
         .await?;
     if current.is_none_or(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) != proof) {
+        return Err(StoreError::AuthorizationChanged);
+    }
+    if file_only {
+        post_media::delete_attachment(&mut *tx, slug, id).await?;
+    } else {
+        delete_post_in(&mut tx, slug, id).await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Recheck and lock the private session membership under the board mutation
+/// lock. Revocation or password rotation during the earlier read fails closed.
+pub async fn delete_with_anonymous_proof(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    token: [u8; 32],
+    proof: [u8; 32],
+    file_only: bool,
+) -> Result<(), StoreError> {
+    let mut tx = pool.begin().await?;
+    lock_deletion_board(&mut tx, slug).await?;
+    if anonymous_session::locked_post_proof(&mut tx, &token, slug, id).await? != Some(proof) {
         return Err(StoreError::AuthorizationChanged);
     }
     if file_only {
@@ -632,6 +1187,16 @@ async fn delete_post_in(
 }
 
 pub async fn report(pool: &PgPool, slug: &str, id: i64, reason: &str) -> Result<(), StoreError> {
+    report_with_anonymous_session(pool, slug, id, reason, None).await
+}
+
+pub async fn report_with_anonymous_session(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    session: Option<anonymous_session::PostingSession>,
+) -> Result<(), StoreError> {
     if reason.trim().is_empty() || reason.len() > 1000 || reason.contains('\0') {
         return Err(StoreError::Invalid(
             "Report reason must contain 1 to 1000 bytes.",
@@ -651,6 +1216,14 @@ pub async fn report(pool: &PgPool, slug: &str, id: i64, reason: &str) -> Result<
         .bind(reason)
         .execute(&mut *tx)
         .await?;
+    if let Some(session) = session {
+        // The INSERT and this sequence read use the same transaction connection.
+        // No SELECT privilege on private report rows is added to the runtime.
+        let report = sqlx::query_scalar("SELECT currval('content.reports_id_seq')::bigint")
+            .fetch_one(&mut *tx)
+            .await?;
+        anonymous_session::record_report(&mut tx, session, slug, report).await?;
+    }
     tx.commit().await?;
     Ok(())
 }

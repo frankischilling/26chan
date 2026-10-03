@@ -8,7 +8,9 @@ before(async () => { browser = await chromium.launch({ headless: true }); });
 after(async () => { await browser?.close(); });
 const root = new URL('../../', import.meta.url);
 const source = await readFile(new URL('apps/public/client/native-images.js', root), 'utf8');
-const projection = await readFile(new URL('apps/public/client/native-comment-projection.js', root), 'utf8');
+const wordfilters = await readFile(new URL('apps/public/client/native-wordfilter-markup.js', root), 'utf8');
+const projection = (await readFile(new URL('apps/public/client/native-comment-projection.js', root), 'utf8'))
+  .replace('./native-wordfilter-markup.js', `data:text/javascript;base64,${Buffer.from(wordfilters).toString('base64')}`);
 const quotes = await readFile(new URL('apps/public/static/native-filter.v1.js', root), 'utf8');
 const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8');
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.

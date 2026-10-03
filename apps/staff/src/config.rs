@@ -1,4 +1,5 @@
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 
@@ -12,6 +13,43 @@ pub struct Config {
     pub auth_database: String,
     pub staff_database: String,
     pub idle_timeout: Duration,
+    pub tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
+    pub poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
+    pub country_database: Option<Arc<board_domain::country::CountryDatabase>>,
+    pub proxy: Option<board_config::PublicProxy>,
+}
+
+pub fn parse_staff_poster_id_key(
+    value: Option<&str>,
+) -> Result<Option<Arc<board_domain::poster_id::PosterIdKey>>, &'static str> {
+    value
+        .map(|value| {
+            board_domain::poster_id::PosterIdKey::parse(value)
+                .map(Arc::new)
+                .map_err(|_| {
+                    "STAFF_POSTER_ID_KEY must contain 64 hexadecimal digits and cannot be all zeroes"
+                })
+        })
+        .transpose()
+}
+
+pub fn load_staff_country_database(
+    path: Option<&std::path::Path>,
+) -> Result<Option<Arc<board_domain::country::CountryDatabase>>, &'static str> {
+    path.map(|path| {
+        board_domain::country::CountryDatabase::load(path)
+            .map(Arc::new)
+            .map_err(|_| "Invalid STAFF_COUNTRY_DATABASE")
+    })
+    .transpose()
+}
+
+pub fn parse_staff_tripcode_key(
+    value: Option<&str>,
+) -> Result<Option<Arc<board_domain::identity::SecureKey>>, &'static str> {
+    value.map(|value| board_domain::identity::SecureKey::parse(value).map(Arc::new)
+        .map_err(|_| "STAFF_TRIPCODE_KEY must contain 64 hexadecimal digits and cannot be all zeroes"))
+        .transpose()
 }
 pub fn parse_staff_idle_timeout(value: Option<&str>) -> Result<Duration, &'static str> {
     let seconds = match value {
@@ -90,6 +128,8 @@ impl Config {
             "TRIPCODE_KEY",
             "POSTER_ID_KEY",
             "COUNTRY_DATABASE",
+            "PUBLIC_PROXY_SOCKET",
+            "PUBLIC_PROXY_UID",
         ] {
             if std::env::var_os(key).is_some_and(|s| !s.is_empty()) {
                 return Err(
@@ -138,6 +178,42 @@ impl Config {
                 return Err("Invalid STAFF_IDLE_TIMEOUT_SECONDS");
             }
         };
+        let tripcode_key = match std::env::var("STAFF_TRIPCODE_KEY") {
+            Ok(value) => parse_staff_tripcode_key(Some(&value))?,
+            Err(std::env::VarError::NotPresent) => None,
+            Err(std::env::VarError::NotUnicode(_)) => return Err("Invalid STAFF_TRIPCODE_KEY"),
+        };
+        let poster_id_key = match std::env::var("STAFF_POSTER_ID_KEY") {
+            Ok(value) => parse_staff_poster_id_key(Some(&value))?,
+            Err(std::env::VarError::NotPresent) => None,
+            Err(std::env::VarError::NotUnicode(_)) => return Err("Invalid STAFF_POSTER_ID_KEY"),
+        };
+        let country_database = load_staff_country_database(
+            std::env::var_os("STAFF_COUNTRY_DATABASE")
+                .as_deref()
+                .map(std::path::Path::new),
+        )?;
+        let proxy_value = |name| {
+            std::env::var_os(name)
+                .map(|value| {
+                    value
+                        .into_string()
+                        .map_err(|_| "Invalid staff proxy setting")
+                })
+                .transpose()
+        };
+        let proxy_socket = proxy_value("STAFF_PROXY_SOCKET")?;
+        let proxy_uid = proxy_value("STAFF_PROXY_UID")?;
+        let proxy = if proxy_socket.is_none() && proxy_uid.is_none() {
+            None
+        } else {
+            board_config::PublicProxy::from_values(
+                proxy_socket.as_deref(),
+                proxy_uid.as_deref(),
+                production,
+            )
+            .map_err(|_| "Invalid staff proxy setting")?
+        };
         if !valid_database(&auth_database, "board_auth", production)
             || !valid_database(&staff_database, "board_staff", production)
         {
@@ -154,6 +230,10 @@ impl Config {
             auth_database,
             staff_database,
             idle_timeout,
+            tripcode_key,
+            poster_id_key,
+            country_database,
+            proxy,
         })
     }
     pub fn cookie_name(&self) -> &'static str {
@@ -174,6 +254,89 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn staff_poster_key_preserves_public_identity_without_echoing_invalid_input() {
+        assert!(parse_staff_poster_id_key(None).unwrap().is_none());
+        let value = "12".repeat(32);
+        let staff = parse_staff_poster_id_key(Some(&value)).unwrap().unwrap();
+        let public = board_domain::poster_id::PosterIdKey::parse(&value).unwrap();
+        for peer in ["81.2.69.142", "::ffff:81.2.69.142", "2001:218::"] {
+            let peer = peer.parse().unwrap();
+            assert_eq!(
+                staff.label("g", 42, peer).unwrap(),
+                public.label("g", 42, peer).unwrap()
+            );
+            let staff_count = staff.count_context("g", 42, peer).unwrap();
+            let public_count = public.count_context("g", 42, peer).unwrap();
+            assert_eq!(staff_count.fingerprint, public_count.fingerprint);
+            assert_eq!(staff_count.epoch, public_count.epoch);
+            assert_eq!(
+                staff.robot9000_fingerprint("g", peer).unwrap(),
+                public.robot9000_fingerprint("g", peer).unwrap()
+            );
+        }
+        for value in [
+            "",
+            "owned-secret-invalid",
+            &"00".repeat(32),
+            &"g1".repeat(32),
+            &"11".repeat(31),
+        ] {
+            assert_eq!(
+                parse_staff_poster_id_key(Some(value)).err().unwrap(),
+                "STAFF_POSTER_ID_KEY must contain 64 hexadecimal digits and cannot be all zeroes"
+            );
+        }
+    }
+
+    #[test]
+    fn staff_country_data_uses_the_bounded_verified_operator_loader() {
+        assert!(load_staff_country_database(None).unwrap().is_none());
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../crates/domain/tests/fixtures");
+        let path = root.join("GeoIP2-Country-Test.mmdb");
+        let db = load_staff_country_database(Some(&path)).unwrap().unwrap();
+        assert_eq!(
+            db.lookup("81.2.69.142".parse().unwrap()).unwrap().code,
+            "GB"
+        );
+        assert_eq!(
+            db.lookup("::ffff:81.2.69.142".parse().unwrap())
+                .unwrap()
+                .code,
+            "GB"
+        );
+        assert_eq!(db.lookup("2001:218::".parse().unwrap()).unwrap().code, "JP");
+        for path in [
+            std::path::PathBuf::from("relative-private.mmdb"),
+            root.clone(),
+            root.join("missing-private.mmdb"),
+        ] {
+            assert_eq!(
+                load_staff_country_database(Some(&path)).err().unwrap(),
+                "Invalid STAFF_COUNTRY_DATABASE"
+            );
+        }
+    }
+    #[test]
+    fn staff_tripcode_key_is_optional_and_validated_without_exposing_input() {
+        assert!(parse_staff_tripcode_key(None).unwrap().is_none());
+        assert!(
+            parse_staff_tripcode_key(Some(&"11".repeat(32)))
+                .unwrap()
+                .is_some()
+        );
+        for value in [
+            "",
+            "secret",
+            &"00".repeat(32),
+            &"g1".repeat(32),
+            &"11".repeat(31),
+        ] {
+            assert!(parse_staff_tripcode_key(Some(value)).is_err());
+        }
+    }
     #[test]
     fn idle_timeout_policy_defaults_and_rejects_invalid_values() {
         assert_eq!(

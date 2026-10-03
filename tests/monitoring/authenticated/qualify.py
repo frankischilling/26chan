@@ -51,10 +51,14 @@ def wait_for(description, predicate, children, seconds=40):
     raise AssertionError(f"Timed out waiting for {description}")
 
 
-def port():
-    with socket.socket() as owned:
-        owned.bind(("127.0.0.1", 0))
-        return owned.getsockname()[1]
+def ports(count):
+    # Hold all reservations until the set is complete, preventing OS reuse of
+    # an earlier closed socket within this same qualification.
+    with ExitStack() as reservations:
+        owned = [reservations.enter_context(socket.socket()) for _ in range(count)]
+        for listener in owned:
+            listener.bind(("127.0.0.1", 0))
+        return tuple(listener.getsockname()[1] for listener in owned)
 
 
 def stop(process):
@@ -109,7 +113,7 @@ def qualify(binary_directory, fixture, openssl, lifecycle_state=None):
         receiver_policy = work / "receiver-policy.json"
         write_policy(receiver_policy, credentials["receiver"])
         receiver = cleanup.enter_context(Receiver(pki["cert"], pki["key"], receiver_policy))
-        metrics_port, app_port, prom_port, alert_port = (port() for _ in range(4))
+        metrics_port, app_port, prom_port, alert_port = ports(4)
         if len({metrics_port, app_port, prom_port, alert_port, receiver.port}) != 5:
             raise AssertionError("Owned ephemeral port collision")
         common = {"server_name": "localhost", "ca_file": str(pki["ca"]),

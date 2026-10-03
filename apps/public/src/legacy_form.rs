@@ -77,7 +77,7 @@ fn deletion(fields: Vec<(String, String)>) -> Result<DeleteForm, Rejection> {
     }
     Ok(DeleteForm {
         no: no.ok_or_else(invalid)?,
-        password: password.ok_or_else(invalid)?,
+        password: password.unwrap_or_default(),
         file_only,
     })
 }
@@ -156,7 +156,14 @@ pub(crate) async fn submit(
             .await
         }
         Ok(LegacyForm(Submission::Delete(form))) => {
-            match handlers::delete(State(state.clone()), Path(board.clone()), Form(form)).await {
+            match handlers::delete(
+                State(state.clone()),
+                Path(board.clone()),
+                headers,
+                Form(form),
+            )
+            .await
+            {
                 Ok(_) => crate::output::html(&state, &Deleted { board: &board })
                     .unwrap_or_else(AppError::into_response),
                 Err(error) => error.into_response(),
@@ -254,9 +261,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn source_hidden_password_may_be_empty_or_absent_before_cookie_authorization() {
+        for multipart in [false, true] {
+            for fields in [
+                vec![("mode", "usrdel"), ("17", "delete")],
+                vec![("mode", "usrdel"), ("17", "delete"), ("pwd", "")],
+            ] {
+                let Ok(LegacyForm(Submission::Delete(form))) = LegacyForm::from_request(
+                    request("/test/imgboard.php", &fields, multipart),
+                    &(),
+                )
+                .await
+                else {
+                    panic!("Expected source deletion form");
+                };
+                assert_eq!(form.no, 17);
+                assert!(form.password.is_empty());
+                assert!(!form.file_only);
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn ambiguous_fields_and_unavailable_authority_are_rejected_before_storage() {
         let invalid_fields = [
-            vec![("mode", "usrdel"), ("17", "delete")],
             vec![("mode", "usrdel"), ("pwd", "owned-password")],
             vec![
                 ("mode", "arcdel"),

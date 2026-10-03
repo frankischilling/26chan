@@ -42,10 +42,18 @@ fn navigation_boards() -> Vec<Board> {
 
 fn board() -> Board {
     Board {
+        source_order: 1000,
+        catalog_enabled: true,
+        json_enabled: true,
+        staff_only: false,
+        meta_board: false,
+        upload_board: false,
+        rss_enabled: true,
         slug: "demo".into(),
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
         max_comment_chars: 4000,
+        max_authorized_comment_chars: 10000,
         comment_code_spacing: false,
         comment_sjis_spacing: false,
         comment_max_lines: 70,
@@ -53,6 +61,7 @@ fn board() -> Board {
         require_subject: false,
         op_markup: false,
         forced_anon: false,
+        strip_tripcode: false,
         user_ids: false,
         country_flags: false,
         board_flags: vec![],
@@ -69,6 +78,12 @@ fn board() -> Board {
         archive_retention_seconds: 0,
         archive_limit: 1000,
         image_limit: 0,
+        dice_roll: false,
+        fortune_trip: false,
+        robot9000: false,
+        robot9000_state_limit: 100000,
+        word_filter_enabled: false,
+        word_filter_profile: 0,
     }
 }
 fn page(catalog: bool) -> String {
@@ -125,12 +140,15 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     };
     let mut posts = vec![PostView::new(Post {
         comment_format: 0,
+        staff_authorized_limits: false,
+        wordfilter_payload: None,
         id: 1000001,
         board: "demo".into(),
         thread_id: 1000001,
         name: "Anonymous".into(),
         trip: None,
         poster_id: None,
+        json_op_poster_id: None,
         capcode: None,
         country: None,
         country_name: None,
@@ -138,6 +156,9 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         flag_name: None,
         subject: "What are you making?".into(),
         comment: ">start with a single sheet".into(),
+        dice_result: None,
+        fortune_text: None,
+        fortune_color: None,
         created_at: time("2026-09-08T12:00:00Z"),
         deleted: false,
         attachment: None,
@@ -146,12 +167,15 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     if !catalog {
         posts.push(PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             id: 1000002,
             board: "demo".into(),
             thread_id: 1000001,
             name: "Anonymous".into(),
             trip: None,
             poster_id: None,
+            json_op_poster_id: None,
             capcode: None,
             country: None,
             country_name: None,
@@ -159,6 +183,9 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
             flag_name: None,
             subject: String::new(),
             comment: ">>1000001\nA small paper lighthouse. Still working on the roof.".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: time("2026-09-08T12:05:00Z"),
             deleted: false,
             attachment: None,
@@ -168,23 +195,31 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         // Prepared synthetic comments, each with its own posting-time policy.
         posts[0] = PostView::new(Post {
             comment_format: 9,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             comment: "before [spoiler]hidden\nsecond[/spoiler] after\n[spoiler]<img src=x onerror=bad()>[/spoiler]".into(),
             ..posts[0].post.clone()
         });
         posts[1] = PostView::new(Post {
             comment_format: 10,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             comment: "[code]first  line\nsecond <script>line</script>[/code]".into(),
             ..posts[1].post.clone()
         });
         posts.push(PostView::new(Post {
             id: 1_000_003,
             comment_format: 12,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             comment: "[sjis]a  b\n c[/sjis]".into(),
             ..posts[1].post.clone()
         }));
         posts.push(PostView::new(Post {
             id: 1_000_004,
             comment_format: 24,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             comment: "[b]bold[/b] [i]italic[/i]\n[red]red[/red] [green]green[/green] [blue]blue[/blue]\n[b]<script>text stays text</script>[/b]".into(),
             ..posts[1].post.clone()
         }));
@@ -201,6 +236,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
                 id: 1_000_002,
                 name: "Synthetic reply author".into(),
                 trip: None,
+                capcode: None,
                 poster_id: None,
                 created_at: time("2026-09-08T12:05:00Z"),
             }),
@@ -309,34 +345,44 @@ fn archived_thread() -> String {
     let posts = vec![
         PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             id: 1000101,
             board: board.slug.clone(),
             thread_id: thread.id,
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, capcode: None,
+            poster_id: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
             flag_name: None,
             subject: "<b>A paper lighthouse</b>".into(),
             comment: "The completed paper lighthouse.\n>fold each edge carefully\n[spoiler]There is a tiny door at the back.[/spoiler]".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: None,
         }),
         PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             id: 1000104,
             board: board.slug.clone(),
             thread_id: thread.id,
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, capcode: None,
+            poster_id: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
             flag_name: None,
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             subject: String::new(),
             comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
             created_at: thread.bumped_at,
@@ -394,6 +440,9 @@ async fn main() {
     let _ = views::Comment {
         lines: &[],
         board: "demo",
+        dice_result: None,
+        fortune_text: None,
+        fortune_color: None,
     }
     .render()
     .unwrap();

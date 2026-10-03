@@ -99,7 +99,14 @@ async fn exercise(multipart: bool) {
         .iter()
         .map(|c| c.to_str().unwrap())
         .collect();
-    assert_eq!(cookies.len(), 4);
+    assert_eq!(cookies.len(), 5);
+    let anonymous = cookies
+        .iter()
+        .filter(|cookie| cookie.starts_with("board-anon="))
+        .copied()
+        .collect::<Vec<_>>();
+    assert_eq!(anonymous.len(), 1);
+    assert!(anonymous[0].contains("Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict"));
     let preferences: Vec<_> = cookies
         .iter()
         .copied()
@@ -108,8 +115,8 @@ async fn exercise(multipart: bool) {
     assert_eq!(
         preferences,
         [
-            "4chan_name=Anonymous; Path=/; Max-Age=31536000; SameSite=Strict",
-            "options=sageNONOKOSaGe; Path=/; Max-Age=31536000; SameSite=Strict",
+            "4chan_name=Anonymous; Path=/; Max-Age=604800; SameSite=Strict",
+            "options=sageNONOKOSaGe; Path=/; Max-Age=604800; SameSite=Strict",
         ]
     );
     assert!(

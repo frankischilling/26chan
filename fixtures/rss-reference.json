@@ -1,0 +1,198 @@
+{
+    "reference": "operator-supplied 4chan-old checkout, synthetic inputs only",
+    "files": {
+        "lib/rss.php": "bd6e9413b0e6ba71b277b76986ceb8a44c54445218fb9a59fce63e5942a94741"
+    },
+    "environment": {
+        "php": "8.3.6",
+        "timezone": "America/New_York",
+        "locale": "C"
+    },
+    "summaries": [
+        {
+            "input": "",
+            "summary": "",
+            "title": ""
+        },
+        {
+            "input": "abcdef",
+            "summary": "",
+            "title": ""
+        },
+        {
+            "input": "abcdefg",
+            "summary": "abcdefg",
+            "title": "abcdefg"
+        },
+        {
+            "input": "short. Longer first sentence. Later sentence",
+            "summary": " Longer first sentence",
+            "title": " Longer first sentence"
+        },
+        {
+            "input": "short<br>First visible sentence<br>Another line",
+            "summary": "First visible sentence",
+            "title": "First visible sentence"
+        },
+        {
+            "input": "<br /><br/>Seven!!",
+            "summary": "Seven!!",
+            "title": "Seven!!"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..."
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..."
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx boundary next",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx boundary...",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx boundary..."
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx next word",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..."
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyy next",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyy...",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyy..."
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\tmore",
+            "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...",
+            "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..."
+        },
+        {
+            "input": "界界界界界界界界界界界界界界界界界界界界 next",
+            "summary": "界界界界界界界界界界界界界界界界界界界界...",
+            "title": "界界界界界界界界界界界界界界界界界界界界..."
+        },
+        {
+            "input": "https://example.org/only",
+            "summary": "",
+            "title": ""
+        },
+        {
+            "input": "http://example.org/only",
+            "summary": "",
+            "title": ""
+        },
+        {
+            "input": "//example.org/only",
+            "summary": "",
+            "title": ""
+        },
+        {
+            "input": "https://example.org/only a longer sentence remains",
+            "summary": " a longer sentence remains",
+            "title": " a longer sentence remains"
+        },
+        {
+            "input": "HTTPS://example.org/only a longer sentence remains",
+            "summary": "HTTPS: a longer sentence remains",
+            "title": "HTTPS: a longer sentence remains"
+        },
+        {
+            "input": "prefix // tail sentence",
+            "summary": "prefix // tail sentence",
+            "title": "prefix // tail sentence"
+        },
+        {
+            "input": "suffix //",
+            "summary": "suffix //",
+            "title": "suffix //"
+        },
+        {
+            "input": "<a href=\"https://www.4chan.org/faq\" target=\"_blank\">https://www.4chan.org/faq</a> another sentence",
+            "summary": "<a href=\" target=\"_blank\"> another sentence",
+            "title": ""
+        },
+        {
+            "input": "<a href=\"//boards.4chan.org/g/\" class=\"quotelink\">&gt;&gt;&gt;/g/</a> useful content",
+            "summary": "<a href=\" class=\"quotelink\">&gt;&gt;&gt;/g/</a> useful content...",
+            "title": ""
+        },
+        {
+            "input": "<span class=\"quote\">&gt;quoted words</span><br>next sentence",
+            "summary": "<span class=\"quote\">&gt;quoted words</span>",
+            "title": "&gt;quoted words"
+        },
+        {
+            "input": "<s>spoiler sentence</s>",
+            "summary": "<s>spoiler sentence</s>",
+            "title": "spoiler sentence"
+        },
+        {
+            "input": "[spoiler]hidden sentence[/spoiler]",
+            "summary": "[spoiler]hidden sentence[/spoiler]",
+            "title": "[spoiler]hidden sentence[/spoiler]"
+        },
+        {
+            "input": "<pre class=\"prettyprint\">long code text</pre>",
+            "summary": "<pre class=\"prettyprint\">long code text</pre>",
+            "title": "long code text"
+        },
+        {
+            "input": "A &amp; B &lt;script&gt;test&lt;/script&gt; are text",
+            "summary": "A &amp; B &lt;script&gt;test&lt;/script&gt; are text",
+            "title": "A &amp; B &lt;script&gt;test&lt;/script&gt; are text"
+        }
+    ],
+    "rows": [
+        {
+            "no": 23,
+            "sub": "SPOILER<>Owned &amp; subject",
+            "com": "Visible comment",
+            "name": "Named &amp; poster",
+            "time": 1730615400,
+            "tim": 123,
+            "ext": ".png"
+        },
+        {
+            "no": 22,
+            "sub": "",
+            "com": "[spoiler]hidden sentence[/spoiler]",
+            "name": "Anonymous",
+            "time": 1720015200,
+            "tim": 122,
+            "ext": ".jpg"
+        },
+        {
+            "no": 21,
+            "sub": "",
+            "com": "<s>Visible spoiler sentence</s>",
+            "name": "Anonymous",
+            "time": 1704110400,
+            "tim": 121,
+            "ext": ".gif"
+        },
+        {
+            "no": 20,
+            "sub": "",
+            "com": "short",
+            "name": "Named poster",
+            "time": 1704110400,
+            "tim": 0,
+            "ext": ""
+        }
+    ],
+    "feed": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<rss version=\"2.0\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n<channel>\n<title>/rss/ - Owned &amp; RSS</title>\n<link>http://boards.example/rss/</link>\n<description>Threads on /rss/ - Owned &amp; RSS at 4chan.org.</description>\n<atom:link href=\"http://boards.example/rss/index.rss\" rel=\"self\" type=\"application/rss+xml\" /><item>\n<title>Owned &amp; subject</title>\n<link>http://boards.example/rss/thread/23#23</link>\n<guid>http://boards.example/rss/thread/23</guid>\n<comments>http://boards.example/rss/thread/23</comments>\n<pubDate>Sun, 03 Nov 2024 01:30:00 EST</pubDate>\n<dc:creator>Named &amp; poster</dc:creator>\n<description><![CDATA[ <a href='http://images.example/rss/123.png' target=_blank><img style='float:left;margin:8px' border=0 src='http://boards.example/spoiler.png'></a> Visible comment ]]></description>\n</item>\n<item>\n<title>[spoiler]hidden sentence[/spoiler]</title>\n<link>http://boards.example/rss/thread/22#22</link>\n<guid>http://boards.example/rss/thread/22</guid>\n<comments>http://boards.example/rss/thread/22</comments>\n<pubDate>Wed, 03 Jul 2024 10:00:00 EDT</pubDate>\n<dc:creator>Anonymous</dc:creator>\n<description><![CDATA[ <a href='http://images.example/rss/122.jpg' target=_blank><img style='float:left;margin:8px' border=0 src='http://images.example/rss/122s.jpg'></a> (Spoilers) ]]></description>\n</item>\n<item>\n<title>Visible spoiler sentence</title>\n<link>http://boards.example/rss/thread/21#21</link>\n<guid>http://boards.example/rss/thread/21</guid>\n<comments>http://boards.example/rss/thread/21</comments>\n<pubDate>Mon, 01 Jan 2024 07:00:00 EST</pubDate>\n<dc:creator>Anonymous</dc:creator>\n<description><![CDATA[ <a href='http://images.example/rss/121.gif' target=_blank><img style='float:left;margin:8px' border=0 src='http://images.example/rss/121s.jpg'></a> <s>Visible spoiler sentence</s> ]]></description>\n</item>\n<item>\n<title>No. 20 by Named poster</title>\n<link>http://boards.example/rss/thread/20#20</link>\n<guid>http://boards.example/rss/thread/20</guid>\n<comments>http://boards.example/rss/thread/20</comments>\n<pubDate>Mon, 01 Jan 2024 07:00:00 EST</pubDate>\n<dc:creator>Named poster</dc:creator>\n<description><![CDATA[ <a href='http://images.example/rss/0' target=_blank><img style='float:left;margin:8px' border=0 src='http://images.example/rss/0s.jpg'></a> short ]]></description>\n</item>\n</channel>\n</rss>",
+    "queries": [
+        "SELECT SQL_NO_CACHE * FROM `synthetic_rows` WHERE archived=0 and resto=0 ORDER BY no DESC LIMIT 20"
+    ],
+    "warnings": [
+        "Function strftime() is deprecated"
+    ]
+}

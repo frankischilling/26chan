@@ -207,7 +207,7 @@ async fn exercise(f: &Fixture) {
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=7 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
+    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=8 AND count(*) FILTER(WHERE p.oid='content.attachment_upload_filename(text,text)'::regprocedure)=1 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(functions_safe);
 
@@ -280,7 +280,7 @@ async fn exercise(f: &Fixture) {
             .await
             .unwrap()
             .name,
-        "😀".repeat(25)
+        "Anonymous"
     );
     assert_eq!(
         board_store::find_post(&f.public, &f.board, id)
@@ -516,6 +516,8 @@ async fn exercise(f: &Fixture) {
     image_admission_flags(f).await;
     comment_spacing(f).await;
     tripcodes(f).await;
+    suppressed_trip_attachments(f).await;
+    source_prepared_names(f).await;
     poster_counts(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
@@ -532,7 +534,7 @@ async fn poster_counts(f: &Fixture) {
     // Approval probes use the fixture's ordinary posting context. Finish those
     // controls before enabling the ID policy for the keyed attachment writes.
     let mut uploads = Vec::new();
-    for _ in 0..3 {
+    for _ in 0..5 {
         let upload = f.reserve().await;
         f.approve(&upload).await;
         uploads.push(upload);
@@ -548,16 +550,31 @@ async fn poster_counts(f: &Fixture) {
     )
     .unwrap();
     let mut thread = 0;
-    for ((peer, expected), upload) in [
-        ("192.0.2.10", 1),
-        ("::ffff:192.0.2.10", 1),
-        ("192.0.2.11", 2),
+    let display: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/poster-id-display-reference.json"
+    ))
+    .unwrap();
+    assert_eq!(display["cases"].as_array().unwrap().len(), 112);
+    for ((peer, expected, sage, meta, no_heaven), upload) in [
+        ("192.0.2.10", 1, true, false, false),
+        ("::ffff:192.0.2.10", 1, false, false, false),
+        ("192.0.2.11", 2, true, false, false),
+        ("192.0.2.11", 2, true, false, true),
+        ("192.0.2.11", 2, true, true, false),
     ]
     .into_iter()
     .zip(uploads)
     {
         let mut draft = post();
         draft.name = "User#password".into();
+        draft.sage = sage;
+        sqlx::query("UPDATE content.boards SET meta_board=$2,poster_id_no_heaven=$3 WHERE slug=$1")
+            .bind(&f.board)
+            .bind(meta)
+            .bind(no_heaven)
+            .execute(&f.admin)
+            .await
+            .unwrap();
         if f.attachment_only {
             draft.comment.clear();
         }
@@ -580,6 +597,7 @@ async fn poster_counts(f: &Fixture) {
             board_store::PostMetadata {
                 country_database: Some(&countries),
                 flag,
+                options: "",
                 keys: board_store::PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&key),
@@ -604,13 +622,31 @@ async fn poster_counts(f: &Fixture) {
             assert_eq!(saved.country_name.as_deref(), Some("Unknown"));
             assert!(saved.board_flag.is_none());
         }
+        let network = key.label(&f.board, thread, peer.parse().unwrap()).unwrap();
+        let source = display["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| {
+                case["enabled"] == true
+                    && case["capcode"] == "none"
+                    && case["sage"] == sage
+                    && case["meta_board"] == meta
+                    && case["no_heaven"] == no_heaven
+            })
+            .unwrap();
         assert_eq!(
             saved.poster_id.as_deref(),
-            Some(
-                key.label(&f.board, thread, peer.parse().unwrap())
-                    .unwrap()
-                    .as_str()
-            )
+            Some(if source["expected"] == "Heaven" {
+                "Heaven"
+            } else {
+                assert_eq!(source["expected"], display["network_label_stub"]);
+                network.as_str()
+            })
+        );
+        assert_eq!(
+            saved.json_op_poster_id.as_deref(),
+            (id == thread).then_some(network.as_str())
         );
         assert!(attachment(&f.public, id).await.unwrap().is_some());
         let count: Option<i32> = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
@@ -621,7 +657,7 @@ async fn poster_counts(f: &Fixture) {
             .unwrap();
         assert_eq!(count, Some(expected));
     }
-    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}' WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}',meta_board=false,poster_id_no_heaven=false WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
@@ -663,6 +699,146 @@ async fn tripcodes(f: &Fixture) {
     assert_eq!(saved.trip, None);
     assert!(attachment(&f.public, id).await.unwrap().is_some());
     sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+}
+
+async fn source_prepared_names(f: &Fixture) {
+    let previous: bool =
+        sqlx::query_scalar("SELECT comment_code_spacing FROM content.boards WHERE slug=$1")
+            .bind(&f.board)
+            .fetch_one(&f.public)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE content.boards SET comment_code_spacing=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let source: serde_json::Value =
+        serde_json::from_str(include_str!("../../domain/tests/fixtures/public-name.json")).unwrap();
+    let expanded = format!("A{}B", "\t".repeat(63));
+    let policy = source["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["board"] == "g" && group["code"] == true)
+        .unwrap();
+    let spacing_case = policy["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["input"] == expanded)
+        .unwrap();
+    for (raw, name, trip) in [
+        ("#かみ", "", Some("!v/ClhaTjaY")),
+        (
+            expanded.as_str(),
+            spacing_case["name"].as_str().unwrap(),
+            None,
+        ),
+    ] {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        let mut draft = post();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let count_before: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&f.board)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        draft.name = "\"".repeat(43);
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid("Name or subject is too long."))
+        ));
+        let count_after: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&f.board)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        assert_eq!(count_after, count_before);
+        // The same approved capability must survive the late name rejection.
+        draft.name = raw.into();
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.name, name);
+        assert_eq!(saved.trip.as_deref(), trip);
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Conflict(_))
+        ));
+    }
+    sqlx::query("UPDATE content.boards SET comment_code_spacing=$2 WHERE slug=$1")
+        .bind(&f.board)
+        .bind(previous)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+}
+
+async fn suppressed_trip_attachments(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET strip_tripcode=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let mut parent = 0;
+    for (raw, name) in [
+        ("Name#password", "Name"),
+        ("Name##owned-private-secret", "Name"),
+        ("#かみ", "Anonymous"),
+    ] {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        let mut draft = post();
+        draft.name = raw.into();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        parent = id;
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.name, name);
+        assert_eq!(saved.trip, None);
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+    }
+    let direct = f.reserve().await;
+    f.approve(&direct).await;
+    let mut tx = f.public.begin().await.unwrap();
+    sqlx::query("SELECT set_config('board.post_trip','!ozOtJW9BFA',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'','','Owned direct suppressed identity',$4,$5,false,date_trunc('second',clock_timestamp()))")
+        .bind(id).bind(&f.board).bind(parent).bind(&direct.upload.id).bind(&direct.upload.capability)
+        .execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!((saved.name.as_str(), saved.trip), ("Anonymous", None));
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET strip_tripcode=false WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
@@ -808,7 +984,7 @@ async fn final_content_admission(f: &Fixture) {
         let saved = board_store::find_post(&f.public, &f.board, id)
             .await
             .unwrap();
-        assert_eq!(saved.comment_format, 47);
+        assert_eq!(saved.comment_format, 111);
         assert_eq!(
             attachment(&f.public, id).await.unwrap().unwrap().asset_id,
             asset
@@ -1054,7 +1230,7 @@ async fn comment_spacing(f: &Fixture) {
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();
-        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 40 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
+        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 104 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
             .bind(id).fetch_one(&f.public).await.unwrap();
         assert!(stamped);
         assert_eq!(

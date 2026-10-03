@@ -1,0 +1,3095 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "files": {
+    "boardlist.txt": "70d22485b3b6b6b0572b40788b86c0f36c403ca1082a3541d4daaa51e9acde43",
+    "config/boards/3.config.ini": "f6a0df3ab2f49862d88f3a0f35f13bd931746865c7457d50cebc6bbcc049c3e5",
+    "config/boards/a.config.ini": "7229450ebd103b42cdf4bec80824cbf5a0aec8491c578599698cdf0fc8a491d8",
+    "config/boards/aco.config.ini": "29c40ba355969e1747fa52379a6c388cc6fc6660757954334b1173f1f652b093",
+    "config/boards/adv.config.ini": "a3357ab36e444f47b7cf6eb3522519dd7f4449038ad00532380bff137d3b7c26",
+    "config/boards/an.config.ini": "214e4a81a668d5bbebdbdf52fe1d79b872287f5c4da911ca9ad55580fa7bcddf",
+    "config/boards/asp.config.ini": "8afc520b5a8af1676ad4aa87de1f7b7a46e1a1069953ea8a0836610a16bd3d48",
+    "config/boards/b.config.ini": "6674a493d10c756b7c4683b3b38b17d33dc478100a333484f86f94aafa014b3a",
+    "config/boards/bant.config.ini": "f017faabcb37871f8ecf812007418b197dd6fdfa3fc8924a9ad129cda3b50e4c",
+    "config/boards/biz.config.ini": "b3de1bb67d0515a8dd97715fbd1b4612c27a99c736e3ebd2ef48d2583befe542",
+    "config/boards/c.config.ini": "953f9e4eac86d1abccb2fcf42ca9c6606bb0fe58347e00e73a5443b17fdde906",
+    "config/boards/cgl.config.ini": "aac333acb10ad5319f9db48d4947e1b293c690ed316181dc8053d2bc45274561",
+    "config/boards/ck.config.ini": "8204571d9abd971e800e563955061ba6530477684e3cff89cded704d4c2d6736",
+    "config/boards/cm.config.ini": "23d313b7f310c92da67746d13cd08908d46760b30be1f7fdd0aedc44d7ce7f7b",
+    "config/boards/co.config.ini": "08d0c6994979f5cbe4ddf1a161145cdc40d85992e4b632eb505eb8c8d9c36577",
+    "config/boards/d.config.ini": "aa838f7a77189c48ce3481cc0a0867cab9a604785bb7a0ebaff57a4a1f007465",
+    "config/boards/diy.config.ini": "3af46136559327825dec22724fdb632555dd0e7a1a1cc73633549ee07f6d05de",
+    "config/boards/e.config.ini": "202177b13c22c4288dea64ac96d6a53507c5c3726374e9328f9edf492321d3db",
+    "config/boards/f.config.ini": "d9860308ce998306e08cb39a98420818f0a078da200e6a1e617672d0e169fa3a",
+    "config/boards/fa.config.ini": "1ef9d57008020ecc1265864e61017a776920b854b683c66118963ab346dce09d",
+    "config/boards/fit.config.ini": "0e67f18a9de472f3b89ee0f2dc19bc294cd9164027fe469619877563d820a0df",
+    "config/boards/g.config.ini": "0c9182d9564f3ad31edcfaab4afef036f71ec9bae5e4a372a0c8be3f48c4b786",
+    "config/boards/gd.config.ini": "518128e32bcde9206c1dadc4c27522e5ea13b2a540ac636cd2d8b2d59a6a438b",
+    "config/boards/gif.config.ini": "ffc9372f3e6d9e5b56029138c79cd3b23efce7922227804e3aba7387fbbcb887",
+    "config/boards/h.config.ini": "bf8356ddfe0044c51e878f335eb9e8aa7762f8c03b3b8e5e8eb0dc7b09050a2f",
+    "config/boards/hc.config.ini": "074cdf7abeff00670f56b7015fe1f2bfad7fc0ae837228d5adf5114666dc58db",
+    "config/boards/his.config.ini": "79de1ff38a819189b34a67a3d41defed1029d881ff6dfe3d9a1ba001c3d593dd",
+    "config/boards/hm.config.ini": "3eca6f0fdb9f3f7105a65681158e54f39bfce3b6bca95ec2a280f51f8b36f201",
+    "config/boards/hr.config.ini": "66b55a79119e996a009345c8f4268de5b69634a3c4c39defeff1f3018fa3c4ae",
+    "config/boards/i.config.ini": "b587a543e5566dddde008449e8004ee66355ea95608551e96e058a1bd53facd8",
+    "config/boards/ic.config.ini": "95d270875675408bef2ed7be30eb5ded0c6d12f969b4e65a10cfc272999bbbec",
+    "config/boards/int.config.ini": "121bd9c9dbac8cab9df8c61826798720de6ebf09711858623767f8d2d8f678f3",
+    "config/boards/j.config.ini": "6263d05622b725da2c56eddd0352c6cbdcdc699962a00c1237dbb11723a50ef0",
+    "config/boards/jp.config.ini": "af02d8dd899667d7b9630f372c45a25ec5a57e0ada834cca10426985aea42c60",
+    "config/boards/k.config.ini": "352353c92db836a78f66725b111b493a181f2aeba17fac6f00e511cb090e3ebb",
+    "config/boards/lgbt.config.ini": "1c90a610694328cc04b02ed6f0b73c83575a32535a3581f8df5244e942ec7e63",
+    "config/boards/lit.config.ini": "99b5eec053261573b1bc86d9280b7d13684f2dd1c958b2fbf47c90df2d097bc6",
+    "config/boards/m.config.ini": "e79f48f4bab590d4acf14e1f60e64c74349efac38ff7fba124c8118cdec7231d",
+    "config/boards/mlp.config.ini": "10ee30ab717c23d8bae0bcc12e4f05c91c6631605e21811698491d4ce53f94b5",
+    "config/boards/mu.config.ini": "81d20dca2d0cb3280aae8871e16892d32a46dd4bc0a6cb3859cd5a96e1152ed9",
+    "config/boards/n.config.ini": "ea2c774d3b854ccb6924910f2f970c3e219e6c9b65cb6da7d98dbd6569945a03",
+    "config/boards/news.config.ini": "e0baf7bee788910a340bcd767b2df408a95ebbd9ecbf258ff99328999733a3e1",
+    "config/boards/o.config.ini": "ebf175a84fcc8e53961fe03152d44ad8be41f53e688862e1f58d864fe40eb1ec",
+    "config/boards/out.config.ini": "a8db9a5b94a3eae3aa2f08429be9ffe7b1e3f9d2878a9f07aea3a1512d96417c",
+    "config/boards/p.config.ini": "9cfaa97a8b2931ebef9d1a124fb18bc3b20ad19dabf9114c26d891b0fcfc99d7",
+    "config/boards/po.config.ini": "23277c49a9269246001141ed554073f2c4dac5d54ed72c391c6ec3d6c37dcbce",
+    "config/boards/pol.config.ini": "40595ac1d17d4cd0547d7d154d4b5847b97aee78ba48de80e6cb6bb5e248fc6f",
+    "config/boards/pw.config.ini": "0ecd179b93a6daf876e20aa4c67c1d64724a7fef1279dc466738ed9e10db65b9",
+    "config/boards/qa.config.ini": "06d8a82f0e3333ac04f928f3e53113dd5996a76efffde620a88db69b6aa3cfc9",
+    "config/boards/qb.config.ini": "3415404bd9373a8f058482ef8f9553ab17896117b146650c4b8696d0038569b2",
+    "config/boards/qst.config.ini": "204aadc8b836ae56b91686f492780382b7cf2366a034c3fee01a88b6648b217d",
+    "config/boards/r.config.ini": "f93ed5e781e61148fba1544604f93a4dc4fe1be2edec618cfb41947aa5818f12",
+    "config/boards/r9k.config.ini": "fcbb1f7dbd59de8b5b259c87f3a7e338f8ba0b8e113c9e47a93de3fb5d9cbc50",
+    "config/boards/s.config.ini": "f450029f53e00ca98986861011541b72e3bcb47fdb8951bd509e19ff06671fb3",
+    "config/boards/s4s.config.ini": "529d818119af6a0b6b74252ac82d531cb97389cc0f020dfb800adbf163353a82",
+    "config/boards/sci.config.ini": "53cd956f750a4a8923c4d7f7c61d48e432cd4b528346627041816b8c3743de18",
+    "config/boards/soc.config.ini": "fa6f7ed52751d110472457ce124fe10588b7a3138ea8d39011c744f68d2303be",
+    "config/boards/sp.config.ini": "7d29bca3fe97434022213059e4e81fcfe3276c210d3b8cb7ad39f36437b4336f",
+    "config/boards/t.config.ini": "797e321b2f4761c040d705fd26202fb6fe944d2ac1935a0e5b502d50da87ab63",
+    "config/boards/test.config.ini": "72f1ddef8a63944bfb40e5d2e368c8ffeb42bef4c18b02a04d3638186a98b683",
+    "config/boards/tg.config.ini": "caaa089d0a490ce76062b3bacd431e23780f2739e27579f250290cc0a8af2e13",
+    "config/boards/toy.config.ini": "0524258e4e7fd0d08e540aafd508d5eef22bb5748c619b20d597dbb44259ae4d",
+    "config/boards/trash.config.ini": "1079782591e9b7c428931376d426e83ab3aa7414b437b4a1fc5d2b77bc006304",
+    "config/boards/trv.config.ini": "e29556a20680f938d7b69697c0f70c8a75b2f51f61776534adc262197d4adfcf",
+    "config/boards/tv.config.ini": "a4ad9e9c6013beef91a52338f7300ddd5fc324731fdcf49a40ab19bea801015e",
+    "config/boards/u.config.ini": "a05624b3336597cd7bcfdfc429c238dfa38da9f9a3051a164ae98d9a5f7059d7",
+    "config/boards/v.config.ini": "d6607710b642e566827bcdc40576b29853fd8328feac3c5fd04816f7019130c5",
+    "config/boards/vg.config.ini": "be3871b58be00f8fc1baafefc3eb43141865df4832c6a749d6bb0d9b5f98a050",
+    "config/boards/vip.config.ini": "39515e6dc058310314425508c65901dc1e6dd38648d76f1954786a2bd0f008f3",
+    "config/boards/vm.config.ini": "beff9c061bf350b310399272c984a2bdda3e2a26fff9bcb75469f123386f0b84",
+    "config/boards/vmg.config.ini": "7eea31627c25c7d11ba013cbe12599b2382e579b224317f313b4728b17e63b93",
+    "config/boards/vp.config.ini": "4dedb8f011f75a94d66611d62bf0b92aeb1bfa76ed16e1c55972aa26822116a0",
+    "config/boards/vr.config.ini": "abc9b280939168ba7341a75543c340b6138a7d9d05db3a8d0675edef92ba6c5e",
+    "config/boards/vrpg.config.ini": "df6d653b75a712e0fbe5a37bd098a53ea356105ef6b3bbcefceea7bb3a5fa0a1",
+    "config/boards/vst.config.ini": "eb19acf68d9981bb8793b526cc0d2a42758c60e5b271968ee34c849fd9ea936b",
+    "config/boards/vt.config.ini": "3023e58c0025584276f3a1d80d84e01bc55779458690122c8d9d231d4814c4e2",
+    "config/boards/w.config.ini": "eee2c5cd258ef054689bb9efde18580b84524e4e89d44d4de8484970c7aca6ca",
+    "config/boards/wg.config.ini": "2fb95463ac8087d98cc545782a7722cf624ba864ec02e5d22516b521a18f5bf3",
+    "config/boards/wsg.config.ini": "b8d30a18b219eaaa6f2ac1d1ae0a04ad2fe70ddaf39b63a3d8b3bb2e89e796e9",
+    "config/boards/wsr.config.ini": "e81f3956de4177f7f5fd96ad9931e7effcdfd1faa32266cd3e21767543e62700",
+    "config/boards/x.config.ini": "76b289f89b7fa27d14b01158241f5c299fdd5cf55214e31411846edcfa7735ac",
+    "config/boards/xs.config.ini": "00358d9b5b2c250b89e49eca95c5ed10129ba077d8f437ffec222ac781dbcd02",
+    "config/boards/y.config.ini": "6a1a80070ba2e59c9f88bef673ab6d3bf414bfa359af59dfe1f7b963d5fd6a65",
+    "config/categories/nws.config.ini": "9bddef7e608991689ccf8bbb393461db4606445f8dfaa3be62597325729fb9a4",
+    "config/categories/ws.config.ini": "9e076a26b1b7bf35b51219aa13a9fc03baafe8c099d67fda154f7259d97e8585",
+    "config/global_config.ini": "8bebeedec119b30559cba4fdccfef416653294cf62118d10288434be99a3034d",
+    "www.4chan/data/boards.php": "8673f6030e3027e41417fe0b2cee917a07af1726512f7f5bca5582b9778f725f",
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "lib/auth.php": "98138062957155f859c6c2650613117290feeb386c6deb3a1097f5b62cbb6019"
+  },
+  "scope": "raw UTF-8 byte/scalar limits after newline normalization and isolated line/repetition admission",
+  "boards": [
+    {
+      "slug": "a",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "aco",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "c",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "d",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "e",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "f",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "g",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "gif",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "h",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "his",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "hr",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "k",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "m",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "n",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "o",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "p",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "r",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "s",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "t",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "u",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "v",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "w",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "wg",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "i",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "ic",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "cm",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "y",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "an",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "cgl",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "ck",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "co",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "fa",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "fit",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "jp",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "mlp",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "mu",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "po",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "sp",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "tg",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "toy",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "trv",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "tv",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "x",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "b",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "soc",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "r9k",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "test",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "adv",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "lit",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "int",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "sci",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "3",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vp",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "diy",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "pol",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "hc",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vg",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "hm",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "j",
+      "max_authorized_comment_chars": 50000
+    },
+    {
+      "slug": "wsg",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "out",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "lgbt",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vr",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "gd",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "s4s",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "biz",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "qa",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "trash",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "news",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "wsr",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "qst",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "bant",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vip",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vrpg",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vmg",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vst",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vt",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "vm",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "pw",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "xs",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "asp",
+      "max_authorized_comment_chars": 10000
+    },
+    {
+      "slug": "qb",
+      "max_authorized_comment_chars": 10000
+    }
+  ],
+  "groups": [
+    {
+      "board": "g",
+      "role": "janitor",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 100,
+      "spoilers": false,
+      "authorized_chars": 10000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": false,
+          "error": "repeated_lines"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10000,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10000,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5000,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 101,
+          "accepted": false,
+          "error": "too_many_lines"
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": false,
+          "error": "repeated_lines"
+        }
+      ]
+    },
+    {
+      "board": "g",
+      "role": "mod",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 100,
+      "spoilers": false,
+      "authorized_chars": 10000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 2001,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 8004,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 3000,
+          "normalized_newlines": 1000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": true,
+          "normalized_chars": 2002,
+          "raw_field_bytes": 3003,
+          "normalized_newlines": 1001
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 10000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 40000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 15000,
+          "normalized_newlines": 5000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 101,
+          "accepted": true,
+          "normalized_chars": 705,
+          "raw_field_bytes": 705,
+          "normalized_newlines": 101
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": true,
+          "normalized_chars": 16,
+          "raw_field_bytes": 16,
+          "normalized_newlines": 8
+        }
+      ]
+    },
+    {
+      "board": "g",
+      "role": "manager",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 100,
+      "spoilers": false,
+      "authorized_chars": 10000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 2001,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 8004,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 3000,
+          "normalized_newlines": 1000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": true,
+          "normalized_chars": 2002,
+          "raw_field_bytes": 3003,
+          "normalized_newlines": 1001
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 10000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 40000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 15000,
+          "normalized_newlines": 5000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 101,
+          "accepted": true,
+          "normalized_chars": 705,
+          "raw_field_bytes": 705,
+          "normalized_newlines": 101
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": true,
+          "normalized_chars": 16,
+          "raw_field_bytes": 16,
+          "normalized_newlines": 8
+        }
+      ]
+    },
+    {
+      "board": "g",
+      "role": "admin",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 100,
+      "spoilers": false,
+      "authorized_chars": 10000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 2001,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 8004,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 3000,
+          "normalized_newlines": 1000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": true,
+          "normalized_chars": 2002,
+          "raw_field_bytes": 3003,
+          "normalized_newlines": 1001
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 10000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 40000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 10001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5000,
+          "accepted": true,
+          "normalized_chars": 10000,
+          "raw_field_bytes": 15000,
+          "normalized_newlines": 5000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 5001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 101,
+          "accepted": true,
+          "normalized_chars": 705,
+          "raw_field_bytes": 705,
+          "normalized_newlines": 101
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": true,
+          "normalized_chars": 16,
+          "raw_field_bytes": 16,
+          "normalized_newlines": 8
+        }
+      ]
+    },
+    {
+      "board": "j",
+      "role": "janitor",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 70,
+      "spoilers": false,
+      "authorized_chars": 50000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": false,
+          "error": "repeated_lines"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50000,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50000,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25000,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 71,
+          "accepted": false,
+          "error": "too_many_lines"
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": false,
+          "error": "repeated_lines"
+        }
+      ]
+    },
+    {
+      "board": "j",
+      "role": "mod",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 70,
+      "spoilers": false,
+      "authorized_chars": 50000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 2001,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 8004,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 3000,
+          "normalized_newlines": 1000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": true,
+          "normalized_chars": 2002,
+          "raw_field_bytes": 3003,
+          "normalized_newlines": 1001
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 50000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 200000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 75000,
+          "normalized_newlines": 25000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 71,
+          "accepted": true,
+          "normalized_chars": 493,
+          "raw_field_bytes": 493,
+          "normalized_newlines": 71
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": true,
+          "normalized_chars": 16,
+          "raw_field_bytes": 16,
+          "normalized_newlines": 8
+        }
+      ]
+    },
+    {
+      "board": "j",
+      "role": "manager",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 70,
+      "spoilers": false,
+      "authorized_chars": 50000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 2001,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 8004,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 3000,
+          "normalized_newlines": 1000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": true,
+          "normalized_chars": 2002,
+          "raw_field_bytes": 3003,
+          "normalized_newlines": 1001
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 50000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 200000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 75000,
+          "normalized_newlines": 25000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 71,
+          "accepted": true,
+          "normalized_chars": 493,
+          "raw_field_bytes": 493,
+          "normalized_newlines": 71
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": true,
+          "normalized_chars": 16,
+          "raw_field_bytes": 16,
+          "normalized_newlines": 8
+        }
+      ]
+    },
+    {
+      "board": "j",
+      "role": "admin",
+      "public_chars": 2000,
+      "code": true,
+      "sjis": false,
+      "max_lines": 70,
+      "spoilers": false,
+      "authorized_chars": 50000,
+      "cases": [
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "name",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "email",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 100,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 100,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 101,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 101,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 255,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "n",
+          "repeat": 256,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 33,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 99,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 34,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 102,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 85,
+          "accepted": true,
+          "normalized_chars": 5,
+          "raw_field_bytes": 255,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "sub",
+          "char": "界",
+          "repeat": 86,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 2000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 2001,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 8000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 2001,
+          "accepted": true,
+          "normalized_chars": 2001,
+          "raw_field_bytes": 8004,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1000,
+          "accepted": true,
+          "normalized_chars": 2000,
+          "raw_field_bytes": 3000,
+          "normalized_newlines": 1000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 1001,
+          "accepted": true,
+          "normalized_chars": 2002,
+          "raw_field_bytes": 3003,
+          "normalized_newlines": 1001
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 50000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "x",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 200000,
+          "normalized_newlines": 0
+        },
+        {
+          "field": "com",
+          "char": "😀",
+          "repeat": 50001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25000,
+          "accepted": true,
+          "normalized_chars": 50000,
+          "raw_field_bytes": 75000,
+          "normalized_newlines": 25000
+        },
+        {
+          "field": "com",
+          "char": "x\r\n",
+          "repeat": 25001,
+          "accepted": false,
+          "error": "too_long"
+        },
+        {
+          "field": "com",
+          "lines": 71,
+          "accepted": true,
+          "normalized_chars": 493,
+          "raw_field_bytes": 493,
+          "normalized_newlines": 71
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 6,
+          "accepted": true,
+          "normalized_chars": 12,
+          "raw_field_bytes": 12,
+          "normalized_newlines": 6
+        },
+        {
+          "field": "com",
+          "char": "x\n",
+          "repeat": 8,
+          "accepted": true,
+          "normalized_chars": 16,
+          "raw_field_bytes": 16,
+          "normalized_newlines": 8
+        }
+      ]
+    }
+  ]
+}

@@ -13,12 +13,14 @@ impl MarkupPolicy {
     /// Version zero belongs to the historical formatter. Unknown versions do
     /// not grant markup authority. Storage constrains the currently known set.
     pub fn from_post_format(value: i16) -> Option<Self> {
-        matches!(value, 8..=15 | 24..=31 | 40..=47 | 56..=63).then_some(Self {
-            spoilers: value & 1 != 0,
-            code: value & 2 != 0,
-            sjis: value & 4 != 0,
-            op: value & 16 != 0,
-        })
+        matches!(value, 8..=15 | 24..=31 | 40..=47 | 56..=63 | 104..=111 | 120..=127).then_some(
+            Self {
+                spoilers: value & 1 != 0,
+                code: value & 2 != 0,
+                sjis: value & 4 != 0,
+                op: value & 16 != 0,
+            },
+        )
     }
 }
 
@@ -111,9 +113,21 @@ impl Atom {
 /// the global scalar limit. The parser makes a fixed number of linear passes,
 /// never recurses and never accepts caller-supplied tag names or HTML.
 pub fn parse_markup(input: &str, policy: MarkupPolicy) -> Vec<MarkupToken> {
+    parse_markup_with_limits(
+        input,
+        policy,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn parse_markup_with_limits(
+    input: &str,
+    policy: MarkupPolicy,
+    limits: crate::PostLimits,
+) -> Vec<MarkupToken> {
     let mut atoms: Vec<_> = input
         .chars()
-        .take(crate::MAX_COMMENT_CHARS)
+        .take(limits.prepared_chars())
         .map(|ch| {
             if ch == '\n' {
                 Atom::Break

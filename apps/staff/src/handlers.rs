@@ -15,10 +15,29 @@ type Shared = State<Arc<AppState>>;
 #[derive(Clone, Copy)]
 pub struct StaffRequestStart(pub chrono::DateTime<chrono::Utc>);
 
+#[derive(Clone, Copy)]
+pub struct StaffRequestPeer(Option<std::net::IpAddr>);
+
+impl StaffRequestPeer {
+    /// Canonical identity resolved by the listener and verified proxy policy.
+    /// An embedded router without a listener identity returns no peer.
+    pub fn ip(self) -> Option<std::net::IpAddr> {
+        self.0
+    }
+}
+
 pub async fn request_limits(State(state): Shared, mut request: Request, next: Next) -> Response {
     request
         .extensions_mut()
         .insert(StaffRequestStart(chrono::Utc::now()));
+    let peer = match board_http::proxy_peer::resolve(
+        &request,
+        state.config.proxy.as_ref().map(|proxy| proxy.uid()),
+    ) {
+        Ok(peer) => peer,
+        Err(status) => return status.into_response(),
+    };
+    request.extensions_mut().insert(StaffRequestPeer(peer));
     let Ok(permit) = state.limits.permits.clone().try_acquire_owned() else {
         return AppError::Capacity.into_response();
     };
@@ -81,6 +100,12 @@ pub async fn javascript() -> impl IntoResponse {
     (
         [("content-type", "text/javascript; charset=utf-8")],
         include_str!("../static/staff.js"),
+    )
+}
+pub async fn post_limits_javascript() -> impl IntoResponse {
+    (
+        [("content-type", "text/javascript; charset=utf-8")],
+        include_str!("../static/post-limits.js"),
     )
 }
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
@@ -186,7 +211,7 @@ pub async fn enroll_start(
         return Err(AppError::Unauthorized);
     }
     let invite = auth::hash(&input.invitation);
-    let account:Account=sqlx::query_as("SELECT a.id,a.username,a.user_handle FROM staff_identity.accounts a JOIN staff_identity.invitations i ON i.account_id=a.id WHERE i.token_hash=$1 AND i.expires_at>clock_timestamp() AND a.revoked_at IS NULL AND a.role IN ('moderator','admin')").bind(&invite).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
+    let account:Account=sqlx::query_as("SELECT a.id,a.username,a.user_handle FROM staff_identity.accounts a JOIN staff_identity.invitations i ON i.account_id=a.id WHERE i.token_hash=$1 AND i.expires_at>clock_timestamp() AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin')").bind(&invite).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
     let existing: Vec<String> = sqlx::query_scalar(
         "SELECT credential::text FROM staff_identity.credentials WHERE account_id=$1",
     )
@@ -266,7 +291,7 @@ pub async fn login_start(
     if input.username.is_empty() || input.username.len() > 64 {
         return Err(AppError::Unauthorized);
     }
-    let account:Account=sqlx::query_as("SELECT id,username,user_handle FROM staff_identity.accounts WHERE username=$1 AND revoked_at IS NULL AND role IN ('moderator','admin')").bind(input.username).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
+    let account:Account=sqlx::query_as("SELECT id,username,user_handle FROM staff_identity.accounts WHERE username=$1 AND revoked_at IS NULL AND role IN ('janitor','moderator','manager','admin')").bind(input.username).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
     let credentials: Vec<String> = sqlx::query_scalar(
         "SELECT credential::text FROM staff_identity.credentials WHERE account_id=$1",
     )
@@ -314,7 +339,7 @@ pub async fn login_finish(
         .bind(ceremony.account_id)
         .execute(&mut *tx)
         .await?;
-    let previous:String=sqlx::query_scalar("SELECT c.credential::text FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.id=$2 AND a.revoked_at IS NULL AND a.role IN ('moderator','admin')").bind(key_id).bind(ceremony.account_id).fetch_optional(&mut *tx).await?.ok_or(AppError::Unauthorized)?;
+    let previous:String=sqlx::query_scalar("SELECT c.credential::text FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.id=$2 AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin')").bind(key_id).bind(ceremony.account_id).fetch_optional(&mut *tx).await?.ok_or(AppError::Unauthorized)?;
     let json: Value = serde_json::from_str(&previous).map_err(|_| AppError::Internal)?;
     let old_counter = json["cred"]["counter"].as_u64().ok_or(AppError::Internal)?;
     if (old_counter > 0 || result.counter() > 0) && u64::from(result.counter()) <= old_counter {
@@ -363,25 +388,33 @@ pub async fn login_finish(
     Ok(response)
 }
 pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<String>, AppError> {
-    let session = auth::session(&state, &headers).await?;
+    let mut authority = auth::guard(&state, &headers).await?;
+    let session = &authority.session;
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
-    auth::csrf(&session, &csrf)?;
-    let reports = store::reports(&state.staff)
+    auth::csrf(session, &csrf)?;
+    let reports = store::reports(&state.staff, session)
         .await?
         .into_iter()
         .map(views::Preview::from)
         .collect();
-    Ok(Html(
-        views::Queue {
-            media_origin: state.config.media_origin.clone(),
-            reports,
-            csrf,
-            recent: session.recent,
-            admin: session.role == "admin",
-        }
-        .render()
-        .map_err(|_| AppError::Internal)?,
-    ))
+    let html = views::Queue {
+        media_origin: state.config.media_origin.clone(),
+        reports,
+        csrf,
+        recent: session.recent,
+        admin: session.role == "admin",
+        moderator: session.at_least(crate::access::Level::Moderator),
+        can_post: session.at_least(crate::access::Level::Moderator)
+            || (session.at_least(crate::access::Level::Janitor)
+                && state.config.poster_id_key.is_some()
+                && (!state.config.production || state.config.proxy.is_some())),
+        discussion: session.permissions.can_discuss(&session.role),
+    }
+    .render()
+    .map_err(|_| AppError::Internal)?;
+    authority.ensure_current(false).await?;
+    authority.finish().await?;
+    Ok(Html(html))
 }
 
 #[derive(Default, Deserialize)]
@@ -400,6 +433,12 @@ pub async fn posting(
     Query(query): Query<PostingQuery>,
 ) -> Result<Html<String>, AppError> {
     let session = auth::session(&state, &headers).await?;
+    if !session.at_least(crate::access::Level::Janitor)
+        || query.board == "j"
+        || (!query.board.is_empty() && !session.permissions.allows(&query.board))
+    {
+        return Err(AppError::Forbidden);
+    }
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
     auth::csrf(&session, &csrf)?;
     if query.thread < 0
@@ -408,27 +447,84 @@ pub async fn posting(
     {
         return Err(AppError::Invalid);
     }
-    let boards: Vec<(String, String)> =
-        sqlx::query_as("SELECT slug,title FROM content.boards ORDER BY slug LIMIT 1000")
+    let boards: Vec<(String, String, i32)> =
+        sqlx::query_as("SELECT slug,title,CASE WHEN $3 THEN max_authorized_comment_chars ELSE max_comment_chars END FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
+            .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
+            .bind(session.at_least(crate::access::Level::Moderator))
             .fetch_all(&state.staff)
             .await?;
     if let Some(id) = query.posted {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.thread_id=$2 AND p.id=$3 AND p.capcode IS NOT NULL AND NOT p.deleted)")
-            .bind(&query.board).bind(query.thread).bind(id).fetch_one(&state.staff).await?;
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.thread_id=$2 AND p.id=$3 AND NOT p.deleted AND EXISTS(SELECT 1 FROM content.moderation_audit a WHERE a.board=p.board AND a.target_id=p.id AND a.account_id=$4 AND a.action='staff-post'))")
+            .bind(&query.board).bind(query.thread).bind(id).bind(session.account_id).fetch_one(&state.staff).await?;
         if !exists {
             return Err(AppError::NotFound);
         }
     }
-    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
         .bind(session.account_id).fetch_one(&state.auth).await?;
+    let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
+    use board_domain::capcode::Capcode;
+    let eligible: Vec<_> = [
+        Capcode::Moderator,
+        Capcode::Administrator,
+        Capcode::HighlightedAdministrator,
+        Capcode::Manager,
+        Capcode::Developer,
+        Capcode::Founder,
+    ]
+    .into_iter()
+    .filter(|badge| {
+        level.public_capcode(badge.source_option(), &session.permissions) == Ok(Some(*badge))
+    })
+    .collect();
+    let ordinary_ready = state.config.poster_id_key.is_some()
+        && (!state.config.production || state.config.proxy.is_some());
+    let selected_badge = Capcode::parse(&label)
+        .filter(|badge| eligible.contains(badge))
+        .or_else(|| eligible.first().copied())
+        .map(|badge| badge.as_str().to_owned())
+        .or_else(|| ordinary_ready.then(|| "none".to_owned()))
+        .ok_or(AppError::Forbidden)?;
+    let badges = eligible
+        .into_iter()
+        .map(|badge| {
+            (
+                badge.as_str().to_owned(),
+                if badge.highlighted() {
+                    "Admin (highlighted)"
+                } else {
+                    badge.label()
+                }
+                .to_owned(),
+            )
+        })
+        .collect();
+    let comment_max_units = boards
+        .iter()
+        .find(|board| board.0 == query.board)
+        .or_else(|| boards.first())
+        .map_or(20_000, |board| board.2 as usize * 2);
+    let flags:Vec<String>=sqlx::query_scalar("SELECT DISTINCT unnest(board_flags) FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY 1 LIMIT 128")
+        .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards).fetch_all(&state.staff).await?;
+    let flags = flags
+        .into_iter()
+        .filter_map(|code| {
+            board_domain::country::board_flag(&code).map(|name| (code, name.to_owned()))
+        })
+        .collect();
     Ok(Html(
         views::Posting {
             public_origin: state.config.public_origin.clone(),
             boards,
+            comment_max_units,
             query,
             csrf,
             recent: session.recent,
-            admin: label == "admin",
+            admin: level == crate::access::Level::Admin && selected_badge == "admin",
+            badges,
+            selected_badge,
+            ordinary_ready,
+            flags,
         }
         .render()
         .map_err(|_| AppError::Internal)?,
@@ -452,17 +548,32 @@ pub struct StaffMessage {
     pub sage: bool,
     #[serde(default)]
     pub highlight: bool,
+    #[serde(default)]
+    pub badge: String,
+    #[serde(default)]
+    pub options: String,
+    #[serde(default)]
+    pub flag: String,
+    #[serde(default)]
+    pub password: String,
 }
 
 pub async fn post_message(
     State(state): Shared,
     headers: HeaderMap,
     Extension(start): Extension<StaffRequestStart>,
+    Extension(peer): Extension<StaffRequestPeer>,
     Form(input): Form<StaffMessage>,
 ) -> Result<Redirect, AppError> {
     let request_start = start.0;
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
+    if !session.at_least(crate::access::Level::Janitor)
+        || input.board == "j"
+        || !session.permissions.allows(&input.board)
+    {
+        return Err(AppError::Forbidden);
+    }
     auth::csrf(&session, &input.csrf)?;
     if !session.recent {
         return Err(AppError::Recent);
@@ -470,44 +581,164 @@ pub async fn post_message(
     if input.thread < 0 || board_domain::BoardSlug::parse(&input.board).is_err() {
         return Err(AppError::Invalid);
     }
+    use board_domain::capcode::Capcode;
+    let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
+    let default_badge;
+    let selected = if input.badge.is_empty() {
+        default_badge = sqlx::query_scalar::<_,String>("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+            .bind(session.account_id).fetch_one(&state.auth).await?;
+        &default_badge
+    } else {
+        &input.badge
+    };
+    if level == crate::access::Level::Janitor && selected != "none" {
+        return Err(AppError::Forbidden);
+    }
+    let mut raw_options = input.options.clone();
+    if input.sage {
+        raw_options.push_str("sage");
+    }
+    let source = level
+        .posting_options(&raw_options, &session.permissions)
+        .map_err(|error| AppError::Posting(error.0.into()))?;
+    let mut badge = if selected == "none" {
+        source.capcode
+    } else {
+        if !input.options.is_empty() || !input.flag.is_empty() || !input.password.is_empty() {
+            return Err(AppError::Invalid);
+        }
+        Some(Capcode::parse(selected).ok_or(AppError::Invalid)?)
+    };
+    if input.highlight {
+        if level != crate::access::Level::Admin
+            || !matches!(
+                badge,
+                Some(Capcode::Administrator | Capcode::HighlightedAdministrator)
+            )
+        {
+            return Err(AppError::Unauthorized);
+        }
+        badge = Some(Capcode::HighlightedAdministrator);
+    }
+    if let Some(badge) = badge
+        && level.public_capcode(badge.source_option(), &session.permissions) != Ok(Some(badge))
+    {
+        return Err(AppError::Unauthorized);
+    }
     let token = auth::cookie(&headers, state.config.cookie_name())?;
     let session_hash = auth::hash(&token);
     let csrf_hash = auth::hash(&input.csrf);
     let ticket_hash: [u8; 32] = auth::hash(&auth::token())
         .try_into()
         .map_err(|_| AppError::Internal)?;
-    let id = board_store::create_staff_post(
-        &state.staff,
-        &input.board,
-        input.thread,
-        &board_store::NewPost {
-            name: input.name,
-            subject: input.subject,
-            comment: input.comment,
-            deletion_hash: String::new(),
-            sage: input.sage,
-        },
-        request_start,
-        board_store::StaffPostAuthority {
-            auth_pool: &state.auth,
-            session_hash: &session_hash,
-            csrf_hash: &csrf_hash,
-            ticket_hash: &ticket_hash,
-            idle_seconds: state.config.idle_timeout.as_secs() as i32,
-            highlight: input.highlight,
-        },
-    )
-    .await
-    .map_err(|error| match error {
+    let authority = board_store::StaffPostAuthority {
+        auth_pool: &state.auth,
+        session_hash: &session_hash,
+        csrf_hash: &csrf_hash,
+        ticket_hash: &ticket_hash,
+        idle_seconds: state.config.idle_timeout.as_secs() as i32,
+        highlight: false,
+        authorized_limits: level >= crate::access::Level::Moderator,
+        identity: Some(board_store::StaffPostIdentity {
+            capcode: badge,
+            name_allowed: if selected == "none" {
+                source.name_allowed
+            } else {
+                level.allows_capcode_name(&session.permissions)
+            },
+            administrator: level == crate::access::Level::Admin,
+            tripcode_key: state.config.tripcode_key.as_deref(),
+        }),
+    };
+    let mut post = board_store::NewPost {
+        name: input.name,
+        subject: input.subject,
+        comment: input.comment,
+        deletion_hash: String::new(),
+        sage: source.sage,
+    };
+    let result = if badge.is_none() {
+        if (state.config.production && state.config.proxy.is_none()) || peer.ip().is_none() {
+            return Err(AppError::Internal);
+        }
+        let key = state
+            .config
+            .poster_id_key
+            .as_deref()
+            .ok_or(AppError::Internal)?;
+        let op_hash = if input.thread > 0 {
+            board_store::staff_op_deletion_hash(&state.staff, &input.board, input.thread)
+                .await
+                .map_err(|_| AppError::Internal)?
+        } else {
+            None
+        };
+        let (hash, proof) = crate::posting_password::prepare(input.password, op_hash).await?;
+        post.deletion_hash = hash;
+        board_store::create_ordinary_staff_post(
+            &state.staff,
+            &input.board,
+            input.thread,
+            &post,
+            board_store::PostingContext {
+                request_start,
+                peer: peer.ip(),
+                op_password_proof: proof,
+            },
+            board_store::PostMetadata {
+                keys: board_store::PostIdentityKeys {
+                    tripcode: state.config.tripcode_key.as_deref(),
+                    poster_id: Some(key),
+                },
+                country_database: state.config.country_database.as_deref(),
+                flag: &input.flag,
+                options: &raw_options,
+            },
+            authority,
+        )
+        .await
+    } else {
+        board_store::create_staff_post(
+            &state.staff,
+            &input.board,
+            input.thread,
+            &post,
+            request_start,
+            authority,
+        )
+        .await
+    };
+    let result = match result {
+        Err(board_store::StoreError::ContentQuiet { post }) => {
+            return Ok(Redirect::to(&if input.thread > 0 {
+                format!(
+                    "{}/{}/thread/{}#p{post}",
+                    state.config.public_origin, input.board, input.thread
+                )
+            } else {
+                format!("{}/{}/", state.config.public_origin, input.board)
+            }));
+        }
+        other => other,
+    };
+    let id = result.map_err(|error| match error {
         board_store::StoreError::AuthorizationChanged => AppError::Unauthorized,
-        board_store::StoreError::Invalid(_) | board_store::StoreError::Conflict(_) => {
-            AppError::Invalid
+        board_store::StoreError::Invalid(message) | board_store::StoreError::Conflict(message) => {
+            AppError::Posting(message.into())
         }
         board_store::StoreError::NotFound => AppError::NotFound,
+        board_store::StoreError::ContentRejected(message)
+        | board_store::StoreError::Robot9000Rejected(message) => AppError::Posting(message),
         board_store::StoreError::Database(error) => AppError::Database(error),
         _ => AppError::Internal,
     })?;
     let thread = if input.thread == 0 { id } else { input.thread };
+    if source.return_to_board {
+        return Ok(Redirect::to(&format!(
+            "{}/{}/",
+            state.config.public_origin, input.board
+        )));
+    }
     Ok(Redirect::to(&format!(
         "/post?board={}&thread={thread}&posted={id}",
         input.board
@@ -529,16 +760,20 @@ pub async fn moderate(
     Form(input): Form<Mutation>,
 ) -> Result<Redirect, AppError> {
     auth::origin(&headers, &state.config.origin)?;
-    let session = auth::session(&state, &headers).await?;
-    auth::csrf(&session, &input.csrf)?;
-    store::moderate(
+    let mut authority = auth::guard(&state, &headers).await?;
+    let session = &authority.session;
+    auth::csrf(session, &input.csrf)?;
+    let transaction = store::prepare_moderation(
         &state.staff,
-        &session,
+        session,
         &input.board,
         input.target,
         &input.action,
     )
     .await?;
+    authority.ensure_current(true).await?;
+    transaction.commit().await?;
+    authority.finish().await?;
     Ok(Redirect::to("/reports"))
 }
 pub async fn logout(

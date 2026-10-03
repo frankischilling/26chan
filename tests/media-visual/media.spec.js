@@ -71,6 +71,12 @@ for (const [name, viewport] of [
         await expect(link).toHaveAttribute('target', '_blank');
       }
       await expect(page.locator('#postForm')).toHaveCount(kind === 'catalog' || kind === 'archived' ? 0 : 1);
+      if (kind === 'board' || kind === 'thread') {
+        await expect(page.locator('#postPassword')).toHaveAttribute('type', 'hidden');
+        await expect(page.locator('#postPassword')).toHaveAttribute('name', 'pwd');
+        await expect(page.locator('#postPassword')).toHaveValue('');
+        await expect(page.locator('#postPassword')).toBeHidden();
+      }
       if (kind === 'archived') await expect(page.getByText('This thread is archived and read-only.')).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
       await page.evaluate(() => window.scrollTo(0, 0));

@@ -16,11 +16,11 @@ const test = base.extend({
     };
     const control = await post('demo', `Control ${tag}`);
     const demo = await post('demo', `<b>${tag} & paper</b>`);
-    const other = await post('test', `${tag} fold`);
+    const other = await post('fixture', `${tag} fold`);
     const reply = await post('demo', '', demo);
     const filters = [
       { type: 5, pattern: `${tag} paper`, boards: 'demo', active: true, auto: true },
-      { type: 5, pattern: `${tag} fold`, boards: 'test', active: true, auto: true },
+      { type: 5, pattern: `${tag} fold`, boards: 'fixture', active: true, auto: true },
     ];
     await use({ tag, control, demo, other, reply, filters, post });
     for (const { board, id } of created) {
@@ -62,9 +62,9 @@ test('manual extension refresh discovers two boards, counts replies and retains 
   expect((await source.json()).posts[0].sub).toBe(`&lt;b&gt;${fixture.tag} &amp; paper&lt;/b&gt;`);
   await refresh(page);
   await expect(page.locator(`#watch-${fixture.demo}-demo a`)).toHaveText(`(1) /demo/ - <b>${fixture.tag} & paper</b>`);
-  await expect(page.locator(`#watch-${fixture.other}-test a`)).toHaveText(`/test/ - ${fixture.tag} fold`);
+  await expect(page.locator(`#watch-${fixture.other}-fixture a`)).toHaveText(`/fixture/ - ${fixture.tag} fold`);
   await expect(page.locator('#watchList b, #watchList img')).toHaveCount(0);
-  expect(requests.slice(0, 2).map(url => new URL(url).pathname)).toEqual(['/_watch/demo/catalog.json', '/_watch/test/catalog.json']);
+  expect(requests.slice(0, 2).map(url => new URL(url).pathname)).toEqual(['/_watch/demo/catalog.json', '/_watch/fixture/catalog.json']);
   await page.getByRole('button', { name: `Unwatch /demo/ thread ${fixture.demo}`, exact: true }).click();
   await expect(page.locator(`#watch-${fixture.demo}-demo`)).toHaveCount(0);
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem('4chan-watch-bl'))[`${id}-demo`], fixture.demo)).toBe(1);
@@ -72,28 +72,28 @@ test('manual extension refresh discovers two boards, counts replies and retains 
   await page.reload();
   await refresh(page);
   await expect(page.locator(`#watch-${fixture.demo}-demo`)).toHaveCount(0);
-  await expect(page.locator(`#watch-${fixture.other}-test`)).toBeVisible();
+  await expect(page.locator(`#watch-${fixture.other}-fixture`)).toBeVisible();
 });
 
 test('failed board catalogs preserve suppression while successful boards add real matching threads', async ({ page, request, fixture }) => {
-  const blocked = { [`${fixture.other}-test`]: 1, [`${fixture.demo}-test`]: 1 };
-  expect((await request.get('/_watch/test/catalog.json')).status()).toBe(200);
-  await page.route('**/_watch/test/catalog.json', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+  const blocked = { [`${fixture.other}-fixture`]: 1, [`${fixture.demo}-fixture`]: 1 };
+  expect((await request.get('/_watch/fixture/catalog.json')).status()).toBe(200);
+  await page.route('**/_watch/fixture/catalog.json', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
   await prepare(page, fixture, blocked);
   await refresh(page);
   await expect(page.locator(`#watch-${fixture.demo}-demo`)).toBeVisible();
-  await expect(page.locator(`#watch-${fixture.other}-test`)).toHaveCount(0);
+  await expect(page.locator(`#watch-${fixture.other}-fixture`)).toHaveCount(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-watch-bl')))).toEqual(blocked);
   await expect(page.locator('.watcherNotice')).toContainText('failed-board blacklists were retained');
-  await page.unroute('**/_watch/test/catalog.json');
+  await page.unroute('**/_watch/fixture/catalog.json');
   await page.evaluate(() => localStorage.removeItem('4chan-tw-timestamp'));
   await page.reload();
   await refresh(page);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-watch-bl')))).toEqual({ [`${fixture.other}-test`]: 1 });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-watch-bl')))).toEqual({ [`${fixture.other}-fixture`]: 1 });
 });
 
 test('cross-tab filter changes cancel held catalogs without adding threads or pruning blacklists', async ({ page, context, fixture }) => {
-  const blocked = { [`${fixture.other}-test`]: 1 };
+  const blocked = { [`${fixture.other}-fixture`]: 1 };
   await prepare(page, fixture, blocked);
   const other = await context.newPage();
   await other.goto(`/demo/thread/${fixture.control}`);
@@ -200,7 +200,7 @@ test('catalog and thread responses share the configured aggregate byte ceiling',
     const entries = new Map(keys.map(key => [key, { label: 'Owned budget control', read: '0',
       unread: 0, archived: false, ownReply: false }]));
     return new WatcherRefresh({ origin: location.origin, getEntries: () => entries, commit: () => true }).refresh();
-  }, [`${fixture.demo}-demo`, `${fixture.other}-test`, `${extra}-demo`]);
+  }, [`${fixture.demo}-demo`, `${fixture.other}-fixture`, `${extra}-demo`]);
   expect(control.status).toBe('complete');
   expect(control.results.map(row => row.status)).toEqual(['updated', 'updated', 'updated']);
 });

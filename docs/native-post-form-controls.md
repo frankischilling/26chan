@@ -14,9 +14,12 @@ page text. Disabling Quick Reply or the extension restores the ordinary
 mobile toggle. Core form controls do not depend on optional keybindings.
 
 Desktop and mobile expansion states stay separate across viewport changes,
-as in the source's display and hideMobile rules. In particular, `#reply`
-expands the desktop state but does not remove hideMobile. Posting authority
-still comes from the server; revealing a form does not bypass a closed thread
+as in the source's display and hideMobile rules. An initial `#reply`
+expands the desktop state. A quote URL whose target the server has validated
+also opens the mobile form; other fragments leave its mobile state collapsed.
+This reveal does not depend on the draft still matching the initial quote.
+Edits made before the client script loads remain visible and intact. Posting
+authority still comes from the server; revealing a form does not bypass a closed thread
 or any posting limit.
 
 Source evidence, inspected as text:

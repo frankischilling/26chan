@@ -2,6 +2,7 @@
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
+import { observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
 const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], inline = process.argv[5] === '--inline';
 assert.equal(process.argv.length, inline ? 6 : 5); assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
@@ -27,11 +28,10 @@ try {
     await page.locator('.open-qr-link').click();
     qr = page.locator('#quickReply');
     await expect(qr.locator('#qrFile')).toBeVisible();
-    const queued = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/upload`))
-      .then(async response => ({ status: response.status(), receipt: await response.json() }));
+    const queued = await observeOwnedUploadResponse(page, url(`/${board}/upload`), 'upload');
     await qr.locator('#qrFile').setInputFiles(source);
-    const queuedResponse = await queued; assert.equal(queuedResponse.status, 200);
-    const receipt = queuedResponse.receipt;
+    const queuedResponse = await queued(); assert.equal(queuedResponse.status, 200);
+    const receipt = queuedResponse.result;
     assert.equal(receipt.resto, thread); assert.equal(receipt.state, 'queued');
     uploadId = receipt.upload_id; capability = receipt.upload_capability;
     assert.match(uploadId, /^[0-9a-f]{32}$/); assert.match(capability, /^[0-9a-f]{64}$/);
@@ -60,10 +60,9 @@ try {
   }
   await expect(qr.locator('[name=upload_id]')).toHaveValue(uploadId);
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
-  await qr.locator('[name=spoiler]').check(); await page.locator('#qr-pwd').fill(password);
-  const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`))
-    .then(async response => ({ status: response.status(), result: await response.json() }));
-  await qr.locator('input[type=submit]').click(); const response = await posted;
+  await qr.locator('[name=spoiler]').check(); await expect(page.locator('#qr-pwd')).toHaveValue('');
+  const posted = await observeOwnedUploadResponse(page, url(`/${board}/imgboard.php`), 'post');
+  await qr.locator('input[type=submit]').click(); const response = await posted();
   assert.equal(response.status, 200); const result = response.result;
   assert.equal(String(result.tid), thread); assert.ok(result.pid > result.tid);
   const post = String(result.pid); await expect(qr).toBeVisible(); await expect(page.locator('#qrCom')).toHaveValue('');
@@ -84,7 +83,7 @@ try {
   await expect(qr.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
   if (inline) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
   else await expect(qr.locator('[name=spoiler]')).toHaveCount(0);
-  await page.locator('#qr-pwd').fill(password); await page.locator('#qrCom').fill('Text after the consumed image');
+  await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('Text after the consumed image');
   const next = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`));
   await qr.locator('input[type=submit]').click(); assert.equal((await next).status(), 200);
   await expect(page.locator('#qrCom')).toHaveValue('');
@@ -112,7 +111,7 @@ try {
   await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
   await page.locator(`#p${post} .postActions summary`).click();
-  await deletion.locator('[name=password]').fill(password); await deletion.locator('[name=file_only]').check();
+  await expect(deletion.locator('[name=password]')).toHaveValue(''); await deletion.locator('[name=file_only]').check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
   await expect(page.locator(`#p${post} .file img.fileDeletedRes`)).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
   await expect(page.locator(`#p${post} .file a`)).toHaveCount(0);

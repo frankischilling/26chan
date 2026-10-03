@@ -1,7 +1,7 @@
 use crate::store::Report;
 use askama::Template;
 use board_domain::comment_markup::Tag;
-use board_domain::formatting::{Line, Token, parse_post_comment};
+use board_domain::formatting::{Line, Token, parse_saved_comment_with_limits};
 use board_domain::word_break::WordPart;
 #[derive(Template)]
 #[template(path = "login.html")]
@@ -10,11 +10,16 @@ pub struct Login;
 #[template(path = "posting.html")]
 pub struct Posting {
     pub public_origin: String,
-    pub boards: Vec<(String, String)>,
+    pub boards: Vec<(String, String, i32)>,
+    pub comment_max_units: usize,
     pub query: crate::handlers::PostingQuery,
     pub csrf: String,
     pub recent: bool,
     pub admin: bool,
+    pub badges: Vec<(String, String)>,
+    pub selected_badge: String,
+    pub ordinary_ready: bool,
+    pub flags: Vec<(String, String)>,
 }
 pub struct Preview {
     pub report: Report,
@@ -43,7 +48,18 @@ impl Preview {
 }
 impl From<Report> for Preview {
     fn from(report: Report) -> Self {
-        let lines = parse_post_comment(&report.comment, report.comment_format);
+        let lines = parse_saved_comment_with_limits(
+            &report.comment,
+            report.comment_format,
+            &report.board,
+            report.wordfilter_payload.as_deref(),
+            if report.staff_authorized_limits {
+                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+                    .expect("finite persisted staff bound")
+            } else {
+                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+            },
+        );
         Self { report, lines }
     }
 }
@@ -55,6 +71,9 @@ pub struct Queue {
     pub csrf: String,
     pub recent: bool,
     pub admin: bool,
+    pub moderator: bool,
+    pub can_post: bool,
+    pub discussion: bool,
 }
 #[cfg(test)]
 mod tests {
@@ -77,6 +96,8 @@ mod tests {
             flag_name: None,
             subject: "<i>subject</i>".into(),
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
                 .into(),
             state: "open".into(),
@@ -85,6 +106,8 @@ mod tests {
             permasage: false,
             permaage: false,
             deleted: false,
+            spoilers_enabled: false,
+            image_spoiler: false,
             attachment: None,
         };
         let html = Queue {
@@ -93,6 +116,9 @@ mod tests {
             csrf: "example".into(),
             recent: true,
             admin: false,
+            moderator: true,
+            can_post: true,
+            discussion: true,
         }
         .render()
         .unwrap();
@@ -116,7 +142,7 @@ mod tests {
 
     #[test]
     fn stamped_preview_keeps_markup_and_escapes_hostile_text() {
-        for format in [0, 8, 9, 15, 24, 31, 40, 47, 56, 63] {
+        for format in [0, 8, 9, 15, 24, 31, 40, 47, 56, 63, 104, 105, 111, 120, 127] {
             let preview = Preview::from(Report {
                 id: 1,
                 board: "test".into(),
@@ -133,7 +159,9 @@ mod tests {
                 flag_name: None,
                 subject: String::new(),
                 comment_format: format,
-                comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b]"
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b] https://www.4chan.org/faq https://example.org/path"
                     .into(),
                 state: "open".into(),
                 closed: false,
@@ -141,6 +169,8 @@ mod tests {
                 permasage: false,
                 permaage: false,
                 deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
                 attachment: None,
             });
             let html = Queue {
@@ -149,6 +179,9 @@ mod tests {
                 csrf: "owned-fixture".into(),
                 recent: true,
                 admin: false,
+                moderator: true,
+                can_post: true,
+                discussion: true,
             }
             .render()
             .unwrap();
@@ -158,6 +191,11 @@ mod tests {
             assert!(!html.contains("<b>first"));
             assert!(!html.contains("href=\"/test/post/42\""));
             assert!(html.contains("<span>&gt;&gt;42</span>"));
+            assert!(html.contains("href=\"https://www.4chan.org/faq\""));
+            assert_eq!(
+                html.contains("href=\"https://example.org/path\""),
+                format & 64 == 0
+            );
             assert!(html.contains("href=\"/comment-markup.css\""));
         }
     }
@@ -183,12 +221,16 @@ mod tests {
                 subject: String::new(),
                 comment: comment.clone(),
                 comment_format: format,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
                 state: "open".into(),
                 closed: false,
                 sticky: false,
                 permasage: true,
                 permaage: true,
                 deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
                 attachment: None,
             };
             let html = Queue {
@@ -197,6 +239,9 @@ mod tests {
                 csrf: "example".into(),
                 recent: true,
                 admin: true,
+                moderator: true,
+                can_post: true,
+                discussion: true,
             }
             .render()
             .unwrap();

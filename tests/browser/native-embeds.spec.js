@@ -15,7 +15,11 @@ const test = base.extend({
     const response = await write({ resto: '0', sub: 'Owned native embeds', com: `${youtube}\n${soundcloud}` });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
-    try { await use({ id, url: `/demo/thread/${id}` }); }
+    try { await use({ id, url: `/demo/thread/${id}`, reply: async com => {
+      const result = await write({ resto: id, com });
+      expect(result.status(), await result.text()).toBe(303);
+      return result.headers().location.match(/#p(\d+)/)[1];
+    } }); }
     finally {
       await request.post('/demo/delete', {
         headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
@@ -24,7 +28,8 @@ const test = base.extend({
   },
 });
 
-test('provider links stay intact and frames load only after the real Embed controls are selected', async ({ page, owned }) => {
+test('provider text remains text and frames load only after the real Embed controls are selected', async ({ page, owned }) => {
+  const quoted = await owned.reply(`>>${owned.id}\n${Array.from({ length: 45 }, (_, index) => `Owned preview spacing line ${index}`).join('\n')}`);
   const providerRequests = [];
   page.on('request', request => {
     const url = new URL(request.url());
@@ -41,13 +46,25 @@ test('provider links stay intact and frames load only after the real Embed contr
   await page.goto(owned.url);
 
   const message = page.locator(`#m${owned.id}`);
-  const youtubeLink = message.getByRole('link', { name: youtube, exact: true });
-  const soundCloudLink = message.getByRole('link', { name: soundcloud, exact: true });
+  const youtubeLink = message.getByText(youtube, { exact: true });
+  const soundCloudLink = message.getByText(soundcloud, { exact: true });
   await expect(youtubeLink).toHaveCount(1);
   await expect(soundCloudLink).toHaveCount(1);
+  await expect(message.locator('a.linkified')).toHaveCount(0);
+  expect(await youtubeLink.evaluate(node => node.tagName)).toBe('SPAN');
+  expect(await soundCloudLink.evaluate(node => node.tagName)).toBe('SPAN');
   await expect(youtubeLink.locator('xpath=following-sibling::*[1]')).toHaveClass(/nativeEmbedControls/);
   await expect(soundCloudLink.locator('xpath=following-sibling::*[1]')).toHaveClass(/nativeEmbedControls/);
   await expect(message.locator('iframe')).toHaveCount(0);
+  expect(providerRequests).toEqual([]);
+
+  const quote = page.locator(`#m${quoted} .quotelink`).first();
+  await quote.evaluate(node => node.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => scrollBy(0, -40));
+  await quote.hover();
+  await expect(page.locator('#quote-preview .postMessage')).toContainText(youtube);
+  await expect(page.locator('#quote-preview .postMessage')).toContainText(soundcloud);
+  await expect(page.locator('#quote-preview .nativeEmbedControls, #quote-preview iframe')).toHaveCount(0);
   expect(providerRequests).toEqual([]);
 
   await youtubeLink.hover();
@@ -83,8 +100,18 @@ test('provider links stay intact and frames load only after the real Embed contr
     window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings' }));
   });
   await expect(message.locator('.nativeEmbedControls,iframe')).toHaveCount(0);
-  await expect(youtubeLink).toHaveAttribute('href', youtube);
-  await expect(soundCloudLink).toHaveAttribute('href', soundcloud);
+  await expect(message.locator('a,span')).toHaveCount(0);
+  await expect(message).toHaveText(`${youtube}${soundcloud}`);
+});
+
+test('desktop linkified provider destinations decode source entities without changing visible text', async ({ page, owned }) => {
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: true, threadStats: false })));
+  await page.goto(owned.url);
+  const message = page.locator(`#m${owned.id}`);
+  const link = message.getByRole('link', { name: youtube, exact: true });
+  await expect(link).toHaveAttribute('href', `/derefer?url=${encodeURIComponent(youtube.replace('&', '&amp;'))}`);
+  await expect(link.locator('xpath=following-sibling::*[1]')).toHaveClass(/nativeEmbedControls/);
+  await expect(message.locator('iframe')).toHaveCount(0);
 });
 
 test('mobile source behavior exposes YouTube Open without creating or preloading a player', async ({ page, owned }) => {

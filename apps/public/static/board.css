@@ -156,6 +156,18 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 @media (max-width: 480px) { .catalog.small .thread, .catalog.extended-small .thread { width: 155px; } }
 .boardDirectory, .message { max-width: 720px; margin: 30px auto; padding: 15px; background: #f0e0d6; border: 1px solid #d9bfb7; }
 .boardDirectory article { border-top: 1px solid #d9bfb7; }
+.is_search #g-search-form { text-align: center; }
+.is_search .g-search-ctrl { vertical-align: top; margin: 0 3px; }
+.is_search #js-sf-qf { width: 185px; padding: 2px 4px 3px; }
+.is_search #js-sf-bf { width: 125px; padding: 2px 4px 3px; }
+.is_search #js-sf-status { text-align: center; font-size: 24px; }
+.is_search .js-sf-err { color: #c41e3a; }
+.is_search .boardBlock { font-weight: bold; margin: 3px 0; }
+.is_search .pagelist, .is_search .mPagelist { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+.is_search .pagelist .pages, .is_search .mPagelist .pages { margin: 0 auto; word-spacing: normal; }
+.is_search .pagelist .prev, .is_search .pagelist .next, .is_search .mPagelist .prev, .is_search .mPagelist .next { min-width: 70px; }
+.is_search .pagelist .next, .is_search .mPagelist .next { text-align: right; }
+.is_search .searchThread { padding-top: 4px; }
 .empty { padding: 35px 12px; text-align: center; }
 .archiveEntries { overflow-wrap: anywhere; }
 .pages { margin: 20px 0; word-spacing: 12px; }

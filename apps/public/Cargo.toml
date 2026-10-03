@@ -47,6 +47,7 @@ tempfile = "3.27"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 proptest.workspace = true
+roxmltree = "=0.21.1"
 
 [lints]
 workspace = true

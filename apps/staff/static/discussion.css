@@ -1,0 +1,11 @@
+.discussionPage .discussionJanitor { color: #4169e1; }
+.discussionPage .discussionModerator { color: #800080; }
+.discussionPage .discussionManager { color: #ff0080; }
+.discussionPage .discussionAdmin { color: #ff0000; }
+.discussionPage .discussionUnknown { color: #aaa; }
+.discussionError { text-align: center; color: #c00; font-weight: bold; }
+.discussionPage .postInfo { display: block; }
+.discussionPage .postNum { white-space: nowrap; }
+.discussionPage .boardBanner { margin: 24px 0; text-align: center; }
+.discussionPage .discussionForm { max-width: 490px; }
+.discussionPage .pages { padding: 12px 0; }

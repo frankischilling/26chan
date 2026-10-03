@@ -10,7 +10,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config = board_staff::Config::from_env()?;
     let bind = config.bind;
     let metrics_config = board_observe::Config::from_env()?;
-    let listener = tokio::net::TcpListener::bind(bind)
+    let listener = board_http::transport::HttpListener::bind(bind, config.proxy.as_ref())
         .await
         .map_err(|_| "Staff listener unavailable")?;
     let metrics_endpoint = board_observe::Endpoint::bind(metrics_config).await?;
@@ -18,12 +18,26 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .map_err(|_| "Staff database or WebAuthn setup unavailable")?;
     let (metrics, app) = board_staff::observed_router(state);
-    let serving = async {
-        axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown())
-            .await
-    };
-    metrics_endpoint.serve(metrics, serving).await?;
+    let limits = board_config::PublicRequestLimits::from_lookup(|name| {
+        (name == "PUBLIC_MAX_CONNECTIONS").then(|| "16".into())
+    })?;
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let serving = metrics_endpoint.serve(
+        metrics,
+        listener.serve(
+            app,
+            stopped,
+            board_http::transport::ConnectionBudget::new(limits),
+        ),
+    );
+    tokio::pin!(serving);
+    tokio::select! {
+        result = &mut serving => result?,
+        () = shutdown() => {
+            let _ = stop.send(true);
+            serving.await?;
+        }
+    }
     Ok(())
 }
 

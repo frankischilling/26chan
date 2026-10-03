@@ -107,6 +107,13 @@ impl Fixture {
         let archived = kind == "archived";
         let closed = kind == "closed" || kind == "closed-board";
         let board = board_store::Board {
+            source_order: 1000,
+            catalog_enabled: true,
+            json_enabled: true,
+            staff_only: false,
+            meta_board: false,
+            upload_board: false,
+            rss_enabled: true,
             slug: "img".into(),
             title: "Paper image fixtures".into(),
             description: "Synthetic folds, thumbnails and file states.".into(),
@@ -133,18 +140,23 @@ impl Fixture {
         };
         let posts: Vec<_> = self.files.iter().enumerate().map(|(index, file)| views::PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             id: file.post_id,
             board: board.slug.clone(),
             thread_id: if separate_threads { file.post_id } else { thread.id },
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, capcode: None,
+            poster_id: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
             flag_name: None,
             subject: ["Landscape fold", "Portrait fold", "Small fold", "Legacy full-image preview", "Spoiler fold", "Removed file"][index].into(),
             comment: "Synthetic paper fold.\n>the original bytes stay unchanged\n[spoiler]A hidden crease.[/spoiler]".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: Some(file.clone()),

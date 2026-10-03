@@ -48,7 +48,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     for (const button of source.querySelectorAll('button[type=submit], button:not([type])')) button.textContent = 'Post';
     const help = source.querySelector('#postHelp'); if (help) help.textContent = uncertain
       ? 'The image posting result is uncertain. Check the thread before posting again. Further replies require a comment.'
-      : 'The approved image was posted. Further replies require a comment. Save your deletion password.';
+      : 'The approved image was posted. Further replies require a comment.';
   }
   function removeInlineCapability() {
     form?.querySelectorAll('[data-qr-upload-capability]').forEach(input => input.remove());
@@ -183,8 +183,8 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       flag.value = sourceFlag.value; row.append(flag); fields.append(row);
     }
     comment = field('com', 'Comment', 'textarea'); comment.rows = 4;
-    const password = field('pwd', 'Deletion password', 'password'); password.minLength = 8; password.maxLength = 128;
-    password.required = true; password.autocomplete = 'new-password'; password.value = source.elements.pwd?.value ?? '';
+    const password = node('input'); password.type = 'hidden'; password.name = 'pwd'; password.id = 'qr-pwd';
+    password.value = source.elements.pwd?.value ?? ''; form.append(password);
     // Approved capabilities are available only on the isolated upload result page.
     for (const key of ['upload_id', 'upload_capability']) {
       const value = source.elements.namedItem(key)?.value;

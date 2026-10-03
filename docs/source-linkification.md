@@ -3,10 +3,11 @@
 Board and thread pages mount the URL linker through the existing native client
 bundle. Settings exposes **Linkify URLs**. Existing server-generated links keep
 their nodes, destinations and formatting; the linker only wraps eligible text.
-Catalog pages do not mount it. No database migration or stored-format change is
-part of this integration.
+Catalog pages do not mount it. [Server comment links](server-comment-links.md)
+describe the saved source policy and its migration; the browser preference
+does not change that policy.
 
-## Permitted reference and remaining server questions
+## Browser reference
 
 The behavioral reference is the released public extension v1191,
 `https://s.4cdn.org/js/extension.min.1191.js`, collected September 13, 2026 at
@@ -17,21 +18,14 @@ same asset. Its `Linkify`, `Parser.parsePost`, configuration defaults and mobile
 layout selection were inspected as text. No upstream JavaScript was executed
 for this integration, and fixtures contain synthetic content.
 
-The original brief excludes leaked source. The earlier checkpoint relied on the
-supplied `4chan-old` checkout; its remote describes that repository as leaked
-source. That checkpoint's inspection and differential result are not accepted
-as reference qualification for this change. The browser contract above was
-independently checked against the public release.
-
 The pinned official API `Threads.md` example already contains external HTTP(S)
 anchors in `com`, as well as a static catalog quote link. Neither those examples
 nor the optional client linker establish a universal server auto-link policy.
-The existing server formatter and all saved profiles therefore remain intact.
-Exact server URL normalization, static aliases, dead-quote resolution and their
-effects on catalog text remain unresolved under [#165](https://github.com/frankischilling/26chan/issues/165),
-[#82](https://github.com/frankischilling/26chan/issues/82) and
-[#6](https://github.com/frankischilling/26chan/issues/6). The public FAQ establishes
-ordinary same-board and cross-board quote syntax, not those server algorithms.
+The current server policy follows the supplied source functions. It preserves
+historical formatter profiles and leaves external URLs as text on new posts.
+The broader source target, including remaining quote-resolution behavior, is
+tracked in [#191](https://github.com/frankischilling/26chan/issues/191) and
+[#208](https://github.com/frankischilling/26chan/issues/208).
 
 ## Browser behavior
 

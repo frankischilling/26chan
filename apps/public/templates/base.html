@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/static/board.css">
   <link rel="stylesheet" href="/static/flags/flags.css">
   {% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css">{% endblock %}
+  {% block alternate_feed %}{% endblock %}
 </head>
 <body{% block body_attributes %}{% endblock %}>
 {% block board_navigation %}<nav class="boardList" aria-label="Board navigation">[ <a href="/">All boards</a> ]</nav>{% endblock %}

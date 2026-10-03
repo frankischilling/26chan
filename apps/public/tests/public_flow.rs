@@ -17,14 +17,14 @@ async fn persisted_posting_json_deletion_and_database_denials() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/test/")
+                .uri("/fixture/")
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    let request = Request::builder().method("POST").uri("/test/post")
+    let request = Request::builder().method("POST").uri("/fixture/post")
         .header("origin", "http://127.0.0.1:3000").header("content-type", "application/x-www-form-urlencoded")
         .body(Body::from("name=Tester&sub=Persistence&com=%3Cscript%3Ealert%281%29%3C%2Fscript%3E&password=test-password-123&resto=0")).unwrap();
     let response = app.clone().oneshot(request).await.unwrap();
@@ -41,7 +41,7 @@ async fn persisted_posting_json_deletion_and_database_denials() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/test/thread/{thread}.json"))
+                .uri(format!("/fixture/thread/{thread}.json"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -66,7 +66,7 @@ async fn persisted_posting_json_deletion_and_database_denials() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/test/thread/{thread}.json"))
+                .uri(format!("/fixture/thread/{thread}.json"))
                 .header("if-none-match", etag)
                 .body(Body::empty())
                 .unwrap(),
@@ -78,7 +78,7 @@ async fn persisted_posting_json_deletion_and_database_denials() {
     for origin in [None, Some("https://untrusted.example"), Some("null")] {
         let mut request = Request::builder()
             .method("POST")
-            .uri("/test/delete")
+            .uri("/fixture/delete")
             .header("content-type", "application/x-www-form-urlencoded");
         if let Some(origin) = origin {
             request = request.header("origin", origin);
@@ -102,7 +102,7 @@ async fn persisted_posting_json_deletion_and_database_denials() {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/test/delete")
+                    .uri("/fixture/delete")
                     .header("origin", "http://127.0.0.1:3000")
                     .header("content-type", "application/x-www-form-urlencoded")
                     .body(Body::from(format!("no={thread}&password={password}")))
@@ -123,7 +123,7 @@ async fn persisted_posting_json_deletion_and_database_denials() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/test/thread/{thread}.json"))
+                .uri(format!("/fixture/thread/{thread}.json"))
                 .body(Body::empty())
                 .unwrap(),
         )

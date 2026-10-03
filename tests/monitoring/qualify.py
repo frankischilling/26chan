@@ -35,10 +35,14 @@ def request(url, token=None):
         return error.code, error.read(65536)
 
 
-def port():
-    with socket.socket() as owned:
-        owned.bind(("127.0.0.1", 0))
-        return owned.getsockname()[1]
+def ports(count):
+    # Reserve the whole set together. Closing each socket before choosing the
+    # next one permits the OS to return the same ephemeral port twice.
+    with ExitStack() as reservations:
+        owned = [reservations.enter_context(socket.socket()) for _ in range(count)]
+        for listener in owned:
+            listener.bind(("127.0.0.1", 0))
+        return tuple(listener.getsockname()[1] for listener in owned)
 
 
 def wait_for(description, predicate, children, seconds=30):
@@ -113,9 +117,9 @@ def qualify(binary_directory, fixture, lifecycle_state=None):
         receiver_thread.start()
         cleanup.callback(receiver.server_close)
         cleanup.callback(receiver.shutdown)
-        metrics_port, app_port, prom_port, alert_port = (port() for _ in range(4))
+        metrics_port, app_port, prom_port, alert_port = ports(4)
         if len({metrics_port, app_port, prom_port, alert_port, receiver.server_port}) != 5:
-            raise AssertionError("Ephemeral port collision; rerun qualification")
+            raise AssertionError("Owned qualification ports must be distinct")
         token = secrets.token_hex(32)
         token_path = work / "metrics.token"
         token_path.write_text(token, encoding="ascii")

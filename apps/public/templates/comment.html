@@ -1,2 +1,4 @@
 {%- import "formatting.html" as formatting -%}
+{%- if let Some(dice) = dice_result -%}<b>{{ dice }}<br><br></b>{%- endif -%}
 {%- call formatting::comment(lines, board) -%}{%- endcall -%}
+{%- if let Some(fortune) = fortune_text -%}{%- if let Some(color) = fortune_color -%}<span class="fortune" style="color:{{ color }}"><br><br><b>Your fortune: {{ fortune }}</b></span>{%- endif -%}{%- endif -%}

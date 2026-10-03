@@ -1,5 +1,11 @@
 # Comment character limits
 
+This is the historical migration 0007 plan. Later source evidence established
+[newline normalization](verification-comment-limits.md#posting-newline-normalization)
+before counting and [rank-specific staff bounds](verification-authorized-post-limits.md).
+The earlier newline and staff-envelope statements below describe that plan,
+not the current posting contract.
+
 The pinned API documents `max_comment_chars` as a character count, but the current board setting and post validation count UTF-8 bytes. A board advertising 4,000 characters therefore rejects 4,000 accented letters or emoji. Correct this mismatch across validation, persistence, public JSON and rendered public/staff comments. This extends I-001 and B-003; it does not establish undocumented original Unicode or posting behavior.
 
 ## Global constraints

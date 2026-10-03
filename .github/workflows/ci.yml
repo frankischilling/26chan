@@ -20,7 +20,8 @@ jobs:
   rust-and-browser:
     runs-on: ubuntu-24.04
     # Privileged qualification runs independently below, with its own database.
-    timeout-minutes: 40
+    # The complete source-parity browser suite exceeded the former 40m job cap.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,7 +38,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -105,7 +106,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl libicu-dev libpcre2-dev
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -225,10 +226,32 @@ jobs:
         run: sudo bash scripts/test-forced-anonymous-migration.sh
       - name: Upgrade tripcodes while preserving historical content and runtime grants
         run: sudo bash scripts/test-tripcode-migration.sh
+      - name: Upgrade source display names while preserving saved identities and runtime grants
+        run: sudo bash scripts/test-public-display-name-migration.sh
+      - name: Upgrade source trip suppression while preserving historical identities and policy authority
+        run: sudo bash scripts/test-trip-suppression-migration.sh
+      - name: Upgrade rank-specific posting limits while preserving history and ordinary proof bounds
+        run: sudo bash scripts/test-authorized-post-migration.sh
+      - name: Upgrade staff badge permissions and proof-bound tripcodes while preserving history and grants
+        run: sudo bash scripts/test-staff-identity-migration.sh
+      - name: Upgrade static staff IDs while preserving saved IDs, source proofs and runtime grants
+        run: sudo bash scripts/test-staff-poster-id-migration.sh
+      - name: Upgrade source sage IDs while preserving history and matching all display policies
+        run: sudo bash scripts/test-poster-id-heaven-migration.sh
+      - name: Upgrade ordinary OP JSON IDs without retaining addresses or changing history
+        run: sudo bash scripts/test-json-op-poster-id-migration.sh
+      - name: Upgrade restricted attachment owner access to source ID policy
+        run: sudo bash scripts/test-attachment-poster-id-policy-migration.sh
+      - name: Upgrade ordinary staff posting while preserving history and badge proofs
+        run: sudo bash scripts/test-ordinary-staff-post-migration.sh
+      - name: Upgrade staff spoiler controls while preserving subjects, files and privacy
+        run: sudo bash scripts/test-staff-spoiler-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
         run: sudo bash scripts/test-word-break-migration.sh
+      - name: Upgrade source links and the complete board inventory without changing historical posts
+        run: sudo bash scripts/test-static-quote-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008
@@ -237,6 +260,8 @@ jobs:
         run: sudo bash scripts/test-media-approval-migration.sh
       - name: Upgrade existing media jobs to capability-scoped intake
         run: sudo bash scripts/test-media-intake-migration.sh
+      - name: Upgrade anonymous sessions without changing historical ownership
+        run: sudo bash scripts/test-anonymous-session-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
       - name: Restore populated attachments and normalized files
@@ -315,6 +340,9 @@ jobs:
       - name: Install pinned Rust
         shell: pwsh
         run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -332,9 +360,19 @@ jobs:
       - name: Verify public configuration budgets
         shell: pwsh
         run: cargo test -p board-config --locked
+      - name: Verify source admission projections and work bounds
+        shell: pwsh
+        run: |
+          cargo test -p board-domain admission_normalization --lib --locked
+          cargo test -p board-domain content_admission --lib --locked
+          cargo test -p board-domain name_trip_admission --lib --locked
+          cargo test -p board-domain identity --lib --locked
+          cargo test -p board-domain trip_cp932 --lib --locked
+          node --test tests/browser/owned-upload-response.test.mjs
       - name: Verify public TCP transport budgets
         shell: pwsh
         run: |
+          cargo test -p board-http --lib transport:: --locked
           cargo test -p board-public --lib transport:: --locked
       - name: Verify public startup and paired listeners
         shell: pwsh
@@ -419,12 +457,15 @@ jobs:
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
-      - name: Retain synthetic Windows visual failure images
+      - name: Retain synthetic Windows visual failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-visual-failure-images-${{ github.run_id }}-${{ github.run_attempt }}
-          path: test-results/**/*.png
+          path: |
+            test-results/**/*.png
+            test-results/**/trace.zip
+            test-results/**/error-context.md
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0

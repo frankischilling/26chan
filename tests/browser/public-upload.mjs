@@ -79,7 +79,7 @@ try {
   await expect(page.locator('form.postEditor')).toHaveAttribute('action', `/${board}/imgboard.php`);
   await expect(page.locator('form.postEditor')).toHaveAttribute('enctype', 'multipart/form-data');
   await expect(page.locator('form.postEditor input[name=mode]')).toHaveValue('regist');
-  await expect(page.locator('#password')).toHaveAttribute('name', 'pwd');
+  await expect(page.locator('#postPassword')).toHaveAttribute('name', 'pwd');
   await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('aria-describedby', 'postHelp');
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
@@ -92,7 +92,7 @@ try {
   if (!attachmentOnly) {
     await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript.`);
   }
-  await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
+  await expect(page.locator('#postPassword')).toHaveValue('');
   if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
   const posted = page.waitForResponse(response => response.request().method() === 'POST'
     && new URL(response.url()).pathname === `/${board}/imgboard.php`);
@@ -106,9 +106,12 @@ try {
   const receiptHeaders = cookieHeaders.filter(header => /^(?:board-posted-[0-9]+|4chan_awt)=/.test(header.value));
   const preferences = cookieHeaders.filter(header => header.value.startsWith('4chan_name='));
   assert.deepEqual(preferences.map(header => header.value), [
-    '4chan_name=Synthetic%20browser; Path=/; Max-Age=31536000; SameSite=Strict',
+    '4chan_name=Synthetic%20browser; Path=/; Max-Age=604800; SameSite=Strict',
   ]);
-  assert.equal(cookieHeaders.length, receiptHeaders.length + preferences.length);
+  const anonymous = cookieHeaders.filter(header => header.value.startsWith('board-anon='));
+  assert.equal(anonymous.length, 1);
+  assert.ok(anonymous[0].value.includes('Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict'));
+  assert.equal(cookieHeaders.length, receiptHeaders.length + preferences.length + anonymous.length);
   if (javascript) {
     assert.equal(receiptHeaders.length, 2);
     assert.ok(receiptHeaders.some(header => header.value.startsWith(`board-posted-${thread}=${thread}.1;`)));
@@ -196,7 +199,7 @@ try {
     await expect(page.locator('form.postEditor input[name=awt]')).toHaveCount(0);
     await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill('Owned reply to an approved upload');
-    await page.locator('#password').fill('synthetic-browser-password');
+    await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('#email').fill('nonoko');
     const replied = page.waitForResponse(response => response.request().method() === 'POST'
       && new URL(response.url()).pathname === `/${board}/imgboard.php`);
@@ -208,9 +211,10 @@ try {
     assert.equal(replies.length, 2);
     const reply = String(replies.at(-1).no);
     const cookies = (await replyResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
-    assert.equal(cookies.length, 3);
-    assert.ok(cookies.some(header => header.value === '4chan_name=Synthetic%20browser; Path=/; Max-Age=31536000; SameSite=Strict'));
-    assert.ok(cookies.some(header => header.value === 'options=nonoko; Path=/; Max-Age=31536000; SameSite=Strict'));
+    assert.equal(cookies.length, 4);
+    assert.equal(cookies.filter(header => header.value.startsWith('board-anon=')).length, 1);
+    assert.ok(cookies.some(header => header.value === '4chan_name=Synthetic%20browser; Path=/; Max-Age=604800; SameSite=Strict'));
+    assert.ok(cookies.some(header => header.value === 'options=nonoko; Path=/; Max-Age=604800; SameSite=Strict'));
     assert.ok(cookies.some(header => header.value.startsWith(`board-posted-${reply}=${thread}.0;`)));
     assert.ok(!cookies.some(header => header.value.startsWith('4chan_awt=')));
     await expect.poll(() => page.evaluate(({ board, thread, reply }) =>
@@ -235,11 +239,11 @@ try {
     await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', mediaUrl.href);
     await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
     await expect(deletion.getByLabel('File only', { exact: true })).toBeChecked();
-    await expect(deletion.getByLabel('Deletion password', { exact: true })).toBeFocused();
+    await expect(deletion.getByRole('button', { name: 'Delete post', exact: true })).toBeFocused();
     assert.equal((await page.request.get(mediaUrl.href)).status(), 200, 'choosing Delete file must not submit deletion');
     assert.equal(requests.some(url => /https:\/\/(lens\.google\.com|www\.yandex\.com|saucenao\.com)\//.test(url)), false);
   } else await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
-  await deletion.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
+  await expect(deletion.locator('input[name=password]')).toHaveValue('');
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
   assert.ok(Number.isSafeInteger(post.no) && post.no > 0);
@@ -274,7 +278,11 @@ try {
   const placeholderBox = await placeholder.boundingBox();
   assert.deepEqual([placeholderBox.width, placeholderBox.height], [155, 53]);
   assert.equal(deletedRequests.length, 0, 'a deleted catalog file loads only the fixed UI asset');
-  const remainingCookies = (await context.cookies())
+  const savedCookies = await context.cookies();
+  const privateCookies = savedCookies.filter(cookie => cookie.name === 'board-anon');
+  assert.equal(privateCookies.length, 1);
+  assert.equal(privateCookies[0].httpOnly, true);
+  const remainingCookies = savedCookies.filter(cookie => cookie.name !== 'board-anon')
     .map(cookie => ({ name: cookie.name, value: cookie.value }))
     .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
   assert.deepEqual(remainingCookies, [

@@ -38,8 +38,9 @@ def main():
     os.umask(0o077)
     windows = os.name == 'nt'
     executable_suffix = '.exe' if windows else ''
-    fixture = REPO / ('target/debug/examples/attachment_restore' + executable_suffix)
-    migrator = REPO / ('target/debug/board-migrate' + executable_suffix)
+    target = Path(os.environ.get('CARGO_TARGET_DIR', REPO / 'target'))
+    fixture = target / ('debug/examples/attachment_restore' + executable_suffix)
+    migrator = target / ('debug/board-migrate' + executable_suffix)
     assert fixture.is_file() and migrator.is_file(), 'Build the restore example and board-migrate first'
     if windows:
         owner_root = REPO / '.local/intake-postgres'

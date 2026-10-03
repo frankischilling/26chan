@@ -163,7 +163,7 @@ test.describe('unmodified persisted backlink graph', () => {
     await initialize(page, owned.url);
     await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill(`>>${owned.id}\nBacklink created through the ordinary posting form`);
-    await page.locator('#password').fill(owned.password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
     const action = await page.locator('form.postEditor').getAttribute('action');
     const posted = page.waitForResponse(response => response.request().method() === 'POST'
       && response.url() === new URL(action, origin).href);
@@ -221,15 +221,15 @@ test.describe('unmodified persisted backlink graph', () => {
 
   test('thread-only missing arrows follow stored same-board normalization and preserve cross-board labels without discovery fetches', async ({ page, owned }) => {
     const remote = await owned.createThread('demo', 'Remote same-board target');
-    const otherBoard = await owned.createThread('test', 'Remote other-board target');
-    const reply = await owned.reply(`>>${remote.id}\n>>${absent}\n>>>/demo/${remote.id}\n>>>/test/${otherBoard.id}`);
+    const otherBoard = await owned.createThread('fixture', 'Remote other-board target');
+    const reply = await owned.reply(`>>${remote.id}\n>>${absent}\n>>>/demo/${remote.id}\n>>>/fixture/${otherBoard.id}`);
     const requests = observeFetches(page);
     await initialize(page, owned.url, { quotePreview: false });
     // The actual posting path normalizes >>>/current-board/id to >>id before
     // storage. Preserved explicit same-board labels are covered as augmented DOM.
     await expect(forward(page, reply, remote.id)).toHaveText([`>>${remote.id} →`, `>>${remote.id} →`]);
     await expect(forward(page, reply, absent)).toHaveText(`>>${absent} →`);
-    await expect(forward(page, reply, otherBoard.id, 'test')).toHaveText(`>>>/test/${otherBoard.id}`);
+    await expect(forward(page, reply, otherBoard.id, 'fixture')).toHaveText(`>>>/fixture/${otherBoard.id}`);
     await expectRows(page, remote.id, [], owned.id);
     await settledDOM(page);
     expect(requests).toEqual([]);
@@ -734,7 +734,7 @@ test.describe('explicitly augmented DOM and graph bounds', () => {
     await expectRows(page, target, [healthy], owned.id);
     const requests = observeFetches(page), baseId = 900000000000000000n;
     const invalid = [
-      `/test/post/${target}`, `/test/thread/${owned.id}#p${target}`,
+      `/fixture/post/${target}`, `/fixture/thread/${owned.id}#p${target}`,
       `/demo/thread/${String(BigInt(owned.id) + 1n)}#p${target}`,
       `http://localhost:3000/demo/thread/${owned.id}#p${target}`,
       `/demo/post/${target}?graph=forged`, `#p0${target}`,

@@ -1,10 +1,17 @@
 # Poster IDs
 
-Boards with `user_ids` enabled show an eight-character ID beside each post's
+Ordinary posts on boards with `user_ids` enabled normally show an eight-character ID beside their
 name. The same verified network address keeps the same label within one thread.
 Other threads, boards and deployment keys produce different labels. Addresses
 shared through a NAT or proxy can therefore share an ID. A label identifies a
 network posting context, not a person, account or authenticated staff member.
+
+Eligible sage posts use the [source Heaven policy](source-poster-id-display.md).
+HTML retains that display label; an ordinary OP's JSON uses its saved public
+network label. Replies retain their saved display label in JSON.
+Badged staff posts use the [source static label](source-staff-poster-ids.md)
+when IDs are enabled. That saved label appears in JSON; HTML keeps the badge
+without a network ID span. Archived JSON omits both kinds of saved ID.
 
 ## Reference and hashing policy
 
@@ -50,8 +57,9 @@ label. A disabled board discards the transaction value. Historical content and
 timestamps remain unchanged. The additive migration can remain during rollback;
 older binaries cannot post to an enabled ID board.
 
-HTML, public JSON and bounded updater/preview projections expose only the saved
-label. The JSON `id` field is absent on unlabeled posts; `user_ids` is absent
+HTML, public JSON and bounded updater/preview projections expose saved public
+labels, including the ordinary OP JSON exception above. The JSON `id` field
+is absent on unlabeled posts; `user_ids` is absent
 when disabled. ID filters use the public label. No new raw-address storage,
 public address endpoint or staff-authentication authority is added.
 
@@ -70,8 +78,8 @@ root restores only the styles it still owns, preserving later changes by other
 features. No extra HTTP request is needed to color a label.
 
 [Private poster counts](private-poster-counts.md) use full, separately scoped
-fingerprints rather than truncated labels or rendered posts. Privileged
-capcodes remain unfinished. [Country and board flags](post-flags.md)
+fingerprints rather than truncated labels or rendered posts. Unbadged staff
+posting and remaining staff options are unfinished. [Country and board flags](post-flags.md)
 now have their own saved metadata, policy and qualification.
 
 [Native ID controls](native-poster-id-controls.md) add click and keyboard

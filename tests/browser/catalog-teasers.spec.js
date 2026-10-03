@@ -7,7 +7,8 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
   const cases = [
     { board: 'b', comment: 'x'.repeat(301), teaser: `${'x'.repeat(300)}…`, query: 'x…$' },
     { board: 'b', comment: 'y'.repeat(40), teaser: `${'y'.repeat(35)}<wbr>${'y'.repeat(5)}`, query: '<wbr>yyyyy$' },
-    { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
+    { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '[spoiler] [/spoiler]', query: 'spoiler' },
+    { board: 'fixture', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
     { board: 'sjis', comment: '[sjis]wide  art\nnext[/sjis]after [spoiler]quiet[/spoiler] <script>owned</script>', teaser: '[SJIS]after <s>quiet</s> &lt;script&gt;owned&lt;/script&gt;', query: '[SJIS]after' },
     { board: 'news', comment: 'first\n\nsecond', teaser: 'first\nsecond', query: 'second$' },
   ];
@@ -20,7 +21,7 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       await server.goto(`${origin}/${entry.board}/`);
       await server.locator('#sub').fill(title);
       await server.locator('#com').fill(entry.comment);
-      await server.locator('#password').fill(password);
+      await expect(server.locator('#postPassword')).toHaveValue('');
       await server.getByRole('button', { name: 'Post', exact: true }).click();
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);
       entry.id = /#p(\d+)$/.exec(server.url())[1];

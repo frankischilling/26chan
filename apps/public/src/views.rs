@@ -1,7 +1,7 @@
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
-use board_domain::{Line, Token, parse_post_comment};
+use board_domain::{Line, Token};
 use board_store::{Board, Post, Thread};
 #[path = "views/file_label.rs"]
 mod file_label;
@@ -90,7 +90,9 @@ fn board_navigation<'a>(boards: &'a [Board], current: &'a Board) -> Vec<&'a Boar
         links.truncate(99);
         links.push(current);
     }
-    links.sort_by(|left, right| left.slug.cmp(&right.slug));
+    links.sort_by(|left, right| {
+        (left.source_order, &left.slug).cmp(&(right.source_order, &right.slug))
+    });
     links
 }
 
@@ -104,6 +106,16 @@ pub struct ThreadView {
     pub image_replies: i64,
 }
 impl ThreadView {
+    pub fn catalog_reply_identity_visible(&self, board: &Board) -> bool {
+        board_domain::capcode::catalog_identity_visible(
+            self.catalog_last_reply
+                .as_ref()
+                .and_then(|reply| reply.capcode.as_deref()),
+            board.forced_anon,
+            board.meta_board,
+        )
+    }
+
     pub fn bump_limited(&self, board: &Board) -> bool {
         board_domain::bump::limited(
             self.thread.sticky,
@@ -146,6 +158,18 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn catalog_identity_visible(&self, board: &Board) -> bool {
+        board_domain::capcode::catalog_identity_visible(
+            self.post.capcode.as_deref(),
+            board.forced_anon,
+            board.meta_board,
+        )
+    }
+
+    pub fn filter_name(&self) -> String {
+        board_domain::source_html_entities(&self.post.name)
+    }
+
     pub fn file_label(&self, filename: &str) -> file_label::FileLabel {
         file_label::label(filename, self.post.id == self.post.thread_id)
     }
@@ -182,8 +206,24 @@ impl PostView {
         None
     }
 
+    pub fn fortune_class(&self) -> Option<&'static str> {
+        self.post
+            .fortune_color
+            .as_deref()
+            .and_then(board_domain::posting_randomizers::fortune_class)
+    }
+
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
-        crate::catalog::teaser::prepare(&self.lines, &board.slug, board.into())
+        crate::catalog::teaser::prepare_with_randomizers(
+            &self.lines,
+            &board.slug,
+            crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
+            self.post.dice_result.as_deref(),
+            self.post
+                .fortune_text
+                .as_deref()
+                .zip(self.post.fortune_color.as_deref()),
+        )
     }
 
     pub fn catalog_search_text(&self, teaser: &crate::catalog::teaser::Prepared) -> String {
@@ -201,7 +241,7 @@ impl PostView {
         )
     }
     pub fn new(post: Post) -> Self {
-        let lines = parse_post_comment(&post.comment, post.comment_format);
+        let lines = post.formatted_lines();
         let now = post
             .created_at
             .with_timezone(&chrono_tz::America::New_York)
@@ -244,20 +284,45 @@ mod catalog_tests {
 pub struct Comment<'a> {
     pub lines: &'a [Line],
     pub board: &'a str,
+    pub dice_result: Option<&'a str>,
+    pub fortune_text: Option<&'a str>,
+    pub fortune_color: Option<&'a str>,
 }
 
 #[cfg(test)]
 mod comment_tests {
     use super::*;
+    use board_domain::parse_post_comment;
     use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
 
     fn render(input: &str, format: i16) -> String {
         Comment {
             lines: &parse_post_comment(input, format),
             board: "test",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
         }
         .render()
         .unwrap()
+    }
+
+    #[test]
+    fn retained_randomizer_metadata_uses_fixed_markup_and_escaped_text() {
+        let lines = parse_post_comment("ordinary <text>", 0);
+        let html = Comment {
+            lines: &lines,
+            board: "test",
+            dice_result: Some("Rolled <1>"),
+            fortune_text: Some("<script>alert(1)</script>"),
+            fortune_color: Some("#00cbb0"),
+        }
+        .render()
+        .unwrap();
+        assert_eq!(
+            html,
+            r#"<b>Rolled &#60;1&#62;<br><br></b>ordinary &#60;text&#62;<span class="fortune" style="color:#00cbb0"><br><br><b>Your fortune: &#60;script&#62;alert(1)&#60;/script&#62;</b></span>"#
+        );
     }
 
     #[test]
@@ -403,6 +468,9 @@ mod comment_tests {
         let html = Comment {
             lines: &lines,
             board: "test",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
         }
         .render()
         .unwrap();
@@ -427,6 +495,9 @@ mod comment_tests {
             let html = Comment {
                 lines: &lines,
                 board: "test",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
             }
             .render()
             .unwrap();
@@ -462,6 +533,9 @@ mod comment_tests {
                 let html = Comment {
                     lines: &lines,
                     board: "test",
+                    dice_result: None,
+                    fortune_text: None,
+                    fortune_color: None,
                 }
                 .render()
                 .unwrap();

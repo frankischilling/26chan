@@ -31,15 +31,15 @@ async function enable(page, path, options) {
 
 test('owned thread API refresh, cross-tab watch state and read acknowledgement work on two boards', async ({ page, context, request, createThread }) => {
   const a = await createThread('demo', 'Watch a paper model');
-  const b = await createThread('test', 'Watch another board');
+  const b = await createThread('fixture', 'Watch another board');
   await enable(page, '/demo/catalog?q=');
   await page.getByRole('button', { name: `Watch thread ${a}`, exact: true }).click();
   await expect(page.locator(`#watch-${a}-demo`)).toContainText('Watch a paper model');
   const other = await context.newPage();
-  await other.goto('/test/catalog?q=');
+  await other.goto('/fixture/catalog?q=');
   await expect(other.locator('#threadWatcher')).toBeVisible();
   await other.getByRole('button', { name: `Watch thread ${b}`, exact: true }).click();
-  await expect(page.locator(`#watch-${b}-test`)).toBeVisible();
+  await expect(page.locator(`#watch-${b}-fixture`)).toBeVisible();
   const reply = await request.post('/demo/post', { headers: { Origin: origin },
     form: { resto: a, com: 'A new reply for the watcher', password: 'watcher-test-password' }, maxRedirects: 0 });
   expect(reply.status()).toBe(303);
@@ -197,12 +197,13 @@ test('board post menus watch persisted threads and synchronize an open menu acro
   await expect(trigger).toBeFocused();
 });
 
-test('post menus select the actual report and password-gated deletion forms without submitting on selection', async ({ page, request, createThread }) => {
+test('post menus select the actual report and cookie-authorized deletion forms without submitting on selection', async ({ page, request, createThread }) => {
   const id = await createThread('demo', 'Post action menu fixture');
   const replyResponse = await request.post('/demo/post', { headers: { Origin: origin },
     form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 });
   expect(replyResponse.status()).toBe(303);
   const reply = replyResponse.headers().location.match(/#p(\d+)/)[1];
+  await page.context().addCookies((await request.storageState()).cookies);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/demo/thread/${id}`);
   const trigger = page.getByRole('button', { name: `Post menu for post ${reply}`, exact: true });
@@ -222,9 +223,9 @@ test('post menus select the actual report and password-gated deletion forms with
   await page.goto(`/demo/thread/${id}`);
   await trigger.click();
   await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
-  await expect(page.locator(`#delete${reply}`)).toBeFocused();
+  await expect(page.locator(`#p${reply} form[action="/demo/delete"] button`)).toBeFocused();
   expect(writes).toBe(1);
-  await page.locator(`#delete${reply}`).fill('watcher-test-password');
+  await expect(page.locator(`#delete${reply}`)).toHaveValue('');
   const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
   await page.locator(`#p${reply} form[action="/demo/delete"] button`).click();
   expect((await deleted).status()).toBe(303);

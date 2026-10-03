@@ -28,14 +28,14 @@ test('archive navigation, read-only threads, reports and deletion work without J
     await page.getByRole('link', { name: 'Index', exact: true }).click();
     await page.locator('#sub').fill('<b>Synthetic archive subject</b>');
     await page.locator('#com').fill('Owned first thread displaced by a second thread.');
-    await page.locator('#password').fill(password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
     const archived = /#p(\d+)$/.exec(page.url())[1];
     await page.getByRole('link', { name: 'Return', exact: true }).first().click();
     await expect(page).toHaveURL(`${origin}/${slug}/`);
     await page.locator('#com').fill('Owned replacement thread triggers rollover.');
-    await page.locator('#password').fill(password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
     await page.getByRole('link', { name: 'Return', exact: true }).first().click();
@@ -55,7 +55,7 @@ test('archive navigation, read-only threads, reports and deletion work without J
     await expect(page.getByRole('heading', { name: 'Report received' })).toBeVisible();
     await page.goto(`${origin}/${slug}/thread/${archived}`);
     await page.locator(`#p${archived} summary`).click();
-    await page.locator(`#delete${archived}`).fill(password);
+    await expect(page.locator(`#delete${archived}`)).toHaveValue('');
     await page.getByRole('button', { name: 'Delete post', exact: true }).click();
     await expect(page).toHaveURL(`${origin}/${slug}/`);
     await page.getByRole('link', { name: 'Archive', exact: true }).click();

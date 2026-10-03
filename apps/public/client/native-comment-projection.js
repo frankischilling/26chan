@@ -1,3 +1,5 @@
+import { isCommentElement } from './native-wordfilter-markup.js';
+
 // One instance belongs to the page and is injected into every content reader.
 // A class or data attribute never grants ownership of a comment projection.
 export function createCommentProjection() {
@@ -21,7 +23,6 @@ export function createCommentProjection() {
   }
   const escape = value => value.replace(/[&<>"\u00a0]/g,
     ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\u00a0': '&nbsp;' })[ch]);
-  const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
 
   function html(message) {
     let nodes = 0, size = 0;
@@ -40,7 +41,7 @@ export function createCommentProjection() {
         emit(escape(node.data).replace(/&quot;/g, '"')); return;
       }
       if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml'
-        || !tags.has(node.tagName) || node.attributes.length > 64) throw new TypeError('comment-node');
+        || !isCommentElement(node, attributes(node)) || node.attributes.length > 64) throw new TypeError('comment-node');
       emit(`<${node.localName}`);
       for (const { name, value } of attributes(node)) {
         if (name.length > 128 || value.length > 65536) throw new RangeError('comment-attribute');

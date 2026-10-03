@@ -1,5 +1,71 @@
 # Dependency and update inventory
 
+Configured content admission adds pinned
+[pcre2 0.2.11](https://docs.rs/pcre2/0.2.11/pcre2/) and locked pcre2-sys 0.2.10
+and jobserver 0.1.35. Native PCRE2 is a text-processing dependency in the
+credential-bearing applications. The private wrapper permits bounded patterns
+from operator policy; requests cannot select patterns or engine options.
+Matching disables JIT and lowers native match, depth and heap limits.
+The dependency contains unsafe code; first-party Rust retains its prohibition.
+This bounded interface does not prove complete native soundness.
+
+Ubuntu 24.04 uses maintained `libpcre2-dev`/runtime packages and PCRE2 10.42.
+Windows uses pcre2-sys's vendored 10.46 for development. Both match the 414
+recorded source decision cases. This corpus does not establish equivalence for
+every operator regexp: native Unicode classes can change between releases.
+Requalify configured patterns after native updates. PHP remains an extraction
+tool; it is not a deployment dependency. [Content admission](content-admission.md)
+records unsupported modifiers and the remaining caller work. A fresh scan on
+October 2 checked all 361 locked dependencies against 1,280 fetched advisories
+and exited successfully with the same unsuppressed `paste` maintenance warning
+described below. The earlier 358-dependency result predates these additions.
+
+The [admission normalizer](admission-normalization.md) adds pinned
+[rust_icu_utrans 5.8.0](https://docs.rs/rust_icu_utrans/5.8.0/rust_icu_utrans/)
+and rust_icu_sys 5.8.0. Six rust_icu packages, anyhow 1.0.104 and paste 1.0.15
+are new locked entries; existing registry versions and checksums do not change.
+The binding uses its ICU 74 declarations without bindgen or default features.
+Native ICU 74.2, including its transliteration/word-break data, is a runtime
+dependency. It processes bounded text through one fixed transform, not media,
+custom operator ICU rules or runtime library paths from public requests.
+The binding and native implementation contain unsafe code. First-party code
+keeps its prohibition and restricts the dependency to a reviewed private-handle
+surface. This restriction and the work guards do not prove complete soundness.
+
+The work estimate directly pins already locked ICU4X icu_normalizer 2.3.0 with
+default features disabled and `compiled_data` enabled. It uses streaming NFKC
+only to reject excessive work; its newer Unicode data never determines source
+matching text. Source projections still require native ICU 74 qualification.
+
+Cargo-audit scanned 358 locked dependencies against 1,280 fetched advisories
+on October 2 and exited successfully with one informational warning:
+[RUSTSEC-2024-0436](https://rustsec.org/advisories/RUSTSEC-2024-0436.html),
+the unmaintained `paste` build macro used by the binding. The warning remains
+enabled and is not suppressed. It does not name a known vulnerability, but it
+adds a maintenance obligation: review this dependency and the binding at each
+patch cycle, and replace the macro dependency when an upstream release allows
+it. This scan is not an independent security review. Windows uses a pinned
+development archive; production must use maintained OS ICU packages and
+requalify after native patches or Unicode data changes.
+
+The wordfilter core uses fixed character-range tables extracted from the
+audited PHP/PCRE reference. It adds no matching library to a runtime. The
+prototype's direct `regex` dependency was removed after an exhaustive scan
+found different Unicode classes and one missing caseless character. Runtime
+matching uses binary search over the fixed ranges and ordered literal
+substitutions, with explicit field and output byte limits. Random choices use
+the already locked ring operating-system source.
+
+PHP and the source PCRE process are extraction tools for the fixed wordfilter
+tables; configurable content rules additionally link native PCRE2. The extractor
+pins the supplied source hash, records PHP 8.3.6/PCRE2 10.42, and checks five
+classes over all 1,112,064 Unicode scalars. Changing those tables requires
+regenerating the independent fixture and requalifying transformations and
+posting. Existing registry versions and checksums are unchanged. No media
+decoder or native parsing tool is added to a credential-bearing process. The
+[wordfilter record](source-wordfilters.md) states the unfinished admission-hook
+scope and qualification status.
+
 Country labels add pinned [maxminddb 0.30.3](https://docs.rs/maxminddb/0.30.3/maxminddb/)
 and locked ipnetwork 0.21.1. No existing registry versions change. The direct
 declaration disables default features; `mmap`, `simdutf8` and

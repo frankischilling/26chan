@@ -10,7 +10,7 @@ test.beforeEach(async ({ context, page }) => {
   await context.addInitScript(initial => {
     if (!localStorage.getItem('4chan-settings')) localStorage.setItem('4chan-settings', JSON.stringify(initial));
   }, initial);
-  await page.goto('/test/');
+  await page.goto('/fixture/');
   await expect(page.locator('#threadWatcher')).toBeVisible();
 });
 
@@ -28,7 +28,7 @@ async function drag(page, release = true) {
   return { start, before };
 }
 async function otherTab(context) {
-  const other = await context.newPage(); await other.goto('/test/');
+  const other = await context.newPage(); await other.goto('/fixture/');
   await expect(other.locator('#threadWatcher')).toBeVisible();
   return other;
 }
@@ -128,7 +128,7 @@ for (const [name, change] of [
 test('navigation abandons a waiting position save without changing persisted coordinates', async ({ page, context }) => {
   const other = await otherTab(context);
   await hold(other); await drag(page); await pending(page);
-  await page.goto('/test/catalog');
+  await page.goto('/fixture/catalog');
   await expect(page.locator('#threadWatcher')).toBeVisible();
   await release(other);
   expect(await stored(page)).toEqual(initial);
