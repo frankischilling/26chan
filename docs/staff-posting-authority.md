@@ -217,8 +217,13 @@ in the verified 3 GiB scope, with incremental compilation disabled. Formatting,
 documentation links and whitespace checks pass. Retries, browser deadlines and
 screenshot baselines are unchanged. Failure logs remain local.
 
-Complete local workspace qualification has not been rerun. This continuation
-needs its own exact-head hosted checks after publication.
+Complete local workspace qualification was not rerun for the ordinary posting
+checkpoint. Published head `7a58929b2897fc02e4ac87ccfd51462110e0ddd3` passes
+[build/test](https://github.com/frankischilling/26chan/actions/runs/37135101038),
+[monitoring](https://github.com/frankischilling/26chan/actions/runs/37135101033)
+and [dependency advisories](https://github.com/frankischilling/26chan/actions/runs/37135101036).
+Build/test includes Linux application/browser, Windows visual, media/operations
+and aggregate qualification. Later changes require their own exact-head checks.
 
 Hosted qualification on `c54543f` failed in fresh role bootstrap before Linux
 application or privileged qualification ran. Its old assertions required the
@@ -230,5 +235,5 @@ It also checks the new proof issuer, discard and scoped OP functions against
 every runtime, denies all private policy/trigger/badge delegates, and bounds
 the posting owner's new column reads and private-table writes. Fresh bootstrap
 passes locally with all migrations; historical content remains unchanged.
-Migration 77 is unchanged by this correction. The corrected head still needs
-complete hosted qualification.
+Migration 77 is unchanged by this correction. The corrected published head
+passes the complete hosted qualification linked above.

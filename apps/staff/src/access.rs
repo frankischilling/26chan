@@ -169,7 +169,8 @@ impl Permissions {
             return false;
         }
         match action {
-            "remove-post" | "remove-file" | "remove-thread" | "resolve" | "dismiss" => true,
+            "remove-post" | "remove-file" | "remove-thread" | "resolve" | "dismiss" | "spoiler"
+            | "unspoiler" => true,
             "close" | "reopen" | "sticky" | "unsticky" | "permasage" | "unpermasage" => {
                 level >= Level::Moderator
             }

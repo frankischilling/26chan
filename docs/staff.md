@@ -76,6 +76,14 @@ The report queue includes escaped attachment filenames, byte sizes and dimension
 
 Apply migration 0017 before starting this staff binary. It creates the display view and extends the audit action constraint without granting raw attachment/media access or adding a login. Readiness requires the view. No production service is activated by this migration.
 
+[Staff image spoilers](staff-image-spoilers.md) adds authenticated spoiler and
+unspoiler forms under the imported source board policy. Migration 0078 keeps
+the subject separate from spoiler state, preserves existing attachment flags
+and retains the private owner boundary. Changed actions commit with their
+audit and thread modification time; repeated requests leave both unchanged.
+Private board media and the rest of the source management interface remain
+unfinished.
+
 ## Native dependencies and verification
 
 WebAuthn uses OpenSSL through the Rust bindings. This crate enables vendored OpenSSL; the lockfile currently selects OpenSSL source 3.6.3. Windows requires MSVC build tools and native Perl. The local run used [Strawberry Perl 5.42.2.1 portable](https://strawberryperl.com/release-notes/5.42.2.1-64bit.html), downloaded from the project's GitHub release into ignored `.local`, with SHA-256 `32d83be90cf04b807cfb9477482bc36302cdee6f5b04cf57e81adecbd8f07898`. Set `OPENSSL_SRC_PERL` per build command; no global Perl installation is needed. Linux vendored builds require a C compiler, make and Perl.

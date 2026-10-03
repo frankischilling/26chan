@@ -148,9 +148,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 json!({"states":states,"bumpFlags":bump_flags,"audit":audit,"credentials":credentials,"sessions":sessions})
             );
         }
-        "spoiler" => {
-            sqlx::query("UPDATE content.post_media SET spoiler=true WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
-                .bind(board).execute(&pool).await?;
+        "spoiler-policy" => {
+            let changed=sqlx::query("UPDATE content.boards SET comment_spoiler_cleanup=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned spoiler fixture board is missing".into());
+            }
         }
         "stale" => {
             sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;

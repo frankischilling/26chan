@@ -24,6 +24,13 @@ Synthetic fixtures run through the original PHP functions pin normalization,
 static links and catalog teaser serialization. Complete page comparisons and
 the remaining original formatting and media workflows are still required.
 
+[Staff image spoilers](staff-image-spoilers.md) implements scoped state changes
+under the original board policy, including unchanged requests, text targets
+and retained archives. An independent source endpoint fixture checks the
+transition, audit and rebuild rules. The report queue, public rendering and
+conditional JSON use the persisted state; the full staff extension, action
+log interface and remaining management actions are still unfinished.
+
 [Global Search](public-search.md) now searches persisted public threads with
 source query parameters, grouped results, ordering and pagination. Public board
 visibility is enforced by the database. [RSS feeds](rss-feeds.md) use the source

@@ -106,6 +106,8 @@ mod tests {
             permasage: false,
             permaage: false,
             deleted: false,
+            spoilers_enabled: false,
+            image_spoiler: false,
             attachment: None,
         };
         let html = Queue {
@@ -167,6 +169,8 @@ mod tests {
                 permasage: false,
                 permaage: false,
                 deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
                 attachment: None,
             });
             let html = Queue {
@@ -225,6 +229,8 @@ mod tests {
                 permasage: true,
                 permaage: true,
                 deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
                 attachment: None,
             };
             let html = Queue {

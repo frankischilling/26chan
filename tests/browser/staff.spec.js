@@ -135,19 +135,19 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       APP_ENV: 'development', MEDIA_ENABLED: 'false',
       MEDIA_READ_DATABASE_URL: process.env.MEDIA_READ_DATABASE_URL,
       PUBLIC_ORIGIN: 'http://127.0.0.1:3000', STAFF_ORIGIN: 'http://localhost:3001',
-      MEDIA_ORIGIN: 'http://127.0.0.1:3002', MEDIA_BIND_ADDR: '127.0.0.1:3002',
+      MEDIA_ORIGIN: 'http://127.0.0.2:3002', MEDIA_BIND_ADDR: '127.0.0.2:3002',
       MEDIA_APPROVED_DIR: path.join(mediaRoot, 'objects') },
   });
   let readerError;
   reader.on('error', error => { readerError = error; });
-  const mediaRequests = [], staffMediaRequests = [];
+  const mediaRequests = [], staffMediaRequests = [], publicMediaRequests = new Set();
   const mediaWireIds = new Set(), mediaWireHeaders = new Map();
-  context.on('request', request => { if (request.url().startsWith('http://127.0.0.1:3002/')) mediaRequests.push(request.allHeaders()); });
-  page.on('request', request => { if (request.url().startsWith(`http://127.0.0.1:3002/${board}/`)) staffMediaRequests.push(request); });
+  context.on('request', request => { if (request.url().startsWith('http://127.0.0.2:3002/')) mediaRequests.push({ request, headers: request.allHeaders() }); });
+  page.on('request', request => { if (request.url().startsWith(`http://127.0.0.2:3002/${board}/`)) staffMediaRequests.push(request); });
   try {
     await expect.poll(async () => {
       if (readerError || reader.exitCode !== null) throw new Error('Synthetic reader failed to start');
-      try { return (await page.request.get('http://127.0.0.1:3002/readyz')).status(); } catch { return 0; }
+      try { return (await page.request.get('http://127.0.0.2:3002/readyz')).status(); } catch { return 0; }
     }, { timeout: 10_000 }).toBe(200);
     run('staff-operator', ['provision', board, 'moderator', invitationFile]);
     run('staff-operator', ['flags', board, 'capcode,capcodename']);
@@ -156,7 +156,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const cdp = await context.newCDPSession(page);
     await cdp.send('Network.enable');
     cdp.on('Network.requestWillBeSent', event => {
-      if (event.request.url.startsWith('http://127.0.0.1:3002/')) mediaWireIds.add(event.requestId);
+      if (event.request.url.startsWith('http://127.0.0.2:3002/')) mediaWireIds.add(event.requestId);
     });
     cdp.on('Network.requestWillBeSentExtraInfo', event => {
       const names = Object.keys(event.headers).map(key => key.toLowerCase());
@@ -239,6 +239,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
     const publicStaffPage = await context.newPage(), publicStaffErrors = [];
     publicStaffPage.on('pageerror', error => publicStaffErrors.push(error.message));
+    publicStaffPage.on('request', request => { if (request.url().startsWith('http://127.0.0.2:3002/')) publicMediaRequests.add(request); });
     await publicStaffPage.goto(staffThreadUrl);
     const moderatorIcon = publicStaffPage.locator(`#pi${moderatorPost} .identityIcon`);
     await expect.poll(() => moderatorIcon.evaluate(image => image.complete && image.naturalWidth)).toBe(16);
@@ -255,11 +256,41 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(await report.locator('img').count()).toBe(1);
     expect(mediaRequests.length).toBeGreaterThan(0);
     for (const request of mediaRequests) {
-      const headers = await request;
+      const headers = await request.headers;
       expect(headers.cookie === undefined, 'Media request must omit staff cookies').toBe(true);
-      expect(headers.referer === undefined || headers.referer === '', 'Media request must disclose no referrer').toBe(true);
+      expect(headers.referer === undefined || headers.referer === '' || (publicMediaRequests.has(request.request) && headers.referer === 'http://127.0.0.1:3000/'), 'Only public media requests may disclose the public origin').toBe(true);
     }
-    fixture('spoiler', board);
+    await expect(report.getByRole('button', { name: 'Spoiler image', exact: true })).toHaveCount(0);
+    fixture('spoiler-policy', board);
+    await page.reload();
+    const spoilerUrl = staffThreadUrl + '.json';
+    const beforeSpoiler = await page.request.get(spoilerUrl);
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await report.getByRole('button', { name: 'Spoiler image', exact: true }).click();
+    await expect(report.getByRole('button', { name: 'Remove image spoiler', exact: true })).toBeVisible();
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+    const changedSpoiler = await page.request.get(spoilerUrl, { headers: { 'If-None-Match': beforeSpoiler.headers().etag } });
+    expect(changedSpoiler.status()).toBe(200);
+    expect((await changedSpoiler.json()).posts.find(post => post.no === data.post).spoiler).toBe(1);
+    const spoilerCsrf = await page.locator('input[name=csrf]').first().inputValue();
+    const auditBeforeRepeat = fixture('inspect', board).audit;
+    const repeatedSpoiler = await page.request.post('/moderate', { maxRedirects: 0,
+      headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' },
+      form: { csrf: spoilerCsrf, board, target: String(data.post), action: 'spoiler' } });
+    expect(repeatedSpoiler.status()).toBe(303);
+    expect((await page.request.get(spoilerUrl, { headers: { 'If-None-Match': changedSpoiler.headers().etag } })).status()).toBe(304);
+    expect(fixture('inspect', board).audit).toEqual(auditBeforeRepeat);
+    await publicStaffPage.reload();
+    await expect(publicStaffPage.locator(`#f${data.post} .imgspoiler > img`)).toHaveAttribute('src', '/static/catalog/spoiler.png');
+    await report.getByRole('button', { name: 'Remove image spoiler', exact: true }).click();
+    await expect(thumbnail).toBeVisible();
+    const unspoiled = await page.request.get(spoilerUrl, { headers: { 'If-None-Match': changedSpoiler.headers().etag } });
+    expect(unspoiled.status()).toBe(200);
+    expect((await unspoiled.json()).posts.find(post => post.no === data.post).spoiler).toBeUndefined();
+    await publicStaffPage.reload();
+    await expect(publicStaffPage.locator(`#f${data.post} .imgspoiler`)).toHaveCount(0);
+    await report.getByRole('button', { name: 'Spoiler image', exact: true }).click();
+    await expect(report.getByRole('button', { name: 'Remove image spoiler', exact: true })).toBeVisible();
     const requestCount = staffMediaRequests.length;
     await page.reload();
     await expect(report.getByRole('link', { name: 'Open spoiler image' })).toBeVisible();
@@ -269,13 +300,13 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('link', { name: 'Open spoiler image' }).click();
     const popup = await popupPromise;
     await popup.waitForLoadState();
-    expect(popup.url()).toBe(`http://127.0.0.1:3002/${board}/${data.tim}.png`);
+    expect(popup.url()).toBe(`http://127.0.0.2:3002/${board}/${data.tim}.png`);
     expect(await popup.evaluate(() => window.opener === null)).toBe(true);
     await popup.close();
-    const full = await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}.png`);
+    const full = await page.request.get(`http://127.0.0.2:3002/${board}/${data.tim}.png`);
     expect(full.status()).toBe(200);
     const mediaEtag = full.headers().etag;
-    const thumb = await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}s.jpg`);
+    const thumb = await page.request.get(`http://127.0.0.2:3002/${board}/${data.tim}s.jpg`);
     expect(thumb.status()).toBe(200);
     const thumbnailEtag = thumb.headers().etag;
     const cookies = await context.cookies();
@@ -417,6 +448,8 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(stale).toBe(403);
     const staleFile = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'remove-file' }) })).status, { csrf: refreshedCsrf, board, target: String(data.post) });
     expect(staleFile).toBe(403);
+    const staleSpoiler = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'unspoiler' }) })).status, { csrf: refreshedCsrf, board, target: String(data.post) });
+    expect(staleSpoiler).toBe(403);
     await login();
     const idleCsrf = await page.locator('input[name=csrf]').first().inputValue();
     const idleCookie = (await context.cookies()).find(cookie => cookie.name === 'staff').value;
@@ -447,12 +480,12 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(attachmentAfter.status()).toBe(200);
     const deletedFilePost = (await attachmentAfter.json()).posts[1];
     expect(deletedFilePost.filedeleted).toBe(1); expect(deletedFilePost.tim).toBeUndefined();
-    expect((await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}.png`, { headers: { 'If-None-Match': mediaEtag } })).status()).toBe(404);
-    expect((await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}s.jpg`, { headers: { 'If-None-Match': thumbnailEtag } })).status()).toBe(404);
+    expect((await page.request.get(`http://127.0.0.2:3002/${board}/${data.tim}.png`, { headers: { 'If-None-Match': mediaEtag } })).status()).toBe(404);
+    expect((await page.request.get(`http://127.0.0.2:3002/${board}/${data.tim}s.jpg`, { headers: { 'If-None-Match': thumbnailEtag } })).status()).toBe(404);
     for (const request of mediaRequests) {
-      const headers = await request;
+      const headers = await request.headers;
       expect(headers.cookie === undefined, 'Media request must omit staff cookies').toBe(true);
-      expect(headers.referer === undefined || headers.referer === '', 'Media request must disclose no referrer').toBe(true);
+      expect(headers.referer === undefined || headers.referer === '' || (publicMediaRequests.has(request.request) && headers.referer === 'http://127.0.0.1:3000/'), 'Only public media requests may disclose the public origin').toBe(true);
     }
     expect(mediaWireIds.size).toBeGreaterThan(0);
     for (const id of mediaWireIds) {
@@ -471,7 +504,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect((await page.request.get(publicUrl, { headers: { 'If-None-Match': oldEtag } })).status()).toBe(404);
     const persisted = fixture('inspect', board);
     expect(persisted.states).toEqual([[false, false, true], [false, false, false], [false, false, false]]);
-    expect(persisted.audit).toEqual(['staff-post', 'close', 'reopen', 'sticky', 'unsticky', 'permasage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
+    expect(persisted.audit).toEqual(['staff-post', 'spoiler', 'unspoiler', 'spoiler', 'close', 'reopen', 'sticky', 'unsticky', 'permasage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);

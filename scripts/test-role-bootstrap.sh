@@ -76,6 +76,25 @@ SQL
   fi
 done
 "${db[@]}" -d bootstrap_test <<'SQL'
+DO $$ BEGIN
+  IF EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
+      'board_media_read','board_media_intake','board_monitor']) runtime(name)
+      WHERE has_column_privilege(name,'content.posts','image_spoiler','INSERT,UPDATE')
+         OR has_column_privilege(name,'content.post_media','spoiler','INSERT,UPDATE')
+         OR has_function_privilege(name,'content.sync_image_spoiler()','EXECUTE')
+         OR (has_function_privilege(name,'content.set_post_image_spoiler(text,bigint,boolean)','EXECUTE')
+             IS DISTINCT FROM (name='board_staff')))
+     OR has_function_privilege('board_migrator','content.sync_image_spoiler()','EXECUTE')
+     OR NOT has_column_privilege('board_attachment_owner','content.posts','image_spoiler','SELECT,UPDATE')
+     OR NOT has_column_privilege('board_attachment_owner','content.post_media','spoiler','UPDATE')
+     OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner
+         WHERE p.oid IN ('content.sync_image_spoiler()'::regprocedure,
+                        'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure)
+           AND (r.rolname<>'board_attachment_owner' OR NOT p.prosecdef
+                OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp'])) THEN
+    RAISE EXCEPTION 'Staff spoiler authority or trigger grants differ';
+  END IF;
+END $$;
 BEGIN;
 SET ROLE board_migrator;
 DO $$ BEGIN
@@ -93,20 +112,20 @@ END $$;
 ROLLBACK;
 DO $$
 BEGIN
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id'] FROM content.posts p)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p)
      OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
      OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE NOTICE 'Historical upgrade diagnostics: %', (
       SELECT jsonb_build_object(
-        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
-        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id'] FROM content.posts p),
+        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
+        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p),
         'threads_forward_changed', EXISTS(SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before),
         'threads_reverse_changed', EXISTS(SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads),
-        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL),
+        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR image_spoiler),
         'poster_context_present', EXISTS(SELECT 1 FROM post_secrets.poster_contexts),
         'historical_count_known', content.unique_posters('countold',8800001) IS NOT NULL
       )
