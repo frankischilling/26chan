@@ -214,3 +214,16 @@ screenshot baselines are unchanged. Failure logs remain local.
 
 Complete local workspace qualification has not been rerun. This continuation
 needs its own exact-head hosted checks after publication.
+
+Hosted qualification on `c54543f` failed in fresh role bootstrap before Linux
+application or privileged qualification ran. Its old assertions required the
+bounded content-admission and Robot9000 functions to be callable only by the
+public runtime. Ordinary staff posting requires those functions too. The
+bootstrap check now requires the exact public/staff grants while retaining
+private schema/table denials and the function owners' restricted authority.
+It also checks the new proof issuer, discard and scoped OP functions against
+every runtime, denies all private policy/trigger/badge delegates, and bounds
+the posting owner's new column reads and private-table writes. Fresh bootstrap
+passes locally with all migrations; historical content remains unchanged.
+Migration 77 is unchanged by this correction. The corrected head still needs
+complete hosted qualification.
