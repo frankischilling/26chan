@@ -26,7 +26,7 @@ class IdentityEnvironmentTest(unittest.TestCase):
                 runner.main()
             config.assert_called_once_with('owned-config')
             run.assert_called_once_with({'owned': True}, 'owned-input', 'owned-output')
-            for variable in ['POSTER_ID_KEY', 'TRIPCODE_KEY', 'STAFF_TRIPCODE_KEY', 'AWS_ACCESS_KEY', 'OWNED_API_KEY']:
+            for variable in ['POSTER_ID_KEY', 'TRIPCODE_KEY', 'STAFF_TRIPCODE_KEY', 'STAFF_POSTER_ID_KEY', 'AWS_ACCESS_KEY', 'OWNED_API_KEY']:
                 config.reset_mock(); run.reset_mock()
                 error = io.StringIO()
                 with mock.patch.dict(runner.os.environ, {variable: 'owned-private-key'}, clear=True), \

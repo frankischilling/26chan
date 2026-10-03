@@ -46,6 +46,8 @@ async fn latest_reports_private_post_numbers_only_to_live_staff_sessions() {
     let state = Arc::new(AppState {
         config: Config {
             proxy: None,
+            poster_id_key: None,
+            country_database: None,
             origin: "http://localhost:3001".into(),
             public_origin: "http://localhost:3000".into(),
             media_origin: "http://127.0.0.1:3002".into(),

@@ -137,13 +137,21 @@ fn partial_or_unscoped_intake_configuration_fails_before_database_access() {
 
 #[test]
 fn public_runtime_rejects_inherited_operator_credentials() {
-    let output = public_command()
-        .env("MIGRATION_DATABASE_URL", "synthetic-operator-secret")
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("Operator or staff credentials"));
-    assert!(!String::from_utf8_lossy(&output.stderr).contains("synthetic-operator-secret"));
+    for name in [
+        "MIGRATION_DATABASE_URL",
+        "STAFF_POSTER_ID_KEY",
+        "STAFF_COUNTRY_DATABASE",
+        "STAFF_PROXY_SOCKET",
+        "STAFF_PROXY_UID",
+    ] {
+        let output = public_command()
+            .env(name, "synthetic-operator-secret")
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("Operator or staff credentials"));
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("synthetic-operator-secret"));
+    }
 }
 
 #[test]

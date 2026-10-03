@@ -11,6 +11,18 @@ pub enum CapcodeError {
     MissingPermission,
 }
 
+/// Prepared source Options policy, separate from current session/board authority.
+/// Construct this from the authenticated account, never from a serialized proof.
+#[derive(Debug, Eq, PartialEq)]
+pub struct StaffPostingOptions {
+    pub capcode: Option<board_domain::capcode::Capcode>,
+    pub name_allowed: bool,
+    pub sage: bool,
+    pub return_to_board: bool,
+    pub options_field: String,
+    pub authorized_limits: bool,
+}
+
 impl Level {
     pub fn parse(role: &str) -> Option<Self> {
         match role {
@@ -69,6 +81,30 @@ impl Level {
 
     pub fn allows_capcode_name(self, permissions: &Permissions) -> bool {
         self == Self::Admin || permissions.has_global_flag("capcodename")
+    }
+
+    pub fn posting_options(
+        self,
+        raw: &str,
+        permissions: &Permissions,
+    ) -> Result<StaffPostingOptions, board_domain::ValidationError> {
+        let parsed = board_domain::posting_options::parse(raw)?;
+        let options_field = board_domain::posting_options::without_sage(raw);
+        let attempts_badge = options_field.starts_with("capcode_");
+        let capcode = if attempts_badge {
+            self.public_capcode(&options_field, permissions)
+                .map_err(|_| board_domain::ValidationError("You cannot use that staff badge."))?
+        } else {
+            None
+        };
+        Ok(StaffPostingOptions {
+            capcode,
+            name_allowed: !attempts_badge || self.allows_capcode_name(permissions),
+            sage: parsed.sage,
+            return_to_board: parsed.return_to_board,
+            options_field,
+            authorized_limits: self >= Self::Moderator,
+        })
     }
 
     pub fn has_capability(self, capability: &str, permissions: &Permissions) -> bool {
@@ -146,6 +182,75 @@ impl Permissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn posting_options_match_the_full_source_preparation_order() {
+        #[derive(serde::Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Case {
+            role: String,
+            flags: Vec<String>,
+            allow_boards: Vec<String>,
+            deny_boards: Vec<String>,
+            input: String,
+            options_field: String,
+            sage: bool,
+            return_to_board: bool,
+            outcome: String,
+            name: String,
+            robot_applies: bool,
+            authorized_limits: bool,
+        }
+        let fixture: Fixture =
+            serde_json::from_str(include_str!("../tests/fixtures/staff-posting-options.json"))
+                .unwrap();
+        assert_eq!(fixture.cases.len(), 2048);
+        for case in fixture.cases {
+            let level = Level::parse(&case.role).unwrap();
+            let permissions = Permissions {
+                flags: case.flags,
+                allow_boards: case.allow_boards,
+                deny_boards: case.deny_boards,
+            };
+            let policy = level.posting_options(&case.input, &permissions);
+            if case.outcome == "cant_capcode" {
+                assert_eq!(policy.unwrap_err().0, "You cannot use that staff badge.");
+                continue;
+            }
+            let policy = policy.unwrap();
+            assert_eq!(
+                policy.capcode.map_or("none", |badge| badge.as_str()),
+                case.outcome
+            );
+            assert_eq!(policy.options_field, case.options_field);
+            assert_eq!(policy.sage, case.sage);
+            assert_eq!(policy.return_to_board, case.return_to_board);
+            assert_eq!(policy.authorized_limits, case.authorized_limits);
+            assert_eq!(
+                if policy.name_allowed {
+                    "Owned finished name"
+                } else {
+                    "Anonymous"
+                },
+                case.name
+            );
+            assert_eq!(
+                board_domain::robot9000::applies_to_post(
+                    true,
+                    policy.capcode,
+                    &policy.options_field,
+                    true
+                ),
+                case.robot_applies,
+                "{} {:?}",
+                case.role,
+                case.input
+            );
+        }
+    }
 
     #[test]
     fn public_capcode_and_name_permissions_match_all_pinned_source_cases() {

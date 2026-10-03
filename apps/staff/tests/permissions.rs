@@ -36,6 +36,8 @@ impl Fixture {
         let state = Arc::new(AppState {
             config: Config {
                 proxy: None,
+                poster_id_key: None,
+                country_database: None,
                 origin: "http://localhost:3001".into(),
                 public_origin: "http://localhost:3000".into(),
                 media_origin: "http://127.0.0.1:3002".into(),
