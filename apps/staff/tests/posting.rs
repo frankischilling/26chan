@@ -17,6 +17,19 @@ async fn pool(key: &str) -> PgPool {
         .unwrap()
 }
 
+fn source_staff_id(capcode: &str, enabled: bool) -> Option<String> {
+    let reference: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/staff-poster-ids.json")).unwrap();
+    let cases = reference["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 14);
+    cases
+        .iter()
+        .find(|case| case["capcode"] == capcode && case["display_ids"] == enabled)
+        .expect("the source fixture covers each supported badge and display switch")["expected"]
+        .as_str()
+        .map(str::to_owned)
+}
+
 struct Fixture {
     owner: PgPool,
     state: Arc<AppState>,
@@ -232,7 +245,7 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
         assert_eq!(case.submit(op,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);
         let (reply,_,capcode)=case.latest().await;assert_eq!(capcode.as_deref(),Some("mod"));
         let identity:(Option<String>,Option<String>,Option<String>)=sqlx::query_as("SELECT poster_id,trip,country FROM content.posts WHERE id=$1").bind(reply).fetch_one(&case.owner).await.unwrap();
-        assert_eq!(identity,(None,None,None));
+        assert_eq!(identity,(source_staff_id("mod",true),None,None));
         for query in ["SELECT * FROM post_secrets.staff_post_intents LIMIT 1","SELECT * FROM staff_identity.sessions LIMIT 1","UPDATE content.posts SET capcode='admin' WHERE false","INSERT INTO content.posts(id,board,thread_id,name,subject,comment,capcode) SELECT 1,'x',1,'x','','x','admin' WHERE false"] {
             denied(&case.state.staff,query).await;
         }
@@ -253,7 +266,7 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
             assert_eq!(response.status(),StatusCode::OK);
             let value:serde_json::Value=serde_json::from_slice(&to_bytes(response.into_body(),4_194_304).await.unwrap()).unwrap();
             let post=value["posts"].as_array().unwrap().iter().find(|post|post["no"]==id).unwrap();
-            assert_eq!(post["capcode"],saved);assert!(post.get("id").is_none());assert!(post.get("country").is_none());
+            assert_eq!(post["capcode"],saved);assert_eq!(post["id"].as_str(),source_staff_id(saved,true).as_deref());assert!(post.get("country").is_none());
             assert!(!post["com"].as_str().unwrap().contains("<script>"));
         }
         let (last,_,_)=case.latest().await;
@@ -261,9 +274,14 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
         for router in [&case.public,&case.api] {
             let full=public_json(router,&format!("/{}/thread/{op}.json",case.board)).await;
             assert_eq!(full["posts"][0]["capcode"],"mod");
-            assert!(full["posts"].as_array().unwrap().iter().all(|post|post.get("id").is_none() && post.get("trip").is_none() && post.get("country").is_none()));
+            for post in full["posts"].as_array().unwrap() {
+                let expected=if post["no"]==op {None} else {source_staff_id(post["capcode"].as_str().unwrap(),true)};
+                assert_eq!(post["id"].as_str(),expected.as_deref());
+                assert!(post.get("trip").is_none() && post.get("country").is_none());
+            }
             let tail=public_json(router,&format!("/{}/thread/{op}-tail.json",case.board)).await;
             assert!(tail["posts"][0].get("capcode").is_none());assert_eq!(tail["posts"][1]["capcode"],"founder");
+            assert!(tail["posts"][0].get("id").is_none());assert_eq!(tail["posts"][1]["id"],source_staff_id("founder",true).unwrap());
             let index=public_json(router,&format!("/{}/1.json",case.board)).await;
             let entry=index["threads"].as_array().unwrap().iter().find(|entry|entry["posts"][0]["no"]==op).unwrap();
             assert_eq!(entry["posts"][0]["capcode"],"mod");
@@ -296,6 +314,98 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
             let status=case.submit(op,"",&case.csrf,"http://localhost:3001").await.0;
             assert!(matches!(status,StatusCode::UNAUTHORIZED|StatusCode::FORBIDDEN));
         }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn static_staff_ids_match_source_and_survive_policy_changes_without_network_material() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        sqlx::query("UPDATE staff_identity.accounts SET role='admin' WHERE id=$1")
+            .bind(case.account).execute(&case.owner).await.unwrap();
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("fixtures/staff-poster-ids.json")).unwrap();
+        let mut thread = 0;
+        let mut saved: Vec<(i64,Option<String>)> = Vec::new();
+        for row in reference["cases"].as_array().unwrap() {
+            let badge = row["capcode"].as_str().unwrap();
+            let enabled = row["display_ids"].as_bool().unwrap();
+            if badge == "none" {
+                assert!(row["expected"].is_null());
+                continue;
+            }
+            sqlx::query("UPDATE content.boards SET user_ids=$2 WHERE slug=$1")
+                .bind(&case.board).bind(enabled).execute(&case.owner).await.unwrap();
+            assert_eq!(case.submit(thread,&format!("&badge={badge}"),&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);
+            let (id,parent,capcode) = case.latest().await;
+            if thread == 0 { thread = parent; }
+            assert_eq!(parent,thread);
+            assert_eq!(capcode.as_deref(),Some(badge));
+            let label: Option<String> = sqlx::query_scalar("SELECT poster_id FROM content.posts WHERE id=$1")
+                .bind(id).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(label,source_staff_id(badge,enabled));
+            saved.push((id,label));
+        }
+        let contexts: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.poster_contexts WHERE thread_id=$1")
+            .bind(thread).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(contexts,0);
+        for enabled in [false,true] {
+            sqlx::query("UPDATE content.boards SET user_ids=$2,json_tail_size=2 WHERE slug=$1")
+                .bind(&case.board).bind(enabled).execute(&case.owner).await.unwrap();
+            for router in [&case.public,&case.api] {
+                let full = public_json(router,&format!("/{}/thread/{thread}.json",case.board)).await;
+                for (id,label) in &saved {
+                    let post = full["posts"].as_array().unwrap().iter().find(|post| post["no"]==*id).unwrap();
+                    assert_eq!(post["id"].as_str(),label.as_deref());
+                    assert!(post.get("country").is_none() && post.get("board_flag").is_none());
+                }
+                assert!(full["posts"][0].get("unique_ips").is_none());
+                let tail = public_json(router,&format!("/{}/thread/{thread}-tail.json",case.board)).await;
+                assert!(tail["posts"][0].get("id").is_none());
+                assert_eq!(tail["posts"][1]["id"],"Developer");
+                assert_eq!(tail["posts"][2]["id"],"Founder");
+                let index = public_json(router,&format!("/{}/1.json",case.board)).await;
+                assert_eq!(index["threads"][0]["posts"].as_array().unwrap().last().unwrap()["id"],"Founder");
+                let catalog = public_json(router,&format!("/{}/catalog.json",case.board)).await;
+                assert_eq!(catalog[0]["threads"][0]["last_replies"].as_array().unwrap().last().unwrap()["id"],"Founder");
+            }
+            let html = public_text(&case.public,&format!("/{}/thread/{thread}",case.board)).await;
+            assert!(!html.contains("posteruid"));
+            assert!(html.contains("## Mod") && html.contains("## Founder"));
+        }
+        let public = pool("TEST_PUBLIC_DATABASE_URL").await;
+        let mut forged = public.begin().await.unwrap();
+        sqlx::query("SELECT set_config('board.poster_id','Admin',true),set_config('board.staff_is_admin','true',true),set_config('board.staff_post_ticket',repeat('0',64),true)")
+            .execute(&mut *forged).await.unwrap();
+        let error = sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Owned forged label','','Owned forged static staff ID')")
+            .bind(&case.board).bind(thread).execute(&mut *forged).await.unwrap_err();
+        assert_eq!(error.as_database_error().and_then(|error| error.code()).as_deref(),Some("23514"));
+        forged.rollback().await.unwrap();
+        public.close().await;
+        let mismatched = sqlx::query("UPDATE content.posts SET poster_id='Admin' WHERE id=$1")
+            .bind(saved[0].0).execute(&case.owner).await.unwrap_err();
+        assert_eq!(mismatched.as_database_error().and_then(|error| error.code()).as_deref(),Some("23514"));
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$1")
+            .bind(case.account).fetch_one(&case.owner).await.unwrap(),0);
+        sqlx::query("UPDATE content.boards SET user_ids=false,archive_retention_seconds=3600,archive_limit=10 WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        assert_eq!(case.submit(thread,"&badge=founder",&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);
+        let (last,_,_) = case.latest().await;
+        assert!(sqlx::query_scalar::<_,Option<String>>("SELECT poster_id FROM content.posts WHERE id=$1")
+            .bind(last).fetch_one(&case.owner).await.unwrap().is_none());
+        sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+            .bind(thread).execute(&case.owner).await.unwrap();
+        for router in [&case.public,&case.api] {
+            let archived = public_json(router,&format!("/{}/thread/{thread}.json",case.board)).await;
+            assert!(archived["posts"].as_array().unwrap().iter().all(|post| post.get("id").is_none()));
+            assert_eq!(archived["posts"][0]["archived"],1);
+        }
+        let persisted: Vec<(i64,Option<String>)> = sqlx::query_as("SELECT id,poster_id FROM content.posts WHERE board=$1 AND id<>$2 ORDER BY id")
+            .bind(&case.board).bind(last).fetch_all(&case.owner).await.unwrap();
+        assert_eq!(persisted,saved);
     }).await;
     fixture.cleanup().await;
     result.unwrap();

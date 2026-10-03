@@ -39,7 +39,8 @@ The public process rejects staff, media and migration credentials. Use separate 
 
 [Source staff JSON projections](source-staff-json.md) cover conditional
 name/trip masking, badge reply groups, saved-label archive omission and
-meta-board policy. Complete source JSON and navigation parity remains tracked
+meta-board policy. [Static staff IDs](source-staff-poster-ids.md) retain saved
+labels through policy changes. Complete source JSON and navigation parity remains tracked
 in issue #216.
 
 The pinned [API README](https://github.com/4chan/4chan-API/blob/2bd670d507ba2daa37a3961a661e088cf6f89d57/README.md) documents CORS from board origins for GET, HEAD and OPTIONS. This project maps that role to the exact configured `PUBLIC_ORIGIN`. It does not grant access to the original service's domains or arbitrary browser origins.

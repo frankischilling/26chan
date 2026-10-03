@@ -402,6 +402,8 @@ Zero-media production boards in the rewrite remain deliberate replacements.
 masking, badge reply groups including omitted replies, badged flag omission
 and archived ID omission. Migration 0072 separates `META_BOARD` from private
 access; all supplied board definitions leave meta presentation disabled.
+[Static staff IDs](source-staff-poster-ids.md) are saved from the validated
+badge on boards with IDs enabled and remain unchanged by later policy changes.
 Complete conditional fields and navigation contracts remain under #216.
 
 `json.php:13-164` serializes OP/reply thread data and the reduced last-five

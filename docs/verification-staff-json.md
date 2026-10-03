@@ -49,7 +49,14 @@ change either policy.
 | Client unit/DOM regressions | 109 passed; no failures, skipped or cancelled cases |
 | Public browser regressions | 141 passed in 10.6 minutes; no retries |
 | Separate staff browser flow | Passed after correcting the source JSON assertion; 11.3-second flow, no retries |
-| Hosted checks at the new PR head | Required after publication |
+| Hosted checks at `d19f471` | Passed; build/test, monitoring and dependency advisories |
+
+At `d19f4717018b77f9951e05608b565e31ecdc0c6f`, hosted
+[build/test](https://github.com/frankischilling/26chan/actions/runs/37104237473),
+[monitoring](https://github.com/frankischilling/26chan/actions/runs/37104237440)
+and [dependency advisories](https://github.com/frankischilling/26chan/actions/runs/37104237474)
+all passed. Build/test includes Linux Rust/browser checks, Windows visuals and
+media/operations. These results qualify that checkpoint, not later changes.
 
 The new persisted HTTP test passes within the full workspace. It checks all six
 badges and three identity shapes across every forced-anonymous/meta combination,

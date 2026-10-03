@@ -81,8 +81,9 @@ cargo test -p board-public --test staff_json --all-features --locked
 bash scripts/test-role-bootstrap.sh
 ```
 
-Complete JSON parity remains under issue #216. Static staff ID labels,
-Pass fields, specialized media fields, remaining board metadata and legacy
+The [static staff ID rules](source-staff-poster-ids.md) now govern saved labels
+on new badged posts. Complete JSON parity remains under issue #216. Pass fields,
+specialized media fields, remaining board metadata and legacy
 navigation contracts are unfinished. Source meta-board client presentation and
 posting-specific rules also remain part of the full rewrite. Execution results
 are recorded in [staff JSON qualification](verification-staff-json.md).

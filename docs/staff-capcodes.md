@@ -67,8 +67,9 @@ it before configuration or execution.
 
 The shared posting transaction retains board subject, comment, forced-anonymous,
 closed-thread, bump, reply-limit and rollover rules. Staff posts have no public
-deletion password and use moderation for removal. Staff posts save no poster ID, geographic
-flag, board flag or private network fingerprint. A thread containing a staff
+deletion password and use moderation for removal. Badged staff posts on boards
+with IDs save the [source static label](source-staff-poster-ids.md). They save
+no geographic flag, board flag or private network fingerprint. A thread containing a staff
 post therefore cannot claim a complete private poster count.
 
 Private discussion keeps its separate anonymous role/alias presentation and

@@ -234,6 +234,8 @@ jobs:
         run: sudo bash scripts/test-authorized-post-migration.sh
       - name: Upgrade staff badge permissions and proof-bound tripcodes while preserving history and grants
         run: sudo bash scripts/test-staff-identity-migration.sh
+      - name: Upgrade static staff IDs while preserving saved IDs, source proofs and runtime grants
+        run: sudo bash scripts/test-staff-poster-id-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

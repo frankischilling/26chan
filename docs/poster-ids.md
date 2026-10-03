@@ -1,10 +1,14 @@
 # Poster IDs
 
-Boards with `user_ids` enabled show an eight-character ID beside each post's
+Ordinary posts on boards with `user_ids` enabled show an eight-character ID beside their
 name. The same verified network address keeps the same label within one thread.
 Other threads, boards and deployment keys produce different labels. Addresses
 shared through a NAT or proxy can therefore share an ID. A label identifies a
 network posting context, not a person, account or authenticated staff member.
+
+Badged staff posts use the [source static label](source-staff-poster-ids.md)
+when IDs are enabled. That saved label appears in JSON; HTML keeps the badge
+without a network ID span. Archived JSON omits both kinds of saved ID.
 
 ## Reference and hashing policy
 
