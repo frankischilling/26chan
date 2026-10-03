@@ -15,6 +15,13 @@ counts, the last omitted reply ID and the latest replies. See the
 and fallback. The renderer-only `/posts` and `/posts-tail` projections remain
 absent from the API listener.
 
+[Custom-spoiler metadata](custom-spoiler-metadata.md) follows the source board
+policy on both JSON listeners. Enabled boards with a nonzero count advertise
+`custom_spoilers` in `boards.json`. Their opening posts include
+`custom_spoiler`, including zero, in full/tail thread, index and catalog JSON;
+replies omit it. Disabled boards omit both fields. Apply migration 0081 before
+starting the updated binaries.
+
 Set both `API_ORIGIN` and `API_BIND_ADDR` to enable it; omit both for the existing single-listener setup. In a fresh development shell, after the database is migrated and seeded:
 
 ```bash

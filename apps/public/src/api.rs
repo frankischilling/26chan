@@ -115,6 +115,9 @@ pub async fn boards(
         }
         if board.comment_spoiler_cleanup {
             value["spoilers"] = json!(1);
+            if board.custom_spoiler_count > 0 {
+                value["custom_spoilers"] = json!(board.custom_spoiler_count);
+            }
         }
         if state.media.is_some() && board.image_limit > 0 {
             if !board.text_only {
@@ -184,6 +187,9 @@ fn post_json(
         value["sub"] = json!(board_domain::source_html_entities(&post.post.subject));
     }
     if op {
+        if board.comment_spoiler_cleanup {
+            value["custom_spoiler"] = json!(board.custom_spoiler_count);
+        }
         value["replies"] = json!(replies);
         value["images"] = json!(images);
         if let Some(count) = unique_ips {
@@ -335,7 +341,13 @@ pub async fn thread_selection(
             "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
             "imagelimit": i32::from(board_domain::image_limit::json_limited(thread.sticky, thread.permaage, thread.undead, images as u64, board.image_limit as u32)),
             "tail_size": tail_size, "tail_id": tail_id});
-        for key in ["sticky", "closed", "archived", "unique_ips"] {
+        for key in [
+            "sticky",
+            "closed",
+            "archived",
+            "unique_ips",
+            "custom_spoiler",
+        ] {
             if let Some(value) = original.get(key) {
                 op[key] = value.clone();
             }

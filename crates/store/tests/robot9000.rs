@@ -95,6 +95,7 @@ async fn state(admin: &PgPool, board: &str) -> (i64, i64, i64, i64) {
         .bind(board).fetch_one(admin).await.unwrap()
 }
 
+#[track_caller]
 fn rejection(result: Result<i64, StoreError>) -> String {
     match result {
         Err(StoreError::Robot9000Rejected(message)) => message,
@@ -147,10 +148,12 @@ async fn originality_mutes_decay_and_rejections_are_persisted_atomically() {
         assert_eq!(state(&a,&b).await,(3,3,1,1));
 
         // A further violation doubles the existing power even when decay is due.
-        sqlx::query("UPDATE post_secrets.robot9000_mutes SET mute_until=clock_timestamp()-interval '1 second',next_expire=clock_timestamp()-interval '1 second' WHERE board=$1 AND actor=$2")
+        // Keep the synthetic state on whole seconds and backdate it beyond the
+        // function's accepted 30-second application/database clock tolerance.
+        sqlx::query("UPDATE post_secrets.robot9000_mutes SET mute_until=date_trunc('second',clock_timestamp())-interval '60 seconds',next_expire=date_trunc('second',clock_timestamp())-interval '60 seconds' WHERE board=$1 AND actor=$2")
             .bind(&b).bind(fingerprint.as_slice()).execute(&a).await.unwrap();
         assert_eq!(rejection(create(&p,&b,first,"ordinary original comment",1,"",None).await),"You have been muted for 4 seconds, because your comment was not original.");
-        sqlx::query("UPDATE post_secrets.robot9000_mutes SET mute_until=clock_timestamp()-interval '1 second',next_expire=clock_timestamp()-interval '10 days',timeout_power=6 WHERE board=$1 AND actor=$2")
+        sqlx::query("UPDATE post_secrets.robot9000_mutes SET mute_until=date_trunc('second',clock_timestamp())-interval '60 seconds',next_expire=date_trunc('second',clock_timestamp())-interval '10 days',timeout_power=6 WHERE board=$1 AND actor=$2")
             .bind(&b).bind(fingerprint.as_slice()).execute(&a).await.unwrap();
         create(&p,&b,first,"success after many days only decays once",1,"",None).await.unwrap();
         let (power, future):(i16,bool)=sqlx::query_as("SELECT timeout_power,next_expire>clock_timestamp()+interval '23 hours' FROM post_secrets.robot9000_mutes WHERE board=$1 AND actor=$2")
@@ -160,7 +163,7 @@ async fn originality_mutes_decay_and_rejections_are_persisted_atomically() {
         let power:i16=sqlx::query_scalar("SELECT timeout_power FROM post_secrets.robot9000_mutes WHERE board=$1 AND actor=$2")
             .bind(&b).bind(fingerprint.as_slice()).fetch_one(&a).await.unwrap();
         assert_eq!(power,5);
-        sqlx::query("UPDATE post_secrets.robot9000_mutes SET timeout_power=24,mute_until=clock_timestamp()-interval '1 second',next_expire=clock_timestamp()-interval '1 second' WHERE board=$1 AND actor=$2")
+        sqlx::query("UPDATE post_secrets.robot9000_mutes SET timeout_power=24,mute_until=date_trunc('second',clock_timestamp())-interval '60 seconds',next_expire=date_trunc('second',clock_timestamp())-interval '60 seconds' WHERE board=$1 AND actor=$2")
             .bind(&b).bind(fingerprint.as_slice()).execute(&a).await.unwrap();
         assert_eq!(rejection(create(&p,&b,first,"ordinary original comment",1,"",None).await),"You have been muted for 52 weeks 1 day, because your comment was not original.");
         let (power,seconds):(i16,i64)=sqlx::query_as("SELECT timeout_power,extract(epoch FROM mute_until-date_trunc('second',clock_timestamp()))::bigint FROM post_secrets.robot9000_mutes WHERE board=$1 AND actor=$2")

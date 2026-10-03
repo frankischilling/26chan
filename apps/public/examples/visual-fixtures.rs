@@ -58,6 +58,7 @@ fn board() -> Board {
         comment_sjis_spacing: false,
         comment_max_lines: 70,
         comment_spoiler_cleanup: false,
+        custom_spoiler_count: 0,
         require_subject: false,
         op_markup: false,
         forced_anon: false,

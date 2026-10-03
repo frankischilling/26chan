@@ -175,6 +175,23 @@ catalog-filter case. Its trace records `ERR_NO_BUFFER_SPACE` fetching
 Sharding did not resolve the failure. The captured memory, port and process
 aggregates do not establish its cause. No complete hosted pass is claimed.
 
+All three Linux staff browser workflows pass at `9b61077`, including the new
+desktop/mobile public spoiler policy case. The native Windows four-shard theme
+run passed 1,172 cases and failed one file-state case after a page-evaluation
+timeout. Its other three shards passed; this is distinct from the CI script
+fetch failure. [Build/test at 9b61077](https://github.com/frankischilling/26chan/actions/runs/37155977784)
+failed in the Linux forced-anonymous Quick Reply browser case. The trace shows
+a reply-number click navigating to the ordinary quoted-reply form while the
+native client's filter module was still loading. The test now waits for the
+mounted Quick Reply control before clicking the reply number; its anonymous
+identity and real submission assertions are unchanged. Windows CI passes all
+1,173 theme cases and the media/operations job passes. Monitoring and advisories
+also pass. These results apply to `9b61077`, not the subsequent metadata slice.
+
+[Custom-spoiler metadata](custom-spoiler-metadata.md) records the subsequent
+count projection and additive migration 0081. Board-specific thumbnail
+selection and complete source flag assets remain unfinished.
+
 ```text
 python3 scripts/extract-public-spoiler-reference.py 4chan-old \
   apps/public/tests/fixtures/public-post-spoilers.json --check

@@ -419,6 +419,7 @@ mod tests {
             comment_sjis_spacing: false,
             comment_max_lines: 100,
             comment_spoiler_cleanup: true,
+            custom_spoiler_count: 0,
             require_subject: false,
             op_markup: false,
             forced_anon: false,

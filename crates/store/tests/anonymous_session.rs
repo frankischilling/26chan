@@ -433,9 +433,11 @@ async fn idle_activity_resets_without_losing_deletion_ownership_and_rotation_rev
     };
     let outcome = tokio::spawn(async move {
         let op = f.create(0, session(&capability, true)).await.unwrap();
-        sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=extract(epoch FROM clock_timestamp())::bigint-604801,network_at=extract(epoch FROM clock_timestamp())::bigint-604801,address_at=extract(epoch FROM clock_timestamp())::bigint-604801,environment_at=extract(epoch FROM clock_timestamp())::bigint-604801,activity_at=extract(epoch FROM clock_timestamp())::bigint-604801,verified_level=1,posts=19,pending=15,change_score=12 WHERE token_hash=$1")
-            .bind(token.as_slice()).execute(&f.owner).await.unwrap();
         let next = session(&capability, false);
+        // The activity policy uses the application clock, which can differ
+        // from the database clock within the accepted connection tolerance.
+        sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=$2,network_at=$2,address_at=$2,environment_at=$2,activity_at=$2,verified_level=1,posts=19,pending=15,change_score=12 WHERE token_hash=$1")
+            .bind(token.as_slice()).bind(next.now.timestamp()-604801).execute(&f.owner).await.unwrap();
         let reset = saved(&f.public, next.fingerprints).await;
         assert_eq!((reset.posts, reset.pending, reset.verified_level, reset.change_score), (0, 0, 0, 0));
         assert!(post_proof(&f.public, &token, &f.board, op).await.unwrap().is_some());

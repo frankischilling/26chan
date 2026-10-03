@@ -119,6 +119,7 @@ impl Fixture {
             description: "Synthetic folds, thumbnails and file states.".into(),
             image_limit: 10,
             comment_spoiler_cleanup: true,
+            custom_spoiler_count: 0,
             archive_retention_seconds: 3600,
             ..board()
         };

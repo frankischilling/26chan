@@ -250,6 +250,8 @@ jobs:
         run: sudo bash scripts/test-staff-thread-options-migration.sh
       - name: Upgrade public spoiler selection without rewriting history or granting state mutation
         run: sudo bash scripts/test-public-spoiler-migration.sh
+      - name: Upgrade source custom spoiler counts while preserving history and runtime authority
+        run: sudo bash scripts/test-custom-spoiler-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
