@@ -69,6 +69,18 @@ older binary's behavior. No destructive down migration is provided.
 
 ## Qualification and remaining work
 
+Hosted build/test for `a804708` failed on an older public thread-tail
+permission assertion that still denied staff Undead writes. The corrected
+test exercises a real staff write and rollback, keeps the public write denial,
+and checks that both runtimes remain unable to change board policy. That test
+and public Clippy across all targets/features pass locally against version 79.
+The same hosted run passed media/operations. Windows passed 1,172 checks and
+failed one mobile dark-color comparison; its retained browser trace records
+`net::ERR_NO_BUFFER_SPACE` for the theme stylesheet. The runner resource
+aggregates do not establish the cause of that transport failure. Color
+expectations, screenshot baselines and retries remain unchanged. These partial
+results do not constitute complete hosted qualification.
+
 The persisted permission suite selects original cases where only one option
 changes and compares 512 form submissions through real authenticated handlers.
 It checks saved values, current account and board permissions, button visibility,

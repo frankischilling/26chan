@@ -170,8 +170,8 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             .contains("data-tail-size=\"2\"")
     );
 
-    // Both application identities exercise real denied writes; the operator can
-    // change policy, and even an unchanged thread timestamp cannot hide that change.
+    // Both runtimes are denied board-policy writes. Migration 79 gives staff
+    // the Undead thread control; public credentials still cannot change it.
     for pool in [&public, &staff] {
         let error = sqlx::query("UPDATE content.boards SET json_tail_size=1 WHERE slug=$1")
             .bind(&slug)
@@ -182,17 +182,49 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             error.as_database_error().unwrap().code().as_deref(),
             Some("42501")
         );
-        let error = sqlx::query("UPDATE content.threads SET undead=true WHERE board=$1 AND id=$2")
+    }
+    let error = sqlx::query("UPDATE content.threads SET undead=true WHERE board=$1 AND id=$2")
+        .bind(&slug)
+        .bind(id)
+        .execute(&public)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    let mut staff_change = staff.begin().await.unwrap();
+    assert_eq!(
+        sqlx::query("UPDATE content.threads SET undead=true WHERE board=$1 AND id=$2")
             .bind(&slug)
             .bind(id)
-            .execute(pool)
+            .execute(&mut *staff_change)
             .await
-            .unwrap_err();
-        assert_eq!(
-            error.as_database_error().unwrap().code().as_deref(),
-            Some("42501")
-        );
-    }
+            .unwrap()
+            .rows_affected(),
+        1
+    );
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT undead FROM content.threads WHERE board=$1 AND id=$2"
+        )
+        .bind(&slug)
+        .bind(id)
+        .fetch_one(&mut *staff_change)
+        .await
+        .unwrap()
+    );
+    staff_change.rollback().await.unwrap();
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT undead FROM content.threads WHERE board=$1 AND id=$2"
+        )
+        .bind(&slug)
+        .bind(id)
+        .fetch_one(&public)
+        .await
+        .unwrap()
+    );
     for invalid in [-1, 501] {
         let error = sqlx::query("UPDATE content.boards SET json_tail_size=$2 WHERE slug=$1")
             .bind(&slug)
