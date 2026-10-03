@@ -162,7 +162,13 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     }
     let (op, html) = history.unwrap();
     sqlx::query("UPDATE content.boards SET op_markup=false,comment_spoiler_cleanup=false,comment_code_spacing=false,comment_sjis_spacing=false WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
-    assert_eq!(get(&app, &format!("/{slug}/thread/{op}")).await, html);
+    // Saved comments retain their preparation policy; the current posting form
+    // advertises the changed spoiler policy to native Quick Reply.
+    assert_eq!(html.matches("data-spoilers=\"true\"").count(), 1);
+    assert_eq!(
+        get(&app, &format!("/{slug}/thread/{op}")).await,
+        html.replacen("data-spoilers=\"true\"", "data-spoilers=\"false\"", 1)
+    );
     let id = submit(&app, &slug, op, 0).await;
     assert_eq!(
         board_store::find_post(&public, &slug, id)

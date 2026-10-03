@@ -136,13 +136,30 @@ thumbnail behavior, popup assertions, deadlines and baselines. Public upload
 browser checks now also require saved spoiler state after file deletion.
 These corrections still require a complete current-head run.
 
-Native Windows public Clippy across all targets/features passes with warnings
-denied after the directory/fixture corrections. Its initial example build
-lacked the pinned ICU import library. After verifying the existing ICU 74.2
-development dependency, compilation failed with Windows error 1455, "The paging
-file is too small," and failed allocations. The local follow-up handler build
-also ended with another WSL restart. Native build, handler and browser checks
-remain unqualified; their failed/interrupted logs are retained.
+At `10f33c6`, native Windows public Clippy across all targets/features passes
+with warnings denied. The visual fixture builds with the verified ICU 74.2
+development dependency, and all 68 attachment/Quick Reply browser cases pass
+with pinned Node 24.14.0. Assertions, retries, deadlines and screenshot
+baselines are unchanged. The native database slice passes 96 library tests,
+both spoiler-policy tests and the upload browser integration. This includes
+the 144 actual form comparisons, the observed policy-lock wait and both JSON
+origins with zero/nonzero image caps and media-enabled/disabled routers.
+Windows omits the Linux kernel-peer library test. Earlier missing-ICU,
+paging-error and WSL-interruption logs are retained; those attempts do not
+count as passes.
+
+[Build/test at 10f33c6](https://github.com/frankischilling/26chan/actions/runs/37154196022)
+failed. Its media/operations job passed, including the enabled/disabled
+approved and inline Quick Reply uploads through the real isolated pipeline
+and the restore exercise. Monitoring and dependency-advisory checks also
+passed. Linux failed the word-break test's whole-page equality after disabling
+board spoilers. The retained page difference is exactly the posting form's
+`data-spoilers` attribute changing from `true` to `false`; saved comments are
+unchanged. The assertion now requires that single current-policy change and
+still compares the rest of the page exactly. The corrected integration test,
+formatting and strict public Clippy pass natively on Windows. Full Linux
+regression and all three staff browser workflows remain unqualified at this
+checkpoint.
 
 The Windows runs at `a804708` and `7d5b16b` each passed 1,172 theme cases and
 failed one. Their retained traces record `ERR_NO_BUFFER_SPACE` on the theme
@@ -152,8 +169,11 @@ sequential shards, starting a fresh browser/server pair for each. Assertions,
 retries, deadlines and screenshot baselines are unchanged. This limits each
 process lifetime. An independent test enumeration compares the complete suite
 with the four shards: all 1,173 cases occur exactly once, distributed as
-475/264/384/50. The change remains a proposed qualification-environment correction
-until the current-head run completes.
+475/264/384/50. At `10f33c6`, the four shards passed 1,172 cases and failed one
+catalog-filter case. Its trace records `ERR_NO_BUFFER_SPACE` fetching
+`thread-watcher.v1.js` in the first shard; the other three shards passed.
+Sharding did not resolve the failure. The captured memory, port and process
+aggregates do not establish its cause. No complete hosted pass is claimed.
 
 ```text
 python3 scripts/extract-public-spoiler-reference.py 4chan-old \
