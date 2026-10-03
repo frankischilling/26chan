@@ -19,6 +19,7 @@ fn post(comment: &str) -> NewPost {
 
 fn metadata(options: &str) -> PostMetadata<'_> {
     PostMetadata {
+        spoiler: false,
         keys: PostIdentityKeys {
             tripcode: None,
             poster_id: None,

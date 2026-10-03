@@ -390,7 +390,7 @@ async fn native_uploads_preserve_isolated_intake_and_one_use_posting_authority()
             .await
             .unwrap();
     let filename = format!("native-{board}.png");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES($1,'Native upload','Owned synthetic data',2000,100,100,100,10,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES($1,'Native upload','Owned synthetic data',2000,100,100,100,10,10,true)")
         .bind(&board).execute(&owner).await.unwrap();
     let root = tempfile::tempdir().unwrap();
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())

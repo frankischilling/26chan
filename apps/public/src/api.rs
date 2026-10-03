@@ -216,6 +216,9 @@ fn post_json(
             value["imagelimit"] = json!(1);
         }
     }
+    if post.post.image_spoiler {
+        value["spoiler"] = json!(1);
+    }
     if let Some(file) = post.post.attachment {
         if file.file_deleted {
             value["filedeleted"] = json!(1);
@@ -237,9 +240,6 @@ fn post_json(
             if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) {
                 value["tn_w"] = json!(width);
                 value["tn_h"] = json!(height);
-            }
-            if file.spoiler {
-                value["spoiler"] = json!(1);
             }
         }
     }
@@ -568,6 +568,7 @@ mod poster_id_projection_tests {
                 flag_name: None,
                 subject: String::new(),
                 comment: String::new(),
+                image_spoiler: false,
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,

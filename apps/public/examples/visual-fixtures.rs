@@ -139,6 +139,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         archive_expires_at: None,
     };
     let mut posts = vec![PostView::new(Post {
+        image_spoiler: false,
         comment_format: 0,
         staff_authorized_limits: false,
         wordfilter_payload: None,
@@ -166,6 +167,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     posts[0] = PostView::new(Post { comment: "Share your latest paper project.\n>start with a single sheet\n[spoiler]Mine is another crane.[/spoiler]".into(), ..posts[0].post.clone() });
     if !catalog {
         posts.push(PostView::new(Post {
+            image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
@@ -194,6 +196,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     if markup {
         // Prepared synthetic comments, each with its own posting-time policy.
         posts[0] = PostView::new(Post {
+            image_spoiler: false,
             comment_format: 9,
             staff_authorized_limits: false,
             wordfilter_payload: None,
@@ -201,6 +204,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
             ..posts[0].post.clone()
         });
         posts[1] = PostView::new(Post {
+            image_spoiler: false,
             comment_format: 10,
             staff_authorized_limits: false,
             wordfilter_payload: None,
@@ -209,6 +213,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         });
         posts.push(PostView::new(Post {
             id: 1_000_003,
+            image_spoiler: false,
             comment_format: 12,
             staff_authorized_limits: false,
             wordfilter_payload: None,
@@ -217,6 +222,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         }));
         posts.push(PostView::new(Post {
             id: 1_000_004,
+            image_spoiler: false,
             comment_format: 24,
             staff_authorized_limits: false,
             wordfilter_payload: None,
@@ -344,6 +350,7 @@ fn archived_thread() -> String {
     };
     let posts = vec![
         PostView::new(Post {
+            image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
@@ -367,6 +374,7 @@ fn archived_thread() -> String {
             attachment: None,
         }),
         PostView::new(Post {
+            image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,

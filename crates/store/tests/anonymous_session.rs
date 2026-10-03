@@ -86,6 +86,7 @@ impl Fixture {
                 session,
             },
             PostMetadata {
+                spoiler: false,
                 keys: PostIdentityKeys {
                     tripcode: None,
                     poster_id: None,

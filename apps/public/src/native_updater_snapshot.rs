@@ -466,6 +466,7 @@ mod tests {
         let posts = [id, id + 1]
             .into_iter()
             .map(|no| Post {
+                image_spoiler: false,
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,

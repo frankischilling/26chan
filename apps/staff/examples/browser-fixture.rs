@@ -164,6 +164,21 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 return Err("Owned spoiler fixture board is missing".into());
             }
         }
+        "public-spoiler-policy" => {
+            use std::io::Read;
+            let mut input = String::new();
+            std::io::stdin().take(4).read_to_string(&mut input)?;
+            let enabled = match input.as_str() {
+                "on" => true,
+                "off" => false,
+                _ => return Err("Invalid owned spoiler policy".into()),
+            };
+            let changed=sqlx::query("UPDATE content.boards SET image_limit=100,comment_spoiler_cleanup=$2 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).bind(enabled).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned public spoiler fixture board is missing".into());
+            }
+        }
         "stale" => {
             sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
         }

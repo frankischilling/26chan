@@ -94,7 +94,7 @@ async fn real_intake_streaming_status_posting_and_file_deletion() {
             .await
             .unwrap();
     let filename = format!("<b>{board}</b>.png");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ($1,'Image test','Synthetic',2000,100,100,100,10,3)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES ($1,'Image test','Synthetic',2000,100,100,100,10,3,true)")
         .bind(&board).execute(&admin).await.unwrap();
     let root = tempfile::tempdir().unwrap();
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
@@ -1336,7 +1336,11 @@ async fn image_reply_contract(
     assert_eq!(stats["image_limited"], false);
     assert!(after["posts"][0].get("imagelimit").is_none());
     assert_eq!(after["posts"][1]["filedeleted"], 1);
-    for key in ["tim", "filename", "md5", "ext", "tn_w", "tn_h", "spoiler"] {
+    assert_eq!(
+        after["posts"][1]["spoiler"], 1,
+        "Source spoiler state survives file deletion"
+    );
+    for key in ["tim", "filename", "md5", "ext", "tn_w", "tn_h"] {
         assert!(after["posts"][1].get(key).is_none());
     }
     let (index, _) = json(app, &format!("/{board}/1.json")).await;

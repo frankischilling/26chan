@@ -162,6 +162,7 @@ pub struct Post {
     pub board_flag: Option<String>,
     pub flag_name: Option<String>,
     pub subject: String,
+    pub image_spoiler: bool,
     pub comment: String,
     pub comment_format: i16,
     pub staff_authorized_limits: bool,

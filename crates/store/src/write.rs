@@ -128,6 +128,7 @@ pub async fn create_post_with_identity_keys(
         attachment,
         context,
         PostMetadata {
+            spoiler: false,
             keys,
             country_database: None,
             flag: "",
@@ -145,6 +146,9 @@ pub struct PostMetadata<'a> {
     /// Raw public options text. Operator-owned board policy decides whether a
     /// dice or fortune request is meaningful after the board row is locked.
     pub options: &'a str,
+    /// Raw new-public-post choice, subject to the locked board's SPOILERS policy.
+    /// Existing-post changes use the separately authorized staff setter.
+    pub spoiler: bool,
 }
 
 pub async fn create_post_with_metadata(
@@ -250,6 +254,7 @@ pub async fn create_staff_post(
         },
         PostWriteOptions {
             metadata: PostMetadata {
+                spoiler: false,
                 keys: PostIdentityKeys {
                     tripcode,
                     poster_id: None,
@@ -352,6 +357,9 @@ async fn create_post_in_context(
         staff,
         anonymous,
     } = options;
+    if staff.is_some() && metadata.spoiler {
+        return Err(StoreError::Invalid("Invalid staff posting metadata."));
+    }
     let keys = metadata.keys;
     let ordinary_staff = staff
         .as_ref()
@@ -972,6 +980,16 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
     }
+    let spoiler = board.comment_spoiler_cleanup
+        && (metadata.spoiler || attachment.is_some_and(|file| file.spoiler));
+    sqlx::query("SELECT set_config('board.post_image_spoiler',$1,true)")
+        .bind(if staff.is_none() && spoiler {
+            "true"
+        } else {
+            "false"
+        })
+        .execute(&mut *tx)
+        .await?;
     if let Some(attachment) = attachment {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)
@@ -982,7 +1000,7 @@ async fn create_post_in_context(
             .bind(comment.as_str())
             .bind(&attachment.upload.id)
             .bind(&attachment.upload.capability)
-            .bind(attachment.spoiler)
+            .bind(spoiler)
             .bind(posted_at)
             .execute(&mut *tx)
             .await

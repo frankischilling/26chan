@@ -179,6 +179,14 @@ pub fn checkbox<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<boo
     }
 }
 
+pub fn spoiler_checkbox<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<bool, D::Error> {
+    use serde::Deserialize;
+    let value = String::deserialize(deserializer)?;
+    Ok(!value.is_empty() && value != "0")
+}
+
 #[derive(serde::Deserialize)]
 pub enum Mode {
     #[serde(rename = "regist", alias = "post")]
@@ -273,7 +281,7 @@ mod tests {
             ("name", b"invalid\xffutf8".as_slice(), None),
             ("name", b"file-in-text".as_slice(), Some("text.txt")),
             ("admin", b"not-authority".as_slice(), None),
-            ("spoiler", b"yes".as_slice(), None),
+            ("textonly", b"yes".as_slice(), None),
             ("upfile", b"".as_slice(), Some("")),
         ] {
             let mut fields = valid.to_vec();

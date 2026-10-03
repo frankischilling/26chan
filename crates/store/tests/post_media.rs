@@ -129,7 +129,7 @@ async fn run(attachment_only: bool) {
             .fetch_one(&admin)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10,true)")
         .bind(&board).execute(&admin).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let f = Fixture {
@@ -183,6 +183,7 @@ async fn run(attachment_only: bool) {
 }
 
 async fn exercise(f: &Fixture) {
+    direct_sql_spoiler_policy(f).await;
     for sql in [
         "SELECT * FROM media.jobs",
         "SELECT * FROM media.assets",
@@ -530,6 +531,79 @@ async fn exercise(f: &Fixture) {
     ));
 }
 
+async fn direct_sql_spoiler_policy(f: &Fixture) {
+    let old: (bool, i32) = sqlx::query_as(
+        "SELECT comment_spoiler_cleanup,image_limit FROM content.boards WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE content.boards SET comment_spoiler_cleanup=true,image_limit=100 WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    for enabled in [false, true] {
+        let receipt = f.reserve().await;
+        f.approve(&receipt).await;
+        sqlx::query("UPDATE content.boards SET comment_spoiler_cleanup=$2 WHERE slug=$1")
+            .bind(&f.board)
+            .bind(enabled)
+            .execute(&f.admin)
+            .await
+            .unwrap();
+        let mut tx = f.public.begin().await.unwrap();
+        let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        // Bypass Rust normalization deliberately. Capability-scoped SQL must
+        // enforce SPOILERS itself even when its caller supplies true.
+        sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
+            .bind(id)
+            .bind(&f.board)
+            .bind(thread)
+            .bind("Owned SQL choice")
+            .bind("Owned SQL subject")
+            .bind("Owned SQL reply")
+            .bind(&receipt.upload.id)
+            .bind(&receipt.upload.capability)
+            .bind(true)
+            .bind(chrono::Utc::now())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        assert_eq!(
+            attachment(&f.public, id).await.unwrap().unwrap().spoiler,
+            enabled
+        );
+        assert_eq!(
+            board_store::find_post(&f.public, &f.board, id)
+                .await
+                .unwrap()
+                .image_spoiler,
+            enabled
+        );
+    }
+    board_store::delete_post(&f.public, &f.board, thread)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE content.boards SET comment_spoiler_cleanup=$2,image_limit=$3 WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .bind(old.0)
+    .bind(old.1)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+}
+
 async fn poster_counts(f: &Fixture) {
     // Approval probes use the fixture's ordinary posting context. Finish those
     // controls before enabling the ID policy for the keyed attachment writes.
@@ -595,6 +669,7 @@ async fn poster_counts(f: &Fixture) {
                 op_password_proof: None,
             },
             board_store::PostMetadata {
+                spoiler: false,
                 country_database: Some(&countries),
                 flag,
                 options: "",

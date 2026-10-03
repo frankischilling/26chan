@@ -91,6 +91,7 @@ impl Fixture {
                 op_password_proof: None,
             },
             PostMetadata {
+                spoiler: false,
                 keys: PostIdentityKeys {
                     tripcode: None,
                     poster_id: None,
@@ -1067,6 +1068,7 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
                     session,
                 },
                 PostMetadata {
+                    spoiler: false,
                     keys: PostIdentityKeys {
                         tripcode: None,
                         poster_id: None,

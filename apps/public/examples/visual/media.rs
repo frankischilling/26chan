@@ -139,6 +139,7 @@ impl Fixture {
             archive_expires_at: archived.then(|| time("2026-09-08T14:00:00Z")),
         };
         let posts: Vec<_> = self.files.iter().enumerate().map(|(index, file)| views::PostView::new(Post {
+            image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,

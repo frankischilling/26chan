@@ -21,6 +21,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     for (index, capcode) in capcodes.into_iter().enumerate() {
         let id = 1_001_001 + index as i64 * 10;
         let post = Post {
+            image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,

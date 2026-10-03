@@ -88,6 +88,8 @@ DO $$ BEGIN
   IF EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
       'board_media_read','board_media_intake','board_monitor']) runtime(name)
       WHERE has_column_privilege(name,'content.posts','image_spoiler','INSERT,UPDATE')
+         OR has_function_privilege(name,'content.initial_public_image_spoiler()','EXECUTE')
+         OR has_function_privilege(name,'content.initial_attachment_spoiler()','EXECUTE')
          OR has_column_privilege(name,'content.post_media','spoiler','INSERT,UPDATE')
          OR has_function_privilege(name,'content.sync_image_spoiler()','EXECUTE')
          OR (has_function_privilege(name,'content.set_post_image_spoiler(text,bigint,boolean)','EXECUTE')

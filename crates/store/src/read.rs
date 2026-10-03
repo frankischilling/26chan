@@ -350,7 +350,7 @@ pub async fn search(
 
     let mut posts: Vec<Post> = sqlx::query_as(
         "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.flag_name,\
-                p.subject,\
+                p.subject,p.image_spoiler,\
                 CASE WHEN char_length(p.comment) <= $4 THEN p.comment \
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
                        substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \

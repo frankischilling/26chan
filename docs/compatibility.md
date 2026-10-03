@@ -24,6 +24,13 @@ Synthetic fixtures run through the original PHP functions pin normalization,
 static links and catalog teaser serialization. Complete page comparisons and
 the remaining original formatting and media workflows are still required.
 
+[Public posting spoilers](public-post-spoilers.md) follows the imported board
+policy for ordinary posts, including forged scalar choices and posts without
+attachments. Upload forms and native Quick Reply use that policy. JSON retains
+saved spoiler state after file deletion. Original PHP cases, persisted handler
+comparisons and SQL policy/authority checks cover this continuation; custom
+spoiler assets and specialized media remain unfinished.
+
 [Staff image spoilers](staff-image-spoilers.md) implements scoped state changes
 under the original board policy, including unchanged requests, text targets
 and retained archives. An independent source endpoint fixture checks the

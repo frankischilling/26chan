@@ -14,6 +14,50 @@ function run(name, args, input, expected = 0) {
   return result.stdout.trim();
 }
 function fixture(command, board, input) { const value = run('examples/browser-fixture', [command, board], input); return value ? JSON.parse(value) : null; }
+test('public spoiler policy controls Quick Reply and forged text choices on desktop and mobile', async ({ page }) => {
+  const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
+  const data = fixture('setup', board), publicOrigin = 'http://127.0.0.1:3000';
+  const mediaRoot = path.resolve(`.local/staff-media-${board}`), errors = [];
+  expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+  page.on('pageerror', error => errors.push(error.message));
+  try {
+    for (const enabled of [false, true]) {
+      fixture('public-spoiler-policy', board, enabled ? 'on' : 'off');
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`${publicOrigin}/${board}/thread/${data.thread}`);
+        const source = page.locator('form.postEditor');
+        await expect(source).toHaveAttribute('data-spoilers', String(enabled));
+        if (width === 390) await page.locator(`#pim${data.thread} > .postNum > a[title="Reply to this post"]`).click();
+        else await page.locator('.open-qr-link').click();
+        const qr = page.locator('#quickReply');
+        await expect(qr.locator('#qrFile')).toBeVisible();
+        await expect(qr.locator('[name=spoiler]')).toHaveCount(enabled ? 1 : 0);
+        if (enabled) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
+        await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
+        const posted = await page.request.post(`${publicOrigin}/${board}/imgboard.php`, {
+          headers: { Origin: publicOrigin, Accept: 'application/json' },
+          multipart: { mode: 'regist', resto: String(data.thread), pwd: 'owned-public-spoiler-password',
+            com: 'Owned forged spoiler text', spoiler: 'false' },
+        });
+        expect(posted.status()).toBe(200);
+        const result = await posted.json(); expect(result.error).toBeUndefined();
+        const json = await (await page.request.get(`${publicOrigin}/${board}/thread/${data.thread}.json`)).json();
+        const saved = json.posts.find(post => post.no === result.pid);
+        expect(saved.spoiler).toBe(enabled ? 1 : undefined); expect(saved.tim).toBeUndefined();
+        expect(saved.com).toBe('Owned forged spoiler text');
+      }
+    }
+    expect(errors).toEqual([]);
+  } finally {
+    fixture('cleanup', board);
+    const privateRoot = path.resolve('.local');
+    if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
+        || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid public spoiler media cleanup path');
+    rmSync(mediaRoot, { recursive: true });
+  }
+});
+
 test('ordinary staff posts keep public IDs, flags, live filtering and password deletion for every rank', async ({ page, context }) => {
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const invitationDir = path.resolve(`.local/staff-ordinary-browser-${board}`);

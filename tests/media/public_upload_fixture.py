@@ -94,7 +94,7 @@ class PublicUpload:
         result = subprocess.run(['systemd-analyze', 'verify', '/run/systemd/system/' + self.unit.name],
                                 env=SAFE, capture_output=True, timeout=15)
         assert result.returncode == 0, 'public development unit verification failed'
-        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3);")
+        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true);")
         self.created = True
         systemctl('start', self.unit.name)
         wait_until(self.ready)
@@ -126,8 +126,11 @@ class PublicUpload:
             self.upload_one(suffix, data, javascript)
         self.upload_one('quick-reply.png', red_png(), True, quick_reply=True)
         self.upload_one('quick-reply-inline.png', red_png(), True, quick_reply='inline')
+        sql(f"UPDATE content.boards SET comment_spoiler_cleanup=false WHERE slug='{self.board}' AND title='Upload qualification';")
+        self.upload_one('quick-reply-disabled.png', red_png(), True, quick_reply=True, spoilers=False)
+        self.upload_one('quick-reply-inline-disabled.png', red_png(), True, quick_reply='inline', spoilers=False)
 
-    def upload_one(self, suffix, data, javascript=False, quick_reply=False):
+    def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
@@ -148,6 +151,8 @@ class PublicUpload:
         script = 'public-upload.mjs'
         if quick_reply:
             script, flags = 'quick-reply-upload.mjs', (['--inline'] if quick_reply == 'inline' else [])
+            if not spoilers:
+                flags.append('--no-spoilers')
         process = f.launch([node, REPO / 'tests/browser' / script, self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
@@ -185,7 +190,7 @@ class PublicUpload:
             self.f.stop(self.unit)
         if self.created:
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

@@ -686,6 +686,7 @@ pub async fn post_message(
                 op_password_proof: proof,
             },
             board_store::PostMetadata {
+                spoiler: false,
                 keys: board_store::PostIdentityKeys {
                     tripcode: state.config.tripcode_key.as_deref(),
                     poster_id: Some(key),

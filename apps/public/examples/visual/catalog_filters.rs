@@ -63,6 +63,7 @@ fn page(slug: &str, sorted: bool) -> String {
                 archive_expires_at: None,
             },
             posts: vec![views::PostView::new(Post {
+                image_spoiler: false,
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,

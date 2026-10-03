@@ -414,7 +414,7 @@ pub struct PostForm {
     upload_id: String,
     #[serde(default)]
     upload_capability: String,
-    #[serde(default, deserialize_with = "crate::posting_form::checkbox")]
+    #[serde(default, deserialize_with = "crate::posting_form::spoiler_checkbox")]
     spoiler: bool,
     #[serde(default)]
     awt: Option<u8>,
@@ -492,7 +492,7 @@ async fn submit_post(
     let track = form.track == Some(1);
     let settings = board_store::board(&state.pool, &board).await?;
     let attachment = match (form.upload_id.is_empty(), form.upload_capability.is_empty()) {
-        (true, true) if !form.spoiler => None,
+        (true, true) => None,
         (false, false) if state.media.is_some() && !form.textonly => {
             Some(board_store::post_media::NewAttachment {
                 upload: board_store::media_intake::IntakeReservation {
@@ -604,6 +604,7 @@ async fn submit_post(
             session: session.posting,
         },
         board_store::PostMetadata {
+            spoiler: form.spoiler,
             country_database: state.country_database.as_deref(),
             flag: &form.flag,
             options: &form.email,

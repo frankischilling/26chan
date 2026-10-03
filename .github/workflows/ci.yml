@@ -248,6 +248,8 @@ jobs:
         run: sudo bash scripts/test-staff-spoiler-migration.sh
       - name: Upgrade existing thread options with scoped staff Undead control
         run: sudo bash scripts/test-staff-thread-options-migration.sh
+      - name: Upgrade public spoiler selection without rewriting history or granting state mutation
+        run: sudo bash scripts/test-public-spoiler-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
@@ -455,7 +457,15 @@ jobs:
           WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
         run: |
           ./scripts/windows-visual-resources.ps1 -Phase before-themes
-          npm run test:themes
+          # Keep every case and assertion while bounding the lifetime of each
+          # browser/server pair. Retained traces show failed resource requests
+          # with ERR_NO_BUFFER_SPACE on the long Windows theme run.
+          $themeExit = 0
+          foreach ($themeShard in 1..4) {
+            npm run test:themes -- --shard "$themeShard/4" --output "test-results/windows-themes-$themeShard"
+            if ($LASTEXITCODE -ne 0) { $themeExit = $LASTEXITCODE }
+          }
+          if ($themeExit -ne 0) { exit $themeExit }
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states

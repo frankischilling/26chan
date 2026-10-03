@@ -9,11 +9,11 @@
 <h1>Upload status</h1>
 <p role="status">{{ message }}</p>
 {% if ready %}
-<form name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}">
+<form name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}" data-spoilers="{{ board.comment_spoiler_cleanup }}">
 <input type="hidden" name="upload_id" value="{{ form.upload_id }}">
 <input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
 <input type="hidden" name="resto" value="{{ form.resto }}">
-{% call posting::fields(form.resto, true, board.text_only, board.forced_anon, board.flag_options(), "") %}{% endcall %}
+{% call posting::fields(form.resto, true, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.flag_options(), "") %}{% endcall %}
 <p id="postHelp">Comment optional with an approved image; maximum {{ board.max_comment_chars }} characters.</p>
 </form>
 {% else %}

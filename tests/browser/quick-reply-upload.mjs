@@ -4,8 +4,10 @@ import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
-const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], inline = process.argv[5] === '--inline';
-assert.equal(process.argv.length, inline ? 6 : 5); assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
+const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], flags = process.argv.slice(5);
+assert.ok(flags.every(flag => ['--inline', '--no-spoilers'].includes(flag))); assert.equal(new Set(flags).size, flags.length);
+const inline = flags.includes('--inline'), spoilers = !flags.includes('--no-spoilers');
+assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
 assert.match(board, /^[a-z0-9]{1,10}$/);
 const password = 'owned-quick-reply-upload-password';
 let browser;
@@ -60,7 +62,14 @@ try {
   }
   await expect(qr.locator('[name=upload_id]')).toHaveValue(uploadId);
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
-  await qr.locator('[name=spoiler]').check(); await expect(page.locator('#qr-pwd')).toHaveValue('');
+  if (spoilers) await qr.locator('[name=spoiler]').check();
+  else {
+    await expect(qr.locator('[name=spoiler]')).toHaveCount(0);
+    await expect(native.locator('[name=spoiler]')).toHaveCount(0);
+    // A forged choice must still be ignored by the locked server policy.
+    await qr.locator('form').evaluate(form => { const row = document.createElement('div'); row.className = 'qr-approved-image'; const input = document.createElement('input'); input.type = 'hidden'; input.name = 'spoiler'; input.value = 'on'; row.append(input); form.append(row); });
+  }
+  await expect(page.locator('#qr-pwd')).toHaveValue('');
   const posted = await observeOwnedUploadResponse(page, url(`/${board}/imgboard.php`), 'post');
   await qr.locator('input[type=submit]').click(); const response = await posted();
   assert.equal(response.status, 200); const result = response.result;
@@ -70,7 +79,8 @@ try {
   await expect(page.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(inline ? 0 : 2); // HTML confirmation retains only its cancel fields.
   if (inline) {
     await expect(qr.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
-    await expect(qr.locator('[name=spoiler]')).toBeDisabled();
+    if (spoilers) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
+    else await expect(qr.locator('[name=spoiler]')).toHaveCount(0);
   } else {
     await expect(qr.locator('[name=spoiler], [name=upload_id]')).toHaveCount(0);
   }
@@ -81,7 +91,7 @@ try {
   if (inline) await page.locator('.open-qr-link').click();
   else await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
   await expect(qr.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
-  if (inline) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
+  if (inline && spoilers) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
   else await expect(qr.locator('[name=spoiler]')).toHaveCount(0);
   await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('Text after the consumed image');
   const next = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`));
@@ -90,7 +100,7 @@ try {
   const api = url(`/${board}/thread/${thread}.json`);
   const posts = (await (await context.request.get(api)).json()).posts;
   assert.equal(posts.length, 3); const attached = posts.find(value => String(value.no) === post);
-  assert.equal(attached.spoiler, 1); assert.equal(attached.com, undefined); assert.equal(attached.ext, '.png');
+  assert.equal(attached.spoiler, spoilers ? 1 : undefined); assert.equal(attached.com, undefined); assert.equal(attached.ext, '.png');
   assert.equal(posts[2].com, 'Text after the consumed image'); assert.equal(posts[2].tim, undefined);
   const replay = await context.request.post(url(`/${board}/imgboard.php`), { headers: { Origin: origin.origin, Accept: 'application/json' },
     multipart: { resto: thread, mode: 'regist', pwd: password, com: '', upload_id: uploadId, upload_capability: capability } });
@@ -98,14 +108,16 @@ try {
   assert.equal((await (await context.request.get(api)).json()).posts.length, 3);
   await page.goto(url(`/${board}/thread/${thread}`));
   const file = page.locator(`#p${post} .file`);
-  await expect(file.locator('a.fileThumb.imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
-  await expect(file.locator('.fileText > a')).toHaveText('Spoiler Image');
-  const link = file.locator('a.fileThumb.imgspoiler'), media = await link.getAttribute('href');
+  if (spoilers) {
+    await expect(file.locator('a.fileThumb.imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
+    await expect(file.locator('.fileText > a')).toHaveText('Spoiler Image');
+  } else await expect(file.locator('a.fileThumb.imgspoiler')).toHaveCount(0);
+  const link = file.locator('a.fileThumb'), media = await link.getAttribute('href');
   await expect(file.locator('img')).toHaveCount(1);
-  await expect(file.locator('img')).toHaveAttribute('width', '100');
-  await expect(file.locator('img')).toHaveAttribute('height', '100');
+  await expect(file.locator('img')).toHaveAttribute('width', spoilers ? '100' : '1');
+  await expect(file.locator('img')).toHaveAttribute('height', spoilers ? '100' : '1');
   assert.equal(requests.includes(media), false, 'the spoiler placeholder must not fetch full media');
-  assert.equal(requests.includes(media.replace(/\.png$/, 's.jpg')), false, 'the spoiler placeholder must not fetch its approved thumbnail');
+  assert.equal(requests.includes(media.replace(/\.png$/, 's.jpg')), !spoilers, 'only an unspoiled file fetches its approved thumbnail');
   assert.notEqual(new URL(media).origin, origin.origin); assert.equal((await context.request.get(media)).status(), 200);
   const opening = page.waitForEvent('popup'); await link.click(); const imagePage = await opening;
   await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
@@ -117,6 +129,6 @@ try {
   await expect(page.locator(`#p${post} .file a`)).toHaveCount(0);
   assert.equal((await context.request.get(media)).status(), 404);
   const deleted = (await (await context.request.get(api)).json()).posts.find(value => String(value.no) === post);
-  assert.equal(deleted.filedeleted, 1); assert.equal(deleted.tim, undefined);
+  assert.equal(deleted.filedeleted, 1); assert.equal(deleted.tim, undefined); assert.equal(deleted.spoiler, spoilers ? 1 : undefined);
   console.log(`PASS JavaScript upload, isolated approval, persisted posting through Quick Reply, ${inline ? 'inline selection, ' : ''}consumed capabilities, text follow-up, replay denial and file-only deletion`);
 } finally { if (browser) await browser.close(); }

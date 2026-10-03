@@ -82,7 +82,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     uploadCancel.disabled = busy;
     uploadCheck.disabled = busy;
     uploadInput.disabled = uploadBusy || busy;
-    uploadSpoiler.disabled = busy || state !== 'approved';
+    if (uploadSpoiler) uploadSpoiler.disabled = busy || state !== 'approved';
     sync();
   }
   function resetInlineUpload() {
@@ -190,19 +190,23 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       const value = source.elements.namedItem(key)?.value;
       if (value) { const input = node('input'); input.type = 'hidden'; input.name = key; input.value = value; form.append(input); }
     }
-    if (source.elements.namedItem('upload_id')) {
+    if (source.elements.namedItem('upload_id') && source.elements.namedItem('spoiler')) {
       const row = node('div', undefined, 'qr-approved-image'), label = node('label'), spoiler = node('input'); spoiler.type = 'checkbox'; spoiler.name = 'spoiler'; spoiler.value = 'on';
       label.append(spoiler, 'Spoiler?'); row.append(label); fields.append(row);
-    } else if (uploadSourceInput) {
+    } else if (!source.elements.namedItem('upload_id') && uploadSourceInput) {
       const row = node('div', undefined, 'qr-file-row');
       uploadInput = node('input'); uploadInput.type = 'file'; uploadInput.id = 'qrFile'; uploadInput.name = 'upfile';
       uploadInput.size = 19; uploadInput.accept = uploadSourceInput.accept; uploadInput.title = 'Choose one file; choose again to replace it. Shift-click to remove the current file.';
-      const spoilerLabel = node('label'); uploadSpoiler = node('input'); uploadSpoiler.type = 'checkbox'; uploadSpoiler.name = 'spoiler';
-      uploadSpoiler.value = 'on'; uploadSpoiler.disabled = true; const spoiler = node('span'); spoiler.id = 'qrSpoiler'; spoilerLabel.append(uploadSpoiler, 'Spoiler?'); spoiler.append(spoilerLabel);
+      const spoiler = source.dataset.spoilers === 'true' ? node('span') : null;
+      if (spoiler) {
+        const spoilerLabel = node('label'); uploadSpoiler = node('input'); uploadSpoiler.type = 'checkbox'; uploadSpoiler.name = 'spoiler';
+        uploadSpoiler.value = 'on'; uploadSpoiler.disabled = true; spoiler.id = 'qrSpoiler'; spoilerLabel.append(uploadSpoiler, 'Spoiler?'); spoiler.append(spoilerLabel);
+      }
       uploadStatus = node('span', '', 'qr-file-status'); uploadStatus.id = 'qrUploadStatus'; uploadStatus.setAttribute('role', 'status');
       uploadCheck = node('button', 'Check status'); uploadCheck.type = 'button'; uploadCheck.hidden = true;
       uploadCancel = node('button', 'Cancel file'); uploadCancel.type = 'button'; uploadCancel.hidden = true;
-      row.append(uploadInput, spoiler, uploadStatus, uploadCheck, uploadCancel); fields.append(row);
+      row.append(uploadInput); if (spoiler) row.append(spoiler);
+      row.append(uploadStatus, uploadCheck, uploadCancel); fields.append(row);
       uploadInput.addEventListener('click', event => { if (event.shiftKey) { event.preventDefault(); void cancelInlineUpload(); } });
       uploadInput.addEventListener('change', () => { const file = uploadInput.files?.[0]; if (file) void selectUpload(file); });
       uploadCheck.addEventListener('click', () => { void checkUpload(false); });
