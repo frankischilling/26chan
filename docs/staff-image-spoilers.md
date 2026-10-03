@@ -119,12 +119,24 @@ version-77 database is unchanged. Full hosted checks remain required for the
 published continuation; earlier ordinary-posting CI results apply to their
 recorded head in [the posting authority record](staff-posting-authority.md).
 
+Hosted build/test at `f05e5a329520388a3e20687bfb9963bd439ea49b` failed.
+The media/operations job passed, but Linux stopped at an older attachment
+permission assertion that still expected eight owner functions. The guard now
+checks the exact ten signatures, including the two spoiler functions, and
+retains its security-definer, fixed search-path and public-execution checks.
+All 45 store tests pass on a separately generated, freshly migrated and seeded
+disposable cluster, including the monitoring ownership guard. Windows passed
+1,172 cases but failed one markup navigation with Chromium
+`ERR_NO_BUFFER_SPACE`. Screenshot baselines, assertions and retries are unchanged.
+The corrected published head still requires its own complete hosted checks.
+
 Reproduce the source fixture and application checks with:
 
 ```sh
 python3 scripts/extract-staff-spoiler-reference.py 4chan-old \
   apps/staff/tests/fixtures/staff-spoilers.json --check
 cargo test --locked -p board-staff --all-features
+cargo test --locked -p board-store --all-features
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 node node_modules/@playwright/test/cli.js test --config playwright.staff.config.js
 sudo bash scripts/test-role-bootstrap.sh
