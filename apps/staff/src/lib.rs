@@ -16,6 +16,7 @@ use axum::{
     routing::{get, post},
 };
 pub use config::{Config, valid_origin};
+pub use handlers::StaffRequestPeer;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use webauthn_rs::prelude::*;

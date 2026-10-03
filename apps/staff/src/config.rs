@@ -14,6 +14,7 @@ pub struct Config {
     pub staff_database: String,
     pub idle_timeout: Duration,
     pub tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
+    pub proxy: Option<board_config::PublicProxy>,
 }
 
 pub fn parse_staff_tripcode_key(
@@ -100,6 +101,8 @@ impl Config {
             "TRIPCODE_KEY",
             "POSTER_ID_KEY",
             "COUNTRY_DATABASE",
+            "PUBLIC_PROXY_SOCKET",
+            "PUBLIC_PROXY_UID",
         ] {
             if std::env::var_os(key).is_some_and(|s| !s.is_empty()) {
                 return Err(
@@ -153,6 +156,27 @@ impl Config {
             Err(std::env::VarError::NotPresent) => None,
             Err(std::env::VarError::NotUnicode(_)) => return Err("Invalid STAFF_TRIPCODE_KEY"),
         };
+        let proxy_value = |name| {
+            std::env::var_os(name)
+                .map(|value| {
+                    value
+                        .into_string()
+                        .map_err(|_| "Invalid staff proxy setting")
+                })
+                .transpose()
+        };
+        let proxy_socket = proxy_value("STAFF_PROXY_SOCKET")?;
+        let proxy_uid = proxy_value("STAFF_PROXY_UID")?;
+        let proxy = if proxy_socket.is_none() && proxy_uid.is_none() {
+            None
+        } else {
+            board_config::PublicProxy::from_values(
+                proxy_socket.as_deref(),
+                proxy_uid.as_deref(),
+                production,
+            )
+            .map_err(|_| "Invalid staff proxy setting")?
+        };
         if !valid_database(&auth_database, "board_auth", production)
             || !valid_database(&staff_database, "board_staff", production)
         {
@@ -170,6 +194,7 @@ impl Config {
             staff_database,
             idle_timeout,
             tripcode_key,
+            proxy,
         })
     }
     pub fn cookie_name(&self) -> &'static str {

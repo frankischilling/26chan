@@ -75,7 +75,9 @@ post therefore cannot claim a complete private poster count.
 Private discussion keeps its separate anonymous role/alias presentation and
 ordinary janitor limits. This flow accepts text only. Staff attachment
 posting, unbadged authorized posting, Pass/VIP behavior and other privileged
-source exceptions remain unfinished. The public
+source exceptions remain unfinished. [The authority and peer-transport
+continuation](staff-posting-authority.md) records the ordinary-post
+Robot9000 distinction and the verified staff proxy preparation. The public
 attachment owner has no staff authentication access or badge authority.
 
 ## Database boundary and upgrade

@@ -368,6 +368,7 @@ jobs:
       - name: Verify public TCP transport budgets
         shell: pwsh
         run: |
+          cargo test -p board-http --lib transport:: --locked
           cargo test -p board-public --lib transport:: --locked
       - name: Verify public startup and paired listeners
         shell: pwsh

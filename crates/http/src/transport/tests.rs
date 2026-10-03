@@ -1,4 +1,4 @@
-use super::{ConnectionBudget, PublicListener};
+use super::{ConnectionBudget, HttpListener};
 use axum::{
     Router,
     body::Body,
@@ -95,14 +95,14 @@ fn limits(
     .unwrap()
 }
 
-async fn listener() -> (PublicListener, SocketAddr) {
+async fn listener() -> (HttpListener, SocketAddr) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
-    (PublicListener::Tcp(listener), address)
+    (HttpListener::Tcp(listener), address)
 }
 
 fn serve(
-    listener: PublicListener,
+    listener: HttpListener,
     app: Router,
     stopped: watch::Receiver<bool>,
     budget: ConnectionBudget,

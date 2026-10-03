@@ -380,11 +380,18 @@ name = "board-http"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "board-config",
  "bytes",
+ "futures-util",
  "http-body",
  "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustix",
+ "tempfile",
  "tokio",
  "tower",
+ "tracing",
 ]
 
 [[package]]
@@ -612,6 +619,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
  "tower",

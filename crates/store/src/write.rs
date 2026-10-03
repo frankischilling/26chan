@@ -658,7 +658,22 @@ async fn create_post_in_context(
         .await?;
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.
-    let robot_actor = if board.robot9000 && staff.is_none() {
+    let robot_applies = match staff.as_ref() {
+        None => {
+            board_domain::robot9000::applies_to_post(board.robot9000, None, metadata.options, false)
+        }
+        // These existing proofs are badge posts or private discussion. A
+        // future unbadged proof must carry the selected source policy itself.
+        Some(authority) => authority.identity.is_some_and(|identity| {
+            board_domain::robot9000::applies_to_post(
+                board.robot9000,
+                Some(identity.capcode),
+                metadata.options,
+                true,
+            )
+        }),
+    };
+    let robot_actor = if robot_applies {
         let key = keys
             .poster_id
             .ok_or(StoreError::Invalid("Robot9000 identity is unavailable."))?;

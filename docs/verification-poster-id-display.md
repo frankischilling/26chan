@@ -49,7 +49,7 @@ byte for byte after adding the new source policy to the reference.
 | Complete workspace and remaining regression gates | Incomplete locally; the foreground scope disappeared during compilation |
 | Ordinary sage OP's JSON network-label exception | Passed; both listeners expose the network label while HTML retains Heaven |
 | Hosted checks at `bdb8fe5` | Windows visuals, monitoring and advisories passed; Linux browser and media failed on response-body reads |
-| Hosted checks after the response-capture correction | Required after publication |
+| Hosted checks at `5741bef` after the response-capture correction | Passed; complete Linux Rust/database/browser, Windows visuals, media/operations, monitoring and advisories |
 
 The first published `fdb6f2c` head failed hosted build/test. Linux backfill and
 the real upload qualification exposed missing board-column reads for the
@@ -81,7 +81,12 @@ exactly one request per operation. Existing status, receipt, persistence,
 replay and deletion assertions remain. The 16 focused transport/response tests,
 8 diagnostic-redaction tests and actual persisted flag browser pass. The
 complete Linux and isolated media qualifications remain required at the next
-published head; these local checks do not replace them.
+published head; these local checks do not replace them. Those complete jobs
+subsequently passed at `5741bef`, together with Windows visuals, monitoring
+and advisories. The [build/test run](https://github.com/frankischilling/26chan/actions/runs/37118442290)
+includes all application and privileged qualification jobs. That result
+qualifies the response-capture checkpoint, while complete source behavior and
+frontend parity remain unfinished.
 
 The new Heaven color/action tests first failed against the prior controller,
 which accepted only eight-character IDs. After adding the exact source label,

@@ -19,6 +19,7 @@ fn state() -> Arc<AppState> {
         .unwrap();
     Arc::new(AppState {
         config: Config {
+            proxy: None,
             origin: "http://localhost:3001".into(),
             public_origin: "http://localhost:3000".into(),
             media_origin: "http://127.0.0.1:3002".into(),
@@ -37,6 +38,89 @@ fn state() -> Arc<AppState> {
             .unwrap(),
         limits: board_staff::Limits::default(),
     })
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn actual_staff_unix_listener_requires_the_configured_kernel_uid_and_one_client_address() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (peer, _) = tokio::net::UnixStream::pair().unwrap();
+    let actual = peer.peer_cred().unwrap().uid();
+    for expected in [actual, actual.wrapping_add(1)] {
+        let directory = tempfile::tempdir().unwrap();
+        let socket = directory.path().join("staff.sock");
+        let mut state = state();
+        Arc::get_mut(&mut state).unwrap().config.proxy = board_config::PublicProxy::from_values(
+            Some(socket.to_str().unwrap()),
+            Some(&expected.to_string()),
+            false,
+        )
+        .unwrap();
+        let listener = board_http::transport::HttpListener::bind(
+            state.config.bind,
+            state.config.proxy.as_ref(),
+        )
+        .await
+        .unwrap();
+        let (stop, stopped) = tokio::sync::watch::channel(false);
+        let server = tokio::spawn(listener.serve(
+            router(state),
+            stopped,
+            board_http::transport::ConnectionBudget::new(
+                board_config::PublicRequestLimits::default(),
+            ),
+        ));
+        for (headers, allowed_status) in [
+            ("X-Board-Client-IP: ::ffff:192.0.2.1\r\n", 200),
+            ("", 400),
+            ("X-Board-Client-IP: 192.0.2.1:80\r\n", 400),
+            (
+                "X-Board-Client-IP: 192.0.2.1\r\nX-Board-Client-IP: 192.0.2.2\r\n",
+                400,
+            ),
+        ] {
+            let mut client = tokio::net::UnixStream::connect(&socket).await.unwrap();
+            client
+                .write_all(
+                    format!(
+                        "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n{headers}\r\n"
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+            let mut response = String::new();
+            tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                client.read_to_string(&mut response),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let status = if expected == actual {
+                allowed_status
+            } else {
+                403
+            };
+            assert!(
+                response.starts_with(&format!("HTTP/1.1 {status}")),
+                "Unexpected staff proxy status."
+            );
+            assert!(
+                response
+                    .to_lowercase()
+                    .contains("cache-control: private, no-store\r\n")
+            );
+            assert!(!response.contains("192.0.2."));
+        }
+        stop.send(true).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), server)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(!socket.exists());
+    }
 }
 
 #[tokio::test]

@@ -9,6 +9,16 @@ pub struct PublicProxy {
 }
 
 impl PublicProxy {
+    /// Use the same path, platform and nonroot-UID checks for another isolated
+    /// application listener without consulting the public runtime environment.
+    pub fn from_values(
+        socket: Option<&str>,
+        uid: Option<&str>,
+        production: bool,
+    ) -> Result<Option<Self>, ConfigError> {
+        Self::parse(socket, uid, production, cfg!(target_os = "linux"))
+    }
+
     pub fn socket(&self) -> &Path {
         &self.socket
     }
@@ -26,11 +36,10 @@ impl PublicProxy {
                 })
                 .transpose()
         };
-        Self::parse(
+        Self::from_values(
             value("PUBLIC_PROXY_SOCKET")?.as_deref(),
             value("PUBLIC_PROXY_UID")?.as_deref(),
             production,
-            cfg!(target_os = "linux"),
         )
     }
 

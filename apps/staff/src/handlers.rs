@@ -15,10 +15,29 @@ type Shared = State<Arc<AppState>>;
 #[derive(Clone, Copy)]
 pub struct StaffRequestStart(pub chrono::DateTime<chrono::Utc>);
 
+#[derive(Clone, Copy)]
+pub struct StaffRequestPeer(Option<std::net::IpAddr>);
+
+impl StaffRequestPeer {
+    /// Canonical identity resolved by the listener and verified proxy policy.
+    /// An embedded router without a listener identity returns no peer.
+    pub fn ip(self) -> Option<std::net::IpAddr> {
+        self.0
+    }
+}
+
 pub async fn request_limits(State(state): Shared, mut request: Request, next: Next) -> Response {
     request
         .extensions_mut()
         .insert(StaffRequestStart(chrono::Utc::now()));
+    let peer = match board_http::proxy_peer::resolve(
+        &request,
+        state.config.proxy.as_ref().map(|proxy| proxy.uid()),
+    ) {
+        Ok(peer) => peer,
+        Err(status) => return status.into_response(),
+    };
+    request.extensions_mut().insert(StaffRequestPeer(peer));
     let Ok(permit) = state.limits.permits.clone().try_acquire_owned() else {
         return AppError::Capacity.into_response();
     };

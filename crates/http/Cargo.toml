@@ -5,12 +5,22 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+board-config = { path = "../config" }
 axum.workspace = true
 bytes.workspace = true
 http-body.workspace = true
 tokio.workspace = true
+hyper = { version = "=1.11.1", features = ["client", "server", "http1"] }
+hyper-util = { version = "=0.1.20", features = ["tokio", "service"] }
+tracing.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "=1.1.4", features = ["process"] }
 
 [dev-dependencies]
+futures-util.workspace = true
+tokio = { workspace = true, features = ["process", "io-util", "test-util"] }
+tempfile = "3.27"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 

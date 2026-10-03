@@ -19,6 +19,18 @@ pub const DUPLICATE_TEXT: &str = "your comment was not original.";
 pub const DUPLICATE_IMAGE: &str = "your image was not original.";
 pub const INPUT_TOO_LARGE: &str = "Robot9000 comment is too large.";
 
+/// The source decides originality from the selected badge and the exact raw
+/// Options field. Authentication alone does not bypass Robot9000. The caller
+/// must obtain `janitor_or_higher` from current server-side authority.
+pub fn applies_to_post(
+    enabled: bool,
+    capcode: Option<crate::capcode::Capcode>,
+    options: &str,
+    janitor_or_higher: bool,
+) -> bool {
+    enabled && capcode.is_none() && (options != "bypass_r9k" || !janitor_or_higher)
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Prepared {
     pub digest: [u8; 32],

@@ -5,6 +5,8 @@
 //! counts allocated payload blocks. Emitted data keeps both leases alive.
 
 mod output;
+pub mod proxy_peer;
+pub mod transport;
 
 pub use output::{EncodedResponse, OutputError, ResponseBudget, ResponseWriter};
 

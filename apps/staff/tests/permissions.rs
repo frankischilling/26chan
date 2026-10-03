@@ -35,6 +35,7 @@ impl Fixture {
         let staff = pool("STAFF_DATABASE_URL").await;
         let state = Arc::new(AppState {
             config: Config {
+                proxy: None,
                 origin: "http://localhost:3001".into(),
                 public_origin: "http://localhost:3000".into(),
                 media_origin: "http://127.0.0.1:3002".into(),

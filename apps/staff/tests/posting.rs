@@ -68,6 +68,7 @@ impl Fixture {
         let origin = Url::parse("http://localhost:3001").unwrap();
         let state = Arc::new(AppState {
             config: Config {
+                proxy: None,
                 origin: origin.origin().ascii_serialization(),
                 public_origin: "http://127.0.0.1:3000".into(),
                 media_origin: "http://127.0.0.1:3002".into(),

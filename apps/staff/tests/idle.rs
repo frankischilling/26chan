@@ -43,6 +43,7 @@ async fn fixture() -> Fixture {
     Fixture {
         state: Arc::new(AppState {
             config: Config {
+                proxy: None,
                 origin: "http://localhost:3001".into(),
                 public_origin: "http://localhost:3000".into(),
                 media_origin: "http://127.0.0.1:3002".into(),
