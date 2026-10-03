@@ -2,7 +2,7 @@
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
-import { ownedUploadResponse } from './owned-upload-response.mjs';
+import { observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
 const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], inline = process.argv[5] === '--inline';
 assert.equal(process.argv.length, inline ? 6 : 5); assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
@@ -28,10 +28,9 @@ try {
     await page.locator('.open-qr-link').click();
     qr = page.locator('#quickReply');
     await expect(qr.locator('#qrFile')).toBeVisible();
-    const queued = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/upload`))
-      .then(response => ownedUploadResponse(response, 'upload'));
+    const queued = await observeOwnedUploadResponse(page, url(`/${board}/upload`), 'upload');
     await qr.locator('#qrFile').setInputFiles(source);
-    const queuedResponse = await queued; assert.equal(queuedResponse.status, 200);
+    const queuedResponse = await queued(); assert.equal(queuedResponse.status, 200);
     const receipt = queuedResponse.result;
     assert.equal(receipt.resto, thread); assert.equal(receipt.state, 'queued');
     uploadId = receipt.upload_id; capability = receipt.upload_capability;
@@ -62,9 +61,8 @@ try {
   await expect(qr.locator('[name=upload_id]')).toHaveValue(uploadId);
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(capability);
   await qr.locator('[name=spoiler]').check(); await expect(page.locator('#qr-pwd')).toHaveValue('');
-  const posted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`))
-    .then(response => ownedUploadResponse(response, 'post'));
-  await qr.locator('input[type=submit]').click(); const response = await posted;
+  const posted = await observeOwnedUploadResponse(page, url(`/${board}/imgboard.php`), 'post');
+  await qr.locator('input[type=submit]').click(); const response = await posted();
   assert.equal(response.status, 200); const result = response.result;
   assert.equal(String(result.tid), thread); assert.ok(result.pid > result.tid);
   const post = String(result.pid); await expect(qr).toBeVisible(); await expect(page.locator('#qrCom')).toHaveValue('');

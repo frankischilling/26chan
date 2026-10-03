@@ -40,11 +40,16 @@ byte for byte after adding the new source policy to the reference.
 | Populated 0076 upgrade | Passed; reproduced the denied owner insert before the grant, preserved history and metadata, enabled only two policy reads |
 | Real attachment store suite | Passed in 12.49 seconds; atomic upload use, source labels, OP network capture, suppression switches and private counts |
 | Focused client unit/DOM/browser suite | Passed; 97 cases including Heaven colors, highlighting and loaded-post counts |
+| Actual public browser ID workflow | Passed; both network and sage cases against the public service and PostgreSQL |
+| Quick Reply transport and response capture | Passed; 16 cases, including real Chromium upload/post bodies after transport cleanup |
+| Browser diagnostic redaction | Passed; 8 cases |
+| Persisted flag browser workflow | Passed in 11.38 seconds after correcting response capture |
 | Fresh role bootstrap | Passed; all 67 files, ownership and runtime/private access guards retained |
 | Strict workspace Clippy | Passed in 47.54 seconds; all targets/features, warnings denied |
 | Complete workspace and remaining regression gates | Incomplete locally; the foreground scope disappeared during compilation |
 | Ordinary sage OP's JSON network-label exception | Passed; both listeners expose the network label while HTML retains Heaven |
-| Hosted checks at the follow-up head | Required after publication |
+| Hosted checks at `bdb8fe5` | Windows visuals, monitoring and advisories passed; Linux browser and media failed on response-body reads |
+| Hosted checks after the response-capture correction | Required after publication |
 
 The first published `fdb6f2c` head failed hosted build/test. Linux backfill and
 the real upload qualification exposed missing board-column reads for the
@@ -57,13 +62,35 @@ case while loading the file-deleted placeholder. The retained failure image
 shows that broken image; the original artifact omitted the network trace, so
 its cause remains unresolved. Failure artifacts now include traces and error
 context. Screenshot baselines, retries and deadlines remain unchanged, and
-the next hosted run must qualify the complete Windows suite.
+the next hosted run must qualify the complete Windows suite. That complete
+Windows job passed at `bdb8fe5`; this does not identify the earlier image-load
+failure's cause.
+
+The `bdb8fe5` media job passed the real PNG, JPEG, GIF, tracking and approved
+Quick Reply uploads. Inline Quick Reply then failed while reading an HTTP 200
+JSON response through Playwright. The Linux flag browser failed with
+Chromium's missing-response-body protocol error. Quick Reply cancels its
+fetch controller after consuming the response, which can discard the body
+before the external browser listener reads it.
+
+Both fixtures now capture a clone inside the page before returning the same
+response to the actual client parser. This uses the approach already present
+in the Quick Reply suite. The Chromium regression exercises the real upload
+and posting transport, verifies both clients' parsed results and observes
+exactly one request per operation. Existing status, receipt, persistence,
+replay and deletion assertions remain. The 16 focused transport/response tests,
+8 diagnostic-redaction tests and actual persisted flag browser pass. The
+complete Linux and isolated media qualifications remain required at the next
+published head; these local checks do not replace them.
 
 The new Heaven color/action tests first failed against the prior controller,
 which accepted only eight-character IDs. After adding the exact source label,
 all 97 focused client checks pass. Invalid case, trailing whitespace and line
 break variants remain rejected. The real public browser fixture now runs both
-network and sage cases; its end-to-end result is required from hosted CI.
+network and sage cases. Both passed locally against the actual public service
+and PostgreSQL, including previews, live updates, filtering, colors and ID
+controls. The focused run took 2.5 minutes including server startup. Complete
+hosted qualification remains required.
 
 The first HTTP fixture requested a tail size of 20 for a thread with fewer
 replies. The existing endpoint correctly returned 404. The fixture now uses
