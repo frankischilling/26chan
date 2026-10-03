@@ -25,6 +25,9 @@ for name,pin in hashes.items():
 prepare=re.search(r'if\( SPOILERS == 1 && \$spoiler \) \{\s*\$sub = "SPOILER<>\$sub";\s*\}',bodies['imgboard.php']).group(0)
 projection=bodies['json.php'][bodies['json.php'].index("$var['spoiler'] = 0;"):bodies['json.php'].index("if( $var['sub'] && !$var['resto'] && UPLOAD_BOARD )")].strip()
 assert len(prepare)<200 and len(projection)<400
+catalog=bodies['imgboard.php'][bodies['imgboard.php'].index('function get_catalog_info()'):]
+board_projection=catalog[catalog.index('  if (SPOILERS) {'):catalog.index('  if (DISP_ID) {')].strip()
+assert len(board_projection)<250
 subjects=[('', ''),('Owned subject','Owned subject'),('SPOILER<>literal','SPOILER&lt;&gt;literal'),('雪 & tea','雪 &amp; tea')]
 extract=re.search(r'extract\( \$_POST, EXTR_SKIP \);',bodies['imgboard.php']).group(0)
 rows=[]
@@ -34,12 +37,13 @@ for enabled in [False,True]:
                   subject=raw,prepared_subject=prepared)
              for raw_flag,(raw,prepared),attachment in itertools.product([None,'','0','on','true','false','1','yes','00'],subjects,[False,True])]
     program=("$rows=json_decode(stream_get_contents(STDIN),true,32,JSON_THROW_ON_ERROR);"
-             "define('SPOILERS',$rows[0]['enabled']);$results=[];foreach($rows as $row){"
+             "define('SPOILERS',$rows[0]['enabled']);define('SPOILER_NUM',0);$arr=[];"+board_projection+
+             "$results=[];foreach($rows as $row){"
              "unset($spoiler);$_POST=$row['raw_flag']===null?[]:['spoiler'=>$row['raw_flag']];"+extract+
              "$spoiler=$spoiler??null;$row['requested']=(bool)$spoiler;$sub=$row['prepared_subject'];"+prepare+
              "$stored=$sub;$var=['sub'=>$sub];"+projection+
              "$results[]=$row+['stored_subject'=>$stored,'json_subject'=>$var['sub'],"
-             "'json_spoiler'=>$var['spoiler']??null];}"
+             "'json_spoiler'=>$var['spoiler']??null,'json_board_spoilers'=>$arr['spoilers']??null];}"
              "echo json_encode(['php'=>PHP_VERSION,'rows'=>$results],JSON_THROW_ON_ERROR);")
     result=subprocess.run(['php','-d','memory_limit=64M','-d','max_execution_time=5','-r',program],
                           input=json.dumps(recipes).encode(),capture_output=True,timeout=10,check=True)
@@ -50,8 +54,8 @@ for enabled in [False,True]:
     rows.extend(value['rows'])
 fixture=dict(reference='operator-supplied 4chan-old checkout',source_revision='545b7812d1849f7958d914950c91fdbbe38f6b22',
              files=hashes,extractor_php=runtime,
-             scope='POST scalar extraction, selected SPOILERS prefix preparation and JSON prefix decoding; attachment independence',
-             boundary_stubs=['prepared escaped synthetic subjects','scalar checkbox choices and omitted field','synthetic attachment-presence bit'],
+             scope='POST scalar extraction, selected SPOILERS prefix preparation, JSON prefix decoding and board spoiler policy; attachment independence',
+             boundary_stubs=['prepared escaped synthetic subjects','scalar checkbox choices and omitted field','synthetic attachment-presence bit','zero custom-spoiler count'],
              excludes=['complete posting endpoint and formatter','database persistence','original page rendering','custom spoiler assets'],
              cases=rows)
 encoded=json.dumps(fixture,ensure_ascii=False,indent=2)+'\n'

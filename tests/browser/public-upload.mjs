@@ -264,6 +264,7 @@ try {
   const deleted = (await (await page.request.get(apiUrl.href)).json()).posts[0];
   if (attachmentOnly) assert.equal(deleted.com, undefined);
   assert.equal(deleted.filedeleted, 1);
+  assert.equal(deleted.spoiler, attachmentOnly ? 1 : undefined);
   for (const field of ['tim', 'md5', 'ext', 'fsize', 'tn_w', 'tn_h']) assert.equal(deleted[field], undefined);
   const deletedRequests = [];
   page.on('request', request => {

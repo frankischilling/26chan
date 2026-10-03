@@ -113,13 +113,15 @@ pub async fn boards(
         if board.forced_anon {
             value["forced_anon"] = json!(1);
         }
+        if board.comment_spoiler_cleanup {
+            value["spoilers"] = json!(1);
+        }
         if state.media.is_some() && board.image_limit > 0 {
             if !board.text_only {
                 value.as_object_mut().expect("board object").remove("text_only");
             }
             value["max_filesize"] = json!(8_388_608);
             value["image_limit"] = json!(board.image_limit);
-            value["spoilers"] = json!(1);
         }
         value
     }).collect();

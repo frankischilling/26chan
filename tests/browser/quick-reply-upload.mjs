@@ -116,10 +116,10 @@ try {
   await expect(file.locator('img')).toHaveCount(1);
   await expect(file.locator('img')).toHaveAttribute('width', spoilers ? '100' : '1');
   await expect(file.locator('img')).toHaveAttribute('height', spoilers ? '100' : '1');
-  assert.equal(requests.includes(media), false, 'the spoiler placeholder must not fetch full media');
+  assert.equal(requests.includes(media), false, 'thumbnail rendering must not fetch the original file');
   assert.equal(requests.includes(media.replace(/\.png$/, 's.jpg')), !spoilers, 'only an unspoiled file fetches its approved thumbnail');
   assert.notEqual(new URL(media).origin, origin.origin); assert.equal((await context.request.get(media)).status(), 200);
-  const opening = page.waitForEvent('popup'); await link.click(); const imagePage = await opening;
+  const opening = page.waitForEvent('popup'); await (spoilers ? link : file.locator('.fileText > a')).click(); const imagePage = await opening;
   await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
   await page.locator(`#p${post} .postActions summary`).click();

@@ -497,7 +497,7 @@ async fn main() {
         .route("/preview-pages/catalog", get(|| async { Html(catalog_limits::preview_pages()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
-                board: board(),
+                board: Board { comment_spoiler_cleanup: true, ..board() },
                 form: views::UploadForm { upload_id: "1".repeat(32), upload_capability: "2".repeat(64), resto: 1000001 },
                 ready: true,
                 message: "Synthetic approved reply fixture; not a real attachment capability.",

@@ -223,6 +223,7 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
         Some(media),
         limits,
     );
+    let (text_web, text_api) = board_public::routers(public.clone(), ORIGIN.into(), false);
     let run_boards = boards.clone();
     let run_owner = owner.clone();
     let run_public = public.clone();
@@ -233,6 +234,36 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
             serde_json::from_str(include_str!("fixtures/public-post-spoilers.json")).unwrap();
         let cases = fixture["cases"].as_array().unwrap();
         assert_eq!(cases.len(), 144);
+        for image_limit in [0_i32, 1000] {
+            sqlx::query("UPDATE content.boards SET image_limit=$2 WHERE slug=ANY($1)")
+                .bind(&run_boards[..])
+                .bind(image_limit)
+                .execute(&run_owner)
+                .await
+                .unwrap();
+            for app in [&web, &api, &text_web, &text_api] {
+                let (status, directory) = get(app, "/boards.json").await;
+                assert_eq!(status, StatusCode::OK);
+                for (enabled, board) in run_boards.iter().enumerate() {
+                    let saved = directory["boards"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|value| value["board"] == board.as_str())
+                        .unwrap();
+                    let reference = cases
+                        .iter()
+                        .find(|case| case["enabled"] == (enabled == 1))
+                        .unwrap();
+                    assert_eq!(
+                        saved.get("spoilers"),
+                        reference
+                            .get("json_board_spoilers")
+                            .filter(|value| !value.is_null())
+                    );
+                }
+            }
+        }
         for case in cases {
             let enabled = case["enabled"].as_bool().unwrap();
             let requested = case["requested"].as_bool().unwrap();

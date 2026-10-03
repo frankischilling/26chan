@@ -6,11 +6,12 @@
     "json.php": "18ccc5ea60fdfff5aaebd4648288e2970fab5329bd23d121edf359da3ab93868"
   },
   "extractor_php": "8.3.6",
-  "scope": "POST scalar extraction, selected SPOILERS prefix preparation and JSON prefix decoding; attachment independence",
+  "scope": "POST scalar extraction, selected SPOILERS prefix preparation, JSON prefix decoding and board spoiler policy; attachment independence",
   "boundary_stubs": [
     "prepared escaped synthetic subjects",
     "scalar checkbox choices and omitted field",
-    "synthetic attachment-presence bit"
+    "synthetic attachment-presence bit",
+    "zero custom-spoiler count"
   ],
   "excludes": [
     "complete posting endpoint and formatter",
@@ -28,7 +29,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -39,7 +41,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -50,7 +53,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -61,7 +65,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -72,7 +77,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -83,7 +89,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -94,7 +101,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -105,7 +113,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -116,7 +125,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -127,7 +137,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -138,7 +149,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -149,7 +161,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -160,7 +173,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -171,7 +185,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -182,7 +197,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -193,7 +209,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -204,7 +221,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -215,7 +233,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -226,7 +245,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -237,7 +257,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -248,7 +269,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -259,7 +281,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -270,7 +293,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -281,7 +305,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -292,7 +317,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -303,7 +329,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -314,7 +341,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -325,7 +353,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -336,7 +365,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -347,7 +377,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -358,7 +389,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -369,7 +401,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -380,7 +413,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -391,7 +425,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -402,7 +437,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -413,7 +449,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -424,7 +461,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -435,7 +473,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -446,7 +485,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -457,7 +497,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -468,7 +509,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -479,7 +521,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -490,7 +533,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -501,7 +545,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -512,7 +557,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -523,7 +569,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -534,7 +581,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -545,7 +593,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -556,7 +605,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -567,7 +617,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -578,7 +629,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -589,7 +641,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -600,7 +653,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -611,7 +665,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -622,7 +677,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -633,7 +689,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -644,7 +701,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -655,7 +713,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -666,7 +725,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -677,7 +737,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -688,7 +749,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -699,7 +761,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -710,7 +773,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -721,7 +785,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -732,7 +797,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -743,7 +809,8 @@
       "requested": true,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -754,7 +821,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -765,7 +833,8 @@
       "requested": true,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -776,7 +845,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -787,7 +857,8 @@
       "requested": true,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -798,7 +869,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": false,
@@ -809,7 +881,8 @@
       "requested": true,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": null
     },
     {
       "enabled": true,
@@ -820,7 +893,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -831,7 +905,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -842,7 +917,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -853,7 +929,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -864,7 +941,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -875,7 +953,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -886,7 +965,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -897,7 +977,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -908,7 +989,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -919,7 +1001,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -930,7 +1013,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -941,7 +1025,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -952,7 +1037,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -963,7 +1049,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -974,7 +1061,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -985,7 +1073,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -996,7 +1085,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1007,7 +1097,8 @@
       "requested": false,
       "stored_subject": "",
       "json_subject": "",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1018,7 +1109,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1029,7 +1121,8 @@
       "requested": false,
       "stored_subject": "Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1040,7 +1133,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1051,7 +1145,8 @@
       "requested": false,
       "stored_subject": "SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1062,7 +1157,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1073,7 +1169,8 @@
       "requested": false,
       "stored_subject": "雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": null
+      "json_spoiler": null,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1084,7 +1181,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1095,7 +1193,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1106,7 +1205,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1117,7 +1217,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1128,7 +1229,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1139,7 +1241,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1150,7 +1253,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1161,7 +1265,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1172,7 +1277,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1183,7 +1289,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1194,7 +1301,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1205,7 +1313,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1216,7 +1325,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1227,7 +1337,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1238,7 +1349,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1249,7 +1361,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1260,7 +1373,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1271,7 +1385,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1282,7 +1397,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1293,7 +1409,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1304,7 +1421,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1315,7 +1433,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1326,7 +1445,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1337,7 +1457,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1348,7 +1469,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1359,7 +1481,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1370,7 +1493,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1381,7 +1505,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1392,7 +1517,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1403,7 +1529,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1414,7 +1541,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1425,7 +1553,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1436,7 +1565,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1447,7 +1577,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1458,7 +1589,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1469,7 +1601,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1480,7 +1613,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1491,7 +1625,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1502,7 +1637,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1513,7 +1649,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1524,7 +1661,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1535,7 +1673,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>",
       "json_subject": "",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1546,7 +1685,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1557,7 +1697,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>Owned subject",
       "json_subject": "Owned subject",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1568,7 +1709,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1579,7 +1721,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>SPOILER&lt;&gt;literal",
       "json_subject": "SPOILER&lt;&gt;literal",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1590,7 +1733,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     },
     {
       "enabled": true,
@@ -1601,7 +1745,8 @@
       "requested": true,
       "stored_subject": "SPOILER<>雪 &amp; tea",
       "json_subject": "雪 &amp; tea",
-      "json_spoiler": 1
+      "json_spoiler": 1,
+      "json_board_spoilers": 1
     }
   ]
 }

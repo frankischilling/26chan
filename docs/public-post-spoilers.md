@@ -13,13 +13,18 @@ download metadata and revokes reader access. A literal subject beginning
 `SPOILER<>` remains user text. Turning off the board policy does not rewrite
 historical spoiler choices.
 
+`boards.json` advertises `spoilers: 1` only when the board policy enables it,
+including when its image cap is zero or the media service is unavailable.
+Policy advertisement is independent of attachment availability, as in the
+source `get_catalog_info()` projection. Custom spoiler counts remain unfinished.
+
 ## Source comparison
 
 The reference is the supplied checkout at revision
 `545b7812d1849f7958d914950c91fdbbe38f6b22`. The
 [extractor](../scripts/extract-public-spoiler-reference.py) pins `imgboard.php`
 and `json.php`, executes the actual POST scalar extraction, spoiler-prefix
-preparation and JSON prefix decoding under PHP, and records
+preparation, JSON prefix decoding and board policy projection under PHP, and records
 [144 synthetic cases](../apps/public/tests/fixtures/public-post-spoilers.json).
 
 These cases cover both policies, nine omitted/scalar choices, four prepared
@@ -29,12 +34,16 @@ are true. The Rust spoiler field uses those scalar semantics. Other typed
 form fields keep their validation. Arrays, duplicate fields, unknown controls
 and unbounded requests do not acquire source global-variable authority.
 
-The fixture starts with prepared, escaped subjects and a synthetic attachment
-bit. It does not execute the original database, full posting endpoint,
-formatter or page renderer. Real Rust handler submissions separately compare
+The fixture starts with prepared, escaped subjects, a synthetic attachment
+bit and a zero custom-spoiler count. It does not execute the original database,
+full posting endpoint, formatter or page renderer. Real Rust handler submissions separately compare
 saved flags, subjects, attachment state, upload-form availability and both
 public JSON origins against every recorded case. The attachment cases also
 check JSON after file-only deletion.
+Board-directory comparisons cover both public JSON origins, zero/nonzero image
+caps and media-enabled/disabled routers against the executed source projection.
+Those added handler assertions still await a completed run after the directory
+advertisement correction.
 
 The source form in `views/imgboard.php` conditions its spoiler controls on
 `SPOILERS`; the source extension in `js/extension.js` creates its Quick Reply
@@ -111,10 +120,29 @@ they produced a result. The failed and interrupted logs remain local.
 The new browser workflow checks disabled/enabled Quick Reply controls on
 desktop/mobile and forged text choices. Its complete pass is still required.
 The media qualification adds enabled/disabled approved and inline Quick Reply
-uploads through the existing real isolated pipeline; those added cases have
-not yet run. Synthetic coordinator approvals in the handler tests do not
+uploads through the existing real isolated pipeline. Synthetic coordinator approvals in the handler tests do not
 establish decoding or worker isolation. No complete hosted pass, deployment
 or full-source completion is claimed.
+
+[Build/test at 0827c24](https://github.com/frankischilling/26chan/actions/runs/37152385639)
+failed. Linux's upload-browser fixture and four Windows Quick Reply cases
+expected spoiler controls while configuring a disabled board. Windows passed
+64 attachment cases before that failure; the proposed theme shards did not
+run. The real media pipeline reached its new disabled-board normal-file case,
+then expected a popup from a thumbnail click. The enabled spoiler samples now
+explicitly enable their board policy and carry the matching saved post flag.
+The normal-file popup check uses its download link, retaining the existing
+thumbnail behavior, popup assertions, deadlines and baselines. Public upload
+browser checks now also require saved spoiler state after file deletion.
+These corrections still require a complete current-head run.
+
+Native Windows public Clippy across all targets/features passes with warnings
+denied after the directory/fixture corrections. Its initial example build
+lacked the pinned ICU import library. After verifying the existing ICU 74.2
+development dependency, compilation failed with Windows error 1455, "The paging
+file is too small," and failed allocations. The local follow-up handler build
+also ended with another WSL restart. Native build, handler and browser checks
+remain unqualified; their failed/interrupted logs are retained.
 
 The Windows runs at `a804708` and `7d5b16b` each passed 1,172 theme cases and
 failed one. Their retained traces record `ERR_NO_BUFFER_SPACE` on the theme

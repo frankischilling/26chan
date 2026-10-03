@@ -118,6 +118,7 @@ impl Fixture {
             title: "Paper image fixtures".into(),
             description: "Synthetic folds, thumbnails and file states.".into(),
             image_limit: 10,
+            comment_spoiler_cleanup: true,
             archive_retention_seconds: 3600,
             ..board()
         };
@@ -139,7 +140,7 @@ impl Fixture {
             archive_expires_at: archived.then(|| time("2026-09-08T14:00:00Z")),
         };
         let posts: Vec<_> = self.files.iter().enumerate().map(|(index, file)| views::PostView::new(Post {
-            image_spoiler: false,
+            image_spoiler: file.spoiler,
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
