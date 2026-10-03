@@ -71,6 +71,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 json!({"thread":thread,"post":post,"report":report,"tim":tim,"mediaRoot":media_root})
             );
         }
+        "ordinary-policy" => {
+            let changed=sqlx::query("UPDATE content.boards SET text_only=true,user_ids=true,country_flags=true,board_flags=ARRAY['AC'],op_markup=true,dice_roll=true,fortune_trip=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned ordinary fixture board is missing".into());
+            }
+        }
+        "ordinary-inspect" => {
+            let summary:serde_json::Value=sqlx::query_scalar("SELECT jsonb_build_object('posts',(SELECT count(*) FROM content.posts WHERE board=$1),'deleted',(SELECT count(*) FROM content.posts WHERE board=$1 AND deleted),'deletion',(SELECT count(*) FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)),'contexts',(SELECT count(*) FROM post_secrets.poster_contexts WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)),'op_peers',(SELECT count(*) FROM post_secrets.op_peers WHERE thread_id IN(SELECT id FROM content.threads WHERE board=$1)),'op_replies',(SELECT count(*) FROM post_secrets.op_replies WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)),'proofs',(SELECT count(*) FROM post_secrets.staff_post_intents WHERE board=$1),'audit',(SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND action='staff-post'))")
+                .bind(board).fetch_one(&pool).await?;
+            println!("{summary}");
+        }
         "force-anon" => {
             let changed = sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
                 .bind(board).execute(&pool).await?.rows_affected();
@@ -191,6 +203,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             sqlx::query("DELETE FROM media.assets WHERE id IN (SELECT m.asset_id FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board=$1)")
                 .bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
                 .bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM content.posts WHERE board=$1")
                 .bind(board)

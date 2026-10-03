@@ -17,6 +17,483 @@ async fn pool(key: &str) -> PgPool {
         .unwrap()
 }
 
+#[tokio::test]
+async fn ordinary_staff_authority_binds_all_metadata_body_rank_and_one_use() {
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET op_markup=false WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
+        for role in ["janitor","moderator","manager","admin"] {
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1").bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let proof=OrdinaryProof::issue(&case,role!="janitor").await;
+            assert_eq!(proof.context.as_object().unwrap().len(),14);
+            for key in proof.context.as_object().unwrap().keys() {
+                let mut forged=proof.context.clone();forged[key]=serde_json::json!(format!("{}forged",forged[key].as_str().unwrap()));
+                proof.denied(&case,&forged,"Owned ordinary proof body").await;
+            }
+            proof.denied(&case,&proof.context,"Forged ordinary proof body").await;
+            let mut tx=case.state.staff.begin().await.unwrap();proof.context(&mut tx,&proof.context).await;
+            proof.insert(&mut tx,&case.board,"Owned ordinary proof body").await.unwrap();tx.commit().await.unwrap();
+            let saved:(Option<String>,String,String,String)=sqlx::query_as("SELECT p.capcode,p.poster_id,d.password_hash,o.peer::text FROM content.posts p JOIN post_secrets.deletion d ON d.post_id=p.id JOIN post_secrets.op_peers o ON o.thread_id=p.id WHERE p.id=$1")
+                .bind(proof.id).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(saved.0,None);assert_eq!(saved.1,proof.context["poster_id"]);assert_eq!(saved.2,"owned-derived-hash");assert_eq!(saved.3,"81.2.69.142/32");
+            let mut tx=case.state.staff.begin().await.unwrap();proof.context(&mut tx,&proof.context).await;
+            let error=proof.insert(&mut tx,&case.board,"Owned ordinary proof body").await.unwrap_err();
+            assert_eq!(error.as_database_error().and_then(|error|error.code()).as_deref(),Some("28000"));tx.rollback().await.unwrap();
+            let intents:i64=sqlx::query_scalar("SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$1").bind(case.account).fetch_one(&case.owner).await.unwrap();assert_eq!(intents,0);
+        }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+struct OrdinaryProof {
+    id: i64,
+    stamp: chrono::DateTime<chrono::Utc>,
+    ticket: Vec<u8>,
+    context: serde_json::Value,
+}
+
+#[tokio::test]
+async fn ordinary_staff_consumer_rechecks_expiry_after_account_and_intent_lock_waits() {
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET op_markup=false WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
+        for kind in ["account","intent","session","recent"] {
+            sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '1 day',authenticated_at=clock_timestamp(),last_activity_at=clock_timestamp() WHERE account_id=$1")
+                .bind(case.account).execute(&case.owner).await.unwrap();
+            let proof=OrdinaryProof::issue(&case,true).await;
+            let mut tx=case.state.staff.begin().await.unwrap();proof.context(&mut tx,&proof.context).await;
+            let pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *tx).await.unwrap();
+            match kind {
+                "session"=>{sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE account_id=$1").bind(case.account).execute(&case.owner).await.unwrap();}
+                "recent"=>{sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '10 minutes'+interval '1 second' WHERE account_id=$1").bind(case.account).execute(&case.owner).await.unwrap();}
+                _=>{sqlx::query("UPDATE post_secrets.staff_post_intents SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1").bind(&proof.ticket).execute(&case.owner).await.unwrap();}
+            }
+            let deadline:chrono::DateTime<chrono::Utc>=sqlx::query_scalar("SELECT CASE $2 WHEN 'session' THEN s.expires_at WHEN 'recent' THEN s.authenticated_at+interval '10 minutes' ELSE i.expires_at END FROM post_secrets.staff_post_intents i JOIN staff_identity.sessions s ON s.token_hash=i.session_hash WHERE i.token_hash=$1")
+                .bind(&proof.ticket).bind(kind).fetch_one(&case.owner).await.unwrap();
+            let mut blocker=case.owner.begin().await.unwrap();
+            let blocker_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *blocker).await.unwrap();
+            if kind=="account" {
+                sqlx::query("SELECT id FROM staff_identity.accounts WHERE id=$1 FOR UPDATE").bind(case.account).fetch_one(&mut *blocker).await.unwrap();
+            } else {
+                sqlx::query("SELECT token_hash FROM post_secrets.staff_post_intents WHERE token_hash=$1 FOR UPDATE").bind(&proof.ticket).fetch_one(&mut *blocker).await.unwrap();
+            }
+            let child_board=case.board.clone();
+            let insert=tokio::spawn(async move {
+                let error=proof.insert(&mut tx,&child_board,"Owned ordinary proof body").await.unwrap_err();
+                let code=error.as_database_error().and_then(|error|error.code()).map(|code|code.into_owned());
+                tx.rollback().await.unwrap();code
+            });
+            tokio::time::timeout(Duration::from_secs(2),async {
+                loop {
+                    let waiting:bool=sqlx::query_scalar("SELECT $2=ANY(pg_blocking_pids($1))")
+                        .bind(pid).bind(blocker_pid).fetch_one(&case.owner).await.unwrap();
+                    if waiting {break;}tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(3),async {
+                loop {
+                    let expired:bool=sqlx::query_scalar("SELECT clock_timestamp()>=$1").bind(deadline).fetch_one(&case.owner).await.unwrap();
+                    if expired {break;}tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }).await.unwrap();
+            blocker.commit().await.unwrap();
+            assert_eq!(tokio::time::timeout(Duration::from_secs(2),insert).await.unwrap().unwrap().as_deref(),Some("28000"));
+            let rows:(i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1),(SELECT count(*) FROM content.moderation_audit WHERE board=$1)").bind(&case.board).fetch_one(&case.owner).await.unwrap();assert_eq!(rows,(0,0));
+        }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+impl OrdinaryProof {
+    async fn issue(case: &Fixture, authorized: bool) -> Self {
+        let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+            .fetch_one(&case.owner)
+            .await
+            .unwrap();
+        let stamp = chrono::Utc::now().with_nanosecond(0).unwrap();
+        sqlx::query(
+            "INSERT INTO content.threads(id,board,created_at,modified_at) VALUES($1,$2,$3,$3)",
+        )
+        .bind(id)
+        .bind(&case.board)
+        .bind(stamp)
+        .execute(&case.owner)
+        .await
+        .unwrap();
+        let key = case.state.config.poster_id_key.as_deref().unwrap();
+        let peer = "81.2.69.142".parse().unwrap();
+        let count = key.count_context(&case.board, id, peer).unwrap();
+        let context = serde_json::json!({"poster_id":key.label(&case.board,id,peer).unwrap(),"poster_fingerprint":count.fingerprint,"poster_epoch":count.epoch,
+            "post_sage":"false","country":"GB","country_name":"United Kingdom","flag":"","source_op_reply":"false",
+            "dice_result":"","fortune_text":"","fortune_color":"","peer":"81.2.69.142","deletion_hash":"owned-derived-hash","op_password_proof":""});
+        let ticket = auth::hash(&auth::token());
+        let limit:i32=sqlx::query_scalar("SELECT CASE WHEN $2 THEN max_authorized_comment_chars ELSE max_comment_chars END FROM content.boards WHERE slug=$1").bind(&case.board).bind(authorized).fetch_one(&case.owner).await.unwrap();
+        sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)")
+            .bind(&ticket).bind(auth::hash(&case.token)).bind(auth::hash(&case.csrf)).bind(900i32).bind(id).bind(&case.board).bind(id)
+            .bind("Named ordinary staff").bind("Owned subject").bind("Owned ordinary proof body").bind(stamp).bind(authorized).bind(limit)
+            .bind(None::<Vec<u8>>).bind(None::<String>).bind("bypass_r9k").bind(None::<String>).bind(true).bind(&context)
+            .execute(&case.state.auth).await.unwrap();
+        Self {
+            id,
+            stamp,
+            ticket,
+            context,
+        }
+    }
+    async fn context(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        context: &serde_json::Value,
+    ) {
+        let ticket = self
+            .ticket
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true),set_config('board.staff_post_options','bypass_r9k',true),set_config('board.post_trip','',true),set_config('board.wordfilter_payload','',true),set_config('board.wordfilter_search','',true)")
+            .bind(ticket).execute(&mut **tx).await.unwrap();
+        for (key, value) in context.as_object().unwrap() {
+            sqlx::query("SELECT set_config($1,$2,true)")
+                .bind(format!("board.{key}"))
+                .bind(value.as_str().unwrap())
+                .execute(&mut **tx)
+                .await
+                .unwrap();
+        }
+    }
+    async fn insert(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        board: &str,
+        body: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES($1,$2,$1,'Named ordinary staff','Owned subject',$3,$4)")
+            .bind(self.id).bind(board).bind(body).bind(self.stamp).execute(&mut **tx).await?;
+        Ok(())
+    }
+    async fn denied(&self, case: &Fixture, context: &serde_json::Value, body: &str) {
+        let mut tx = case.state.staff.begin().await.unwrap();
+        self.context(&mut tx, context).await;
+        let error = self.insert(&mut tx, &case.board, body).await.unwrap_err();
+        assert_eq!(
+            error
+                .as_database_error()
+                .and_then(|error| error.code())
+                .as_deref(),
+            Some("28000")
+        );
+        tx.rollback().await.unwrap();
+        let remaining: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM post_secrets.staff_post_intents WHERE token_hash=$1",
+        )
+        .bind(&self.ticket)
+        .fetch_one(&case.owner)
+        .await
+        .unwrap();
+        assert_eq!(remaining, 1);
+    }
+}
+
+#[tokio::test]
+async fn ordinary_staff_private_tables_and_owner_helpers_remain_inaccessible() {
+    for role in [
+        "TEST_PUBLIC_DATABASE_URL",
+        "STAFF_DATABASE_URL",
+        "AUTH_DATABASE_URL",
+    ] {
+        let runtime = pool(role).await;
+        for query in [
+            "SELECT * FROM post_secrets.staff_post_intents LIMIT 0",
+            "SELECT * FROM post_secrets.poster_contexts LIMIT 0",
+            "SELECT * FROM post_secrets.robot9000_texts LIMIT 0",
+            "SELECT content.staff_ordinary_policy('g')",
+            "SELECT content.check_staff_op_context('g',1,2,'{}')",
+            "SELECT content.consume_badged_post_authority(NULL,1,'g',1,'','','',clock_timestamp())",
+        ] {
+            let error = sqlx::query(query).execute(&runtime).await.unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("42501")
+            );
+        }
+        if role != "TEST_PUBLIC_DATABASE_URL" {
+            for query in [
+                "SELECT * FROM post_secrets.op_peers LIMIT 0",
+                "SELECT * FROM post_secrets.op_replies LIMIT 0",
+                "SELECT * FROM post_secrets.deletion LIMIT 0",
+            ] {
+                let error = sqlx::query(query).execute(&runtime).await.unwrap_err();
+                assert_eq!(
+                    error
+                        .as_database_error()
+                        .and_then(|error| error.code())
+                        .as_deref(),
+                    Some("42501")
+                );
+            }
+        }
+        if role != "STAFF_DATABASE_URL" {
+            for query in [
+                "SELECT content.staff_ordinary_context()",
+                "SELECT content.staff_op_context('g',1,'192.0.2.1')",
+                "SELECT content.staff_op_deletion_hash('g',1)",
+            ] {
+                let error = sqlx::query(query).execute(&runtime).await.unwrap_err();
+                assert_eq!(
+                    error
+                        .as_database_error()
+                        .and_then(|error| error.code())
+                        .as_deref(),
+                    Some("42501")
+                );
+            }
+        }
+    }
+    let owner = pool("MIGRATION_DATABASE_URL").await;
+    let ordinary:bool=sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolbypassrls FROM pg_roles WHERE rolname='board_staff_post_owner'")
+        .fetch_one(&owner).await.unwrap();
+    assert!(ordinary);
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn ordinary_staff_verified_unix_peer_drives_persisted_identity() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let _serial = ORDINARY_TESTS.lock().await;
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        let (peer,_)=tokio::net::UnixStream::pair().unwrap();let uid=peer.peer_cred().unwrap().uid();
+        for expected in [uid,uid.wrapping_add(1)] {
+            let directory=tempfile::tempdir().unwrap();let socket=directory.path().join("staff.sock");
+            let mut config=case.state.config.clone();
+            config.proxy=board_config::PublicProxy::from_values(Some(socket.to_str().unwrap()),Some(&expected.to_string()),false).unwrap();
+            let listener=board_http::transport::HttpListener::bind(config.bind,config.proxy.as_ref()).await.unwrap();
+            let state=Arc::new(AppState {config,auth:case.state.auth.clone(),staff:case.state.staff.clone(),webauthn:case.state.webauthn.clone(),limits:Limits::default()});
+            let (stop,stopped)=tokio::sync::watch::channel(false);
+            let server=tokio::spawn(listener.serve(board_staff::router(state),stopped,
+                board_http::transport::ConnectionBudget::new(board_config::PublicRequestLimits::default())));
+            for (headers,status) in [("X-Board-Client-IP: ::ffff:81.2.69.142\r\nX-Forwarded-For: 2001:218::\r\n",303),("",400),
+                ("X-Board-Client-IP: 81.2.69.142\r\nX-Board-Client-IP: 2001:218::\r\n",400)] {
+                let before:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+                let form=ordinary_form(&case,0,"","","Owned actual staff Unix peer");
+                let request=format!("POST /post HTTP/1.1\r\nHost: localhost\r\nOrigin: http://localhost:3001\r\nSec-Fetch-Site: same-origin\r\nCookie: staff={}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n{headers}\r\n{form}",case.token,form.len());
+                let mut client=tokio::net::UnixStream::connect(&socket).await.unwrap();client.write_all(request.as_bytes()).await.unwrap();
+                let mut response=String::new();tokio::time::timeout(Duration::from_secs(5),client.read_to_string(&mut response)).await.unwrap().unwrap();
+                let expected_status=if expected==uid {status} else {403};
+                assert!(response.starts_with(&format!("HTTP/1.1 {expected_status}")),"Unexpected ordinary staff listener status.");
+                let after:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+                assert_eq!(after,before+if expected_status==303 {1} else {0});
+            }
+            stop.send(true).unwrap();tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap().unwrap();assert!(!socket.exists());
+        }
+        let (id,_,capcode)=case.latest().await;assert_eq!(capcode,None);
+        let saved:(String,String,String)=sqlx::query_as("SELECT p.poster_id,p.country,o.peer::text FROM content.posts p JOIN post_secrets.op_peers o ON o.thread_id=p.id WHERE p.id=$1")
+            .bind(id).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(saved.0,case.state.config.poster_id_key.as_deref().unwrap().label(&case.board,id,"81.2.69.142".parse().unwrap()).unwrap());
+        assert_eq!(saved.1,"GB");assert_eq!(saved.2,"81.2.69.142/32");
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+static ORDINARY_TESTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+async fn ordinary_fixture() -> Arc<Fixture> {
+    let mut case = Arc::try_unwrap(Fixture::new().await).ok().unwrap();
+    let state = Arc::get_mut(&mut case.state).unwrap();
+    state.config.poster_id_key = Some(Arc::new(
+        board_domain::poster_id::PosterIdKey::parse(&"22".repeat(32)).unwrap(),
+    ));
+    state.config.country_database = Some(Arc::new(
+        board_domain::country::CountryDatabase::from_bytes(
+            include_bytes!("../../../crates/domain/tests/fixtures/GeoIP2-Country-Test.mmdb")
+                .to_vec(),
+        )
+        .unwrap(),
+    ));
+    sqlx::query("UPDATE content.boards SET text_only=true,user_ids=true,country_flags=true,board_flags=ARRAY['AC'],op_markup=true WHERE slug=$1")
+        .bind(&case.board).execute(&case.owner).await.unwrap();
+    Arc::new(case)
+}
+
+fn ordinary_form(case: &Fixture, parent: i64, options: &str, flag: &str, comment: &str) -> String {
+    url::form_urlencoded::Serializer::new(
+        staff_form(case, parent, "Owned#password", "Owned", comment) + "&",
+    )
+    .append_pair("badge", "none")
+    .append_pair("options", options)
+    .append_pair("flag", flag)
+    .append_pair("password", "owned-ordinary-password")
+    .finish()
+}
+
+async fn ordinary_request(
+    case: &Fixture,
+    form: String,
+    peer: Option<&str>,
+) -> axum::response::Response {
+    let mut request = Request::post("/post")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header("origin", &case.state.config.origin)
+        .header("sec-fetch-site", "same-origin")
+        .header("cookie", format!("staff={}", case.token))
+        .body(Body::from(form))
+        .unwrap();
+    if let Some(peer) = peer {
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::new(
+                peer.parse().unwrap(),
+                54321,
+            )));
+    }
+    board_staff::router(case.state.clone())
+        .oneshot(request)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_deletion() {
+    let _serial = ORDINARY_TESTS.lock().await;
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        for role in ["janitor","moderator","manager","admin"] {
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2,flags='{}' WHERE id=$1")
+                .bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let html=private_html(&case,"/post").await;
+            assert!(html.contains("value=\"none\"") && html.contains("name=\"options\"") && html.contains("name=\"password\""));
+            assert_eq!(ordinary_request(&case,ordinary_form(&case,0,"","","Owned ordinary OP [op]markup[/op]"),Some("81.2.69.142")).await.status(),StatusCode::SEE_OTHER);
+            let (op,_,capcode)=case.latest().await;
+            assert_eq!(capcode,None);
+            let key=case.state.config.poster_id_key.as_deref().unwrap();
+            let label=key.label(&case.board,op,"81.2.69.142".parse().unwrap()).unwrap();
+            let row:serde_json::Value=sqlx::query_scalar("SELECT jsonb_build_object('name',name,'trip',trip,'id',poster_id,'json_id',json_op_poster_id,'country',country,'country_name',country_name,'flag',board_flag,'format',comment_format,'authorized',staff_authorized_limits) FROM content.posts WHERE board=$1 AND id=$2")
+                .bind(&case.board).bind(op).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(row["name"],"Owned");assert_eq!(row["trip"],"!ozOtJW9BFA");
+            assert_eq!(row["id"],label);assert_eq!(row["json_id"],label);
+            assert_eq!(row["country"],"GB");assert_eq!(row["country_name"],"United Kingdom");assert!(row["flag"].is_null());
+            assert!(row["format"].as_i64().unwrap()&16!=0);assert_eq!(row["authorized"],role!="janitor");
+            let api=public_json(&case.api,&format!("/{}/thread/{op}.json",case.board)).await;
+            assert_eq!(api["posts"][0]["id"],label);assert_eq!(api["posts"][0]["country"],"GB");assert!(api["posts"][0].get("capcode").is_none());
+            let confirmation=private_html(&case,&format!("/post?board={}&thread={op}&posted={op}",case.board)).await;
+            assert!(confirmation.contains(&format!("Post {op} created.")));
+            assert_eq!(ordinary_request(&case,ordinary_form(&case,op,"SaGe","","Owned same peer sage reply"),Some("::ffff:81.2.69.142")).await.status(),StatusCode::SEE_OTHER);
+            let (sage,_,_)=case.latest().await;
+            let saved:String=sqlx::query_scalar("SELECT poster_id FROM content.posts WHERE id=$1").bind(sage).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(saved,"Heaven");
+            let op_reply:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.op_replies WHERE post_id=$1 AND thread_id=$2)").bind(sage).bind(op).fetch_one(&case.owner).await.unwrap();
+            assert!(op_reply);
+            assert_eq!(ordinary_request(&case,ordinary_form(&case,op,"","AC","Owned other peer board flag reply"),Some("2001:218::")).await.status(),StatusCode::SEE_OTHER);
+            let (flagged,_,_)=case.latest().await;
+            let row:(Option<String>,Option<String>,Option<String>)=sqlx::query_as("SELECT country,board_flag,poster_id FROM content.posts WHERE id=$1").bind(flagged).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(row.0,None);assert_eq!(row.1.as_deref(),Some("AC"));assert_ne!(row.2.as_deref(),Some(label.as_str()));
+            let count:Option<i32>=sqlx::query_scalar("SELECT content.unique_posters($1,$2)").bind(&case.board).bind(op).fetch_one(&case.public_pool().await).await.unwrap();
+            assert_eq!(count,Some(2));
+            let hash=board_store::deletion_hash(&case.public_pool().await,&case.board,flagged).await.unwrap();
+            use argon2::PasswordVerifier;
+            assert!(argon2::Argon2::default().verify_password(b"owned-ordinary-password",&argon2::PasswordHash::new(&hash).unwrap()).is_ok());
+            use sha2::Digest;
+            board_store::delete_with_password_proof(&case.public_pool().await,&case.board,flagged,sha2::Sha256::digest(hash.as_bytes()).into(),false).await.unwrap();
+            let counts:(i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$1),(SELECT count(*) FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$2 AND thread_id=$3)),(SELECT count(*) FROM content.moderation_audit WHERE account_id=$1 AND board=$2 AND action='staff-post' AND target_id IN(SELECT id FROM content.posts WHERE thread_id=$3))")
+                .bind(case.account).bind(&case.board).bind(op).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(counts,(0,3,3));
+        }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn ordinary_staff_content_admission_rejects_quietly_and_records_autosage() {
+    let _serial = ORDINARY_TESTS.lock().await;
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        let rule:i64=sqlx::query_scalar("INSERT INTO admission.rules(board,pattern) VALUES($1,'ownedordinaryfilter') RETURNING id")
+            .bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        let response=ordinary_request(&case,ordinary_form(&case,0,"","","ownedordinaryfilter"),Some("192.0.2.117")).await;
+        assert_eq!(response.status(),StatusCode::BAD_REQUEST);
+        let body=to_bytes(response.into_body(),4096).await.unwrap();assert!(!body.is_empty());
+        let counts:(i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1),(SELECT count(*) FROM admission.logs WHERE board=$1),(SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$2)")
+            .bind(&case.board).bind(case.account).fetch_one(&case.owner).await.unwrap();assert_eq!(counts,(0,0,0));
+        sqlx::query("UPDATE admission.rules SET log=true WHERE id=$1").bind(rule).execute(&case.owner).await.unwrap();
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,0,"","","ownedordinaryfilter"),Some("192.0.2.121")).await.status(),StatusCode::SEE_OTHER);
+        let logs:i64=sqlx::query_scalar("SELECT count(*) FROM admission.logs WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();assert_eq!(logs,1);
+        sqlx::query("UPDATE admission.rules SET log=false,quiet=true WHERE id=$1").bind(rule).execute(&case.owner).await.unwrap();
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,0,"","","ownedordinaryfilter"),Some("192.0.2.118")).await.status(),StatusCode::SEE_OTHER);
+        let posts:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();assert_eq!(posts,1);
+        sqlx::query("UPDATE admission.rules SET quiet=false,autosage=true WHERE id=$1").bind(rule).execute(&case.owner).await.unwrap();
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,0,"","","ownedordinaryfilter"),Some("192.0.2.119")).await.status(),StatusCode::SEE_OTHER);
+        let (op,_,_)=case.latest().await;
+        let autosage:bool=sqlx::query_scalar("SELECT permasage FROM content.threads WHERE id=$1").bind(op).fetch_one(&case.owner).await.unwrap();assert!(autosage);
+    }).await;
+    for query in [
+        "DELETE FROM admission.rules WHERE board=$1",
+        "DELETE FROM admission.logs WHERE board=$1",
+        "DELETE FROM admission.hits WHERE board=$1",
+        "DELETE FROM admission.bans WHERE board=$1",
+    ] {
+        sqlx::query(query)
+            .bind(&fixture.board)
+            .execute(&fixture.owner)
+            .await
+            .unwrap();
+    }
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn ordinary_staff_robot9000_rejections_roll_back_posts_and_discard_proofs() {
+    let _serial = ORDINARY_TESTS.lock().await;
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET robot9000=true WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
+        let comment="Owned ordinary Robot9000 sufficiently distinct original sentence";
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,0,"","",comment),Some("192.0.2.120")).await.status(),StatusCode::SEE_OTHER);
+        let (op,_,_)=case.latest().await;
+        let before=posting_snapshot(&case,&case.board,op).await;
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,op,"","",comment),Some("192.0.2.120")).await.status(),StatusCode::BAD_REQUEST);
+        assert_eq!(posting_snapshot(&case,&case.board,op).await,before);
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,op,"bypass_r9ksage","",comment),Some("192.0.2.120")).await.status(),StatusCode::SEE_OTHER);
+        let before=posting_snapshot(&case,&case.board,op).await;
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,op,"bypass_r9k sage","",comment),Some("192.0.2.120")).await.status(),StatusCode::BAD_REQUEST);
+        assert_eq!(posting_snapshot(&case,&case.board,op).await,before);
+        assert_eq!(ordinary_request(&case,ordinary_form(&case,op,"","AC","Owned invalid transport"),None).await.status(),StatusCode::SERVICE_UNAVAILABLE);
+        for (query,expected) in [
+            ("SELECT count(*) FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",2),
+            ("SELECT count(*) FROM post_secrets.poster_contexts WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",2),
+            ("SELECT count(*) FROM post_secrets.op_replies WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",1),
+        ] {
+            let count:i64=sqlx::query_scalar(query).bind(&case.board).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(count,expected);
+        }
+    }).await;
+    for query in [
+        "DELETE FROM post_secrets.robot9000_texts WHERE board=$1",
+        "DELETE FROM post_secrets.robot9000_mutes WHERE board=$1",
+    ] {
+        sqlx::query(query)
+            .bind(&fixture.board)
+            .execute(&fixture.owner)
+            .await
+            .unwrap();
+    }
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
 fn source_staff_id(capcode: &str, enabled: bool) -> Option<String> {
     let reference: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/staff-poster-ids.json")).unwrap();
@@ -41,6 +518,9 @@ struct Fixture {
     csrf: String,
 }
 impl Fixture {
+    async fn public_pool(&self) -> PgPool {
+        pool("TEST_PUBLIC_DATABASE_URL").await
+    }
     async fn new() -> Arc<Self> {
         let owner = pool("MIGRATION_DATABASE_URL").await;
         let board = format!("c{}", &uuid::Uuid::new_v4().simple().to_string()[..9]);

@@ -14,6 +14,111 @@ function run(name, args, input, expected = 0) {
   return result.stdout.trim();
 }
 function fixture(command, board, input) { const value = run('examples/browser-fixture', [command, board], input); return value ? JSON.parse(value) : null; }
+test('ordinary staff posts keep public IDs, flags, live filtering and password deletion for every rank', async ({ page, context }) => {
+  const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
+  const invitationDir = path.resolve(`.local/staff-ordinary-browser-${board}`);
+  const invitationFile = path.join(invitationDir, 'invitation.txt');
+  const data = fixture('setup', board);
+  const mediaRoot = path.resolve(`.local/staff-media-${board}`);
+  expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+  const publicOrigin = 'http://127.0.0.1:3000';
+  const password = 'owned-ordinary-browser-password';
+  const publicPage = await context.newPage(), errors = [];
+  publicPage.on('pageerror', error => errors.push(error.message));
+  try {
+    fixture('ordinary-policy', board);
+    run('staff-operator', ['provision', board, 'janitor', invitationFile]);
+    run('staff-operator', ['scope', board, board, '-']);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+    await page.goto('/');
+    await page.getByLabel('Invitation', { exact: true }).fill(readFileSync(invitationFile, 'utf8').trim());
+    await page.getByRole('button', { name: 'Enroll passkey' }).click();
+    await expect(page.getByRole('status')).toHaveText('Passkey enrolled. Sign in with your account.');
+    for (const [index, role] of ['janitor', 'moderator', 'manager', 'admin'].entries()) {
+      if (index > 0) run('staff-operator', ['role', board, role]);
+      await page.goto('/'); await page.getByLabel('Account', { exact: true }).fill(board);
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await expect(page).toHaveURL(/\/reports$/);
+      const submit = async (thread, options, flag, comment, noScript = false) => {
+        if (noScript) await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+        await page.goto(`/post?board=${board}&thread=${thread}`);
+        await page.getByLabel('Staff badge', { exact: true }).selectOption('none');
+        await page.getByLabel('Name', { exact: true }).fill('Owned ordinary#password');
+        await page.getByLabel('Subject', { exact: true }).fill(`Owned ordinary post ${index + 1}`);
+        await page.getByLabel('Options', { exact: true }).fill(options);
+        await page.getByLabel('Flag', { exact: true }).selectOption(flag);
+        await page.getByLabel('Deletion password', { exact: true }).fill(password);
+        await page.getByLabel('Comment', { exact: true }).fill(comment);
+        const [response] = await Promise.all([
+          page.waitForResponse(response => response.url() === 'http://localhost:3001/post' && response.request().method() === 'POST'),
+          page.getByRole('button', { name: 'Post', exact: true }).click(),
+        ]);
+        if (noScript) await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+        const reason = response.status() === 303 ? '' : (await response.text()).slice(0, 256);
+        expect(response.status(), `Ordinary ${role} posting: ${reason}`).toBe(303);
+        await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
+        return new URL(page.url()).searchParams.get('posted');
+      };
+      const op = await submit('0', '', '', '[op]Owned opening markup[/op]', true);
+      const sage = await submit(op, 'SaGe', '', 'Owned same peer sage reply');
+      const flagged = await submit(op, '', 'AC', 'Owned selected board flag');
+      const endpoint = `${publicOrigin}/${board}/thread/${op}.json`;
+      const rows = (await (await page.request.get(endpoint)).json()).posts;
+      const label = rows[0].id;
+      expect(label).toMatch(/^[+/0-9A-Za-z]{8}$/);
+      expect(rows[0].name).toBe('Owned ordinary'); expect(rows[0].trip).toBe('!ozOtJW9BFA');
+      expect(rows[0].country).toBe('XX'); expect(rows[0].country_name).toBe('Unknown');
+      expect(rows[0].capcode).toBeUndefined(); expect(rows[1].id).toBe('Heaven');
+      expect(rows[2].id).toBe(label); expect(rows[2].board_flag).toBe('AC');
+      expect(rows[2].flag_name).toBe('Anarcho-Capitalist'); expect(rows[2].country).toBeUndefined();
+      await publicPage.goto(`${publicOrigin}/${board}/thread/${op}`);
+      await publicPage.evaluate(() => {
+        localStorage.removeItem('4chan-filters');
+        localStorage.setItem('4chan-settings', JSON.stringify({ filter: true, threadStats: false }));
+      });
+      await publicPage.reload();
+      await expect(publicPage.locator(`#pi${sage} .posteruid .hand`)).toHaveText('Heaven');
+      await expect(publicPage.locator(`#pi${flagged} .bfl-ac`)).toHaveAttribute('title', 'Anarcho-Capitalist');
+      await expect(publicPage.locator(`#pi${op} .flag-xx`)).toHaveAttribute('title', 'Unknown');
+      for (const width of [1280, 390]) {
+        await publicPage.setViewportSize({ width, height: 900 });
+        expect(await publicPage.locator(`#p${flagged} .posteruid .hand:visible`).evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
+      }
+      const id = publicPage.locator(`#p${op} .posteruid .hand:visible`);
+      await id.click(); await expect(id).toHaveAttribute('aria-pressed', 'true');
+      await expect(publicPage.locator(`#p${flagged}`)).toHaveClass(/poster-id-highlight/);
+      const posted = await page.request.post(`${publicOrigin}/${board}/post`, { headers: { Origin: publicOrigin }, maxRedirects: 0,
+        form: { resto: op, name: 'Owned public peer', email: '', sub: '', com: 'Owned public and staff identity continuity', password } });
+      expect(posted.status()).toBe(303);
+      const added = posted.headers().location.match(/#p(\d+)$/)[1];
+      await publicPage.locator('.threadNav.mobile a[data-cmd="update"]').first().click();
+      await expect(publicPage.locator(`#p${added} .posteruid .hand:visible`)).toHaveText(label);
+      await expect(publicPage.locator(`#p${added}`)).toHaveClass(/poster-id-highlight/);
+      await id.focus(); await expect(publicPage.locator('#native-poster-id-tip')).toHaveText('3 posts by this ID');
+      await publicPage.evaluate(label => localStorage.setItem('4chan-filters', JSON.stringify([{ type: 4, pattern: label, boards: '', active: true, auto: false, hide: true }])), label);
+      await publicPage.reload();
+      await expect(publicPage.locator(`#p${flagged}`)).toHaveClass(/post-hidden/);
+      await expect(publicPage.locator(`#p${added}`)).toHaveClass(/post-hidden/);
+      await expect(publicPage.locator(`#p${sage}`)).not.toHaveClass(/post-hidden/);
+      const deleted = await page.request.post(`${publicOrigin}/${board}/delete`, { headers: { Origin: publicOrigin }, maxRedirects: 0, form: { no: flagged, password } });
+      expect(deleted.status()).toBe(303);
+      expect((await (await page.request.get(endpoint)).json()).posts.some(post => String(post.no) === flagged)).toBe(false);
+    }
+    expect(fixture('ordinary-inspect', board)).toEqual({ posts: 18, deleted: 4, deletion: 16, contexts: 12, op_peers: 4, op_replies: 8, proofs: 0, audit: 12 });
+    expect(errors).toEqual([]);
+  } finally {
+    await publicPage.close(); fixture('cleanup', board);
+    const privateRoot = path.resolve('.local');
+    if (path.dirname(invitationDir) !== privateRoot || lstatSync(invitationDir).isSymbolicLink()
+        || realpathSync(invitationDir) !== path.join(realpathSync(privateRoot), `staff-ordinary-browser-${board}`)) throw new Error('Invalid ordinary invitation cleanup path');
+    rmSync(invitationDir, { recursive: true });
+    if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
+        || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid ordinary media cleanup path');
+    rmSync(mediaRoot, { recursive: true });
+  }
+});
 test('synthetic WebAuthn enrollment, login, audited moderation, recovery and logout', async ({ page, context }) => {
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const invitationDir = path.resolve(`.local/staff-browser-${board}`);
@@ -33,8 +138,10 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
   });
   let readerError;
   reader.on('error', error => { readerError = error; });
-  const mediaRequests = [];
+  const mediaRequests = [], staffMediaRequests = [];
+  const mediaWireIds = new Set(), mediaWireHeaders = new Map();
   context.on('request', request => { if (request.url().startsWith('http://127.0.0.1:3002/')) mediaRequests.push(request.allHeaders()); });
+  page.on('request', request => { if (request.url().startsWith(`http://127.0.0.1:3002/${board}/`)) staffMediaRequests.push(request); });
   try {
     await expect.poll(async () => {
       if (readerError || reader.exitCode !== null) throw new Error('Synthetic reader failed to start');
@@ -45,6 +152,14 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const invitation = readFileSync(invitationFile, 'utf8').trim();
     expect(fixture('inspect', board).credentials).toBe(0);
     const cdp = await context.newCDPSession(page);
+    await cdp.send('Network.enable');
+    cdp.on('Network.requestWillBeSent', event => {
+      if (event.request.url.startsWith('http://127.0.0.1:3002/')) mediaWireIds.add(event.requestId);
+    });
+    cdp.on('Network.requestWillBeSentExtraInfo', event => {
+      const names = Object.keys(event.headers).map(key => key.toLowerCase());
+      mediaWireHeaders.set(event.requestId, { cookie: names.includes('cookie'), referer: names.includes('referer') });
+    });
     await cdp.send('WebAuthn.enable');
     await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
     expect((await page.request.get('/reports')).status()).toBe(401);
@@ -92,7 +207,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     fixture('authorized-limit', board, '5000');
     await page.goto(`/post?board=${board}&thread=${data.thread}`);
     await expect(page.getByLabel('Staff badge', { exact: true })).toHaveValue('mod');
-    await expect(page.getByLabel('Staff badge', { exact: true }).locator('option')).toHaveText(['Mod']);
+    await expect(page.getByLabel('Staff badge', { exact: true }).locator('option')).toHaveText(['None', 'Mod']);
     await expect(page.getByLabel('Highlight administrator post')).toHaveCount(0);
     await expect(page.getByLabel('Name', { exact: true })).toHaveAttribute('maxlength', '255');
     await expect(page.getByLabel('Subject', { exact: true })).toHaveAttribute('maxlength', '255');
@@ -109,7 +224,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await page.getByLabel('Subject', { exact: true }).fill('s'.repeat(255));
     await staffComment.fill('Script-free staff notice ' + String.fromCodePoint(0x20000).repeat(4900) + ' <script>harmless</script>');
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
-    await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
     const moderatorPost = new URL(page.url()).searchParams.get('posted');
     await expect(page.getByRole('link', { name: 'Open public post' })).toHaveAttribute('href', `${staffThreadUrl}#p${moderatorPost}`);
@@ -139,14 +254,15 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(mediaRequests.length).toBeGreaterThan(0);
     for (const request of mediaRequests) {
       const headers = await request;
-      expect(headers.cookie).toBeUndefined(); expect(headers.referer).toBeUndefined();
+      expect(headers.cookie === undefined, 'Media request must omit staff cookies').toBe(true);
+      expect(headers.referer === undefined || headers.referer === '', 'Media request must disclose no referrer').toBe(true);
     }
     fixture('spoiler', board);
-    const requestCount = mediaRequests.length;
+    const requestCount = staffMediaRequests.length;
     await page.reload();
     await expect(report.getByRole('link', { name: 'Open spoiler image' })).toBeVisible();
     expect(await report.locator('img').count()).toBe(0);
-    expect(mediaRequests.length).toBe(requestCount);
+    expect(staffMediaRequests.length).toBe(requestCount);
     const popupPromise = context.waitForEvent('page');
     await report.getByRole('link', { name: 'Open spoiler image' }).click();
     const popup = await popupPromise;
@@ -213,7 +329,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await page.getByLabel('Name', { exact: true }).fill(`Owned administrator##${administratorSecret}`);
     await page.getByLabel('Comment', { exact: true }).fill(`Administrator reply >>${moderatorPost}`);
     await page.getByLabel('Highlight administrator post').check();
-    await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
     const adminPost = new URL(page.url()).searchParams.get('posted');
     await publicStaffPage.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
@@ -226,7 +342,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await publicStaffPage.locator(`#m${adminPost} a.quotelink`).hover();
     await expect(publicStaffPage.locator('#quote-preview .postInfo .capcode')).toHaveText('## Mod');
     await expect.poll(() => publicStaffPage.locator('#quote-preview .postInfo .identityIcon').evaluate(image => image.complete && image.naturalWidth)).toBe(16);
-    await expect(publicStaffPage.locator('#quote-preview')).not.toHaveText(/Post with staff badge/);
+    await expect(publicStaffPage.locator('#quote-preview')).not.toHaveText(/Staff posting|Deletion password/);
     await publicStaffPage.locator(`#m${data.thread}`).evaluate((message, { board, thread, post }) => {
       const quote = document.createElement('a'); quote.className = 'quotelink';
       quote.href = `/${board}/thread/${thread}#p${post}`; quote.textContent = `>>${post}`;
@@ -246,7 +362,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       await page.getByLabel('Name', { exact: true }).fill(`Owned catalog ${badge}##${administratorSecret}`);
       await page.getByLabel('Subject', { exact: true }).fill('Owned forced subject');
       await page.getByLabel('Comment', { exact: true }).fill('Owned catalog badge predicate');
-      await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
       await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
       const op = new URL(page.url()).searchParams.get('posted');
       const stored = (await (await page.request.get(`http://127.0.0.1:3000/${board}/thread/${op}.json`)).json()).posts[0];
@@ -333,7 +449,15 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect((await page.request.get(`http://127.0.0.1:3002/${board}/${data.tim}s.jpg`, { headers: { 'If-None-Match': thumbnailEtag } })).status()).toBe(404);
     for (const request of mediaRequests) {
       const headers = await request;
-      expect(headers.cookie).toBeUndefined(); expect(headers.referer).toBeUndefined();
+      expect(headers.cookie === undefined, 'Media request must omit staff cookies').toBe(true);
+      expect(headers.referer === undefined || headers.referer === '', 'Media request must disclose no referrer').toBe(true);
+    }
+    expect(mediaWireIds.size).toBeGreaterThan(0);
+    for (const id of mediaWireIds) {
+      const headers = mediaWireHeaders.get(id);
+      expect(headers !== undefined, 'Chromium must report media wire headers').toBe(true);
+      expect(headers.cookie, 'Media wire request must omit staff cookies').toBe(false);
+      expect(headers.referer, 'Media wire request must omit Referer').toBe(false);
     }
     await report.getByRole('button', { name: 'Resolve report', exact: true }).click(); await expect(report).toContainText('resolved');
     await report.getByRole('button', { name: 'Dismiss report', exact: true }).click(); await expect(report).toContainText('dismissed');

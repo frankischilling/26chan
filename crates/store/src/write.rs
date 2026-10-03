@@ -200,7 +200,7 @@ pub async fn create_post_with_anonymous_session(
 /// Prepared source identity policy; the proof issuer independently checks it.
 #[derive(Clone, Copy)]
 pub struct StaffPostIdentity<'a> {
-    pub capcode: board_domain::capcode::Capcode,
+    pub capcode: Option<board_domain::capcode::Capcode>,
     pub name_allowed: bool,
     pub administrator: bool,
     pub tripcode_key: Option<&'a board_domain::identity::SecureKey>,
@@ -226,6 +226,14 @@ pub async fn create_staff_post(
     request_start: DateTime<Utc>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    if authority
+        .identity
+        .is_some_and(|identity| identity.capcode.is_none())
+    {
+        return Err(StoreError::Invalid(
+            "Ordinary staff posting context is required.",
+        ));
+    }
     let tripcode = authority
         .identity
         .and_then(|identity| identity.tripcode_key);
@@ -257,6 +265,73 @@ pub async fn create_staff_post(
     .await
 }
 
+/// Ordinary staff posts retain public metadata and admission behavior. The
+/// independent authority issuer binds every derived value to the saved post.
+pub async fn create_ordinary_staff_post(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    context: PostingContext,
+    metadata: PostMetadata<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    if authority
+        .identity
+        .is_none_or(|identity| identity.capcode.is_some())
+        || context.peer.is_none()
+        || metadata.keys.poster_id.is_none()
+        || post.deletion_hash.is_empty()
+        || post.deletion_hash.len() > 256
+        || authority.highlight
+    {
+        return Err(StoreError::Invalid(
+            "Ordinary staff posting context is unavailable.",
+        ));
+    }
+    let auth_pool = authority.auth_pool;
+    let ticket = authority.ticket_hash;
+    let session = authority.session_hash;
+    let result = create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        None,
+        context,
+        PostWriteOptions {
+            metadata,
+            staff: Some(authority),
+            anonymous: None,
+        },
+    )
+    .await;
+    if result.is_err() {
+        // A failed insert or Robot9000 savepoint rollback leaves the separate
+        // auth-pool proof unused. Remove only this request's ordinary proof.
+        sqlx::query("SELECT staff_identity.discard_ordinary_post_authority($1,$2)")
+            .bind(ticket.as_slice())
+            .bind(session)
+            .execute(auth_pool)
+            .await?;
+    }
+    result
+}
+
+pub async fn staff_op_deletion_hash(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+) -> Result<Option<String>, StoreError> {
+    Ok(
+        sqlx::query_scalar("SELECT content.staff_op_deletion_hash($1,$2)")
+            .bind(slug)
+            .bind(parent)
+            .fetch_one(pool)
+            .await?,
+    )
+}
+
 struct PostWriteOptions<'a> {
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
@@ -278,6 +353,15 @@ async fn create_post_in_context(
         anonymous,
     } = options;
     let keys = metadata.keys;
+    let ordinary_staff = staff
+        .as_ref()
+        .and_then(|authority| authority.identity)
+        .is_some_and(|identity| identity.capcode.is_none());
+    let ordinary = staff.is_none() || ordinary_staff;
+    let authorized_staff = staff
+        .as_ref()
+        .is_some_and(|authority| authority.authorized_limits);
+    let prepared_options = board_domain::posting_options::without_sage(metadata.options);
     let preliminary_limits = if staff
         .as_ref()
         .is_some_and(|authority| authority.authorized_limits)
@@ -318,8 +402,9 @@ async fn create_post_in_context(
     };
     let wordfilter_limits = board_domain::WordfilterLimits::for_post(post_limits);
     // Acquire policy, peer and activity locks before OP membership checks.
-    // Authenticated staff bypass remains isolated from public rule authority.
-    let admission = if staff.is_none() {
+    // Source filters ordinary staff posts too; cosmetic badges do not confer
+    // public identity or bypass authority on an unbadged post.
+    let admission = if ordinary || slug == "test" {
         Some(crate::content_admission::begin(&mut tx, slug, context.peer, anonymous).await?)
     } else {
         None
@@ -362,7 +447,7 @@ async fn create_post_in_context(
     {
         return Err(StoreError::Invalid("Invalid board flag."));
     }
-    let country = if staff.is_none() && board.country_flags && flag.is_empty() {
+    let country = if ordinary && board.country_flags && flag.is_empty() {
         let database = metadata
             .country_database
             .ok_or(StoreError::Invalid("Country flags are unavailable."))?;
@@ -382,7 +467,19 @@ async fn create_post_in_context(
         .bind(country.as_ref().map_or("", |value| value.name.as_str()))
         .bind(flag).execute(&mut *tx).await?;
     let peer = context.peer.map(|peer| peer.to_canonical().to_string());
-    let own_reply = if parent > 0 {
+    let staff_op: Option<(bool, Option<DateTime<Utc>>)> = if ordinary_staff && parent > 0 {
+        sqlx::query_as("SELECT * FROM content.staff_op_context($1,$2,$3)")
+            .bind(slug)
+            .bind(parent)
+            .bind(&peer)
+            .fetch_optional(&mut *tx)
+            .await?
+    } else {
+        None
+    };
+    let own_reply = if ordinary_staff {
+        staff_op.as_ref().is_some_and(|(own, _)| *own)
+    } else if parent > 0 {
         if let Some(peer) = &peer {
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.op_peers WHERE thread_id=$1 AND peer=$2::text::inet)")
                 .bind(parent).bind(peer).fetch_one(&mut *tx).await?
@@ -392,13 +489,21 @@ async fn create_post_in_context(
     } else {
         false
     };
-    let password_matches = if staff.is_none() && board.op_markup && parent > 0 {
+    let password_matches = if ordinary && board.op_markup && parent > 0 {
         if let Some(proof) = context.op_password_proof {
-            let hash: Option<String> = sqlx::query_scalar(crate::read::OP_DELETION_HASH)
-                .bind(slug)
-                .bind(parent)
-                .fetch_optional(&mut *tx)
-                .await?;
+            let hash: Option<String> = if ordinary_staff {
+                sqlx::query_scalar("SELECT content.staff_op_deletion_hash($1,$2)")
+                    .bind(slug)
+                    .bind(parent)
+                    .fetch_one(&mut *tx)
+                    .await?
+            } else {
+                sqlx::query_scalar(crate::read::OP_DELETION_HASH)
+                    .bind(slug)
+                    .bind(parent)
+                    .fetch_optional(&mut *tx)
+                    .await?
+            };
             hash.is_some_and(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) == proof)
         } else {
             false
@@ -511,7 +616,8 @@ async fn create_post_in_context(
     let reply_target = if parent > 0 {
         let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
             .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
-        if thread.archived_at.is_some() || thread.closed || thread.reply_count >= board.reply_limit
+        if thread.archived_at.is_some()
+            || (!authorized_staff && (thread.closed || thread.reply_count >= board.reply_limit))
         {
             return Err(StoreError::Conflict(
                 "This thread is closed or has reached its reply limit.",
@@ -662,13 +768,11 @@ async fn create_post_in_context(
         None => {
             board_domain::robot9000::applies_to_post(board.robot9000, None, metadata.options, false)
         }
-        // These existing proofs are badge posts or private discussion. A
-        // future unbadged proof must carry the selected source policy itself.
         Some(authority) => authority.identity.is_some_and(|identity| {
             board_domain::robot9000::applies_to_post(
                 board.robot9000,
-                Some(identity.capcode),
-                metadata.options,
+                identity.capcode,
+                &prepared_options,
                 true,
             )
         }),
@@ -719,8 +823,12 @@ async fn create_post_in_context(
             .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
         let mut self_sage = false;
         if own_reply && board.op_bump_limit {
-            let latest: Option<DateTime<Utc>> = sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
-                .bind(parent).bind(slug).fetch_optional(&mut *tx).await?;
+            let latest: Option<DateTime<Utc>> = if ordinary_staff {
+                staff_op.as_ref().and_then(|(_, time)| *time)
+            } else {
+                sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
+                    .bind(parent).bind(slug).fetch_optional(&mut *tx).await?
+            };
             self_sage = board_domain::op_bump::limited(
                 true,
                 context.request_start.timestamp(),
@@ -746,7 +854,7 @@ async fn create_post_in_context(
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
-    let poster_id = if staff.is_none() && board.user_ids {
+    let poster_id = if ordinary && board.user_ids {
         let key = keys
             .poster_id
             .ok_or(StoreError::Invalid("Poster IDs are unavailable."))?;
@@ -790,38 +898,70 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     if let Some(authority) = &staff {
-        let issuer = if authority.identity.is_some() {
-            "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)"
+        if ordinary_staff {
+            let proof = context
+                .op_password_proof
+                .map(|proof| {
+                    proof
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect::<String>()
+                })
+                .unwrap_or_default();
+            sqlx::query("SELECT set_config('board.peer',$1,true),set_config('board.deletion_hash',$2,true),set_config('board.op_password_proof',$3,true),set_config('board.staff_post_options',$4,true)")
+                .bind(&peer).bind(&post.deletion_hash).bind(proof).bind(&prepared_options)
+                .execute(&mut *tx).await?;
+            let bound_context: sqlx::types::JsonValue =
+                sqlx::query_scalar("SELECT content.staff_ordinary_context()")
+                    .fetch_one(&mut *tx)
+                    .await?;
+            sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)")
+                .bind(authority.ticket_hash.as_slice()).bind(authority.session_hash).bind(authority.csrf_hash)
+                .bind(authority.idle_seconds).bind(id).bind(slug).bind(thread_id).bind(name)
+                .bind(&subject).bind(comment.as_str()).bind(posted_at).bind(authority.authorized_limits)
+                .bind(post_limits.comment_chars() as i32).bind(wordfilter_payload.as_deref())
+                .bind(wordfilter_search.as_deref()).bind(&prepared_options).bind(identity.trip.as_deref())
+                .bind(authority.identity.expect("ordinary identity").name_allowed).bind(bound_context)
+                .execute(authority.auth_pool).await.map_err(staff_post_error)?;
         } else {
-            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)"
-        };
-        let mut proof = sqlx::query(issuer)
-            .bind(authority.ticket_hash.as_slice())
-            .bind(authority.session_hash)
-            .bind(authority.csrf_hash)
-            .bind(authority.idle_seconds)
-            .bind(authority.highlight)
-            .bind(id)
-            .bind(slug)
-            .bind(thread_id)
-            .bind(name)
-            .bind(&subject)
-            .bind(comment.as_str())
-            .bind(posted_at)
-            .bind(authority.authorized_limits)
-            .bind(post_limits.comment_chars() as i32)
-            .bind(wordfilter_payload.as_deref())
-            .bind(wordfilter_search.as_deref());
-        if let Some(source) = authority.identity {
-            proof = proof
-                .bind(source.capcode.source_option())
-                .bind(identity.trip.as_deref())
-                .bind(source.name_allowed);
+            let issuer = if authority.identity.is_some() {
+                "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)"
+            } else {
+                "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)"
+            };
+            let mut proof = sqlx::query(issuer)
+                .bind(authority.ticket_hash.as_slice())
+                .bind(authority.session_hash)
+                .bind(authority.csrf_hash)
+                .bind(authority.idle_seconds)
+                .bind(authority.highlight)
+                .bind(id)
+                .bind(slug)
+                .bind(thread_id)
+                .bind(name)
+                .bind(&subject)
+                .bind(comment.as_str())
+                .bind(posted_at)
+                .bind(authority.authorized_limits)
+                .bind(post_limits.comment_chars() as i32)
+                .bind(wordfilter_payload.as_deref())
+                .bind(wordfilter_search.as_deref());
+            if let Some(source) = authority.identity {
+                proof = proof
+                    .bind(
+                        source
+                            .capcode
+                            .expect("validated badge identity")
+                            .source_option(),
+                    )
+                    .bind(identity.trip.as_deref())
+                    .bind(source.name_allowed);
+            }
+            proof
+                .execute(authority.auth_pool)
+                .await
+                .map_err(staff_post_error)?;
         }
-        proof
-            .execute(authority.auth_pool)
-            .await
-            .map_err(staff_post_error)?;
         let ticket = authority
             .ticket_hash
             .iter()
@@ -857,7 +997,7 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
     }
-    if parent == 0 {
+    if !ordinary_staff && parent == 0 {
         if let Some(peer) = peer {
             sqlx::query(
                 "INSERT INTO post_secrets.op_peers(thread_id,peer) VALUES($1,$2::text::inet)",
@@ -867,7 +1007,7 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
         }
-    } else if own_reply {
+    } else if !ordinary_staff && own_reply {
         sqlx::query("INSERT INTO post_secrets.op_replies(post_id,thread_id) VALUES($1,$2)")
             .bind(id)
             .bind(parent)

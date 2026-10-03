@@ -242,6 +242,8 @@ jobs:
         run: sudo bash scripts/test-json-op-poster-id-migration.sh
       - name: Upgrade restricted attachment owner access to source ID policy
         run: sudo bash scripts/test-attachment-poster-id-policy-migration.sh
+      - name: Upgrade ordinary staff posting while preserving history and badge proofs
+        run: sudo bash scripts/test-ordinary-staff-post-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

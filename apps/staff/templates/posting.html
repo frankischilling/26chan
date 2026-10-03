@@ -2,16 +2,22 @@
 <h1>Staff posting</h1><p><a href="/reports">Report queue</a> | <a href="/">Sign in again</a></p>
 <script src="/post-limits.js" defer></script>
 {% if let Some(id) = query.posted %}<p>Post {{ id }} created. <a href="{{ public_origin }}/{{ query.board }}/thread/{{ query.thread }}#p{{ id }}" rel="noopener noreferrer" referrerpolicy="no-referrer">Open public post</a></p>{% endif %}
-<p>Staff posts use moderation for removal.</p>
+<p>Posts with a badge use moderation for removal. Ordinary posts use their deletion password.</p>
 {% if recent %}
 <form method="post" action="/post"><input type="hidden" name="csrf" value="{{ csrf }}">
 <p><label for="staff-board">Board</label> <select id="staff-board" name="board" required>{% for board in boards %}<option value="{{ board.0 }}" data-comment-limit="{{ board.2 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></p>
 <p><label for="staff-thread">Thread ID (0 starts a new thread)</label> <input id="staff-thread" name="thread" type="number" min="0" value="{{ query.thread }}" required></p>
-<p><label for="staff-badge">Staff badge</label> <select id="staff-badge" name="badge" required>{% for badge in badges %}<option value="{{ badge.0 }}"{% if badge.0 == selected_badge %} selected{% endif %}>{{ badge.1 }}</option>{% endfor %}</select></p>
+<p><label for="staff-badge">Staff badge</label> <select id="staff-badge" name="badge" required>{% if ordinary_ready %}<option value="none"{% if selected_badge == "none" %} selected{% endif %}>None</option>{% endif %}{% for badge in badges %}<option value="{{ badge.0 }}"{% if badge.0 == selected_badge %} selected{% endif %}>{{ badge.1 }}</option>{% endfor %}</select></p>
+{% if ordinary_ready %}<fieldset><legend>Ordinary post</legend>
+<p><label for="staff-options">Options</label> <input id="staff-options" name="options" maxlength="100"></p>
+<p><label for="staff-flag">Flag</label> <select id="staff-flag" name="flag"><option value="">None</option>{% for flag in flags %}<option value="{{ flag.0 }}">{{ flag.1 }}</option>{% endfor %}</select></p>
+<p><label for="staff-password">Deletion password</label> <input id="staff-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="off"></p>
+<p>Choose None above to use these fields. The password must contain 8 to 128 bytes. Flags must be enabled on the selected board.</p>
+</fieldset>{% endif %}
 <p><label for="staff-name">Name</label> <input id="staff-name" name="name" maxlength="255" placeholder="Anonymous" autocomplete="off"></p>
 <p><label for="staff-subject">Subject</label> <input id="staff-subject" name="subject" maxlength="255"></p>
 <p><label for="staff-comment">Comment</label><br><textarea id="staff-comment" name="comment" rows="8" cols="60" maxlength="{{ comment_max_units }}"></textarea></p>
 <p><label><input type="checkbox" name="sage" value="true">Sage</label>{% if admin %} <label><input type="checkbox" name="highlight" value="true">Highlight administrator post</label>{% endif %}</p>
-<button>Post with staff badge</button></form>
+<button>Post</button></form>
 {% else %}<p>Sign in again before posting. Authentication must be less than ten minutes old.</p>{% endif %}
 </main></body></html>

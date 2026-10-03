@@ -5,6 +5,7 @@ pub mod config;
 mod discussion;
 mod handlers;
 mod latest;
+mod posting_password;
 pub mod store;
 mod views;
 use axum::{
@@ -53,6 +54,8 @@ pub enum AppError {
     Recent,
     #[error("Invalid request")]
     Invalid,
+    #[error("{0}")]
+    Posting(String),
     #[error("Object unavailable")]
     NotFound,
     #[error("Service unavailable")]
@@ -67,7 +70,7 @@ impl IntoResponse for AppError {
         let code = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,
-            Self::Invalid => StatusCode::BAD_REQUEST,
+            Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::SERVICE_UNAVAILABLE,

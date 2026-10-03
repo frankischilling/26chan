@@ -65,20 +65,21 @@ out of posts, proof payloads and public responses. Unrelated public, media and
 observer runtimes reject the staff-specific key; the media job runner rejects
 it before configuration or execution.
 
-The shared posting transaction retains board subject, comment, forced-anonymous,
-closed-thread, bump, reply-limit and rollover rules. Staff posts have no public
-deletion password and use moderation for removal. Badged staff posts on boards
+The shared posting transaction applies board subject, comment, forced-anonymous,
+bump and rollover rules, including the moderator-or-higher closed/full-thread
+exception. Badged staff posts have no public deletion password and use
+moderation for removal. Badged staff posts on boards
 with IDs save the [source static label](source-staff-poster-ids.md). They save
-no geographic flag, board flag or private network fingerprint. A thread containing a staff
-post therefore cannot claim a complete private poster count.
+no geographic flag, board flag or private network fingerprint. A thread
+containing a badge post therefore cannot claim a complete private poster count.
 
 Private discussion keeps its separate anonymous role/alias presentation and
 ordinary janitor limits. This flow accepts text only. Staff attachment
-posting, unbadged authorized posting, Pass/VIP behavior and other privileged
-source exceptions remain unfinished. [The authority and peer-transport
-continuation](staff-posting-authority.md) records the ordinary-post
-Robot9000 distinction and the verified staff proxy preparation. The public
-attachment owner has no staff authentication access or badge authority.
+posting, Pass/VIP behavior and other privileged source exceptions remain
+unfinished. [The ordinary text posting continuation](staff-posting-authority.md)
+adds the None choice, ordinary identity, flags, admission, OP state and public
+password deletion. Its anonymous activity integration remains unfinished.
+The public attachment owner has no staff authentication access or badge authority.
 
 ## Database boundary and upgrade
 

@@ -600,6 +600,7 @@ dependencies = [
 name = "board-staff"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "askama",
  "axum",
  "base64 0.22.1",

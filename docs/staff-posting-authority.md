@@ -25,11 +25,14 @@ the hash-checked source with synthetic boundary results; it does not run
 source authentication, database queries or the Robot9000 plugin. The fixture
 contains 224 Robot9000 cases and four early authentication-bypass cases.
 
-The Rust Robot9000 predicate now records that distinction. The current staff
-writer still supports badge posts and private discussion; authenticated
-unbadged posting remains unfinished. Its proof must bind the selected policy
-and ordinary identity fields, recheck current authority, and preserve the
-existing expiry, replay, revocation and board-scope checks.
+Authenticated janitors, moderators, managers and administrators can select
+`None` in the staff text form to post with ordinary public identity. These
+posts retain tripcodes, thread IDs, private poster counts, geography or a
+board flag, sage, OP membership, formatting and deletion passwords. Ordinary
+posts run content admission and Robot9000. Badged posts also run content
+admission on `test`. Moderator-or-higher rank grants the authorized comment
+limit and closed/full-thread exception independently of the visible badge;
+archived threads remain unavailable.
 
 `STAFF_POSTER_ID_KEY` and `STAFF_COUNTRY_DATABASE` load optional ordinary
 identity sources under staff-specific names. Use the same private poster key
@@ -40,8 +43,9 @@ and all-zero values. The country loader requires an absolute regular file,
 limits it to 64 MiB and verifies the country database format before serving.
 Startup errors disclose neither the key nor the supplied path. Inherited
 public identity variables and unrelated database credentials remain rejected.
-The current badge writer does not consume these ordinary sources; configuring
-them alone does not enable unbadged posting.
+Ordinary posting requires the poster key and an actual listener peer. Production
+also requires the verified Unix proxy profile below. Badge posts retain their
+existing identity path.
 
 The public and staff binaries share the existing bounded HTTP transport and
 kernel-verified proxy resolver. Public callers keep their existing interface.
@@ -74,9 +78,15 @@ operator configuration.
 When using the Unix listener, direct TCP staff health checks must follow the
 staff proxy instead. Keep that health route inside the private staff server.
 
-This is preparation for ordinary staff IDs and flags. It does not enable
-unbadged posting or establish a deployed staff proxy qualification. Full source
-behavior and frontend parity remain the completion requirement.
+The ordinary text form requires a chosen deletion password of 8–128 bytes.
+A bounded Argon2 worker derives its stored hash and checks an existing OP
+password when needed for OP markup. Public password deletion works for these
+posts. The cross-origin anonymous-session and activity lifecycle remains
+unfinished; this chosen-password form does not establish parity with that
+lifecycle. Ordinary staff attachments and broader privileged workflows also
+remain unfinished. Badge posts retain their moderation removal path. Full
+source behavior and frontend parity remain the completion requirement; no
+hosted deployment is claimed.
 
 The shared-transport checkpoint passed local qualification on Linux:
 
@@ -133,8 +143,74 @@ Strict workspace Clippy passed across all targets and features with warnings
 denied in 1 minute 23 seconds, using the verified 3 GiB build scope and
 incremental compilation disabled.
 
-This continuation adds no migration. Ordinary staff posting still requires a
-single-use proof that binds its prepared Options, identity fields and body,
-and a posting form that selects the ordinary policy. Those paths remain
-unfinished. Complete local workspace qualification was not rerun, and the
-continuation needs its own exact-head hosted checks after publication.
+The published `4b0f157` Options/configuration checkpoint adds no migration and
+passed all exact-head hosted checks:
+[build/test](https://github.com/frankischilling/26chan/actions/runs/37123912697),
+[monitoring](https://github.com/frankischilling/26chan/actions/runs/37123912681)
+and [dependency advisories](https://github.com/frankischilling/26chan/actions/runs/37123912730).
+Those passes are historical for the ordinary posting continuation below.
+
+## Ordinary posting proof and qualification
+
+[Migration 77](../migrations/0077_ordinary_staff_posts.sql) adds an ordinary
+branch to the existing private proof table. The authentication role issues
+a proof binding the body, prepared Options and trip, selected board policy,
+authorized limit, wordfilter context and 14 derived metadata fields. These
+include the canonical peer, deletion hash and optional proof of the current
+OP credential. The staff writer supplies exactly that context in its insert
+transaction. Runtime roles cannot read or write the proof table directly.
+
+The consumer rechecks current rank, board scope, revocation, session expiry,
+inactivity and recent authentication. It acquires account and session locks
+before locking the intent, then rechecks deadlines after that wait. A proof
+expires after 15 seconds, consumes once and shares the existing 32-intent
+capacity with badge proofs. Failed ordinary writes discard their unused proof;
+expired proof cleanup remains bounded. The owner stays a role without login,
+superuser, role creation, database creation or RLS bypass.
+
+Scoped functions expose only OP membership, the latest OP reply time and one
+active public OP's derived deletion hash to the staff writer. Staff and
+authentication runtimes receive no bulk OP-peer or deletion-table grants.
+An owner trigger records private ordinary-post state only after the exact
+proof is consumed. Each insert resets the marker, including retained badge
+and private discussion paths. Existing badge proofs keep their original
+consumer through a private delegate.
+
+The ordinary posting continuation passed 73 local staff tests, including
+25 persisted posting cases. Seven new cases cover all four ranks, password
+deletion, OP state, admission outcomes, Robot9000 rollback and bypass, proof
+forgery, private grants, actual Unix posting and expiry behind row locks.
+The metadata comparison rejects all 56 field mutations across the four ranks;
+separate checks reject body changes, replay and 30 private-role operations.
+Four consumer cases observe actual lock waits and cross the proof, session
+or recent-authentication deadline before releasing the lock.
+
+[The upgrade check](../scripts/test-ordinary-staff-post-migration.sh) applies
+migration 77 through the actual migrator login to populated version-76 state.
+Historical posts, boards, threads, deletion records, OP peers and existing
+proof fields remain unchanged. A pre-upgrade badge proof still consumes once
+with its original trip and badge. Forged ordinary markers create no private
+records. Privacy policies and runtime private-table boundaries remain intact.
+The isolated integration database has 68 successful migration files through
+version 77; the preceding version-76 qualification database is unchanged.
+
+Both local Chromium staff workflows passed. The new case covers all four ranks
+through script-free OP posting, sage, board flags, public/staff ID continuity,
+desktop/mobile headers, live updating, ID highlighting/counts, native filtering
+and public password deletion. The existing WebAuthn, moderation, recovery and
+logout workflow also passes. Context request inspection accepts absent or empty
+referrers; separate Chromium wire checks require staff media requests to omit
+Cookie and Referer. The spoiler request count is scoped to its fixture board.
+
+Initial browser failures exposed a missing fixture board scope, deletion-record
+cleanup order and a subject containing a source-denied term. One owned failed
+fixture was removed after verifying its database identity and local paths.
+The migration's first attempts exposed syntax and function-owner grant errors;
+the corrected migration applies under the actual migrator login. Strict
+workspace Clippy passes across all targets and features with warnings denied
+in the verified 3 GiB scope, with incremental compilation disabled. Formatting,
+documentation links and whitespace checks pass. Retries, browser deadlines and
+screenshot baselines are unchanged. Failure logs remain local.
+
+Complete local workspace qualification has not been rerun. This continuation
+needs its own exact-head hosted checks after publication.

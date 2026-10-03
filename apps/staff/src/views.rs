@@ -18,6 +18,8 @@ pub struct Posting {
     pub admin: bool,
     pub badges: Vec<(String, String)>,
     pub selected_badge: String,
+    pub ordinary_ready: bool,
+    pub flags: Vec<(String, String)>,
 }
 pub struct Preview {
     pub report: Report,
