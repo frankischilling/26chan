@@ -76,6 +76,14 @@ SQL
   fi
 done
 "${db[@]}" -d bootstrap_test <<'SQL'
+DO $$ DECLARE v_role text; BEGIN
+  FOREACH v_role IN ARRAY ARRAY['board_public','board_staff','board_auth','board_media',
+      'board_media_read','board_media_intake','board_monitor'] LOOP
+    IF has_column_privilege(v_role,'content.threads','undead','UPDATE') IS DISTINCT FROM (v_role='board_staff') THEN
+      RAISE EXCEPTION 'Undead mutation is not confined to staff';
+    END IF;
+  END LOOP;
+END $$;
 DO $$ BEGIN
   IF EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
       'board_media_read','board_media_intake','board_monitor']) runtime(name)

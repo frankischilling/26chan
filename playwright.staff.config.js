@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { serviceCredentialOverrides } from './tests/browser/staff-service-environment.mjs';
 const binary = process.platform === 'win32' ? '.exe' : '';
 const debugDir = path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug');
 const countryDatabase = path.resolve('crates/domain/tests/fixtures/GeoIP2-Country-Test.mmdb');
@@ -14,14 +15,14 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:3001', browserName: 'chromium', trace: 'off', screenshot: 'off', video: 'off' },
   webServer: [
     { command: `"${path.join(debugDir, `board-media-intake${binary}`)}"`, url: 'http://127.0.0.1:3004/readyz', timeout: 30_000, reuseExistingServer: false,
-      env: { MEDIA_INTAKE_MODE: 'development', MEDIA_ENABLED: 'false', MEDIA_INTAKE_BIND: '127.0.0.1:3004', MEDIA_INTAKE_TOKEN: intakeToken, MEDIA_QUARANTINE_DIR: intakeRoot,
+      env: { ...serviceCredentialOverrides(process.env, ['INTAKE_DATABASE_URL']), MEDIA_INTAKE_MODE: 'development', MEDIA_ENABLED: 'false', MEDIA_INTAKE_BIND: '127.0.0.1:3004', MEDIA_INTAKE_TOKEN: intakeToken, MEDIA_QUARANTINE_DIR: intakeRoot,
         MIGRATION_DATABASE_URL: '', DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', AUTH_DATABASE_URL: '', STAFF_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', MONITOR_DATABASE_URL: '',
         STAFF_TRIPCODE_KEY: undefined, STAFF_POSTER_ID_KEY: undefined, STAFF_COUNTRY_DATABASE: undefined, STAFF_PROXY_SOCKET: undefined, STAFF_PROXY_UID: undefined,
         PUBLIC_INTAKE_TOKEN: '', GH_TOKEN: '', GITHUB_TOKEN: '', TRIPCODE_KEY: undefined, POSTER_ID_KEY: undefined, COUNTRY_DATABASE: undefined } },
     { command: `"${path.join(debugDir, `board-staff${binary}`)}"`, url: 'http://localhost:3001/readyz', timeout: 30_000, reuseExistingServer: false,
-      env: { ...shared, STAFF_BIND: '127.0.0.1:3001', STAFF_TRIPCODE_KEY: '11'.repeat(32), STAFF_POSTER_ID_KEY: '22'.repeat(32), STAFF_COUNTRY_DATABASE: countryDatabase, STAFF_PROXY_SOCKET: undefined, STAFF_PROXY_UID: undefined, MIGRATION_DATABASE_URL: '', DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: '', POSTER_ID_KEY: '', COUNTRY_DATABASE: '' } },
+      env: { ...serviceCredentialOverrides(process.env, ['AUTH_DATABASE_URL', 'STAFF_DATABASE_URL']), ...shared, STAFF_BIND: '127.0.0.1:3001', STAFF_TRIPCODE_KEY: '11'.repeat(32), STAFF_POSTER_ID_KEY: '22'.repeat(32), STAFF_COUNTRY_DATABASE: countryDatabase, STAFF_PROXY_SOCKET: undefined, STAFF_PROXY_UID: undefined, MIGRATION_DATABASE_URL: '', DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: '', POSTER_ID_KEY: '', COUNTRY_DATABASE: '' } },
     { command: `"${path.join(debugDir, `board-public${binary}`)}"`, url: 'http://127.0.0.1:3000/readyz', timeout: 30_000, reuseExistingServer: false,
-      env: { ...shared, BIND_ADDR: '127.0.0.1:3000', APP_ENV: 'development', MEDIA_ENABLED: 'true', PUBLIC_MEDIA_PROFILE: 'isolated-development', PUBLIC_INTAKE_ADDR: '127.0.0.1:3004', PUBLIC_INTAKE_TOKEN: intakeToken,
+      env: { ...serviceCredentialOverrides(process.env, ['DATABASE_URL']), ...shared, BIND_ADDR: '127.0.0.1:3000', APP_ENV: 'development', MEDIA_ENABLED: 'true', PUBLIC_MEDIA_PROFILE: 'isolated-development', PUBLIC_INTAKE_ADDR: '127.0.0.1:3004', PUBLIC_INTAKE_TOKEN: intakeToken,
         MIGRATION_DATABASE_URL: '', AUTH_DATABASE_URL: '', STAFF_DATABASE_URL: '', STAFF_TRIPCODE_KEY: undefined, STAFF_POSTER_ID_KEY: undefined, STAFF_COUNTRY_DATABASE: undefined, STAFF_PROXY_SOCKET: undefined, STAFF_PROXY_UID: undefined, MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: undefined, POSTER_ID_KEY: '22'.repeat(32), COUNTRY_DATABASE: countryDatabase } },
   ],
 });

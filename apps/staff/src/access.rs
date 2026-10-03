@@ -161,6 +161,13 @@ impl Permissions {
         self.allows("") && self.has_flag(flag)
     }
 
+    pub fn can_set_permaage(&self, role: &str) -> bool {
+        Level::parse(role).is_some_and(|level| {
+            level >= Level::Moderator
+                && (level >= Level::Manager || self.has_global_flag("developer"))
+        })
+    }
+
     pub fn action_allowed(&self, role: &str, board: &str, action: &str) -> bool {
         let Some(level) = Level::parse(role) else {
             return false;
@@ -171,10 +178,9 @@ impl Permissions {
         match action {
             "remove-post" | "remove-file" | "remove-thread" | "resolve" | "dismiss" | "spoiler"
             | "unspoiler" => true,
-            "close" | "reopen" | "sticky" | "unsticky" | "permasage" | "unpermasage" => {
-                level >= Level::Moderator
-            }
-            "permaage" | "unpermaage" => level == Level::Admin,
+            "close" | "reopen" | "sticky" | "unsticky" | "permasage" | "unpermasage" | "undead"
+            | "unundead" => level >= Level::Moderator,
+            "permaage" | "unpermaage" => self.can_set_permaage(role),
             _ => false,
         }
     }
@@ -183,6 +189,63 @@ impl Permissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn thread_option_permissions_match_all_original_preparation_cases() {
+        #[derive(serde::Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Case {
+            role: String,
+            developer: bool,
+            allow_all: bool,
+            deny_noboard: bool,
+            thread_options_allowed: bool,
+            permaage_allowed: bool,
+        }
+        let fixture: Fixture =
+            serde_json::from_str(include_str!("../tests/fixtures/staff-thread-options.json"))
+                .unwrap();
+        assert_eq!(fixture.cases.len(), 512);
+        for case in fixture.cases {
+            let permissions = Permissions {
+                allow_boards: vec![if case.allow_all { "all" } else { "g" }.into()],
+                deny_boards: if case.deny_noboard {
+                    vec!["noboard".into()]
+                } else {
+                    vec![]
+                },
+                flags: if case.developer {
+                    vec!["developer".into()]
+                } else {
+                    vec![]
+                },
+            };
+            assert_eq!(
+                permissions.can_set_permaage(&case.role),
+                case.thread_options_allowed && case.permaage_allowed,
+                "{} {} {} {}",
+                case.role,
+                case.developer,
+                case.allow_all,
+                case.deny_noboard
+            );
+            for action in ["permaage", "unpermaage"] {
+                assert_eq!(
+                    permissions.action_allowed(&case.role, "g", action),
+                    case.thread_options_allowed && case.permaage_allowed
+                );
+            }
+            for action in ["undead", "unundead"] {
+                assert_eq!(
+                    permissions.action_allowed(&case.role, "g", action),
+                    case.thread_options_allowed
+                );
+            }
+        }
+    }
 
     #[test]
     fn posting_options_match_the_full_source_preparation_order() {

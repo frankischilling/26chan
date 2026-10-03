@@ -96,6 +96,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .execute(&pool)
                 .await?;
         }
+        "image-limit" => {
+            let changed=sqlx::query("UPDATE content.boards SET image_limit=1 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned image-limit fixture board is missing".into());
+            }
+        }
         "authorized-limit" => {
             use std::io::Read;
             let mut input = String::new();
@@ -143,9 +150,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             .fetch_all(&pool)
             .await?;
             let sessions:i64=sqlx::query_scalar("SELECT count(*) FROM staff_identity.sessions s JOIN staff_identity.accounts a ON a.id=s.account_id WHERE a.username=$1").bind(board).fetch_one(&pool).await?;
+            let thread_options:Vec<(bool,bool,String,String)>=sqlx::query_as("SELECT permaage,undead,bumped_at::text,modified_at::text FROM content.threads WHERE board=$1 ORDER BY id")
+                .bind(board).fetch_all(&pool).await?;
             println!(
                 "{}",
-                json!({"states":states,"bumpFlags":bump_flags,"audit":audit,"credentials":credentials,"sessions":sessions})
+                json!({"states":states,"bumpFlags":bump_flags,"threadOptions":thread_options,"audit":audit,"credentials":credentials,"sessions":sessions})
             );
         }
         "spoiler-policy" => {

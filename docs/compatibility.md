@@ -31,6 +31,13 @@ transition, audit and rebuild rules. The report queue, public rendering and
 conditional JSON use the persisted state; the full staff extension, action
 log interface and remaining management actions are still unfinished.
 
+[Staff thread options](staff-thread-options.md) restores source Manager/global
+developer perma-age authority and moderator-or-higher Undead controls. Valid
+submissions advance modification time without bumping and audit only changes.
+Independent source cases cover permissions, assignments and audit masks;
+whole Thread Options presentation, grouped submissions and sticky ordering
+remain unfinished.
+
 [Global Search](public-search.md) now searches persisted public threads with
 source query parameters, grouped results, ordering and pagination. Public board
 visibility is enforced by the database. [RSS feeds](rss-feeds.md) use the source

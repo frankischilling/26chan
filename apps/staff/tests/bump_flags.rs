@@ -20,7 +20,7 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
     let mut expected = Vec::new();
     for (action, role, permasage, permaage) in [
         ("permasage", "moderator", true, false),
-        ("permaage", "admin", true, true),
+        ("permaage", "manager", true, true),
         ("unpermasage", "moderator", false, true),
         ("unpermaage", "admin", false, false),
     ] {
@@ -66,7 +66,14 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
             .fetch_one(&owner)
             .await
             .unwrap();
-    for action in ["permasage", "unpermasage", "permaage", "unpermaage"] {
+    for action in [
+        "permasage",
+        "unpermasage",
+        "permaage",
+        "unpermaage",
+        "undead",
+        "unundead",
+    ] {
         session.role = "admin".into();
         session.recent = false;
         assert!(matches!(
@@ -94,7 +101,14 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
         ));
     }
     sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1").bind(id).execute(&owner).await.unwrap();
-    for action in ["permasage", "unpermasage", "permaage", "unpermaage"] {
+    for action in [
+        "permasage",
+        "unpermasage",
+        "permaage",
+        "unpermaage",
+        "undead",
+        "unundead",
+    ] {
         assert!(matches!(
             moderate(&staff, &session, &slug, id, action).await,
             Err(AppError::Invalid)
@@ -105,7 +119,14 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
         .execute(&owner)
         .await
         .unwrap();
-    for action in ["permasage", "unpermasage", "permaage", "unpermaage"] {
+    for action in [
+        "permasage",
+        "unpermasage",
+        "permaage",
+        "unpermaage",
+        "undead",
+        "unundead",
+    ] {
         assert!(matches!(
             moderate(&staff, &session, &slug, id, action).await,
             Err(AppError::NotFound)

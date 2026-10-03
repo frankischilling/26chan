@@ -26,6 +26,8 @@ pub struct Report {
     pub sticky: bool,
     pub permasage: bool,
     pub permaage: bool,
+    pub undead: bool,
+    pub archived: bool,
     pub deleted: bool,
     pub spoilers_enabled: bool,
     pub image_spoiler: bool,
@@ -53,7 +55,7 @@ pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, Ap
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
         .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
         .fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
@@ -84,9 +86,6 @@ pub(crate) async fn prepare_moderation(
     if !session.recent {
         return Err(AppError::Recent);
     }
-    if matches!(action, "permaage" | "unpermaage") && session.role != "admin" {
-        return Err(AppError::Forbidden);
-    }
     if !matches!(
         action,
         "close"
@@ -97,6 +96,8 @@ pub(crate) async fn prepare_moderation(
             | "unpermasage"
             | "permaage"
             | "unpermaage"
+            | "undead"
+            | "unundead"
             | "remove-post"
             | "remove-file"
             | "spoiler"
@@ -115,6 +116,7 @@ pub(crate) async fn prepare_moderation(
         return Err(AppError::Forbidden);
     }
     let mut tx = pool.begin().await?;
+    let mut audit_changed = true;
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(board)
         .fetch_optional(&mut *tx)
@@ -175,8 +177,8 @@ pub(crate) async fn prepare_moderation(
         } else {
             target
         };
-        let archived: bool = sqlx::query_scalar(
-            "SELECT archived_at IS NOT NULL FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        let (archived, permaage, undead): (bool, bool, bool) = sqlx::query_as(
+            "SELECT archived_at IS NOT NULL,permaage,undead FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
         )
         .bind(board)
         .bind(thread)
@@ -186,7 +188,14 @@ pub(crate) async fn prepare_moderation(
         if archived
             && matches!(
                 action,
-                "reopen" | "sticky" | "permasage" | "unpermasage" | "permaage" | "unpermaage"
+                "reopen"
+                    | "sticky"
+                    | "permasage"
+                    | "unpermasage"
+                    | "permaage"
+                    | "unpermaage"
+                    | "undead"
+                    | "unundead"
             )
         {
             return Err(AppError::Invalid);
@@ -202,7 +211,12 @@ pub(crate) async fn prepare_moderation(
                 sqlx::query("UPDATE content.threads SET permasage=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="permasage").execute(&mut *tx).await?;
             }
             "permaage" | "unpermaage" => {
+                audit_changed = permaage != (action == "permaage");
                 sqlx::query("UPDATE content.threads SET permaage=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="permaage").execute(&mut *tx).await?;
+            }
+            "undead" | "unundead" => {
+                audit_changed = undead != (action == "undead");
+                sqlx::query("UPDATE content.threads SET undead=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="undead").execute(&mut *tx).await?;
             }
             "remove-post" | "remove-thread" => {
                 let whole = action == "remove-thread" || target == thread;
@@ -212,7 +226,9 @@ pub(crate) async fn prepare_moderation(
             _ => return Err(AppError::Invalid),
         }
     }
-    sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES ($1,$2,$3,$4)").bind(session.account_id).bind(board).bind(target).bind(action).execute(&mut *tx).await?;
+    if audit_changed {
+        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES ($1,$2,$3,$4)").bind(session.account_id).bind(board).bind(target).bind(action).execute(&mut *tx).await?;
+    }
     Ok(tx)
 }
 

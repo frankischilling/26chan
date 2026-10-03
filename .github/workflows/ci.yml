@@ -246,6 +246,8 @@ jobs:
         run: sudo bash scripts/test-ordinary-staff-post-migration.sh
       - name: Upgrade staff spoiler controls while preserving subjects, files and privacy
         run: sudo bash scripts/test-staff-spoiler-migration.sh
+      - name: Upgrade existing thread options with scoped staff Undead control
+        run: sudo bash scripts/test-staff-thread-options-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
