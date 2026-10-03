@@ -12,9 +12,10 @@ The reference is the supplied revision
 `lib/postfilter.php`. The extractor evaluates only those three pure bodies.
 It does not load the application, includes, database, session class or RPC code.
 It requires PHP's ICU and UTF-8 extensions and records PHP 8.3.6, PCRE2 10.42
-and ICU/data 74.2. The independent JSON contains 1,849 synthetic inputs and
+and ICU/data 74.2. The independent JSON contains 1,862 synthetic inputs and
 four outputs per input: ASCII lowercase, case-preserving transliteration,
-normalized matching text and zero-width removal.
+normalized matching text and zero-width removal. It records the native error
+code for ten inputs whose transformed UTF-16 cannot be converted back to UTF-8.
 
 The Rust wrapper uses the same fixed ICU transform ID and preserves its order:
 Any-Latin, NFD, nonspacing-mark removal, NFKC, then Latin-ASCII. Bracketed
@@ -53,6 +54,18 @@ retains its permit until native processing ends, including after cancellation.
 Construction, input, work and output failures return explicit errors. The
 source's fallback when ICU construction fails is not used; an unavailable
 normalizer must not turn configured admission into an allow decision.
+
+The bounded Unicode property test found U+10000 followed by U+309D. The supplied
+PHP/ICU 74.2 helper reports `U_INVALID_CHAR_FOUND` for that input and nine related
+cases, then coerces the failure to empty lowercase/matching text. Rust preserves
+the native failure as `InvalidOutput` and rejects admission. Three adjacent
+controls still transform successfully. All 1,849 earlier fixture results remain
+unchanged. The saved regression seed stays in the repository, and the property
+test checks every generated input without discarding native failures. Successful
+outputs retain the ASCII whitelist and size assertions; invalid native outputs
+must fail in every normalization entry point. Database regressions require no
+post, thread, admission hit, log or ban to be created by either the fixed name
+check or a configured content rule, with a successful control afterward.
 
 ## Build and qualification
 

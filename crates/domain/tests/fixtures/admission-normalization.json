@@ -217,6 +217,107 @@
             "zero_width_removed": "Paper😀fold🧩☀☂🚀🛰🪁"
         },
         {
+            "input": "𐀀ゝ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ゝ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "𐀀ゞ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ゞ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "𐀀ヽ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ヽ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "𐀀ヾ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ヾ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "𐀀々",
+            "ascii": "𐀀⓶",
+            "ascii_preserving_case": "𐀀⓶",
+            "text": "",
+            "zero_width_removed": "𐀀々"
+        },
+        {
+            "input": "𐀀〻",
+            "ascii": "𐀀〻",
+            "ascii_preserving_case": "𐀀〻",
+            "text": "",
+            "zero_width_removed": "𐀀〻"
+        },
+        {
+            "input": "𐀀ゝゝ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ゝゝ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "A𐀀ゝZ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "A𐀀ゝZ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "😀ゝ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "😀ゝ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "􏿿ゝ",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "􏿿ゝ",
+            "icu_error_code": 10
+        },
+        {
+            "input": "𠀀ゝ",
+            "ascii": "hee",
+            "ascii_preserving_case": "hee",
+            "text": "hee",
+            "zero_width_removed": "𠀀ゝ"
+        },
+        {
+            "input": "𐀀ゝa",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ゝa",
+            "icu_error_code": 10
+        },
+        {
+            "input": "𐀀ゝ𐀀",
+            "ascii": "",
+            "ascii_preserving_case": false,
+            "text": "",
+            "zero_width_removed": "𐀀ゝ𐀀",
+            "icu_error_code": 10
+        },
+        {
             "input": "A(dot)B",
             "ascii": "a.b",
             "ascii_preserving_case": "A.B",

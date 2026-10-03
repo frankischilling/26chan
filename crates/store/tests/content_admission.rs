@@ -142,6 +142,53 @@ impl Fixture {
 }
 
 #[tokio::test]
+async fn native_invalid_unicode_preserves_posts_and_admission_effects() {
+    let _guard = POLICY_TEST.lock().await;
+    let f = Fixture::new().await;
+    // The fixed name check is active even without configured content rules.
+    assert!(matches!(
+        f.create_named(0, 0, "\u{10000}\u{309d}", "", "ordinary").await,
+        Err(StoreError::Database(sqlx::Error::Protocol(message)))
+            if message == "Content admission is unavailable."
+    ));
+    assert_eq!(f.count("posts").await, 0);
+    assert_eq!(f.count("threads").await, 0);
+    let rule = f.rule("paper").await;
+    sqlx::query("UPDATE admission.rules SET log=true,autosage=true WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.create(0, 0, "", "\u{10000}\u{309d}").await,
+        Err(StoreError::Database(sqlx::Error::Protocol(message)))
+            if message == "Content admission is unavailable."
+    ));
+    assert_eq!(f.count("posts").await, 0);
+    assert_eq!(f.count("threads").await, 0);
+    for query in [
+        "SELECT count(*) FROM admission.hits WHERE board=ANY($1)",
+        "SELECT count(*) FROM admission.logs WHERE board=ANY($1)",
+        "SELECT count(*) FROM admission.bans WHERE board=ANY($1)",
+    ] {
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(query)
+                .bind(f.boards.as_slice())
+                .fetch_one(&f.owner)
+                .await
+                .unwrap(),
+            0
+        );
+    }
+    f.create_named(0, 0, "\u{10000}", "", "\u{20000}\u{309d}")
+        .await
+        .unwrap();
+    assert_eq!(f.count("posts").await, 1);
+    assert_eq!(f.count("threads").await, 1);
+    f.cleanup().await;
+}
+
+#[tokio::test]
 async fn fixed_trip_checks_follow_configured_actions_without_reading_private_passwords() {
     let _guard = POLICY_TEST.lock().await;
     let f = Fixture::new().await;

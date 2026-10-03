@@ -106,6 +106,16 @@ pub struct ThreadView {
     pub image_replies: i64,
 }
 impl ThreadView {
+    pub fn catalog_reply_identity_visible(&self, board: &Board) -> bool {
+        board_domain::capcode::catalog_identity_visible(
+            self.catalog_last_reply
+                .as_ref()
+                .and_then(|reply| reply.capcode.as_deref()),
+            board.forced_anon,
+            board.staff_only,
+        )
+    }
+
     pub fn bump_limited(&self, board: &Board) -> bool {
         board_domain::bump::limited(
             self.thread.sticky,
@@ -148,6 +158,14 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn catalog_identity_visible(&self, board: &Board) -> bool {
+        board_domain::capcode::catalog_identity_visible(
+            self.post.capcode.as_deref(),
+            board.forced_anon,
+            board.staff_only,
+        )
+    }
+
     pub fn filter_name(&self) -> String {
         board_domain::source_html_entities(&self.post.name)
     }

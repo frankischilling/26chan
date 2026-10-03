@@ -94,5 +94,11 @@ mod tests {
             evaluate(&"ﷺ".repeat(4096), "", false),
             Err(NormalizationError::WorkTooLarge)
         );
+        for moderator in [false, true] {
+            assert_eq!(
+                evaluate("\u{10000}\u{309d}", "", moderator),
+                Err(NormalizationError::InvalidOutput)
+            );
+        }
     }
 }

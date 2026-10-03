@@ -114,6 +114,38 @@ test('staff badges admit only complete pinned header recipes and fixed icon fetc
   assert.equal(parse(duplicated).status, 'invalid-snapshot');
 });
 
+test('staff badges retain only prepared trip hashes in their own bounded name block', () => {
+  for (const def of capcodes) for (const trip of ['!ozOtJW9BFA', '!!ABCDEFGHIJK']) {
+    const positive = capcodeSnapshot(def);
+    const hash = `<span class="postertrip">${trip}</span>`;
+    positive.posts[1].html = positive.posts[1].html.replace('</span> <strong', `</span> ${hash} <strong`);
+    assert.equal(parse(positive).status, 'ok', `${def[0]} ${trip}`);
+    for (const [from, to] of [
+      [hash, `<span class="postertrip">${trip}x</span>`],
+      [hash, '<span class="postertrip">private-password</span>'],
+      [hash, `<span class="postertrip" title="extra">${trip}</span>`],
+      [hash, `<span class="postertrip"><span>${trip}</span></span>`],
+      [hash, `${hash} ${hash}`],
+      ['</blockquote>', `${hash}</blockquote>`],
+    ]) {
+      const candidate = structuredClone(positive);
+      candidate.posts[1].html = candidate.posts[1].html.replace(from, to);
+      assert.notEqual(candidate.posts[1].html, positive.posts[1].html);
+      assert.equal(parse(candidate).status, 'invalid-snapshot', to);
+    }
+    const moved = structuredClone(positive);
+    moved.posts[1].html = moved.posts[1].html.replace(` ${hash}`, '').replace('</blockquote>', `${hash}</blockquote>`);
+    assert.equal(parse(moved).status, 'invalid-snapshot');
+    const limit = 255 - new TextEncoder().encode(`</span> <span class="postertrip">${trip}`).length;
+    for (const [name, expected] of [['n'.repeat(limit), 'ok'], ['n'.repeat(limit + 1), 'invalid-snapshot'],
+      ['&amp;'.repeat(Math.floor(limit / 5)), 'ok'], ['&amp;'.repeat(Math.floor(limit / 5) + 1), 'invalid-snapshot']]) {
+      const candidate = structuredClone(positive);
+      candidate.posts[1].html = candidate.posts[1].html.replace('Owned &lt;staff&gt;', name);
+      assert.equal(parse(candidate).status, expected, `${trip}: ${name.length}`);
+    }
+  }
+});
+
 test('post numbers bind both links, labels and titles to their own post header', () => {
   const positive = snapshot(), no = positive.posts[1].no;
   const permalink = `/demo/thread/${context.thread}#p${no}`;
@@ -164,6 +196,25 @@ function pairedHeaderSnapshot(def = null, highlighted = false) {
   }
   return value;
 }
+
+test('paired staff trip headers survive updater, preview and board-page validation', () => {
+  for (const def of capcodes) for (const trip of ['!ozOtJW9BFA', '!!ABCDEFGHIJK']) {
+    const value = pairedHeaderSnapshot(def);
+    for (const post of value.posts) post.html = post.html.replaceAll('</span> <strong',
+      `</span> <span class="postertrip">${trip}</span> <strong`);
+    const result = parse(value);
+    assert.equal(result.status, 'ok');
+    for (const post of result.snapshot.posts) assert.doesNotThrow(() => validatePostTree(post.tree, context, post.no));
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: context.board,
+      thread: context.thread, post: value.posts[0] }), { ...context, post: context.thread }).status, 'ok');
+    assert.equal(parseBoardPageSnapshot(JSON.stringify({ version: 1, board: context.board, page: 0, next_page: null,
+      threads: [{ thread: context.thread, closed: false, sticky: false, archived: false, replies: 1,
+        images: 0, omitted: 0, posts: value.posts }] }), { ...context, page: 0 }).status, 'ok');
+    const mismatched = structuredClone(value);
+    mismatched.posts[1].html = mismatched.posts[1].html.replace(trip, trip === '!ozOtJW9BFA' ? '!0123456789' : '!!01234567890');
+    assert.equal(parse(mismatched).status, 'invalid-snapshot');
+  }
+});
 
 test('authorized names and subjects survive worker parsing and live tree validation within saved UTF-8 bounds', () => {
   const escape = text => text.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);

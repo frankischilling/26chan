@@ -51,7 +51,23 @@ pub fn prepare_for_board(
     spacing: crate::CommentSpacing<'_>,
     strip_tripcode: bool,
 ) -> Result<Identity, crate::ValidationError> {
-    if raw.len() > crate::MAX_PUBLIC_FIELD_BYTES
+    prepare_for_board_with_limits(
+        raw,
+        key,
+        spacing,
+        strip_tripcode,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn prepare_for_board_with_limits(
+    raw: &str,
+    key: Option<&SecureKey>,
+    spacing: crate::CommentSpacing<'_>,
+    strip_tripcode: bool,
+    limits: crate::PostLimits,
+) -> Result<Identity, crate::ValidationError> {
+    if raw.len() > limits.field_bytes()
         || raw
             .chars()
             .any(|ch| ch.is_control() && !matches!(ch, '\r' | '\n' | '\t'))
@@ -415,8 +431,24 @@ mod tests {
 
     #[test]
     fn public_names_and_parser_branches_match_selected_source_bodies() {
-        let fixture: serde_json::Value =
-            serde_json::from_str(include_str!("../tests/fixtures/public-name.json")).unwrap();
+        check_source_names(
+            include_str!("../tests/fixtures/public-name.json"),
+            crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+            469,
+        );
+    }
+
+    #[test]
+    fn authorized_names_keep_raw_and_finished_bounds_from_selected_source_bodies() {
+        check_source_names(
+            include_str!("../tests/fixtures/staff-name.json"),
+            crate::PostLimits::authorized(10_000).unwrap(),
+            553,
+        );
+    }
+
+    fn check_source_names(source: &str, limits: crate::PostLimits, expected: usize) {
+        let fixture: serde_json::Value = serde_json::from_str(source).unwrap();
         let key = SecureKey::parse(&"1".repeat(64)).unwrap();
         let mut count = 0;
         for group in fixture["groups"].as_array().unwrap() {
@@ -427,11 +459,12 @@ mod tests {
             );
             for case in group["cases"].as_array().unwrap() {
                 count += 1;
-                let result = prepare_for_board(
+                let result = prepare_for_board_with_limits(
                     case["input"].as_str().unwrap(),
                     Some(&key),
                     spacing,
                     group["strip"].as_bool().unwrap(),
+                    limits,
                 );
                 if case["outcome"] == "too_long" {
                     assert!(result.is_err(), "{}", case["input"]);
@@ -456,7 +489,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(count, 469);
+        assert_eq!(count, expected);
     }
 
     #[test]

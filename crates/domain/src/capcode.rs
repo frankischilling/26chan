@@ -33,6 +33,17 @@ impl Capcode {
         }
     }
 
+    pub fn source_option(self) -> &'static str {
+        match self {
+            Self::Moderator => "capcode_mod",
+            Self::Administrator => "capcode_admin",
+            Self::HighlightedAdministrator => "capcode_admin_hl",
+            Self::Manager => "capcode_manager",
+            Self::Developer => "capcode_dev",
+            Self::Founder => "capcode_founder",
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Moderator => "Mod",
@@ -100,9 +111,42 @@ impl Capcode {
     }
 }
 
+/// The catalog's identity suppression is narrower than posting's rank-based
+/// administrator exception: only these two saved badge values bypass it.
+pub fn catalog_identity_visible(
+    capcode: Option<&str>,
+    forced_anonymous: bool,
+    meta_board: bool,
+) -> bool {
+    !(forced_anonymous || meta_board) || matches!(capcode, Some("admin" | "admin_highlight"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn catalog_identity_matches_both_pinned_source_predicates() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/staff-catalog-identity.json"
+        ))
+        .unwrap();
+        let cases = fixture["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 64);
+        for case in cases {
+            let badge = case["capcode"].as_str().unwrap();
+            let capcode = (badge != "none").then_some(badge);
+            assert_eq!(
+                catalog_identity_visible(
+                    capcode,
+                    case["forced_anonymous"].as_bool().unwrap(),
+                    case["meta_board"].as_bool().unwrap()
+                ),
+                case["identity_visible"].as_bool().unwrap(),
+                "{case}"
+            );
+        }
+    }
 
     #[test]
     fn only_pinned_labels_have_fixed_rendering_values() {

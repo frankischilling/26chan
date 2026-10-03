@@ -17,6 +17,8 @@ pub enum NormalizationError {
     OutputTooLarge,
     #[error("Admission normalization work limit exceeded.")]
     WorkTooLarge,
+    #[error("Admission normalization returned invalid Unicode.")]
+    InvalidOutput,
     #[error("Admission normalization is unavailable.")]
     Unavailable,
 }
@@ -60,9 +62,13 @@ impl Normalizer {
             {
                 return Err(NormalizationError::WorkTooLarge);
             }
-            self.transform
-                .transliterate(&replaced)
-                .map_err(|_| NormalizationError::Unavailable)?
+            self.transform.transliterate(&replaced).map_err(|error| {
+                if error.is_code(rust_icu_sys::UErrorCode::U_INVALID_CHAR_FOUND) {
+                    NormalizationError::InvalidOutput
+                } else {
+                    NormalizationError::Unavailable
+                }
+            })?
         };
         if output.len() > MAX_OUTPUT_BYTES {
             return Err(NormalizationError::OutputTooLarge);
@@ -155,10 +161,34 @@ mod tests {
         .unwrap();
         assert_eq!(fixture["extractor_icu"], "74.2");
         let cases = fixture["cases"].as_array().unwrap();
-        assert_eq!(cases.len(), 1849);
+        assert_eq!(cases.len(), 1862);
         let normalizer = Normalizer::new().unwrap();
+        let mut invalid_outputs = 0;
         for (index, case) in cases.iter().enumerate() {
             let input = case["input"].as_str().unwrap();
+            if case["ascii_preserving_case"] == false {
+                invalid_outputs += 1;
+                assert_eq!(case["icu_error_code"], 10);
+                assert_eq!(case["ascii"], "");
+                assert_eq!(case["text"], "");
+                // PHP coerces its failed native output to empty matching text.
+                // Admission must instead reject all projections explicitly.
+                assert_eq!(
+                    normalizer.ascii(input, false),
+                    Err(NormalizationError::InvalidOutput)
+                );
+                assert_eq!(
+                    normalizer.ascii(input, true),
+                    Err(NormalizationError::InvalidOutput)
+                );
+                assert_eq!(
+                    normalizer.text(input),
+                    Err(NormalizationError::InvalidOutput)
+                );
+                assert_eq!(text(input), Err(NormalizationError::InvalidOutput));
+                assert_eq!(strip_zero_width(input).unwrap(), case["zero_width_removed"]);
+                continue;
+            }
             assert_eq!(
                 normalizer.ascii(input, false).unwrap(),
                 case["ascii"],
@@ -185,6 +215,7 @@ mod tests {
                 "exclusions {index}"
             );
         }
+        assert_eq!(invalid_outputs, 10);
     }
 
     #[test]
@@ -239,12 +270,28 @@ mod tests {
         ) {
             let input: String = input.into_iter().collect();
             let normalizer = Normalizer::new().unwrap();
-            let ascii = normalizer.ascii(&input, true).unwrap();
-            let lower = normalizer.ascii(&input, false).unwrap();
-            prop_assert_eq!(lower, ascii.to_ascii_lowercase());
-            let text = normalizer.text(&input).unwrap();
-            prop_assert!(text.bytes().all(|ch| ch.is_ascii_alphanumeric() || b".,/&:;?=~_-".contains(&ch)));
-            prop_assert!(text.len() <= MAX_OUTPUT_BYTES);
+            let ascii = normalizer.ascii(&input, true);
+            let lower = normalizer.ascii(&input, false);
+            let matching = normalizer.text(&input);
+            match ascii {
+                Ok(ascii) => {
+                    prop_assert!(ascii.len() <= MAX_OUTPUT_BYTES);
+                    prop_assert_eq!(lower.unwrap(), ascii.to_ascii_lowercase());
+                    let matching = matching.unwrap();
+                    prop_assert!(matching.bytes().all(|ch| ch.is_ascii_alphanumeric() || b".,/&:;?=~_-".contains(&ch)));
+                    prop_assert!(matching.len() <= MAX_OUTPUT_BYTES);
+                    prop_assert_eq!(text(&input).unwrap(), matching);
+                }
+                Err(error) => {
+                    // Valid input can produce invalid UTF-16 inside ICU 74.
+                    // No generated input is discarded: only that specific
+                    // native failure is accepted, and every API must reject it.
+                    prop_assert_eq!(error, NormalizationError::InvalidOutput);
+                    prop_assert_eq!(lower, Err(NormalizationError::InvalidOutput));
+                    prop_assert_eq!(matching, Err(NormalizationError::InvalidOutput));
+                    prop_assert_eq!(text(&input), Err(NormalizationError::InvalidOutput));
+                }
+            }
             let stripped = strip_zero_width(&input).unwrap();
             prop_assert!(stripped.len() <= input.len());
             prop_assert_eq!(strip_zero_width(&stripped).unwrap(), stripped);

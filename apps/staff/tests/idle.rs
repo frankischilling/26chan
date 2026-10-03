@@ -51,6 +51,7 @@ async fn fixture() -> Fixture {
                 auth_database: String::new(),
                 staff_database: String::new(),
                 idle_timeout: Duration::from_secs(60),
+                tripcode_key: None,
             },
             auth: auth_pool,
             staff: pool("STAFF_DATABASE_URL").await,

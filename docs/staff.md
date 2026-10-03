@@ -23,7 +23,7 @@ target/debug/staff-operator.exe recover alice .local/alice-recovery/invitation.t
 target/debug/staff-operator.exe revoke alice
 ```
 
-Use a private channel to deliver enrollment material. Recovery deletes prior credentials, sessions, outstanding ceremonies and invitations before committing the replacement invitation. Revocation disables the account and deletes the same records. Role changes clear the assigned public badge and revoke sessions. The operator's `capcode` command assigns an allowed badge and also revokes sessions. Board-scope and flag changes revoke sessions as well. Online staff cannot change their own roles or scope.
+Use a private channel to deliver enrollment material. Recovery deletes prior credentials, sessions, outstanding ceremonies and invitations before committing the replacement invitation. Revocation disables the account and deletes the same records. Role changes clear the assigned public badge and revoke sessions. The operator's `capcode` command sets a default badge and also revokes sessions; it grants no posting permission. [Source badge and name flags](staff-capcodes.md) still control eligible choices. Board-scope and flag changes revoke sessions as well. Online staff cannot change their own roles or scope.
 
 The source ranks are janitor, moderator, manager and administrator, with levels 1, 10, 20 and 50. `mod` is accepted as an operator alias for `moderator`. A developer is a flagged moderator, not a fifth rank. Janitors can remove content and resolve or dismiss reports on assigned boards. Moderators and higher ranks can change closed, sticky and permasage state. Permaage remains administrator-only. The report query filters permitted boards before applying its 100-report limit.
 

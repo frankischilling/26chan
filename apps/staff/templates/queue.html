@@ -9,7 +9,7 @@
 {% for preview in reports %}{% let r = preview.report %}
 <article id="report-{{ r.id }}"><h2>Report {{ r.id }}: /{{ r.board }}/ post {{ r.post_id }}</h2>
 <p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, permasage: {{ r.permasage }}, permaage: {{ r.permaage }}, removed: {{ r.deleted }}.</p>
-<p>Reason: {{ r.reason }}</p><h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}{% if let Some(capcode) = preview.capcode() %} <strong>## {{ capcode.label() }}</strong>{% else %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(id) = r.poster_id %} <span class="posteruid">(ID: {{ id }})</span>{% endif %}{% if let Some(flag) = preview.flag() %} ({{ flag.0 }}: {{ flag.1 }}){% endif %}{% endif %}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
+<p>Reason: {{ r.reason }}</p><h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}{% if let Some(capcode) = preview.capcode() %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %} <strong>## {{ capcode.label() }}</strong>{% else %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(id) = r.poster_id %} <span class="posteruid">(ID: {{ id }})</span>{% endif %}{% if let Some(flag) = preview.flag() %} ({{ flag.0 }}: {{ flag.1 }}){% endif %}{% endif %}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
 {% if let Some(a) = r.attachment %}
 <section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
 {% if a.available %}

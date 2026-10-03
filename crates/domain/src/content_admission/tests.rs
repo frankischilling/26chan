@@ -45,6 +45,25 @@ fn post(comment: &str) -> Post<'_> {
 }
 
 #[test]
+fn native_invalid_unicode_cannot_become_an_empty_matching_projection() {
+    let policy = Policy::compile(vec![ordinary("paper", false)]).unwrap();
+    assert_eq!(
+        policy.evaluate(post("\u{10000}\u{309d}"), Actor::default()),
+        Err(AdmissionError::Normalization(
+            NormalizationError::InvalidOutput
+        ))
+    );
+    assert_eq!(
+        policy.evaluate(post("\u{10000}"), Actor::default()),
+        Ok(Decision::Allow)
+    );
+    assert_eq!(
+        policy.evaluate(post("\u{20000}\u{309d}"), Actor::default()),
+        Ok(Decision::Allow)
+    );
+}
+
+#[test]
 fn recorded_source_decisions_and_all_effects_match() {
     let fixture: Value =
         serde_json::from_str(include_str!("../../tests/fixtures/content-admission.json")).unwrap();

@@ -403,6 +403,7 @@ pub(crate) async fn submit(
             idle_seconds: state.config.idle_timeout.as_secs() as i32,
             highlight: false,
             authorized_limits,
+            identity: None,
         },
     )
     .await;

@@ -8,8 +8,8 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:3001', browserName: 'chromium', trace: 'off', screenshot: 'off', video: 'off' },
   webServer: [
     { command: `"${path.join(debugDir, `board-staff${binary}`)}"`, url: 'http://localhost:3001/readyz', timeout: 30_000, reuseExistingServer: false,
-      env: { ...shared, STAFF_BIND: '127.0.0.1:3001', MIGRATION_DATABASE_URL: '', DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: '', POSTER_ID_KEY: '', COUNTRY_DATABASE: '' } },
+      env: { ...shared, STAFF_BIND: '127.0.0.1:3001', STAFF_TRIPCODE_KEY: '11'.repeat(32), MIGRATION_DATABASE_URL: '', DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: '', POSTER_ID_KEY: '', COUNTRY_DATABASE: '' } },
     { command: `"${path.join(debugDir, `board-public${binary}`)}"`, url: 'http://127.0.0.1:3000/readyz', timeout: 30_000, reuseExistingServer: false,
-      env: { ...shared, BIND_ADDR: '127.0.0.1:3000', APP_ENV: 'development', MEDIA_ENABLED: 'false', MIGRATION_DATABASE_URL: '', AUTH_DATABASE_URL: '', STAFF_DATABASE_URL: '', MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: undefined, POSTER_ID_KEY: undefined, COUNTRY_DATABASE: undefined } },
+      env: { ...shared, BIND_ADDR: '127.0.0.1:3000', APP_ENV: 'development', MEDIA_ENABLED: 'false', MIGRATION_DATABASE_URL: '', AUTH_DATABASE_URL: '', STAFF_DATABASE_URL: '', STAFF_TRIPCODE_KEY: undefined, MEDIA_DATABASE_URL: '', MEDIA_READ_DATABASE_URL: '', TEST_PUBLIC_DATABASE_URL: '', MONITOR_DATABASE_URL: '', INTAKE_DATABASE_URL: '', TRIPCODE_KEY: undefined, POSTER_ID_KEY: undefined, COUNTRY_DATABASE: undefined } },
   ],
 });

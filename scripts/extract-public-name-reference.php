@@ -2,10 +2,12 @@
 // Selected pure functions and one fixed name block, with synthetic board policy.
 // Never load the application, request handlers, credentials or database code.
 if ($argc < 3) {
-    fwrite(STDERR, "Usage: php scripts/extract-public-name-reference.php SOURCE JSON [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/extract-public-name-reference.php SOURCE JSON [--authorized] [--check]\n");
     exit(2);
 }
 $root = realpath($argv[1]);
+$authorized = in_array('--authorized', $argv, true);
+$raw_limit = $authorized ? 255 : 100;
 $hashes = ['imgboard.php' => 'caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445',
     'lib/postfilter.php' => 'd0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207'];
 $policies = [['g', false, false, false], ['a', false, false, false], ['b', false, false, false],
@@ -74,7 +76,7 @@ if (($argv[3] ?? '') === '--worker') {
     }
     $body = substr($source, $begin, $end - $begin);
     $function = 'function owned_prepare_name($name) { $dest="synthetic"; '
-        . 'if (strlen($name) > 100) error(S_TOOLONG, $dest); '
+        . 'if (strlen($name) > ' . $raw_limit . ') error(S_TOOLONG, $dest); '
         . implode("\n", $preprocess)
         . "\n" . '$owned_utf8 = preg_replace("/[\\r\\n]/", "", $name);' . "\n"
         . $body . "\n" . 'if (!strlen($name)) $name = S_ANONAME; return [$name, $owned_utf8]; }';
@@ -103,6 +105,14 @@ if (($argv[3] ?? '') === '--worker') {
         str_repeat('&', 50), str_repeat('&', 51), str_repeat('"', 42), str_repeat('"', 43),
         'A' . str_repeat("\t", 63) . 'B', 'A' . str_repeat("\t", 64) . 'B',
         str_repeat('"', 36) . '#password', str_repeat('"', 37) . '#password'];
+    if ($authorized) {
+        $inputs = array_merge($inputs, [str_repeat('n', 255), str_repeat('n', 256),
+            str_repeat('界', 85), str_repeat('界', 86),
+            str_repeat('n', 253) . "\r\n", str_repeat('n', 254) . "\r\n",
+            'Name#' . str_repeat('p', 250), 'Name##' . str_repeat('p', 249),
+            str_repeat('n', 212) . '#password', str_repeat('n', 213) . '#password',
+            str_repeat('n', 210) . '##password', str_repeat('n', 211) . '##password']);
+    }
     $cases = [];
     foreach ($inputs as $input) {
         $GLOBALS['owned_name_warnings'] = 0;
@@ -131,7 +141,9 @@ if (($argv[3] ?? '') === '--worker') {
 }
 $groups = [];
 foreach (array_keys($policies) as $index) {
-    $process = proc_open([PHP_BINARY, '-d', 'memory_limit=128M', __FILE__, $root, $argv[2], '--worker', (string)$index],
+    $worker_args = [PHP_BINARY, '-d', 'memory_limit=128M', __FILE__, $root, $argv[2], '--worker', (string)$index];
+    if ($authorized) { $worker_args[] = '--authorized'; }
+    $process = proc_open($worker_args,
         [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     if (!is_resource($process)) { throw new RuntimeException('Synthetic name worker cannot start.'); }
     fclose($pipes[0]); stream_set_blocking($pipes[1], false); stream_set_blocking($pipes[2], false);
@@ -160,6 +172,10 @@ $fixture = ['reference' => 'operator-supplied 4chan-old checkout', 'files' => $h
         'synthetic source secure-trip salt, never read from disk'],
     'security_replacement' => 'modern_trip uses HMAC-SHA256 with synthetic key 0x11 repeated 32 times and cleaned UTF-8 secret bytes',
     'groups' => $groups];
+if ($authorized) {
+    $fixture['raw_name_bytes'] = $raw_limit;
+    $fixture['boundary_stubs'][] = 'authorized raw name bound, separately checked by rank-specific input fixtures';
+}
 $json = json_encode($fixture, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 if (strlen($json) > 262144) { throw new RuntimeException('Name reference exceeds bounds.'); }
 if (in_array('--check', $argv, true)) {
@@ -167,4 +183,4 @@ if (in_array('--check', $argv, true)) {
 } elseif (file_put_contents($argv[2], $json) !== strlen($json)) {
     throw new RuntimeException('Name reference cannot be saved.');
 }
-echo 'Public name source cases: ' . array_sum(array_map(fn($group) => count($group['cases']), $groups)) . "\n";
+echo ($authorized ? 'Authorized' : 'Public') . ' name source cases: ' . array_sum(array_map(fn($group) => count($group['cases']), $groups)) . "\n";

@@ -70,6 +70,7 @@ fn http_reader_rejects_unsafe_configuration_before_connecting() {
         ),
         ("STAFF_DATABASE_URL", "synthetic-other-credential", false),
         ("AUTH_DATABASE_URL", "synthetic-other-credential", false),
+        ("STAFF_TRIPCODE_KEY", "synthetic-other-credential", false),
         (
             "MEDIA_READ_DATABASE_URL",
             "postgres://board_media@127.0.0.1/test",

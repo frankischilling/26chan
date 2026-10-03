@@ -438,6 +438,41 @@ pub async fn posting(
     }
     let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
         .bind(session.account_id).fetch_one(&state.auth).await?;
+    let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
+    use board_domain::capcode::Capcode;
+    let eligible: Vec<_> = [
+        Capcode::Moderator,
+        Capcode::Administrator,
+        Capcode::HighlightedAdministrator,
+        Capcode::Manager,
+        Capcode::Developer,
+        Capcode::Founder,
+    ]
+    .into_iter()
+    .filter(|badge| {
+        level.public_capcode(badge.source_option(), &session.permissions) == Ok(Some(*badge))
+    })
+    .collect();
+    let selected_badge = Capcode::parse(&label)
+        .filter(|badge| eligible.contains(badge))
+        .or_else(|| eligible.first().copied())
+        .ok_or(AppError::Forbidden)?
+        .as_str()
+        .to_owned();
+    let badges = eligible
+        .into_iter()
+        .map(|badge| {
+            (
+                badge.as_str().to_owned(),
+                if badge.highlighted() {
+                    "Admin (highlighted)"
+                } else {
+                    badge.label()
+                }
+                .to_owned(),
+            )
+        })
+        .collect();
     let comment_max_units = boards
         .iter()
         .find(|board| board.0 == query.board)
@@ -451,7 +486,9 @@ pub async fn posting(
             query,
             csrf,
             recent: session.recent,
-            admin: label == "admin",
+            admin: level == crate::access::Level::Admin && selected_badge == "admin",
+            badges,
+            selected_badge,
         }
         .render()
         .map_err(|_| AppError::Internal)?,
@@ -475,6 +512,8 @@ pub struct StaffMessage {
     pub sage: bool,
     #[serde(default)]
     pub highlight: bool,
+    #[serde(default)]
+    pub badge: String,
 }
 
 pub async fn post_message(
@@ -498,6 +537,31 @@ pub async fn post_message(
     }
     if input.thread < 0 || board_domain::BoardSlug::parse(&input.board).is_err() {
         return Err(AppError::Invalid);
+    }
+    use board_domain::capcode::Capcode;
+    let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
+    let default_badge;
+    let selected = if input.badge.is_empty() {
+        default_badge = sqlx::query_scalar::<_,String>("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+            .bind(session.account_id).fetch_one(&state.auth).await?;
+        &default_badge
+    } else {
+        &input.badge
+    };
+    let mut badge = Capcode::parse(selected).ok_or(AppError::Invalid)?;
+    if input.highlight {
+        if level != crate::access::Level::Admin
+            || !matches!(
+                badge,
+                Capcode::Administrator | Capcode::HighlightedAdministrator
+            )
+        {
+            return Err(AppError::Unauthorized);
+        }
+        badge = Capcode::HighlightedAdministrator;
+    }
+    if level.public_capcode(badge.source_option(), &session.permissions) != Ok(Some(badge)) {
+        return Err(AppError::Unauthorized);
     }
     let token = auth::cookie(&headers, state.config.cookie_name())?;
     let session_hash = auth::hash(&token);
@@ -523,8 +587,14 @@ pub async fn post_message(
             csrf_hash: &csrf_hash,
             ticket_hash: &ticket_hash,
             idle_seconds: state.config.idle_timeout.as_secs() as i32,
-            highlight: input.highlight,
+            highlight: false,
             authorized_limits: true,
+            identity: Some(board_store::StaffPostIdentity {
+                capcode: badge,
+                name_allowed: level.allows_capcode_name(&session.permissions),
+                administrator: level == crate::access::Level::Admin,
+                tripcode_key: state.config.tripcode_key.as_deref(),
+            }),
         },
     )
     .await

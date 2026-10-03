@@ -197,6 +197,15 @@ pub async fn create_post_with_anonymous_session(
     .await
 }
 
+/// Prepared source identity policy; the proof issuer independently checks it.
+#[derive(Clone, Copy)]
+pub struct StaffPostIdentity<'a> {
+    pub capcode: board_domain::capcode::Capcode,
+    pub name_allowed: bool,
+    pub administrator: bool,
+    pub tripcode_key: Option<&'a board_domain::identity::SecureKey>,
+}
+
 /// Server-owned WebAuthn session proof. Request bodies cannot supply this value.
 pub struct StaffPostAuthority<'a> {
     pub auth_pool: &'a PgPool,
@@ -206,6 +215,7 @@ pub struct StaffPostAuthority<'a> {
     pub idle_seconds: i32,
     pub highlight: bool,
     pub authorized_limits: bool,
+    pub identity: Option<StaffPostIdentity<'a>>,
 }
 
 pub async fn create_staff_post(
@@ -216,6 +226,9 @@ pub async fn create_staff_post(
     request_start: DateTime<Utc>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    let tripcode = authority
+        .identity
+        .and_then(|identity| identity.tripcode_key);
     create_post_in_context(
         pool,
         slug,
@@ -230,7 +243,7 @@ pub async fn create_staff_post(
         PostWriteOptions {
             metadata: PostMetadata {
                 keys: PostIdentityKeys {
-                    tripcode: None,
+                    tripcode,
                     poster_id: None,
                 },
                 country_database: None,
@@ -417,13 +430,41 @@ async fn create_post_in_context(
             true,
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
-        ("Anonymous", "")
+        (
+            if staff
+                .as_ref()
+                .and_then(|authority| authority.identity)
+                .is_some_and(|identity| identity.administrator)
+            {
+                post.name.as_str()
+            } else {
+                "Anonymous"
+            },
+            "",
+        )
     } else {
         (post.name.as_str(), post.subject.as_str())
     };
-    let identity = if staff.is_some() {
-        // Staff badges replace trips. Never publish a suffix entered using the
-        // public form's private trip-password syntax.
+    let identity = if let Some(source) = staff.as_ref().and_then(|authority| authority.identity) {
+        let prepared = board_domain::identity::prepare_for_board_with_limits(
+            post_name,
+            keys.tripcode,
+            board.comment_spacing(),
+            board.strip_tripcode,
+            post_limits,
+        )
+        .map_err(|error| StoreError::Invalid(error.0))?;
+        // Source checks the finished name/trip bound before masking the name.
+        if source.name_allowed {
+            prepared
+        } else {
+            board_domain::identity::Identity {
+                name: "Anonymous".into(),
+                trip: None,
+            }
+        }
+    } else if staff.is_some() {
+        // Legacy proofs and private discussion never publish a raw trip secret.
         let display = post_name.split('#').next().unwrap_or("").trim();
         if board_domain::source_html_entities(display).len()
             > board_domain::identity::MAX_DISPLAY_NAME_BYTES
@@ -731,28 +772,38 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     if let Some(authority) = &staff {
-        sqlx::query(
-            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
-        )
-        .bind(authority.ticket_hash.as_slice())
-        .bind(authority.session_hash)
-        .bind(authority.csrf_hash)
-        .bind(authority.idle_seconds)
-        .bind(authority.highlight)
-        .bind(id)
-        .bind(slug)
-        .bind(thread_id)
-        .bind(name)
-        .bind(&subject)
-        .bind(comment.as_str())
-        .bind(posted_at)
-        .bind(authority.authorized_limits)
-        .bind(post_limits.comment_chars() as i32)
-        .bind(wordfilter_payload.as_deref())
-        .bind(wordfilter_search.as_deref())
-        .execute(authority.auth_pool)
-        .await
-        .map_err(staff_post_error)?;
+        let issuer = if authority.identity.is_some() {
+            "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)"
+        } else {
+            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)"
+        };
+        let mut proof = sqlx::query(issuer)
+            .bind(authority.ticket_hash.as_slice())
+            .bind(authority.session_hash)
+            .bind(authority.csrf_hash)
+            .bind(authority.idle_seconds)
+            .bind(authority.highlight)
+            .bind(id)
+            .bind(slug)
+            .bind(thread_id)
+            .bind(name)
+            .bind(&subject)
+            .bind(comment.as_str())
+            .bind(posted_at)
+            .bind(authority.authorized_limits)
+            .bind(post_limits.comment_chars() as i32)
+            .bind(wordfilter_payload.as_deref())
+            .bind(wordfilter_search.as_deref());
+        if let Some(source) = authority.identity {
+            proof = proof
+                .bind(source.capcode.source_option())
+                .bind(identity.trip.as_deref())
+                .bind(source.name_allowed);
+        }
+        proof
+            .execute(authority.auth_pool)
+            .await
+            .map_err(staff_post_error)?;
         let ticket = authority
             .ticket_hash
             .iter()

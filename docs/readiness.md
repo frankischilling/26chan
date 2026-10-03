@@ -54,8 +54,10 @@ by application requests and database changes.
 
 The same batch adds [posting identities](post-identities.md), including normal
 tripcodes, deployment-keyed secure trips, persisted API fields, escaped staff
-previews and native trip filters. Forced-anonymous boards discard both name
-and trip. [Poster IDs](poster-ids.md) add optional thread-scoped labels, public
+previews and native trip filters. Forced-anonymous boards discard ordinary
+names and trips. [Source staff identities](staff-capcodes.md) retain the
+administrator's posting exception and the catalog's separate two-badge rule.
+[Poster IDs](poster-ids.md) add optional thread-scoped labels, public
 JSON fields, escaped staff previews and default-on ID colors. The secure hash is a documented security replacement; original
 Unicode encoding and remaining parser edge cases need permitted evidence.
 [Posting preferences](post-preferences.md) also restore the remembered display

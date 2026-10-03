@@ -75,6 +75,17 @@ $inputs = [
     "α\u{0301}\u{200D}а\u{0301}\u{200C}中\u{FE0F}A",
     'Paper😀fold🧩☀☂🚀🛰️🪁',
 ];
+// ICU 74 may generate invalid UTF-16 for a supplementary scalar followed by
+// a kana iteration mark. Preserve failures as well as the adjacent controls.
+$inputs = array_merge($inputs, [
+    "\u{10000}\u{309D}", "\u{10000}\u{309E}",
+    "\u{10000}\u{30FD}", "\u{10000}\u{30FE}",
+    "\u{10000}\u{3005}", "\u{10000}\u{303B}",
+    "\u{10000}\u{309D}\u{309D}",
+    "A\u{10000}\u{309D}Z", "\u{1F600}\u{309D}",
+    "\u{10FFFF}\u{309D}", "\u{20000}\u{309D}",
+    "\u{10000}\u{309D}a", "\u{10000}\u{309D}\u{10000}",
+]);
 foreach (['(', '[', '=', '{'] as $open) {
     foreach ([')', ']', '=', '}'] as $close) {
         foreach (['dot', 'DOT', 'dOt'] as $middle) {
@@ -104,9 +115,19 @@ if (count($inputs) > 2048) { throw new RuntimeException('Fixture input count exc
 $cases = [];
 foreach ($inputs as $input) {
     if (strlen($input) > 1024) { throw new RuntimeException('Fixture input exceeds its bound.'); }
-    $cases[] = ['input' => $input, 'ascii' => normalize_ascii($input),
-        'ascii_preserving_case' => normalize_ascii($input, 1),
+    $ascii = normalize_ascii($input);
+    $preserved = normalize_ascii($input, 1);
+    $error = intl_get_error_code();
+    $case = ['input' => $input, 'ascii' => $ascii,
+        'ascii_preserving_case' => $preserved,
         'text' => normalize_text($input), 'zero_width_removed' => strip_zerowidth($input)];
+    if ($preserved === false) {
+        if ($error !== U_INVALID_CHAR_FOUND) {
+            throw new RuntimeException('Unclassified native normalization failure.');
+        }
+        $case['icu_error_code'] = $error;
+    }
+    $cases[] = $case;
 }
 $json = json_encode(['reference' => 'operator-supplied 4chan-old checkout',
     'files' => ['lib/postfilter.php' => $hash], 'functions' => $names,

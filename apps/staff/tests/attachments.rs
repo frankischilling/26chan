@@ -75,6 +75,7 @@ impl Fixture {
                 auth_database: String::new(),
                 staff_database: String::new(),
                 idle_timeout: Duration::from_secs(900),
+                tripcode_key: None,
             },
             auth: pool("AUTH_DATABASE_URL").await,
             staff: pool("STAFF_DATABASE_URL").await,

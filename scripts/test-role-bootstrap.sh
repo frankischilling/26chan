@@ -187,12 +187,17 @@ BEGIN
      OR has_column_privilege('board_staff_post_owner','staff_identity.accounts','public_capcode','UPDATE')
      OR has_column_privilege('board_staff_post_owner','staff_identity.sessions','csrf_hash','UPDATE')
      OR has_column_privilege('board_staff_post_owner','staff_identity.sessions','expires_at','UPDATE')
-     OR has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents','capcode','UPDATE')
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='post_secrets' AND c.table_name='staff_post_intents'
+          AND c.column_name NOT IN ('token_hash','authorized_limits','comment_limit','comment','wordfilter_payload','wordfilter_search',
+              'name','capcode','source_options','prepared_trip','source_name_allowed')
+          AND has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents',c.column_name,'UPDATE'))
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
-          AND c.column_name NOT IN ('slug','max_comment_chars','max_authorized_comment_chars')
+          AND c.column_name NOT IN ('slug','max_comment_chars','max_authorized_comment_chars','forced_anon','strip_tripcode')
           AND has_column_privilege('board_staff_post_owner','content.boards',c.column_name,'SELECT'))
      OR has_any_column_privilege('board_staff_post_owner','content.boards','INSERT,UPDATE')
      OR NOT has_column_privilege('board_staff_post_owner','content.boards','max_authorized_comment_chars','SELECT')
+     OR NOT has_column_privilege('board_staff_post_owner','content.boards','forced_anon','SELECT')
+     OR NOT has_column_privilege('board_staff_post_owner','content.boards','strip_tripcode','SELECT')
      OR NOT has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents','token_hash','UPDATE') THEN
     RAISE EXCEPTION 'Staff posting function owner exceeds required authority';
   END IF;
@@ -223,6 +228,18 @@ BEGIN
      OR NOT has_function_privilege('board_auth',
          'staff_identity.issue_limited_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text)','EXECUTE') THEN
     RAISE EXCEPTION 'Authorized-post policy or proof grants differ';
+  END IF;
+  IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
+      'board_media_read','board_media_intake','board_monitor']) runtime(name)
+      CROSS JOIN (VALUES('staff_identity.source_public_capcode(text,text[],text[],text[],text)'),
+        ('staff_identity.source_capcode_name_allowed(text,text[],text[],text[])'),
+        ('content.staff_display_name_size(text,text)')) helper(signature)
+      WHERE has_function_privilege(runtime.name,helper.signature,'EXECUTE')
+        OR (runtime.name<>'board_auth' AND has_function_privilege(runtime.name,
+            'staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean)','EXECUTE')))
+      OR NOT has_function_privilege('board_auth',
+        'staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean)','EXECUTE') THEN
+    RAISE EXCEPTION 'Source identity helpers or issuer exceed runtime authority';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_poster_count_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
@@ -296,7 +313,7 @@ END $$;
 -- must not read the passkey document or change credential identity.
 SET ROLE board_staff_post_owner;
 SELECT id,account_id FROM staff_identity.credentials LIMIT 0;
-SELECT slug,max_comment_chars,max_authorized_comment_chars FROM content.boards WHERE slug='j';
+SELECT slug,max_comment_chars,max_authorized_comment_chars,forced_anon,strip_tripcode FROM content.boards WHERE slug='j';
 DO $$
 BEGIN
   IF (SELECT max_authorized_comment_chars FROM content.boards WHERE slug='j') IS DISTINCT FROM 50000 THEN

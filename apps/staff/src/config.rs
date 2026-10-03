@@ -1,4 +1,5 @@
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 
@@ -12,6 +13,15 @@ pub struct Config {
     pub auth_database: String,
     pub staff_database: String,
     pub idle_timeout: Duration,
+    pub tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
+}
+
+pub fn parse_staff_tripcode_key(
+    value: Option<&str>,
+) -> Result<Option<Arc<board_domain::identity::SecureKey>>, &'static str> {
+    value.map(|value| board_domain::identity::SecureKey::parse(value).map(Arc::new)
+        .map_err(|_| "STAFF_TRIPCODE_KEY must contain 64 hexadecimal digits and cannot be all zeroes"))
+        .transpose()
 }
 pub fn parse_staff_idle_timeout(value: Option<&str>) -> Result<Duration, &'static str> {
     let seconds = match value {
@@ -138,6 +148,11 @@ impl Config {
                 return Err("Invalid STAFF_IDLE_TIMEOUT_SECONDS");
             }
         };
+        let tripcode_key = match std::env::var("STAFF_TRIPCODE_KEY") {
+            Ok(value) => parse_staff_tripcode_key(Some(&value))?,
+            Err(std::env::VarError::NotPresent) => None,
+            Err(std::env::VarError::NotUnicode(_)) => return Err("Invalid STAFF_TRIPCODE_KEY"),
+        };
         if !valid_database(&auth_database, "board_auth", production)
             || !valid_database(&staff_database, "board_staff", production)
         {
@@ -154,6 +169,7 @@ impl Config {
             auth_database,
             staff_database,
             idle_timeout,
+            tripcode_key,
         })
     }
     pub fn cookie_name(&self) -> &'static str {
@@ -174,6 +190,24 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn staff_tripcode_key_is_optional_and_validated_without_exposing_input() {
+        assert!(parse_staff_tripcode_key(None).unwrap().is_none());
+        assert!(
+            parse_staff_tripcode_key(Some(&"11".repeat(32)))
+                .unwrap()
+                .is_some()
+        );
+        for value in [
+            "",
+            "secret",
+            &"00".repeat(32),
+            &"g1".repeat(32),
+            &"11".repeat(31),
+        ] {
+            assert!(parse_staff_tripcode_key(Some(value)).is_err());
+        }
+    }
     #[test]
     fn idle_timeout_policy_defaults_and_rejects_invalid_values() {
         assert_eq!(

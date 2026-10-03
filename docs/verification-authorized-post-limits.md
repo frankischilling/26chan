@@ -2,9 +2,10 @@
 
 The supplied source gives moderators, managers and administrators larger raw
 posting fields. Janitors keep ordinary limits. This change applies those limits
-to the existing public staff posting route and private `/j/` discussion. It
-does not complete staff name preparation, privileged policy exceptions,
-attachment posting or the remaining staff workflows.
+to the existing public staff posting route and private `/j/` discussion. Later
+[staff identity work](verification-staff-identity.md) adds source badge choices,
+name preparation and the administrator's forced-anonymous name exception.
+Attachment posting and other privileged staff workflows remain unfinished.
 
 ## Source evidence
 
@@ -112,8 +113,15 @@ corrected native emoji-name case, live updater/tail behavior, quote previews,
 search and filters. The 107 targeted JavaScript and isolated DOM tests pass,
 and all six generated bundle checks pass. The separate staff browser flow
 passes, including script-disabled larger posting and the later administrator
-reply arriving through the live updater. Hosted checks must pass at this
-change's eventual pushed head.
+reply arriving through the live updater.
+
+The pushed checkpoint `2c44fb5c5f411fb1d3b069cff9f4cf96a98bd2f5` passes
+[build/test 37087130371](https://github.com/frankischilling/26chan/actions/runs/37087130371)
+in full, including Linux Rust/browser checks, every Windows visual group,
+media/operations and the aggregate gate. Its
+[monitoring run](https://github.com/frankischilling/26chan/actions/runs/37087130389)
+and [dependency advisory run](https://github.com/frankischilling/26chan/actions/runs/37087130377)
+also pass. Later staff identity work requires its own qualification.
 
 ## Retained failures and corrections
 

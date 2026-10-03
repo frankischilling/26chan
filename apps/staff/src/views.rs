@@ -16,6 +16,8 @@ pub struct Posting {
     pub csrf: String,
     pub recent: bool,
     pub admin: bool,
+    pub badges: Vec<(String, String)>,
+    pub selected_badge: String,
 }
 pub struct Preview {
     pub report: Report,

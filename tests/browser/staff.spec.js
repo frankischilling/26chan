@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { spawn, spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 const binary = process.platform === 'win32' ? '.exe' : '';
 const debugDir = path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug');
 function run(name, args, input, expected = 0) {
@@ -41,6 +41,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       try { return (await page.request.get('http://127.0.0.1:3002/readyz')).status(); } catch { return 0; }
     }, { timeout: 10_000 }).toBe(200);
     run('staff-operator', ['provision', board, 'moderator', invitationFile]);
+    run('staff-operator', ['flags', board, 'capcode,capcodename']);
     const invitation = readFileSync(invitationFile, 'utf8').trim();
     expect(fixture('inspect', board).credentials).toBe(0);
     const cdp = await context.newCDPSession(page);
@@ -90,6 +91,8 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const beforeStaffPost = await page.request.get(staffThreadUrl + '.json');
     fixture('authorized-limit', board, '5000');
     await page.goto(`/post?board=${board}&thread=${data.thread}`);
+    await expect(page.getByLabel('Staff badge', { exact: true })).toHaveValue('mod');
+    await expect(page.getByLabel('Staff badge', { exact: true }).locator('option')).toHaveText(['Mod']);
     await expect(page.getByLabel('Highlight administrator post')).toHaveCount(0);
     await expect(page.getByLabel('Name', { exact: true })).toHaveAttribute('maxlength', '255');
     await expect(page.getByLabel('Subject', { exact: true })).toHaveAttribute('maxlength', '255');
@@ -205,7 +208,9 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     run('staff-operator', ['capcode', board, 'admin']);
     expect((await page.request.get('/reports')).status()).toBe(401);
     await login(); await page.goto(`/post?board=${board}&thread=${data.thread}`);
-    await page.getByLabel('Name', { exact: true }).fill('Owned administrator');
+    const administratorSecret = 'owned-private-secure-input';
+    const administratorTrip = '!!' + createHmac('sha256', Buffer.alloc(32, 0x11)).update(administratorSecret).digest('base64').slice(0, 11);
+    await page.getByLabel('Name', { exact: true }).fill(`Owned administrator##${administratorSecret}`);
     await page.getByLabel('Comment', { exact: true }).fill(`Administrator reply >>${moderatorPost}`);
     await page.getByLabel('Highlight administrator post').check();
     await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
@@ -214,22 +219,60 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await publicStaffPage.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
     await expect(publicStaffPage.locator(`#p${adminPost}`)).toHaveClass(/highlightPost/);
     await expect(publicStaffPage.locator(`#pi${adminPost} .capcode`)).toHaveText('## Admin');
+    await expect(publicStaffPage.locator(`#pi${adminPost} .postertrip`)).toHaveText(administratorTrip);
+    await expect(publicStaffPage.locator(`#pim${adminPost} .postertrip`)).toHaveText(administratorTrip);
     await expect.poll(() => publicStaffPage.locator(`#pi${adminPost} .identityIcon`).evaluate(image => image.complete && image.naturalWidth)).toBe(16);
     await publicStaffPage.locator(`#p${moderatorPost}`).evaluate(post => { post.hidden = true; });
     await publicStaffPage.locator(`#m${adminPost} a.quotelink`).hover();
     await expect(publicStaffPage.locator('#quote-preview .postInfo .capcode')).toHaveText('## Mod');
     await expect.poll(() => publicStaffPage.locator('#quote-preview .postInfo .identityIcon').evaluate(image => image.complete && image.naturalWidth)).toBe(16);
     await expect(publicStaffPage.locator('#quote-preview')).not.toHaveText(/Post with staff badge/);
+    await publicStaffPage.locator(`#m${data.thread}`).evaluate((message, { board, thread, post }) => {
+      const quote = document.createElement('a'); quote.className = 'quotelink';
+      quote.href = `/${board}/thread/${thread}#p${post}`; quote.textContent = `>>${post}`;
+      message.append(' ', quote);
+    }, { board, thread: data.thread, post: adminPost });
+    await publicStaffPage.locator(`#m${data.thread} a.quotelink`).last().hover();
+    await expect(publicStaffPage.locator('#quote-preview .postInfo .postertrip')).toHaveText(administratorTrip);
+    await expect(publicStaffPage.locator('#quote-preview .postInfo .capcode')).toHaveText('## Admin');
+    fixture('force-anon', board);
+    await publicStaffPage.goto(`http://127.0.0.1:3000/${board}/catalog`);
+    await publicStaffPage.locator(`#thread-${data.thread} .thumb`).hover();
+    await expect(publicStaffPage.locator('#post-preview .post-last .post-author')).toHaveText('Owned administrator');
+    await expect(publicStaffPage.locator('#post-preview .post-last .postertrip')).toHaveText(administratorTrip);
+    for (const badge of ['admin_highlight', 'founder']) {
+      await page.goto(`/post?board=${board}&thread=0`);
+      await page.getByLabel('Staff badge', { exact: true }).selectOption(badge);
+      await page.getByLabel('Name', { exact: true }).fill(`Owned catalog ${badge}##${administratorSecret}`);
+      await page.getByLabel('Subject', { exact: true }).fill('Owned forced subject');
+      await page.getByLabel('Comment', { exact: true }).fill('Owned catalog badge predicate');
+      await page.getByRole('button', { name: 'Post with staff badge', exact: true }).click();
+      await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
+      const op = new URL(page.url()).searchParams.get('posted');
+      const stored = (await (await page.request.get(`http://127.0.0.1:3000/${board}/thread/${op}.json`)).json()).posts[0];
+      expect(stored.name).toBe(`Owned catalog ${badge}`); expect(stored.trip).toBe(administratorTrip);
+      expect(stored.sub).toBeUndefined();
+      await publicStaffPage.goto(`http://127.0.0.1:3000/${board}/catalog`);
+      const card = publicStaffPage.locator(`#thread-${op} .catalogThumb`);
+      const visible = badge === 'admin_highlight';
+      await expect(card).toHaveAttribute('data-filter-name', visible ? `Owned catalog ${badge}` : 'Anonymous');
+      await expect(card).toHaveAttribute('data-filter-trip', visible ? administratorTrip : '');
+      await card.locator('.thumb').hover();
+      await expect(publicStaffPage.locator('#post-preview > .post-author')).toHaveText(visible ? `Owned catalog ${badge}` : 'Anonymous');
+      await expect(publicStaffPage.locator('#post-preview .postertrip')).toHaveCount(visible ? 1 : 0);
+    }
     expect(publicStaffErrors).toEqual([]);
     await publicStaffPage.close();
     const persistedAdmin = (await (await page.request.get(staffThreadUrl + '.json')).json()).posts.find(post => String(post.no) === adminPost);
     expect(persistedAdmin.capcode).toBe('admin_highlight');
+    expect(persistedAdmin.trip).toBe(administratorTrip); expect(persistedAdmin.name).toBe('Owned administrator');
+    expect(JSON.stringify(persistedAdmin)).not.toContain(administratorSecret);
     await page.goto('/reports');
     // Both controls are ordinary CSRF-protected forms, including without JS.
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
     await report.getByRole('button', { name: 'Enable permaage', exact: true }).click();
     await expect(report).toContainText('permasage: true, permaage: true');
-    expect(fixture('inspect', board).bumpFlags).toEqual([[true, true]]);
+    expect(fixture('inspect', board).bumpFlags).toEqual([[true, true], [false, false], [false, false]]);
     const permaageResponse = await page.request.get(publicUrl, { headers: { 'If-None-Match': beforeFlags.headers().etag } });
     expect(permaageResponse.status()).toBe(200);
     expect((await permaageResponse.json()).posts[0].bumplimit).toBeUndefined();
@@ -237,7 +280,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('button', { name: 'Disable permaage', exact: true }).click();
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
     await expect(report).toContainText('permasage: false, permaage: false');
-    expect(fixture('inspect', board).bumpFlags).toEqual([[false, false]]);
+    expect(fixture('inspect', board).bumpFlags).toEqual([[false, false], [false, false], [false, false]]);
     expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
     expect(fixture('age-activity', board).changed).toBe(1);
     const beforeActivity = fixture('session-times', board)[0];
@@ -300,8 +343,8 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(removal).toBe(200);
     expect((await page.request.get(publicUrl, { headers: { 'If-None-Match': oldEtag } })).status()).toBe(404);
     const persisted = fixture('inspect', board);
-    expect(persisted.states).toEqual([[false, false, true]]);
-    expect(persisted.audit).toEqual(['staff-post', 'close', 'reopen', 'sticky', 'unsticky', 'permasage', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
+    expect(persisted.states).toEqual([[false, false, true], [false, false, false], [false, false, false]]);
+    expect(persisted.audit).toEqual(['staff-post', 'close', 'reopen', 'sticky', 'unsticky', 'permasage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);

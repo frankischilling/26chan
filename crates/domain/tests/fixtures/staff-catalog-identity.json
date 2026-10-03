@@ -1,0 +1,457 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "catalog.php": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946"
+  },
+  "php": "8.3.6",
+  "cases": [
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "none",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "none",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "mod",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "mod",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "manager",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "manager",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "developer",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "developer",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "founder",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "founder",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "unknown",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "unknown",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "none",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "none",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "mod",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "mod",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "manager",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "manager",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "developer",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "developer",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "founder",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "founder",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "unknown",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "unknown",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "none",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "none",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "mod",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "mod",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "manager",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "manager",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "developer",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "developer",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "founder",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "founder",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "unknown",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "unknown",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "none",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "none",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "mod",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "mod",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "context": "last_reply",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "context": "op",
+      "identity_visible": true
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "manager",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "manager",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "developer",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "developer",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "founder",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "founder",
+      "context": "op",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "unknown",
+      "context": "last_reply",
+      "identity_visible": false
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "unknown",
+      "context": "op",
+      "identity_visible": false
+    }
+  ]
+}

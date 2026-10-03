@@ -71,6 +71,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 json!({"thread":thread,"post":post,"report":report,"tim":tim,"mediaRoot":media_root})
             );
         }
+        "force-anon" => {
+            let changed = sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned synthetic board is missing".into());
+            }
+        }
         "bump-limit" => {
             sqlx::query("UPDATE content.boards SET bump_limit=1 WHERE slug=$1")
                 .bind(board)
@@ -104,11 +111,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "inspect" => {
-            let states: Vec<(bool, bool, bool)> =
-                sqlx::query_as("SELECT closed,sticky,deleted FROM content.threads WHERE board=$1")
-                    .bind(board)
-                    .fetch_all(&pool)
-                    .await?;
+            let states: Vec<(bool, bool, bool)> = sqlx::query_as(
+                "SELECT closed,sticky,deleted FROM content.threads WHERE board=$1 ORDER BY id",
+            )
+            .bind(board)
+            .fetch_all(&pool)
+            .await?;
             let audit: Vec<String> = sqlx::query_scalar(
                 "SELECT action FROM content.moderation_audit WHERE board=$1 ORDER BY id",
             )

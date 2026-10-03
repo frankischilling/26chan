@@ -63,6 +63,7 @@ fn render(
                 id: id + visible as i64,
                 name: "Synthetic reply author".into(),
                 trip: None,
+                capcode: None,
                 poster_id: None,
                 created_at: time("2026-09-08T12:05:00Z"),
             }),

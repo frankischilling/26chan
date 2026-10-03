@@ -232,6 +232,8 @@ jobs:
         run: sudo bash scripts/test-trip-suppression-migration.sh
       - name: Upgrade rank-specific posting limits while preserving history and ordinary proof bounds
         run: sudo bash scripts/test-authorized-post-migration.sh
+      - name: Upgrade staff badge permissions and proof-bound tripcodes while preserving history and grants
+        run: sudo bash scripts/test-staff-identity-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

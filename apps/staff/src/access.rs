@@ -6,6 +6,11 @@ pub enum Level {
     Admin = 50,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CapcodeError {
+    MissingPermission,
+}
+
 impl Level {
     pub fn parse(role: &str) -> Option<Self> {
         match role {
@@ -33,6 +38,37 @@ impl Level {
             Self::Manager => "Manager",
             Self::Admin => "Admin",
         }
+    }
+
+    /// Source badge selection is separate from board posting authorization.
+    pub fn public_capcode(
+        self,
+        options: &str,
+        permissions: &Permissions,
+    ) -> Result<Option<board_domain::capcode::Capcode>, CapcodeError> {
+        use board_domain::capcode::Capcode;
+        if self < Self::Moderator {
+            return Ok(None);
+        }
+        let selected = match options {
+            "capcode_founder" if self == Self::Admin => Some(Capcode::Founder),
+            "capcode_admin" if self == Self::Admin => Some(Capcode::Administrator),
+            "capcode_admin_hl" if self == Self::Admin => Some(Capcode::HighlightedAdministrator),
+            "capcode_dev" if permissions.has_global_flag("developer") => Some(Capcode::Developer),
+            "capcode_manager" if self >= Self::Manager => Some(Capcode::Manager),
+            _ => None,
+        };
+        if selected.is_some() {
+            return Ok(selected);
+        }
+        if self < Self::Manager && !permissions.has_global_flag("capcode") && !options.is_empty() {
+            return Err(CapcodeError::MissingPermission);
+        }
+        Ok((options == "capcode_mod").then_some(Capcode::Moderator))
+    }
+
+    pub fn allows_capcode_name(self, permissions: &Permissions) -> bool {
+        self == Self::Admin || permissions.has_global_flag("capcodename")
     }
 
     pub fn has_capability(self, capability: &str, permissions: &Permissions) -> bool {
@@ -84,6 +120,11 @@ impl Permissions {
         self.flags.iter().any(|value| value == flag)
     }
 
+    /// The selected source helpers call has_flag without a board argument.
+    pub fn has_global_flag(&self, flag: &str) -> bool {
+        self.allows("") && self.has_flag(flag)
+    }
+
     pub fn action_allowed(&self, role: &str, board: &str, action: &str) -> bool {
         let Some(level) = Level::parse(role) else {
             return false;
@@ -105,6 +146,49 @@ impl Permissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn public_capcode_and_name_permissions_match_all_pinned_source_cases() {
+        #[derive(serde::Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Case {
+            role: String,
+            flags: Vec<String>,
+            allow_boards: Vec<String>,
+            deny_boards: Vec<String>,
+            choice: String,
+            outcome: String,
+            name: String,
+        }
+        let fixture: Fixture =
+            serde_json::from_str(include_str!("../tests/fixtures/staff-capcodes.json")).unwrap();
+        assert_eq!(fixture.cases.len(), 1024);
+        for case in fixture.cases {
+            let level = Level::parse(&case.role).unwrap();
+            let permissions = Permissions {
+                flags: case.flags,
+                allow_boards: case.allow_boards,
+                deny_boards: case.deny_boards,
+            };
+            let outcome = match level.public_capcode(&case.choice, &permissions) {
+                Ok(Some(capcode)) => capcode.as_str(),
+                Ok(None) => "none",
+                Err(CapcodeError::MissingPermission) => "cant_capcode",
+            };
+            assert_eq!(outcome, case.outcome, "{} {}", case.role, case.choice);
+            let name = if case.choice.starts_with("capcode_")
+                && !level.allows_capcode_name(&permissions)
+            {
+                "Anonymous"
+            } else {
+                "Owned finished name"
+            };
+            assert_eq!(name, case.name, "{} {}", case.role, case.choice);
+        }
+    }
 
     #[test]
     fn source_levels_do_not_turn_the_developer_flag_into_a_rank() {

@@ -233,6 +233,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
                 id: 1_000_002,
                 name: "Synthetic reply author".into(),
                 trip: None,
+                capcode: None,
                 poster_id: None,
                 created_at: time("2026-09-08T12:05:00Z"),
             }),

@@ -43,6 +43,7 @@ impl Fixture {
                 auth_database: String::new(),
                 staff_database: String::new(),
                 idle_timeout: Duration::from_secs(60),
+                tripcode_key: None,
             },
             auth: auth_pool.clone(),
             staff: staff.clone(),

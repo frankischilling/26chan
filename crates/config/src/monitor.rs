@@ -16,6 +16,7 @@ impl MonitorSettings {
             "MEDIA_READ_DATABASE_URL",
             "AUTH_DATABASE_URL",
             "STAFF_DATABASE_URL",
+            "STAFF_TRIPCODE_KEY",
             "INTAKE_DATABASE_URL",
             "PUBLIC_INTAKE_TOKEN",
             "PGHOSTADDR",
@@ -34,7 +35,7 @@ impl MonitorSettings {
         ] {
             if std::env::var_os(name).is_some_and(|value| !value.is_empty()) {
                 return Err(ConfigError(
-                    "Observer received an unrelated database credential.",
+                    "Observer received an unrelated database credential or identity key.",
                 ));
             }
         }

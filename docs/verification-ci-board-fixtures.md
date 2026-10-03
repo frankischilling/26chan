@@ -278,3 +278,14 @@ That head's [monitoring run 37074316097](https://github.com/frankischilling/26ch
 and [advisory run 37074316143](https://github.com/frankischilling/26chan/actions/runs/37074316143)
 pass. Its aggregate build gate fails, so these partial results do not qualify
 the later authorized-limit work.
+
+The authorized-limit checkpoint `2c44fb5c5f411fb1d3b069cff9f4cf96a98bd2f5`
+passes [build/test run 37087130371](https://github.com/frankischilling/26chan/actions/runs/37087130371)
+in full: Linux Rust/browser checks, every Windows visual group,
+media/operations and the aggregate gate. Its
+[monitoring run 37087130389](https://github.com/frankischilling/26chan/actions/runs/37087130389)
+and [advisory run 37087130377](https://github.com/frankischilling/26chan/actions/runs/37087130377)
+pass as well. Local qualification includes 690 workspace tests, 143 native
+Windows domain tests, 107 JavaScript/DOM checks, 138 public browser cases and
+the separate staff browser flow. These results qualify that checkpoint;
+subsequent staff identity and other feature work needs checks at its own head.
