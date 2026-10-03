@@ -48,7 +48,7 @@ export function validateCapcodeTree(tree, no) {
       ? name.attrs.class === 'name' && Object.keys(name.attrs).every(key => ['class', 'title'].includes(key))
       : exact(name.attrs, { class: 'name' }))
       && name.children.every(child => typeof child === 'string')
-      && new TextEncoder().encode(name.children.join('')).length <= 100
+      && new TextEncoder().encode(name.children.join('')).length <= 255
       && space1 === ' ' && space2 === ' '
       && typeof badge === 'object' && badge.tag === 'strong' && badge.children.length === 1
       && typeof icon === 'object' && icon.tag === 'img' && icon.children.length === 0);

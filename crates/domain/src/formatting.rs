@@ -1,4 +1,4 @@
-use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag, parse_markup};
+use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag};
 use url::Url;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -92,9 +92,13 @@ pub fn plain_text(lines: &[Line]) -> String {
 /// The posting boundary caps input at 16,000 Unicode scalar values. This parser
 /// also bounds work when called independently on malformed or oversized input.
 pub fn parse_comment(input: &str) -> Vec<Line> {
+    parse_comment_bounded(input, crate::MAX_COMMENT_CHARS)
+}
+
+fn parse_comment_bounded(input: &str, max_chars: usize) -> Vec<Line> {
     let end = input
         .char_indices()
-        .nth(crate::MAX_COMMENT_CHARS)
+        .nth(max_chars)
         .map_or(input.len(), |(index, _)| index);
     input[..end]
         .split('\n')
@@ -116,14 +120,28 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
 }
 
 pub fn parse_post_comment_on_board(input: &str, format: i16, board: &str) -> Vec<Line> {
+    parse_post_comment_on_board_with_limits(
+        input,
+        format,
+        board,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn parse_post_comment_on_board_with_limits(
+    input: &str,
+    format: i16,
+    board: &str,
+    limits: crate::PostLimits,
+) -> Vec<Line> {
     if format == 0 {
-        return parse_comment(input);
+        return parse_comment_bounded(input, limits.prepared_chars());
     }
     let policy = MarkupPolicy::from_post_format(format);
     let source_links = policy.is_some() && format & 64 != 0;
     let bounded = input
         .char_indices()
-        .nth(crate::MAX_COMMENT_CHARS)
+        .nth(limits.prepared_chars())
         .map_or(input, |(index, _)| &input[..index]);
     let normalized = if source_links {
         crate::server_link::normalize(bounded, board)
@@ -132,7 +150,8 @@ pub fn parse_post_comment_on_board(input: &str, format: i16, board: &str) -> Vec
     };
     let internal_links = crate::server_link::link_probe(&normalized);
     let input = normalized.as_ref();
-    let markup = parse_markup(input, policy.unwrap_or_default());
+    let markup =
+        crate::comment_markup::parse_markup_with_limits(input, policy.unwrap_or_default(), limits);
     let mut lines = vec![Line {
         green: false,
         tokens: Vec::new(),
@@ -212,8 +231,24 @@ pub fn parse_saved_comment(
     board: &str,
     wordfilter: Option<&[u8]>,
 ) -> Vec<Line> {
+    parse_saved_comment_with_limits(
+        input,
+        format,
+        board,
+        wordfilter,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn parse_saved_comment_with_limits(
+    input: &str,
+    format: i16,
+    board: &str,
+    wordfilter: Option<&[u8]>,
+    limits: crate::PostLimits,
+) -> Vec<Line> {
     match wordfilter {
-        None => parse_post_comment_on_board(input, format, board),
+        None => parse_post_comment_on_board_with_limits(input, format, board, limits),
         Some(bytes) => match crate::wordfiltered_comment::PreparedComment::decode(bytes) {
             Ok(prepared) => crate::filtered_formatting::lines(&prepared, board),
             Err(_) => vec![Line {

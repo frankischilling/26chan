@@ -263,3 +263,18 @@ That head's [monitoring run 37054194030](https://github.com/frankischilling/26ch
 and [advisory run 37054194191](https://github.com/frankischilling/26chan/actions/runs/37054194191)
 pass. This partial result does not qualify the later board trip-suppression
 change; it still needs complete hosted checks at its own head.
+
+The trip-suppression checkpoint `c9c054b5a3afc02b42e71eb05ec5f5c6e0484889`
+fails [build/test run 37074316118](https://github.com/frankischilling/26chan/actions/runs/37074316118).
+Media/operations and every Windows visual group pass. Linux Rust checks pass,
+but a script-free field test still expects a 100-byte emoji name to survive
+source cleanup. The saved and rendered result is `Anonymous`. The follow-up
+retains the same raw emoji input, subject assertions and both 101-byte rejection
+checks, and requires that exact source result in HTML and JSON. The failed
+hosted log is retained locally. No browser deadline or screenshot tolerance
+changes.
+
+That head's [monitoring run 37074316097](https://github.com/frankischilling/26chan/actions/runs/37074316097)
+and [advisory run 37074316143](https://github.com/frankischilling/26chan/actions/runs/37074316143)
+pass. Its aggregate build gate fails, so these partial results do not qualify
+the later authorized-limit work.

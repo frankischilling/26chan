@@ -83,6 +83,12 @@ pub async fn javascript() -> impl IntoResponse {
         include_str!("../static/staff.js"),
     )
 }
+pub async fn post_limits_javascript() -> impl IntoResponse {
+    (
+        [("content-type", "text/javascript; charset=utf-8")],
+        include_str!("../static/post-limits.js"),
+    )
+}
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     auth::check_identity(&state.auth, "board_auth").await?;
     auth::check_identity(&state.staff, "board_staff").await?;
@@ -418,8 +424,8 @@ pub async fn posting(
     {
         return Err(AppError::Invalid);
     }
-    let boards: Vec<(String, String)> =
-        sqlx::query_as("SELECT slug,title FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
+    let boards: Vec<(String, String, i32)> =
+        sqlx::query_as("SELECT slug,title,max_authorized_comment_chars FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
             .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
             .fetch_all(&state.staff)
             .await?;
@@ -432,10 +438,16 @@ pub async fn posting(
     }
     let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
         .bind(session.account_id).fetch_one(&state.auth).await?;
+    let comment_max_units = boards
+        .iter()
+        .find(|board| board.0 == query.board)
+        .or_else(|| boards.first())
+        .map_or(20_000, |board| board.2 as usize * 2);
     Ok(Html(
         views::Posting {
             public_origin: state.config.public_origin.clone(),
             boards,
+            comment_max_units,
             query,
             csrf,
             recent: session.recent,
@@ -512,6 +524,7 @@ pub async fn post_message(
             ticket_hash: &ticket_hash,
             idle_seconds: state.config.idle_timeout.as_secs() as i32,
             highlight: input.highlight,
+            authorized_limits: true,
         },
     )
     .await

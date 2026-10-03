@@ -413,6 +413,7 @@ mod tests {
             title: "Test".into(),
             description: String::new(),
             max_comment_chars: 16_000,
+            max_authorized_comment_chars: 10000,
             comment_code_spacing: true,
             comment_sjis_spacing: false,
             comment_max_lines: 100,
@@ -465,6 +466,7 @@ mod tests {
             .into_iter()
             .map(|no| Post {
                 comment_format: 0,
+                staff_authorized_limits: false,
                 wordfilter_payload: None,
                 id: no,
                 board: board.slug.clone(),

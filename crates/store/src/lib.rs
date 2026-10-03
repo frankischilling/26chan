@@ -65,6 +65,7 @@ pub struct Board {
     pub title: String,
     pub description: String,
     pub max_comment_chars: i32,
+    pub max_authorized_comment_chars: i32,
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
     pub comment_max_lines: i32,
@@ -160,6 +161,7 @@ pub struct Post {
     pub subject: String,
     pub comment: String,
     pub comment_format: i16,
+    pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,
     pub dice_result: Option<String>,
     pub fortune_text: Option<String>,
@@ -172,11 +174,17 @@ pub struct Post {
 
 impl Post {
     pub fn formatted_lines(&self) -> Vec<board_domain::Line> {
-        board_domain::formatting::parse_saved_comment(
+        board_domain::formatting::parse_saved_comment_with_limits(
             &self.comment,
             self.comment_format,
             &self.board,
             self.wordfilter_payload.as_deref(),
+            if self.staff_authorized_limits {
+                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+                    .expect("finite persisted staff bound")
+            } else {
+                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+            },
         )
     }
 }

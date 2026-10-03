@@ -132,7 +132,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     if (fileTitle) require(Object.keys(node.attrs).sort().join(',') === 'class,id,title'
       && new TextEncoder().encode(node.attrs.title).length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
-      && new TextEncoder().encode(node.attrs.title).length <= 400 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
+      && new TextEncoder().encode(node.attrs.title).length <= (node.attrs.class === 'name' ? 255 : 1020)
+      && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle)
       || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')

@@ -33,6 +33,7 @@ pub fn page() -> String {
         },
         posts: vec![views::PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             id,
             board: board.slug.clone(),

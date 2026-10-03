@@ -1,9 +1,11 @@
 //! Posting-time filtering after source markup, with no trusted user HTML.
 //! Saved data grants only finite generated components; ordinary text is escaped.
 
-use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag, parse_markup};
+use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag, parse_markup_with_limits};
 use crate::wordfilter::{self, Field, LeetRolls, Profile};
-use crate::{MAX_COMMENT_BYTES, MAX_COMMENT_CHARS, ValidationError, source_html_entities};
+use crate::{
+    MAX_COMMENT_CHARS, PostLimits, ValidationError, WordfilterLimits, source_html_entities,
+};
 
 pub const MAX_PARTS: usize = 32_768;
 pub const MAX_STORED_BYTES: usize = 131_072;
@@ -162,6 +164,7 @@ pub struct PreparedComment {
     parts: Vec<Part>,
     rolls: Option<LeetRolls>,
     wrap: Option<bool>,
+    limits: WordfilterLimits,
 }
 
 impl PreparedComment {
@@ -185,7 +188,7 @@ impl PreparedComment {
     /// Versioned, bounded data; neither HTML nor an executable filter program.
     pub fn encode(&self) -> Result<Vec<u8>, ValidationError> {
         let mut output = Vec::new();
-        output.extend_from_slice(b"WF01");
+        output.extend_from_slice(self.limits.version());
         output.extend_from_slice(&(self.parts.len() as u32).to_be_bytes());
         output.extend_from_slice(&self.rolls.map_or([255, 255], LeetRolls::choices));
         output
@@ -215,7 +218,7 @@ impl PreparedComment {
                     u8::from(delimiter.opening),
                 ]),
             }
-            if output.len() > MAX_STORED_BYTES {
+            if output.len() > self.limits.stored_bytes() {
                 return Err(ValidationError("Wordfilter output is too large."));
             }
         }
@@ -225,12 +228,19 @@ impl PreparedComment {
     /// Validate every field before constructing any rendering authority.
     pub fn decode(input: &[u8]) -> Result<Self, ValidationError> {
         const ERROR: ValidationError = ValidationError("Invalid saved wordfilter comment.");
-        if input.len() > MAX_STORED_BYTES || !input.starts_with(b"WF01") {
+        let limits = if input.starts_with(b"WF01") {
+            WordfilterLimits::Ordinary
+        } else if input.starts_with(b"WF02") {
+            WordfilterLimits::Authorized
+        } else {
+            return Err(ERROR);
+        };
+        if input.len() > limits.stored_bytes() {
             return Err(ERROR);
         }
         let mut cursor = Cursor { input, offset: 4 };
         let count = u32::from_be_bytes(cursor.take(4)?.try_into().map_err(|_| ERROR)?) as usize;
-        if count > MAX_PARTS {
+        if count > limits.max_parts() {
             return Err(ERROR);
         }
         let choices = cursor.take(2)?;
@@ -318,7 +328,7 @@ impl PreparedComment {
                 }
                 _ => return Err(ERROR),
             };
-            if source_bytes > wordfilter::MAX_OUTPUT_BYTES {
+            if source_bytes > limits.output_bytes() {
                 return Err(ERROR);
             }
             parts.push(part);
@@ -330,6 +340,7 @@ impl PreparedComment {
             parts,
             rolls,
             wrap: Some(wrap),
+            limits,
         })
     }
 
@@ -358,16 +369,35 @@ pub fn prepare(
     profile: Profile,
     rolls: Option<LeetRolls>,
 ) -> Result<PreparedComment, ValidationError> {
-    if comment.len() > MAX_COMMENT_BYTES || comment.chars().count() > MAX_COMMENT_CHARS {
+    prepare_with_limits(
+        comment,
+        policy,
+        profile,
+        rolls,
+        PostLimits::ordinary(MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn prepare_with_limits(
+    comment: &str,
+    policy: MarkupPolicy,
+    profile: Profile,
+    rolls: Option<LeetRolls>,
+    post_limits: PostLimits,
+) -> Result<PreparedComment, ValidationError> {
+    if comment.len() > post_limits.prepared_bytes()
+        || comment.chars().count() > post_limits.prepared_chars()
+    {
         return Err(ValidationError("Wordfilter input is too large."));
     }
+    let limits = WordfilterLimits::for_post(post_limits);
     if profile == Profile::Test && rolls.is_none() {
         return Err(ValidationError("Wordfilter randomness is unavailable."));
     }
     let mut parts = Vec::new();
     let mut after_generated = false;
     let mut source_bytes = 0;
-    for token in parse_markup(comment, policy) {
+    for token in parse_markup_with_limits(comment, policy, post_limits) {
         match token {
             MarkupToken::Text(text) => {
                 let escaped = source_html_entities(&text);
@@ -379,7 +409,8 @@ pub fn prepare(
                 } else {
                     escaped
                 };
-                let filtered = wordfilter::apply(&input, Field::Comment, profile, rolls)?;
+                let filtered =
+                    wordfilter::apply_with_limits(&input, Field::Comment, profile, rolls, limits)?;
                 let filtered = if after_generated {
                     filtered
                         .strip_prefix('>')
@@ -411,7 +442,7 @@ pub fn prepare(
                 after_generated = true;
             }
         }
-        if parts.len() > MAX_PARTS || source_bytes > wordfilter::MAX_OUTPUT_BYTES {
+        if parts.len() > limits.max_parts() || source_bytes > limits.output_bytes() {
             return Err(ValidationError("Wordfilter output is too large."));
         }
     }
@@ -423,6 +454,7 @@ pub fn prepare(
             None
         },
         wrap: None,
+        limits,
     })
 }
 
@@ -572,7 +604,7 @@ mod tests {
         trailing.push(0);
         assert!(PreparedComment::decode(&trailing).is_err());
         let mut version = valid.clone();
-        version[3] = b'2';
+        version[3] = b'3';
         assert!(PreparedComment::decode(&version).is_err());
         let mut count = valid.clone();
         count[4..8].copy_from_slice(&u32::MAX.to_be_bytes());

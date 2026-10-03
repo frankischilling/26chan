@@ -11,8 +11,8 @@
 <h2>{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</h2>
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="mode" value="regist"><input type="hidden" name="resto" value="{{ parent }}">
 <input type="hidden" name="name" value=""><input type="hidden" name="email" value="">
-<div><label for="sub">Subject</label><input name="sub" id="sub" value="{{ subject }}" maxlength="600"></div>
-<div><label for="com">Comment</label><textarea name="com" id="com" rows="5" maxlength="{{ board.max_comment_chars }}">{{ comment }}</textarea></div>
+<div><label for="sub">Subject</label><input name="sub" id="sub" value="{{ subject }}" maxlength="{{ field_bytes }}"></div>
+<div><label for="com">Comment</label><textarea name="com" id="com" rows="5" maxlength="{{ comment_max_units }}">{{ comment }}</textarea></div>
 {% if !recent %}<p><a href="/">Sign in again</a> before posting.</p>{% endif %}
 <button type="submit">Submit</button>
 </form>

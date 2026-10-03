@@ -113,9 +113,21 @@ impl Atom {
 /// the global scalar limit. The parser makes a fixed number of linear passes,
 /// never recurses and never accepts caller-supplied tag names or HTML.
 pub fn parse_markup(input: &str, policy: MarkupPolicy) -> Vec<MarkupToken> {
+    parse_markup_with_limits(
+        input,
+        policy,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn parse_markup_with_limits(
+    input: &str,
+    policy: MarkupPolicy,
+    limits: crate::PostLimits,
+) -> Vec<MarkupToken> {
     let mut atoms: Vec<_> = input
         .chars()
-        .take(crate::MAX_COMMENT_CHARS)
+        .take(limits.prepared_chars())
         .map(|ch| {
             if ch == '\n' {
                 Atom::Break

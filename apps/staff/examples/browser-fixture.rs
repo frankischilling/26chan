@@ -77,6 +77,32 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .execute(&pool)
                 .await?;
         }
+        "authorized-limit" => {
+            use std::io::Read;
+            let mut input = String::new();
+            std::io::stdin().take(6).read_to_string(&mut input)?;
+            if input.is_empty()
+                || input.len() > 5
+                || !input.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err("Invalid synthetic staff limit".into());
+            }
+            let maximum: i32 = input.parse()?;
+            if !(1..=50000).contains(&maximum) {
+                return Err("Invalid synthetic staff limit".into());
+            }
+            let changed = sqlx::query(
+                "UPDATE content.boards SET max_authorized_comment_chars=$2 WHERE slug=$1",
+            )
+            .bind(board)
+            .bind(maximum)
+            .execute(&pool)
+            .await?
+            .rows_affected();
+            if changed != 1 {
+                return Err("Owned fixture board is missing".into());
+            }
+        }
         "inspect" => {
             let states: Vec<(bool, bool, bool)> =
                 sqlx::query_as("SELECT closed,sticky,deleted FROM content.threads WHERE board=$1")

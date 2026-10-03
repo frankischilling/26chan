@@ -38,6 +38,12 @@ post therefore cannot claim a complete private poster count.
 This flow accepts text only. Staff attachment posting is unfinished; the public
 attachment owner has no staff authentication access or badge authority.
 
+[Rank-specific limits](verification-authorized-post-limits.md) allow 255-byte
+raw fields and the configured authorized comment budget for current
+moderators, managers and administrators. Janitors retain ordinary limits in
+private discussion. Finished escaped display names still have a 255-byte bound.
+Full source staff name preparation and other privileged exceptions remain open.
+
 ## Database boundary
 
 Migration 0042 creates a separate `board_staff_post_owner` NOLOGIN function

@@ -10,6 +10,13 @@ Posting uses the same short-lived, single-use authorization proof as public staf
 
 Index and thread pages use the shared snapshot readers and escaped comment renderer, with working quote links and the original second-resolution New York timestamps. Invalid submissions retain escaped subject and comment fields. Reading does not require recent reauthentication; posting does. The report queue links to discussion only when the session may access it.
 
+[Rank-specific posting limits](verification-authorized-post-limits.md) keep
+janitors at 100-byte raw fields and 2,000 normalized comment scalars on `/j/`.
+Moderators, managers and administrators receive 255-byte fields and 50,000
+comment scalars, with the source's repeated-line and line-cap exemptions.
+The proof rechecks rank and board policy before saving the post. Names remain
+anonymous at every rank.
+
 Migrations 0060 and 0061 install the author mapping and grant the staff-content role access to the existing bounded poster-count function used by shared snapshots. They do not grant access to poster fingerprints or addresses. Private page rendering retains the authorization connection while reading authorship, so a page also works with a one-connection authentication pool. Serialized response bodies share a 64 MiB process budget, retained until response data is released.
 
 The current implementation covers text discussion. Private attachment upload and delivery are still pending, as is integration of the source's non-expiring history policy. Keep issue #221 open until those remaining board behaviors and their validation are complete.

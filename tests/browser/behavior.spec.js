@@ -113,11 +113,12 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     id = /#p(\d+)$/.exec(page.url())[1];
-    await expect(page.locator(`#pi${id} .name`)).toHaveText(name);
+    // Source removes these emoticons after the independent raw 100-byte bound.
+    await expect(page.locator(`#pi${id} .name`)).toHaveText('Anonymous');
     await expect(page.locator(`#pi${id} .subject`)).toHaveText(subject);
     await expect(page.locator(`#pi${id} .subject > *`)).toHaveCount(0);
     const data = await (await context.request.get(`${origin}/fixture/thread/${id}.json`)).json();
-    expect(data.posts[0].name).toBe(name);
+    expect(data.posts[0].name).toBe('Anonymous');
     expect(data.posts[0].sub).toBe('&lt;&amp;'.repeat(50));
     for (const [who, title] of [[`${name}x`, subject], [name, `${subject}x`]]) {
       await fill(who, title);

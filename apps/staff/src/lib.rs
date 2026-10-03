@@ -127,6 +127,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(handlers::landing))
         .route("/staff.js", get(handlers::javascript))
+        .route("/post-limits.js", get(handlers::post_limits_javascript))
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
@@ -143,9 +144,16 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/imgboard.php", get(latest::legacy))
         .route(
             "/j/imgboard.php",
-            get(latest::legacy).post(discussion::submit),
+            get(latest::legacy)
+                .post(discussion::submit)
+                .layer(DefaultBodyLimit::max(1_048_576)),
         )
-        .route("/post", get(handlers::posting).post(handlers::post_message))
+        .route(
+            "/post",
+            get(handlers::posting)
+                .post(handlers::post_message)
+                .layer(DefaultBodyLimit::max(1_048_576)),
+        )
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))
         .route("/login/start", post(handlers::login_start))

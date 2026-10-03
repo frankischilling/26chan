@@ -18,6 +18,14 @@ incorrectly. It preserves the applied import checksum and operator-edited
 titles. The extractor now reads board names explicitly as UTF-8 and verifies
 the historical import together with that additive correction.
 
+Migration 0069 imports all 82 authorized comment budgets: 10,000 characters on
+81 boards and 50,000 on `/j/`. Its separate hash-pinned
+[fixture and qualification](verification-authorized-post-limits.md) cover
+moderators, managers and administrators; janitors retain ordinary limits.
+The private proof owner can read only the board slug and two comment budgets,
+including `/j/`, and cannot change policy. This adds no public directory entry
+for the private board.
+
 Installed policy includes comment character/line limits, spoilers, code/SJIS
 tags, required subjects, OP markup, forced anonymity, IDs, country flags,
 text-only behavior, bump/image limits, index capacity and pagination, archive

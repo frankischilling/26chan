@@ -79,7 +79,25 @@ pub fn apply(
     profile: Profile,
     rolls: Option<LeetRolls>,
 ) -> Result<String, ValidationError> {
-    check_input(input)?;
+    apply_with_limits(
+        input,
+        field,
+        profile,
+        rolls,
+        crate::WordfilterLimits::Ordinary,
+    )
+}
+
+pub(crate) fn apply_with_limits(
+    input: &str,
+    field: Field,
+    profile: Profile,
+    rolls: Option<LeetRolls>,
+    limits: crate::WordfilterLimits,
+) -> Result<String, ValidationError> {
+    if input.len() > limits.input_bytes() {
+        return Err(ValidationError("Wordfilter input is too large."));
+    }
     if field != Field::Comment {
         return Ok(input.to_owned());
     }
@@ -100,22 +118,16 @@ pub fn apply(
         }
     }
     if profile == Profile::Test {
-        text = leet(
+        text = leet_with_limits(
             &text,
             rolls.ok_or(ValidationError("Wordfilter randomness is unavailable."))?,
+            limits,
         )?;
     }
-    if text.len() > MAX_OUTPUT_BYTES {
+    if text.len() > limits.output_bytes() {
         return Err(ValidationError("Wordfilter output is too large."));
     }
     Ok(text)
-}
-
-fn check_input(input: &str) -> Result<(), ValidationError> {
-    if input.len() > MAX_INPUT_BYTES {
-        return Err(ValidationError("Wordfilter input is too large."));
-    }
-    Ok(())
 }
 
 fn common(input: &str) -> String {
@@ -251,7 +263,17 @@ fn soy(input: &str) -> String {
 }
 
 pub fn leet(input: &str, rolls: LeetRolls) -> Result<String, ValidationError> {
-    check_input(input)?;
+    leet_with_limits(input, rolls, crate::WordfilterLimits::Ordinary)
+}
+
+fn leet_with_limits(
+    input: &str,
+    rolls: LeetRolls,
+    limits: crate::WordfilterLimits,
+) -> Result<String, ValidationError> {
+    if input.len() > limits.input_bytes() {
+        return Err(ValidationError("Wordfilter input is too large."));
+    }
     let mut output = leet_once(input, rolls.0[0]);
     if rolls.0[0] != rolls.0[1] {
         output = leet_once(&output, rolls.0[1]);

@@ -166,6 +166,7 @@ JSON instead of the source's ten `&lt;` entities; the aggregate gate fails.
 The rendered-name assertions pass. The later suppression change corrects this
 expectation and still requires a complete hosted run at its own head.
 
-Staff-specific raw limits/preparation, privileged exceptions and
-generated-randomizer filter scope remain open. Source suppression is covered
-by its separate verification record.
+The later [authorized posting limits](verification-authorized-post-limits.md)
+restore rank-specific raw field bounds. Staff name preparation, privileged
+exceptions and generated-randomizer filter scope remain open. Source
+suppression is covered by its separate verification record.

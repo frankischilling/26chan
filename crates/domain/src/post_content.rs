@@ -1,5 +1,8 @@
-use crate::comment_markup::{MarkupToken, parse_markup};
-use crate::{CommentSpacing, ValidationError, prepare_post_comment, prepare_post_subject};
+use crate::comment_markup::{MarkupToken, parse_markup_with_limits};
+use crate::{
+    CommentSpacing, PostLimits, ValidationError, prepare_post_comment_with_limits,
+    prepare_post_subject_with_limits,
+};
 
 /// Server-selected post position and operator-owned OP subject rule.
 #[derive(Clone, Copy)]
@@ -24,6 +27,7 @@ pub struct PostContentInput {
     has_attachment: bool,
     markup: crate::comment_markup::MarkupPolicy,
     kind: PostKind,
+    limits: PostLimits,
 }
 
 impl PostContentInput {
@@ -42,8 +46,9 @@ impl PostContentInput {
             has_attachment,
             markup,
             kind,
+            limits,
         } = self;
-        final_admission(subject, comment, has_attachment, markup, kind)
+        final_admission(subject, comment, has_attachment, markup, kind, limits)
     }
 }
 
@@ -79,10 +84,30 @@ pub fn prepare_post_content_input(
     spacing: CommentSpacing<'_>,
     kind: PostKind,
 ) -> Result<PostContentInput, ValidationError> {
+    prepare_post_content_input_with_limits(
+        name,
+        subject,
+        comment,
+        PostLimits::ordinary(max_chars),
+        has_attachment,
+        spacing,
+        kind,
+    )
+}
+
+pub fn prepare_post_content_input_with_limits(
+    name: &str,
+    subject: &str,
+    comment: &str,
+    limits: PostLimits,
+    has_attachment: bool,
+    spacing: CommentSpacing<'_>,
+    kind: PostKind,
+) -> Result<PostContentInput, ValidationError> {
     // Defer empty-comment admission, not raw limits or control rejection.
     // This does not assert attachment authority; final admission follows below.
-    crate::validate_post_with_attachment(name, subject, comment, max_chars, true)?;
-    let subject = prepare_post_subject(subject, spacing)?;
+    crate::validate_post_with_limits(name, subject, comment, limits, true)?;
+    let subject = prepare_post_subject_with_limits(subject, spacing, limits)?;
     if matches!(
         kind,
         PostKind::Thread {
@@ -93,9 +118,9 @@ pub fn prepare_post_content_input(
     {
         return Err(ValidationError("Error: New threads require a subject."));
     }
-    // Defer blank admission through sanitation as well. Bounds, controls,
-    // spam and line checks still run before the source's final markup check.
-    let comment = prepare_post_comment(name, "", comment, max_chars, true, spacing)?;
+    // Defer blank admission through sanitation as well. Bounds and controls
+    // precede final markup admission; ordinary posts also get spam/line checks.
+    let comment = prepare_post_comment_with_limits(name, "", comment, limits, true, spacing)?;
     // The caller removes existing internal markers once before its admission
     // filters and generated markup. A newly joined marker is left for the
     // later formatter, matching the source's two separate passes.
@@ -106,6 +131,7 @@ pub fn prepare_post_content_input(
         has_attachment,
         markup: spacing.markup_policy(),
         kind,
+        limits,
     })
 }
 
@@ -115,8 +141,9 @@ fn final_admission(
     has_attachment: bool,
     markup: crate::comment_markup::MarkupPolicy,
     kind: PostKind,
+    limits: PostLimits,
 ) -> Result<PreparedPostContent, ValidationError> {
-    let blank = parse_markup(&comment, markup)
+    let blank = parse_markup_with_limits(&comment, markup, limits)
         .iter()
         .all(|token| match token {
             MarkupToken::Break => true,

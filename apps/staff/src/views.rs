@@ -1,7 +1,7 @@
 use crate::store::Report;
 use askama::Template;
 use board_domain::comment_markup::Tag;
-use board_domain::formatting::{Line, Token, parse_saved_comment};
+use board_domain::formatting::{Line, Token, parse_saved_comment_with_limits};
 use board_domain::word_break::WordPart;
 #[derive(Template)]
 #[template(path = "login.html")]
@@ -10,7 +10,8 @@ pub struct Login;
 #[template(path = "posting.html")]
 pub struct Posting {
     pub public_origin: String,
-    pub boards: Vec<(String, String)>,
+    pub boards: Vec<(String, String, i32)>,
+    pub comment_max_units: usize,
     pub query: crate::handlers::PostingQuery,
     pub csrf: String,
     pub recent: bool,
@@ -43,11 +44,17 @@ impl Preview {
 }
 impl From<Report> for Preview {
     fn from(report: Report) -> Self {
-        let lines = parse_saved_comment(
+        let lines = parse_saved_comment_with_limits(
             &report.comment,
             report.comment_format,
             &report.board,
             report.wordfilter_payload.as_deref(),
+            if report.staff_authorized_limits {
+                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+                    .expect("finite persisted staff bound")
+            } else {
+                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+            },
         );
         Self { report, lines }
     }
@@ -84,6 +91,7 @@ mod tests {
             flag_name: None,
             subject: "<i>subject</i>".into(),
             comment_format: 0,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
                 .into(),
@@ -143,6 +151,7 @@ mod tests {
                 flag_name: None,
                 subject: String::new(),
                 comment_format: format,
+                staff_authorized_limits: false,
                 wordfilter_payload: None,
                 comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b] https://www.4chan.org/faq https://example.org/path"
                     .into(),
@@ -201,6 +210,7 @@ mod tests {
                 subject: String::new(),
                 comment: comment.clone(),
                 comment_format: format,
+                staff_authorized_limits: false,
                 wordfilter_payload: None,
                 state: "open".into(),
                 closed: false,

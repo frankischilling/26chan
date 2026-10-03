@@ -22,6 +22,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
         let id = 1_001_001 + index as i64 * 10;
         let post = Post {
             comment_format: 0,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             id,
             board: "demo".into(),

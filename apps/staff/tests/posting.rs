@@ -218,7 +218,7 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
         let session_hash=auth::hash(&case.token); let csrf_hash=auth::hash(&case.csrf);
         let direct=board_store::create_staff_post(&case.state.staff,&case.board,0,
             &board_store::NewPost { name:"Owned direct staff#private-trip-suffix".into(),subject:"Owned".into(),comment:"Synthetic direct authority".into(),deletion_hash:String::new(),sage:false },chrono::Utc::now(),
-            board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false }).await.expect("actual staff posting transaction must succeed");
+            board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true }).await.expect("actual staff posting transaction must succeed");
         assert!(direct>0);
         assert_eq!(sqlx::query_scalar::<_,String>("SELECT name FROM content.posts WHERE id=$1").bind(direct).fetch_one(&case.owner).await.unwrap(),"Owned direct staff");
         let (status,location)=case.submit(0,"",&case.csrf,"http://localhost:3001").await;
@@ -372,6 +372,33 @@ impl BoundPost {
         .await?;
         Ok(())
     }
+    async fn issue_limited(
+        &self,
+        case: &Fixture,
+        authorized: Option<bool>,
+        limit: Option<i32>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+        )
+        .bind(&self.ticket)
+        .bind(auth::hash(&case.token))
+        .bind(auth::hash(&case.csrf))
+        .bind(self.id)
+        .bind(&self.board)
+        .bind(self.thread)
+        .bind(&self.name)
+        .bind(&self.subject)
+        .bind(&self.comment)
+        .bind(self.time)
+        .bind(authorized)
+        .bind(limit)
+        .bind(self.wordfilter_payload.as_deref())
+        .bind(self.wordfilter_search.as_deref())
+        .execute(&case.state.auth)
+        .await?;
+        Ok(())
+    }
     async fn insert(&self, case: &Fixture) -> Result<String, sqlx::Error> {
         let mut tx = case.state.staff.begin().await?;
         let ticket = self
@@ -429,7 +456,7 @@ async fn staff_wordfilters_bind_the_exact_saved_body_without_granting_html_autho
         let id=board_store::create_staff_post(&case.state.staff,&case.board,0,&board_store::NewPost {
             name:"soy fam CUCK#private suffix".into(),subject:"soy fam CUCK".into(),comment:"soy fam CUCK <script>literal</script>".into(),deletion_hash:String::new(),sage:false,
         },chrono::Utc::now(),
-        board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false }).await.unwrap();
+        board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true }).await.unwrap();
         let public=pool("TEST_PUBLIC_DATABASE_URL").await;
         let saved=board_store::find_post(&public,&case.board,id).await.unwrap();
         assert_eq!(saved.name,"soy fam CUCK"); assert_eq!(saved.subject,"soy fam CUCK"); assert_eq!(saved.capcode.as_deref(),Some("mod"));
@@ -672,6 +699,319 @@ async fn private_html(case: &Fixture, path: &str) -> String {
     text
 }
 
+fn staff_form(case: &Fixture, thread: i64, name: &str, subject: &str, comment: &str) -> String {
+    url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("csrf", &case.csrf)
+        .append_pair("board", &case.board)
+        .append_pair("thread", &thread.to_string())
+        .append_pair("name", name)
+        .append_pair("subject", subject)
+        .append_pair("comment", comment)
+        .finish()
+}
+
+async fn posting_snapshot(case: &Fixture, board: &str, thread: i64) -> serde_json::Value {
+    sqlx::query_scalar(
+        "SELECT jsonb_build_object(\
+            'posts',(SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2),\
+            'audit',(SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND account_id=$3),\
+            'clock',(SELECT modified_at FROM content.threads WHERE board=$1 AND id=$2),\
+            'intents',(SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$3))",
+    )
+    .bind(board)
+    .bind(thread)
+    .bind(case.account)
+    .fetch_one(&case.owner)
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn source_staff_ranks_select_raw_budgets_before_cleanup_and_accept_large_encoded_forms() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        let source: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../crates/domain/tests/fixtures/authorized-post.json"
+        )).unwrap();
+        for board in source["boards"].as_array().unwrap() {
+            let actual: i32 = sqlx::query_scalar(
+                "SELECT max_authorized_comment_chars FROM content.boards WHERE slug=$1"
+            ).bind(board["slug"].as_str().unwrap()).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(i64::from(actual), board["max_authorized_comment_chars"].as_i64().unwrap());
+        }
+        let unit = "\u{20000}";
+        for (role, field_bytes, comment_chars, authorized) in [
+            ("janitor",100,2000,false), ("moderator",255,50000,true),
+            ("manager",255,50000,true), ("admin",255,50000,true),
+        ] {
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1")
+                .bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let html = private_html(&case,"/j/").await;
+            assert!(html.contains(&format!("<input name=\"sub\" id=\"sub\" value=\"\" maxlength=\"{field_bytes}\"")),"{role}");
+            assert!(html.contains(&format!("maxlength=\"{}\"",comment_chars*2)),"{role}");
+            let subject = "s".repeat(field_bytes);
+            let body = unit.repeat(comment_chars);
+            let form = private_form(&case,0,&body).replace("Owned+%3Cscript%3E+subject", &subject);
+            if authorized { assert!(form.len()>600_000, "Must reach the real route's larger body limit"); }
+            let response = private_request(&case,"/j/imgboard.php",Some(form)).await;
+            assert_eq!(response.status(),StatusCode::SEE_OTHER,"{role}");
+            let thread:i64 = response.headers()["location"].to_str().unwrap()
+                .strip_prefix("/j/thread/").unwrap().split('#').next().unwrap().parse().unwrap();
+            let saved:(String,String,bool,Vec<u8>,Option<String>) = sqlx::query_as(
+                "SELECT name,subject,staff_authorized_limits,wordfilter_payload,capcode FROM content.posts WHERE id=$1"
+            ).bind(thread).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(saved.0,"Anonymous"); assert_eq!(saved.1,subject); assert_eq!(saved.2,authorized);
+            assert_eq!(&saved.3[..4],if authorized {b"WF02"} else {b"WF01"}); assert!(saved.4.is_none());
+            let prepared=board_domain::wordfiltered_comment::PreparedComment::decode(&saved.3).unwrap();
+            assert_eq!(board_domain::formatting::plain_text(&board_domain::filtered_formatting::lines(&prepared,"j")),body);
+            let before = posting_snapshot(&case,"j",thread).await;
+            for form in [
+                private_form(&case,thread,&unit.repeat(comment_chars+1)),
+                private_form(&case,thread,"Rejected subject").replace("Owned+%3Cscript%3E+subject",&"s".repeat(field_bytes+1)),
+                private_form(&case,thread,"Rejected name").replace("Forged+Admin+%3Cname%3E",&"n".repeat(field_bytes+1)),
+                private_form(&case,thread,"Rejected email").replace("fortune",&"e".repeat(field_bytes+1)),
+                private_form(&case,thread,&"😀".repeat(comment_chars)),
+            ] {
+                assert_eq!(private_request(&case,"/j/imgboard.php",Some(form)).await.status(),StatusCode::BAD_REQUEST,"{role}");
+                assert_eq!(posting_snapshot(&case,"j",thread).await,before,"Rejection must not change posts, audit, clock or proofs: {role}");
+            }
+            let repeated = "same\n".repeat(8);
+            let over_lines = (0..=71).map(|line|format!("line{line}")).collect::<Vec<_>>().join("\n");
+            for comment in [&repeated,&over_lines] {
+                let status=private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,comment))).await.status();
+                assert_eq!(status,if authorized {StatusCode::SEE_OTHER} else {StatusCode::BAD_REQUEST},"{role}");
+            }
+            for app in [&case.public,&case.api] {
+                assert_eq!(app.clone().oneshot(Request::get(format!("/j/thread/{thread}.json")).body(Body::empty()).unwrap()).await.unwrap().status(),StatusCode::NOT_FOUND);
+            }
+        }
+        // Larger posting forms do not enlarge authentication JSON endpoints.
+        let response=board_staff::router(case.state.clone()).oneshot(Request::post("/login/start")
+            .header("content-type","application/json")
+            .body(Body::from(format!("{{\"username\":\"{}\"}}","a".repeat(262144)))).unwrap()).await.unwrap();
+        assert_eq!(response.status(),StatusCode::PAYLOAD_TOO_LARGE);
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn public_staff_limits_keep_finished_name_bounds_and_safe_large_wordfilter_views() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET max_comment_chars=2000,comment_max_lines=100,comment_code_spacing=true,word_filter_enabled=true WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        let subject=format!("A{}B","\t".repeat(253));
+        let comment="\u{20000}".repeat(10000);
+        let response=private_request(&case,"/post",Some(staff_form(&case,0,&"n".repeat(255),&subject,&comment))).await;
+        assert_eq!(response.status(),StatusCode::SEE_OTHER);
+        let (thread,_,badge)=case.latest().await; assert_eq!(badge.as_deref(),Some("mod"));
+        let public=pool("TEST_PUBLIC_DATABASE_URL").await;
+        let saved=board_store::find_post(&public,&case.board,thread).await.unwrap();
+        assert_eq!(saved.name,"n".repeat(255));
+        assert_eq!(saved.subject,format!("A{}B"," ".repeat(1012)));
+        assert_eq!(saved.wordfilter_payload.as_ref().unwrap().get(..4),Some(b"WF02".as_slice()));
+        for router in [&case.public,&case.api] {
+            let json=public_json(router,&format!("/{}/thread/{thread}.json",case.board)).await;
+            let expected=format!("{}{}",format!("{}<wbr>","\u{20000}".repeat(35)).repeat(10000/35),"\u{20000}".repeat(10000%35));
+            assert_eq!(json["posts"][0]["com"],expected);
+            assert_eq!(json["posts"][0]["name"],"n".repeat(255)); assert_eq!(json["posts"][0]["capcode"],"mod");
+        }
+        let search_params=url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("q","\u{20000}").append_pair("b",&case.board).finish();
+        let search=public_json(&case.public,&format!("/search/api?{search_params}")).await;
+        assert_eq!(search["threads"][0]["thread"],thread.to_string());
+        let search_html=search["threads"][0]["posts"][0]["html"].as_str().unwrap();
+        assert!(search_html.contains('\u{20000}')); assert!(search_html.len()<20000);
+        let before=posting_snapshot(&case,&case.board,thread).await;
+        for (name,subject,comment) in [
+            ("n".repeat(256),"Owned".into(),"Rejected name".into()),
+            ("&".repeat(52),"Owned".into(),"Rejected escaped finished name".into()),
+            ("Owned".into(),"s".repeat(256),"Rejected subject".into()),
+            ("Owned".into(),"Owned".into(),"x".repeat(10001)),
+        ] {
+            assert_eq!(private_request(&case,"/post",Some(staff_form(&case,thread,&name,&subject,&comment))).await.status(),StatusCode::BAD_REQUEST);
+            assert_eq!(posting_snapshot(&case,&case.board,thread).await,before);
+        }
+        // This body exceeds the old prepared/comment/frame limits after tab expansion.
+        let expanded=format!("A{}B","\t".repeat(9998));
+        let response=private_request(&case,"/post",Some(staff_form(&case,thread,"Owned","Owned",&expanded))).await;
+        assert_eq!(response.status(),StatusCode::SEE_OTHER);
+        let (id,_,_)=case.latest().await;
+        let preview=public_json(&case.public,&format!("/_watch/{}/post/{id}",case.board)).await;
+        assert!(preview["post"]["html"].as_str().unwrap().contains(&format!("A{}B"," ".repeat(39992))));
+        let snapshot=posting_snapshot(&case,&case.board,thread).await;
+        let public_form=url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("resto",&thread.to_string()).append_pair("name",&"n".repeat(101))
+            .append_pair("com","Public still limited").append_pair("pwd","owned").finish();
+        let response=case.public.clone().oneshot(Request::post(format!("/{}/post",case.board))
+            .header("origin","http://127.0.0.1:3000").header("accept","application/json")
+            .header("content-type","application/x-www-form-urlencoded")
+            .body(Body::from(public_form)).unwrap()).await.unwrap();
+        assert_eq!(response.status(),StatusCode::OK);
+        let json:serde_json::Value=serde_json::from_slice(&to_bytes(response.into_body(),8192).await.unwrap()).unwrap();
+        assert_eq!(json["error"],"Name or subject is too long.");
+        assert_eq!(posting_snapshot(&case,&case.board,thread).await,snapshot);
+        // A later policy change must retain earlier frames and render the full
+        // expanded unfiltered staff comment through every saved-post reader.
+        sqlx::query("UPDATE content.boards SET max_authorized_comment_chars=50000,word_filter_enabled=false WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        let raw=format!("A{}Z","\t".repeat(49998));
+        assert_eq!(private_request(&case,"/post",Some(staff_form(&case,thread,"Owned","Owned",&raw))).await.status(),StatusCode::SEE_OTHER);
+        let (expanded_id,_,_)=case.latest().await;
+        let expected=format!("A{}Z"," ".repeat(199992));
+        let expanded=board_store::find_post(&public,&case.board,expanded_id).await.unwrap();
+        assert!(expanded.staff_authorized_limits); assert!(expanded.wordfilter_payload.is_none());
+        assert_eq!(board_domain::formatting::plain_text(&expanded.formatted_lines()),expected);
+        for router in [&case.public,&case.api] {
+            let json=public_json(router,&format!("/{}/thread/{thread}.json",case.board)).await;
+            let row=json["posts"].as_array().unwrap().iter().find(|post|post["no"]==expanded_id).unwrap();
+            assert_eq!(row["com"],expected); assert!(row.get("staff_authorized_limits").is_none());
+        }
+        let preview=public_json(&case.public,&format!("/_watch/{}/post/{expanded_id}",case.board)).await;
+        assert!(preview["post"]["html"].as_str().unwrap().contains(&expected));
+        sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned long staff preview')")
+            .bind(&case.board).bind(expanded_id).execute(&case.owner).await.unwrap();
+        assert!(private_html(&case,"/reports").await.contains(&expected));
+        let search=public_json(&case.public,&format!("/search/api?q=Z&b={}",case.board)).await;
+        let expanded_id_text=expanded_id.to_string();
+        let excerpt=search["threads"][0]["posts"].as_array().unwrap().iter()
+            .find(|post|post["no"].as_str()==Some(expanded_id_text.as_str())).unwrap()["html"].as_str().unwrap();
+        assert!(excerpt.contains('Z')); assert!(excerpt.len()<20000);
+        assert_eq!(board_store::find_post(&public,&case.board,thread).await.unwrap().wordfilter_payload,saved.wordfilter_payload);
+        // Owned stored rows exercise the maximum SQL body size without changing
+        // the posting parser. PostgreSQL compresses this repetitive fixture.
+        let inserted=sqlx::query("WITH numbered AS (SELECT nextval('content.post_number') AS id FROM generate_series(1,40)), heads AS (INSERT INTO content.threads(id,board) SELECT id,$1 FROM numbered RETURNING id) INSERT INTO content.posts(id,board,thread_id,name,subject,comment) SELECT id,$1,id,'Owned read bound','','Owned' FROM heads")
+            .bind(&case.board).execute(&case.owner).await.unwrap().rows_affected();
+        assert_eq!(inserted,40);
+        let changed=sqlx::query("UPDATE content.posts SET staff_authorized_limits=true,comment=repeat('x',2097152),wordfilter_payload=decode('5746303200000000ffff00','hex'),wordfilter_search='' WHERE board=$1 AND name='Owned read bound'")
+            .bind(&case.board).execute(&case.owner).await.unwrap().rows_affected();
+        assert_eq!(changed,40);
+        let page=board_store::board_snapshot(&public,&case.board,board_store::BoardSelection::Page(1),Some(0)).await.unwrap();
+        assert_eq!(page.threads.len(),page.board.threads_per_page as usize);
+        assert!(page.threads.iter().all(|thread|thread.posts[0].staff_authorized_limits && thread.posts[0].comment.len()==2097152));
+        let all=board_store::board_snapshot(&public,&case.board,board_store::BoardSelection::All,Some(0)).await;
+        assert!(matches!(all,Err(board_store::StoreError::ReadLimit)),"The whole catalog must retain its former byte ceiling");
+        public.close().await;
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn authorized_proofs_require_current_rank_policy_and_non_null_bound_inputs() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET max_comment_chars=2000 WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        assert_eq!(case.submit(0,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);
+        let (thread,_,_)=case.latest().await;
+        let post=BoundPost::new(&case,thread).await;
+        let before=posting_snapshot(&case,&case.board,thread).await;
+        for (authorized,limit) in [(None,Some(10000)),(Some(true),None),
+            (Some(true),Some(0)),(Some(true),Some(50001)),(Some(true),Some(9999)),(Some(false),Some(10000))] {
+            assert_eq!(sql_code(&post.issue_limited(&case,authorized,limit).await.unwrap_err()).as_deref(),Some("28000"));
+            assert_eq!(posting_snapshot(&case,&case.board,thread).await,before);
+        }
+        post.issue_limited(&case,Some(true),Some(10000)).await.unwrap();
+        let intent:(bool,Option<i32>)=sqlx::query_as("SELECT authorized_limits,comment_limit FROM post_secrets.staff_post_intents WHERE token_hash=$1")
+            .bind(&post.ticket).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(intent,(true,Some(10000)));
+        let pending=posting_snapshot(&case,&case.board,thread).await;
+        sqlx::query("UPDATE content.boards SET max_authorized_comment_chars=9000 WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        assert_eq!(sql_code(&post.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
+        assert_eq!(posting_snapshot(&case,&case.board,thread).await,pending);
+        sqlx::query("UPDATE content.boards SET max_authorized_comment_chars=10000 WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        sqlx::query("UPDATE staff_identity.accounts SET role='janitor' WHERE id=$1")
+            .bind(case.account).execute(&case.owner).await.unwrap();
+        assert_eq!(sql_code(&post.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
+        assert_eq!(posting_snapshot(&case,&case.board,thread).await,pending);
+        sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1")
+            .bind(case.account).execute(&case.owner).await.unwrap();
+        assert_eq!(post.insert(&case).await.unwrap(),"mod");
+        assert!(sqlx::query_scalar::<_,bool>("SELECT staff_authorized_limits FROM content.posts WHERE id=$1")
+            .bind(post.id).fetch_one(&case.owner).await.unwrap());
+        assert_eq!(sql_code(&post.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
+        // The old issuer retains an ordinary proof, even for a current moderator.
+        let legacy=BoundPost::new(&case,thread).await; legacy.issue(&case).await.unwrap();
+        assert_eq!(legacy.insert(&case).await.unwrap(),"mod");
+        assert!(!sqlx::query_scalar::<_,bool>("SELECT staff_authorized_limits FROM content.posts WHERE id=$1")
+            .bind(legacy.id).fetch_one(&case.owner).await.unwrap());
+        let public=pool("TEST_PUBLIC_DATABASE_URL").await;
+        denied(&public,"SELECT staff_identity.issue_limited_post_authority(NULL,NULL,NULL,900,false,1,'x',1,'x','','x',clock_timestamp(),true,10000,NULL,NULL)").await;
+        denied(&case.state.staff,"SELECT staff_identity.issue_limited_post_authority(NULL,NULL,NULL,900,false,1,'x',1,'x','','x',clock_timestamp(),true,10000,NULL,NULL)").await;
+        for role in [&public,&case.state.staff,&case.state.auth] {
+            denied(role,"UPDATE content.posts SET staff_authorized_limits=true WHERE false").await;
+            denied(role,"UPDATE content.boards SET max_authorized_comment_chars=50000 WHERE false").await;
+        }
+        // A forged transaction setting cannot select the larger ordinary SQL bounds.
+        let mut tx=public.begin().await.unwrap();
+        sqlx::query("SELECT set_config('board.staff_authorized_limits','true',true)").execute(&mut *tx).await.unwrap();
+        let id:i64=sqlx::query_scalar("SELECT nextval('content.post_number')").fetch_one(&mut *tx).await.unwrap();
+        let error=sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous',$4,'Owned forged bound')")
+            .bind(id).bind(&case.board).bind(thread).bind("s".repeat(401)).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(sql_code(&error).as_deref(),Some("23514"));
+        tx.rollback().await.unwrap();
+        public.close().await;
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn real_staff_posting_rechecks_policy_and_rank_after_the_board_lock_wait() {
+    for downgrade in [true, false] {
+        let fixture = Fixture::new().await;
+        let case = fixture.clone();
+        let result = tokio::spawn(async move {
+            assert_eq!(case.submit(0,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);
+            let (thread,_,_)=case.latest().await;
+            let before=posting_snapshot(&case,&case.board,thread).await;
+            let mut operator=case.owner.begin().await.unwrap();
+            sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+                .bind(&case.board).execute(&mut *operator).await.unwrap();
+            let locker:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *operator).await.unwrap();
+            let child_case=case.clone();
+            let child=tokio::spawn(async move {
+                private_request(&child_case,"/post",Some(staff_form(&child_case,thread,"Owned","Owned",&"x".repeat(501)))).await
+            });
+            let mut observed=false;
+            for _ in 0..150 {
+                observed=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE usename='board_staff' AND $1=ANY(pg_blocking_pids(pid)))")
+                    .bind(locker).fetch_one(&mut *operator).await.unwrap();
+                if observed {break;} tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            if downgrade {
+                sqlx::query("UPDATE staff_identity.accounts SET role='janitor' WHERE id=$1")
+                    .bind(case.account).execute(&mut *operator).await.unwrap();
+            } else {
+                sqlx::query("UPDATE content.boards SET max_authorized_comment_chars=500 WHERE slug=$1")
+                    .bind(&case.board).execute(&mut *operator).await.unwrap();
+            }
+            operator.commit().await.unwrap();
+            let response=child.await.unwrap();
+            assert!(observed,"Actual HTTP staff writer must wait for the selected board row");
+            assert_eq!(response.status(),if downgrade {StatusCode::UNAUTHORIZED} else {StatusCode::BAD_REQUEST});
+            assert_eq!(posting_snapshot(&case,&case.board,thread).await,before);
+            if downgrade {
+                sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1")
+                    .bind(case.account).execute(&case.owner).await.unwrap();
+            } else {
+                sqlx::query("UPDATE content.boards SET max_authorized_comment_chars=10000 WHERE slug=$1")
+                    .bind(&case.board).execute(&case.owner).await.unwrap();
+            }
+            assert_eq!(private_request(&case,"/post",Some(staff_form(&case,thread,"Owned","Owned",&"x".repeat(501)))).await.status(),StatusCode::SEE_OTHER);
+        }).await;
+        fixture.cleanup().await;
+        result.unwrap();
+    }
+}
+
 #[tokio::test]
 async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public_routes() {
     let fixture = Fixture::new().await;
@@ -774,7 +1114,7 @@ async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public
         assert_eq!(private_request(&case,"/j/imgboard.php",Some(bad_csrf)).await.status(),StatusCode::FORBIDDEN);
         let forged=board_store::create_staff_post(&case.state.staff,"j",thread,
             &board_store::NewPost{name:"Forged identity".into(),subject:"Owned".into(),comment:"Must fail".into(),deletion_hash:String::new(),sage:false},chrono::Utc::now(),
-            board_store::StaffPostAuthority{auth_pool:&case.state.auth,session_hash:&auth::hash(&case.token),csrf_hash:&auth::hash(&case.csrf),ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false}).await;
+            board_store::StaffPostAuthority{auth_pool:&case.state.auth,session_hash:&auth::hash(&case.token),csrf_hash:&auth::hash(&case.csrf),ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true}).await;
         assert!(matches!(forged,Err(board_store::StoreError::AuthorizationChanged)));
         sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY['j'] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
         let queue=private_html(&case,"/reports").await;

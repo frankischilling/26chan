@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { useUpdaterTail } from '../../apps/public/client/native-updater-tail.js';
-import { parseUpdaterSnapshot, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
+import { parseUpdaterSnapshot, parseQuotePreviewSnapshot, parseBoardPageSnapshot, validatePostTree, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
 import { NativeUpdaterTransport } from '../../apps/public/client/native-updater-transport.js';
 import { mobileHeaderLabel } from '../../apps/public/client/native-post-numbers.js';
 
@@ -164,6 +164,45 @@ function pairedHeaderSnapshot(def = null, highlighted = false) {
   }
   return value;
 }
+
+test('authorized names and subjects survive worker parsing and live tree validation within saved UTF-8 bounds', () => {
+  const escape = text => text.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
+  function candidate(name, subject) {
+    const value = pairedHeaderSnapshot(capcodes[0]);
+    const label = (text, css) => {
+      const mobile = mobileHeaderLabel(text);
+      return `<span class="${css}"${mobile.shortened ? ` title="${escape(text)}"` : ''}>${escape(mobile.text)}</span>`;
+    };
+    for (const post of value.posts) {
+      post.html = post.html.replace('<span class="name">Owned &lt;staff&gt;</span>', label(name, 'name'))
+        .replace('<span class="name">Owned &lt;staff&gt;</span>', `<span class="name">${escape(name)}</span>`);
+      if (post.no === context.thread) post.html = post.html.replace('<span class="subject">Owned mobile subject</span>', label(subject, 'subject'))
+        .replace('<span class="subject">Owned mobile subject</span>', `<span class="subject">${escape(subject)}</span>`);
+    }
+    return value;
+  }
+  for (const [name, subject] of [
+    ['Owned <staff>' + 'n'.repeat(220), 's'.repeat(255)],
+    ['n'.repeat(255), ' '.repeat(1014)],
+    ['é'.repeat(127) + 'a', ' '.repeat(1020)],
+    ['&'.repeat(51), 'é'.repeat(510)],
+  ]) {
+    const value = candidate(name, subject), result = parse(value);
+    assert.equal(result.status, 'ok');
+    for (const post of result.snapshot.posts) assert.doesNotThrow(() => validatePostTree(post.tree, context, post.no));
+    const preview = { version: 1, board: context.board, thread: context.thread, post: value.posts[0] };
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview), { ...context, post: context.thread }).status, 'ok');
+    const page = { version: 1, board: context.board, page: 0, next_page: null, threads: [{
+      thread: context.thread, closed: false, sticky: false, archived: false, replies: 1,
+      images: 0, omitted: 0, posts: value.posts,
+    }] };
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(page), { ...context, page: 0 }).status, 'ok');
+  }
+  for (const [name, subject] of [
+    ['n'.repeat(256), 'owned'], ['é'.repeat(128), 'owned'],
+    ['owned', ' '.repeat(1021)], ['owned', 'é'.repeat(511)],
+  ]) assert.equal(parse(candidate(name, subject)).status, 'invalid-snapshot');
+});
 
 test('paired mobile headers bind identity, subject, timestamp and both number targets to the desktop recipe', () => {
   assert.equal(parse(pairedHeaderSnapshot()).status, 'ok');

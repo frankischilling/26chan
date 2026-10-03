@@ -52,6 +52,7 @@ fn board() -> Board {
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
         max_comment_chars: 4000,
+        max_authorized_comment_chars: 10000,
         comment_code_spacing: false,
         comment_sjis_spacing: false,
         comment_max_lines: 70,
@@ -138,6 +139,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     };
     let mut posts = vec![PostView::new(Post {
         comment_format: 0,
+        staff_authorized_limits: false,
         wordfilter_payload: None,
         id: 1000001,
         board: "demo".into(),
@@ -163,6 +165,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
     if !catalog {
         posts.push(PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             id: 1000002,
             board: "demo".into(),
@@ -189,12 +192,14 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         // Prepared synthetic comments, each with its own posting-time policy.
         posts[0] = PostView::new(Post {
             comment_format: 9,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             comment: "before [spoiler]hidden\nsecond[/spoiler] after\n[spoiler]<img src=x onerror=bad()>[/spoiler]".into(),
             ..posts[0].post.clone()
         });
         posts[1] = PostView::new(Post {
             comment_format: 10,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             comment: "[code]first  line\nsecond <script>line</script>[/code]".into(),
             ..posts[1].post.clone()
@@ -202,6 +207,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         posts.push(PostView::new(Post {
             id: 1_000_003,
             comment_format: 12,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             comment: "[sjis]a  b\n c[/sjis]".into(),
             ..posts[1].post.clone()
@@ -209,6 +215,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         posts.push(PostView::new(Post {
             id: 1_000_004,
             comment_format: 24,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             comment: "[b]bold[/b] [i]italic[/i]\n[red]red[/red] [green]green[/green] [blue]blue[/blue]\n[b]<script>text stays text</script>[/b]".into(),
             ..posts[1].post.clone()
@@ -334,6 +341,7 @@ fn archived_thread() -> String {
     let posts = vec![
         PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             id: 1000101,
             board: board.slug.clone(),
@@ -356,6 +364,7 @@ fn archived_thread() -> String {
         }),
         PostView::new(Post {
             comment_format: 0,
+            staff_authorized_limits: false,
             wordfilter_payload: None,
             id: 1000104,
             board: board.slug.clone(),

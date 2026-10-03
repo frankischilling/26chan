@@ -205,6 +205,7 @@ pub struct StaffPostAuthority<'a> {
     pub ticket_hash: &'a [u8; 32],
     pub idle_seconds: i32,
     pub highlight: bool,
+    pub authorized_limits: bool,
 }
 
 pub async fn create_staff_post(
@@ -264,7 +265,16 @@ async fn create_post_in_context(
         anonymous,
     } = options;
     let keys = metadata.keys;
-    let comment = board_domain::normalize_comment(&post.comment)
+    let preliminary_limits = if staff
+        .as_ref()
+        .is_some_and(|authority| authority.authorized_limits)
+    {
+        board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+            .map_err(|error| StoreError::Invalid(error.0))?
+    } else {
+        board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+    };
+    let comment = board_domain::normalize_comment_with_limits(&post.comment, preliminary_limits)
         .map_err(|error| StoreError::Invalid(error.0))?;
     let posted_at = context
         .request_start
@@ -284,6 +294,16 @@ async fn create_post_in_context(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
+    let post_limits = if staff
+        .as_ref()
+        .is_some_and(|authority| authority.authorized_limits)
+    {
+        board_domain::PostLimits::authorized(board.max_authorized_comment_chars as usize)
+            .map_err(|error| StoreError::Invalid(error.0))?
+    } else {
+        board_domain::PostLimits::ordinary(board.max_comment_chars as usize)
+    };
+    let wordfilter_limits = board_domain::WordfilterLimits::for_post(post_limits);
     // Acquire policy, peer and activity locks before OP membership checks.
     // Authenticated staff bypass remains isolated from public rule authority.
     let admission = if staff.is_none() {
@@ -389,11 +409,11 @@ async fn create_post_in_context(
     // Source clears identity before required-subject and final content checks.
     // Retain the raw input bounds even when these fields will be discarded.
     let (post_name, post_subject) = if board.forced_anon {
-        board_domain::validate_post_with_attachment(
+        board_domain::validate_post_with_limits(
             &post.name,
             &post.subject,
             &comment,
-            board.max_comment_chars as usize,
+            post_limits,
             true,
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
@@ -405,6 +425,11 @@ async fn create_post_in_context(
         // Staff badges replace trips. Never publish a suffix entered using the
         // public form's private trip-password syntax.
         let display = post_name.split('#').next().unwrap_or("").trim();
+        if board_domain::source_html_entities(display).len()
+            > board_domain::identity::MAX_DISPLAY_NAME_BYTES
+        {
+            return Err(StoreError::Invalid("Name or subject is too long."));
+        }
         board_domain::identity::Identity {
             name: if display.is_empty() {
                 "Anonymous"
@@ -423,11 +448,11 @@ async fn create_post_in_context(
         )
         .map_err(|error| StoreError::Invalid(error.0))?
     };
-    let content = board_domain::prepare_post_content_input(
+    let content = board_domain::prepare_post_content_input_with_limits(
         post_name,
         post_subject,
         &comment,
-        board.max_comment_chars as usize,
+        post_limits,
         attachment.is_some(),
         board.comment_spacing().with_op_markup(op_markup),
         if parent == 0 {
@@ -534,7 +559,7 @@ async fn create_post_in_context(
             None
         };
         Some(
-            board_domain::wordfiltered_comment::prepare(
+            board_domain::wordfiltered_comment::prepare_with_limits(
                 &comment,
                 board_domain::comment_markup::MarkupPolicy {
                     spoilers: board.comment_spoiler_cleanup,
@@ -544,6 +569,7 @@ async fn create_post_in_context(
                 },
                 profile,
                 rolls,
+                post_limits,
             )
             .map_err(|error| StoreError::Invalid(error.0))?,
         )
@@ -566,14 +592,14 @@ async fn create_post_in_context(
         .map(|lines| board_domain::formatting::plain_text(lines));
     if wordfilter_search
         .as_ref()
-        .is_some_and(|text| text.len() > board_domain::wordfiltered_comment::MAX_STORED_BYTES)
+        .is_some_and(|text| text.len() > wordfilter_limits.stored_bytes())
     {
         return Err(StoreError::Invalid("Wordfilter output is too large."));
     }
     let comment = formatted.as_ref().map_or(comment, |lines| {
         board_domain::filtered_formatting::source_projection(lines)
     });
-    if comment.len() > board_domain::wordfilter::MAX_OUTPUT_BYTES {
+    if comment.len() > wordfilter_limits.output_bytes() {
         return Err(StoreError::Invalid("Wordfilter output is too large."));
     }
     let encoded_payload = wordfilter_payload
@@ -706,7 +732,7 @@ async fn create_post_in_context(
         .await?;
     if let Some(authority) = &staff {
         sqlx::query(
-            "SELECT staff_identity.issue_wordfiltered_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
         )
         .bind(authority.ticket_hash.as_slice())
         .bind(authority.session_hash)
@@ -720,6 +746,8 @@ async fn create_post_in_context(
         .bind(&subject)
         .bind(comment.as_str())
         .bind(posted_at)
+        .bind(authority.authorized_limits)
+        .bind(post_limits.comment_chars() as i32)
         .bind(wordfilter_payload.as_deref())
         .bind(wordfilter_search.as_deref())
         .execute(authority.auth_pool)

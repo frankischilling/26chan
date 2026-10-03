@@ -59,6 +59,8 @@ struct DiscussionPage {
     next: String,
     public_origin: String,
     error: String,
+    field_bytes: usize,
+    comment_max_units: usize,
 }
 
 fn store_error(error: StoreError) -> AppError {
@@ -212,6 +214,18 @@ async fn build_page(
         .collect();
     authority.ensure_current(false).await?;
     let session = authority.finish().await?;
+    let authorized_limits = session.at_least(Level::Moderator);
+    let field_bytes = if authorized_limits {
+        board_domain::MAX_AUTHORIZED_FIELD_BYTES
+    } else {
+        board_domain::MAX_PUBLIC_FIELD_BYTES
+    };
+    let comment_max_units = if authorized_limits {
+        board.max_authorized_comment_chars
+    } else {
+        board.max_comment_chars
+    } as usize
+        * 2;
     Ok(DiscussionPage {
         board,
         threads,
@@ -233,6 +247,8 @@ async fn build_page(
         },
         public_origin: state.config.public_origin.clone(),
         error: String::new(),
+        field_bytes,
+        comment_max_units,
     })
 }
 
@@ -344,10 +360,16 @@ pub(crate) async fn submit(
     if !session.recent {
         return Err(AppError::Recent);
     }
+    let authorized_limits = session.at_least(Level::Moderator);
+    let field_bytes = if authorized_limits {
+        board_domain::MAX_AUTHORIZED_FIELD_BYTES
+    } else {
+        board_domain::MAX_PUBLIC_FIELD_BYTES
+    };
     if (!input.mode.is_empty() && input.mode != "regist")
         || input.resto < 0
-        || input.name.len() > 100
-        || input.email.len() > 100
+        || input.name.len() > field_bytes
+        || input.email.len() > field_bytes
     {
         return Err(AppError::Invalid);
     }
@@ -380,6 +402,7 @@ pub(crate) async fn submit(
             ticket_hash: &ticket_hash,
             idle_seconds: state.config.idle_timeout.as_secs() as i32,
             highlight: false,
+            authorized_limits,
         },
     )
     .await;
