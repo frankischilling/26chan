@@ -404,6 +404,10 @@ pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<Stri
         recent: session.recent,
         admin: session.role == "admin",
         moderator: session.at_least(crate::access::Level::Moderator),
+        can_post: session.at_least(crate::access::Level::Moderator)
+            || (session.at_least(crate::access::Level::Janitor)
+                && state.config.poster_id_key.is_some()
+                && (!state.config.production || state.config.proxy.is_some())),
         discussion: session.permissions.can_discuss(&session.role),
     }
     .render()

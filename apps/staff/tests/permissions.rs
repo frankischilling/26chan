@@ -206,7 +206,7 @@ async fn exercise(f: &Fixture) {
     assert!(html.contains("Remove post"));
     assert!(html.contains("Resolve report"));
     assert!(!html.contains("Close thread"));
-    assert!(!html.contains("Post with staff badge"));
+    assert!(!html.contains("href=\"/post\""));
     assert_eq!(
         f.action(0, f.posts[0], "close").await,
         StatusCode::FORBIDDEN
@@ -230,7 +230,7 @@ async fn exercise(f: &Fixture) {
     let (status, html) = f.request("/reports", None).await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("Close thread"));
-    assert!(html.contains("Post with staff badge"));
+    assert!(html.contains("href=\"/post\""));
     assert!(!html.contains(&format!("/{}/ post", f.boards[1])));
     assert!(!html.contains("Enable permaage"));
     assert_eq!(

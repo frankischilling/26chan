@@ -34,6 +34,11 @@ admission on `test`. Moderator-or-higher rank grants the authorized comment
 limit and closed/full-thread exception independently of the visible badge;
 archived threads remain unavailable.
 
+The report queue includes a Post link for janitors when ordinary posting is
+configured, and keeps posting navigation for higher ranks. Both badge and
+ordinary posting use that entry point. The four-rank browser workflow enters
+through this link after each login.
+
 `STAFF_POSTER_ID_KEY` and `STAFF_COUNTRY_DATABASE` load optional ordinary
 identity sources under staff-specific names. Use the same private poster key
 as the public application's `POSTER_ID_KEY` to preserve thread labels, private

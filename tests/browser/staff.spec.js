@@ -41,6 +41,8 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
       await page.goto('/'); await page.getByLabel('Account', { exact: true }).fill(board);
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       await expect(page).toHaveURL(/\/reports$/);
+      await page.getByRole('link', { name: 'Post', exact: true }).click();
+      await expect(page).toHaveURL(/\/post$/);
       const submit = async (thread, options, flag, comment, noScript = false) => {
         if (noScript) await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
         await page.goto(`/post?board=${board}&thread=${thread}`);
