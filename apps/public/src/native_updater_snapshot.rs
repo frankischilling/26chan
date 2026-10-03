@@ -407,6 +407,7 @@ mod tests {
             catalog_enabled: true,
             json_enabled: true,
             staff_only: false,
+            meta_board: false,
             upload_board: false,
             rss_enabled: true,
             slug: "test".into(),

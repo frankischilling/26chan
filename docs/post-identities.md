@@ -119,6 +119,10 @@ Remote previews and the updater admit that
 specific class through their existing inert recipe validation. Native trip
 filters consume the persisted public pseudonym.
 
+The [staff JSON projection](source-staff-json.md) also applies current forced
+anonymity and meta-board masking without rewriting saved identities. Its
+literal administrator exception differs from the HTML catalog's predicate.
+
 ## Verification
 
 The domain suite checks independent DES and HMAC vectors, bounds, malformed

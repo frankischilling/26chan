@@ -250,7 +250,8 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
       const op = new URL(page.url()).searchParams.get('posted');
       const stored = (await (await page.request.get(`http://127.0.0.1:3000/${board}/thread/${op}.json`)).json()).posts[0];
-      expect(stored.name).toBe(`Owned catalog ${badge}`); expect(stored.trip).toBe(administratorTrip);
+      // JSON has the literal admin_hl exception; the catalog uses admin_highlight.
+      expect(stored.name).toBe('Anonymous'); expect(stored.trip).toBeUndefined();
       expect(stored.sub).toBeUndefined();
       await publicStaffPage.goto(`http://127.0.0.1:3000/${board}/catalog`);
       const card = publicStaffPage.locator(`#thread-${op} .catalogThumb`);
@@ -265,7 +266,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await publicStaffPage.close();
     const persistedAdmin = (await (await page.request.get(staffThreadUrl + '.json')).json()).posts.find(post => String(post.no) === adminPost);
     expect(persistedAdmin.capcode).toBe('admin_highlight');
-    expect(persistedAdmin.trip).toBe(administratorTrip); expect(persistedAdmin.name).toBe('Owned administrator');
+    expect(persistedAdmin.trip).toBeUndefined(); expect(persistedAdmin.name).toBe('Anonymous');
     expect(JSON.stringify(persistedAdmin)).not.toContain(administratorSecret);
     await page.goto('/reports');
     // Both controls are ordinary CSRF-protected forms, including without JS.

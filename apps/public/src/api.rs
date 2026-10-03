@@ -146,25 +146,39 @@ fn post_json(
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
         "now": post.now, "time": post.post.created_at.timestamp() });
-    if !post.post.name.is_empty() || post.post.trip.is_none() {
-        value["name"] = json!(board_domain::source_html_entities(&post.post.name));
+    let identity = board_domain::capcode::json_identity(
+        &post.post.name,
+        post.post.trip.as_deref(),
+        post.post.capcode.as_deref(),
+        board.forced_anon,
+        board.meta_board,
+    );
+    if let Some(name) = identity.name {
+        value["name"] = json!(board_domain::source_html_entities(name));
     }
-    if let Some(id) = &post.post.poster_id {
+    if let Some(id) = post
+        .post
+        .poster_id
+        .as_ref()
+        .filter(|_| thread.archived_at.is_none())
+    {
         value["id"] = json!(id);
     }
-    if let Some(trip) = &post.post.trip {
+    if let Some(trip) = identity.trip {
         value["trip"] = json!(trip);
     }
     if let Some(capcode) = &post.post.capcode {
         value["capcode"] = json!(capcode);
     }
-    if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
-        value["country"] = json!(code);
-        value["country_name"] = json!(name);
-    }
-    if let (Some(code), Some(name)) = (&post.post.board_flag, &post.post.flag_name) {
-        value["board_flag"] = json!(code);
-        value["flag_name"] = json!(name);
+    if post.post.capcode.is_none() {
+        if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
+            value["country"] = json!(code);
+            value["country_name"] = json!(name);
+        }
+        if let (Some(code), Some(name)) = (&post.post.board_flag, &post.post.flag_name) {
+            value["board_flag"] = json!(code);
+            value["flag_name"] = json!(name);
+        }
     }
     if !comment.is_empty() {
         value["com"] = json!(comment);
@@ -291,6 +305,16 @@ pub async fn thread_selection(
         tail_id,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
     require_json(&board, false)?;
+    let capcode_replies = if board.meta_board && !tail {
+        badge_reply_groups(
+            posts
+                .iter()
+                .filter(|post| post.id != thread.id)
+                .filter_map(|post| post.capcode.as_deref().map(|capcode| (post.id, capcode))),
+        )?
+    } else {
+        None
+    };
     let mut posts: Vec<Value> = posts
         .into_iter()
         .map(|post| post_json(post, &thread, &board, replies, images, unique_ips))
@@ -309,6 +333,9 @@ pub async fn thread_selection(
         posts[0] = op;
     } else if tail_size > 0 {
         posts[0]["tail_size"] = json!(tail_size);
+    }
+    if let Some(groups) = capcode_replies {
+        posts[0]["capcode_replies"] = groups;
     }
     response(
         &state.limits,
@@ -340,7 +367,17 @@ fn preview_thread(
     let replies = checked_reply_count(preview.visible_posts)?;
     let images = usize::try_from(preview.visible_images)
         .map_err(|_| AppError(StatusCode::SERVICE_UNAVAILABLE, "Invalid image count."))?;
-    posts
+    let capcode_replies = if board.meta_board {
+        badge_reply_groups(
+            preview
+                .capcode_replies
+                .iter()
+                .map(|(id, badge)| (*id, badge.as_str())),
+        )?
+    } else {
+        None
+    };
+    let mut posts: Vec<_> = posts
         .into_iter()
         .map(|post| {
             post_json(
@@ -352,7 +389,23 @@ fn preview_thread(
                 preview.unique_ips,
             )
         })
-        .collect()
+        .collect::<Result<_, _>>()?;
+    if let Some(groups) = capcode_replies {
+        posts[0]["capcode_replies"] = groups;
+    }
+    Ok(posts)
+}
+
+fn badge_reply_groups<'a>(
+    replies: impl IntoIterator<Item = (i64, &'a str)>,
+) -> Result<Option<Value>, AppError> {
+    let groups = board_domain::capcode::capcode_reply_groups(replies).map_err(|_| {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Badge reply groups exceed the thread limit.",
+        )
+    })?;
+    Ok((!groups.is_empty()).then(|| json!(groups)))
 }
 
 fn checked_reply_count(total: i64) -> Result<usize, AppError> {
@@ -396,7 +449,7 @@ pub async fn catalog(
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
     let snapshot =
-        board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, Some(5))
+        board_store::json_board_snapshot(&state.pool, slug, board_store::BoardSelection::All, 5)
             .await?;
     let board = snapshot.board;
     require_json(&board, true)?;
@@ -429,11 +482,11 @@ pub async fn index(
     page: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let snapshot = board_store::board_snapshot(
+    let snapshot = board_store::json_board_snapshot(
         &state.pool,
         slug,
         board_store::BoardSelection::Page(page),
-        Some(5),
+        5,
     )
     .await?;
     let board = snapshot.board;

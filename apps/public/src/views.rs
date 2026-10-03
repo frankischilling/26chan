@@ -112,7 +112,7 @@ impl ThreadView {
                 .as_ref()
                 .and_then(|reply| reply.capcode.as_deref()),
             board.forced_anon,
-            board.staff_only,
+            board.meta_board,
         )
     }
 
@@ -162,7 +162,7 @@ impl PostView {
         board_domain::capcode::catalog_identity_visible(
             self.post.capcode.as_deref(),
             board.forced_anon,
-            board.staff_only,
+            board.meta_board,
         )
     }
 

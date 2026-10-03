@@ -38,6 +38,7 @@ for (const [profile, name] of [[0, 'global'], [1, 'ck'], [2, 'asp'], [3, 'v'], [
         expect(expected).toContain(saved.posts[0].com); expect(saved.posts[0].name).toBe('soy fam CUCK');
         const visible = await page.evaluate(html => { const document_ = new DOMParser().parseFromString(html, 'text/html'); return document_.body.textContent; }, saved.posts[0].com);
         await expect(page.locator(`#m${id}`)).toHaveText(visible);
+        await expect(page.locator('.open-qr-link')).toHaveCount(1);
         const header = width === 390 ? `#pim${id}` : `#pi${id}`;
         await page.locator(`${header} > .postNum > a[title="Reply to this post"]`).click();
         await page.locator('#qrCom').fill(replyInput); await expect(page.locator('#qr-pwd')).toHaveValue('');

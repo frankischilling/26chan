@@ -60,6 +60,7 @@ pub struct Board {
     pub catalog_enabled: bool,
     pub json_enabled: bool,
     pub staff_only: bool,
+    pub meta_board: bool,
     pub upload_board: bool,
     pub rss_enabled: bool,
     pub title: String,

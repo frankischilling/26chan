@@ -115,9 +115,11 @@ badges through SQL, forms, cookies or headers.
 
 ## Public rendering and evidence
 
-Full thread, index and catalog JSON include saved `capcode` and prepared `trip` values. Tail replies
-retain it; the tail's minimal OP metadata omits it. Both listeners use the same
-representation. Pages, updater snapshots and quote previews render the fixed
+Full thread, index and catalog JSON include saved `capcode` and eligible
+prepared `trip` values. The [source JSON projection](source-staff-json.md)
+applies its separate name/trip mask and meta-board reply groups. Tail replies
+use that projection; the tail's minimal OP metadata omits identity fields.
+Both listeners use the same representation. Pages, updater snapshots and quote previews render the fixed
 name classes, labels, highlight groups and local identity icons. Click and
 keyboard controls select the corresponding staff group. Founder joins the
 administrator group, as in the pinned client. Staff labels have no ID-count
@@ -128,6 +130,7 @@ hover details and identity filters retain names and trips only for saved
 `admin` and `admin_highlight` badges. The catalog's saved-badge rule is narrower
 than posting's administrator-rank exception. Founder and other badges remain
 anonymous in those catalog details.
+The meta-board switch is independent of private board access.
 
 The [reference manifest](public-capcode-reference.json) pins the API revision,
 released client, six public stylesheets and nine identity GIFs. Their paths are

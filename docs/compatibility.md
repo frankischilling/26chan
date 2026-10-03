@@ -398,6 +398,12 @@ Zero-media production boards in the rewrite remain deliberate replacements.
 
 ### Read-only API
 
+[Staff JSON projections](source-staff-json.md) implement source name/trip
+masking, badge reply groups including omitted replies, badged flag omission
+and archived ID omission. Migration 0072 separates `META_BOARD` from private
+access; all supplied board definitions leave meta presentation disabled.
+Complete conditional fields and navigation contracts remain under #216.
+
 `json.php:13-164` serializes OP/reply thread data and the reduced last-five
 reply windows with omission counts. Tail JSON carries an OP summary,
 `tail_size` and `tail_id`, while full-thread output carries tail hints.

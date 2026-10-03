@@ -121,9 +121,113 @@ pub fn catalog_identity_visible(
     !(forced_anonymous || meta_board) || matches!(capcode, Some("admin" | "admin_highlight"))
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct JsonIdentity<'a> {
+    pub name: Option<&'a str>,
+    pub trip: Option<&'a str>,
+}
+
+/// json.php checks the literal `admin_hl`, unlike catalog.php. Keep its
+/// conditional field projection separate from the catalog and saved identity.
+pub fn json_identity<'a>(
+    name: &'a str,
+    trip: Option<&'a str>,
+    capcode: Option<&str>,
+    forced_anonymous: bool,
+    meta_board: bool,
+) -> JsonIdentity<'a> {
+    if (forced_anonymous || meta_board) && !matches!(capcode, Some("admin" | "admin_hl")) {
+        JsonIdentity {
+            name: Some("Anonymous"),
+            trip: None,
+        }
+    } else {
+        JsonIdentity {
+            name: (!name.is_empty() || trip.is_none()).then_some(name),
+            trip,
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Badge reply groups exceed the thread limit.")]
+pub struct CapcodeReplyLimit;
+
+/// Group public saved labels only; these labels confer no posting authority.
+pub fn capcode_reply_groups<'a>(
+    replies: impl IntoIterator<Item = (i64, &'a str)>,
+) -> Result<std::collections::BTreeMap<&'a str, Vec<i64>>, CapcodeReplyLimit> {
+    let mut groups = std::collections::BTreeMap::new();
+    for (index, (id, capcode)) in replies.into_iter().enumerate() {
+        if index >= 1000 {
+            return Err(CapcodeReplyLimit);
+        }
+        let group = match capcode {
+            "none" => continue,
+            "admin_highlight" => "admin",
+            group => group,
+        };
+        groups.entry(group).or_insert_with(Vec::new).push(id);
+    }
+    Ok(groups)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn json_identity_and_groups_match_the_pinned_source_blocks() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/staff-json.json")).unwrap();
+        let cases = fixture["identity_cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 108);
+        for case in cases {
+            let capcode = case["capcode"].as_str().unwrap();
+            let identity = json_identity(
+                case["name"].as_str().unwrap(),
+                case["trip"].as_str(),
+                (capcode != "none").then_some(capcode),
+                case["forced_anonymous"].as_bool().unwrap(),
+                case["meta_board"].as_bool().unwrap(),
+            );
+            let expected = &case["expected"];
+            assert_eq!(
+                identity.name,
+                expected.get("name").and_then(|v| v.as_str()),
+                "{case}"
+            );
+            assert_eq!(
+                identity.trip,
+                expected.get("trip").and_then(|v| v.as_str()),
+                "{case}"
+            );
+        }
+        let cases = fixture["reply_cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 8);
+        for case in cases {
+            let groups =
+                capcode_reply_groups(case["rows"].as_array().unwrap().iter().filter_map(|row| {
+                    row["capcode"]
+                        .as_str()
+                        .map(|capcode| (row["id"].as_i64().unwrap(), capcode))
+                }))
+                .unwrap();
+            let actual = if groups.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::to_value(groups).unwrap()
+            };
+            assert_eq!(actual, case["expected"], "{case}");
+        }
+    }
+
+    #[test]
+    fn badge_reply_groups_keep_the_existing_thousand_reply_bound() {
+        let groups = capcode_reply_groups((1..=1000).map(|id| (id, "admin_highlight"))).unwrap();
+        assert_eq!(groups["admin"], (1..=1000).collect::<Vec<_>>());
+        assert!(capcode_reply_groups((1..=1001).map(|id| (id, "mod"))).is_err());
+    }
 
     #[test]
     fn catalog_identity_matches_both_pinned_source_predicates() {

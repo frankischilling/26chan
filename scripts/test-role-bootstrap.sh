@@ -41,10 +41,37 @@ VALUES(8800001,'countold',8800001,'Historical name','Historical subject','Synthe
 CREATE TABLE public.owned_count_posts_before AS SELECT * FROM content.posts;
 CREATE TABLE public.owned_count_threads_before AS SELECT * FROM content.threads;
 SQL
+  elif [[ $migration = migrations/0072_meta_board_policy.sql ]]; then
+    "${db[@]}" -d bootstrap_test <<'SQL'
+SET ROLE board_migrator;
+CREATE TABLE public.owned_meta_boards_before AS SELECT to_jsonb(b) AS value FROM content.boards b;
+CREATE TABLE public.owned_meta_policies_before AS SELECT oid,polrelid,polname,polroles,polqual::text,polwithcheck::text FROM pg_policy;
+CREATE TABLE public.owned_meta_acls_before AS SELECT oid,relowner,relacl::text AS acl FROM pg_class
+    WHERE oid IN ('content.boards'::regclass,'content.threads'::regclass,'content.posts'::regclass,'content.visible_threads'::regclass);
+SQL
   fi
   "${db[@]}" -d bootstrap_test --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
 done
 "${db[@]}" -d bootstrap_test <<'SQL'
+BEGIN;
+SET ROLE board_migrator;
+DO $$ DECLARE v_role text; BEGIN
+  IF EXISTS(SELECT to_jsonb(b)-'meta_board' FROM content.boards b EXCEPT SELECT value FROM public.owned_meta_boards_before)
+     OR EXISTS(SELECT value FROM public.owned_meta_boards_before EXCEPT SELECT to_jsonb(b)-'meta_board' FROM content.boards b)
+     OR EXISTS(SELECT 1 FROM content.boards WHERE meta_board)
+     OR EXISTS(SELECT oid,polrelid,polname,polroles,polqual::text,polwithcheck::text FROM pg_policy EXCEPT SELECT * FROM public.owned_meta_policies_before)
+     OR EXISTS(SELECT * FROM public.owned_meta_policies_before EXCEPT SELECT oid,polrelid,polname,polroles,polqual::text,polwithcheck::text FROM pg_policy)
+     OR EXISTS(SELECT oid,relowner,relacl::text FROM pg_class WHERE oid IN ('content.boards'::regclass,'content.threads'::regclass,'content.posts'::regclass,'content.visible_threads'::regclass) EXCEPT SELECT * FROM public.owned_meta_acls_before)
+     OR EXISTS(SELECT * FROM public.owned_meta_acls_before EXCEPT SELECT oid,relowner,relacl::text FROM pg_class WHERE oid IN ('content.boards'::regclass,'content.threads'::regclass,'content.posts'::regclass,'content.visible_threads'::regclass)) THEN
+    RAISE EXCEPTION 'Meta-board upgrade changed history, privacy policy or grants';
+  END IF;
+  FOREACH v_role IN ARRAY ARRAY['board_public','board_staff','board_auth','board_media','board_media_read','board_media_intake','board_monitor'] LOOP
+    IF has_column_privilege(v_role,'content.boards','meta_board','UPDATE') THEN
+      RAISE EXCEPTION 'A runtime role can change meta-board policy';
+    END IF;
+  END LOOP;
+END $$;
+ROLLBACK;
 BEGIN;
 SET ROLE board_migrator;
 DO $$ BEGIN

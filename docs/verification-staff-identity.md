@@ -84,7 +84,7 @@ inspection. Hosted checks are still required at the published PR head.
 | Client unit/DOM regressions | 109 passed; no failures, skipped or cancelled cases |
 | Actual staff browser flow | Passed; synthetic WebAuthn, source badge selection, secure trip, updater, quote previews and forced-anonymous catalog identities |
 | Public browser regressions | 141 passed, including catalog previews/teasers, text catalogs, updater, quote preview, filtering and search |
-| Hosted checks at the new PR head | Required after publication |
+| Hosted checks at `0b0413c49b2f29944d2c54f476ecb5a8b58750ac` | Build/test failed; Linux wordfilter readiness race. Windows visuals and media/operations passed. Monitoring and advisories passed. |
 
 The full-suite Unicode failure is preserved in the original Linux and Windows
 logs and the checked-in property seed. The supplied PHP/ICU helper reports
@@ -120,3 +120,19 @@ thread states in a different row order. Its synthetic inspector lacked an
 thread ID makes that comparison deterministic; the complete expected states
 and audit sequence are retained. The first failure log and error context are
 kept separately from the rerun evidence.
+
+The hosted [build/test run](https://github.com/frankischilling/26chan/actions/runs/37099195172)
+failed in the mobile `/v/` wordfilter browser case. Its trace shows the reply
+link was clicked before the Quick Reply module finished loading. The ordinary
+navigation completed, then the test waited for a Quick Reply textarea that
+had not opened. The follow-up asserts that the native Quick Reply control is
+attached before clicking the post-number link. All ten local wordfilter cases
+pass with that assertion and the existing timeout, with no retries. This
+subsequent fix does not qualify the unchanged `0b0413c` commit. The retained
+hosted trace and error context establish the failure rather than a blind rerun.
+
+The same head passed [monitoring](https://github.com/frankischilling/26chan/actions/runs/37099195158)
+and [dependency advisories](https://github.com/frankischilling/26chan/actions/runs/37099195170).
+The [source staff JSON follow-up](source-staff-json.md) adds the separate
+meta-board setting and read projections. Its local and hosted results require
+their own published-head qualification.
