@@ -9,8 +9,9 @@ attachment presence do not determine these policy fields.
 
 This is the metadata part of #217. [Spoiler rendering](custom-spoiler-rendering.md)
 describes the imported HTML thumbnail policies, catalog suffixes, native cache
-and collected UI images. Two images and complete flag assets remain unavailable
-or unfinished. Full historical visual parity is unproven.
+and collected UI images. Two spoiler images and test flag artwork remain unavailable.
+[The source flag inventory](source-board-flags.md) records all 165 definitions.
+Full historical visual parity is unproven.
 
 ## Source comparison
 

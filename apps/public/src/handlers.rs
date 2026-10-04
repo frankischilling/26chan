@@ -100,7 +100,7 @@ pub async fn css() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
-    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;

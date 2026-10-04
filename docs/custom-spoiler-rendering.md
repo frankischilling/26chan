@@ -90,5 +90,6 @@ cargo test --locked -p board-public --all-features --lib --test custom_spoilers
 npm run test:custom-spoilers
 ```
 
-Issue #217 remains open for the two unavailable images and the complete source
-flag inventory and artwork. Full historical visual parity remains unproven.
+Issue #217 remains open for the two unavailable spoiler images, unavailable test
+flag artwork and complete historical visual qualification. [The flag inventory](source-board-flags.md)
+records the 165 source definitions and available rendering evidence.

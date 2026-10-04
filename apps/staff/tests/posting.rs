@@ -414,6 +414,59 @@ async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_de
 }
 
 #[tokio::test]
+async fn ordinary_staff_flags_use_the_selected_board_dictionary_and_locked_policy() {
+    let _serial = ORDINARY_TESTS.lock().await;
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(
+            "../../public/tests/fixtures/board-flags.json"
+        )).unwrap();
+        for (kind, codes, rejected) in [
+            ("pol", vec!["AN", "CM"], "TWI"),
+            ("mlp", vec!["AN", "TWI"], "CM"),
+            ("lgbt", vec!["NB", "TRN"], "AN"),
+            ("test", vec!["FL1", "FL2"], "NB"),
+        ] {
+            sqlx::query("UPDATE content.boards SET board_flag_type=$2,board_flags=$3 WHERE slug=$1")
+                .bind(&case.board).bind(kind).bind(&codes).execute(&case.owner).await.unwrap();
+            let html = private_html(&case, &format!("/post?board={}", case.board)).await;
+            let menu = html.split("<select id=\"staff-flag\"").nth(1).unwrap()
+                .split("</select>").next().unwrap();
+            let expected = codes.iter().map(|code| format!("<option value=\"{code}\">{}</option>",
+                reference["tables"][kind]["selector"][*code].as_str().unwrap())).collect::<String>();
+            assert_eq!(menu, format!(" name=\"flag\"><option value=\"\">None</option>{expected}"));
+            assert!(html.contains(&format!("data-flag-type=\"{kind}\" data-flags=\"{}\"", codes.join(" "))));
+
+            let before: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&case.board).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(ordinary_request(&case, ordinary_form(&case, 0, "", rejected,
+                "Owned cross-type flag rejection"), Some("81.2.69.142")).await.status(), StatusCode::BAD_REQUEST);
+            let after: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&case.board).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(after, before);
+
+            let code = codes[0];
+            assert_eq!(ordinary_request(&case, ordinary_form(&case, 0, "", code,
+                &format!("Owned {kind} flag post")), Some("81.2.69.142")).await.status(), StatusCode::SEE_OTHER);
+            let (post, _, capcode) = case.latest().await;
+            assert_eq!(capcode, None);
+            let saved: (String, String, String) = sqlx::query_as(
+                "SELECT board_flag_type,board_flag,flag_name FROM content.posts WHERE board=$1 AND id=$2")
+                .bind(&case.board).bind(post).fetch_one(&case.owner).await.unwrap();
+            let label = reference["tables"][kind]["display"][code].as_str().unwrap();
+            assert_eq!(saved, (kind.to_owned(), code.to_owned(), label.to_owned()));
+            let json = public_json(&case.api, &format!("/{}/thread/{post}.json", case.board)).await;
+            assert_eq!(json["posts"][0]["board_flag"], code);
+            assert_eq!(json["posts"][0]["flag_name"], label);
+            assert!(json["posts"][0].get("board_flag_type").is_none());
+        }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
 async fn ordinary_staff_content_admission_rejects_quietly_and_records_autosage() {
     let _serial = ORDINARY_TESTS.lock().await;
     let fixture = ordinary_fixture().await;

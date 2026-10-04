@@ -47,6 +47,7 @@ pub fn page() -> String {
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: subject.into(),
             comment: comment.into(),

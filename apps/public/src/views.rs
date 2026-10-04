@@ -199,13 +199,23 @@ impl PostView {
             .as_deref()
             .and_then(board_domain::capcode::Capcode::parse)
     }
-    pub fn flag(&self) -> Option<(String, &str)> {
-        if let (Some(code), Some(name)) = (&self.post.board_flag, &self.post.flag_name)
-            && board_domain::country::board_flag(code).is_some()
+    pub fn flag(&self, board: &Board) -> Option<(String, &str)> {
+        if !board.board_flags.is_empty()
+            && let Some(code) = &self.post.board_flag
+            && let Some(flag) = board_domain::board_flags::flag(&board.board_flag_type, code)
         {
-            return Some((format!("bfl bfl-{}", code.to_ascii_lowercase()), name));
+            let scope = if board.board_flag_type == "pol" {
+                String::new()
+            } else {
+                format!(" bfl-type-{}", board.board_flag_type)
+            };
+            return Some((
+                format!("bfl bfl-{}{scope}", code.to_ascii_lowercase()),
+                flag.display,
+            ));
         }
-        if let (Some(code), Some(name)) = (&self.post.country, &self.post.country_name)
+        if board.country_flags
+            && let (Some(code), Some(name)) = (&self.post.country, &self.post.country_name)
             && board_domain::country::country_code(code)
         {
             return Some((format!("flag flag-{}", code.to_ascii_lowercase()), name));

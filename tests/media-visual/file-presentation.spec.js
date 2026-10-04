@@ -129,9 +129,14 @@ test('spoiler filename tips and reveal preserve fixed original quote recipes and
   const quote = page.locator('#m1000203 > .quotelink'); await quote.click();
   const copy = page.locator('#m1000203 .inlined'); await expect(copy).toBeVisible();
   await expect(copy.locator('.imgspoiler img')).toHaveAttribute('src', '/static/catalog/spoiler.png');
-  await expect(copy.locator('img[src^="http://localhost:3004/"],[id]')).toHaveCount(0);
+  await expect(copy.locator('[id]')).toHaveCount(0);
+  await expect(copy.locator('.imgspoiler')).toBeHidden();
+  const copiedThumb = copy.locator('.fileThumb:not(.imgspoiler) img');
+  await expect(copiedThumb).toHaveAttribute('src', 'http://localhost:3004/img/1000205s.jpg');
+  await expect(copy.locator('img[src^="http://localhost:3004/"]')).toHaveCount(1);
+  expect(await copiedThumb.evaluate(node => [node.width,node.height])).toEqual([125,75]);
   await expect(page.locator('#tooltip')).toHaveCount(0);
-  await copy.locator('.mFileInfo').dispatchEvent('mouseover'); await page.clock.fastForward(300);
+  await copy.locator('.fileThumb:not(.imgspoiler) .mFileInfo').dispatchEvent('mouseover'); await page.clock.fastForward(300);
   await expect(page.locator('#tooltip')).toHaveCount(0);
   await quote.click(); await expect(copy).toHaveCount(0);
   await page.evaluate(() => {

@@ -10,7 +10,7 @@ pub struct Login;
 #[template(path = "posting.html")]
 pub struct Posting {
     pub public_origin: String,
-    pub boards: Vec<(String, String, i32)>,
+    pub boards: Vec<(String, String, i32, String, String)>,
     pub comment_max_units: usize,
     pub query: crate::handlers::PostingQuery,
     pub csrf: String,
@@ -20,6 +20,7 @@ pub struct Posting {
     pub selected_badge: String,
     pub ordinary_ready: bool,
     pub flags: Vec<(String, String)>,
+    pub flag_catalog: Vec<(String, String, String)>,
 }
 pub struct Preview {
     pub report: Report,
@@ -34,7 +35,7 @@ impl Preview {
     }
     pub fn flag(&self) -> Option<(&'static str, &str)> {
         if let (Some(code), Some(name)) = (&self.report.board_flag, &self.report.flag_name)
-            && board_domain::country::board_flag(code).is_some()
+            && board_domain::board_flags::flag(&self.report.board_flag_type, code).is_some()
         {
             return Some(("Board flag", name));
         }
@@ -93,6 +94,7 @@ mod tests {
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: "<i>subject</i>".into(),
             comment_format: 0,
@@ -158,6 +160,7 @@ mod tests {
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: String::new(),
                 comment_format: format,
@@ -221,6 +224,7 @@ mod tests {
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: String::new(),
                 comment: comment.clone(),

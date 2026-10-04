@@ -254,6 +254,8 @@ jobs:
         run: sudo bash scripts/test-custom-spoiler-migration.sh
       - name: Populated spoiler thumbnail policy migration
         run: sudo bash scripts/test-spoiler-thumbnail-migration.sh
+      - name: Populated source flag policy migration
+        run: sudo bash scripts/test-source-board-flags-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
@@ -407,6 +409,8 @@ jobs:
         run: npm run test:files-core
       - name: Custom spoiler source and browser contracts
         run: npm run test:custom-spoilers
+      - name: Source board flag sprite and browser contracts
+        run: npm run test:source-flags
       - name: Verify local dates and bounded board navigation
         shell: pwsh
         run: npm run test:display-core

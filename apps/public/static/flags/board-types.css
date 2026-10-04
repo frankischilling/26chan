@@ -1,0 +1,160 @@
+/* Fixed source sprite rules, scoped to prevent cross-board code collisions. */
+.bfl.bfl-type-mlp {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  position: relative;
+  top: 1px;
+  background: url('/static/flags/mlp-flags.3.png') no-repeat;
+}
+
+.bfl-type-mlp.bfl-4cc { background-position: 0 0 }
+.bfl-type-mlp.bfl-ab { background-position: -16px 0 }
+.bfl-type-mlp.bfl-ada { background-position: -32px 0 }
+.bfl-type-mlp.bfl-aj { background-position: -48px 0 }
+.bfl-type-mlp.bfl-an { background-position: -64px 0 }
+.bfl-type-mlp.bfl-anf { background-position: -80px 0 }
+.bfl-type-mlp.bfl-apb { background-position: -96px 0 }
+.bfl-type-mlp.bfl-au { background-position: -112px 0 }
+.bfl-type-mlp.bfl-bb { background-position: -128px 0 }
+.bfl-type-mlp.bfl-bm { background-position: 0 -16px }
+.bfl-type-mlp.bfl-bp { background-position: -16px -16px }
+.bfl-type-mlp.bfl-bs { background-position: -32px -16px }
+.bfl-type-mlp.bfl-cb { background-position: -48px -16px }
+.bfl-type-mlp.bfl-cg { background-position: -64px -16px }
+.bfl-type-mlp.bfl-che { background-position: -80px -16px }
+.bfl-type-mlp.bfl-cl { background-position: -96px -16px }
+.bfl-type-mlp.bfl-co { background-position: -112px -16px }
+.bfl-type-mlp.bfl-day { background-position: -128px -16px }
+.bfl-type-mlp.bfl-dd { background-position: 0 -32px }
+.bfl-type-mlp.bfl-der { background-position: -16px -32px }
+.bfl-type-mlp.bfl-dis { background-position: -32px -32px }
+.bfl-type-mlp.bfl-dt { background-position: -48px -32px }
+.bfl-type-mlp.bfl-eqa { background-position: -64px -32px }
+.bfl-type-mlp.bfl-eqf { background-position: -80px -32px }
+.bfl-type-mlp.bfl-eqi { background-position: -96px -32px }
+.bfl-type-mlp.bfl-eqp { background-position: -112px -32px }
+.bfl-type-mlp.bfl-eqr { background-position: -128px -32px }
+.bfl-type-mlp.bfl-eqs { background-position: 0 -48px }
+.bfl-type-mlp.bfl-eqt { background-position: -16px -48px }
+.bfl-type-mlp.bfl-era { background-position: -32px -48px }
+.bfl-type-mlp.bfl-fau { background-position: -48px -48px }
+.bfl-type-mlp.bfl-fl { background-position: -64px -48px }
+.bfl-type-mlp.bfl-fle { background-position: -80px -48px }
+.bfl-type-mlp.bfl-gi { background-position: -96px -48px }
+.bfl-type-mlp.bfl-ht { background-position: -112px -48px }
+.bfl-type-mlp.bfl-iz { background-position: -128px -48px }
+.bfl-type-mlp.bfl-li { background-position: 0 -64px }
+.bfl-type-mlp.bfl-lt { background-position: -16px -64px }
+.bfl-type-mlp.bfl-ly { background-position: -32px -64px }
+.bfl-type-mlp.bfl-ma { background-position: -48px -64px }
+.bfl-type-mlp.bfl-mau { background-position: -64px -64px }
+.bfl-type-mlp.bfl-min { background-position: -80px -64px }
+.bfl-type-mlp.bfl-ni { background-position: -96px -64px }
+.bfl-type-mlp.bfl-nur { background-position: -112px -64px }
+.bfl-type-mlp.bfl-oct { background-position: -128px -64px }
+.bfl-type-mlp.bfl-par { background-position: 0 -80px }
+.bfl-type-mlp.bfl-pc { background-position: -16px -80px }
+.bfl-type-mlp.bfl-pce { background-position: -32px -80px }
+.bfl-type-mlp.bfl-pi { background-position: -48px -80px }
+.bfl-type-mlp.bfl-plu { background-position: -64px -80px }
+.bfl-type-mlp.bfl-pm { background-position: -80px -80px }
+.bfl-type-mlp.bfl-pp { background-position: -96px -80px }
+.bfl-type-mlp.bfl-qc { background-position: -112px -80px }
+.bfl-type-mlp.bfl-rar { background-position: -128px -80px }
+.bfl-type-mlp.bfl-rd { background-position: 0 -96px }
+.bfl-type-mlp.bfl-rlu { background-position: -16px -96px }
+.bfl-type-mlp.bfl-s1l { background-position: -32px -96px }
+.bfl-type-mlp.bfl-sco { background-position: -48px -96px }
+.bfl-type-mlp.bfl-shi { background-position: -64px -96px }
+.bfl-type-mlp.bfl-sil { background-position: -80px -96px }
+.bfl-type-mlp.bfl-son { background-position: -96px -96px }
+.bfl-type-mlp.bfl-sp { background-position: -112px -96px }
+.bfl-type-mlp.bfl-spi { background-position: -128px -96px }
+.bfl-type-mlp.bfl-spt { background-position: 0 -112px }
+.bfl-type-mlp.bfl-ss { background-position: -16px -112px }
+.bfl-type-mlp.bfl-sta { background-position: -32px -112px }
+.bfl-type-mlp.bfl-stl { background-position: -48px -112px }
+.bfl-type-mlp.bfl-sun { background-position: -64px -112px }
+.bfl-type-mlp.bfl-sus { background-position: -80px -112px }
+.bfl-type-mlp.bfl-swb { background-position: -96px -112px }
+.bfl-type-mlp.bfl-tfa { background-position: -112px -112px }
+.bfl-type-mlp.bfl-tfo { background-position: -128px -112px }
+.bfl-type-mlp.bfl-tfp { background-position: 0 -128px }
+.bfl-type-mlp.bfl-tfs { background-position: -16px -128px }
+.bfl-type-mlp.bfl-tft { background-position: -32px -128px }
+.bfl-type-mlp.bfl-tfv { background-position: -48px -128px }
+.bfl-type-mlp.bfl-tp { background-position: -64px -128px }
+.bfl-type-mlp.bfl-ts { background-position: -80px -128px }
+.bfl-type-mlp.bfl-twi { background-position: -96px -128px }
+.bfl-type-mlp.bfl-tx { background-position: -112px -128px }
+.bfl-type-mlp.bfl-vs { background-position: -128px -128px }
+.bfl-type-mlp.bfl-ze { background-position: 0 -144px }
+.bfl-type-mlp.bfl-zs { background-position: -16px -144px }
+
+.bfl.bfl-type-lgbt {
+  display: inline-block;
+  width: 16px;
+  height: 11px;
+  position: relative;
+  top: 1px;
+  background: url('/static/flags/lgbt-flags.1.png') no-repeat;
+}
+
+.bfl-type-lgbt.bfl-aap { background-position:0 0 }
+.bfl-type-lgbt.bfl-ace { background-position:-16px 0 }
+.bfl-type-lgbt.bfl-ach { background-position:-32px 0 }
+.bfl-type-lgbt.bfl-afb { background-position:-48px 0 }
+.bfl-type-lgbt.bfl-agp { background-position:-64px 0 }
+.bfl-type-lgbt.bfl-agr { background-position:-80px 0 }
+.bfl-type-lgbt.bfl-all { background-position:-96px 0 }
+.bfl-type-lgbt.bfl-aly { background-position:0 -11px }
+.bfl-type-lgbt.bfl-amb { background-position:-16px -11px }
+.bfl-type-lgbt.bfl-and { background-position:-32px -11px }
+.bfl-type-lgbt.bfl-aro { background-position:-48px -11px }
+.bfl-type-lgbt.bfl-bch { background-position:-64px -11px }
+.bfl-type-lgbt.bfl-bi { background-position:-80px -11px }
+.bfl-type-lgbt.bfl-boy { background-position:-96px -11px }
+.bfl-type-lgbt.bfl-br { background-position:0 -22px }
+.bfl-type-lgbt.bfl-chr { background-position:-16px -22px }
+.bfl-type-lgbt.bfl-cis { background-position:-32px -22px }
+.bfl-type-lgbt.bfl-dom { background-position:-48px -22px }
+.bfl-type-lgbt.bfl-dro { background-position:-64px -22px }
+.bfl-type-lgbt.bfl-dsx { background-position:-80px -22px }
+.bfl-type-lgbt.bfl-fby { background-position:-96px -22px }
+.bfl-type-lgbt.bfl-ffb { background-position:0 -33px }
+.bfl-type-lgbt.bfl-fr { background-position:-16px -33px }
+.bfl-type-lgbt.bfl-gay { background-position:-32px -33px }
+.bfl-type-lgbt.bfl-gfl { background-position:-48px -33px }
+.bfl-type-lgbt.bfl-gqr { background-position:-64px -33px }
+.bfl-type-lgbt.bfl-hfb { background-position:-80px -33px }
+.bfl-type-lgbt.bfl-hon { background-position:-96px -33px }
+.bfl-type-lgbt.bfl-hst { background-position:0 -44px }
+.bfl-type-lgbt.bfl-int { background-position:-16px -44px }
+.bfl-type-lgbt.bfl-lab { background-position:-32px -44px }
+.bfl-type-lgbt.bfl-les { background-position:-48px -44px }
+.bfl-type-lgbt.bfl-mbt { background-position:-64px -44px }
+.bfl-type-lgbt.bfl-mr { background-position:-80px -44px }
+.bfl-type-lgbt.bfl-nb { background-position:-96px -44px }
+.bfl-type-lgbt.bfl-og { background-position:0 -55px }
+.bfl-type-lgbt.bfl-pan { background-position:-16px -55px }
+.bfl-type-lgbt.bfl-pbi { background-position:-32px -55px }
+.bfl-type-lgbt.bfl-pg { background-position:-48px -55px }
+.bfl-type-lgbt.bfl-ply { background-position:-64px -55px }
+.bfl-type-lgbt.bfl-pnr { background-position:-80px -55px }
+.bfl-type-lgbt.bfl-prg { background-position:-96px -55px }
+.bfl-type-lgbt.bfl-qes { background-position:0 -66px }
+.bfl-type-lgbt.bfl-qr { background-position:-16px -66px }
+.bfl-type-lgbt.bfl-rep { background-position:-32px -66px }
+.bfl-type-lgbt.bfl-sph { background-position:-48px -66px }
+.bfl-type-lgbt.bfl-str { background-position:-64px -66px }
+.bfl-type-lgbt.bfl-sub { background-position:-80px -66px }
+.bfl-type-lgbt.bfl-sw { background-position:-96px -66px }
+.bfl-type-lgbt.bfl-tf { background-position:0 -77px }
+.bfl-type-lgbt.bfl-tkh { background-position:-16px -77px }
+.bfl-type-lgbt.bfl-tma { background-position:-32px -77px }
+.bfl-type-lgbt.bfl-tnk { background-position:-48px -77px }
+.bfl-type-lgbt.bfl-trn { background-position:-64px -77px }
+.bfl-type-lgbt.bfl-ukr { background-position:-80px -77px }
+
+.bfl.bfl-type-test { background-image: none; }

@@ -178,6 +178,7 @@ impl Fixture {
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: ["Landscape fold", "Portrait fold", "Small fold", "Legacy full-image preview", "Spoiler fold", "Removed file"][index].into(),
             comment: "Synthetic paper fold.\n>the original bytes stay unchanged\n[spoiler]A hidden crease.[/spoiler]".into(),

@@ -123,40 +123,9 @@ pub fn country_code(value: &str) -> bool {
 
 const COUNTRY_CODES: &str = "AD AE AF AG AI AL AM AN AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CS CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH XE ER ES ET EU FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC XS SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU XW WF WS XK XX YE YT ZA ZM ZW";
 
-/// The pinned public board-flag dictionary and select order.
-pub const BOARD_FLAGS: &[(&str, &str)] = &[
-    ("AC", "Anarcho-Capitalist"),
-    ("AN", "Anarchist"),
-    ("BL", "Black Nationalist"),
-    ("CF", "Confederate"),
-    ("CM", "Communist"),
-    ("CT", "Catalonia"),
-    ("DM", "Democrat"),
-    ("EU", "European"),
-    ("FC", "Fascist"),
-    ("GN", "Gadsden"),
-    ("GY", "Gay"),
-    ("JH", "Jihadi"),
-    ("KN", "Kekistani"),
-    ("MF", "Muslim"),
-    ("NB", "National Bolshevik"),
-    ("NT", "NATO"),
-    ("NZ", "Nazi"),
-    ("PC", "Hippie"),
-    ("PR", "Pirate"),
-    ("RE", "Republican"),
-    ("MZ", "Task Force Z"),
-    ("TM", "Templar"),
-    ("TR", "Tree Hugger"),
-    ("UN", "United Nations"),
-    ("WP", "White Supremacist"),
-];
-
+/// Political flag display labels; menus use the separate source selector label.
 pub fn board_flag(value: &str) -> Option<&'static str> {
-    BOARD_FLAGS
-        .iter()
-        .find(|(code, _)| *code == value)
-        .map(|(_, name)| *name)
+    crate::board_flags::flag("pol", value).map(|flag| flag.display)
 }
 
 #[cfg(test)]

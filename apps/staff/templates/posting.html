@@ -5,12 +5,13 @@
 <p>Posts with a badge use moderation for removal. Ordinary posts use their deletion password.</p>
 {% if recent %}
 <form method="post" action="/post"><input type="hidden" name="csrf" value="{{ csrf }}">
-<p><label for="staff-board">Board</label> <select id="staff-board" name="board" required>{% for board in boards %}<option value="{{ board.0 }}" data-comment-limit="{{ board.2 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></p>
+<p><label for="staff-board">Board</label> <select id="staff-board" name="board" required>{% for board in boards %}<option value="{{ board.0 }}" data-comment-limit="{{ board.2 }}" data-flag-type="{{ board.3 }}" data-flags="{{ board.4 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></p>
 <p><label for="staff-thread">Thread ID (0 starts a new thread)</label> <input id="staff-thread" name="thread" type="number" min="0" value="{{ query.thread }}" required></p>
 <p><label for="staff-badge">Staff badge</label> <select id="staff-badge" name="badge" required>{% if ordinary_ready %}<option value="none"{% if selected_badge == "none" %} selected{% endif %}>None</option>{% endif %}{% for badge in badges %}<option value="{{ badge.0 }}"{% if badge.0 == selected_badge %} selected{% endif %}>{{ badge.1 }}</option>{% endfor %}</select></p>
 {% if ordinary_ready %}<fieldset><legend>Ordinary post</legend>
 <p><label for="staff-options">Options</label> <input id="staff-options" name="options" maxlength="100"></p>
 <p><label for="staff-flag">Flag</label> <select id="staff-flag" name="flag"><option value="">None</option>{% for flag in flags %}<option value="{{ flag.0 }}">{{ flag.1 }}</option>{% endfor %}</select></p>
+<template id="staff-flag-choices">{% for flag in flag_catalog %}<option value="{{ flag.1 }}" data-flag-type="{{ flag.0 }}">{{ flag.2 }}</option>{% endfor %}</template>
 <p><label for="staff-password">Deletion password</label> <input id="staff-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="off"></p>
 <p>Choose None above to use these fields. The password must contain 8 to 128 bytes. Flags must be enabled on the selected board.</p>
 </fieldset>{% endif %}

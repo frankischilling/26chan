@@ -8,6 +8,8 @@ mod catalog_controls;
 mod catalog_filters;
 #[path = "visual/catalog_limits.rs"]
 mod catalog_limits;
+#[path = "visual/flags.rs"]
+mod flags;
 #[path = "visual/headers.rs"]
 mod headers;
 #[path = "visual/media.rs"]
@@ -67,6 +69,7 @@ fn board() -> Board {
         user_ids: false,
         country_flags: false,
         board_flags: vec![],
+        board_flag_type: "pol".into(),
         text_only: false,
         reply_limit: 100,
         bump_limit: 75,
@@ -118,6 +121,12 @@ fn chrome_page(catalog: bool, worksafe: bool) -> String {
 }
 
 fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) -> String {
+    fixture_page(catalog, markup, text_only, forced_anon)
+        .render()
+        .expect("production templates")
+}
+
+fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) -> BoardPage {
     let mut board = board();
     board.text_only = text_only;
     board.forced_anon = forced_anon;
@@ -157,6 +166,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         country: None,
         country_name: None,
         board_flag: None,
+        board_flag_type: "pol".into(),
         flag_name: None,
         subject: "What are you making?".into(),
         comment: ">start with a single sheet".into(),
@@ -185,6 +195,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: String::new(),
             comment: ">>1000001\nA small paper lighthouse. Still working on the roof.".into(),
@@ -268,8 +279,6 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
             String::new()
         },
     }
-    .render()
-    .expect("production templates")
 }
 
 fn archive_board(slug: &str) -> Board {
@@ -368,6 +377,7 @@ fn archived_thread() -> String {
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: "<b>A paper lighthouse</b>".into(),
             comment: "The completed paper lighthouse.\n>fold each edge carefully\n[spoiler]There is a tiny door at the back.[/spoiler]".into(),
@@ -392,6 +402,7 @@ fn archived_thread() -> String {
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             dice_result: None,
             fortune_text: None,
@@ -479,6 +490,7 @@ async fn main() {
             false,
         ))
         .merge(media_fixture.routes())
+        .merge(flags::routes())
         .merge(catalog_filters::routes().await)
         .route(
             "/",

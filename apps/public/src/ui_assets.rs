@@ -253,6 +253,21 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("../static/flags/board-flags.2.png"),
     ),
     (
+        "/static/flags/board-types.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/flags/board-types.css"),
+    ),
+    (
+        "/static/flags/mlp-flags.3.png",
+        "image/png",
+        include_bytes!("../static/flags/mlp-flags.3.png"),
+    ),
+    (
+        "/static/flags/lgbt-flags.1.png",
+        "image/png",
+        include_bytes!("../static/flags/lgbt-flags.1.png"),
+    ),
+    (
         "/static/identity/modicon.gif",
         "image/gif",
         include_bytes!("../static/identity/modicon.gif"),

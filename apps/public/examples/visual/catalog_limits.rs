@@ -102,6 +102,7 @@ fn render(
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: if text_only && index == 4 {
                     "<script>literal & subject</script>".into()

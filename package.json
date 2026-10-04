@@ -11,6 +11,7 @@
     "test:robot9000": "playwright test tests/browser/robot9000.spec.js",
     "test:wordfilters": "npm run check:native-filter && npm run check:native-backlinks && node --test tests/browser/native-wordfilters.test.mjs tests/browser/native-wordfilters-dom.test.mjs && playwright test tests/browser/wordfilters.spec.js",
     "test:custom-spoilers": "node --test tests/browser/custom-spoilers.test.mjs && playwright test --config playwright.custom-spoilers.config.js",
+    "test:source-flags": "node --test tests/browser/source-board-flags.test.mjs && playwright test --config playwright.source-flags.config.js",
     "test:files-core": "npm run check:native-filter && node --test tests/browser/native-file-presentation.test.mjs",
     "test:post-tooltips-core": "node --test tests/browser/native-post-tooltips.test.mjs",
     "test:post-tooltips": "npm run test:post-tooltips-core && playwright test tests/browser/native-post-tooltips.spec.js",

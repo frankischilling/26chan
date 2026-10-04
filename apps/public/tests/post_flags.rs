@@ -381,3 +381,146 @@ async fn browser(public: &sqlx::PgPool, board: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+async fn source_flag_post(app: &Router, board: &str, thread: i64, code: &str) -> i64 {
+    let fields = url::form_urlencoded::Serializer::new(String::new())
+        .extend_pairs([
+            ("resto", thread.to_string()),
+            ("sub", "Owned source flags".into()),
+            ("com", format!("Owned source flag {board}/{code}/{thread}")),
+            ("pwd", "owned-source-flag-password".into()),
+            ("flag", code.to_owned()),
+        ])
+        .finish();
+    let mut request = Request::post(format!("/{board}/post"))
+        .header("origin", "https://boards.example.com")
+        .header("accept", "application/json")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(Body::from(fields))
+        .unwrap();
+    request.extensions_mut().insert(axum::extract::ConnectInfo(
+        "127.0.0.1:42001".parse::<SocketAddr>().unwrap(),
+    ));
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let receipt: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    assert_eq!(status, 200, "{board}/{code}: {receipt}");
+    receipt["pid"].as_i64().unwrap()
+}
+
+#[tokio::test]
+async fn all_source_flag_types_labels_orders_and_captured_choices_reach_public_routes() {
+    let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let reference: Value = serde_json::from_str(include_str!("fixtures/board-flags.json")).unwrap();
+    for row in reference["boards"].as_array().unwrap() {
+        let board = board_store::board(&owner, row["board"].as_str().unwrap())
+            .await
+            .unwrap();
+        let kind = row["type"].as_str().unwrap();
+        let expected: Vec<String> = if row["enabled"] == true {
+            reference["tables"][kind]["selector_order"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|code| code.as_str().unwrap().to_owned())
+                .collect()
+        } else {
+            vec![]
+        };
+        assert_eq!(board.board_flags, expected, "{}", board.slug);
+    }
+    let mut configured = options(false);
+    configured.limits = board_config::PublicRequestLimits::from_lookup(|name| {
+        (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
+    })
+    .unwrap();
+    let (app, api) = board_public::routers_with_options(public.clone(), configured);
+    for kind in ["pol", "mlp", "lgbt", "test"] {
+        let slug: String =
+            sqlx::query_scalar("SELECT 'sf'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+                .fetch_one(&owner)
+                .await
+                .unwrap();
+        let codes: Vec<String> = board_domain::board_flags::flags(kind)
+            .iter()
+            .map(|flag| flag.code.to_owned())
+            .collect();
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,board_flag_type,board_flags) VALUES($1,'Owned source flags','Synthetic',1000,1000,1000,100,10,$2,$3)")
+            .bind(&slug).bind(kind).bind(&codes).execute(&owner).await.unwrap();
+        let own = owner.clone();
+        let site = app.clone();
+        let json_site = api.clone();
+        let board = slug.clone();
+        let tables = reference["tables"].clone();
+        let outcome = tokio::spawn(async move {
+            let thread = source_flag_post(&site, &board, 0, "0").await;
+            let mut receipts = vec![];
+            for flag in board_domain::board_flags::flags(kind) {
+                assert_eq!(flag.display, tables[kind]["display"][flag.code].as_str().unwrap());
+                assert_eq!(flag.selector, tables[kind]["selector"][flag.code].as_str().unwrap());
+                receipts.push((source_flag_post(&site, &board, thread, flag.code).await, *flag));
+            }
+            for router in [&site, &json_site] {
+                let result = json(router, &format!("/{board}/thread/{thread}.json")).await;
+                let html = get(&site, &format!("/{board}/thread/{thread}")).await;
+                assert_eq!(result["posts"].as_array().unwrap().len(), receipts.len()+1);
+                for (id, flag) in &receipts {
+                    let post = result["posts"].as_array().unwrap().iter().find(|post| post["no"]==*id).unwrap();
+                    assert_eq!(post["board_flag"], flag.code); assert_eq!(post["flag_name"], flag.display);
+                    assert!(post.get("country").is_none() && post.get("board_flag_type").is_none());
+                    let scope = if kind == "pol" { String::new() } else { format!(" bfl-type-{kind}") };
+                    assert!(html.contains(&format!("title=\"{}\" class=\"bfl bfl-{}{scope}\"", flag.display, flag.code.to_ascii_lowercase())));
+                }
+            }
+            let form = get(&site, &format!("/{board}/")).await;
+            let menu = form.split("class=\"flagSelector\"").nth(1).unwrap().split("</select>").next().unwrap();
+            assert!(menu.starts_with("><option value=\"0\">None</option>"));
+            let mut position=0;
+            for code in tables[kind]["selector_order"].as_array().unwrap() {
+                let code=code.as_str().unwrap();
+                let item=format!("<option value=\"{}\">{}</option>",code,tables[kind]["selector"][code].as_str().unwrap());
+                position += menu[position..].find(&item).unwrap()+item.len();
+            }
+            let directory = get(&site, "/boards.json").await;
+            let start=directory.find(&format!("\"board\":\"{board}\"")).unwrap();
+            let flags=&directory[start..]; let start=flags.find("\"board_flags\":{").unwrap();
+            let flags=flags[start..].split('}').next().unwrap(); let mut position=0;
+            for code in tables[kind]["selector_order"].as_array().unwrap() {
+                let code=code.as_str().unwrap();
+                let item=format!("\"{}\":\"{}\"",code,tables[kind]["selector"][code].as_str().unwrap());
+                position += flags[position..].find(&item).unwrap()+item.len();
+            }
+            let saved: Vec<(String,String,String)> = sqlx::query_as("SELECT board_flag_type,board_flag,flag_name FROM content.posts WHERE board=$1 AND board_flag IS NOT NULL ORDER BY id").bind(&board).fetch_all(&own).await.unwrap();
+            assert_eq!(saved.len(), receipts.len());
+            for ((saved_kind,code,name),(_,flag)) in saved.iter().zip(&receipts) {
+                assert_eq!(saved_kind,kind); assert_eq!(code,flag.code); assert_eq!(name,flag.display);
+            }
+            sqlx::query("UPDATE content.boards SET board_flag_type='pol',board_flags='{}' WHERE slug=$1").bind(&board).execute(&own).await.unwrap();
+            let retained = get(&site, &format!("/{board}/thread/{thread}")).await;
+            assert!(!retained.contains("class=\"bfl "));
+            let hidden = json(&site, &format!("/{board}/thread/{thread}.json")).await;
+            assert!(hidden["posts"].as_array().unwrap().iter().all(|post| post.get("board_flag").is_none() && post.get("country").is_none()));
+        }).await;
+        for query in [
+            "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
+            "DELETE FROM content.posts WHERE board=$1",
+            "DELETE FROM content.threads WHERE board=$1",
+            "DELETE FROM content.boards WHERE slug=$1",
+        ] {
+            sqlx::query(query)
+                .bind(&slug)
+                .execute(&owner)
+                .await
+                .unwrap();
+        }
+        outcome.unwrap();
+    }
+    public.close().await;
+    owner.close().await;
+}

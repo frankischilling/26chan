@@ -11,12 +11,13 @@ use axum::{
 };
 use board_store::{Board, Post, Thread};
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Serializer, ser::SerializeMap};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 fn response(
     limits: &crate::security::Limits,
-    value: Value,
+    value: impl Serialize,
     modified: Option<DateTime<Utc>>,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
@@ -84,6 +85,27 @@ pub(crate) fn bytes_response(
     Ok(response)
 }
 
+struct OrderedFlags(Vec<(&'static str, &'static str)>);
+impl Serialize for OrderedFlags {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (code, label) in &self.0 {
+            map.serialize_entry(code, label)?;
+        }
+        map.end()
+    }
+}
+#[derive(Serialize)]
+struct BoardMetadata {
+    #[serde(flatten)]
+    value: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    board_flags: Option<OrderedFlags>,
+}
+#[derive(Serialize)]
+struct BoardDirectory {
+    boards: Vec<BoardMetadata>,
+}
 pub async fn boards(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -107,9 +129,7 @@ pub async fn boards(
         }
         if board.user_ids { value["user_ids"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
-        if !board.board_flags.is_empty() {
-            value["board_flags"] = json!(board.flag_options().into_iter().collect::<std::collections::BTreeMap<_, _>>());
-        }
+        let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
         if board.forced_anon {
             value["forced_anon"] = json!(1);
         }
@@ -126,9 +146,9 @@ pub async fn boards(
             value["max_filesize"] = json!(8_388_608);
             value["image_limit"] = json!(board.image_limit);
         }
-        value
+        BoardMetadata { value, board_flags: flags }
     }).collect();
-    response(&state.limits, json!({"boards": boards}), None, &headers)
+    response(&state.limits, BoardDirectory { boards }, None, &headers)
 }
 
 fn post_json(
@@ -171,13 +191,17 @@ fn post_json(
         value["capcode"] = json!(capcode);
     }
     if post.post.capcode.is_none() {
-        if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
+        if !board.board_flags.is_empty()
+            && let Some(code) = &post.post.board_flag
+            && let Some(flag) = board_domain::board_flags::flag(&board.board_flag_type, code)
+        {
+            value["board_flag"] = json!(code);
+            value["flag_name"] = json!(flag.display);
+        } else if board.country_flags
+            && let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name)
+        {
             value["country"] = json!(code);
             value["country_name"] = json!(name);
-        }
-        if let (Some(code), Some(name)) = (&post.post.board_flag, &post.post.flag_name) {
-            value["board_flag"] = json!(code);
-            value["flag_name"] = json!(name);
         }
     }
     if !comment.is_empty() {
@@ -579,6 +603,7 @@ mod poster_id_projection_tests {
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: String::new(),
                 comment: String::new(),

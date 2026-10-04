@@ -36,6 +36,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: "Owned header subject".into(),
             comment: "Owned synthetic header text".into(),

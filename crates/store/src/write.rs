@@ -451,7 +451,7 @@ async fn create_post_in_context(
     };
     if !flag.is_empty()
         && (!board.board_flags.iter().any(|enabled| enabled == flag)
-            || board_domain::country::board_flag(flag).is_none())
+            || board_domain::board_flags::flag(&board.board_flag_type, flag).is_none())
     {
         return Err(StoreError::Invalid("Invalid board flag."));
     }

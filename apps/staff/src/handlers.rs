@@ -447,8 +447,8 @@ pub async fn posting(
     {
         return Err(AppError::Invalid);
     }
-    let boards: Vec<(String, String, i32)> =
-        sqlx::query_as("SELECT slug,title,CASE WHEN $3 THEN max_authorized_comment_chars ELSE max_comment_chars END FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
+    let boards: Vec<(String, String, i32, String, String)> =
+        sqlx::query_as("SELECT slug,title,CASE WHEN $3 THEN max_authorized_comment_chars ELSE max_comment_chars END,board_flag_type,array_to_string(board_flags,' ') FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
             .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
             .bind(session.at_least(crate::access::Level::Moderator))
             .fetch_all(&state.staff)
@@ -504,12 +504,34 @@ pub async fn posting(
         .find(|board| board.0 == query.board)
         .or_else(|| boards.first())
         .map_or(20_000, |board| board.2 as usize * 2);
-    let flags:Vec<String>=sqlx::query_scalar("SELECT DISTINCT unnest(board_flags) FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY 1 LIMIT 128")
-        .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards).fetch_all(&state.staff).await?;
-    let flags = flags
+    let selected_board = boards
+        .iter()
+        .find(|board| board.0 == query.board)
+        .or_else(|| boards.first());
+    let flags = selected_board.map_or_else(Vec::new, |board| {
+        board_domain::board_flags::flags(&board.3)
+            .iter()
+            .filter(|flag| {
+                board
+                    .4
+                    .split_ascii_whitespace()
+                    .any(|code| code == flag.code)
+            })
+            .map(|flag| (flag.code.to_owned(), flag.selector.to_owned()))
+            .collect()
+    });
+    let flag_catalog = ["pol", "mlp", "lgbt", "test"]
         .into_iter()
-        .filter_map(|code| {
-            board_domain::country::board_flag(&code).map(|name| (code, name.to_owned()))
+        .flat_map(|kind| {
+            board_domain::board_flags::flags(kind)
+                .iter()
+                .map(move |flag| {
+                    (
+                        kind.to_owned(),
+                        flag.code.to_owned(),
+                        flag.selector.to_owned(),
+                    )
+                })
         })
         .collect();
     Ok(Html(
@@ -525,6 +547,7 @@ pub async fn posting(
             selected_badge,
             ordinary_ready,
             flags,
+            flag_catalog,
         }
         .render()
         .map_err(|_| AppError::Internal)?,

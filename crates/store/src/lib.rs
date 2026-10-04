@@ -79,6 +79,7 @@ pub struct Board {
     pub strip_tripcode: bool,
     pub user_ids: bool,
     pub country_flags: bool,
+    pub board_flag_type: String,
     pub board_flags: Vec<String>,
     pub text_only: bool,
     pub reply_limit: i32,
@@ -103,10 +104,10 @@ pub struct Board {
 
 impl Board {
     pub fn flag_options(&self) -> Vec<(&'static str, &'static str)> {
-        board_domain::country::BOARD_FLAGS
+        board_domain::board_flags::flags(&self.board_flag_type)
             .iter()
-            .copied()
-            .filter(|(code, _)| self.board_flags.iter().any(|enabled| enabled == code))
+            .filter(|flag| self.board_flags.iter().any(|enabled| enabled == flag.code))
+            .map(|flag| (flag.code, flag.selector))
             .collect()
     }
     pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
@@ -162,6 +163,7 @@ pub struct Post {
     pub country: Option<String>,
     pub country_name: Option<String>,
     pub board_flag: Option<String>,
+    pub board_flag_type: String,
     pub flag_name: Option<String>,
     pub subject: String,
     pub image_spoiler: bool,
