@@ -122,20 +122,20 @@ END $$;
 ROLLBACK;
 DO $$
 BEGIN
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p)
      OR EXISTS (SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before)
      OR EXISTS (SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE NOTICE 'Historical upgrade diagnostics: %', (
       SELECT jsonb_build_object(
-        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
-        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p),
+        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
+        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p),
         'threads_forward_changed', EXISTS(SELECT * FROM content.threads EXCEPT SELECT * FROM public.owned_count_threads_before),
         'threads_reverse_changed', EXISTS(SELECT * FROM public.owned_count_threads_before EXCEPT SELECT * FROM content.threads),
-        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR image_spoiler),
+        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR image_spoiler),
         'poster_context_present', EXISTS(SELECT 1 FROM post_secrets.poster_contexts),
         'historical_count_known', content.unique_posters('countold',8800001) IS NOT NULL
       )
@@ -262,13 +262,14 @@ BEGIN
           AND has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents',c.column_name,'UPDATE'))
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
           AND c.column_name NOT IN ('slug','max_comment_chars','max_authorized_comment_chars','forced_anon','strip_tripcode',
-              'staff_only','user_ids','meta_board','poster_id_no_heaven','country_flags','board_flags','robot9000',
+              'staff_only','user_ids','meta_board','poster_id_no_heaven','country_flags','board_flags','board_flag_type','robot9000',
               'op_markup','dice_roll','fortune_trip','word_filter_enabled','word_filter_profile')
           AND has_column_privilege('board_staff_post_owner','content.boards',c.column_name,'SELECT'))
      OR has_any_column_privilege('board_staff_post_owner','content.boards','INSERT,UPDATE')
      OR NOT has_column_privilege('board_staff_post_owner','content.boards','max_authorized_comment_chars','SELECT')
      OR NOT has_column_privilege('board_staff_post_owner','content.boards','forced_anon','SELECT')
      OR NOT has_column_privilege('board_staff_post_owner','content.boards','strip_tripcode','SELECT')
+     OR NOT has_column_privilege('board_staff_post_owner','content.boards','board_flag_type','SELECT')
      OR NOT has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents','token_hash','UPDATE') THEN
     RAISE EXCEPTION 'Staff posting function owner exceeds required authority';
   END IF;

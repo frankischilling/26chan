@@ -67,6 +67,8 @@ and JSON order, and verify suppression after disabling flags.
 Staff HTTP checks also verify type-specific menus, rejected cross-type choices,
 captured labels and public projection. A browser check changes the selected board,
 compares every menu with the source and clears an unavailable prior choice.
+The full role bootstrap also compares every pre-flag historical post field in
+both directions and requires the new captured type to be `pol` on those rows.
 
 Browser contracts render every available flag through production templates on
 desktop and mobile at density two. They compare source coordinates, dimensions,
