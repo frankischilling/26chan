@@ -106,5 +106,67 @@ for (const device of [
       expect(assets.test[0].status).toBe(404);
       expect((await page.request.get('/static/flags/test-flags.1.png')).status()).toBe(404);
     });
+    test('ordinary and Quick Reply choices remember the board, including three-character codes', async ({ page }) => {
+      await page.addInitScript(() => {
+        if (localStorage.getItem('owned.flag.fixture')) return;
+        for (const [kind, code] of [['pol', 'CM'], ['mlp', '4CC'], ['lgbt', 'NB'], ['test', 'FL2']]) {
+          localStorage.setItem(`4chan_flag_flag${kind}`, code);
+        }
+        localStorage.setItem('owned.flag.fixture', 'ready');
+      });
+      for (const [kind, prior, next] of [['pol', 'CM', 'TM'], ['mlp', '4CC', 'TWI'], ['lgbt', 'NB', 'TRN'], ['test', 'FL2', 'FL1']]) {
+        await page.goto(`/flags/${kind}`);
+        await expect(page.locator('#flag')).toHaveValue(prior);
+        const reply = page.locator(`#${device.isMobile ? 'pim' : 'pi'}1002000 a[title="Reply to this post"]`);
+        await reply.click();
+        await expect(page.locator('#qrFlag')).toHaveValue(prior);
+        await page.selectOption('#qrFlag', next);
+        expect(await page.evaluate(key => localStorage.getItem(key), `4chan_flag_flag${kind}`)).toBe(next);
+        await page.locator('#qrClose').click();
+        await reply.click();
+        await expect(page.locator('#qrFlag')).toHaveValue(next);
+        await page.reload();
+        await expect(page.locator('#flag')).toHaveValue(next);
+        await page.locator('#flag').selectOption('0', { force: true });
+        expect(await page.evaluate(key => localStorage.getItem(key), `4chan_flag_flag${kind}`)).toBeNull();
+        await page.reload();
+        await expect(page.locator('#flag')).toHaveValue('0');
+        if (kind === 'pol') expect(await page.evaluate(() => localStorage.getItem('4chan_flag_flagmlp'))).toBe('4CC');
+      }
+    });
+    test('core flag preferences work with the extension disabled and tolerate unavailable storage', async ({ page }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true }));
+        const original = Storage.prototype.getItem;
+        Storage.prototype.getItem = function(key) {
+          if (key.startsWith('4chan_flag_')) throw new DOMException('Owned preference denial', 'SecurityError');
+          return original.call(this, key);
+        };
+        for (const method of ['setItem', 'removeItem']) {
+          const write = Storage.prototype[method];
+          Storage.prototype[method] = function(key, ...args) {
+            if (key.startsWith('4chan_flag_')) throw new DOMException('Owned preference denial', 'SecurityError');
+            return write.call(this, key, ...args);
+          };
+        }
+      });
+      const errors = []; page.on('pageerror', error => errors.push(error.message));
+      await page.goto('/flags/mlp');
+      await expect(page.locator('#flag')).toHaveValue('0');
+      await page.locator('#flag').selectOption('4CC', { force: true });
+      await expect(page.locator('#flag')).toHaveValue('4CC');
+      await page.reload();
+      await expect(page.locator('#flag')).toHaveValue('0');
+      expect(errors).toEqual([]);
+    });
+    test('unknown, malformed and cross-board stored choices leave the current default', async ({ page }) => {
+      for (const value of ['CM', 'twi', 'TWI"]', '__proto__', 'x'.repeat(4096)]) {
+        await page.goto('/flags/mlp');
+        await page.evaluate(value => localStorage.setItem('4chan_flag_flagmlp', value), value);
+        await page.reload();
+        await expect(page.locator('#flag')).toHaveValue('0');
+        expect(await page.evaluate(() => localStorage.getItem('4chan_flag_flagmlp'))).toBe(value);
+      }
+    });
   });
 }

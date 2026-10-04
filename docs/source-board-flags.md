@@ -25,6 +25,14 @@ Post HTML and JSON use the current source display dictionary when the board
 enables flags. Disabling flags suppresses their public projection. Staff posting
 updates its allowed menu when the selected board changes.
 
+Ordinary forms and Quick Reply remember choices under the source key
+`4chan_flag_<board>`. Each form restores only an option in its current allowed
+menu. Quick Reply reads the preference again when reopened. Selecting the first
+option removes the saved choice; other boards retain their own preferences.
+The ordinary form keeps this behavior when the extension is disabled. Unknown
+or malformed saved values leave the current default intact. Storage failures
+leave the form usable, and saved strings never become CSS selectors.
+
 The posting transaction locks the current board policy and accepts only its
 allowed, case-sensitive codes. The database trigger captures the type and
 display label independently of browser input. Migration 0083 preserves existing
@@ -67,6 +75,11 @@ and JSON order, and verify suppression after disabling flags.
 Staff HTTP checks also verify type-specific menus, rejected cross-type choices,
 captured labels and public projection. A browser check changes the selected board,
 compares every menu with the source and clears an unavailable prior choice.
+Desktop and mobile browser checks cover remembered choices, numeric and
+three-character codes, Quick Reply reopening, reloads, removal, disabled
+extension settings, unavailable storage and invalid saved values. The source
+preference verifier executes both supplied restorers and the actual change
+callback against all 165 choices with synthetic storage.
 The full role bootstrap also compares every pre-flag historical post field in
 both directions and requires the new captured type to be `pol` on those rows.
 
@@ -85,6 +98,7 @@ python3 scripts/extract-board-flags-reference.py 4chan-old \
   --client apps/public/client/native-board-flag-codes.js \
   --migration migrations/0083_source_board_flags.sql
 python3 scripts/prepare-board-flag-assets.py /path/to/collected-assets --check
+node scripts/verify-source-flag-preferences.mjs 4chan-old/js/core.js 4chan-old/js/extension.js
 sudo bash scripts/test-source-board-flags-migration.sh
 cargo test --locked -p board-public --all-features --test post_flags --test ui_assets
 npm run test:source-flags

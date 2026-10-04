@@ -3,13 +3,14 @@ import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, qu
   uploadQuickReplyFile } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
-import { restorePostPreferences } from './native-post-preferences.js';
+import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
 import { postNumberReply } from './native-post-numbers.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
   if (!/^[a-z0-9]{1,10}$/.test(board)) return null;
   restorePostPreferences(source);
+  mountBoardFlagPreference(source?.elements.namedItem('flag'), board);
   const uploadSource = document.querySelector(`form.postForm[action="/${board}/upload"]`);
   const uploadSourceInput = uploadSource?.querySelector('input[type=file][name=upfile]');
   const approvedThread = source?.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;
@@ -180,7 +181,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         const option = node('option', original.textContent); option.value = original.value;
         flag.append(option);
       }
-      flag.value = sourceFlag.value; row.append(flag); fields.append(row);
+      flag.value = sourceFlag.value; mountBoardFlagPreference(flag, board); row.append(flag); fields.append(row);
     }
     comment = field('com', 'Comment', 'textarea'); comment.rows = 4;
     const password = node('input'); password.type = 'hidden'; password.name = 'pwd'; password.id = 'qr-pwd';
