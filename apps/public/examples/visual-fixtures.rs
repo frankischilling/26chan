@@ -59,6 +59,7 @@ fn board() -> Board {
         comment_max_lines: 70,
         comment_spoiler_cleanup: false,
         custom_spoiler_count: 0,
+        spoiler_thumbnail_assets: vec!["spoiler.png".into()],
         require_subject: false,
         op_markup: false,
         forced_anon: false,
@@ -99,6 +100,7 @@ fn chrome_page(catalog: bool, worksafe: bool) -> String {
         .unwrap()
         .clone();
     BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&current),
         navigation_boards: boards,
         board: current,
         quote: String::new(),
@@ -233,6 +235,7 @@ fn render_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool) 
         thread.reply_count = 3;
     }
     BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
@@ -279,6 +282,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&crate::board()),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
@@ -400,6 +404,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),

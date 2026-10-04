@@ -7,6 +7,8 @@ use board_store::{Board, Post, Thread};
 mod file_label;
 #[path = "views/mobile_label.rs"]
 mod mobile_label;
+#[path = "views/spoilers.rs"]
+pub mod spoilers;
 
 #[derive(Template)]
 #[template(path = "home.html")]
@@ -17,6 +19,7 @@ pub struct Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub spoiler_thumbnail: String,
     pub navigation_boards: Vec<Board>,
     pub quote: String,
     pub catalog_hidden: Vec<ThreadView>,
@@ -48,6 +51,9 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn catalog_spoiler_thumbnail(&self) -> String {
+        spoilers::catalog_thumbnail(&self.board)
+    }
     pub fn navigation(&self) -> Vec<&Board> {
         board_navigation(&self.navigation_boards, &self.board)
     }
@@ -150,6 +156,7 @@ pub struct PostView {
 #[derive(Template)]
 #[template(path = "post_fragment.html")]
 pub struct PostFragment<'a> {
+    pub spoiler_thumbnail: &'a str,
     pub item: &'a PostView,
     pub view: &'a ThreadView,
     pub board: &'a Board,

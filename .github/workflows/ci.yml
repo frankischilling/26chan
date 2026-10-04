@@ -252,6 +252,8 @@ jobs:
         run: sudo bash scripts/test-public-spoiler-migration.sh
       - name: Upgrade source custom spoiler counts while preserving history and runtime authority
         run: sudo bash scripts/test-custom-spoiler-migration.sh
+      - name: Populated spoiler thumbnail policy migration
+        run: sudo bash scripts/test-spoiler-thumbnail-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
@@ -403,6 +405,8 @@ jobs:
       - name: Verify bounded file labels and mobile captions
         shell: pwsh
         run: npm run test:files-core
+      - name: Custom spoiler source and browser contracts
+        run: npm run test:custom-spoilers
       - name: Verify local dates and bounded board navigation
         shell: pwsh
         run: npm run test:display-core

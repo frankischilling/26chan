@@ -1,3 +1,6 @@
+import { isSpoilerAssetPath } from './native-spoiler-assets.js';
+import { configureSpoilerPreference } from './native-spoilers.js';
+
 // Only approved, normalized images from the configured media origin may load.
 export const IMAGE_LIMITS = Object.freeze({ expansions: 8, reveals: 1001, loadMs: 10000, dimension: 1024 });
 
@@ -21,7 +24,7 @@ export function imageSize(width, height, availableWidth, availableHeight = Infin
 }
 
 export function mountNativeImages({ root, mediaOrigin = '', settings, projection, mobile, family = 'futaba',
-  limits = {} } = {}) {
+  previewRoot, limits = {} } = {}) {
   if (!root || typeof settings !== 'function' || !imageTarget(`${mediaOrigin}/a/1.png`, mediaOrigin)) return null;
   const bounds = { ...IMAGE_LIMITS };
   for (const [key, value] of Object.entries(limits)) {
@@ -47,10 +50,21 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     return value && typeof value === 'object' ? value : {};
   }
   const enabled = () => !disposed && !suspended && configuration().disableAll !== true;
+  configureSpoilerPreference(document, () => enabled() && configuration().revealSpoilers === true);
+  const preview = () => {
+    let element;
+    try { element = typeof previewRoot === 'function' ? previewRoot() : null; } catch { return null; }
+    return element?.ownerDocument === document && element.isConnected && !root.contains(element) ? element : null;
+  };
+  function* spoilerFiles() {
+    yield* root.querySelectorAll('.file[data-image-spoiler="true"]');
+    const popup = preview();
+    if (popup) yield* popup.querySelectorAll('.file[data-image-spoiler="true"]');
+  }
   const setClass = (element, name, value) => {
     if (element.classList.contains(name) !== value) element.classList.toggle(name, value);
   };
-  const available = element => root.contains(element) && element.isConnected
+  const available = element => (root.contains(element) || preview()?.contains(element)) && element.isConnected
     && !element.closest('.deleted,.post-hidden,.native-thread-hidden,.mobile-post-hidden,[hidden]')
     && element.getClientRects().length > 0;
   function target(anchor) {
@@ -180,7 +194,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (!/^[1-9][0-9]{0,3}$/.test(width ?? '') || !/^[1-9][0-9]{0,3}$/.test(height ?? '')
       || Number(width) > bounds.dimension || Number(height) > bounds.dimension) return null;
     if (placeholder && (placeholder.className !== 'fileThumb imgspoiler'
-      || placeholder.querySelector('img')?.getAttribute('src') !== '/static/catalog/spoiler.png'
+      || !isSpoilerAssetPath(placeholder.querySelector('img')?.getAttribute('src'))
       || caption.parentElement.title !== filename)) return null;
     return { details, placeholder, source, caption, filename, width, height, legacy: file.dataset.thumbnailLegacy === 'true' };
   }
@@ -259,7 +273,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
         || entry.label.parentNode !== data.caption.parentNode || entry.anchor.parentNode !== file) conceal(file);
     }
     if (active && config.revealSpoilers === true) {
-      for (const file of root.querySelectorAll('.file[data-image-spoiler="true"]')) {
+      for (const file of spoilerFiles()) {
         if (revealed.has(file)) continue;
         const data = spoilerData(file);
         if (data) reveal(file, data);
@@ -286,7 +300,9 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   const observer = new window.MutationObserver(schedule);
   observer.observe(root, { childList: true, subtree: true, attributes: true, characterData: true,
     attributeFilter: ['href', 'src', 'class', 'hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'] });
-  root.addEventListener('click', click); root.addEventListener('mouseover', over); root.addEventListener('mouseout', out);
+  if (typeof previewRoot === 'function') observer.observe(document.body, { childList: true });
+  const eventRoot = typeof previewRoot === 'function' ? document.body : root;
+  eventRoot.addEventListener('click', click); eventRoot.addEventListener('mouseover', over); eventRoot.addEventListener('mouseout', out);
   document.addEventListener('4chanSettingsSaved', refresh);
   window.addEventListener('storage', storage); window.addEventListener('resize', refresh);
   window.addEventListener('pagehide', pagehide); window.addEventListener('pageshow', pageshow);
@@ -294,7 +310,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   refresh();
   return { refresh, dispose() {
     disposed = true; observer.disconnect(); refresh();
-    root.removeEventListener('click', click); root.removeEventListener('mouseover', over); root.removeEventListener('mouseout', out);
+    eventRoot.removeEventListener('click', click); eventRoot.removeEventListener('mouseover', over); eventRoot.removeEventListener('mouseout', out);
     document.removeEventListener('4chanSettingsSaved', refresh);
     window.removeEventListener('storage', storage); window.removeEventListener('resize', refresh);
     window.removeEventListener('pagehide', pagehide); window.removeEventListener('pageshow', pageshow);

@@ -146,11 +146,19 @@ fn encode(
     };
     // Decode and format one bounded post at a time. A large saved thread must
     // not allocate all token vectors before the output writer enforces its cap.
+    let spoiler_thumbnail = crate::views::spoilers::choose_thumbnail(&board);
     let mut rendered = Vec::with_capacity(posts.len());
     let mut remaining = limit;
     for post in posts {
         let item = PostView::new(post);
-        let result = render_post(&item, &view, &board, media_origin, remaining)?;
+        let result = render_post(
+            &item,
+            &view,
+            &board,
+            media_origin,
+            &spoiler_thumbnail,
+            remaining,
+        )?;
         remaining -= result.html.len();
         rendered.push(result);
     }
@@ -174,12 +182,20 @@ pub(crate) fn render_posts(
     view: &ThreadView,
     board: &board_store::Board,
     media_origin: &str,
+    spoiler_thumbnail: &str,
     limit: usize,
 ) -> Result<Vec<RenderedPost>, AppError> {
     let mut rendered = Vec::with_capacity(view.posts.len());
     let mut remaining = limit;
     for item in &view.posts {
-        let result = render_post(item, view, board, media_origin, remaining)?;
+        let result = render_post(
+            item,
+            view,
+            board,
+            media_origin,
+            spoiler_thumbnail,
+            remaining,
+        )?;
         remaining -= result.html.len();
         rendered.push(result);
     }
@@ -191,10 +207,12 @@ fn render_post(
     view: &ThreadView,
     board: &board_store::Board,
     media_origin: &str,
+    spoiler_thumbnail: &str,
     limit: usize,
 ) -> Result<RenderedPost, AppError> {
     let mut output = LimitedOutput::new(limit);
     PostFragment {
+        spoiler_thumbnail,
         item,
         view,
         board,
@@ -253,6 +271,7 @@ fn encode_preview(
     };
     let mut output = LimitedOutput::new(limit);
     PostFragment {
+        spoiler_thumbnail: &crate::views::spoilers::choose_thumbnail(&board),
         item: &item,
         view: &view,
         board: &board,
@@ -420,6 +439,7 @@ mod tests {
             comment_max_lines: 100,
             comment_spoiler_cleanup: true,
             custom_spoiler_count: 0,
+            spoiler_thumbnail_assets: vec!["spoiler.png".into()],
             require_subject: false,
             op_markup: false,
             forced_anon: false,
@@ -739,6 +759,97 @@ mod tests {
             );
             assert!(!html.contains("private-asset-id"));
             assert!(!html.contains("not-a-public-hash-field"));
+        }
+    }
+
+    #[test]
+    fn custom_spoilers_match_each_source_html_choice_catalog_suffix_and_shared_snapshot_choice() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/custom-spoilers.json")).unwrap();
+        for row in reference["boards"].as_array().unwrap() {
+            let mut snapshot = fixture();
+            snapshot.board.slug = row["board"].as_str().unwrap().into();
+            snapshot.board.custom_spoiler_count = row["count"].as_i64().unwrap() as i32;
+            snapshot.board.comment_spoiler_cleanup = row["enabled"].as_bool().unwrap();
+            snapshot.board.spoiler_thumbnail_assets = row["source_html_urls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|url| url.as_str().unwrap().rsplit('/').next().unwrap().to_owned())
+                .collect();
+            snapshot.thread.board = snapshot.board.slug.clone();
+            for post in &mut snapshot.posts {
+                post.board = snapshot.board.slug.clone();
+                let mut file = attachment();
+                file.post_id = post.id;
+                file.tim = post.id;
+                file.spoiler = true;
+                post.attachment = Some(file);
+            }
+            snapshot.images = 1;
+            let expected_catalog = if snapshot.board.comment_spoiler_cleanup
+                && snapshot.board.custom_spoiler_count > 0
+            {
+                format!(
+                    "/static/catalog/spoiler-{}{}.png",
+                    snapshot.board.slug, snapshot.board.custom_spoiler_count
+                )
+            } else {
+                "/static/catalog/spoiler.png".to_owned()
+            };
+            assert_eq!(
+                crate::views::spoilers::catalog_thumbnail(&snapshot.board),
+                expected_catalog
+            );
+            // Exercise every source choice through the same post and page templates.
+            let view = ThreadView {
+                catalog_last_reply: None,
+                tail_size: 0,
+                latest_reply_id: None,
+                thread: snapshot.thread.clone(),
+                posts: Vec::new(),
+                omitted: 0,
+                image_replies: 1,
+            };
+            let item = PostView::new(snapshot.posts[0].clone());
+            for (index, name) in snapshot.board.spoiler_thumbnail_assets.iter().enumerate() {
+                let choice = crate::views::spoilers::thumbnail_at(&snapshot.board, index);
+                assert_eq!(choice, format!("/static/catalog/{name}"));
+                let html = PostFragment {
+                    spoiler_thumbnail: &choice,
+                    item: &item,
+                    view: &view,
+                    board: &snapshot.board,
+                    media_origin: "https://media.example",
+                    catalog: false,
+                }
+                .render()
+                .unwrap();
+                assert!(html.contains(&format!("src=\"{choice}\"")));
+                assert_eq!(
+                    html.contains("data-custom-spoiler="),
+                    snapshot.board.comment_spoiler_cleanup
+                        && snapshot.board.custom_spoiler_count > 0
+                );
+            }
+            let choices = snapshot.board.spoiler_thumbnail_assets.clone();
+            let value: serde_json::Value = serde_json::from_slice(
+                &encode(snapshot, "https://media.example", MAX_BYTES).unwrap(),
+            )
+            .unwrap();
+            let mut selected = None;
+            for post in value["posts"].as_array().unwrap() {
+                let html = post["html"].as_str().unwrap();
+                let name = choices
+                    .iter()
+                    .find(|name| html.contains(&format!("src=\"/static/catalog/{name}\"")))
+                    .unwrap();
+                if let Some(first) = &selected {
+                    assert_eq!(first, name);
+                } else {
+                    selected = Some(name.clone());
+                }
+            }
         }
     }
 

@@ -18,7 +18,10 @@ const result = await build({
   banner: { js: '/*! Build with npm run build:native-images. */' },
 });
 assert.equal(result.outputFiles.length, 1);
-assert.deepEqual(Object.keys(result.metafile.inputs), ['apps/public/client/native-images.js']);
+assert.deepEqual(Object.keys(result.metafile.inputs).sort(), [
+  'apps/public/client/native-images.js', 'apps/public/client/native-spoiler-assets.js',
+  'apps/public/client/native-spoilers.js',
+].sort());
 const [output] = Object.values(result.metafile.outputs);
 assert.deepEqual(output.imports, []);
 assert.deepEqual([...output.exports].sort(), ['IMAGE_LIMITS', 'imageSize', 'imageTarget', 'mountNativeImages']);

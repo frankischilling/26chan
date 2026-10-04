@@ -6,6 +6,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use tower::ServiceExt;
 
@@ -68,6 +69,15 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
             i64::from(configured.custom_spoiler_count),
             board["count"].as_i64().unwrap()
         );
+        assert_eq!(
+            configured.spoiler_thumbnail_assets,
+            board["source_html_urls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|url| url.as_str().unwrap().rsplit('/').next().unwrap().to_owned())
+                .collect::<Vec<_>>()
+        );
     }
     let limits = board_config::PublicRequestLimits::from_lookup(|name| {
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
@@ -75,6 +85,16 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
     .unwrap();
     let plain =
         board_public::routers_with_limits(public.clone(), ORIGIN.into(), false, None, limits);
+    assert_eq!(
+        plain
+            .0
+            .clone()
+            .oneshot(Request::get("/readyz").body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::OK
+    );
     // No decoding occurs here: only router presence and the public JSON projection
     // are under test. The real media pipeline has separate qualification.
     let media = board_public::routers_with_limits(
@@ -91,6 +111,35 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
         ),
         limits,
     );
+    let assets: Value =
+        serde_json::from_str(include_str!("../../../docs/custom-spoiler-assets.json")).unwrap();
+    for row in assets["assets"].as_array().unwrap() {
+        let path = format!("/static/catalog/{}", row["name"].as_str().unwrap());
+        let response = media
+            .0
+            .clone()
+            .oneshot(Request::get(&path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert!(
+            response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap()
+                .contains(&path)
+        );
+        if row["status"] == 200 {
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.headers()["content-type"], "image/png");
+            let bytes = to_bytes(response.into_body(), 1_048_576).await.unwrap();
+            assert_eq!(bytes.len() as u64, row["bytes"].as_u64().unwrap());
+            assert_eq!(
+                format!("{:x}", Sha256::digest(&bytes)),
+                row["sha256"].as_str().unwrap()
+            );
+        } else {
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
+    }
     for row in reference["policy_cases"].as_array().unwrap() {
         sqlx::query("UPDATE content.boards SET comment_spoiler_cleanup=$2,custom_spoiler_count=$3 WHERE slug=$1")
             .bind(slug).bind(row["enabled"].as_bool().unwrap()).bind(row["count"].as_i64().unwrap() as i32)
@@ -180,6 +229,8 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                 .is_err(),
             "{key} wrote custom-spoiler policy"
         );
+        assert!(sqlx::query("UPDATE content.boards SET spoiler_thumbnail_assets=ARRAY['spoiler-m1.png'] WHERE slug=$1")
+            .bind(slug).execute(&runtime).await.is_err(), "{key} wrote thumbnail policy");
         runtime.close().await;
     }
 }

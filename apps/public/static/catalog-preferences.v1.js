@@ -1,4 +1,4 @@
-import { NativeWatchLock } from './native-filter.v1.js';
+import { NativeWatchLock, isSpoilerAssetPath } from './native-filter.v1.js';
 import { mountCatalogFilters } from './catalog-filters.v1.js';
 import { readCatalogTheme } from './native-settings.v1.js';
 import { updateCatalogSpoilers } from './catalog-theme.v1.js';
@@ -70,7 +70,8 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
     if (!['http:', 'https:'].includes(source.protocol) || source.origin !== origin.origin
         || source.username || source.password || source.search || source.hash
         || !new RegExp(`^/${board}/[1-9][0-9]{0,18}(?:s\\.jpg|\\.png)$`).test(source.pathname)
-        || typeof thumb.dataset.spoilerAlt !== 'string') throw new Error('Invalid spoiler thumbnail');
+        || typeof thumb.dataset.spoilerAlt !== 'string'
+        || !isSpoilerAssetPath(thumb.dataset.spoilerPlaceholder)) throw new Error('Invalid spoiler thumbnail');
     return source.href;
   };
   let entries = null;
@@ -94,7 +95,7 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
       const fields = node.querySelector('.catalogThumb')?.dataset;
       const searchable = fields && ['true', 'false'].includes(fields.hasFile)
         && ['searchText', 'searchFile'].every(name => typeof fields[name] === 'string');
-      return { node, teaser: teaserNode, thumb, spoiler: spoilerSource(thumb),
+      return { node, teaser: teaserNode, thumb, spoiler: spoilerSource(thumb), spoilerPlaceholder: thumb?.dataset.spoilerPlaceholder,
         reply: node.querySelector(textOnly ? '.txt-rep [data-replies-count]' : '.meta > b, .meta > i > b'),
         controls: node.querySelector(textOnly ? '.txt-ctrl' : '.meta'),
         fields: searchable ? [fields.searchText, ...(fields.hasFile === 'true' ? [fields.searchFile] : [])] : null,
@@ -620,7 +621,7 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
       if (entry.thumb) {
         const revealed = !entry.spoiler || revealSpoilers();
         if (entry.spoiler) {
-          const source = revealed ? entry.spoiler : '/static/catalog/spoiler.png';
+          const source = revealed ? entry.spoiler : entry.spoilerPlaceholder;
           if (entry.thumb.getAttribute('src') !== source) entry.thumb.setAttribute('src', source);
           entry.thumb.classList.toggle('spoilerImage', !revealed);
           entry.thumb.alt = revealed ? entry.thumb.dataset.spoilerAlt : 'Spoiler image';

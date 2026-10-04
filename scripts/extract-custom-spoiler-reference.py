@@ -11,6 +11,7 @@ parser.add_argument('source', type=Path)
 parser.add_argument('output', type=Path)
 parser.add_argument('--check', action='store_true')
 parser.add_argument('--migration', type=Path)
+parser.add_argument('--thumbnail-migration', type=Path)
 args = parser.parse_args()
 source = args.source.resolve()
 board_reference = json.loads(Path('fixtures/board-reference.json').read_text(encoding='utf-8'))
@@ -98,13 +99,29 @@ migration = (
     'UPDATE content.boards b SET custom_spoiler_count=policy.count\n'
     'FROM (VALUES\n' + ',\n'.join(rows) + ') policy(slug,count) WHERE b.slug=policy.slug;\n'
 )
+thumbnail_names = sorted({url.rsplit('/', 1)[-1] for board in boards for url in board['source_html_urls']})
+thumbnail_rows = ["('%s',ARRAY[%s]::text[])" % (board['board'], ','.join("'%s'" % url.rsplit('/', 1)[-1] for url in board['source_html_urls'])) for board in boards]
+thumbnail_migration = (
+    '-- Source SPOILER_THUMB choices; independent of SPOILER_NUM and spoiler enablement.\n'
+    'ALTER TABLE content.boards ADD COLUMN spoiler_thumbnail_assets text[] NOT NULL DEFAULT ARRAY[\'spoiler.png\']::text[]\n'
+    '  CHECK (array_ndims(spoiler_thumbnail_assets)=1 AND array_lower(spoiler_thumbnail_assets,1)=1\n'
+    '    AND cardinality(spoiler_thumbnail_assets) BETWEEN 1 AND 64\n'
+    '    AND array_position(spoiler_thumbnail_assets,NULL) IS NULL\n'
+    '    AND spoiler_thumbnail_assets <@ ARRAY[' + ','.join("'%s'" % name for name in thumbnail_names) + ']::text[]);\n'
+    'UPDATE content.boards b SET spoiler_thumbnail_assets=policy.assets\n'
+    'FROM (VALUES\n' + ',\n'.join(thumbnail_rows) + ') policy(slug,assets) WHERE b.slug=policy.slug;\n'
+)
 if args.check:
     assert args.output.read_text(encoding='utf-8') == encoded, 'Recorded custom-spoiler reference changed.'
     if args.migration:
         assert args.migration.read_bytes() == migration.encode(), 'Recorded custom-spoiler migration changed.'
+    if args.thumbnail_migration:
+        assert args.thumbnail_migration.read_bytes() == thumbnail_migration.encode(), 'Recorded thumbnail policy migration changed.'
 else:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(encoded, encoding='utf-8')
     if args.migration:
         args.migration.write_bytes(migration.encode())
+    if args.thumbnail_migration:
+        args.thumbnail_migration.write_bytes(thumbnail_migration.encode())
 print(f'{len(boards)} board configurations and {len(cases)} custom-spoiler policy cases executed with PHP {runtime}.')

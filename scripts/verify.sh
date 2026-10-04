@@ -30,6 +30,7 @@ npm run test:backlinks
 npm run test:inline-quotes
 npm run test:images-core
 npm run test:files-core
+npm run test:custom-spoilers
 npm run test:display
 npm run test:post-tooltips
 npm run check:native-thread-controls

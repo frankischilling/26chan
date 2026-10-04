@@ -16,7 +16,9 @@ historical spoiler choices.
 `boards.json` advertises `spoilers: 1` only when the board policy enables it,
 including when its image cap is zero or the media service is unavailable.
 Policy advertisement is independent of attachment availability, as in the
-source `get_catalog_info()` projection. Custom spoiler counts remain unfinished.
+source `get_catalog_info()` projection. [Custom-spoiler metadata](custom-spoiler-metadata.md)
+and [rendering](custom-spoiler-rendering.md) describe the imported counts and
+board-specific placeholders.
 
 ## Source comparison
 

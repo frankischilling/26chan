@@ -51,6 +51,7 @@ fn encode(
     writer: board_http::ResponseWriter,
 ) -> Result<board_http::EncodedResponse, AppError> {
     let board = snapshot.board;
+    let spoiler_thumbnail = crate::views::spoilers::choose_thumbnail(&board);
     if page > 999 || snapshot.threads.len() > 20 || (page == 999 && snapshot.has_next) {
         return Err(unavailable());
     }
@@ -95,7 +96,7 @@ fn encode(
             latest_reply_id: preview.latest_reply_id,
             catalog_last_reply: None,
         };
-        let posts = render_posts(&view, &board, media_origin, remaining)?;
+        let posts = render_posts(&view, &board, media_origin, &spoiler_thumbnail, remaining)?;
         for post in &posts {
             remaining = remaining
                 .checked_sub(post.html_len())

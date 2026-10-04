@@ -109,11 +109,13 @@ async fn api(
             omitted: 0,
             image_replies: hit.visible_images,
         };
+        let spoiler_thumbnail = crate::views::spoilers::choose_thumbnail(&hit.board);
         let mut posts = Vec::with_capacity(view.posts.len());
         for item in &view.posts {
             posts.push(json!({
                 "no": item.post.id.to_string(),
                 "html": PostFragment {
+                    spoiler_thumbnail: &spoiler_thumbnail,
                     item,
                     view: &view,
                     board: &hit.board,

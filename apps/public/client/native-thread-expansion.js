@@ -123,7 +123,7 @@ export function mountNativeThreadExpansion({ root, board, thread, mediaOrigin = 
       checkPostTreeIds(additions.map(post => post.tree), document);
       const fragment = document.createDocumentFragment();
       for (const post of additions) {
-        const element = buildPostTree(post.tree, document);
+        const element = buildPostTree(post.tree, document, { board });
         element.classList.add('rExpanded');
         const release = projection?.trackAttributes(element, (name, value) => name === 'class'
           ? value.split(/\s+/).filter(part => part !== 'rExpanded').join(' ') : value);

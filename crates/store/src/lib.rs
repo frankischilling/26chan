@@ -72,6 +72,7 @@ pub struct Board {
     pub comment_max_lines: i32,
     pub comment_spoiler_cleanup: bool,
     pub custom_spoiler_count: i32,
+    pub spoiler_thumbnail_assets: Vec<String>,
     pub require_subject: bool,
     pub op_markup: bool,
     pub forced_anon: bool,

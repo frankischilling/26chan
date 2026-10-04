@@ -111,7 +111,7 @@ function makeThread(thread, context, document) {
   const threadContext = updaterContext({ ...context, thread: thread.thread });
   for (const post of thread.posts) {
     validatePostTree(post.tree, threadContext, post.no);
-    section.append(buildPostTree(post.tree, document));
+    section.append(buildPostTree(post.tree, document, threadContext));
   }
   if (thread.omitted > 0) {
     const summary = document.createElement('p'); summary.className = 'omitted';

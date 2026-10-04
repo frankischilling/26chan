@@ -184,7 +184,7 @@ export function mountGlobalSearch({ root = globalThis.document, history = global
       section.dataset.board = thread.board; section.setAttribute('aria-label', `/${thread.board}/ thread ${thread.thread}`);
       const boardBlock = root.createElement('div'); boardBlock.className = 'boardBlock';
       const boardLink = root.createElement('a'); boardLink.href = `/${thread.board}/`; boardLink.textContent = `/${thread.board}/`; boardBlock.append(boardLink); section.append(boardBlock);
-      for (const post of thread.posts) section.append(buildPostTree(post.tree, root));
+      for (const post of thread.posts) section.append(buildPostTree(post.tree, root, { board: thread.board }));
       results.append(section, root.createElement('hr'));
     }
   }

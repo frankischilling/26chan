@@ -5,6 +5,7 @@ export { boardPageContext, validateBoardPageSnapshot } from './native-updater-sn
 export { NativeUpdaterTransport } from './native-updater-transport.js';
 export { UPDATER_LIMITS, updaterContext, validatePostTree, validateSnapshotMetadata } from './native-updater-snapshot.js';
 export { FILTER_LIMITS };
+export { isSpoilerAssetPath } from './native-spoiler-assets.js';
 export { NativeCatalogTransport, catalogApiUrl } from './native-catalog-transport.js';
 export { BLACKLIST_LIMITS, readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches } from './native-auto-watch.js';
 export { readFilterRules, filterColor } from './native-filter-rules.js';

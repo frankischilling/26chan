@@ -294,6 +294,7 @@ function start(context) {
   });
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
     mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
+    previewRoot: () => document.getElementById('quote-preview'),
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,

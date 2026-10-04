@@ -42,7 +42,7 @@ assert.deepEqual([...outputs[0].exports].sort(), [
   'mountNativeKeybinds', 'mountNativeLinkification', 'mountNativeQuotePreview',
   'prepareQuotePost', 'quoteTarget', 'planAutoWatches', 'readBlacklist', 'readFilterRules', 'readNativeFilters',
   'runNativeFilterJob', 'writeBlacklist', 'filterColor',
-  'boardPageContext', 'validateBoardPageSnapshot',
+  'boardPageContext', 'validateBoardPageSnapshot', 'isSpoilerAssetPath',
 ].sort());
 for (const path of Object.keys(result.metafile.inputs)) {
   assert.ok(['apps/public/static/thread-watcher-core.v1.js', 'apps/public/static/watcher-position.v1.js'].includes(path)

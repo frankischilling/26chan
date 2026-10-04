@@ -16,7 +16,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
-  article: ['class', 'id'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
@@ -114,6 +114,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'autocomplete') require(value === 'off');
       if (key === 'required') require(value === '');
       if (key.startsWith('data-')) {
+        if (key === 'data-custom-spoiler') {
+          require(depth === 0 && node.tag === 'article' && /^(?:[1-9]|[1-5][0-9]|6[0-4])$/.test(value));
+          continue;
+        }
         if (key === 'data-utc') {
           require(node.tag === 'span' && node.attrs.class === 'dateTime postNum' && /^-?(?:0|[1-9][0-9]{0,11})$/.test(value));
           continue;

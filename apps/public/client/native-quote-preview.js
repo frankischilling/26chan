@@ -1,3 +1,5 @@
+import { sourceSpoilerPath } from './native-spoilers.js';
+import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { isPostFlagToken } from './native-post-flags.js';
@@ -36,7 +38,9 @@ export function quotePreviewPosition(link, size, viewport, mobile = false) {
 }
 
 const localTags = {
-  article: ['class', 'id'], div: ['class', 'id', 'title'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  article: ['class', 'id', 'data-custom-spoiler'],
+  div: ['class', 'id', 'title', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'],
+  span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
@@ -79,6 +83,8 @@ export function localQuoteTree(article, context, no, projection) {
     if (!Object.hasOwn(localTags, tag)) return [];
     const attrs = {};
     for (const key of localTags[tag]) {
+      if (tag === 'div' && key.startsWith('data-') && (!(originalAttrs.class || '').split(' ').includes('file')
+        || !isSpoilerAssetPath(node.querySelector('a.fileThumb.imgspoiler img')?.getAttribute('src')))) continue;
       if (key === 'title' && tag === 'span' && !Array.from(node.classList).some(isPostFlagToken)
         && !(['name', 'subject'].includes(node.className) && node.closest('.postInfoM'))) continue;
       if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum,.postInfoM > span.dateTime.postNum,.file > .fileText')) continue;
@@ -139,10 +145,11 @@ export function prepareQuotePost(tree, context, no) {
   const safe = clean(post);
   if (nodes > PREVIEW_LIMITS.nodes || characters > PREVIEW_LIMITS.bytes) throw new RangeError('preview-size');
   return { nodes, characters, quotes, build(document) {
+    const path = sourceSpoilerPath(document, context.board, Number(tree.attrs['data-custom-spoiler'] ?? 0));
     function build(node) {
       if (typeof node === 'string') return document.createTextNode(node);
       const element = document.createElement(node.tag);
-      for (const [key, value] of Object.entries(node.attrs)) element.setAttribute(key, value);
+      for (const [key, value] of Object.entries(node.attrs)) element.setAttribute(key, key === 'src' && node.tag === 'img' && isSpoilerAssetPath(value) ? path : value);
       for (const child of node.children) element.append(build(child));
       return element;
     }

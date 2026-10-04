@@ -1,6 +1,8 @@
+import { isSpoilerAssetPath } from './native-spoiler-assets.js';
+
 // Uploaded filenames remain display metadata. PNG describes the approved bytes.
 export function postFileAssetUrl(value) {
-  return ['/static/catalog/spoiler.png', '/static/catalog/filedeleted-res.gif', '/static/catalog/filedeleted-res@2x.gif'].includes(value);
+  return isSpoilerAssetPath(value) || ['/static/catalog/filedeleted-res.gif', '/static/catalog/filedeleted-res@2x.gif'].includes(value);
 }
 
 export function fileLabel(filename, op) {
@@ -35,7 +37,7 @@ export function validateFilePresentation(tree, context, no) {
         if (thumb.attrs.class === 'fileThumb imgspoiler') {
           require(bounded(node.attrs.title) && text(link) === 'Spoiler Image'
             && (link.attrs.title === undefined || link.attrs.title === node.attrs.title)
-            && image.attrs.src === '/static/catalog/spoiler.png' && image.attrs.width === '100' && image.attrs.height === '100'
+            && isSpoilerAssetPath(image.attrs.src) && image.attrs.width === '100' && image.attrs.height === '100'
             && image.attrs.alt === /^ \(([^,]+),/.exec(tail)[1]);
           require(parent.attrs['data-image-spoiler'] === undefined || parent.attrs['data-image-spoiler'] === 'true'
             && parent.attrs['data-image-filename'] === node.attrs.title);
@@ -63,7 +65,7 @@ export function validateFilePresentation(tree, context, no) {
         && elements(parent).some(child => child.attrs.class === 'fileText'));
     }
     if (postFileAssetUrl(node.attrs.src) || (node.attrs.class || '').split(' ').includes('fileDeletedRes')) {
-      if (node.attrs.src === '/static/catalog/spoiler.png') {
+      if (isSpoilerAssetPath(node.attrs.src)) {
         require(node.tag === 'img' && parent?.attrs.class === 'fileThumb imgspoiler');
       } else {
         require(node.tag === 'img' && node.attrs.class === 'fileDeletedRes'

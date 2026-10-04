@@ -62,6 +62,7 @@ pub fn page() -> String {
     })
     .collect();
     views::BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),

@@ -7,10 +7,10 @@ thread, tail-thread, index and catalog JSON. Replies omit that field. Disabled
 boards omit both fields. Image caps, configured media availability and
 attachment presence do not determine these policy fields.
 
-This is the metadata part of #217. HTML still uses the generic spoiler image.
-Board-specific thumbnail selection, cross-board native caching and complete
-flag assets remain unfinished. No full-source or custom-spoiler visual parity
-is claimed.
+This is the metadata part of #217. [Spoiler rendering](custom-spoiler-rendering.md)
+describes the imported HTML thumbnail policies, catalog suffixes, native cache
+and collected UI images. Two images and complete flag assets remain unavailable
+or unfinished. Full historical visual parity is unproven.
 
 ## Source comparison
 

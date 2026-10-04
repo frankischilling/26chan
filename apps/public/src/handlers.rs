@@ -100,7 +100,7 @@ pub async fn css() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
-    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
@@ -265,6 +265,7 @@ async fn board_page(
     crate::output::html(
         state,
         &BoardPage {
+            spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
             quote: String::new(),
             catalog_hidden: hidden_views,
@@ -356,6 +357,7 @@ pub async fn thread(
     crate::output::html(
         &state,
         &BoardPage {
+            spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
             quote,
             catalog_hidden: Vec::new(),
