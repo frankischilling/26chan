@@ -163,11 +163,15 @@ existing report rows and needs no new bootstrap role. It grants no category or
 report-read authority. Older report handlers can bypass the new target policy;
 a binary-only rollback is not policy-equivalent.
 
-Public readiness requires migrations through 0093; staff readiness remains at
-0092. For a paired rollout, stop writers, apply through 0093 and follow
-[posting deployment](source-posting-cooldowns.md#deployment) before starting
-matching services. Migrations 0091 and 0092 need no new bootstrap
-role. The [active OP quota](source-user-thread-quotas.md) has an independent
+Both public and staff readiness now require migration 0094. On existing
+installations, the bootstrap administrator first runs
+`deploy/report-admission-role.sql` once. Stop old writers, apply through 0094 and
+follow [report admission rollout](source-report-admission.md#rollout-and-checks)
+and [posting deployment](source-posting-cooldowns.md#deployment) before starting
+matching services. Migration 0094 revokes direct public report insertion, so old
+public binaries cannot continue reporting after the upgrade. Its private
+membership cap does not bound the retained report history. Migrations 0091 and
+0092 need no new bootstrap role. The [active OP quota](source-user-thread-quotas.md) has an independent
 per-IP maximum and period; its password/Pass identity branches remain unfinished.
 Operator archive transitions require Read Committed isolation. Lock affected
 boards in slug order before secret updates/deletions or archive writes; an

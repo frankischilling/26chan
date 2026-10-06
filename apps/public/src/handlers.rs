@@ -244,11 +244,14 @@ AND NOT EXISTS (
     )
 )"#;
 
+// Catalog-only contract: never invoke admission or inspect private actor rows.
+const REPORT_ADMISSION_READY_SQL: &str = board_store::report_admission::READINESS_SQL;
+
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
     if state.poster_id_key.is_none() {
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
-            "Public posting and deletion are unavailable: POSTER_ID_KEY is required.",
+            "Public posting, deletion and reporting are unavailable: POSTER_ID_KEY is required.",
         ));
     }
     sqlx::query("SELECT slug,can_report_posts,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 1")
@@ -279,6 +282,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Public deletion is unavailable.",
+        ));
+    }
+    let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !report_admission {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public reporting is unavailable.",
         ));
     }
     let posting_cooldowns: bool = sqlx::query_scalar(
@@ -955,6 +968,23 @@ pub(crate) fn deletion_rate_identity(
     Ok(key.public_deletion_rate_identity(peer))
 }
 
+/// Reports use only the full, canonical trusted transport IP. Anonymous
+/// capabilities are activity identities, never passwords or Pass authority.
+pub(crate) fn report_rate_identity(
+    state: &AppState,
+    peer: crate::security::RequestPeer,
+) -> Result<board_domain::poster_id::PublicReportRateIdentity, AppError> {
+    let unavailable = || {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public reporting is unavailable.",
+        )
+    };
+    let key = state.poster_id_key.as_deref().ok_or_else(unavailable)?;
+    let peer = peer.0.ok_or_else(unavailable)?;
+    Ok(key.public_report_rate_identity(peer))
+}
+
 /// A legacy batch captures the trusted request/session clocks once. Each item
 /// still obtains fresh authority and rechecks policy under its mutation lock.
 pub(crate) async fn delete_with_context(
@@ -1072,15 +1102,10 @@ pub async fn report(
             AppError(StatusCode::UNPROCESSABLE_ENTITY, "Invalid report target."),
         ));
     }
-    if state.production && peer.0.is_none() {
-        return Ok(fail(
-            Some(form.no),
-            AppError(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Posting transport identity is unavailable.",
-            ),
-        ));
-    }
+    let identity = match report_rate_identity(&state, peer) {
+        Ok(identity) => identity,
+        Err(error) => return Ok(fail(Some(form.no), error)),
+    };
     let session = match crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await {
         Ok(session) => session,
         Err(error) => return Ok(fail(Some(form.no), error)),
@@ -1093,6 +1118,7 @@ pub async fn report(
         &board,
         form.no,
         &form.reason,
+        &identity,
         Some(session.posting),
     )
     .await
@@ -1113,8 +1139,77 @@ pub async fn report(
 #[cfg(test)]
 mod readiness_tests {
     use super::{
-        ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, USER_THREAD_QUOTA_READY_SQL,
+        ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, REPORT_ADMISSION_READY_SQL,
+        USER_THREAD_QUOTA_READY_SQL,
     };
+
+    #[test]
+    fn report_admission_readiness_is_catalog_only_and_fail_closed() {
+        for contract in [
+            "board_report_admission_owner",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "pg_has_role(runtime.oid,r.oid,'MEMBER')",
+            "content.check_report_admission(text,bigint,bytea)",
+            "content.admit_report(text,bigint,text,bytea)",
+            "p.prosecdef AND p.provolatile='v'",
+            "search_path=pg_catalog,pg_temp",
+            "has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "a.grantee NOT IN",
+            "('report_target','bigint',false,'25 20')",
+            "('check_report_limits','void',false,'25 20 17 1184')",
+            "('retire_deleted_report_membership','trigger',false,'')",
+            "('retire_staff_file_report_membership','void',true,'25 20')",
+            "NOT has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "required.attachment_authority AND NOT a.is_grantable",
+            "attachment.rolname='board_attachment_owner' AND attachment.oid=a.grantee",
+            "('posts','retire_deleted_post_report_membership')",
+            "('threads','retire_deleted_thread_report_membership')",
+            "t.tgname=required.trigger_name AND t.tgtype=17",
+            "t.tgenabled='O' AND NOT t.tgisinternal",
+            "t.tgnargs=0 AND octet_length(t.tgargs)=0 AND t.tgconstraint=0",
+            "NOT t.tgdeferrable AND NOT t.tginitdeferred",
+            "t.tgoldtable IS NULL AND t.tgnewtable IS NULL",
+            "p.proname='retire_deleted_report_membership'",
+            "p.pronamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='post_secrets')",
+            "p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype",
+            "t.tgattr::text=(SELECT a.attnum::text",
+            "a.attname='deleted' AND NOT a.attisdropped",
+            "='notold.deletedandnew.deleted'",
+            "('report_membership'),('report_admission_gate')",
+            "c.relowner=r.oid",
+            "NOT has_table_privilege('board_public',c.oid,'INSERT')",
+            "has_column_privilege('board_public',c.oid,a.attnum,'INSERT')",
+            "NOT has_sequence_privilege('board_public',to_regclass('content.reports_id_seq'),'USAGE,SELECT,UPDATE')",
+            "has_sequence_privilege(r.oid,to_regclass('content.reports_id_seq'),'USAGE')",
+            "('reports','created_at','INSERT')",
+            "a.attname='membership_limit' AND a.attnum>0 AND NOT a.attisdropped",
+            "a.atttypid='pg_catalog.int4'::regtype AND a.attnotnull",
+            "pg_catalog.pg_get_expr(d.adbin,d.adrelid)='100000'",
+            "k.contype='c' AND k.convalidated",
+            "k.conkey=ARRAY[a.attnum]::smallint[]",
+            "='membership_limit>=1andmembership_limit<=1000000'",
+            "NOT has_schema_privilege(r.oid,n.oid,'CREATE')",
+        ] {
+            assert!(REPORT_ADMISSION_READY_SQL.contains(contract), "{contract}");
+        }
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "JOIN content.",
+            "JOIN post_secrets.",
+            "actor_hash",
+            "INSERT INTO",
+            "DELETE FROM",
+            "UPDATE content.",
+            "SELECT content.admit_report",
+            "SELECT content.check_report_admission",
+        ] {
+            assert!(
+                !REPORT_ADMISSION_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
 
     #[test]
     fn user_thread_quota_readiness_checks_only_restricted_catalog_contracts() {

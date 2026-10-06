@@ -48,3 +48,5 @@ ALTER ROLE board_monitor SET idle_in_transaction_session_timeout = '2s';
 ALTER ROLE board_monitor SET search_path = pg_catalog;
 CREATE ROLE board_posting_cooldown_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_posting_cooldown_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+CREATE ROLE board_report_admission_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_report_admission_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

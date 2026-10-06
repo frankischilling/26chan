@@ -28,6 +28,18 @@ impl PublicPostingRateIdentity {
     }
 }
 
+/// Private, cross-board report admission identity from a trusted transport peer.
+/// Never project to clients or logs; no Debug, Display, or serialization.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct PublicReportRateIdentity([u8; 32]);
+
+impl PublicReportRateIdentity {
+    /// Full digest for private admission storage, never a public identifier.
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
 pub struct PosterCountContext {
     pub fingerprint: String,
     pub epoch: String,
@@ -89,6 +101,26 @@ impl PosterIdKey {
             }
         }
         PublicPostingRateIdentity(context.sign().as_ref().try_into().expect("SHA-256 length"))
+    }
+
+    /// The caller must supply the verified current transport peer, never a
+    /// request field. This IP identity does not represent a password or Pass.
+    /// Missing transport identity must be handled by the caller, not fabricated.
+    pub fn public_report_rate_identity(&self, peer: IpAddr) -> PublicReportRateIdentity {
+        let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &self.0);
+        let mut context = ring::hmac::Context::with_key(&signing);
+        context.update(b"26chan-public-report-rate-v1\0");
+        match peer.to_canonical() {
+            IpAddr::V4(peer) => {
+                context.update(&[4]);
+                context.update(&peer.octets());
+            }
+            IpAddr::V6(peer) => {
+                context.update(&[6]);
+                context.update(&peer.octets());
+            }
+        }
+        PublicReportRateIdentity(context.sign().as_ref().try_into().expect("SHA-256 length"))
     }
 
     pub fn label(
@@ -172,6 +204,90 @@ impl PosterIdKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn report_rate_identity_is_canonical_full_address_and_keyed() {
+        let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();
+        for (peer, expected) in [
+            (
+                "192.0.2.10",
+                "ea8668e9b0e5ce786fed77239dadb83365f7ddd58561ce72ee31fe656f56e2cc",
+            ),
+            (
+                "2001:db8::10",
+                "cbaf7aee818565aa34196f7a397a5ecb4ec96eb695c488760f5edc5e4c65dc87",
+            ),
+        ] {
+            let peer = peer.parse().unwrap();
+            let identity = key.public_report_rate_identity(peer);
+            // Independent Python stdlib HMAC-SHA256 vectors.
+            assert_eq!(
+                identity
+                    .as_bytes()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+                expected
+            );
+            assert!(identity == key.public_report_rate_identity(peer));
+            assert!(
+                identity
+                    != PosterIdKey::parse(&"2".repeat(64))
+                        .unwrap()
+                        .public_report_rate_identity(peer)
+            );
+            assert_ne!(
+                identity.as_bytes(),
+                key.public_deletion_rate_identity(peer).as_bytes()
+            );
+            assert_ne!(
+                identity.as_bytes(),
+                key.public_posting_rate_identity(peer).as_bytes()
+            );
+        }
+        let ipv4 = key.public_report_rate_identity("192.0.2.10".parse().unwrap());
+        assert!(ipv4 == key.public_report_rate_identity("::ffff:192.0.2.10".parse().unwrap()));
+        assert!(ipv4 != key.public_report_rate_identity("192.0.2.11".parse().unwrap()));
+        assert!(ipv4 != key.public_report_rate_identity("::192.0.2.10".parse().unwrap()));
+        assert!(
+            key.public_report_rate_identity("2001:db8::10".parse().unwrap())
+                != key.public_report_rate_identity("2001:db8::11".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn report_rate_identity_is_independent_of_boards_sessions_and_environment() {
+        let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();
+        let peer = "192.0.2.10".parse().unwrap();
+        let identity = key.public_report_rate_identity(peer);
+        for board in ["test", "other"] {
+            for cookie in ["1", "2"] {
+                for country in [*b"US", *b"JP"] {
+                    let session = crate::anonymous_session::Capability::parse(&format!(
+                        "a1_{}",
+                        cookie.repeat(64)
+                    ))
+                    .unwrap()
+                    .fingerprints(Some(peer), country);
+                    assert!(identity == key.public_report_rate_identity(peer));
+                    assert_ne!(identity.as_bytes(), &session.address);
+                    assert_ne!(
+                        identity.as_bytes(),
+                        &key.robot9000_fingerprint(board, peer).unwrap()
+                    );
+                    for domain in [
+                        b"26chan-poster-id-v1\0".as_slice(),
+                        b"26chan-poster-count-v1\0".as_slice(),
+                    ] {
+                        assert_ne!(
+                            identity.as_bytes(),
+                            &key.digest(domain, board, 42, peer).unwrap()
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn posting_rate_identity_is_canonical_full_address_and_keyed() {

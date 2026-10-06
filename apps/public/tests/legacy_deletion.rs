@@ -43,6 +43,25 @@ fn form(
     request.body(Body::from(body)).unwrap()
 }
 
+fn from_peer(mut request: Request<Body>, peer: u8) -> Request<Body> {
+    request
+        .extensions_mut()
+        .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            [192, 0, 2, peer],
+            40000,
+        ))));
+    request
+}
+
+fn report_get(board: &str, id: &str, peer: u8) -> Request<Body> {
+    from_peer(
+        Request::get(format!("/{board}/imgboard.php?mode=report&no={id}"))
+            .body(Body::empty())
+            .unwrap(),
+        peer,
+    )
+}
+
 async fn thread_status(app: &Router, id: &str) -> StatusCode {
     app.clone()
         .oneshot(
@@ -75,6 +94,9 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
     )
     .0;
     for multipart in [false, true] {
+        // Independent lifecycle cases use distinct trusted transport peers.
+        let report_peer = if multipart { 212 } else { 210 };
+        let reply_peer = report_peer + 1;
         let response = app
             .clone()
             .oneshot(form(
@@ -103,11 +125,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         assert_eq!(thread_status(&app, &id).await, StatusCode::OK);
         let popup = app
             .clone()
-            .oneshot(
-                Request::get(format!("/fixture/imgboard.php?mode=report&no={id}"))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(report_get("fixture", &id, report_peer))
             .await
             .unwrap();
         assert_eq!(popup.status(), StatusCode::OK);
@@ -126,14 +144,17 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         assert!(popup.contains("name=\"reason\""));
         let report = app
             .clone()
-            .oneshot(form(
-                "/fixture/report",
-                &[
-                    ("no", id.as_str()),
-                    ("reason", "Owned legacy report <literal>"),
-                ],
-                Some(ORIGIN),
-                false,
+            .oneshot(from_peer(
+                form(
+                    "/fixture/report",
+                    &[
+                        ("no", id.as_str()),
+                        ("reason", "Owned legacy report <literal>"),
+                    ],
+                    Some(ORIGIN),
+                    false,
+                ),
+                report_peer,
             ))
             .await
             .unwrap();
@@ -153,6 +174,67 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         .await
         .unwrap();
         assert_eq!(reason, "Owned legacy report <literal>");
+        // A fresh anonymous capability cannot evade same-IP duplicate admission.
+        let fresh = board_domain::anonymous_session::Capability::generate().unwrap();
+        let fresh_cookie = format!("board-anon={}", fresh.credential());
+        let private_activity = "SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a.report_id),'[]'::jsonb) FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board='fixture' AND r.post_id=$1";
+        let before: serde_json::Value = sqlx::query_scalar(private_activity)
+            .bind(id.parse::<i64>().unwrap())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+        let mut duplicate_get = report_get("fixture", &id, report_peer);
+        duplicate_get
+            .headers_mut()
+            .insert("cookie", fresh_cookie.parse().unwrap());
+        let mut duplicate_post = from_peer(
+            form(
+                "/fixture/report",
+                &[("no", &id), ("reason", "Duplicate with a fresh capability")],
+                Some(ORIGIN),
+                false,
+            ),
+            report_peer,
+        );
+        duplicate_post
+            .headers_mut()
+            .insert("cookie", fresh_cookie.parse().unwrap());
+        for request in [duplicate_get, duplicate_post] {
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(response.headers()["cache-control"], "private, no-store");
+            assert!(response.headers().get("set-cookie").is_none());
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let html = std::str::from_utf8(&bytes).unwrap();
+            assert!(html.contains("You have already reported this post."));
+            assert!(html.contains("data-result=\"error\""));
+            assert!(!html.contains("data-result=\"success\""));
+            let after: serde_json::Value = sqlx::query_scalar(private_activity)
+                .bind(id.parse::<i64>().unwrap())
+                .fetch_one(&admin)
+                .await
+                .unwrap();
+            assert_eq!(after, before);
+            let reports: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM content.reports WHERE board='fixture' AND post_id=$1",
+            )
+            .bind(id.parse::<i64>().unwrap())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+            assert_eq!(reports, 1);
+            let sessions: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM post_secrets.anonymous_sessions WHERE token_hash=$1",
+            )
+            .bind(fresh.storage_hash().as_slice())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+            assert_eq!(
+                sessions, 0,
+                "Rejected duplicates do not create anonymous activity"
+            );
+        }
         for (disable, restore, message) in [
             (
                 "UPDATE content.boards SET can_report_posts=false WHERE slug=(SELECT board FROM content.posts WHERE id=$1)",
@@ -184,20 +266,19 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
                 .unwrap();
             let get = app
                 .clone()
-                .oneshot(
-                    Request::get(format!("/fixture/imgboard.php?mode=report&no={id}"))
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .oneshot(report_get("fixture", &id, report_peer))
                 .await
                 .unwrap();
             let post = app
                 .clone()
-                .oneshot(form(
-                    "/fixture/report",
-                    &[("no", &id), ("reason", "Rejected HTTP report")],
-                    Some(ORIGIN),
-                    false,
+                .oneshot(from_peer(
+                    form(
+                        "/fixture/report",
+                        &[("no", &id), ("reason", "Rejected HTTP report")],
+                        Some(ORIGIN),
+                        false,
+                    ),
+                    report_peer,
                 ))
                 .await
                 .unwrap();
@@ -261,23 +342,22 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             .unwrap();
         let reply_form = app
             .clone()
-            .oneshot(
-                Request::get(format!("/fixture/imgboard.php?mode=report&no={reply}"))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(report_get("fixture", &reply.to_string(), reply_peer))
             .await
             .unwrap();
         let reply_report = app
             .clone()
-            .oneshot(form(
-                "/fixture/report",
-                &[
-                    ("no", &reply.to_string()),
-                    ("reason", "Owned sticky reply report"),
-                ],
-                Some(ORIGIN),
-                false,
+            .oneshot(from_peer(
+                form(
+                    "/fixture/report",
+                    &[
+                        ("no", &reply.to_string()),
+                        ("reason", "Owned sticky reply report"),
+                    ],
+                    Some(ORIGIN),
+                    false,
+                ),
+                reply_peer,
             ))
             .await
             .unwrap();
@@ -309,11 +389,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             .unwrap();
         let wrong_popup = app
             .clone()
-            .oneshot(
-                Request::get(format!("/demo/imgboard.php?mode=report&no={id}"))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(report_get("demo", &id, report_peer))
             .await
             .unwrap();
         assert_eq!(wrong_popup.status(), StatusCode::NOT_FOUND);
@@ -398,11 +474,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         assert_eq!(thread_status(&app, &id).await, StatusCode::NOT_FOUND);
         let popup = app
             .clone()
-            .oneshot(
-                Request::get(format!("/fixture/imgboard.php?mode=report&no={id}"))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(report_get("fixture", &id, report_peer))
             .await
             .unwrap();
         assert_eq!(popup.status(), StatusCode::NOT_FOUND);

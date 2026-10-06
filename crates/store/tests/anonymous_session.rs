@@ -362,7 +362,9 @@ async fn successful_posts_and_reports_derive_private_activity_from_committed_row
         assert!(!initial.is_known(first.now.timestamp() as u64, 1440, 0));
         assert!(post_proof(&f.public, &tokens[0], &f.board, op).await.unwrap().is_some());
         assert!(post_proof(&f.public, &tokens[1], &f.board, op).await.unwrap().is_none());
-        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Owned report", Some(session(&capability, false))).await.unwrap();
+        let report_key = support::key(&f.board);
+        let first_report_identity = report_key.public_report_rate_identity("198.51.100.7".parse().unwrap());
+        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Owned report", &first_report_identity, Some(session(&capability, false))).await.unwrap();
         assert_eq!(saved(&f.public, first.fingerprints).await.pending, 13);
         let next = session(&capability, false);
         let now = next.now.timestamp();
@@ -372,8 +374,14 @@ async fn successful_posts_and_reports_derive_private_activity_from_committed_row
         let flushed = saved(&f.public, first.fingerprints).await;
         assert_eq!((flushed.posts, flushed.images, flushed.threads, flushed.reports, flushed.pending), (1, 0, 1, 1, 0));
         assert!(flushed.is_known(now as u64, 1440, 0));
-        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Another owned reporter", Some(session(&reporter, true))).await.unwrap();
-        let report_only = saved(&f.public, session(&reporter, false).fingerprints).await;
+        // A second independent reporter also has a distinct trusted peer;
+        // changing only the anonymous capability does not reset admission.
+        let reporter_peer = "198.51.100.8".parse().unwrap();
+        let second_report_identity = report_key.public_report_rate_identity(reporter_peer);
+        let mut reporter_session = session(&reporter, true);
+        reporter_session.fingerprints = reporter.fingerprints(Some(reporter_peer), *b"US");
+        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Another owned reporter", &second_report_identity, Some(reporter_session)).await.unwrap();
+        let report_only = saved(&f.public, reporter_session.fingerprints).await;
         assert_eq!((report_only.posts, report_only.pending, report_only.report_count()), (0, 8, 1));
         assert!(post_proof(&f.public, &tokens[1], &f.board, op).await.unwrap().is_none());
         assert_eq!(f.counts().await, (2, 1, 2, 2));
@@ -402,6 +410,8 @@ async fn missing_revoked_or_expired_authority_rolls_back_content_and_reports() {
     let outcome = tokio::spawn(async move {
         let op = f.create(0, session(&capability, true)).await.unwrap();
         let before = f.counts().await;
+        let report_identity =
+            support::key(&f.board).public_report_rate_identity("198.51.100.7".parse().unwrap());
         for context in [session(&missing, false), session(&capability, true)] {
             assert!(matches!(
                 f.create(op, context).await,
@@ -413,6 +423,7 @@ async fn missing_revoked_or_expired_authority_rolls_back_content_and_reports() {
                     &f.board,
                     op,
                     "Uncommitted report",
+                    &report_identity,
                     Some(context)
                 )
                 .await,

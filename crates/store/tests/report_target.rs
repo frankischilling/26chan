@@ -1,13 +1,17 @@
 #![cfg(feature = "database-tests")]
 mod support;
 
-use board_domain::anonymous_session::Capability;
+use board_domain::{anonymous_session::Capability, poster_id::PublicReportRateIdentity};
 use board_store::{NewPost, StoreError, anonymous_session::PostingSession};
 use sqlx::PgPool;
 
 const DISABLED: &str = "You cannot report posts on this board.";
 const STICKY: &str = "Error: You cannot report a sticky.";
 const CAPCODE: &str = "Error: You cannot report this post.";
+
+fn report_identity(board: &str, peer: u8) -> PublicReportRateIdentity {
+    support::key(board).public_report_rate_identity(std::net::IpAddr::from([192, 0, 2, peer]))
+}
 
 async fn rejected(public: &PgPool, board: &str, id: i64, expected: &str) {
     assert_eq!(
@@ -18,10 +22,16 @@ async fn rejected(public: &PgPool, board: &str, id: i64, expected: &str) {
         expected
     );
     assert_eq!(
-        board_store::report(public, board, id, "Owned rejection fixture")
-            .await
-            .unwrap_err()
-            .to_string(),
+        board_store::report(
+            public,
+            board,
+            id,
+            "Owned rejection fixture",
+            &report_identity(board, 201)
+        )
+        .await
+        .unwrap_err()
+        .to_string(),
         expected
     );
 }
@@ -75,7 +85,7 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
             .bind(op).execute(owner).await.unwrap();
         rejected(public, slug, op, STICKY).await;
         // Sticky and closed are properties of the thread, not reply rejection.
-        board_store::report(public, slug, reply, "Eligible sticky-thread reply").await.unwrap();
+        board_store::report(public, slug, reply, "Eligible sticky-thread reply", &report_identity(slug, 201)).await.unwrap();
         sqlx::query("UPDATE content.posts SET capcode='mod' WHERE id=$1")
             .bind(reply).execute(owner).await.unwrap();
         rejected(public, slug, reply, CAPCODE).await;
@@ -94,7 +104,7 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
         rejected(public, slug, -1, DISABLED).await;
         let before: i64 = sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
             .bind(slug).fetch_one(owner).await.unwrap();
-        assert_eq!(board_store::report_with_anonymous_session(public, slug, reply, "Rejected anonymous report", Some(session)).await.unwrap_err().to_string(), DISABLED);
+        assert_eq!(board_store::report_with_anonymous_session(public, slug, reply, "Rejected anonymous report", &report_identity(slug, 201), Some(session)).await.unwrap_err().to_string(), DISABLED);
         let after: i64 = sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
             .bind(slug).fetch_one(owner).await.unwrap();
         assert_eq!(before, after);
@@ -108,10 +118,11 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
             .bind(slug).execute(owner).await.unwrap();
         sqlx::query("UPDATE content.posts SET capcode=NULL WHERE id=$1")
             .bind(op).execute(owner).await.unwrap();
-        board_store::report(public, slug, op, "Eligible closed OP").await.unwrap();
+        // Independent eligibility checks use distinct trusted fixture peers.
+        board_store::report(public, slug, op, "Eligible closed OP", &report_identity(slug, 202)).await.unwrap();
         sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp()-interval '1 minute',archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
             .bind(op).execute(owner).await.unwrap();
-        board_store::report(public, slug, op, "Eligible retained archive").await.unwrap();
+        board_store::report(public, slug, op, "Eligible retained archive", &report_identity(slug, 203)).await.unwrap();
         sqlx::query("UPDATE content.threads SET archive_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1")
             .bind(op).execute(owner).await.unwrap();
         rejected(public, slug, op, "Not found.").await;
@@ -135,14 +146,14 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
         let queued_public = public.clone();
         let queued_slug = slug.clone();
         let mut queued = tokio::spawn(async move {
-            board_store::report(&queued_public, &queued_slug, op, "Queued stale target").await
+            board_store::report(&queued_public, &queued_slug, op, "Queued stale target", &report_identity(&queued_slug, 204)).await
         });
         assert!(tokio::time::timeout(std::time::Duration::from_millis(100), &mut queued).await.is_err());
         sqlx::query("UPDATE content.boards SET can_report_posts=false WHERE slug=$1")
             .bind(slug).execute(&mut *lock).await.unwrap();
         lock.commit().await.unwrap();
         assert_eq!(queued.await.unwrap().unwrap_err().to_string(), DISABLED);
-        assert!(matches!(board_store::report(public, slug, op, " ").await, Err(StoreError::Invalid("Report reason must contain 1 to 1000 bytes."))));
+        assert!(matches!(board_store::report(public, slug, op, " ", &report_identity(slug, 201)).await, Err(StoreError::Invalid("Report reason must contain 1 to 1000 bytes."))));
         assert!(sqlx::query("SELECT * FROM content.reports").fetch_all(public).await.is_err());
     }).await;
     support::cleanup_posting(&owner, &slug).await;

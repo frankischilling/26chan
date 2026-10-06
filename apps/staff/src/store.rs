@@ -117,6 +117,9 @@ pub(crate) async fn prepare_moderation(
         return Err(AppError::Forbidden);
     }
     let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
     let mut audit_changed = true;
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(board)
@@ -141,7 +144,7 @@ pub(crate) async fn prepare_moderation(
             return Ok(tx);
         }
     } else if action == "remove-file" {
-        sqlx::query("SELECT content.delete_post_attachment($1,$2)")
+        sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
             .bind(board)
             .bind(target)
             .execute(&mut *tx)

@@ -320,7 +320,9 @@ async fn public_and_staff_rollover_retire_only_victims_and_preserve_private_exem
                 sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned private retained report')")
                     .bind(&f.board).bind(reply).execute(&f.owner).await.unwrap();
             } else {
-                board_store::report(reader,&f.board,reply,"Owned retained report").await.unwrap();
+                let report_identity = PosterIdKey::parse(&f.key).unwrap()
+                    .public_report_rate_identity(IpAddr::from([192, 0, 2, 201]));
+                board_store::report(reader,&f.board,reply,"Owned retained report",&report_identity).await.unwrap();
             }
             sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES($1,$2,$3,'close')")
                 .bind(f.account).bind(&f.board).bind(victim).execute(&f.owner).await.unwrap();
@@ -759,7 +761,8 @@ async fn retirement_preserves_anonymous_derivatives_actions_and_consumed_media()
                 }).await.unwrap();
             ids.push(id);
         }
-        board_store::report(&f.public,&f.board,ids[1],"Retained archive report").await.unwrap();
+        let report_identity = key.public_report_rate_identity(IpAddr::from([192, 0, 2, 90]));
+        board_store::report(&f.public,&f.board,ids[1],"Retained archive report",&report_identity).await.unwrap();
         let before=f.retained(&ids).await;
         assert_eq!(before["anonymous"].as_array().unwrap().len(),2);
         assert_eq!(before["media"].as_array().unwrap().len(),1);

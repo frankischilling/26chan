@@ -24,7 +24,8 @@ transaction-snapshot expiry clock for retained archives is unchanged; waiting
 for a lock does not introduce a wall-clock expiry recheck. The report insert and
 anonymous-session report activity commit or roll back together. Report rows and
 session state remain private, with no added public read grants. Rendering the
-GET form requires only the eligible target's public board, post and thread IDs.
+GET form uses the eligible target's public board, post and thread IDs; the
+subsequent advisory admission check uses the private, trusted-IP decision API.
 
 The current free-text reason remains required, nonblank, NUL-free and at most
 1,000 UTF-8 bytes. The supplied source queries `report_categories`, but its
@@ -85,8 +86,9 @@ and opener hiding.
 
 ## Deployment and verification scope
 
-Public readiness requires migration 0093; staff readiness remains at 0092.
-For a paired rollout, apply through 0093 before starting matching services.
+Migration 0093 introduced this target policy. Matching services now also require
+migration 0094 and its [IP admission and retirement rules](source-report-admission.md).
+Follow that rollout sequence before starting a paired release.
 Migration 0093 preserves existing report rows and changes no categories or
 grants; no new bootstrap role
 is required. A binary rollback retains the additive column but can restore the

@@ -1381,8 +1381,15 @@ async fn delete_post_in(
     Ok(())
 }
 
-pub async fn report(pool: &PgPool, slug: &str, id: i64, reason: &str) -> Result<(), StoreError> {
-    report_with_anonymous_session(pool, slug, id, reason, None).await
+/// Report admission always requires a trusted transport-derived IP identity.
+pub async fn report(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+) -> Result<(), StoreError> {
+    report_with_anonymous_session(pool, slug, id, reason, identity, None).await
 }
 
 pub async fn report_with_anonymous_session(
@@ -1390,6 +1397,7 @@ pub async fn report_with_anonymous_session(
     slug: &str,
     id: i64,
     reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
     session: Option<anonymous_session::PostingSession>,
 ) -> Result<(), StoreError> {
     if reason.trim().is_empty() || reason.len() > 1000 || reason.contains('\0') {
@@ -1398,25 +1406,14 @@ pub async fn report_with_anonymous_session(
         ));
     }
     let mut tx = pool.begin().await?;
-    // Serialize against deletion and ensure reporting cannot target another board.
-    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
-        .bind(slug)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(StoreError::NotFound)?;
-    crate::report_target::report_target_on(&mut tx, slug, id).await?;
-    sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,$3)")
-        .bind(slug)
-        .bind(id)
-        .bind(reason)
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    // The admission function serializes policy, quota and report membership.
+    // Anonymous registration remains in this transaction so it cannot leave
+    // behind a report or consume admission capacity when registration fails.
+    let report = crate::report_admission::admit_on(&mut tx, slug, id, reason, identity).await?;
     if let Some(session) = session {
-        // The INSERT and this sequence read use the same transaction connection.
-        // No SELECT privilege on private report rows is added to the runtime.
-        let report = sqlx::query_scalar("SELECT currval('content.reports_id_seq')::bigint")
-            .fetch_one(&mut *tx)
-            .await?;
         anonymous_session::record_report(&mut tx, session, slug, report).await?;
     }
     tx.commit().await?;

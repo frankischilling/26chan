@@ -113,23 +113,52 @@ test('receiver rejects foreign, unregistered, wrong-target, generic, malformed a
   await expect(hidden(page, owned.reply)).toBeVisible(); await stranger.close(); await popup.close();
 });
 
-test('report hiding is idempotent even when a newer stored hide has not reached this tab', async ({ page, owned }) => {
-  for (const target of ['reply', 'id']) {
+// Each case owns a separate thread: normal whole-thread deletion retires its
+// report membership without clearing private history or bypassing admission.
+for (const target of ['reply', 'id']) {
+  test(`report hiding is idempotent for ${target}; reopening rejects a duplicate without side effects`, async ({ page, context, owned }) => {
     await page.goto('/demo/');
     const id = owned[target], popup = await openReport(page, id);
+    const storageKey = `4chan-hide-${target === 'id' ? 't' : 'r'}-demo`;
     // Write without a storage event, leaving the controller's rendered state stale.
-    await page.evaluate(({ target, id }) => localStorage.setItem(`4chan-hide-${target === 'id' ? 't' : 'r'}-demo`,
-      JSON.stringify({ [id]: Date.now() })), { target, id });
+    await page.evaluate(({ storageKey, id }) => localStorage.setItem(storageKey,
+      JSON.stringify({ [id]: Date.now() })), { storageKey, id });
     await popup.clock.install(); await popup.clock.pauseAt(new Date(Date.now() + 1000)); await submit(popup);
     await expect(hidden(page, id)).toBeHidden(); await popup.close();
-    const again = await openReport(page, id);
-    await again.clock.install(); await again.clock.pauseAt(new Date(Date.now() + 1000)); await submit(again);
-    await expect(hidden(page, id)).toBeHidden(); await again.close();
-  }
-});
 
-test('disabled hiding, detached targets, teardown and replaced posts cannot acquire success authority', async ({ page, owned }) => {
-  for (const mode of ['disabled', 'detached', 'replaced', 'teardown']) {
+    const storedHide = await page.evaluate(key => localStorage.getItem(key), storageKey);
+    const cookies = await context.cookies();
+    await page.evaluate(() => {
+      window.duplicateReportMessages = [];
+      window.addEventListener('message', event => {
+        if (typeof event.data === 'string' && event.data.startsWith('done-report')) {
+          window.duplicateReportMessages.push(event.data);
+        }
+      });
+    });
+    const response = context.waitForEvent('response', response =>
+      response.url() === `${origin}/demo/imgboard.php?mode=report&no=${id}`
+      && response.request().method() === 'GET');
+    // The canonical GET rejects the duplicate before offering another form.
+    const again = await openReport(page, id);
+    const rejected = await response;
+    expect(rejected.status()).toBe(422);
+    expect(await rejected.headerValue('set-cookie')).toBe(null);
+    await expect(again.locator('#report-popup-context')).toHaveAttribute('data-result', 'error');
+    await expect(again.getByText('You have already reported this post.', { exact: true })).toBeVisible();
+    await expect(again.locator('#report-form, #report-submit')).toHaveCount(0);
+    await again.clock.install(); await again.clock.fastForward(5000);
+    expect(again.isClosed()).toBe(false);
+    await expect(hidden(page, id)).toBeHidden();
+    expect(await page.evaluate(key => localStorage.getItem(key), storageKey)).toBe(storedHide);
+    expect(await page.evaluate(() => window.duplicateReportMessages)).toEqual([]);
+    expect(await context.cookies()).toEqual(cookies);
+    await again.close();
+  });
+}
+
+for (const mode of ['disabled', 'detached', 'replaced', 'teardown']) {
+  test(`${mode} report target cannot acquire success authority`, async ({ page, owned }) => {
     await page.goto(owned.url);
     const popup = await openReport(page, owned.reply);
     await page.evaluate(({ mode, id }) => {
@@ -144,6 +173,6 @@ test('disabled hiding, detached targets, teardown and replaced posts cannot acqu
     }, { mode, id: owned.reply });
     await popup.clock.install(); await popup.clock.pauseAt(new Date(Date.now() + 1000)); await submit(popup);
     expect(await page.evaluate(() => localStorage.getItem('4chan-hide-r-demo'))).toBe(null);
-    await popup.close(); await page.evaluate(() => localStorage.removeItem('4chan-settings'));
-  }
-});
+    await popup.close();
+  });
+}

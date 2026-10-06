@@ -163,6 +163,44 @@ AND NOT EXISTS (
     )
 )";
 
+// Require the staff-only file retirement wrapper and private admission owner.
+// This inspects catalog metadata only; readiness never submits a report.
+const REPORT_ADMISSION_READY_SQL: &str = "SELECT NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content.check_report_admission(text,bigint,bytea)','board_report_admission_owner','void',true),
+        ('content.admit_report(text,bigint,text,bytea)','board_report_admission_owner','bigint',true),
+        ('content.staff_delete_post_attachment(text,bigint)','board_attachment_owner','void',false)
+    ) AS required(signature,owner_name,result_type,public_access)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+        WHERE p.oid=to_regprocedure(required.signature)
+          AND p.prosecdef AND p.provolatile='v'
+          AND r.rolname=required.owner_name
+          AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+          AND pg_catalog.pg_get_function_result(p.oid)=required.result_type
+          AND has_function_privilege(current_user,p.oid,'EXECUTE')
+          AND has_function_privilege('board_public',p.oid,'EXECUTE')=required.public_access
+          AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+              WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+    )
+)
+AND NOT has_any_column_privilege('board_public','content.reports','INSERT')
+AND NOT has_sequence_privilege('board_public','content.reports_id_seq','USAGE,SELECT,UPDATE')
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('report_membership'),('report_admission_gate')) AS required(table_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+        JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
+        WHERE n.nspname='post_secrets' AND c.relname=required.table_name
+          AND r.rolname='board_report_admission_owner'
+          AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+          AND NOT has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+    )
+)";
+
 // Catalog-only: never read deletion hashes, invoke a trigger, or mutate content.
 const ARCHIVE_DELETION_SECRETS_READY_SQL: &str = r#"WITH relations AS (
     SELECT c.oid,n.nspname,c.relname
@@ -301,6 +339,19 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     .fetch_one(&state.staff)
     .await?;
     if !posting_history {
+        return Err(AppError::Internal);
+    }
+    let shared_report_admission: bool =
+        sqlx::query_scalar(board_store::report_admission::READINESS_SQL)
+            .fetch_one(&state.staff)
+            .await?;
+    if !shared_report_admission {
+        return Err(AppError::Internal);
+    }
+    let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !report_admission {
         return Err(AppError::Internal);
     }
     let user_thread_quota: bool = sqlx::query_scalar(USER_THREAD_QUOTA_READY_SQL)
@@ -1035,8 +1086,36 @@ pub async fn logout(
 #[cfg(test)]
 mod readiness_tests {
     use super::{
-        ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, USER_THREAD_QUOTA_READY_SQL,
+        ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, REPORT_ADMISSION_READY_SQL,
+        USER_THREAD_QUOTA_READY_SQL,
     };
+
+    #[test]
+    fn report_admission_readiness_is_catalog_only_and_requires_staff_wrapper() {
+        for required in [
+            "content.staff_delete_post_attachment(text,bigint)",
+            "content.admit_report(text,bigint,text,bytea)",
+            "board_report_admission_owner",
+            "search_path=pg_catalog,pg_temp",
+            "NOT has_any_column_privilege('board_public','content.reports','INSERT')",
+            "('report_membership'),('report_admission_gate')",
+            "r.rolcanlogin OR r.rolsuper",
+        ] {
+            assert!(REPORT_ADMISSION_READY_SQL.contains(required), "{required}");
+        }
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "SELECT content.admit_report",
+            "INSERT INTO",
+            "DELETE FROM",
+        ] {
+            assert!(
+                !REPORT_ADMISSION_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
 
     #[test]
     fn user_thread_quota_readiness_checks_only_restricted_catalog_contracts() {

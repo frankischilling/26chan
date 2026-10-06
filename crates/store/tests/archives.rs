@@ -98,6 +98,8 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
 }
 
 async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: i64) {
+    let report_identity =
+        support::key(slug).public_report_rate_identity(reader_context().peer.unwrap());
     sqlx::query(
         "UPDATE content.boards SET archive_retention_seconds=3600,archive_limit=2 WHERE slug=$1",
     )
@@ -192,7 +194,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         0
     );
     assert!(matches!(
-        board_store::report(public, slug, third, "Synthetic report").await,
+        board_store::report(public, slug, third, "Synthetic report", &report_identity).await,
         Err(StoreError::NotFound)
     ));
     assert!(matches!(
@@ -211,9 +213,15 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
             .id,
         fourth
     );
-    board_store::report(public, slug, fourth, "Visible archive report")
-        .await
-        .unwrap();
+    board_store::report(
+        public,
+        slug,
+        fourth,
+        "Visible archive report",
+        &report_identity,
+    )
+    .await
+    .unwrap();
     board_store::delete_post(public, slug, fourth)
         .await
         .unwrap();

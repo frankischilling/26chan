@@ -302,8 +302,9 @@ mod persisted {
             serde_json::json!({"error": "Response exceeds the available output budget. Try again later."})
         );
 
-        let (small_web, small_api) = board_public::routers_with_limits(
+        let (small_web, small_api) = posting_fixture::routers_with_limits(
             pool.clone(),
+            &slug,
             ORIGIN.into(),
             false,
             None,
@@ -363,6 +364,10 @@ mod persisted {
         assert!(report.headers().get("set-cookie").is_none());
         let confirmation = report.into_body().collect().await.unwrap().to_bytes();
         let confirmation = std::str::from_utf8(&confirmation).unwrap();
+        assert!(
+            confirmation.contains("Response exceeds the available output budget. Try again later.")
+        );
+        assert!(!confirmation.contains("Public reporting is unavailable."));
         assert!(!confirmation.contains("Your report was saved."));
         assert!(!confirmation.contains("Report received"));
         assert!(!confirmation.contains("data-result=\"success\""));

@@ -95,6 +95,7 @@ pub(crate) fn error(state: &AppState, board: &str, no: Option<i64>, error: AppEr
 pub(crate) async fn get(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     query: Result<Query<ReportQuery>, QueryRejection>,
 ) -> Result<Response, AppError> {
     let invalid = || AppError(StatusCode::BAD_REQUEST, "Invalid reporting request.");
@@ -113,6 +114,17 @@ pub(crate) async fn get(
         Ok(target) => target,
         Err(cause) => return Ok(error(&state, &board, Some(no), cause.into())),
     };
+    // Target policy has precedence over identity availability and quota errors.
+    // This advisory read neither reserves capacity nor registers a session.
+    let identity = match crate::handlers::report_rate_identity(&state, peer) {
+        Ok(identity) => identity,
+        Err(cause) => return Ok(error(&state, &board, Some(no), cause)),
+    };
+    if let Err(cause) =
+        board_store::report_admission::check(&state.pool, &board, no, &identity).await
+    {
+        return Ok(error(&state, &board, Some(no), cause.into()));
+    }
     crate::output::html(
         &state,
         &ReportPage {
@@ -225,6 +237,54 @@ mod tests {
             let html = std::str::from_utf8(&bytes).unwrap();
             assert!(html.contains("data-result=\"error\""));
             assert!(!html.contains("Report received"));
+            assert!(!html.contains("data-result=\"success\""));
+        }
+    }
+
+    #[tokio::test]
+    async fn report_missing_key_or_trusted_peer_fails_before_storage_even_in_development() {
+        for key_present in [false, true] {
+            let pool = sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
+                .unwrap();
+            pool.close().await;
+            let (app, _) = crate::routers_with_options(
+                pool,
+                crate::PublicRouterOptions {
+                    origin: "http://127.0.0.1:3000".into(),
+                    production: false,
+                    media: None,
+                    limits: board_config::PublicRequestLimits::default(),
+                    proxy_uid: None,
+                    poster_id_key: key_present.then(|| {
+                        std::sync::Arc::new(
+                            board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap(),
+                        )
+                    }),
+                    tripcode_key: None,
+                    country_database: None,
+                },
+            );
+            let response = app
+                .oneshot(
+                    Request::post("/test/report")
+                        .header("origin", "http://127.0.0.1:3000")
+                        .header("content-type", "application/x-www-form-urlencoded")
+                        .header("x-forwarded-for", "192.0.2.10")
+                        .extension(crate::security::RequestPeer(Some(
+                            "192.0.2.10".parse().unwrap(),
+                        )))
+                        .body(Body::from("no=17&reason=test"))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert_report_policy(&response);
+            assert!(response.headers().get("set-cookie").is_none());
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let html = std::str::from_utf8(&bytes).unwrap();
+            assert!(html.contains("Public reporting is unavailable."));
             assert!(!html.contains("data-result=\"success\""));
         }
     }
