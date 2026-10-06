@@ -67,6 +67,29 @@ not the endpoint, database, rank calculation, rebuilds or actual clock operation
 Database tests qualify the corresponding mutation clock and transactional state.
 Numeric sticky ranks remain separate work.
 
+## Isolated close and perma-sage actions
+
+Close/Reopen and Perma-sage/Undo perma-sage change only their selected flag.
+They preserve bump time and all sibling options. A valid no-op refreshes the
+modification and HTTP freshness clocks but adds no audit. An actual change adds
+one audit in the same transaction. Archived targets reject all four actions,
+including forged or stale Close submissions whose controls are already hidden.
+
+This follows the unchanged-mask rule in `log_thread_opts_action` for the existing
+isolated forms. It does not reproduce ReportQueue's sparse Perma-sage shortcut:
+that source request omits other fields consumed by `adminopt`, so it can reset
+sibling flags and legitimately produce an audit even when perma-sage was already
+set. The rewrite's explicit one-flag actions retain those siblings. Full grouped
+Thread Options remains separate work.
+
+The [isolated-action audit fixture](../apps/staff/tests/fixtures/staff-isolated-options.json)
+executes the pinned audit helper for all 128 old-mask/action combinations:
+64 changes and 64 no-ops. Four separate sparse-request examples are hypothetical
+prepared outcomes, not executed source request parsing or permissions. They
+illustrate why that shortcut cannot be treated as an isolated setter. The
+[extractor](../scripts/extract-staff-isolated-options-reference.py) never runs
+the endpoint, assignments, archive checks, clock, database or rebuilds.
+
 ## Database and operation
 
 Apply migration `0079_staff_thread_options.sql` before starting the updated

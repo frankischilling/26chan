@@ -1030,3 +1030,304 @@ async fn unsticky_refresh_changes_oldest_activity_rollover_but_not_post_number_r
     fixture.cleanup().await;
     result.unwrap();
 }
+
+const ISOLATED_OPTIONS: [(&str, &str, bool); 4] = [
+    ("close", "closed", true),
+    ("reopen", "closed", false),
+    ("permasage", "permasage", true),
+    ("unpermasage", "permasage", false),
+];
+
+fn isolated_option_invariants(mut state: serde_json::Value, selected: &str) -> serde_json::Value {
+    let thread = state["thread"].as_object_mut().unwrap();
+    for field in [selected, "modified_at", "http_modified_at"] {
+        thread.remove(field);
+    }
+    // In particular, bumped_at and every sibling option remain in this snapshot.
+    state
+}
+
+async fn seed_isolated_option(f: &Fixture, selected: &str, old: bool, siblings: [bool; 4]) {
+    let closed = if selected == "closed" {
+        old
+    } else {
+        siblings[0]
+    };
+    let permasage = if selected == "permasage" {
+        old
+    } else {
+        siblings[0]
+    };
+    sqlx::query("UPDATE content.threads SET closed=$2,permasage=$3,sticky=$4,permaage=$5,undead=$6,bumped_at='1999-01-01Z',modified_at='1999-01-01Z' WHERE id=$1")
+        .bind(f.posts[0]).bind(closed).bind(permasage).bind(siblings[1]).bind(siblings[2]).bind(siblings[3])
+        .execute(&f.owner).await.unwrap();
+}
+
+fn assert_isolated_option_success(
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+    selected: &str,
+    desired: bool,
+) {
+    assert_eq!(after["thread"][selected], desired);
+    assert_eq!(after["thread"]["bumped_at"], before["thread"]["bumped_at"]);
+    assert!(unsticky_time(after, "modified_at") > unsticky_time(before, "modified_at"));
+    assert!(unsticky_time(after, "http_modified_at") > unsticky_time(before, "http_modified_at"));
+    assert_eq!(
+        isolated_option_invariants(after.clone(), selected),
+        isolated_option_invariants(before.clone(), selected)
+    );
+}
+
+async fn exercise_isolated_option_matrix(f: &Fixture) {
+    auth::check_identity(&f.auth, "board_auth").await.unwrap();
+    auth::check_identity(&f.staff, "board_staff").await.unwrap();
+    f.role("moderator", &["all".into()], &[]).await;
+    let mut expected = Vec::<(i64, i64, String)>::new();
+    let mut cases = 0;
+    // These are isolated controls, not the source ReportQueue sparse shortcuts:
+    // each request preserves all unselected options, including mixed siblings.
+    for (action, selected, desired) in ISOLATED_OPTIONS {
+        for old in [false, true] {
+            for siblings in [
+                [false; 4],
+                [true; 4],
+                [true, false, true, false],
+                [false, true, false, true],
+            ] {
+                cases += 1;
+                seed_isolated_option(f, selected, old, siblings).await;
+                let before = unsticky_state(f, f.posts[0]).await;
+                assert_eq!(f.action(0, f.posts[0], action).await, StatusCode::SEE_OTHER);
+                let after = unsticky_state(f, f.posts[0]).await;
+                assert_isolated_option_success(&before, &after, selected, desired);
+                if old != desired {
+                    expected.push((f.account, f.posts[0], action.into()));
+                }
+                let actual: Vec<(i64, i64, String)> = sqlx::query_as("SELECT account_id,target_id,action FROM content.moderation_audit WHERE board=$1 ORDER BY id")
+                    .bind(&f.boards[0]).fetch_all(&f.owner).await.unwrap();
+                assert_eq!(
+                    actual, expected,
+                    "changed-only audit: {action}, old={old}, siblings={siblings:?}"
+                );
+                assert_eq!(f.action(0, f.posts[0], action).await, StatusCode::SEE_OTHER);
+                let repeated = unsticky_state(f, f.posts[0]).await;
+                assert_isolated_option_success(&after, &repeated, selected, desired);
+                assert_eq!(
+                    f.audit_count().await,
+                    expected.len() as i64,
+                    "repeat must refresh without another audit: {action}"
+                );
+            }
+        }
+    }
+    assert_eq!(cases, 32);
+    assert_eq!(expected.len(), 16);
+    for (action, selected, desired) in ISOLATED_OPTIONS {
+        seed_isolated_option(f, selected, !desired, [true, false, true, false]).await;
+        let before = unsticky_state(f, f.posts[0]).await;
+        let count = f.audit_count().await;
+        let (left, right) = tokio::join!(
+            f.action(0, f.posts[0], action),
+            f.action(0, f.posts[0], action)
+        );
+        assert_eq!(
+            (left, right),
+            (StatusCode::SEE_OTHER, StatusCode::SEE_OTHER)
+        );
+        assert_isolated_option_success(
+            &before,
+            &unsticky_state(f, f.posts[0]).await,
+            selected,
+            desired,
+        );
+        assert_eq!(
+            f.audit_count().await,
+            count + 1,
+            "concurrent {action} must record one transition"
+        );
+        let last: (i64, i64, String) = sqlx::query_as("SELECT account_id,target_id,action FROM content.moderation_audit WHERE board=$1 ORDER BY id DESC LIMIT 1")
+            .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(last, (f.account, f.posts[0], action.into()));
+    }
+}
+
+#[tokio::test]
+async fn isolated_close_and_permasage_controls_preserve_siblings_and_audit_only_transitions() {
+    let fixture = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = fixture.clone();
+        async move { exercise_isolated_option_matrix(&f).await }
+    })
+    .await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+async fn exercise_isolated_option_rejections(f: &Fixture) {
+    f.role("moderator", &["all".into()], &[]).await;
+    seed_isolated_option(f, "closed", false, [true; 4]).await;
+    let before = unsticky_state(f, f.posts[0]).await;
+    let count = f.audit_count().await;
+    for (action, _, _) in ISOLATED_OPTIONS {
+        assert_eq!(
+            f.request(
+                "/moderate",
+                Some(format!(
+                    "csrf=invalid&board={}&target={}&action={action}",
+                    f.boards[0], f.posts[0]
+                ))
+            )
+            .await
+            .0,
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(unsticky_state(f, f.posts[0]).await, before);
+    }
+    for (role, denied) in [("janitor", false), ("moderator", true)] {
+        f.role(
+            role,
+            &["all".into()],
+            if denied { &f.boards[..1] } else { &[] },
+        )
+        .await;
+        for (action, _, _) in ISOLATED_OPTIONS {
+            assert_eq!(f.action(0, f.posts[0], action).await, StatusCode::FORBIDDEN);
+            assert_eq!(unsticky_state(f, f.posts[0]).await, before);
+        }
+    }
+    f.role("moderator", &["all".into()], &[]).await;
+    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE token_hash=$1")
+        .bind(auth::hash(&f.token)).execute(&f.owner).await.unwrap();
+    for (action, _, _) in ISOLATED_OPTIONS {
+        assert_eq!(f.action(0, f.posts[0], action).await, StatusCode::FORBIDDEN);
+        assert_eq!(unsticky_state(f, f.posts[0]).await, before);
+    }
+    sqlx::query(
+        "UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp() WHERE token_hash=$1",
+    )
+    .bind(auth::hash(&f.token))
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    for (action, _, _) in ISOLATED_OPTIONS {
+        let response = f
+            .app
+            .clone()
+            .oneshot(
+                Request::post("/moderate")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("origin", "http://localhost:3001")
+                    .header("sec-fetch-site", "same-origin")
+                    .body(Body::from(format!(
+                        "csrf={}&board={}&target={}&action={action}",
+                        f.csrf, f.boards[0], f.posts[0]
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(unsticky_state(f, f.posts[0]).await, before);
+    }
+    assert_eq!(f.audit_count().await, count);
+    // Both archived closed values are schema-valid, as are both permasage
+    // values. A forbidden archived no-op must not refresh either clock.
+    for closed in [false, true] {
+        for permasage in [false, true] {
+            sqlx::query("UPDATE content.threads SET sticky=false,closed=$2,permasage=$3,archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+                .bind(f.posts[0]).bind(closed).bind(permasage).execute(&f.owner).await.unwrap();
+            let archived = unsticky_state(f, f.posts[0]).await;
+            for (action, _, _) in ISOLATED_OPTIONS {
+                assert_eq!(
+                    f.action(0, f.posts[0], action).await,
+                    StatusCode::BAD_REQUEST,
+                    "archived {action}, closed={closed}, permasage={permasage}"
+                );
+                assert_eq!(unsticky_state(f, f.posts[0]).await, archived);
+                assert_eq!(f.audit_count().await, count);
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn isolated_option_guards_and_archived_rows_preserve_all_flags_clocks_and_audit() {
+    let fixture = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = fixture.clone();
+        async move { exercise_isolated_option_rejections(&f).await }
+    })
+    .await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn isolated_option_audit_failures_roll_back_each_selected_flag_and_both_freshness_clocks() {
+    let staff = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(|connection, _| {
+            Box::pin(async move {
+                sqlx::query("SET statement_timeout='2s'")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let fixture = Fixture::with_staff_pool(Some(staff)).await;
+    let result = tokio::spawn({
+        let f = fixture.clone();
+        async move {
+            auth::check_identity(&f.staff, "board_staff").await.unwrap();
+            f.role("moderator", &["all".into()], &[]).await;
+            for (action, selected, desired) in ISOLATED_OPTIONS {
+                seed_isolated_option(&f, selected, !desired, [true, false, true, false]).await;
+                let before = unsticky_state(&f, f.posts[0]).await;
+                let count = f.audit_count().await;
+                let mut lock = f.owner.begin().await.unwrap();
+                sqlx::query("LOCK TABLE content.moderation_audit IN ACCESS EXCLUSIVE MODE")
+                    .execute(&mut *lock)
+                    .await
+                    .unwrap();
+                let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                    .fetch_one(&mut *lock)
+                    .await
+                    .unwrap();
+                let pending = tokio::spawn({
+                    let f = f.clone();
+                    async move { f.action(0, f.posts[0], action).await }
+                });
+                unsticky_wait_for_blocker(&f.owner, blocker).await;
+                let outcome = tokio::time::timeout(Duration::from_secs(5), pending)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                lock.rollback().await.unwrap();
+                assert_eq!(outcome, StatusCode::SERVICE_UNAVAILABLE);
+                // Full state equality includes selected flag, siblings, content,
+                // counters, bump, modified_at and http_modified_at.
+                assert_eq!(
+                    unsticky_state(&f, f.posts[0]).await,
+                    before,
+                    "audit failure: {action}"
+                );
+                assert_eq!(f.audit_count().await, count);
+                assert_eq!(f.action(0, f.posts[0], action).await, StatusCode::SEE_OTHER);
+                assert_isolated_option_success(
+                    &before,
+                    &unsticky_state(&f, f.posts[0]).await,
+                    selected,
+                    desired,
+                );
+                assert_eq!(f.audit_count().await, count + 1);
+            }
+        }
+    })
+    .await;
+    fixture.cleanup().await;
+    result.unwrap();
+}

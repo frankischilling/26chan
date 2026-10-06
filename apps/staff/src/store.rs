@@ -192,8 +192,9 @@ pub(crate) async fn prepare_moderation(
         } else {
             target
         };
-        let (archived, sticky, permaage, undead): (bool, bool, bool, bool) = sqlx::query_as(
-            "SELECT archived_at IS NOT NULL,sticky,permaage,undead FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        let (archived, closed, sticky, permasage, permaage, undead):
+            (bool, bool, bool, bool, bool, bool) = sqlx::query_as(
+            "SELECT archived_at IS NOT NULL,closed,sticky,permasage,permaage,undead FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
         )
         .bind(board)
         .bind(thread)
@@ -203,7 +204,8 @@ pub(crate) async fn prepare_moderation(
         if archived
             && matches!(
                 action,
-                "reopen"
+                "close"
+                    | "reopen"
                     | "sticky"
                     | "unsticky"
                     | "permasage"
@@ -218,6 +220,7 @@ pub(crate) async fn prepare_moderation(
         }
         match action {
             "close" | "reopen" => {
+                audit_changed = closed != (action == "close");
                 sqlx::query("UPDATE content.threads SET closed=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="close").execute(&mut *tx).await?;
             }
             "sticky" | "unsticky" => {
@@ -234,6 +237,7 @@ pub(crate) async fn prepare_moderation(
                     .await?;
             }
             "permasage" | "unpermasage" => {
+                audit_changed = permasage != (action == "permasage");
                 sqlx::query("UPDATE content.threads SET permasage=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="permasage").execute(&mut *tx).await?;
             }
             "permaage" | "unpermaage" => {
