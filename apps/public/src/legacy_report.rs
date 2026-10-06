@@ -276,7 +276,9 @@ mod tests {
         assert!(!html.contains("<script>\"&"));
         assert!(html.contains("Category 18</option>"));
         assert!(html.contains(&"x".repeat(4096)));
-        assert_eq!(html.matches("<option ").count(), 3);
+        assert_eq!(html.matches("<option ").count(), 4);
+        assert!(html.contains("name=\"cat_id\"><option value=\"\"></option><option value=\"17\">"));
+        assert!(!html.contains(" required"));
         assert!(html.contains("/test/imgboard.php?mode=report&amp;no=20"));
         assert!(html.contains("name=\"revision\" value=\"2\""));
         assert!(html.contains("name=\"cat\" value=\"\" checked"));

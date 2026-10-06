@@ -235,7 +235,7 @@ function expectedCategory(catalog, kind) {
 async function selectCategorical(popup, catalog, kind) {
   await expect(popup.locator('#reason')).toHaveCount(0);
   await expect(popup.locator('input[name="revision"]')).toHaveValue(String(catalog.revision));
-  await expect(popup.locator('#report-category-select option')).toHaveText(['Synthetic board rule']);
+  await expect(popup.locator('#report-category-select option')).toHaveText(['', 'Synthetic board rule']);
   await popup.locator('#report-category-select').selectOption(String(catalog.ruleId));
   await popup.locator(`#report-category-${kind}`).check();
   if (kind === 'illegal') await expect(popup.locator('#report-category-select')).toBeDisabled();
@@ -249,6 +249,13 @@ test('synthetic categorical radios switch the select and Close cancels without a
     const popup = await openReport(page, owned.reply);
     await expect(popup.locator('#report-category-rule')).toBeChecked();
     await expect(popup.locator('#report-category-select')).toBeEnabled();
+    await expect(popup.locator('#report-category-select')).toHaveValue('');
+    await popup.locator('#report-category-illegal').check();
+    await expect(popup.locator('#report-category-select')).toBeDisabled();
+    await expect(popup.locator('#report-category-select')).toHaveValue('');
+    await popup.locator('#report-category-rule').check();
+    await expect(popup.locator('#report-category-select')).toBeEnabled();
+    await expect(popup.locator('#report-category-select')).toHaveValue('');
     await selectCategorical(popup, owned.catalog, 'illegal');
     await expect(popup.locator('#report-category-rule')).not.toBeChecked();
     await popup.locator('#report-category-rule').check();
@@ -319,46 +326,67 @@ for (const kind of ['rule', 'illegal']) {
   });
 }
 
-test('synthetic categorical no-JavaScript form keeps its select enabled and illegal cat overrides cat_id', async ({ browser, request }) => {
-  await withCategoricalThread(request, async owned => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
-    try {
-      const page = await context.newPage();
-      const endpoint = `${origin}/demo/imgboard.php?mode=report&no=${owned.reply}`;
-      await page.goto(endpoint);
-      await expect(page.locator('#report-category-select')).toBeEnabled();
-      await page.locator('#report-category-select').selectOption(String(owned.catalog.ruleId));
-      await page.locator('#report-category-illegal').check();
-      await expect(page.locator('#report-category-select')).toBeEnabled();
-      await expect(page.locator('#report-popup-close')).toBeHidden();
-      const sent = page.waitForRequest(r => r.url() === endpoint && r.method() === 'POST');
-      await page.locator('#report-submit').click();
-      const fields = new URLSearchParams((await sent).postData());
-      expect(fields.get('cat')).toBe('31');
-      expect(fields.get('cat_id')).toBe(String(owned.catalog.ruleId));
-      expect(fields.get('revision')).toBe(String(owned.catalog.revision));
-      await expect(page.locator('#report-popup-context')).toHaveAttribute('data-result', 'success');
-      expect(await inspectCategorical(owned)).toEqual({
-        reportCount: 1, categories: [expectedCategory(owned.catalog, 'illegal')],
-      });
-      await expect(page.locator('#report-popup-return')).toBeVisible();
-      await expect(page.locator('#report-popup-return')).toHaveAttribute('href', '/demo/');
-      await page.locator('#report-popup-return').click();
-      await expect(page).toHaveURL(`${origin}/demo/`);
-      await expect(hidden(page, owned.reply)).toBeVisible();
-    } finally {
-      await context.close();
-    }
+for (const selection of ['blank', 'explicit rule']) {
+  test(`synthetic categorical no-JavaScript form rejects untouched selection and illegal cat overrides ${selection} cat_id`, async ({ browser, request }) => {
+    await withCategoricalThread(request, async owned => {
+      const context = await browser.newContext({ javaScriptEnabled: false });
+      try {
+        const page = await context.newPage();
+        const endpoint = `${origin}/demo/imgboard.php?mode=report&no=${owned.reply}`;
+        await page.goto(endpoint);
+        await expect(page.locator('#report-category-select')).toBeEnabled();
+        await expect(page.locator('#report-category-rule')).toBeChecked();
+        await expect(page.locator('#report-category-select')).toHaveValue('');
+        const cookies = await context.cookies();
+        const rejected = page.waitForResponse(r => r.url() === endpoint && r.request().method() === 'POST');
+        await page.locator('#report-submit').click();
+        const rejection = await rejected;
+        expect(rejection.status()).toBe(422);
+        expect(await rejection.headerValue('set-cookie')).toBe(null);
+        const blank = new URLSearchParams(rejection.request().postData());
+        expect(blank.get('cat')).toBe(''); expect(blank.get('cat_id')).toBe('');
+        await expect(page.locator('#report-popup-context')).toHaveAttribute('data-result', 'error');
+        await expect(page.getByText('Invalid category selected.', { exact: true })).toBeVisible();
+        expect(await inspectCategorical(owned)).toEqual({ reportCount: 0, categories: [] });
+        expect(await context.cookies()).toEqual(cookies);
+        await page.goto(endpoint);
+        if (selection === 'explicit rule') await page.locator('#report-category-select').selectOption(String(owned.catalog.ruleId));
+        await page.locator('#report-category-illegal').check();
+        await expect(page.locator('#report-category-select')).toBeEnabled();
+        await expect(page.locator('#report-popup-close')).toBeHidden();
+        const sent = page.waitForRequest(r => r.url() === endpoint && r.method() === 'POST');
+        await page.locator('#report-submit').click();
+        const fields = new URLSearchParams((await sent).postData());
+        expect(fields.get('cat')).toBe('31');
+        expect(fields.get('cat_id')).toBe(selection === 'blank' ? '' : String(owned.catalog.ruleId));
+        expect(fields.get('revision')).toBe(String(owned.catalog.revision));
+        await expect(page.locator('#report-popup-context')).toHaveAttribute('data-result', 'success');
+        expect(await inspectCategorical(owned)).toEqual({
+          reportCount: 1, categories: [expectedCategory(owned.catalog, 'illegal')],
+        });
+        await expect(page.locator('#report-popup-return')).toBeVisible();
+        await expect(page.locator('#report-popup-return')).toHaveAttribute('href', '/demo/');
+        await page.locator('#report-popup-return').click();
+        await expect(page).toHaveURL(`${origin}/demo/`);
+        await expect(hidden(page, owned.reply)).toBeVisible();
+      } finally {
+        await context.close();
+      }
+    });
   });
-});
 
-for (const change of ['stale revision', 'disabled catalog']) {
+}
+
+for (const change of ['blank selection', 'stale revision', 'disabled catalog']) {
   test(`synthetic categorical ${change} rejects without cookies, hiding, success messages or auto-close`, async ({ page, context, request }) => {
     await withCategoricalThread(request, async owned => {
       await page.goto(owned.url);
       const popup = await openReport(page, owned.reply);
       await popup.clock.install();
-      await selectCategorical(popup, owned.catalog, 'rule');
+      if (change === 'blank selection') {
+        await expect(popup.locator('#report-category-rule')).toBeChecked();
+        await expect(popup.locator('#report-category-select')).toHaveValue('');
+      } else await selectCategorical(popup, owned.catalog, 'rule');
       await page.evaluate(() => {
         window.categoricalReportMessages = [];
         window.addEventListener('message', event => {
@@ -371,7 +399,7 @@ for (const change of ['stale revision', 'disabled catalog']) {
         await popup.locator('input[name="revision"]').evaluate((input, revision) => {
           input.value = String(revision + 1);
         }, owned.catalog.revision);
-      } else {
+      } else if (change === 'disabled catalog') {
         await owned.catalog.disable();
       }
       const cookies = await context.cookies();
@@ -381,9 +409,15 @@ for (const change of ['stale revision', 'disabled catalog']) {
       const response = await received;
       expect(response.status()).toBe(422);
       expect(await response.headerValue('set-cookie')).toBe(null);
+      if (change === 'blank selection') {
+        const fields = new URLSearchParams(response.request().postData());
+        expect(fields.get('cat')).toBe('');
+        expect(fields.get('cat_id')).toBe('');
+      }
       await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'error');
       await expect(popup.getByText(change === 'stale revision'
         ? 'Report categories changed. Please reload the report form.'
+        : change === 'blank selection' ? 'Invalid category selected.'
         : 'Categorical reporting is not active.', { exact: true })).toBeVisible();
       await expect(popup.getByRole('heading', { name: 'Report received', exact: true })).toHaveCount(0);
       await popup.clock.fastForward(5000);

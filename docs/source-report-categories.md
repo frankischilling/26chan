@@ -117,7 +117,9 @@ Image eligibility uses stored attachment bytes and deletion state rather than
 the public view's missing-asset fallback. Titles are escaped, with category IDs
 shown for empty labels; oversized form output fails rather than dropping options.
 Rule and illegal submission work without JavaScript. The optional script toggles
-the rule selector without changing the server's category decision.
+the rule selector without changing the server's category decision. Its initial
+blank option requires an explicit rule choice; submitting it untouched is rejected,
+while the illegal radio wins even with a blank selector and JavaScript disabled.
 
 Categorical rows retain the exact title and selected revision, ID, kind and base
 weight. Staff views distinguish categories from historical free-text reasons;

@@ -63,10 +63,10 @@ function fixture({ result = 'form', popup = true, opener = true, href = '/demo/t
   return { doc, win, messages, timers, listeners, clicks, mount: () => mountReportPopup({ window: win, document: doc }) };
 }
 
-function categoryControls({ illegalChecked = false, disabled = false } = {}) {
+function categoryControls({ illegalChecked = false, disabled = false, value = '' } = {}) {
   const rule = Object.assign(new EventTarget(), { checked: !illegalChecked });
   const illegal = Object.assign(new EventTarget(), { checked: illegalChecked });
-  const category = { disabled };
+  const category = { disabled, value };
   return {
     rule, illegal, category,
     controls: { 'report-category-rule': rule, 'report-category-illegal': illegal, 'report-category-select': category },
@@ -86,6 +86,19 @@ test('category select initializes from the checked radio and follows rule/illega
     c.chooseIllegal(true); assert.equal(c.category.disabled, true);
     c.chooseIllegal(false); assert.equal(c.category.disabled, false);
     c.chooseIllegal(true); assert.equal(c.category.disabled, true);
+    assert.deepEqual(f.messages, []); assert.equal(f.timers.size, 0);
+  }
+});
+
+test('category radio changes preserve both an untouched blank and a prior explicit choice', () => {
+  for (const value of ['', '9001']) {
+    const c = categoryControls({ value });
+    const f = fixture({ controls: c.controls }); f.mount();
+    assert.equal(c.category.value, value);
+    c.chooseIllegal(true);
+    assert.equal(c.category.disabled, true); assert.equal(c.category.value, value);
+    c.chooseIllegal(false);
+    assert.equal(c.category.disabled, false); assert.equal(c.category.value, value);
     assert.deepEqual(f.messages, []); assert.equal(f.timers.size, 0);
   }
 });
