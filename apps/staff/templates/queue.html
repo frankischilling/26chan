@@ -38,5 +38,6 @@
 {% call action(csrf,r.board,r.thread_id,"remove-thread","Remove thread") %}{% endcall %}
 {% endif %}
 {% call action(csrf,r.board,r.id,"resolve","Resolve report") %}{% endcall %}{% call action(csrf,r.board,r.id,"dismiss","Dismiss report") %}{% endcall %}
+{% if can_clear_reporter %}<form method="post" action="/reporter-clear"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ r.board }}"><input type="hidden" name="report_id" value="{{ r.id }}"><button>Clear reporter's reports</button></form>{% endif %}
 </article>{% else %}<p>No reports.</p>{% endfor %}
 </main></body></html>

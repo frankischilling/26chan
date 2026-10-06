@@ -665,6 +665,7 @@ pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<Stri
         csrf,
         recent: session.recent,
         can_permaage: session.permissions.can_set_permaage(&session.role),
+        can_clear_reporter: session.permissions.can_clear_reporter(&session.role),
         moderator: session.at_least(crate::access::Level::Moderator),
         can_post: session.at_least(crate::access::Level::Moderator)
             || (session.at_least(crate::access::Level::Janitor)

@@ -72,6 +72,7 @@ pub struct Queue {
     pub csrf: String,
     pub recent: bool,
     pub can_permaage: bool,
+    pub can_clear_reporter: bool,
     pub moderator: bool,
     pub can_post: bool,
     pub discussion: bool,
@@ -123,12 +124,14 @@ mod tests {
             csrf: "example".into(),
             recent: true,
             can_permaage: false,
+            can_clear_reporter: false,
             moderator: true,
             can_post: true,
             discussion: true,
         }
         .render()
         .unwrap();
+        assert!(!html.contains("action=\"/reporter-clear\""));
         assert!(!html.contains("<b>"));
         assert!(!html.contains("<em>"));
         assert!(!html.contains("<i>"));
@@ -197,6 +200,7 @@ mod tests {
                 csrf: "category-fixture".into(),
                 recent: true,
                 can_permaage: false,
+                can_clear_reporter: false,
                 moderator: true,
                 can_post: false,
                 discussion: false,
@@ -267,6 +271,7 @@ mod tests {
                 csrf: "owned-fixture".into(),
                 recent: true,
                 can_permaage: false,
+                can_clear_reporter: false,
                 moderator: true,
                 can_post: true,
                 discussion: true,
@@ -333,6 +338,7 @@ mod tests {
                 csrf: "example".into(),
                 recent: true,
                 can_permaage: true,
+                can_clear_reporter: true,
                 moderator: true,
                 can_post: true,
                 discussion: true,
@@ -354,6 +360,9 @@ mod tests {
             assert!(html.contains("permasage: true, permaage: true"));
             assert!(html.contains("Disable permasage"));
             assert!(html.contains("Disable permaage"));
+            assert!(html.contains("action=\"/reporter-clear\""));
+            assert!(html.contains("name=\"report_id\" value=\"1\""));
+            assert!(html.contains("Clear reporter"));
         }
     }
 }

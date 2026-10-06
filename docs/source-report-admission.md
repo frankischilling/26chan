@@ -82,14 +82,18 @@ records remain. Ordinary resolution/dismissal does not release capacity.
 Migration 0100 adds [forward archive retirement](report-group-lifetimes.md) for
 complete categorical group lifetimes below the source's three-illegal-report
 threshold. Missing or incomplete historical counters preserve membership.
-Source hard clear and reporter-wide purge are not equated with resolve/dismiss;
-their authorization and interfaces remain separate lifecycle gaps.
+Source hard clear is not equated with resolve/dismiss. Migration 0106 adds
+[bounded reporter-wide clearing](reporter-clear.md) using captured IP and
+automatic-session equality, with global moderator scope and atomic audit. It
+retires matching memberships and hides marked rows from the active staff queue
+while retaining report evidence. Legacy credential/Pass equality, direct-IP
+input and the full source reporter interface remain separate gaps.
 
 ## Rollout and checks
 
 For an existing installation, the bootstrap administrator runs
 `deploy/report-admission-role.sql` once before migration 0094. Fresh installations
-use `deploy/roles.sql`. Stop old writers, apply through 0100, then start matching
+use `deploy/roles.sql`. Stop old writers, apply through 0106, then start matching
 public and staff binaries. Both readiness checks require the new restricted interfaces.
 Old public binaries cannot insert reports after the direct grant is revoked;
 rolling back only the binary is not a compatible reporting rollback.

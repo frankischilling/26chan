@@ -7,6 +7,7 @@ mod discussion;
 mod handlers;
 mod latest;
 mod posting_password;
+mod reporter_clear;
 pub mod store;
 mod thread_options;
 mod views;
@@ -166,6 +167,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/login/finish", post(handlers::login_finish))
         .route("/logout", post(handlers::logout))
         .route("/moderate", post(handlers::moderate))
+        .route(
+            "/reporter-clear",
+            post(reporter_clear::submit).layer(DefaultBodyLimit::max(4096)),
+        )
         .route(
             "/thread-options",
             get(thread_options::show)

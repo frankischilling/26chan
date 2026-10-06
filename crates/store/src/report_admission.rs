@@ -176,7 +176,7 @@ pub const READINESS_SQL: &str = r#"WITH owner_role AS (
     SELECT c.oid,c.relowner,n.nspname,c.relname
     FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
     WHERE (n.nspname='post_secrets' AND c.relname IN ('report_membership','report_admission_gate','report_catalog_gate','report_catalog_versions','report_catalog_rows','report_group','report_weight_evidence'))
-       OR (n.nspname='content' AND c.relname IN ('reports','reports_id_seq','boards','posts','threads','post_media'))
+       OR (n.nspname='content' AND c.relname IN ('reports','reports_id_seq','boards','posts','threads','post_media','moderation_audit'))
 )
 SELECT EXISTS (SELECT 1 FROM owner_role)
 AND NOT EXISTS (
@@ -192,7 +192,8 @@ AND NOT EXISTS (
         ('content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,false),
         ('content.report_category_form(text,bigint)','jsonb',true,true,true),
         ('content.admit_categorical_report(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,true),
-        ('content.set_report_catalog_active(bigint)','void',false,false,true)
+        ('content.set_report_catalog_active(bigint)','void',false,false,true),
+        ('content.clear_reporter(text,bigint)','bigint',false,true,false)
     ) AS required(signature,result_type,public_allowed,staff_allowed,migrator_allowed)
     WHERE NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_proc p JOIN owner_role r ON r.oid=p.proowner
@@ -444,6 +445,7 @@ AND NOT EXISTS (
         ('reports','category_revision','INSERT'),('reports','category_id','INSERT'),
         ('reports','category_kind','INSERT'),('reports','category_base_weight','INSERT'),
         ('reports','category_kind','SELECT'),
+        ('reports','reporter_cleared_at','SELECT'),('reports','reporter_cleared_at','UPDATE'),
         ('boards','worksafe','SELECT'),('post_media','post_id','SELECT'),
         ('post_media','bytes','SELECT'),('post_media','file_deleted','SELECT')
     ) AS required(table_name,column_name,privilege_name)
@@ -662,6 +664,68 @@ AND EXISTS (
           CROSS JOIN LATERAL pg_catalog.aclexplode(column_acl.attacl) a
           WHERE column_acl.attrelid=c.oid AND column_acl.attnum>0 AND NOT column_acl.attisdropped
             AND (a.grantee<>r.oid OR a.is_grantable))
+)
+-- Reporter clearing exposes a staff-only count, never private ownership data.
+AND EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p JOIN owner_role r ON r.oid=p.proowner
+    JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+    WHERE p.oid=to_regprocedure('content.clear_reporter(text,bigint)')
+      AND p.proargtypes='25 20'::oidvector AND p.pronargs=2
+      AND p.proallargtypes IS NULL AND p.proargmodes IS NULL
+      AND p.proargnames=ARRAY['p_board','p_report']::text[]
+      AND l.lanname='plpgsql' AND NOT p.proisstrict AND NOT p.proleakproof AND p.proparallel='u'
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('reports','reporter_cleared_at','timestamptz'),
+        ('moderation_audit','reporter_clear_count','int8')) AS required(table_name,column_name,type_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid
+        WHERE c.nspname='content' AND c.relname=required.table_name
+          AND a.attname=required.column_name AND a.attnum>0 AND NOT a.attisdropped
+          AND a.atttypid=to_regtype('pg_catalog.'||required.type_name)
+          AND a.atttypmod=-1 AND NOT a.attnotnull AND NOT a.atthasdef AND NOT a.atthasmissing
+          AND a.attgenerated='' AND a.attidentity=''
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_staff','board_auth')
+                AND has_column_privilege(runtime.oid,c.oid,a.attnum,'UPDATE,REFERENCES'))
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_auth')
+                AND has_column_privilege(runtime.oid,c.oid,a.attnum,'SELECT,INSERT'))
+          AND has_column_privilege('board_staff',c.oid,a.attnum,'SELECT')
+          AND has_column_privilege('board_staff',c.oid,a.attnum,'INSERT')
+              =(required.table_name='moderation_audit')
+    )
+)
+AND EXISTS (
+    SELECT 1 FROM relations c CROSS JOIN owner_role r
+    WHERE c.nspname='content' AND c.relname='reports'
+      AND NOT has_table_privilege(r.oid,c.oid,'UPDATE,DELETE,TRUNCATE')
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname<>'reporter_cleared_at' AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute column_acl
+          CROSS JOIN LATERAL pg_catalog.aclexplode(column_acl.attacl) a
+          WHERE column_acl.attrelid=c.oid AND column_acl.attname='reporter_cleared_at'
+            AND (a.is_grantable OR a.grantee<>r.oid OR a.privilege_type NOT IN ('SELECT','UPDATE')))
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('moderation_audit_reporter_clear_count',ARRAY['action','reporter_clear_count'],
+         'action=''reporter-clear''andreporter_clear_countisnotnullandreporter_clear_count>=1andreporter_clear_count<=10000oraction<>''reporter-clear''andreporter_clear_countisnull'),
+        ('moderation_audit_action_check',ARRAY['action'],
+         'action=anyarray[''close'',''reopen'',''sticky'',''unsticky'',''permasage'',''unpermasage'',''permaage'',''unpermaage'',''remove-post'',''remove-file'',''remove-thread'',''resolve'',''dismiss'',''staff-post'',''spoiler'',''unspoiler'',''undead'',''unundead'',''thread-options'',''force-archive'',''reporter-clear'']')
+    ) AS required(constraint_name,columns,expression)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c JOIN pg_catalog.pg_constraint k ON k.conrelid=c.oid
+        WHERE c.nspname='content' AND c.relname='moderation_audit' AND k.conname=required.constraint_name
+          AND k.contype='c' AND k.convalidated AND NOT k.connoinherit
+          AND NOT k.condeferrable AND NOT k.condeferred
+          AND k.conkey=ARRAY(SELECT a.attnum FROM unnest(required.columns) WITH ORDINALITY AS names(name,ordinal)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attname=names.name
+                  AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
+          AND lower(translate(replace(replace(pg_catalog.pg_get_expr(k.conbin,k.conrelid),
+              '::text',''),'::bigint',''),' ()',''))=required.expression
+    )
 )
 -- Pre-report observation is an anonymous-owner boundary, callable only by the
 -- report owner. Read catalog OIDs so staff need no private-schema USAGE grant.

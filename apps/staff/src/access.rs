@@ -161,6 +161,12 @@ impl Permissions {
         self.allows("") && self.has_flag(flag)
     }
 
+    pub fn can_clear_reporter(&self, role: &str) -> bool {
+        Level::parse(role).is_some_and(|level| level >= Level::Moderator)
+            && self.allows_all()
+            && self.deny_boards.is_empty()
+    }
+
     pub fn can_set_permaage(&self, role: &str) -> bool {
         Level::parse(role).is_some_and(|level| {
             level >= Level::Moderator
@@ -189,6 +195,33 @@ impl Permissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reporter_clear_requires_global_moderator_authority_without_denies() {
+        for role in ["janitor", "mod", "moderator", "manager", "admin", "unknown"] {
+            for developer in [false, true] {
+                for allow_all in [false, true] {
+                    for denied in [None, Some("test"), Some("noboard")] {
+                        let permissions = Permissions {
+                            allow_boards: vec![if allow_all { "all" } else { "test" }.into()],
+                            deny_boards: denied.into_iter().map(str::to_owned).collect(),
+                            flags: if developer {
+                                vec!["developer".into()]
+                            } else {
+                                vec![]
+                            },
+                        };
+                        assert_eq!(
+                            permissions.can_clear_reporter(role),
+                            matches!(role, "mod" | "moderator" | "manager" | "admin")
+                                && allow_all
+                                && denied.is_none()
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn thread_option_permissions_match_all_original_preparation_cases() {

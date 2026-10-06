@@ -72,10 +72,14 @@ bound. There is no historical sweep, category inference, or periodic reevaluatio
 of already archived threads. Direct owner edits, disabled triggers, TRUNCATE and
 membership-target rewrites are outside the supported runtime mutation paths.
 
-The counter does not add reporter-purge authorization, hard-clear workflows,
-weighted queue priority, or exact staff-self-delete distinctions. Those remain
-separate parity work. Existing staff file-removal behavior is unchanged.
+The counter alone does not authorize reporter purges. The separate
+[reporter-clear action](reporter-clear.md), added in 0106, uses the existing
+partial/empty-group behavior under global moderator authority. Source hard-clear
+workflows, complete reporter ownership matching, weighted queue priority and
+exact staff-self-delete distinctions remain separate parity work. Existing staff
+file-removal behavior is unchanged.
 
-Apply through migration 0100 before starting matching services. Exact execution
+Migration 0100 establishes this counter contract; current reporter-clearing
+services also require 0106. Exact execution
 results belong in the pull-request checkpoint; this contract alone does not
 claim every platform or browser is qualified.
