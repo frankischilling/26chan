@@ -139,8 +139,9 @@ over 8 MiB fails closed. This is separate from the 3,000-row ceiling and the
 final shared response budget, which still rejects oversized output without
 partial HTML. Archive JSON keeps its metadata-only query and existing contract.
 
-Four changed archive-list/empty-list baseline images still need actual CI
-review. These changes do not close the broader source-parity work.
+The four archive-list/empty-list baselines use reviewed Windows renders of
+the source-style table. They remain project regression artifacts, not proof
+of complete original-page visual parity.
 
 The archive-capacity database test bulk-loads an owned synthetic set beyond
 normal retention to verify 1,200 entries and the exact 3,000-entry ceiling. It
