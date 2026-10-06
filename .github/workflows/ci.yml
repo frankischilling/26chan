@@ -295,6 +295,8 @@ jobs:
         run: sudo bash scripts/test-report-weight-migration.sh
       - name: Upgrade grouped thread options and bounded sticky rank without rewriting history
         run: sudo bash scripts/test-grouped-options-migration.sh
+      - name: Qualify additive staff digest visibility and administrator dump restore
+        run: sudo bash scripts/test-staff-file-digest-migration.sh
       - name: Qualify nullable moderation snapshots without historical backfill or expanded authority
         run: sudo bash scripts/test-audit-snapshot-migration.sh
       - name: Qualify force archive audit upgrade without rewriting history or expanding authority

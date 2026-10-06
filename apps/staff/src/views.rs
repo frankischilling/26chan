@@ -81,6 +81,97 @@ pub struct Queue {
 mod tests {
     use super::*;
     #[test]
+    fn file_md5_disclosure_is_archived_available_and_canonical() {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        // The source decodes these exact 16 bytes from the public Base64 MD5.
+        let bytes = STANDARD.decode("ABEiM0RVZneImaq7zN3u/w==").unwrap();
+        assert_eq!(bytes.len(), 16);
+        let digest: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        assert_eq!(digest, "00112233445566778899aabbccddeeff");
+        for (raw, available, archived, visible) in [
+            (Some(digest.as_str()), true, true, true),
+            (Some(digest.as_str()), true, false, false),
+            (Some(digest.as_str()), false, true, false),
+            (None, true, true, false),
+            (Some(""), true, true, false),
+            (Some("00112233445566778899aabbccddeef"), true, true, false),
+            (Some("00112233445566778899aabbccddeeff0"), true, true, false),
+            (Some("00112233445566778899AABBCCDDEEFF"), true, true, false),
+            (Some("00112233445566778899aabbccddeefg"), true, true, false),
+            (Some("<script>alert(1)</script>xxxxxxxx"), true, true, false),
+        ] {
+            let mut report = Report {
+                id: 1,
+                board: "test".into(),
+                post_id: 1,
+                thread_id: 1,
+                reason: "<b>untrusted report</b>".into(),
+                category_id: None,
+                category_kind: None,
+                name: "<em>name</em>".into(),
+                trip: Some("<em>untrusted trip</em>".into()),
+                poster_id: Some("<b>untrusted ID</b>".into()),
+                capcode: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                board_flag_type: "pol".into(),
+                flag_name: None,
+                subject: "<i>subject</i>".into(),
+                comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
+                    .into(),
+                state: "open".into(),
+                closed: false,
+                sticky: false,
+                permasage: false,
+                permaage: false,
+                undead: false,
+                archived: false,
+                archives_enabled: true,
+                deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
+                attachment: None,
+            };
+            report.archived = archived;
+            report.attachment = Some(crate::store::Attachment {
+                post_id: 1,
+                filename: "synthetic.png".into(),
+                bytes: 100,
+                width: 500,
+                height: 300,
+                spoiler: true,
+                tim: 1,
+                thumbnail_width: Some(250),
+                thumbnail_height: Some(150),
+                available,
+                md5: raw.map(str::to_owned),
+            });
+            let html = Queue {
+                media_origin: "http://127.0.0.1:3002".into(),
+                reports: vec![report.into()],
+                csrf: "example".into(),
+                recent: true,
+                can_permaage: false,
+                can_clear_reporter: false,
+                moderator: true,
+                can_post: false,
+                discussion: false,
+            }
+            .render()
+            .unwrap();
+            assert_eq!(html.contains("<summary>File MD5</summary>"), visible);
+            assert_eq!(html.contains(&format!("<code>{digest}</code>")), visible);
+            assert_eq!(html.contains("Approved normalized file MD5:"), visible);
+            assert!(!html.contains("<script"));
+            assert!(!html.contains("onclick="));
+        }
+    }
+
+    #[test]
     fn preview_escapes_untrusted_text_with_typed_formatting() {
         let report = Report {
             id: 1,

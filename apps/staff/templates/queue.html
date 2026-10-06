@@ -13,6 +13,7 @@
 {% if let Some(a) = r.attachment %}
 <section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
 {% if a.available %}
+{% if r.archived %}{% if let Some(md5) = a.file_md5() %}<details><summary>File MD5</summary><p>Approved normalized file MD5: <code>{{ md5 }}</code></p></details>{% endif %}{% endif %}
 <a href="{{ media_origin }}/{{ r.board }}/{{ a.tim }}.png" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% if a.spoiler %}Open spoiler image{% else %}Open normalized image{% endif %}</a>
 {% if !a.spoiler %}{% if let Some(width) = a.thumbnail_width %}{% if let Some(height) = a.thumbnail_height %}
 <p><img src="{{ media_origin }}/{{ r.board }}/{{ a.tim }}s.jpg" width="{{ width }}" height="{{ height }}" alt="Attachment thumbnail" loading="lazy" referrerpolicy="no-referrer"></p>

@@ -603,7 +603,8 @@ async fn exercise_attachment(f: &Fixture) {
             "tim",
             "thumbnail_width",
             "thumbnail_height",
-            "available"
+            "available",
+            "md5"
         ]
     );
     let privileges: (bool,bool,bool,bool) = sqlx::query_as("SELECT has_table_privilege(current_user,'content.staff_post_media','SELECT'),has_table_privilege(current_user,'content.staff_post_media','INSERT'),has_table_privilege(current_user,'content.staff_post_media','UPDATE'),has_table_privilege(current_user,'content.staff_post_media','DELETE')")

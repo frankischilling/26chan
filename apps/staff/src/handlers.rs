@@ -312,7 +312,7 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     sqlx::query("SELECT sticky_rank FROM content.visible_threads LIMIT 0")
         .execute(&state.staff)
         .await?;
-    sqlx::query("SELECT post_id,available FROM content.staff_post_media LIMIT 0")
+    sqlx::query("SELECT post_id,available,md5 FROM content.staff_post_media LIMIT 0")
         .execute(&state.staff)
         .await?;
     sqlx::query("SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 0")
