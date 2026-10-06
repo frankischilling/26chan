@@ -54,21 +54,28 @@ try {
             Set-Content -LiteralPath $statePath -Encoding utf8NoBOM
         $events = [Collections.Generic.List[object]]::new()
         $issues = [Collections.Generic.List[string]]::new()
+        $eligible = 0
+        $enumerationComplete = $true
         try {
             $provider = Get-WinEvent -ListProvider 'Microsoft-Windows-Winsock-AFD' -ErrorAction Stop
             $scanned = 0
             foreach ($event in $provider.Events) {
                 $scanned++
-                if ($scanned -gt 4096 -or $events.Count -ge 256) { $issues.Add('metadata-limit'); break }
+                if ($scanned -gt 4096) { $issues.Add('metadata-limit'); $enumerationComplete = $false; break }
                 $level = if ($null -eq $event.Level) { $null } else { [int]$event.Level.Value }
                 if ($null -ne $level -and $level -gt 4) { continue }
+                $eligible++
+                if ($events.Count -ge 256) { $issues.Add('metadata-limit'); continue }
                 $fields = [Collections.Generic.List[object]]::new()
+                $rejections = [Collections.Generic.List[string]]::new()
                 $unsupported = $false
                 if ($null -eq $level) { $issues.Add('provider-level-unavailable'); $unsupported = $true }
                 try {
                     $template = [string]$event.Template
                     if ([string]::IsNullOrWhiteSpace($template)) { throw 'Missing template' }
-                    if ($template.Length -gt 16384) { $issues.Add('metadata-limit'); throw 'Template limit' }
+                    if ($template.Length -gt 16384) {
+                        $issues.Add('metadata-limit'); $rejections.Add('template-limit'); throw 'Template limit'
+                    }
                     $settings = [Xml.XmlReaderSettings]::new()
                     $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
                     $settings.XmlResolver = $null
@@ -77,21 +84,39 @@ try {
                     try { $xml = [Xml.XmlDocument]::new(); $xml.XmlResolver = $null; $xml.Load($reader) }
                     finally { $reader.Dispose() }
                     foreach ($node in $xml.DocumentElement.ChildNodes) {
-                        if ($node.LocalName -ne 'data' -or $fields.Count -ge 16) { $unsupported = $true; break }
+                        if ($node.LocalName -ne 'data') {
+                            $unsupported = $true; $rejections.Add('template-node-unsupported'); break
+                        }
+                        if ($fields.Count -ge 16) {
+                            $unsupported = $true; $rejections.Add('template-field-limit'); break
+                        }
                         $scalar = $true
+                        $attributes = [Collections.Generic.List[string]]::new()
                         foreach ($attribute in $node.Attributes) {
+                            if ($attributes.Count -ge 16) {
+                                $unsupported = $true; $scalar = $false
+                                $rejections.Add('field-attribute-limit'); break
+                            }
+                            $attributes.Add([string]$attribute.Name)
                             if ($attribute.Name -notin @('name', 'inType', 'outType')) { $scalar = $false }
                         }
                         $fields.Add(@{ name = [string]$node.name; type = [string]$node.inType;
-                            out_type = [string]$node.outType; scalar = $scalar })
+                            out_type = [string]$node.outType; scalar = $scalar;
+                            attributes = @($attributes.ToArray());
+                            count = $node.GetAttribute('count'); length = $node.GetAttribute('length') })
                     }
-                } catch { $unsupported = $true; $issues.Add('provider-template-unavailable') }
+                } catch {
+                    $unsupported = $true; $issues.Add('provider-template-unavailable')
+                    $rejections.Add('template-unavailable')
+                }
                 $events.Add(@{ id = [int]$event.Id; version = [int]$event.Version;
-                    level = $level; fields = @($fields.ToArray()); unsupported = $unsupported })
+                    level = $level; fields = @($fields.ToArray()); unsupported = $unsupported;
+                    rejections = @($rejections.ToArray()) })
             }
-        } catch { $issues.Add('provider-metadata-unavailable') }
+        } catch { $issues.Add('provider-metadata-unavailable'); $enumerationComplete = $false }
         $metadata = @{ provider = 'Microsoft-Windows-Winsock-AFD';
-            events = @($events.ToArray()); issues = @($issues | Select-Object -Unique) }
+            events = @($events.ToArray()); issues = @($issues | Select-Object -Unique);
+            events_total = $eligible; events_total_exact = $enumerationComplete }
         $metadataJson = $metadata | ConvertTo-Json -Depth 8 -Compress
         while ([Text.Encoding]::UTF8.GetByteCount($metadataJson) -gt 262144 -and $events.Count -gt 0) {
             $events.RemoveAt($events.Count - 1)
