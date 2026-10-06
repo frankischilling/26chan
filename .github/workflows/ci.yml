@@ -291,6 +291,8 @@ jobs:
         run: sudo bash scripts/test-report-group-migration.sh
       - name: Upgrade private pre-report known observation without activity mutation
         run: sudo bash scripts/test-report-known-migration.sh
+      - name: Upgrade private report weight evidence without historical backfill or clearance
+        run: sudo bash scripts/test-report-weight-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

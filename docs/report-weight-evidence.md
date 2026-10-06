@@ -1,8 +1,8 @@
 # Report-weight evidence
 
 The domain modules `report_weight` and `report_threat` model a small part of the
-supplied report pipeline. They are not connected to admission or staff clearance.
-Existing reports have no inferred effective weight.
+supplied report pipeline. Migration 0102 captures a narrow set of admission-time facts. Staff clearance
+and weighted queue ordering remain unchanged; old reports are not backfilled.
 
 ## Weight decisions
 
@@ -60,8 +60,8 @@ source-equivalent authenticated staff session, so database role or cookie absenc
 cannot establish reporter staff status.
 
 No historical backfill, weighted queue ordering, group-clear eligibility or
-cross-board authorization is enabled by these modules. Unknown effective weights
-must remain unknown at those later boundaries.
+cross-board authorization is enabled. Unknown effective weights remain unknown
+at those later boundaries.
 
 ## Private pre-report observation
 
@@ -72,6 +72,30 @@ creates a session nor changes counters, pending activity, fingerprints, expiry o
 identity. Callers must already follow board, report-gate, then session lock order.
 
 Only the private report owner can call this helper. Public, staff, authentication
-and migrator roles receive no direct execution grant. It remains unwired until
-admission can bind its result to the exact report and establish the other required
-facts. Adding this helper does not change report acceptance or staff clearance.
+and migrator roles receive no direct execution grant. Migration 0102 calls it inside the two existing anonymous admission functions,
+while their locks remain held and before registration advances report activity.
+
+## Captured evidence
+
+Migration 0102 writes one private row with the successful anonymous report. It
+records the pre-report known-or-verified result and evaluator version. Staff,
+threat, history and exact source-reason fields remain NULL. The table constraints
+prevent this evaluator version from claiming those unavailable facts.
+
+A categorical base of exactly 0.5 establishes effective weight 0.5 because every
+possible branch agrees; its numeric proof is `BaseEqualsFallback`. All other
+bases, including zero and negative values, remain unknown while staff authority
+is unavailable. Free-text reports have no category base and no numeric proof.
+The older IP-only report function does not create evidence.
+
+The evidence row, report, membership and anonymous activity commit together.
+Quota, category, registration and authorization failures roll them back. Existing
+registration-time freshness and expiry checks remain in force. There is no
+runtime setter or public evidence projection, and later catalog/session changes
+do not reevaluate retained reports. Ordinary membership retirement keeps evidence
+with report history; physical owner deletion of the report cascades its evidence.
+
+The private table has at most one row per retained report. It shares that history's
+retention policy rather than introducing a separate expiration that could erase
+qualification while the report remains. Apply through migration 0102 before
+starting matching services.

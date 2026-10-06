@@ -37,14 +37,13 @@ REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO board_migrator,board_public,board_staff,board_auth;
 SQL
 }
-# Read actual current startup SQL; drift probes use serving-role catalog access.
+# Frozen 0101 startup SQL; this historical qualification stops before 0102.
+# Drift probes use serving-role catalog access without private-schema grants.
 python3 - "$cluster" <<'PYREADINESS'
-import pathlib,re,sys
+import pathlib,sys
 root=pathlib.Path(sys.argv[1])
-match=re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;',pathlib.Path('crates/store/src/report_admission.rs').read_text(),re.S)
-if not match: raise SystemExit('Cannot extract current report readiness')
-query=match.group(1)
-(root/'readiness.sql').write_text("DO $check$ BEGIN IF ("+query+") IS DISTINCT FROM true THEN RAISE EXCEPTION 'Current readiness failed'; END IF; END $check$;")
+query=pathlib.Path('scripts/fixtures/report-known-0101-readiness.sql').read_text().strip().rstrip(';')
+(root/'readiness.sql').write_text("DO $check$ BEGIN IF ("+query+") IS DISTINCT FROM true THEN RAISE EXCEPTION '0101 readiness failed'; END IF; END $check$;")
 signature='post_secrets.report_known_or_verified(bytea,bytea,bytea,bytea,boolean,bigint)'
 changes=[
  'DROP FUNCTION '+signature,
