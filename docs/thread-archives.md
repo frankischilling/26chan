@@ -34,8 +34,8 @@ extend existing expiry timestamps. Disabling archives hides existing archived
 threads immediately; re-enabling may expose still-unexpired entries that have
 not been soft-deleted. Lowering the count cap prunes oldest entries on the next
 successful new OP. Until then, reads retain the previous set, bounded to 1,000
-summaries. Exact policy values, deterministic ID ordering and all-pinned handling
-are project choices; the pinned reference does not specify them.
+summaries. These retention/count policies and all-pinned handling are project
+choices; they do not reproduce the complete source archive lifecycle.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
 This is public visibility policy, not physical erasure. Base-table text and
@@ -46,7 +46,7 @@ Archived media is not implemented; public uploads remain disabled.
 ## Public contract
 
 `/{board}/archive.json` on either listener returns a JSON array of visible
-archived OP IDs. Enabled-empty returns 200 with `[]`; disabled or unknown boards
+archived OP IDs in ascending numerical order. Enabled-empty returns 200 with `[]`; disabled or unknown boards
 return 404. Existing ETag, HEAD and API-origin CORS behavior applies. Archived
 threads remain at their existing HTML and JSON URLs. The OP JSON includes
 integer `archived: 1`, `archived_on` and `closed: 1`; active OPs omit archive
@@ -64,6 +64,18 @@ Thread/post/quote/report/deletion lookups exclude expired or hidden entries.
 Visibility is evaluated at transaction start; an already-authorized request may
 finish after expiry or removal. A later conditional request must pass visibility
 again before it can return 304. Previously downloaded content cannot be recalled.
+
+The HTML listing includes visible threads whose saved bump clock is at least
+the read snapshot time minus 72 hours, ordered by that clock descending.
+This follows the source root ordering recorded in the [compatibility inventory](compatibility.md#archives-and-retention)
+and [posting-clock notes](source-posting-times.md). Equal bump clocks use descending
+IDs for deterministic local ordering; that tie-break is not source-proven. HTML
+and JSON keep their distinct orderings within their existing read snapshots.
+
+The supplied `imgboard.php:9253` uses an inclusive comparison against the root
+clock for this three-day window. It is independent of storage expiry and does
+not shorten the JSON archive list. The source 3,000-entry ceiling, summary
+truncation and complete archive-page layout remain unfinished.
 
 ## Migration and verification
 

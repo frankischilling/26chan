@@ -1,4 +1,4 @@
-import test, { after, before } from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
@@ -225,10 +225,11 @@ const sources = Object.fromEntries(await Promise.all(sourceNames.map(async name 
 const origin = 'https://settings-transfer.example';
 let browser;
 
-before(async () => { browser = await chromium.launch({ headless: true }); });
 after(async () => { await browser?.close(); });
 
 async function fixture(t, { path = '/demo/thread/100', hash = '', stored = {}, restoreMode = 'ok' } = {}) {
+  // Pure transfer validation must not depend on a browser executable being installed.
+  browser ??= await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1000, height: 700 } });
   t.after(() => context.close());
   const requests = [];

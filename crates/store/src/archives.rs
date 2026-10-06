@@ -43,8 +43,16 @@ async fn read_archive_snapshot(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(StoreError::NotFound)?;
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT 1000")
-        .bind(slug).fetch_all(&mut *tx).await?;
+    // Source HTML includes root clocks from the last 72 hours, newest first.
+    // The transaction clock keeps that window consistent with this read snapshot.
+    // archive.json lists all retained entries by ID.
+    // Equal bump clocks use descending IDs as a deterministic local tie-break.
+    let query = if include_navigation {
+        "SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 1000"
+    } else {
+        "SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT 1000"
+    };
+    let entries = sqlx::query_as(query).bind(slug).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;
     Ok(PageSnapshot {

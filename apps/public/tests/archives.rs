@@ -247,8 +247,92 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
     assert!(!html.contains(&format!("href=\"/{slug}/archive\"")));
 }
 
+async fn ordering_contract(owner: PgPool, public: PgPool, slug: String) {
+    let (web, api) = board_public::routers(public.clone(), ORIGIN.into(), false);
+    let post = board_store::NewPost {
+        name: "Anonymous".into(),
+        subject: "<script>archive ordering</script>".into(),
+        comment: "Synthetic archive ordering".into(),
+        deletion_hash: "synthetic-unused-hash".into(),
+        sage: false,
+    };
+    let mut ids = Vec::new();
+    for _ in 0..6 {
+        ids.push(
+            board_store::create_post(&public, &slug, 0, &post)
+                .await
+                .unwrap(),
+        );
+    }
+    let anchor: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT now()")
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    // ID/creation order, archive order and bump order are deliberately different.
+    for (index, bump_minutes) in [-20_i32, -10, -4319, -5, -1, -4321].into_iter().enumerate() {
+        sqlx::query("UPDATE content.threads SET bumped_at=$5::timestamptz+make_interval(mins=>$2),archived_at=now()-make_interval(mins=>$3),archive_expires_at=now()+interval '1 hour' WHERE board=$1 AND id=$4")
+            .bind(&slug).bind(bump_minutes).bind(index as i32).bind(ids[index]).bind(anchor)
+            .execute(&owner).await.unwrap();
+    }
+    sqlx::query("UPDATE content.threads SET deleted=true WHERE board=$1 AND id=$2")
+        .bind(&slug)
+        .bind(ids[3])
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET archive_expires_at=now()-interval '1 second' WHERE board=$1 AND id=$2")
+        .bind(&slug).bind(ids[4]).execute(&owner).await.unwrap();
+    let path = format!("/{slug}/archive");
+    for expected in [[ids[1], ids[0], ids[2]], [ids[2], ids[1], ids[0]]] {
+        let snapshot = board_store::archive_page_snapshot(&public, &slug)
+            .await
+            .unwrap();
+        assert_eq!(
+            snapshot
+                .snapshot
+                .entries
+                .iter()
+                .map(|entry| entry.id)
+                .collect::<Vec<_>>(),
+            expected
+        );
+        let response = request(&web, &path, "GET", None).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body(response).await;
+        let positions: Vec<_> = expected
+            .iter()
+            .map(|id| html.find(&format!("href=\"/{slug}/thread/{id}\"")).unwrap())
+            .collect();
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(html.contains("&#60;script&#62;archive ordering&#60;/script&#62;"));
+        for id in &ids[3..] {
+            assert!(!html.contains(&format!("/{slug}/thread/{id}\"")));
+        }
+        for app in [&web, &api] {
+            let response = request(app, &format!("{path}.json"), "GET", None).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                serde_json::from_str::<Value>(&body(response).await).unwrap(),
+                json!([ids[0], ids[1], ids[2], ids[5]])
+            );
+        }
+        // Equal root clocks use the documented local descending-ID tie-break.
+        sqlx::query("UPDATE content.threads SET bumped_at=$3::timestamptz-interval '10 minutes' WHERE board=$1 AND id=$2")
+            .bind(&slug).bind(ids[2]).bind(anchor).execute(&owner).await.unwrap();
+    }
+}
+
 #[tokio::test]
 async fn archive_routes_preserve_visibility_cache_fields_and_read_only_html() {
+    archive_fixture(false).await;
+}
+
+#[tokio::test]
+async fn html_archive_uses_bump_order_while_json_preserves_ascending_ids() {
+    archive_fixture(true).await;
+}
+
+async fn archive_fixture(ordering: bool) {
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -261,7 +345,16 @@ async fn archive_routes_preserve_visibility_cache_fields_and_read_only_html() {
         .unwrap();
     let slug = format!("p{seed:x}");
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,10,10,3600)").bind(&slug).execute(&owner).await.unwrap();
-    let result = tokio::spawn(contract(owner.clone(), public.clone(), slug.clone())).await;
+    let result = if ordering {
+        tokio::spawn(ordering_contract(
+            owner.clone(),
+            public.clone(),
+            slug.clone(),
+        ))
+        .await
+    } else {
+        tokio::spawn(contract(owner.clone(), public.clone(), slug.clone())).await
+    };
     for query in [
         "DELETE FROM content.reports WHERE board=$1",
         "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",

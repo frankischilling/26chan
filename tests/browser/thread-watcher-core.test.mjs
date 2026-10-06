@@ -149,13 +149,22 @@ test('owned HTTP responses update two boards without credentials and settle ever
   let active = 0;
   let maximum = 0;
   const finished = [];
-  const origin = await server(t, (request, response) => {
+  let releaseFirst;
+  const laterResponses = new Promise(resolve => { releaseFirst = resolve; });
+  const origin = await server(t, async (request, response) => {
     assert.equal(request.headers.cookie, undefined);
     assert.equal(request.headers.authorization, undefined);
     assert.equal(request.headers.referer, undefined);
     active += 1; maximum = Math.max(maximum, active);
     const id = request.url.match(/\/(\d+)\.json$/)[1];
-    setTimeout(() => { active -= 1; finished.push(id); response.writeHead(200, { 'content-type': 'application/json' }); response.end(wire(id, [String(Number(id) + 1)])); }, id === '100' ? 60 : 5);
+    // Keep one slot occupied until the other slot has drained its queued work.
+    // Timer delays cannot guarantee this ordering when the test runner is busy.
+    if (id === '100') await laterResponses;
+    active -= 1;
+    finished.push(id);
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(wire(id, [String(Number(id) + 1)]));
+    if (id === '300') releaseFirst();
   });
   const { entries, refresh } = state(origin, [['100-demo', entry('100')], ['200-img', entry('200')], ['300-demo', entry('300')]]);
   const result = await refresh.refresh();
@@ -163,7 +172,7 @@ test('owned HTTP responses update two boards without credentials and settle ever
   assert.equal(result.results.length, 3);
   assert.equal(finished.length, 3);
   assert.equal(finished.at(-1), '100');
-  assert.ok(maximum <= 2);
+  assert.equal(maximum, 2);
   for (const value of entries.values()) assert.equal(value.unread, 1);
 });
 
