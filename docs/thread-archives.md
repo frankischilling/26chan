@@ -33,15 +33,16 @@ The public login cannot change either setting. Increasing retention does not
 extend existing expiry timestamps. Disabling archives hides existing archived
 threads immediately; re-enabling may expose still-unexpired entries that have
 not been soft-deleted. Lowering the count cap prunes oldest entries on the next
-successful new OP. Until then, reads retain the previous set, bounded to 1,000
-summaries. These retention/count policies and all-pinned handling are project
+successful new OP. Until then, reads retain the previous set. JSON reads are bounded to 1,000
+IDs; the independent HTML read ceiling is 3,000 summaries. These retention/count policies and all-pinned handling are project
 choices; they do not reproduce the complete source archive lifecycle.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
 This is public visibility policy, not physical erasure. Base-table text and
 deletion secrets remain in the database under existing grants, including the
 public and staff content readers. Backups have separate retention requirements.
-Archived media is not implemented; public uploads remain disabled.
+Media handling has separate qualification requirements; see the current media
+documentation for supported formats and isolation profiles.
 
 ## Public contract
 
@@ -55,7 +56,8 @@ fields. Boards JSON includes `is_archived: 1` only when enabled.
 `/{board}/archive` provides escaped HTML summaries and thread links. Thread pages
 use the native Return link to reach the board and its Archive link. Navigation
 appears on enabled boards. Archived threads show read-only status and no reply
-form; password deletion and reporting still work. Staff cannot reopen or pin an
+form. Public deletion is forbidden by the source deletion policy; reporting
+retains its separate authorization checks. Staff cannot reopen or pin an
 archived thread, but can remove it with the existing audit trail. The separate
 staff closed flag remains outside public write authority.
 
@@ -74,8 +76,16 @@ and JSON keep their distinct orderings within their existing read snapshots.
 
 The supplied `imgboard.php:9253` uses an inclusive comparison against the root
 clock for this three-day window. It is independent of storage expiry and does
-not shorten the JSON archive list. The source 3,000-entry ceiling, summary
-truncation and complete archive-page layout remain unfinished.
+not shorten the JSON archive list. HTML reads use the source 3,000-entry ceiling
+from line 9264 without raising response or shared-buffer budgets. Normal stored
+retention is still independently capped at 1,000; restoring the read ceiling
+does not complete lifecycle parity. Summary truncation and complete archive-page
+layout remain unfinished.
+
+The archive-capacity database test bulk-loads an owned synthetic set beyond
+normal retention to verify 1,200 entries and the exact 3,000-entry ceiling. It
+checks rendered ordering, escaping and rejection under a smaller configured
+response budget without returning partial HTML.
 
 ## Migration and verification
 
