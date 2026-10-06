@@ -31,6 +31,7 @@ pub struct Report {
     pub permaage: bool,
     pub undead: bool,
     pub archived: bool,
+    pub archives_enabled: bool,
     pub deleted: bool,
     pub spoilers_enabled: bool,
     pub image_spoiler: bool,
@@ -67,7 +68,7 @@ pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, Ap
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(b.archive_retention_seconds>0) AS archives_enabled,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
         .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
         .fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
@@ -110,6 +111,7 @@ pub(crate) async fn prepare_moderation(
             | "unpermaage"
             | "undead"
             | "unundead"
+            | "force-archive"
             | "remove-post"
             | "remove-file"
             | "spoiler"
@@ -132,13 +134,60 @@ pub(crate) async fn prepare_moderation(
         .execute(&mut *tx)
         .await?;
     let mut audit_changed = true;
-    let (spoilers_enabled, staff_only): (bool, bool) = sqlx::query_as(
-        "SELECT comment_spoiler_cleanup,staff_only FROM content.boards WHERE slug=$1 FOR UPDATE",
+    let (spoilers_enabled, staff_only, archive_retention_seconds): (bool, bool, i32) = sqlx::query_as(
+        "SELECT comment_spoiler_cleanup,staff_only,archive_retention_seconds FROM content.boards WHERE slug=$1 FOR UPDATE",
     )
     .bind(board)
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(AppError::NotFound)?;
+    if action == "force-archive" {
+        // Source forcearchive requires an archive-enabled board and an actual
+        // nonsticky OP. Undead protects automatic pruning, not this action.
+        if archive_retention_seconds <= 0 {
+            return Err(AppError::Invalid);
+        }
+        let (archived, sticky): (bool, bool) = sqlx::query_as(
+            "SELECT archived_at IS NOT NULL,sticky FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        )
+        .bind(board)
+        .bind(target)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(AppError::NotFound)?;
+        if archived || sticky {
+            return Err(AppError::Invalid);
+        }
+        let snapshot = audit_snapshot::capture(&mut tx, board, target, target)
+            .await?
+            .ok_or(AppError::NotFound)?;
+        // One wall clock after all content locks supplies both archive expiry
+        // and the source root refresh. Existing archive triggers retire deletion
+        // secrets and eligible report groups without deleting report history.
+        sqlx::query(
+            "WITH stamp AS MATERIALIZED (SELECT clock_timestamp() AS at) \
+             UPDATE content.threads SET closed=true,archived_at=stamp.at,\
+             archive_expires_at=stamp.at+make_interval(secs=>$3::integer),\
+             bumped_at=stamp.at,modified_at=stamp.at FROM stamp WHERE board=$1 AND id=$2",
+        )
+        .bind(board)
+        .bind(target)
+        .bind(archive_retention_seconds)
+        .execute(&mut *tx)
+        .await?;
+        audit_snapshot::append(
+            &mut tx,
+            session.account_id,
+            board,
+            target,
+            audit_snapshot::SnapshotAction::ForceArchive,
+            &snapshot,
+        )
+        .await?;
+        // The HTTP handler retains its authority locks and rechecks live/recent
+        // authentication after any waits before committing this transaction.
+        return Ok(tx);
+    }
     if matches!(action, "spoiler" | "unspoiler") {
         // Capture under board -> thread -> post locks, but leave all rejection
         // and no-op decisions to the unchanged security-definer setter below.

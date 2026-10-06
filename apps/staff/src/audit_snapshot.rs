@@ -1,4 +1,4 @@
-//! Immutable saved-content evidence for the two source snapshot actions.
+//! Immutable saved-content evidence for source moderation snapshot actions.
 //!
 //! These are logical stored values, not a rendered archive. In particular the
 //! wordfilter marker carries no discarded text or URL context from its payload.
@@ -26,6 +26,7 @@ pub(crate) enum SnapshotAction {
     ThreadOptions { before: i16, after: i16 },
     Spoiler,
     Unspoiler,
+    ForceArchive,
 }
 
 impl SnapshotAction {
@@ -34,6 +35,7 @@ impl SnapshotAction {
             Self::ThreadOptions { before, after } => ("thread-options", Some(before), Some(after)),
             Self::Spoiler => ("spoiler", None, None),
             Self::Unspoiler => ("unspoiler", None, None),
+            Self::ForceArchive => ("force-archive", None, None),
         }
     }
 }

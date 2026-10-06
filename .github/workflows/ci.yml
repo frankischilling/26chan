@@ -297,6 +297,8 @@ jobs:
         run: sudo bash scripts/test-grouped-options-migration.sh
       - name: Qualify nullable moderation snapshots without historical backfill or expanded authority
         run: sudo bash scripts/test-audit-snapshot-migration.sh
+      - name: Qualify force archive audit upgrade without rewriting history or expanding authority
+        run: sudo bash scripts/test-force-archive-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

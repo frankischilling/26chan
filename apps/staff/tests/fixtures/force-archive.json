@@ -1,0 +1,647 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+  },
+  "selected_snippet_sha256": {
+    "forcearchive": "d5952492aae3003b893d116297f8d1d125a5d051c9bc3d7ecaf4ce2bde3226f2"
+  },
+  "extractor_php": "8.4.26",
+  "scope": "Executed forcearchive rejection order, boundary-call order and action-3 saved OP payload using synthetic rows.",
+  "excluded": [
+    "original application and includes",
+    "actual authentication and board permissions",
+    "real SQL/database/network",
+    "archive_thread implementation and its mutations",
+    "log_mod_action implementation and persistence",
+    "actual rendering or rebuilds",
+    "rewrite HTTP error/status equivalence"
+  ],
+  "boundary_stubs": [
+    "has_level supplied as a boolean; default moderator rank verified separately in lib/auth.php",
+    "ENABLE_ARCHIVE and ENABLE_JSON_THREADS supplied per synthetic case",
+    "SQL returns one supplied row or failure; no actual query execution",
+    "archive, log and rebuild calls are recorders only",
+    "sticky denial constant is a synthetic sentinel"
+  ],
+  "representation_boundary": "Stored source name/sub/com are forwarded unchanged. filename and ext remain separate at log_mod_action entry. This does not assert byte-identical rewrite structured snapshots. PHP integer coercion is recorded, not prescribed for rewrite request validation.",
+  "cases": [
+    {
+      "moderator": false,
+      "archive_enabled": false,
+      "id_present": false,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "rank_before_disabled_and_missing",
+      "expected_error": "Can't let you do that.",
+      "source": {
+        "error": "Can't let you do that.",
+        "calls": [],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": false,
+      "id_present": false,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "disabled_before_missing",
+      "expected_error": "Archives are disabled on this board.",
+      "source": {
+        "error": "Archives are disabled on this board.",
+        "calls": [],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": false,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "missing_id",
+      "expected_error": "Bad Request.",
+      "source": {
+        "error": "Bad Request.",
+        "calls": [],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": false,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "query_failure",
+      "expected_error": "Database error.",
+      "source": {
+        "error": "Database error.",
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          }
+        ],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": null,
+      "id": "missing_thread",
+      "expected_error": "Thread not found.",
+      "source": {
+        "error": "Thread not found.",
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          }
+        ],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "archived": 1,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "reply_before_archived_and_sticky",
+      "expected_error": "Thread not found.",
+      "source": {
+        "error": "Thread not found.",
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          }
+        ],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "archived": 1,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "archived_before_sticky",
+      "expected_error": "This thread is already archived.",
+      "source": {
+        "error": "This thread is already archived.",
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          }
+        ],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "sticky",
+      "expected_error": "fixture-sticky-denial",
+      "source": {
+        "error": "fixture-sticky-denial",
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          }
+        ],
+        "audit": null
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "ordinary",
+      "expected_error": null,
+      "source": {
+        "error": null,
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          },
+          {
+            "name": "archive_thread",
+            "arguments": [
+              420
+            ]
+          },
+          {
+            "name": "log_mod_action",
+            "arguments": [
+              3,
+              {
+                "no": 420,
+                "name": "Fixture moderator",
+                "sub": "SPOILER<>Synthetic subject",
+                "com": "Saved &lt;tag&gt;<br>\u96ea",
+                "filename": "image.version",
+                "ext": ".png"
+              }
+            ]
+          },
+          {
+            "name": "generate_board_archived_json",
+            "arguments": []
+          },
+          {
+            "name": "updating_index",
+            "arguments": []
+          }
+        ],
+        "audit": {
+          "action": 3,
+          "post": {
+            "no": 420,
+            "name": "Fixture moderator",
+            "sub": "SPOILER<>Synthetic subject",
+            "com": "Saved &lt;tag&gt;<br>\u96ea",
+            "filename": "image.version",
+            "ext": ".png"
+          }
+        }
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 1,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "undead_allowed",
+      "expected_error": null,
+      "source": {
+        "error": null,
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          },
+          {
+            "name": "archive_thread",
+            "arguments": [
+              420
+            ]
+          },
+          {
+            "name": "log_mod_action",
+            "arguments": [
+              3,
+              {
+                "no": 420,
+                "name": "Fixture moderator",
+                "sub": "SPOILER<>Synthetic subject",
+                "com": "Saved &lt;tag&gt;<br>\u96ea",
+                "filename": "image.version",
+                "ext": ".png"
+              }
+            ]
+          },
+          {
+            "name": "generate_board_archived_json",
+            "arguments": []
+          },
+          {
+            "name": "updating_index",
+            "arguments": []
+          }
+        ],
+        "audit": {
+          "action": 3,
+          "post": {
+            "no": 420,
+            "name": "Fixture moderator",
+            "sub": "SPOILER<>Synthetic subject",
+            "com": "Saved &lt;tag&gt;<br>\u96ea",
+            "filename": "image.version",
+            "ext": ".png"
+          }
+        }
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": false,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "json_disabled",
+      "expected_error": null,
+      "source": {
+        "error": null,
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          },
+          {
+            "name": "archive_thread",
+            "arguments": [
+              420
+            ]
+          },
+          {
+            "name": "log_mod_action",
+            "arguments": [
+              3,
+              {
+                "no": 420,
+                "name": "Fixture moderator",
+                "sub": "SPOILER<>Synthetic subject",
+                "com": "Saved &lt;tag&gt;<br>\u96ea",
+                "filename": "image.version",
+                "ext": ".png"
+              }
+            ]
+          },
+          {
+            "name": "updating_index",
+            "arguments": []
+          }
+        ],
+        "audit": {
+          "action": 3,
+          "post": {
+            "no": 420,
+            "name": "Fixture moderator",
+            "sub": "SPOILER<>Synthetic subject",
+            "com": "Saved &lt;tag&gt;<br>\u96ea",
+            "filename": "image.version",
+            "ext": ".png"
+          }
+        }
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420trailing",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "Fixture moderator",
+        "sub": "SPOILER<>Synthetic subject",
+        "com": "Saved &lt;tag&gt;<br>\u96ea",
+        "filename": "image.version",
+        "ext": ".png"
+      },
+      "id": "php_integer_coercion",
+      "expected_error": null,
+      "source": {
+        "error": null,
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          },
+          {
+            "name": "archive_thread",
+            "arguments": [
+              420
+            ]
+          },
+          {
+            "name": "log_mod_action",
+            "arguments": [
+              3,
+              {
+                "no": 420,
+                "name": "Fixture moderator",
+                "sub": "SPOILER<>Synthetic subject",
+                "com": "Saved &lt;tag&gt;<br>\u96ea",
+                "filename": "image.version",
+                "ext": ".png"
+              }
+            ]
+          },
+          {
+            "name": "generate_board_archived_json",
+            "arguments": []
+          },
+          {
+            "name": "updating_index",
+            "arguments": []
+          }
+        ],
+        "audit": {
+          "action": 3,
+          "post": {
+            "no": 420,
+            "name": "Fixture moderator",
+            "sub": "SPOILER<>Synthetic subject",
+            "com": "Saved &lt;tag&gt;<br>\u96ea",
+            "filename": "image.version",
+            "ext": ".png"
+          }
+        }
+      }
+    },
+    {
+      "moderator": true,
+      "archive_enabled": true,
+      "id_present": true,
+      "requested_id": "420",
+      "query_ok": true,
+      "json_enabled": true,
+      "thread": {
+        "no": 420,
+        "resto": 0,
+        "sticky": 0,
+        "archived": 0,
+        "undead": 0,
+        "name": "",
+        "sub": "",
+        "com": "",
+        "filename": "",
+        "ext": ""
+      },
+      "id": "empty_saved_content",
+      "expected_error": null,
+      "source": {
+        "error": null,
+        "calls": [
+          {
+            "name": "mysql_board_call",
+            "arguments": [
+              "SELECT resto, sticky, archived, no, name, sub, com, filename, ext FROM `%s` WHERE no = %d",
+              "g",
+              420
+            ]
+          },
+          {
+            "name": "archive_thread",
+            "arguments": [
+              420
+            ]
+          },
+          {
+            "name": "log_mod_action",
+            "arguments": [
+              3,
+              {
+                "no": 420,
+                "name": "",
+                "sub": "",
+                "com": "",
+                "filename": "",
+                "ext": ""
+              }
+            ]
+          },
+          {
+            "name": "generate_board_archived_json",
+            "arguments": []
+          },
+          {
+            "name": "updating_index",
+            "arguments": []
+          }
+        ],
+        "audit": {
+          "action": 3,
+          "post": {
+            "no": 420,
+            "name": "",
+            "sub": "",
+            "com": "",
+            "filename": "",
+            "ext": ""
+          }
+        }
+      }
+    }
+  ]
+}
