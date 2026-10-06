@@ -78,8 +78,10 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::UnsafeRole => AppError::Forbidden,
         StoreError::RandomnessUnavailable => AppError::Internal,
         StoreError::ReadLimit => AppError::Capacity,
+        StoreError::PostingCooldownRejected(rejection) => {
+            AppError::Posting(rejection.source_message())
+        }
         StoreError::Robot9000Rejected(_)
-        | StoreError::PostingCooldownRejected(_)
         | StoreError::ContentRejected(_)
         | StoreError::PublicDeletionRejected(_)
         | StoreError::ContentQuiet { .. } => AppError::Internal,
@@ -435,6 +437,16 @@ pub(crate) async fn submit(
         Ok(id) => {
             let parent = if input.resto == 0 { id } else { input.resto };
             Ok(Redirect::to(&format!("/j/thread/{parent}#p{id}")).into_response())
+        }
+        Err(StoreError::PostingCooldownRejected(rejection)) => {
+            let mut page =
+                build_page(&state, &headers, input.resto, 1, ViewQuery::default()).await?;
+            page.subject = input.sub;
+            page.comment = input.com;
+            page.error = rejection.source_message();
+            let mut response = html(&state, &page)?;
+            *response.status_mut() = StatusCode::BAD_REQUEST;
+            Ok(response)
         }
         Err(StoreError::Invalid(message) | StoreError::Conflict(message)) => {
             let mut page =

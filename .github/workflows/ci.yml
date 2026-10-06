@@ -265,6 +265,8 @@ jobs:
         run: sudo bash scripts/test-source-rollover-migration.sh
       - name: Populated posting cooldown policy and private history migration
         run: sudo bash scripts/test-posting-cooldown-migration.sh
+      - name: Populated staff posting timer and scoped proof cleanup migration
+        run: sudo bash scripts/test-staff-posting-cooldown-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

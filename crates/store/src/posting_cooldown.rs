@@ -1,4 +1,4 @@
-//! Ordinary public-post admission. Private identities never reach errors or UI.
+//! Posting admission. Private identities never reach errors or UI.
 use crate::StoreError;
 use board_domain::poster_id::PublicPostingRateIdentity;
 use sqlx::{Postgres, Transaction};
@@ -108,10 +108,34 @@ pub(crate) async fn check(
     .bind(request_epoch)
     .fetch_all(&mut **tx)
     .await?;
-    decode_result(&rows, parent, has_image)
+    decode_result(&rows, CheckContext::Ordinary { parent, has_image })
 }
 
-fn decode_result(rows: &[ResultRow], parent: i64, has_image: bool) -> Result<(), StoreError> {
+/// Only called after the server-owned staff authority issuer succeeds.
+pub(crate) async fn check_staff(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &PublicPostingRateIdentity,
+    board: &str,
+    request_epoch: i64,
+) -> Result<(), StoreError> {
+    let rows: Vec<ResultRow> = sqlx::query_as(
+        "SELECT kind,remaining_seconds FROM content.check_staff_posting_cooldown($1,$2,$3)",
+    )
+    .bind(actor.as_bytes().as_slice())
+    .bind(board)
+    .bind(request_epoch)
+    .fetch_all(&mut **tx)
+    .await?;
+    decode_result(&rows, CheckContext::Staff)
+}
+
+#[derive(Clone, Copy)]
+enum CheckContext {
+    Ordinary { parent: i64, has_image: bool },
+    Staff,
+}
+
+fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreError> {
     let invalid = || {
         StoreError::Database(sqlx::Error::Protocol(
             "Invalid posting cooldown result.".into(),
@@ -122,11 +146,26 @@ fn decode_result(rows: &[ResultRow], parent: i64, has_image: bool) -> Result<(),
         [row] if row.remaining_seconds > 0 => row,
         _ => return Err(invalid()),
     };
-    let reason = match row.kind.as_str() {
-        "reply" if parent > 0 && !has_image => PostingCooldownReason::Reply,
-        "image" if parent > 0 && has_image => PostingCooldownReason::ImageReply,
-        "thread" if parent == 0 => PostingCooldownReason::Thread,
-        "cross_board_thread" if parent == 0 => PostingCooldownReason::CrossBoardThread,
+    let reason = match (context, row.kind.as_str()) {
+        (CheckContext::Staff, "reply") => PostingCooldownReason::Reply,
+        (
+            CheckContext::Ordinary {
+                parent,
+                has_image: false,
+            },
+            "reply",
+        ) if parent > 0 => PostingCooldownReason::Reply,
+        (
+            CheckContext::Ordinary {
+                parent,
+                has_image: true,
+            },
+            "image",
+        ) if parent > 0 => PostingCooldownReason::ImageReply,
+        (CheckContext::Ordinary { parent: 0, .. }, "thread") => PostingCooldownReason::Thread,
+        (CheckContext::Ordinary { parent: 0, .. }, "cross_board_thread") => {
+            PostingCooldownReason::CrossBoardThread
+        }
         _ => return Err(invalid()),
     };
     Err(StoreError::PostingCooldownRejected(
@@ -161,7 +200,16 @@ mod tests {
 
     #[test]
     fn malformed_decisions_fail_closed() {
-        assert!(decode_result(&[], 1, false).is_ok());
+        assert!(
+            decode_result(
+                &[],
+                CheckContext::Ordinary {
+                    parent: 1,
+                    has_image: false
+                }
+            )
+            .is_ok()
+        );
         for (kind, seconds, parent, image) in [
             ("allow", 0, 1, false),
             ("reply", 0, 1, false),
@@ -177,7 +225,13 @@ mod tests {
                 remaining_seconds: seconds,
             }];
             assert!(matches!(
-                decode_result(&rows, parent, image),
+                decode_result(
+                    &rows,
+                    CheckContext::Ordinary {
+                        parent,
+                        has_image: image
+                    }
+                ),
                 Err(StoreError::Database(_))
             ));
         }
@@ -192,7 +246,13 @@ mod tests {
             },
         ];
         assert!(matches!(
-            decode_result(&rows, 1, false),
+            decode_result(
+                &rows,
+                CheckContext::Ordinary {
+                    parent: 1,
+                    has_image: false
+                }
+            ),
             Err(StoreError::Database(_))
         ));
     }
@@ -214,7 +274,13 @@ mod tests {
                 kind: kind.into(),
                 remaining_seconds: 17,
             }];
-            match decode_result(&rows, parent, image) {
+            match decode_result(
+                &rows,
+                CheckContext::Ordinary {
+                    parent,
+                    has_image: image,
+                },
+            ) {
                 Err(StoreError::PostingCooldownRejected(rejection)) => {
                     assert_eq!(rejection.reason, reason);
                     assert_eq!(rejection.remaining_seconds, 17);
@@ -222,6 +288,56 @@ mod tests {
                 _ => panic!("expected typed rejection"),
             }
         }
+    }
+
+    #[test]
+    fn staff_decisions_use_reply_wording_without_a_parent_or_image_exception() {
+        assert!(decode_result(&[], CheckContext::Staff).is_ok());
+        let rows = [ResultRow {
+            kind: "reply".into(),
+            remaining_seconds: 5,
+        }];
+        match decode_result(&rows, CheckContext::Staff) {
+            Err(StoreError::PostingCooldownRejected(rejection)) => {
+                assert_eq!(rejection.reason, PostingCooldownReason::Reply);
+                assert_eq!(
+                    rejection.source_message(),
+                    "Error: You must wait  5 seconds before posting a reply."
+                );
+            }
+            _ => panic!("expected typed staff rejection"),
+        }
+        for (kind, remaining_seconds) in [
+            ("reply", 0),
+            ("reply", -1),
+            ("image", 1),
+            ("thread", 1),
+            ("cross_board_thread", 1),
+            ("unknown", 1),
+        ] {
+            let rows = [ResultRow {
+                kind: kind.into(),
+                remaining_seconds,
+            }];
+            assert!(matches!(
+                decode_result(&rows, CheckContext::Staff),
+                Err(StoreError::Database(_))
+            ));
+        }
+        let rows = [
+            ResultRow {
+                kind: "reply".into(),
+                remaining_seconds: 1,
+            },
+            ResultRow {
+                kind: "reply".into(),
+                remaining_seconds: 1,
+            },
+        ];
+        assert!(matches!(
+            decode_result(&rows, CheckContext::Staff),
+            Err(StoreError::Database(_))
+        ));
     }
 
     #[test]

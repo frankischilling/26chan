@@ -273,7 +273,10 @@ pub async fn create_staff_post_with_context_and_keys(
             "Ordinary staff posting context is required.",
         ));
     }
-    create_post_in_context(
+    let auth_pool = authority.auth_pool;
+    let ticket = authority.ticket_hash;
+    let session = authority.session_hash;
+    let result = create_post_in_context(
         pool,
         slug,
         parent,
@@ -292,7 +295,19 @@ pub async fn create_staff_post_with_context_and_keys(
             anonymous: None,
         },
     )
-    .await
+    .await;
+    if result.is_err() {
+        // The independently committed proof is unused after a failed post.
+        // Remove only this request's nonordinary proof. Preserve the original
+        // rejection if cleanup fails; the existing 15-second expiry is the
+        // fallback and no broader cancellation authority is introduced.
+        let _ = sqlx::query("SELECT staff_identity.discard_badged_post_authority($1,$2)")
+            .bind(ticket.as_slice())
+            .bind(session)
+            .execute(auth_pool)
+            .await;
+    }
+    result
 }
 
 /// Ordinary staff posts retain public metadata and admission behavior. The
@@ -822,9 +837,9 @@ async fn create_post_in_context(
         .bind(wordfilter_search.as_deref().unwrap_or_default())
         .execute(&mut *tx)
         .await?;
-    // Staff authority is independently verified by the insert proof, including
-    // its minimum janitor rank. The source's staff five-second timer and its
-    // named/meta janitor exception are separate, not implemented in this slice.
+    // Staff use their separate five-second check after the independent proof
+    // issuer validates their session and minimum janitor rank below. The
+    // named/meta janitor ordinary-timer exceptions remain a separate concern.
     if staff.is_none() {
         crate::posting_cooldown::check(
             &mut tx,
@@ -879,15 +894,17 @@ async fn create_post_in_context(
         .fetch_one(&mut *tx)
         .await?;
     let thread_id = if parent == 0 {
-        crate::archives::make_room(&mut tx, &board).await?;
-        sqlx::query(
-            "INSERT INTO content.threads(id,board,created_at,modified_at) VALUES ($1,$2,$3,$3)",
-        )
-        .bind(id)
-        .bind(slug)
-        .bind(posted_at)
-        .execute(&mut *tx)
-        .await?;
+        if staff.is_none() {
+            crate::archives::make_room(&mut tx, &board).await?;
+            sqlx::query(
+                "INSERT INTO content.threads(id,board,created_at,modified_at) VALUES ($1,$2,$3,$3)",
+            )
+            .bind(id)
+            .bind(slug)
+            .bind(posted_at)
+            .execute(&mut *tx)
+            .await?;
+        }
         id
     } else {
         let thread = reply_target.expect("validated locked reply target");
@@ -1045,6 +1062,23 @@ async fn create_post_in_context(
             .bind(ticket)
             .execute(&mut *tx)
             .await?;
+        // Actor/board locks and READ COMMITTED are already held. A validated
+        // authority, not capcode or client fields, selects this admission path.
+        crate::posting_cooldown::check_staff(&mut tx, &posting_actor, slug, posted_at.timestamp())
+            .await?;
+        if parent == 0 {
+            // Check before rollover: deleting/archiving the newest post here
+            // must not erase the history used to admit this staff attempt.
+            crate::archives::make_room(&mut tx, &board).await?;
+            sqlx::query(
+                "INSERT INTO content.threads(id,board,created_at,modified_at) VALUES ($1,$2,$3,$3)",
+            )
+            .bind(id)
+            .bind(slug)
+            .bind(posted_at)
+            .execute(&mut *tx)
+            .await?;
+        }
     }
     let spoiler = board.comment_spoiler_cleanup
         && (metadata.spoiler || attachment.is_some_and(|file| file.spoiler));

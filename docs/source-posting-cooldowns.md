@@ -1,7 +1,7 @@
-# Ordinary posting cooldowns
+# Posting cooldowns
 
 Migration 0087 adds server-side ordinary posting timers from the supplied
-source. This is one part of [issue #213](https://github.com/frankischilling/26chan/issues/213),
+source. Migration 0088 adds the five-second authenticated staff gate. This is one part of [issue #213](https://github.com/frankischilling/26chan/issues/213),
 not complete posting-admission or source parity. The source references below
 were read as text; the original PHP was not executed.
 
@@ -145,9 +145,44 @@ prove a peer to a compromised application database role. Do not describe it
 as protection against a compromised application inventing new content or
 actor context.
 
-Authenticated staff-authorized posts skip the ordinary timer decision but
-still require identity and register successful posting history. The source's
-staff five-second timer and named/meta-board janitor exceptions remain open.
+## Authenticated staff five-second gate
+
+The supplied `4chan-old/imgboard.php:6004-6016` selects the latest post by
+post number for the same host and board, including OPs and replies. Although
+its nearby comment says three seconds, the executed assignment is
+`$cooldown = 5`. The comparison is strict: four elapsed whole seconds reject
+with one second remaining; exactly five seconds allow the attempt. A newer
+post number with an earlier request clock controls the decision, even when
+an older post has a later timestamp.
+
+Migration 0088 adds `content.check_staff_posting_cooldown(bytea,text,bigint)`
+and an all-post `(board, actor_hash, post_id DESC)` history index. The check
+uses the same private transport-derived actor and surviving history as
+ordinary posting. It is board-local and covers both new threads and replies,
+including attachment posts. It returns the source reply cooldown kind even
+for an attempted OP. Ordinary board intervals do not change its five-second
+value. Deletion and archive retain the history lifecycle described above.
+
+Authenticated janitor-or-higher posting uses this gate after successful staff
+authority issuance, including unbadged staff posts and private `/j/` posts.
+Badge display is not authorization. The staff proof issuer and proof-consuming
+insert trigger still check session, role and board scope. Requests without
+valid staff authority do not gain the five-second route merely by supplying
+staff-looking fields. The actor lock, timer decision and content write use the
+same posting transaction; rejected writes leave no post or successful action.
+
+Only `board_staff` can execute the new decision function at runtime. Its
+NOLOGIN owner and fixed search path match the ordinary timer functions.
+Migration 0088 changes no board intervals or existing history rows and does
+not backfill identity for historical posts. It also adds the auth-only
+`staff_identity.discard_badged_post_authority(bytea,bytea)` cleanup function.
+A failed badged/private post discards only the issued ticket matching that
+session; ordinary proof rows use their existing separate cleanup API.
+
+This implements the five-second staff gate only. Named/meta-board janitor
+half-ordinary timer exceptions, trusted Pass discounts, duplicate-comment and
+duplicate-image flood checks, and staff OP bump timing remain gaps. The staff
+gate alone does not establish source posting-admission parity.
 
 ## Capacity and failure behavior
 
@@ -176,7 +211,9 @@ as a routine way to restore capacity, since that changes admission behavior.
 For an existing installation, a bootstrap administrator must apply
 `deploy/posting-cooldown-role.sql` before migration 0087. Fresh
 `deploy/roles.sql` already creates the owner. Stop public and staff writers,
-apply the migration with the migration identity, and deploy matching binaries.
+apply migrations through 0088 with the migration identity, and deploy matching
+binaries. Migration 0088 reuses the existing posting owner and requires no
+additional bootstrap role.
 The new insert trigger requires actor context from those binaries; an older
 writer is not a safe writable rollback target. Retaining the schema with
 read-only serving is different from resuming an old posting binary.
@@ -190,8 +227,8 @@ of the tripcode key. Key rotation changes the actor digest, disconnecting new
 requests from old private history; it is not transparent continuity.
 
 Both services' `/readyz` require the key and check the migrated posting schema
-and restricted insert trigger. Public readiness also checks the decision
-function. Readiness does not establish that a particular request has a valid
+and restricted insert trigger. Public readiness also checks the ordinary decision
+function; staff readiness checks the staff decision function. Readiness does not establish that a particular request has a valid
 posting peer; posting checks that separately. Key parsing remains optional
 for read-only startup, but missing identity must never become a random key,
 synthetic peer or permissive posting fallback. Configure the verified public
@@ -215,9 +252,18 @@ independent fixture scenarios possible without disabling production checks.
 
 Test sources include `crates/store/tests/posting_cooldown.rs`,
 `apps/public/tests/content_admission.rs`, and
-`scripts/test-posting-cooldown-migration.sh`. Their presence is not an execution
-result; this document makes no test-pass or production
-qualification claim for the server admission fixtures.
+`scripts/test-posting-cooldown-migration.sh`. The populated 0087-to-0088
+qualification is `scripts/test-staff-posting-cooldown-migration.sh`. It uses an
+owned disposable PostgreSQL 16 cluster and actual runtime logins. Its checks
+cover OP/reply history preservation, unchanged application rows and existing
+function/RLS authority, newest-ID ordering versus maximum time, strict four-
+and five-second boundaries, OP-only history, private-board behavior, malformed
+inputs, restricted execution and exact ticket/session cleanup. The existing
+Linux privileged CI job runs it beside the ordinary cooldown migration test;
+no CI platform or timeout is changed.
+
+The presence of these tests is not an execution result. This document makes
+no test-pass or production qualification claim for the server admission fixtures.
 
 For the current client advisory, nine Node helper cases and one Rust form-policy
 render test passed; the Quick Reply bundle measures 27,349 bytes. The 22 new browser scenarios have not been run. Their synthetic browser
@@ -225,8 +271,8 @@ intervals do not alter database policy or qualify authoritative cooldown
 behavior. See [Quick Reply verification](native-quick-reply.md#verification-and-remaining-work).
 
 Duplicate-comment and duplicate-image flood rules, trusted Pass discounts,
-new-thread client timing, the staff exceptions above, and complete
-source-formatting equivalence remain unfinished. The ordinary native Quick
+new-thread client timing, named/meta-board janitor half-ordinary timers, staff
+OP bump timing, and complete source-formatting equivalence remain unfinished. The ordinary native Quick
 Reply countdown/one-shot implementation still needs its new browser scenarios
 executed. This slice does not close #213 or establish complete
 posting-admission parity.

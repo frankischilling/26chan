@@ -128,6 +128,7 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
         .await?;
     let posting_history: bool = sqlx::query_scalar(
         "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
+         AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_staff_posting_cooldown(bytea,text,bigint)'), 'EXECUTE'), false)
          AND to_regprocedure('content.record_posting_history(bytea,bigint)') IS NULL
          AND EXISTS (
              SELECT 1 FROM pg_catalog.pg_trigger t
@@ -791,6 +792,9 @@ pub async fn post_message(
         board_store::StoreError::NotFound => AppError::NotFound,
         board_store::StoreError::ContentRejected(message)
         | board_store::StoreError::Robot9000Rejected(message) => AppError::Posting(message),
+        board_store::StoreError::PostingCooldownRejected(rejection) => {
+            AppError::Posting(rejection.source_message())
+        }
         board_store::StoreError::Database(error) => AppError::Database(error),
         _ => AppError::Internal,
     })?;
