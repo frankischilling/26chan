@@ -605,6 +605,17 @@ jobs:
         env:
           THEME_SHARD: ${{ matrix.shard }}
         run: ./scripts/windows-visual-afd.ps1 -Action Cleanup
+      - name: Retain synthetic Settings dialog screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-settings-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # The owned theme fixture emits at most twelve desktop/mobile images.
+          path: test-results/**/*-monitoring.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
       - name: Retain synthetic Windows theme shard failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
