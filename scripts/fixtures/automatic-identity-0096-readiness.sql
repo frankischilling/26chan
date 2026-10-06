@@ -1,8 +1,6 @@
-//! Catalog-only deployment checks for automatic-session admission authority.
-//! This verifies the API and privilege boundary, not function-body behavior or
-//! historical row provenance. Behavioral tests cover those separately.
-
-pub const READINESS_SQL: &str = r#"WITH owners AS (
+-- Frozen deployment contract for the historical migration exercise.
+-- Current runtime readiness is qualified by the latest migration exercise.
+WITH owners AS (
     SELECT r.oid,r.rolname FROM pg_catalog.pg_roles r
     WHERE r.rolname IN ('board_anonymous_owner','board_posting_cooldown_owner','board_report_admission_owner')
       AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
@@ -25,7 +23,7 @@ pub const READINESS_SQL: &str = r#"WITH owners AS (
     ('content','register_anonymous_post','17 17 17 17 16 25 20 20','board_anonymous_owner',
         'void',ARRAY['board_public']::text[]),
     ('content','register_anonymous_report','17 17 17 17 16 25 20 20','board_anonymous_owner',
-        'void',ARRAY['board_public','board_report_admission_owner']::text[]),
+        'void',ARRAY['board_public']::text[]),
     ('content','check_user_thread_quota','17 25 20','board_posting_cooldown_owner',
         'TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)',
         ARRAY['board_public','board_staff']::text[]),
@@ -156,4 +154,4 @@ AND EXISTS (
     WHERE c.relname='posting_history' AND a.attname='automatic_identity'
       AND a.attnum>0 AND NOT a.attisdropped AND o.rolname='board_posting_cooldown_owner'
       AND has_column_privilege(o.oid,c.oid,a.attnum,'SELECT')
-)"#;
+)

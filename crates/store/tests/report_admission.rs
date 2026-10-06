@@ -1,7 +1,7 @@
 #![cfg(feature = "database-tests")]
 mod support;
 
-// Source modes/report.php:110-168, IP branch only. These fixtures do not
+// Source modes/report.php:110-168, IP OR captured automatic identity. These fixtures do not
 // manufacture report categories, legacy password authority, or Pass identity.
 
 use board_domain::{anonymous_session::Capability, poster_id::PublicReportRateIdentity};
@@ -65,6 +65,8 @@ impl Fixture {
     }
 
     async fn cleanup(&self) {
+        let tokens: Vec<Vec<u8>> = sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=ANY($1)")
+            .bind(self.boards.to_vec()).fetch_all(&self.owner).await.unwrap();
         for board in &self.boards {
             support::cleanup_posting(&self.owner, board).await;
             for query in [
@@ -81,6 +83,13 @@ impl Fixture {
                     .await
                     .unwrap();
             }
+        }
+        for token in tokens {
+            sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+                .bind(token)
+                .execute(&self.owner)
+                .await
+                .unwrap();
         }
     }
 
@@ -177,40 +186,114 @@ async fn admit(
     post: i64,
     actor: &[u8],
 ) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4)")
+    let capability = Capability::generate().unwrap();
+    admit_session(
+        connection,
+        board,
+        post,
+        Some("Owned admission fixture"),
+        Some(actor),
+        session(&capability, true, Utc::now()),
+    )
+    .await
+}
+
+fn session(capability: &Capability, minted: bool, now: DateTime<Utc>) -> PostingSession {
+    PostingSession {
+        fingerprints: capability.fingerprints(Some("198.51.100.7".parse().unwrap()), *b"US"),
+        minted,
+        now,
+    }
+}
+
+async fn admit_session(
+    connection: &mut PgConnection,
+    board: &str,
+    post: i64,
+    reason: Option<&str>,
+    actor: Option<&[u8]>,
+    session: PostingSession,
+) -> Result<i64, sqlx::Error> {
+    let fingerprints = session.fingerprints;
+    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
         .bind(board)
         .bind(post)
-        .bind("Owned admission fixture")
+        .bind(reason)
         .bind(actor)
+        .bind(fingerprints.token.as_slice())
+        .bind(fingerprints.network.as_slice())
+        .bind(fingerprints.address.as_slice())
+        .bind(fingerprints.environment.as_slice())
+        .bind(session.minted)
+        .bind(session.now.timestamp())
         .fetch_one(connection)
         .await
+}
+
+async fn report(
+    pool: &PgPool,
+    board: &str,
+    post: i64,
+    reason: &str,
+    actor: &PublicReportRateIdentity,
+) -> Result<(), StoreError> {
+    let capability = Capability::generate().unwrap();
+    board_store::report_with_anonymous_session(
+        pool,
+        board,
+        post,
+        reason,
+        actor,
+        session(&capability, true, Utc::now()),
+    )
+    .await
 }
 
 // Historical membership is fixture metadata, never a public clock override.
 // Both report and membership disappear with this transaction's rollback.
 async fn boundary(f: &Fixture, offsets_us: &[i64], duplicate: bool, expected: Option<&str>) {
-    let actor = actor();
-    let now: DateTime<Utc> = "2025-01-15T12:00:00Z".parse().unwrap();
-    let mut tx = f.owner.begin().await.unwrap();
-    let reports: Vec<i64> = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) SELECT $1,$2,'Historical owned fixture' FROM generate_series(1,$3::integer) RETURNING id")
+    // Preserve the private IP-only contract and repeat every edge for identity
+    // only and overlapping IP+UUID predicates. OR must count each row once.
+    for mode in 0..4 {
+        let actor = actor();
+        let row_actor = if mode == 1 { self::actor() } else { actor };
+        let now: DateTime<Utc> = "2025-01-15T12:00:00Z".parse().unwrap();
+        let mut tx = f.owner.begin().await.unwrap();
+        let reports: Vec<i64> = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) SELECT $1,$2,'Historical owned fixture' FROM generate_series(1,$3::integer) RETURNING id")
         .bind(&f.boards[0]).bind(f.posts[0][1]).bind(offsets_us.len() as i32).fetch_all(&mut *tx).await.unwrap();
-    private_role(&mut tx).await;
-    sqlx::query("INSERT INTO post_secrets.report_membership(report_id,actor_hash,board,post_id,thread_id,reported_at) SELECT r,$1,$2,$3,$4,$5::timestamptz+o*interval '1 microsecond' FROM unnest($6::bigint[],$7::bigint[]) AS fixture(r,o)")
-        .bind(actor.as_bytes().as_slice()).bind(&f.boards[0]).bind(f.posts[0][1]).bind(f.posts[0][0]).bind(now).bind(&reports).bind(offsets_us).execute(&mut *tx).await.unwrap();
-    let result = sqlx::query("SELECT post_secrets.check_report_limits($1,$2,$3,$4)")
-        .bind(&f.boards[0])
-        .bind(f.posts[0][if duplicate { 1 } else { 2 }])
-        .bind(actor.as_bytes().as_slice())
-        .bind(now)
-        .execute(&mut *tx)
-        .await;
-    match expected {
-        Some(message) => rejected(result.unwrap_err(), message),
-        None => {
-            result.unwrap();
+        private_role(&mut tx).await;
+        sqlx::query("INSERT INTO post_secrets.report_membership(report_id,actor_hash,board,post_id,thread_id,reported_at) SELECT r,$1,$2,$3,$4,$5::timestamptz+o*interval '1 microsecond' FROM unnest($6::bigint[],$7::bigint[]) AS fixture(r,o)")
+        .bind(row_actor.as_bytes().as_slice()).bind(&f.boards[0]).bind(f.posts[0][1]).bind(f.posts[0][0]).bind(now).bind(&reports).bind(offsets_us).execute(&mut *tx).await.unwrap();
+        if mode != 0 {
+            sqlx::query("UPDATE post_secrets.report_membership SET automatic_identity='00000000-0000-4000-8000-000000000097'::uuid WHERE report_id=ANY($1)")
+            .bind(&reports).execute(&mut *tx).await.unwrap();
         }
+        if mode == 3 {
+            // Disjoint IP-only and UUID-only rows must contribute to one global
+            // count, rather than comparing each branch against its own threshold.
+            sqlx::query("UPDATE post_secrets.report_membership SET actor_hash=CASE WHEN report_id%2=0 THEN sha256(actor_hash) ELSE actor_hash END,automatic_identity=CASE WHEN report_id%2=0 THEN automatic_identity ELSE NULL END WHERE report_id=ANY($1)")
+            .bind(&reports).execute(&mut *tx).await.unwrap();
+        }
+        let query = if mode == 0 {
+            "SELECT post_secrets.check_report_limits($1,$2,$3,$4)"
+        } else {
+            "SELECT post_secrets.check_report_limits($1,$2,$3,'00000000-0000-4000-8000-000000000097'::uuid,$4)"
+        };
+        let result = sqlx::query(query)
+            .bind(&f.boards[0])
+            .bind(f.posts[0][if duplicate { 1 } else { 2 }])
+            .bind(actor.as_bytes().as_slice())
+            .bind(now)
+            .execute(&mut *tx)
+            .await;
+        match expected {
+            Some(message) => rejected(result.unwrap_err(), message),
+            None => {
+                result.unwrap();
+            }
+        }
+        tx.rollback().await.unwrap();
     }
-    tx.rollback().await.unwrap();
 }
 
 #[tokio::test]
@@ -287,7 +370,7 @@ async fn typed_ip_identity_is_cross_board_and_get_is_read_only_without_reservati
         board_store::report_admission::check(&f.public, &f.boards[1], f.posts[1][0], &same_ip)
             .await
             .unwrap();
-        board_store::report(
+        report(
             &f.public,
             &f.boards[0],
             f.posts[0][0],
@@ -297,7 +380,7 @@ async fn typed_ip_identity_is_cross_board_and_get_is_read_only_without_reservati
         .await
         .unwrap();
         assert_eq!(
-            board_store::report(
+            report(
                 &f.public,
                 &f.boards[0],
                 f.posts[0][0],
@@ -317,7 +400,7 @@ async fn typed_ip_identity_is_cross_board_and_get_is_read_only_without_reservati
             FLOOD
         );
         assert_eq!(
-            board_store::report(
+            report(
                 &f.public,
                 &f.boards[1],
                 f.posts[1][0],
@@ -329,7 +412,7 @@ async fn typed_ip_identity_is_cross_board_and_get_is_read_only_without_reservati
             .to_string(),
             FLOOD
         );
-        board_store::report(
+        report(
             &f.public,
             &f.boards[1],
             f.posts[1][0],
@@ -422,7 +505,7 @@ async fn anonymous_failure_is_atomic_and_session_collection_does_not_retire_repo
                 f.posts[0][0],
                 "Missing session",
                 &identity,
-                Some(make_session(false))
+                make_session(false)
             )
             .await,
             Err(StoreError::AuthorizationChanged)
@@ -434,7 +517,7 @@ async fn anonymous_failure_is_atomic_and_session_collection_does_not_retire_repo
             f.posts[0][0],
             "Committed session report",
             &identity,
-            Some(make_session(true)),
+            make_session(true),
         )
         .await
         .unwrap();
@@ -451,7 +534,7 @@ async fn anonymous_failure_is_atomic_and_session_collection_does_not_retire_repo
                 f.posts[0][0],
                 "A new cookie is not a new reporting peer",
                 &identity,
-                Some(rotated_session)
+                rotated_session
             )
             .await
             .unwrap_err()
@@ -504,6 +587,8 @@ async fn anonymous_failure_is_atomic_and_session_collection_does_not_retire_repo
 async fn public_cannot_bypass_admission_or_read_private_membership() {
     run(|f| async move {
         for query in [
+            "SELECT content.admit_report('missing',1,'Denied old mutation',decode(repeat('00',32),'hex'))",
+            "SELECT post_secrets.check_report_limits('missing',1,decode(repeat('00',32),'hex'),NULL::uuid,clock_timestamp())",
             "SELECT * FROM post_secrets.report_membership",
             "SELECT * FROM post_secrets.report_admission_gate",
             "DELETE FROM post_secrets.report_membership WHERE false",
@@ -524,7 +609,7 @@ async fn public_cannot_bypass_admission_or_read_private_membership() {
                 assert!(!privilege, "{role} must not access {table}");
             }
         }
-        for function in ["content.admit_report(text,bigint,text,bytea)", "content.check_report_admission(text,bigint,bytea)"] {
+        for function in ["content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)", "content.check_report_admission(text,bigint,bytea)", "content.check_report_admission(text,bigint,bytea,bytea,bigint)"] {
             let locked: bool = sqlx::query_scalar("SELECT p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND r.rolname='board_report_admission_owner' AND NOT(r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls) AND NOT has_schema_privilege(r.oid,'content','CREATE') AND NOT has_schema_privilege(r.oid,'post_secrets','CREATE') AND has_function_privilege('board_public',p.oid,'EXECUTE') AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE p.oid=$1::regprocedure")
                 .bind(function).fetch_one(&f.owner).await.unwrap();
             assert!(locked, "{function}");
@@ -533,8 +618,9 @@ async fn public_cannot_bypass_admission_or_read_private_membership() {
             .fetch_one(&f.owner).await.unwrap();
         assert!(membership);
         for value in [None, Some(vec![]), Some(vec![0_u8;31]), Some(vec![0_u8;33])] {
-            let error = sqlx::query("SELECT content.admit_report($1,$2,'Malformed identity',$3)")
-                .bind(&f.boards[0]).bind(f.posts[0][0]).bind(value.as_deref()).execute(&f.public).await.unwrap_err();
+            let mut connection = f.public.acquire().await.unwrap();
+            let capability = Capability::generate().unwrap();
+            let error = admit_session(&mut connection, &f.boards[0], f.posts[0][0], Some("Malformed identity"), value.as_deref(), session(&capability, true, Utc::now())).await.unwrap_err();
             assert_eq!(code(&error), "22023");
             let error = sqlx::query("SELECT content.check_report_admission($1,$2,$3)")
                 .bind(&f.boards[0]).bind(f.posts[0][0]).bind(value.as_deref()).execute(&f.public).await.unwrap_err();
@@ -624,14 +710,18 @@ async fn admission_preserves_private_board_visibility_and_validates_reason_witho
             Some(" ".into()),
             Some("x".repeat(1001)),
         ] {
-            let error = sqlx::query("SELECT content.admit_report($1,$2,$3,$4)")
-                .bind(&f.boards[0])
-                .bind(f.posts[0][0])
-                .bind(reason)
-                .bind(identity.as_bytes().as_slice())
-                .execute(&f.public)
-                .await
-                .unwrap_err();
+            let mut connection = f.public.acquire().await.unwrap();
+            let capability = Capability::generate().unwrap();
+            let error = admit_session(
+                &mut connection,
+                &f.boards[0],
+                f.posts[0][0],
+                reason.as_deref(),
+                Some(identity.as_bytes().as_slice()),
+                session(&capability, true, Utc::now()),
+            )
+            .await
+            .unwrap_err();
             assert_eq!(code(&error), "22023");
         }
         sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1")
@@ -645,7 +735,7 @@ async fn admission_preserves_private_board_visibility_and_validates_reason_witho
             Err(StoreError::NotFound)
         ));
         assert!(matches!(
-            board_store::report(
+            report(
                 &f.public,
                 &f.boards[0],
                 f.posts[0][0],
@@ -708,7 +798,7 @@ async fn rust_report_overrides_stronger_connection_default_isolation() {
                 .unwrap();
             assert_eq!(actual, isolation, "The connection really starts stronger transactions");
             control.rollback().await.unwrap();
-            board_store::report(
+            report(
                 &public,
                 &f.boards[0],
                 f.posts[0][target],
@@ -771,11 +861,11 @@ async fn retirement_does_not_invert_gate_and_anonymous_session_lock_order() {
             f.posts[1][0],
             "Prior report to retire on board B",
             &previous_actor,
-            Some(PostingSession {
+            PostingSession {
                 fingerprints: capability.fingerprints(Some(previous_peer), *b"US"),
                 minted: true,
                 now: Utc::now(),
-            }),
+            },
         )
         .await
         .unwrap();
@@ -838,7 +928,7 @@ async fn retirement_does_not_invert_gate_and_anonymous_session_lock_order() {
                 target_a,
                 "Admission owns board A and gate before waiting for session S",
                 &current_actor,
-                Some(session),
+                session,
             )
             .await;
             public.close().await;
@@ -912,4 +1002,120 @@ async fn retirement_does_not_invert_gate_and_anonymous_session_lock_order() {
             .unwrap();
     })
     .await;
+}
+
+#[tokio::test]
+async fn changed_ip_same_capability_enforces_identity_even_when_source_new() {
+    run(|f| async move {
+        let capability = Capability::generate().unwrap();
+        let token = capability.storage_hash();
+        let key = support::fresh_key();
+        let first = key.public_report_rate_identity("198.51.100.7".parse().unwrap());
+        let changed = key.public_report_rate_identity("203.0.113.7".parse().unwrap());
+        let now = Utc::now();
+        board_store::report_with_anonymous_session(&f.public, &f.boards[0], f.posts[0][0], "First identity report", &first, session(&capability, true, now)).await.unwrap();
+        for idle in [false, true] {
+            let request_at = Utc::now();
+            sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=$2,activity_at=$3,expires_at=$2+31536000 WHERE token_hash=$1")
+                .bind(token.as_slice()).bind(if idle { request_at.timestamp()-604801 } else { request_at.timestamp() })
+                .bind(if idle { request_at.timestamp()-604800 } else { request_at.timestamp() })
+                .execute(&f.owner).await.unwrap();
+            let before: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+                .bind(token.as_slice()).fetch_one(&f.owner).await.unwrap();
+            for (board, expected) in [(0, DUPLICATE), (1, FLOOD)] {
+                let mut changed_session = session(&capability, false, request_at);
+                changed_session.fingerprints = capability.fingerprints(Some("203.0.113.7".parse().unwrap()), *b"CA");
+                assert_eq!(board_store::report_with_anonymous_session(&f.public, &f.boards[board], f.posts[board][0], "Changed peer cannot reset identity", &changed, changed_session).await.unwrap_err().to_string(), expected);
+                assert_eq!(board_store::report_admission::check_with_session(&f.public, &f.boards[board], f.posts[board][0], &changed, Some(&token), request_at.timestamp()).await.unwrap_err().to_string(), expected);
+            }
+            let after: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+                .bind(token.as_slice()).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(before, after, "Rejected writes and advisory reads must preserve activity and identity");
+        }
+        assert_eq!(f.counts().await, (1, 1));
+    }).await;
+}
+
+#[tokio::test]
+async fn registration_failure_rolls_back_report_membership_and_session() {
+    run(|f| async move {
+        let capability = Capability::generate().unwrap();
+        let fingerprints = capability.fingerprints(Some("198.51.100.7".parse().unwrap()), *b"US");
+        let identity = actor();
+        // Token resolution succeeds. Invalid registration fingerprint fails only
+        // after admission has attempted the report and private membership inserts.
+        let error = sqlx::query(
+            "SELECT content.admit_report($1,$2,'Registration rollback',$3,$4,$5,$6,$7,true,$8)",
+        )
+        .bind(&f.boards[0])
+        .bind(f.posts[0][0])
+        .bind(identity.as_bytes().as_slice())
+        .bind(fingerprints.token.as_slice())
+        .bind(Vec::<u8>::new())
+        .bind(fingerprints.address.as_slice())
+        .bind(fingerprints.environment.as_slice())
+        .bind(Utc::now().timestamp())
+        .execute(&f.public)
+        .await
+        .unwrap_err();
+        assert_eq!(code(&error), "23514");
+        assert_eq!(f.counts().await, (0, 0));
+        assert!(
+            board_store::anonymous_session::snapshot(&f.public, &capability.storage_hash())
+                .await
+                .unwrap()
+                .is_none()
+        );
+        board_store::report_with_anonymous_session(
+            &f.public,
+            &f.boards[0],
+            f.posts[0][0],
+            "Retry after rollback",
+            &identity,
+            session(&capability, true, Utc::now()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(f.counts().await, (1, 1));
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn session_lock_wait_rechecks_fresh_archive_expiry_without_activity() {
+    run(|f| async move {
+        let capability = Capability::generate().unwrap();
+        let token = capability.storage_hash();
+        // A different board establishes the capability without using the target.
+        board_store::report_with_anonymous_session(&f.public, &f.boards[1], f.posts[1][0], "Establish session", &actor(), session(&capability, true, Utc::now())).await.unwrap();
+        // Retire the first report's rate membership while keeping its session.
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1").bind(f.posts[1][0]).execute(&f.owner).await.unwrap();
+        sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+            .bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+        let before: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+            .bind(token.as_slice()).fetch_one(&f.owner).await.unwrap();
+        let mut lock = f.owner.begin().await.unwrap();
+        let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *lock).await.unwrap();
+        sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=$1 FOR UPDATE").bind(token.as_slice()).fetch_one(&mut *lock).await.unwrap();
+        let public = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
+        let waiter: i32 = sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let board = f.boards[0].clone();
+        let post = f.posts[0][0];
+        let admission = tokio::spawn(async move {
+            let result = board_store::report_with_anonymous_session(&public, &board, post, "Archive expires while blocked", &actor(), session(&capability, false, Utc::now())).await;
+            public.close().await;
+            result
+        });
+        wait_for_row_blocker(&f.owner, waiter, blocker).await;
+        // Set expiry after observing the actual session dependency. Admission's
+        // pre-wait target was visible, but fresh post-wait time must reject it.
+        sqlx::query("UPDATE content.threads SET archive_expires_at=clock_timestamp()-interval '1 microsecond' WHERE id=$1")
+            .bind(post).execute(&f.owner).await.unwrap();
+        lock.commit().await.unwrap();
+        assert!(matches!(tokio::time::timeout(std::time::Duration::from_secs(5), admission).await.unwrap().unwrap(), Err(StoreError::NotFound)));
+        let after: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+            .bind(token.as_slice()).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(before, after);
+        assert_eq!(f.counts().await, (1, 0));
+    }).await;
 }

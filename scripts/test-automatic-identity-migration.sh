@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Owned synthetic clusters only. Qualify 0094 -> 0095/0096 and current dump/restore.
+# Owned synthetic clusters only. Qualify 0094 -> 0095/0096 and 0096 schema dump/restore.
 set -euo pipefail
 umask 077
 cd "$(dirname "$0")/.."
@@ -61,15 +61,12 @@ SELECT content.register_anonymous_report(decode(repeat('01',32),'hex'),decode(re
 SELECT content.admit_report('autoid',9500002,'Legacy unregistered report',decode(repeat('22',32),'hex'));
 COMMIT;
 SQL
-# Extract the shared readiness body, not a second independently maintained SQL
-# approximation. Only postgres mutates catalogs; both real runtime identities
-# evaluate it without any new private-schema USAGE grant.
+# Exercise the frozen 0096 deployment contract. The latest migration exercise
+# separately validates current service readiness. Only postgres mutates catalogs;
+# both runtime identities evaluate it without private-schema USAGE grants.
 python3 - "$cluster/readiness.sql" <<'PYREADINESS'
-import pathlib, re, sys
-source = pathlib.Path("crates/store/src/automatic_admission.rs").read_text()
-queries = re.findall(r'pub const READINESS_SQL: &str = r#"(.*?)"#;', source, re.S)
-assert len(queries) == 1
-query = queries[0]
+import pathlib, sys
+query = pathlib.Path("scripts/fixtures/automatic-identity-0096-readiness.sql").read_text()
 changes = [
     "DROP FUNCTION content.check_user_thread_quota(bytea,text,bigint,bytea,boolean,bigint)",
     "REVOKE EXECUTE ON FUNCTION post_secrets.resolve_automatic_identity(bytea,boolean,bigint,boolean) FROM board_posting_cooldown_owner",
@@ -481,8 +478,8 @@ SELECT * FROM public.report_indexes ORDER BY schemaname,tablename,indexname;
 SQL
  done
  cmp -s "$cluster/$mode-live.fingerprint" "$cluster/$mode-restored.fingerprint" || {
-  printf 'Automatic-identity current dump/restore fingerprint mismatch (%s).\n' "$mode" >&3; exit 1;
+  printf 'Automatic-identity 0096 schema dump/restore fingerprint mismatch (%s).\n' "$mode" >&3; exit 1;
  }
- printf '%s automatic-identity migration and current dump/restore passed.\n' "$mode" >&3
+ printf '%s automatic-identity migration and 0096 schema dump/restore passed.\n' "$mode" >&3
 done
 printf 'Legacy rows, new-only private identity, provenance rollback and public OP quota qualified.\n' >&3

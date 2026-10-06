@@ -253,7 +253,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             ),
         ] {
             let post_id = id.parse::<i64>().unwrap();
-            let private_activity = "SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a.report_id),'[]'::jsonb) FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board='fixture' AND r.post_id=$1";
+            let private_activity = "SELECT coalesce(jsonb_agg(jsonb_build_object('report',to_jsonb(a),'session',to_jsonb(s)) ORDER BY a.report_id),'[]'::jsonb) FROM post_secrets.anonymous_reports a JOIN post_secrets.anonymous_sessions s ON s.token_hash=a.token_hash JOIN content.reports r ON r.id=a.report_id WHERE r.board='fixture' AND r.post_id=$1";
             let before: serde_json::Value = sqlx::query_scalar(private_activity)
                 .bind(post_id)
                 .fetch_one(&admin)
@@ -282,12 +282,33 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
                 ))
                 .await
                 .unwrap();
+            // Development routers use board-anon. Two occurrences are rejected
+            // by Session::resolve even when both contain valid capabilities.
+            let mut ambiguous = from_peer(
+                form(
+                    "/fixture/report",
+                    &[
+                        ("no", &id),
+                        ("reason", "Target policy precedes ambiguous session"),
+                    ],
+                    Some(ORIGIN),
+                    // The modern report endpoint accepts URL-encoded forms;
+                    // multipart here would stop at media-type validation.
+                    false,
+                ),
+                report_peer,
+            );
+            ambiguous.headers_mut().insert(
+                "cookie",
+                format!("{fresh_cookie}; {fresh_cookie}").parse().unwrap(),
+            );
+            let ambiguous = app.clone().oneshot(ambiguous).await.unwrap();
             sqlx::query(restore)
                 .bind(post_id)
                 .execute(&admin)
                 .await
                 .unwrap();
-            for response in [get, post] {
+            for response in [get, post, ambiguous] {
                 assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
                 assert_eq!(response.headers()["cache-control"], "private, no-store");
                 assert_eq!(response.headers()["x-frame-options"], "DENY");
@@ -302,6 +323,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
                 let bytes = response.into_body().collect().await.unwrap().to_bytes();
                 let html = std::str::from_utf8(&bytes).unwrap();
                 assert!(html.contains(message));
+                assert!(!html.contains("Ambiguous anonymous session cookie."));
                 assert!(html.contains("data-result=\"error\""));
                 assert!(!html.contains("Report received"));
                 assert!(!html.contains("data-result=\"success\""));
@@ -320,6 +342,17 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
                 .await
                 .unwrap();
             assert_eq!(after, before);
+            let sessions: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM post_secrets.anonymous_sessions WHERE token_hash=$1",
+            )
+            .bind(fresh.storage_hash().as_slice())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+            assert_eq!(
+                sessions, 0,
+                "Target-policy rejection cannot register activity"
+            );
         }
         let reply = posting::create_post(
             &pool,

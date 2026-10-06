@@ -1,15 +1,15 @@
 # Report admission and retained identity
 
-Migration 0094 implements the IP branch of `4chan-old/modes/report.php:110-168`.
-It does not establish complete report parity. Source password and authenticated
-Pass matching, CAPTCHA, report bans, category weights and illegal-report policy
-remain separate work.
+Migration 0094 introduced the IP branch of `4chan-old/modes/report.php:110-168`.
+Migration 0097 adds forward registered automatic-session equality. This remains
+partial report parity: verified-email and Pass identity, CAPTCHA, report bans,
+category weights and illegal-report policy are separate work.
 
 ## Decisions
 
 An eligible target is checked in this order:
 
-1. A surviving report by the same actor for the same board/post rejects a duplicate.
+1. A surviving report matching IP or automatic identity for the same board/post rejects a duplicate.
 2. Any matching report newer than 15 seconds rejects another report.
 3. Thirty matching reports newer than one hour reject another report.
 4. Eighty matching reports newer than 24 hours reject another report.
@@ -25,21 +25,29 @@ The actor is a keyed, domain-separated digest of the full trusted transport IP.
 IPv4-mapped IPv6 is canonicalized to IPv4; distinct full IPv6 addresses remain
 distinct. Cookies, submitted fields and untrusted forwarding headers cannot
 choose the actor. The same address with a new anonymous cookie remains the same
-report actor. An anonymous capability is not the source's deletion password,
-and changing addresses is not claimed to preserve password or Pass matching.
+report actor. A valid registered capability also resolves its private automatic
+identity, so changing addresses does not evade that identity's reports. The
+query uses one OR predicate and counts each row once even if both branches match.
+Unlike OP quotas, report matching has no new-session or idle-reset exemption.
+The capability is not treated as a literal source password or Pass credential.
 Missing server key or trusted peer fails closed. Historical reports receive no
 invented identity; pre-migration reports and reports across key rotation are not
 retroactively matched.
 
 ## Transaction and storage boundary
 
-GET performs a read-only advisory check. POST always checks again in a Read
-Committed transaction, taking the board lock before the singleton admission
-lock. The decision clock is captured after waiting for those locks. Report and
-private membership insertion happen in one restricted database function;
-anonymous activity registration then occurs in the same transaction. Any later
-failure rolls all three back. Public direct report insertion and sequence access
-are revoked. Public and staff runtime roles cannot read private actor metadata.
+GET performs a read-only advisory check using an existing verified cookie when
+available. It never mints a capability, advances activity or refreshes a cookie.
+POST checks target policy before session resolution, then checks authoritatively
+in a Read Committed transaction: board lock, singleton admission lock, existing
+session lock. The decision clock is captured after the session wait, and target
+visibility, including archive expiry, is rechecked at that time. One restricted
+database function inserts the report and membership and registers anonymous
+activity. It leaves membership identity NULL until registration stamps the
+same-transaction row. Any later failure rolls all changes back. Public direct
+report insertion, sequence access and the old session-omitting mutation API are
+revoked. The legacy IP-only mutation remains staff-only. Public and staff runtime
+roles cannot read private actor metadata.
 The success response is still reserved before mutation and emitted after commit.
 
 Private membership survives anonymous-session cleanup. A dedicated NOLOGIN,
@@ -78,8 +86,8 @@ explicit lifecycle gaps.
 
 For an existing installation, the bootstrap administrator runs
 `deploy/report-admission-role.sql` once before migration 0094. Fresh installations
-use `deploy/roles.sql`. Stop old writers, migrate, then start matching public and
-staff binaries. Both readiness checks require the new restricted interfaces.
+use `deploy/roles.sql`. Stop old writers, apply through 0097, then start matching
+public and staff binaries. Both readiness checks require the new restricted interfaces.
 Old public binaries cannot insert reports after the direct grant is revoked;
 rolling back only the binary is not a compatible reporting rollback.
 
@@ -90,6 +98,6 @@ trusted identity, duplicate rejection and response-budget failure. Exact run
 outcomes belong to the pull-request checkpoint; listed checks are not evidence
 that every platform or browser has passed.
 
-Migration 0095 subsequently captures [forward automatic-session equality](automatic-admission-identity.md)
-on new report memberships. Report admission in this checkpoint remains IP-only;
-capturing that evidence does not itself enable another quota branch.
+[Forward automatic-session equality](automatic-admission-identity.md) is captured
+from migration 0095 onward and enforced for reports by 0097. Historical NULL
+identities stay unknown; no category, email or Pass authority is inferred.

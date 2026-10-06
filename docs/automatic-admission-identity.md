@@ -61,17 +61,17 @@ identity matching are not inferred from staff authentication.
 
 ## Report boundary
 
-Registration now captures automatic equality on new report memberships, but
-this checkpoint still enforces the [IP-only report decisions](source-report-admission.md).
-It does not yet join report quotas across changed addresses. Source reports
-include their UserPwd credential without the OP newness exemption; a future
-report integration must preserve that difference and the existing board →
-report-gate → session lock order. Read-only identity lookup neither allocates
-an identity nor advances activity.
+Migration 0095 captured automatic equality on new report memberships. Migration
+0097 now enforces [IP OR automatic identity report decisions](source-report-admission.md).
+Reports include a known identity even on creation-second and idle-reset
+requests. Their board → report-gate → session order is preserved; GET uses only
+an existing verified capability and cannot allocate identity or refresh activity.
+The public mutation requires full session context and performs registration
+inside its atomic SQL call. Staff retains a separate IP-only mutation.
 
 ## Rollout and verification
 
-Stop writers, apply through 0096, then start matching public and staff services.
+Stop writers, apply through 0097, then start matching public and staff services.
 No new bootstrap role is required. Older public binaries still call the IP-only
 quota API, so a binary-only rollback does not preserve this new quota policy.
 Both readiness endpoints inspect the new

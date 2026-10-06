@@ -1,12 +1,16 @@
 #![cfg(feature = "database-tests")]
 
-use board_domain::{capcode::Capcode, poster_id::PosterIdKey};
+use board_domain::{anonymous_session::Capability, capcode::Capcode, poster_id::PosterIdKey};
 use board_store::{
     NewPost, PostIdentityKeys, PostMetadata, PostingContext, StaffPostAuthority, StaffPostIdentity,
-    StoreError,
+    StoreError, anonymous_session::PostingSession,
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::{net::IpAddr, time::Duration};
+use std::{
+    net::IpAddr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 // Prospective retirement only. Historical hashes are covered by the isolated
 // pre-0091 upgrade fixture; these tests never disable triggers or alter /j/.
@@ -23,6 +27,7 @@ struct Fixture {
     session: Vec<u8>,
     csrf: Vec<u8>,
     key: String,
+    report_tokens: Arc<Mutex<Vec<[u8; 32]>>>,
 }
 
 async fn pool(variable: &str) -> PgPool {
@@ -82,6 +87,7 @@ impl Fixture {
             session,
             csrf,
             key,
+            report_tokens: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -174,7 +180,28 @@ impl Fixture {
             .bind(&self.board).bind(retention).execute(&self.owner).await.unwrap();
     }
 
+    fn report_session(&self, peer: IpAddr) -> PostingSession {
+        let capability = Capability::generate().unwrap();
+        self.report_tokens
+            .lock()
+            .unwrap()
+            .push(capability.storage_hash());
+        PostingSession {
+            fingerprints: capability.fingerprints(Some(peer), *b"US"),
+            minted: true,
+            now: chrono::Utc::now(),
+        }
+    }
+
     async fn cleanup(self) {
+        let tokens = self.report_tokens.lock().unwrap().clone();
+        for token in tokens {
+            sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+                .bind(token.as_slice())
+                .execute(&self.owner)
+                .await
+                .unwrap();
+        }
         for query in [
             "DELETE FROM content.reports WHERE board=$1",
             "DELETE FROM content.moderation_audit WHERE board=$1",
@@ -322,7 +349,7 @@ async fn public_and_staff_rollover_retire_only_victims_and_preserve_private_exem
             } else {
                 let report_identity = PosterIdKey::parse(&f.key).unwrap()
                     .public_report_rate_identity(IpAddr::from([192, 0, 2, 201]));
-                board_store::report(reader,&f.board,reply,"Owned retained report",&report_identity).await.unwrap();
+                board_store::report_with_anonymous_session(reader,&f.board,reply,"Owned retained report",&report_identity, f.report_session(IpAddr::from([192, 0, 2, 201]))).await.unwrap();
             }
             sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES($1,$2,$3,'close')")
                 .bind(f.account).bind(&f.board).bind(victim).execute(&f.owner).await.unwrap();
@@ -720,8 +747,7 @@ async fn delete_already_holding_secret_cannot_deadlock_board_first_archiver() {
 
 #[tokio::test]
 async fn retirement_preserves_anonymous_derivatives_actions_and_consumed_media() {
-    use board_domain::anonymous_session::Capability;
-    use board_store::{AnonymousPostingContext, PostMetadata, anonymous_session::PostingSession};
+    use board_store::{AnonymousPostingContext, PostMetadata};
     let _serial = TEST.lock().await;
     let f = Fixture::new(false).await;
     sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
@@ -773,7 +799,11 @@ async fn retirement_preserves_anonymous_derivatives_actions_and_consumed_media()
             ids.push(id);
         }
         let report_identity = key.public_report_rate_identity(IpAddr::from([192, 0, 2, 90]));
-        board_store::report(&f.public,&f.board,ids[1],"Retained archive report",&report_identity).await.unwrap();
+        board_store::report_with_anonymous_session(&f.public,&f.board,ids[1],"Retained archive report",&report_identity, PostingSession {
+            fingerprints: capability.fingerprints(Some(IpAddr::from([192,0,2,90])),*b"US"),
+            minted: false,
+            now: chrono::Utc::now(),
+        }).await.unwrap();
         let before=f.retained(&ids).await;
         assert_eq!(before["anonymous"].as_array().unwrap().len(),2);
         assert_eq!(before["media"].as_array().unwrap().len(),1);

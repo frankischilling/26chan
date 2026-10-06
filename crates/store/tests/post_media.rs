@@ -80,6 +80,25 @@ impl Fixture {
             matches!(self.insert(0, a).await, Err(StoreError::Conflict(_))),
             "Queued input cannot attach"
         );
+        // The idle-queue assertion below requires prior operations to have
+        // committed or released their locks: claim intentionally skips locks.
+        // Wait on this exact fixture row, then release our own lock explicitly.
+        let mut ready = self.admin.begin().await.unwrap();
+        sqlx::query("SET LOCAL lock_timeout = '3s'")
+            .execute(&mut *ready)
+            .await
+            .unwrap();
+        let (state, attempts, input_bytes, unexpired): (String, i32, Option<i64>, bool) =
+            sqlx::query_as("SELECT state, attempts, input_bytes, expires_at > clock_timestamp() FROM media.jobs WHERE id=$1 FOR UPDATE")
+                .bind(&a.upload.id)
+                .fetch_one(&mut *ready)
+                .await
+                .unwrap();
+        assert_eq!(state, "queued");
+        assert_eq!(attempts, 0);
+        assert_eq!(input_bytes, Some(100));
+        assert!(unexpired, "Queued fixture must remain unexpired");
+        ready.commit().await.unwrap();
         let claim = self.queue.claim().await.unwrap().unwrap();
         assert_eq!(claim.id, a.upload.id, "Requires an idle disposable queue");
         let token = claim.lease_token.unwrap();

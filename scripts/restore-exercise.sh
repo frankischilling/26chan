@@ -65,8 +65,13 @@ restore_db="imageboard_restore_$(date +%s)_$RANDOM"
 [[ $restore_db =~ ^imageboard_restore_[0-9]+_[0-9]+$ ]] || exit 1
 mkdir -p .local/backups
 backup=".local/backups/$restore_db.dump"
-"$pg_bin/pg_dump" "$MIGRATION_DATABASE_URL" --format=custom --file="$backup"
 admin=(runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h /tmp -p "$port")
+source_db=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c 'SELECT current_database()')
+# Dedicated-owner private tables are intentionally unreadable by the migrator.
+# Use the already verified owned bootstrap for the complete archive. Root opens
+# the private file before runuser drops privileges, just as for restore below.
+runuser -u postgres -- "$pg_bin/pg_dump" -h /tmp -p "$port" \
+  --dbname="$source_db" --format=custom > "$backup"
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 CREATE DATABASE :"restore_db" OWNER board_migrator;
 REVOKE ALL ON DATABASE :"restore_db" FROM PUBLIC;
@@ -96,6 +101,16 @@ for table in content.threads post_secrets.op_peers post_secrets.op_replies; do
   before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint")
   after=$("$pg_bin/psql" "$restore_url" -XAt -v ON_ERROR_STOP=1 -c "$fingerprint")
   [[ -n $before && $before = "$after" ]] || { echo 'Restored thread or private posting state differs.' >&2; exit 1; }
+done
+# Include exact report-admission state and retained report/audit history, even
+# when empty. Only the verified owned bootstrap reads dedicated-owner tables;
+# unrelated behavior and role-denial checks below keep their runtime logins.
+# Compare digests silently rather than exposing private actor or history rows.
+for table in post_secrets.report_membership post_secrets.report_admission_gate content.reports content.moderation_audit; do
+  fingerprint="SELECT md5(coalesce(string_agg(row_to_json(p)::text, '' ORDER BY row_to_json(p)::text), '')) FROM $table p"
+  before=$("${admin[@]}" -At -d "$source_db" -c "$fingerprint")
+  after=$("${admin[@]}" -At -d "$restore_db" -c "$fingerprint")
+  [[ -n $before && $before = "$after" ]] || { echo 'Restored private report or audit history differs.' >&2; exit 1; }
 done
 handle_fingerprint="SELECT md5(string_agg(row_to_json(h)::text, '' ORDER BY job_id)) FROM media_intake.handles h"
 before=$("$pg_bin/psql" "$MIGRATION_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$handle_fingerprint")
@@ -198,5 +213,5 @@ grep -q 'permission denied' .local/restored-staff-denial.txt
 "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 DROP DATABASE :"restore_db";
 SQL
-printf 'Restore exercise passed: post, private OP, asset and intake-handle fingerprints, eighteen table counts, restored capability and upload claims, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
+printf 'Restore exercise passed: post, private OP, private report/history, asset and intake-handle fingerprints, eighteen table counts, restored capability and upload claims, approved-only reader and aggregate observer views, public/media/auth/staff reads, activity grants and protected-operation denials. Disposable restored database removed.\n'
 printf 'Source PostgreSQL: '; "$pg_bin/pg_dump" --version

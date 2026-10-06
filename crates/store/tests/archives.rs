@@ -1,7 +1,8 @@
 #![cfg(feature = "database-tests")]
 mod support;
 
-use board_store::{NewPost, StoreError};
+use board_domain::anonymous_session::Capability;
+use board_store::{NewPost, StoreError, anonymous_session::PostingSession};
 use sqlx::PgPool;
 
 // An ordinary reader distinct from the OP fixture actor. Keep this identity
@@ -47,6 +48,13 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
             .expire_neglected,
         "New boards inherit source default"
     );
+    let reporter = Capability::generate().unwrap();
+    let report_token = reporter.storage_hash();
+    let report_session = PostingSession {
+        fingerprints: reporter.fingerprints(reader_context().peer, *b"US"),
+        minted: true,
+        now: chrono::Utc::now(),
+    };
     let test_slug = slug.clone();
     let test_public = public.clone();
     let test_owner = owner.clone();
@@ -68,7 +76,14 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
                 .id,
             second
         );
-        archive_lifecycle(&test_owner, &test_public, &test_slug, second).await;
+        archive_lifecycle(
+            &test_owner,
+            &test_public,
+            &test_slug,
+            second,
+            report_session,
+        )
+        .await;
     })
     .await;
     sqlx::query("DELETE FROM content.reports WHERE board=$1")
@@ -92,12 +107,23 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
         .execute(&owner)
         .await
         .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(report_token.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
     public.close().await;
     owner.close().await;
     result.unwrap();
 }
 
-async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: i64) {
+async fn archive_lifecycle(
+    owner: &PgPool,
+    public: &PgPool,
+    slug: &str,
+    second: i64,
+    report_session: PostingSession,
+) {
     let report_identity =
         support::key(slug).public_report_rate_identity(reader_context().peer.unwrap());
     sqlx::query(
@@ -194,7 +220,15 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         0
     );
     assert!(matches!(
-        board_store::report(public, slug, third, "Synthetic report", &report_identity).await,
+        board_store::report_with_anonymous_session(
+            public,
+            slug,
+            third,
+            "Synthetic report",
+            &report_identity,
+            report_session
+        )
+        .await,
         Err(StoreError::NotFound)
     ));
     assert!(matches!(
@@ -213,12 +247,13 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
             .id,
         fourth
     );
-    board_store::report(
+    board_store::report_with_anonymous_session(
         public,
         slug,
         fourth,
         "Visible archive report",
         &report_identity,
+        report_session,
     )
     .await
     .unwrap();

@@ -364,7 +364,7 @@ async fn successful_posts_and_reports_derive_private_activity_from_committed_row
         assert!(post_proof(&f.public, &tokens[1], &f.board, op).await.unwrap().is_none());
         let report_key = support::key(&f.board);
         let first_report_identity = report_key.public_report_rate_identity("198.51.100.7".parse().unwrap());
-        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Owned report", &first_report_identity, Some(session(&capability, false))).await.unwrap();
+        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Owned report", &first_report_identity, session(&capability, false)).await.unwrap();
         assert_eq!(saved(&f.public, first.fingerprints).await.pending, 13);
         let next = session(&capability, false);
         let now = next.now.timestamp();
@@ -380,7 +380,7 @@ async fn successful_posts_and_reports_derive_private_activity_from_committed_row
         let second_report_identity = report_key.public_report_rate_identity(reporter_peer);
         let mut reporter_session = session(&reporter, true);
         reporter_session.fingerprints = reporter.fingerprints(Some(reporter_peer), *b"US");
-        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Another owned reporter", &second_report_identity, Some(reporter_session)).await.unwrap();
+        board_store::report_with_anonymous_session(&f.public, &f.board, op, "Another owned reporter", &second_report_identity, reporter_session).await.unwrap();
         let report_only = saved(&f.public, reporter_session.fingerprints).await;
         assert_eq!((report_only.posts, report_only.pending, report_only.report_count()), (0, 8, 1));
         assert!(post_proof(&f.public, &tokens[1], &f.board, op).await.unwrap().is_none());
@@ -424,7 +424,7 @@ async fn missing_revoked_or_expired_authority_rolls_back_content_and_reports() {
                     op,
                     "Uncommitted report",
                     &report_identity,
-                    Some(context)
+                    context
                 )
                 .await,
                 Err(StoreError::AuthorizationChanged)

@@ -188,25 +188,3 @@ pub(crate) async fn record_post(
         .map_err(mutation_error)?;
     Ok(())
 }
-
-pub(crate) async fn record_report(
-    tx: &mut Transaction<'_, Postgres>,
-    session: PostingSession,
-    board: &str,
-    report: i64,
-) -> Result<(), StoreError> {
-    let fingerprints = session.fingerprints;
-    sqlx::query("SELECT content.register_anonymous_report($1,$2,$3,$4,$5,$6,$7,$8)")
-        .bind(fingerprints.token.as_slice())
-        .bind(fingerprints.network.as_slice())
-        .bind(fingerprints.address.as_slice())
-        .bind(fingerprints.environment.as_slice())
-        .bind(session.minted)
-        .bind(board)
-        .bind(report)
-        .bind(session.now.timestamp())
-        .execute(&mut **tx)
-        .await
-        .map_err(mutation_error)?;
-    Ok(())
-}

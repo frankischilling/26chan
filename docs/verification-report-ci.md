@@ -81,3 +81,35 @@ the restricted admission API, and its complete dump uses the owned-cluster
 administrator rather than expanding the migrator's private-table grants.
 The adapted local exercise passes history, role-denial, rollback, capacity,
 bounded-cleanup and restored-ownership checks.
+
+
+## Session-report checkpoint prerequisites
+
+At ea9a7b4, all four Windows theme shards and the main Windows job passed.
+Linux reached the report-popup group with 14 passing cases and one Escape
+failure: the popup closed during keydown before Playwright received its keyup
+acknowledgement. The test now requires a trusted Escape event, popup closure,
+an open parent, and a connected browser before accepting that specific
+closed-target error. Other errors remain failures. Browser verification of
+this correction is pending the next exact-head run.
+
+The media job failed its complete dump because the non-inheriting migrator
+cannot read the dedicated-owner report-admission tables. Both restore exercises
+now dump through their already verified disposable-cluster administrator;
+runtime grants are unchanged. Private files are opened before switching users,
+and private report membership, admission policy, reports and audit history are
+compared through silent fingerprints.
+
+Both adapted local restore exercises passed with migration 0097. The local
+adapter used an owned TCP PostgreSQL cluster and the current unprivileged user;
+it does not qualify native root-to-postgres switching or Windows execution.
+The attachment exercise verified seven attachments, fourteen files, exact JSON
+bytes, URL forms, deletion/archive visibility, one-use receipts, interrupted
+cleanup, numbering and unchanged source state.
+
+A wider local run also found a transient empty media claim in the attachment
+fixture. Its unchanged isolated rerun passed. The fixture now waits on its exact
+queued job with a bounded row lock, verifies state, attempt count, input size and
+expiry, then explicitly releases the lock before the single `SKIP LOCKED` claim.
+This establishes the idle-queue precondition without retries or production queue
+changes. The exact source of the transient lock has not been established.

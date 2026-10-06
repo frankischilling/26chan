@@ -168,7 +168,7 @@ AND NOT EXISTS (
 const REPORT_ADMISSION_READY_SQL: &str = "SELECT NOT EXISTS (
     SELECT 1 FROM (VALUES
         ('content.check_report_admission(text,bigint,bytea)','board_report_admission_owner','void',true),
-        ('content.admit_report(text,bigint,text,bytea)','board_report_admission_owner','bigint',true),
+        ('content.admit_report(text,bigint,text,bytea)','board_report_admission_owner','bigint',false),
         ('content.staff_delete_post_attachment(text,bigint)','board_attachment_owner','void',false)
     ) AS required(signature,owner_name,result_type,public_access)
     WHERE NOT EXISTS (

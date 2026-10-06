@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Owned synthetic clusters only. Qualify 0093 -> 0094 and current dump/restore.
+# Owned synthetic clusters only. Qualify 0093 -> 0094 and 0094 schema dump/restore.
 set -euo pipefail
 umask 077
 cd "$(dirname "$0")/.."
@@ -126,14 +126,12 @@ INSERT INTO staff_identity.sessions(token_hash,csrf_hash,account_id,credential_i
 SELECT decode(repeat('21',32),'hex'),decode(repeat('22',32),'hex'),id,decode('01','hex')
 FROM staff_identity.accounts WHERE username='synthetic_report_upgrade';
 SQL
-# Exercise the actual shared readiness query inside rolled-back catalog changes.
+# Exercise the frozen 0094 readiness contract inside rolled-back catalog changes.
+# The latest migration exercise separately checks current service readiness.
 # Only this owned-cluster administrator can switch to both runtime roles.
 python3 - "$cluster/readiness.sql" <<'PYREADINESS'
-import pathlib, re, sys
-source = pathlib.Path("crates/store/src/report_admission.rs").read_text()
-queries = re.findall(r'pub const READINESS_SQL: &str = r#"(.*?)"#;', source, re.S)
-assert len(queries) == 1
-query = queries[0]
+import pathlib, sys
+query = pathlib.Path("scripts/fixtures/report-admission-0094-readiness.sql").read_text()
 changes = ['ALTER TABLE content.posts DISABLE TRIGGER retire_deleted_post_report_membership', 'ALTER TABLE content.threads DISABLE TRIGGER retire_deleted_thread_report_membership', 'DROP TRIGGER retire_deleted_post_report_membership ON content.posts', 'DROP TRIGGER retire_deleted_thread_report_membership ON content.threads', 'SET LOCAL ROLE board_report_admission_owner; GRANT EXECUTE ON FUNCTION post_secrets.check_report_limits(text,bigint,bytea,timestamptz) TO board_public; RESET ROLE', 'SET LOCAL ROLE board_report_admission_owner; REVOKE EXECUTE ON FUNCTION post_secrets.retire_staff_file_report_membership(text,bigint) FROM board_attachment_owner; RESET ROLE', 'SET LOCAL ROLE board_report_admission_owner; ALTER FUNCTION post_secrets.report_target(text,bigint) SECURITY INVOKER; RESET ROLE', 'SET LOCAL ROLE board_report_admission_owner; ALTER FUNCTION post_secrets.check_report_limits(text,bigint,bytea,timestamptz) SET search_path=public; RESET ROLE', 'SET LOCAL ROLE board_report_admission_owner; GRANT SELECT(actor_hash) ON post_secrets.report_membership TO board_public; RESET ROLE', 'GRANT INSERT(reason) ON content.reports TO board_public', 'GRANT USAGE ON SEQUENCE content.reports_id_seq TO board_public', 'SET LOCAL ROLE board_report_admission_owner; ALTER TABLE post_secrets.report_admission_gate ALTER COLUMN membership_limit DROP NOT NULL; RESET ROLE', 'SET LOCAL ROLE board_report_admission_owner; ALTER TABLE post_secrets.report_admission_gate ALTER COLUMN membership_limit SET DEFAULT 1000001; RESET ROLE', 'SET LOCAL ROLE board_report_admission_owner; ALTER TABLE post_secrets.report_admission_gate DROP CONSTRAINT report_admission_gate_membership_limit_check; RESET ROLE']
 with open(sys.argv[1], "w") as output:
     for change, expected in [("", True), *[(item, False) for item in changes],
@@ -504,8 +502,8 @@ SELECT * FROM public.report_indexes ORDER BY schemaname,tablename,indexname;
 SQL
  done
  cmp -s "$cluster/$mode-live.fingerprint" "$cluster/$mode-restored.fingerprint" || {
-  printf 'Report-admission current dump/restore fingerprint mismatch (%s).\n' "$mode" >&3; exit 1;
+  printf 'Report-admission 0094 schema dump/restore fingerprint mismatch (%s).\n' "$mode" >&3; exit 1;
  }
- printf '%s report-admission migration and current dump/restore passed.\n' "$mode" >&3
+ printf '%s report-admission migration and 0094 schema dump/restore passed.\n' "$mode" >&3
 done
 printf 'Historical rows preserved; restricted admission, durable membership and lifecycle qualified.\n' >&3

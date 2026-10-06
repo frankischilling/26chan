@@ -1394,7 +1394,8 @@ async fn delete_post_in(
     Ok(())
 }
 
-/// Report admission always requires a trusted transport-derived IP identity.
+/// Staff-only legacy report admission using a trusted transport IP identity.
+/// A public runtime pool cannot execute this IP-only database path.
 pub async fn report(
     pool: &PgPool,
     slug: &str,
@@ -1402,7 +1403,14 @@ pub async fn report(
     reason: &str,
     identity: &board_domain::poster_id::PublicReportRateIdentity,
 ) -> Result<(), StoreError> {
-    report_with_anonymous_session(pool, slug, id, reason, identity, None).await
+    validate_report_reason(reason)?;
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::report_admission::admit_on(&mut tx, slug, id, reason, identity).await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 pub async fn report_with_anonymous_session(
@@ -1411,24 +1419,24 @@ pub async fn report_with_anonymous_session(
     id: i64,
     reason: &str,
     identity: &board_domain::poster_id::PublicReportRateIdentity,
-    session: Option<anonymous_session::PostingSession>,
+    session: anonymous_session::PostingSession,
 ) -> Result<(), StoreError> {
+    validate_report_reason(reason)?;
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::report_admission::admit_with_session_on(&mut tx, slug, id, reason, identity, session)
+        .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+fn validate_report_reason(reason: &str) -> Result<(), StoreError> {
     if reason.trim().is_empty() || reason.len() > 1000 || reason.contains('\0') {
         return Err(StoreError::Invalid(
             "Report reason must contain 1 to 1000 bytes.",
         ));
     }
-    let mut tx = pool.begin().await?;
-    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
-        .execute(&mut *tx)
-        .await?;
-    // The admission function serializes policy, quota and report membership.
-    // Anonymous registration remains in this transaction so it cannot leave
-    // behind a report or consume admission capacity when registration fails.
-    let report = crate::report_admission::admit_on(&mut tx, slug, id, reason, identity).await?;
-    if let Some(session) = session {
-        anonymous_session::record_report(&mut tx, session, slug, report).await?;
-    }
-    tx.commit().await?;
     Ok(())
 }

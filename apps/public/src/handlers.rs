@@ -1117,6 +1117,11 @@ pub async fn report(
         Ok(identity) => identity,
         Err(error) => return Ok(fail(Some(form.no), error)),
     };
+    // Target policy precedes cookie parsing and session resolution. This read
+    // is advisory; admission rechecks the target under its database locks.
+    if let Err(error) = board_store::report_target(&state.pool, &board, form.no).await {
+        return Ok(fail(Some(form.no), error.into()));
+    }
     let session = match crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await {
         Ok(session) => session,
         Err(error) => return Ok(fail(Some(form.no), error)),
@@ -1130,7 +1135,7 @@ pub async fn report(
         form.no,
         &form.reason,
         &identity,
-        Some(session.posting),
+        session.posting,
     )
     .await
     {
@@ -1201,12 +1206,21 @@ mod readiness_tests {
             "pg_has_role(runtime.oid,r.oid,'MEMBER')",
             "content.check_report_admission(text,bigint,bytea)",
             "content.admit_report(text,bigint,text,bytea)",
+            "content.check_report_admission(text,bigint,bytea,bytea,bigint)",
+            "content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)",
+            "has_function_privilege('board_public',p.oid,'EXECUTE')=required.public_allowed",
+            "OR (current_user='board_staff' AND required.staff_allowed)",
+            "has_function_privilege('board_staff',p.oid,'EXECUTE')=required.staff_allowed",
+            "p.pronargdefaults=0 AND p.provariadic=0",
+            "cardinality(p.proconfig)=1",
             "p.prosecdef AND p.provolatile='v'",
             "search_path=pg_catalog,pg_temp",
             "has_function_privilege(current_user,p.oid,'EXECUTE')",
             "a.grantee NOT IN",
             "('report_target','bigint',false,'25 20')",
+            "('report_target','bigint',false,'25 20 1184')",
             "('check_report_limits','void',false,'25 20 17 1184')",
+            "('check_report_limits','void',false,'25 20 17 2950 1184')",
             "('retire_deleted_report_membership','trigger',false,'')",
             "('retire_staff_file_report_membership','void',true,'25 20')",
             "NOT has_function_privilege(current_user,p.oid,'EXECUTE')",
@@ -1227,9 +1241,9 @@ mod readiness_tests {
             "='notold.deletedandnew.deleted'",
             "('report_membership'),('report_admission_gate')",
             "c.relowner=r.oid",
-            "NOT has_table_privilege('board_public',c.oid,'INSERT')",
-            "has_column_privilege('board_public',c.oid,a.attnum,'INSERT')",
-            "NOT has_sequence_privilege('board_public',to_regclass('content.reports_id_seq'),'USAGE,SELECT,UPDATE')",
+            "has_table_privilege(runtime.oid,c.oid,'INSERT')",
+            "has_column_privilege(runtime.oid,c.oid,a.attnum,'INSERT')",
+            "has_sequence_privilege(runtime.oid,to_regclass('content.reports_id_seq'),'USAGE,SELECT,UPDATE')",
             "has_sequence_privilege(r.oid,to_regclass('content.reports_id_seq'),'USAGE')",
             "('reports','created_at','INSERT')",
             "a.attname='membership_limit' AND a.attnum>0 AND NOT a.attisdropped",

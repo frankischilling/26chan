@@ -19,9 +19,10 @@ eligible. Closed threads and retained archives remain reportable while visible;
 missing, deleted and no-longer-visible targets do not. There is no new blanket
 closed-thread, sticky-thread or archive rejection.
 
-POST rechecks eligibility after acquiring the board mutation lock. The existing
-transaction-snapshot expiry clock for retained archives is unchanged; waiting
-for a lock does not introduce a wall-clock expiry recheck. The report insert and
+POST checks eligibility before resolving its anonymous session, then checks
+again inside admission. Migration 0097 rechecks retained-archive expiry using
+the database clock after board, admission and session-lock waits. A previously
+visible form does not reserve eligibility while those locks are contested. The report insert and
 anonymous-session report activity commit or roll back together. Report rows and
 session state remain private, with no added public read grants. Rendering the
 GET form uses the eligible target's public board, post and thread IDs; the
@@ -87,7 +88,7 @@ and opener hiding.
 ## Deployment and verification scope
 
 Migration 0093 introduced this target policy. Matching services now also require
-migration 0094 and its [IP admission and retirement rules](source-report-admission.md).
+migration 0097 and its [identity admission and retirement rules](source-report-admission.md).
 Follow that rollout sequence before starting a paired release.
 Migration 0093 preserves existing report rows and changes no categories or
 grants; no new bootstrap role

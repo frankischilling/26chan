@@ -2,7 +2,7 @@ use crate::{AppState, handlers::AppError};
 use askama::Template;
 use axum::{
     extract::{Path, Query, State, rejection::QueryRejection},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::Response,
 };
 use serde::Deserialize;
@@ -96,6 +96,7 @@ pub(crate) async fn get(
     State(state): State<AppState>,
     Path(board): Path<String>,
     axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    headers: HeaderMap,
     query: Result<Query<ReportQuery>, QueryRejection>,
 ) -> Result<Response, AppError> {
     let invalid = || AppError(StatusCode::BAD_REQUEST, "Invalid reporting request.");
@@ -120,8 +121,20 @@ pub(crate) async fn get(
         Ok(identity) => identity,
         Err(cause) => return Ok(error(&state, &board, Some(no), cause)),
     };
-    if let Err(cause) =
-        board_store::report_admission::check(&state.pool, &board, no, &identity).await
+    let capability = match crate::anonymous_session::Session::existing(&state, &headers).await {
+        Ok(capability) => capability,
+        Err(cause) => return Ok(error(&state, &board, Some(no), cause)),
+    };
+    let token = capability.map(|capability| capability.storage_hash());
+    if let Err(cause) = board_store::report_admission::check_with_session(
+        &state.pool,
+        &board,
+        no,
+        &identity,
+        token.as_ref(),
+        chrono::Utc::now().timestamp(),
+    )
+    .await
     {
         return Ok(error(&state, &board, Some(no), cause.into()));
     }

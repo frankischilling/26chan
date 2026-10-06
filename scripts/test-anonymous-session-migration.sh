@@ -231,10 +231,10 @@ END $$;
 RESET ROLE;
 SET ROLE board_public;
 BEGIN ISOLATION LEVEL READ COMMITTED;
--- Use the restricted IP-actor admission API, then register its returned ID
--- in the same transaction so 0095 can verify fresh report provenance.
-SELECT content.admit_report('anonold',8800102,'Owned restored report',decode(repeat('06',32),'hex')) AS report_id \gset
-SELECT content.register_anonymous_report(decode(repeat('01',32),'hex'),decode(repeat('02',32),'hex'),decode(repeat('03',32),'hex'),decode(repeat('04',32),'hex'),false,'anonold',:report_id::bigint,extract(epoch FROM clock_timestamp())::bigint);
+-- Current public admission registers the report and anonymous activity atomically.
+SELECT content.admit_report('anonold',8800102,'Owned restored report',decode(repeat('06',32),'hex'),
+ decode(repeat('01',32),'hex'),decode(repeat('02',32),'hex'),decode(repeat('03',32),'hex'),
+ decode(repeat('04',32),'hex'),false,extract(epoch FROM clock_timestamp())::bigint);
 COMMIT;
 SQL
 # The complete dump needs this owned cluster's administrator: the migrator

@@ -364,6 +364,39 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
         let stored: (i16, i64, i64) = sqlx::query_as("SELECT s.pending,(SELECT count(*) FROM post_secrets.anonymous_reports r WHERE r.token_hash=s.token_hash),(SELECT count(*) FROM post_secrets.anonymous_posts p WHERE p.token_hash=s.token_hash) FROM post_secrets.anonymous_sessions s WHERE s.token_hash=$1")
             .bind(token.as_slice()).fetch_one(&a).await.unwrap();
         assert_eq!(stored, (8, 1, 0));
+        let before: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+            .bind(token.as_slice()).fetch_one(&a).await.unwrap();
+        let unknown = format!("board-anon={}", Capability::generate().unwrap().credential());
+        for presented in [Some(cookie.as_str()), Some(unknown.as_str()), None] {
+            let mut request = Request::get(format!("/{b}/imgboard.php?mode=report&no={op}"));
+            if let Some(presented) = presented { request = request.header(header::COOKIE, presented); }
+            let mut request = request.body(Body::empty()).unwrap();
+            request.extensions_mut().insert(axum::extract::ConnectInfo("203.0.113.7:12345".parse::<std::net::SocketAddr>().unwrap()));
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert!(!response.headers().contains_key(header::SET_COOKIE));
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "private, no-store");
+            let status = response.status();
+            let bytes = to_bytes(response.into_body(), 65536).await.unwrap();
+            let html = String::from_utf8(bytes.to_vec()).unwrap();
+            if presented == Some(cookie.as_str()) {
+                assert!(status.is_client_error());
+                assert!(html.contains("You have already reported this post."));
+            } else {
+                assert_eq!(status, StatusCode::OK);
+                assert!(!html.contains("You have already reported this post."));
+            }
+            for private in [cookie.as_str(), "automatic_identity", "token_hash", "network_hash", "address_hash", "change_score"] {
+                assert!(!html.contains(private));
+            }
+        }
+        let after: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+            .bind(token.as_slice()).fetch_one(&a).await.unwrap();
+        assert_eq!(before, after, "Advisory GET must not advance activity at a changed IP");
+        let unknown_token = Capability::parse(unknown.strip_prefix("board-anon=").unwrap()).unwrap().storage_hash();
+        let unknown_rows: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+            .bind(unknown_token.as_slice()).fetch_one(&a).await.unwrap();
+        assert_eq!(unknown_rows, 0, "Unknown-cookie GET must not allocate session state");
+
         let op_text = op.to_string();
         for fields in [vec![("no", "0"), ("reason", "Owned missing target")], vec![("no", op_text.as_str()), ("reason", "")]] {
             let response = app.clone().oneshot(form(&format!("/{b}/report"), &fields, Some(&cookie), false)).await.unwrap();

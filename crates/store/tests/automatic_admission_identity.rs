@@ -439,54 +439,76 @@ async fn runtime_cannot_read_choose_or_retroactively_stamp_private_identity() {
 }
 
 #[tokio::test]
-async fn reports_capture_same_private_identity_without_enabling_identity_report_quota() {
+async fn reports_capture_private_identity_and_reject_cross_ip_duplicate_and_flood() {
     run(|f| async move {
         let author = f.capability();
         let reporter = f.capability();
         let now = f.now().await;
         let op = f.post(&author, true, peer(70), now, 0).await.unwrap();
+        let reply = f.post(&author, false, peer(70), now, op).await.unwrap();
         let key = support::key(&f.board);
-        // Different trusted IP identities can report the same target even with
-        // one existing automatic capability. This slice forwards equality but
-        // deliberately retains the original IP-only report admission policy.
-        for (ip, minted, at) in [(peer(71), true, now), (peer(72), false, now + 1)] {
-            let rate = key.public_report_rate_identity(ip);
-            board_store::report_with_anonymous_session(
-                &f.public,
-                &f.board,
-                op,
-                "Owned identity-forwarding report",
-                &rate,
-                Some(session(&reporter, minted, ip, at)),
-            )
-            .await
-            .unwrap();
-        }
+        let rate = key.public_report_rate_identity(peer(71));
+        board_store::report_with_anonymous_session(
+            &f.public,
+            &f.board,
+            op,
+            "Owned identity-forwarding report",
+            &rate,
+            session(&reporter, true, peer(71), now),
+        )
+        .await
+        .unwrap();
         let identity = f
             .identity(&reporter)
             .await
             .expect("report registration allocates identity");
         let captured = f.report_identities().await;
-        assert_eq!(
-            captured,
-            vec![Some(identity.clone()), Some(identity.clone())]
-        );
+        assert_eq!(captured, vec![Some(identity.clone())]);
         let before = f.snapshot().await;
         let duplicate = board_store::report_with_anonymous_session(
             &f.public,
             &f.board,
             op,
-            "Duplicate IP still rejected",
-            &key.public_report_rate_identity(peer(71)),
-            Some(session(&reporter, false, peer(71), now + 2)),
+            "Same capability on a different IP remains a duplicate",
+            &key.public_report_rate_identity(peer(72)),
+            session(&reporter, false, peer(72), now + 1),
         )
         .await;
-        assert!(duplicate.is_err());
+        assert_eq!(
+            duplicate.unwrap_err().to_string(),
+            "You have already reported this post."
+        );
         assert_eq!(
             f.snapshot().await,
             before,
-            "failed report leaves anonymous activity unchanged"
+            "cross-IP duplicate leaves anonymous activity unchanged"
         );
+        let flood = board_store::report_with_anonymous_session(
+            &f.public,
+            &f.board,
+            reply,
+            "A different target on a different IP still observes session flood limits",
+            &key.public_report_rate_identity(peer(73)),
+            session(&reporter, false, peer(73), now + 2),
+        )
+        .await;
+        assert_eq!(
+            flood.unwrap_err().to_string(),
+            "You have to wait a while before reporting another post."
+        );
+        assert_eq!(
+            f.snapshot().await,
+            before,
+            "cross-IP flood leaves anonymous activity unchanged"
+        );
+        assert_eq!(f.report_identities().await, captured);
+        let reporter_shape: serde_json::Value =
+            sqlx::query_scalar("SELECT to_jsonb(s) FROM content.anonymous_session($1) s")
+                .bind(reporter.storage_hash().as_slice())
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        assert!(reporter_shape.get("automatic_identity").is_none());
         sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
             .bind(reporter.storage_hash().as_slice())
             .execute(&f.owner)

@@ -59,7 +59,23 @@ test('Close and Escape cancel without success; validation errors do not hide or 
   let closed = popup.waitForEvent('close'); await popup.locator('#report-popup-close').click(); await closed;
   await expect(hidden(page, owned.reply)).toBeVisible();
   popup = await openReport(page, owned.reply);
-  closed = popup.waitForEvent('close'); await popup.keyboard.press('Escape'); await closed;
+  // Escape closes during keydown, so Chromium may destroy the input target
+  // before Playwright receives its keyup acknowledgement. Prove delivery and
+  // the intended popup-only closure rather than retrying or masking errors.
+  await page.evaluate(() => { window.__reportEscapeObserved = false; });
+  await popup.evaluate(() => document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && event.isTrusted) opener.__reportEscapeObserved = true;
+  }, { capture: true, once: true }));
+  closed = popup.waitForEvent('close');
+  try {
+    await popup.keyboard.press('Escape');
+  } catch (error) {
+    if (!popup.isClosed() || page.isClosed() || !page.context().browser()?.isConnected()
+        || !String(error).includes('Target page, context or browser has been closed')) throw error;
+  }
+  await closed;
+  expect(await page.evaluate(() => window.__reportEscapeObserved)).toBe(true);
+  expect(page.context().browser()?.isConnected()).toBe(true);
   await expect(hidden(page, owned.reply)).toBeVisible();
   popup = await openReport(page, owned.reply);
   await popup.clock.install();
