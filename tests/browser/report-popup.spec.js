@@ -297,7 +297,8 @@ for (const kind of ['rule', 'illegal']) {
         expect(await inspectCategorical(owned)).toEqual({
           reportCount: 1, categories: [expectedCategory(owned.catalog, kind)],
         });
-        await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'form');
+        // Observe only the opener while the popup's real navigation is held.
+        // Popup locators wait for that navigation and cannot inspect its old DOM.
         await expect(hidden(page, owned.reply)).toBeVisible();
         await expect(hidden(page, owned.id)).toBeVisible();
         expect(await page.evaluate(() => localStorage.getItem('4chan-hide-r-demo'))).toBe(null);

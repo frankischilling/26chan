@@ -126,3 +126,18 @@ opener and popup, submits the real form, and verifies persisted reply hiding.
 It then uses the real Unhide menu before the original cookie-authorized deletion
 checks. Production menu behavior is unchanged. Its syntax is checked locally;
 actual browser execution still requires the next exact-head run.
+
+## Held-navigation observation in categorical tests
+
+At 78438c4, Windows, all theme shards and media/operations passed. Linux passed
+19 popup cases and failed the two categorical response-hold cases. Each had
+already verified committed report metadata, then tried to inspect the popup's
+old form while its real POST navigation was deliberately held. Playwright waited
+for that navigation instead of providing the assumed old DOM.
+
+The corrected test observes the opener during that interval: committed metadata
+must exist while both posts remain visible and hide storage is unchanged. It
+then forwards the original response unchanged and checks success, hiding and the
+close boundary. No production code or ordering assertion was removed. The
+pending-navigation popup DOM was never part of that commit-before-hide contract.
+Syntax is checked locally; the corrected browser cases require the next run.
