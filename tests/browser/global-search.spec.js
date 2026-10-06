@@ -81,6 +81,23 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       expect(await privateResult.json()).toEqual({ threads: [], offset: 0, nhits: 0 });
       expect(await page.evaluate(() => window.searchPolicyViolations)).toEqual([]);
       expect(errors).toEqual([]);
+      // Follow the actual shared OP fragment after worker/main-thread validation.
+      // The exact source context comes from the persisted subject, not the URL.
+      const jsonResponse = await context.request.get(`${origin}/fixture/thread/${second}.json`);
+      expect(jsonResponse.status()).toBe(200);
+      const op = (await jsonResponse.json()).posts[0];
+      // The 43-byte marker fits; adding the next word exceeds the source 50-byte budget.
+      expect(op.semantic_url).toBe(marker.toLowerCase());
+      const replyHref = `/fixture/thread/${second}/${op.semantic_url}`;
+      const replyLink = page.locator(`#pi${second}`).getByRole('link', { name: 'Reply', exact: true });
+      await expect(replyLink).toHaveAttribute('href', replyHref);
+      // The desktop header is hidden by the source mobile layout; the same
+      // server link remains testable through a normal click at desktop width.
+      if (viewport.width < 480) await page.setViewportSize({ width: 1280, height: 900 });
+      await replyLink.click();
+      await expect(page).toHaveURL(`${origin}${replyHref}`);
+      await expect(page.locator(`#t${second} #p${second}`)).toBeVisible();
+      await expect(page.locator('form.postEditor input[name="resto"]')).toHaveValue(second);
     } finally {
       for (const thread of threads) {
         await withDeletionQuota(async () => {

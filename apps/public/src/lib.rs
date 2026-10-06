@@ -27,7 +27,8 @@ pub mod themes;
 pub mod transport;
 mod ui_assets;
 mod uploads;
-mod views;
+// The screenshot fixture imports the production renderer and its projections.
+pub mod views;
 use axum::{
     Router,
     extract::DefaultBodyLimit,

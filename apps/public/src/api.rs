@@ -223,7 +223,7 @@ fn post_json(
         if let Some(count) = unique_ips {
             value["unique_ips"] = json!(count);
         }
-        let context = semantic_url(&post, board)?;
+        let context = crate::semantic_thread::context(&post, board)?;
         if !context.is_empty() {
             value["semantic_url"] = json!(context);
         }
@@ -283,52 +283,6 @@ fn post_json(
         }
     }
     Ok(value)
-}
-
-// Source computes context when loading the OP, not at insertion. Saved subject,
-// formatting stamp, filter payload and randomizer results supply that input.
-fn semantic_url(post: &PostView, board: &Board) -> Result<String, AppError> {
-    if board.staff_only {
-        return Ok(String::new());
-    }
-    let subject = board_domain::source_html_entities(&post.post.subject);
-    let projection_error = |_| {
-        AppError(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Could not format thread context.",
-        )
-    };
-    let context =
-        board_domain::semantic_context::generate(&subject, "", false).map_err(projection_error)?;
-    if !context.is_empty() {
-        return Ok(context);
-    }
-    let mut comment = crate::catalog::teaser::stored_comment(
-        &post.lines,
-        &post.post.board,
-        post.post.comment_format,
-    );
-    if let Some(dice) = &post.post.dice_result {
-        comment = format!(
-            "<b>{}<br><br></b>{comment}",
-            board_domain::source_html_entities(dice)
-        );
-    }
-    if let Some((text, color)) = post
-        .post
-        .fortune_text
-        .as_deref()
-        .zip(post.post.fortune_color.as_deref())
-    {
-        comment.push_str(&format!(
-            "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
-            board_domain::source_html_entities(color),
-            board_domain::source_html_entities(text)
-        ));
-    }
-    // Stored subjects are normalized text. Escape once before source decoding;
-    // literal submitted entity spellings must not become generated entities.
-    board_domain::semantic_context::generate(&subject, &comment, false).map_err(projection_error)
 }
 
 fn json_poster_id(post: &board_store::Post, op: bool, archived: bool) -> Option<&str> {

@@ -69,6 +69,12 @@ export function postMediaUrl(raw, context) {
 export function postLinkUrl(raw, context) {
   if (raw.startsWith('/')) {
     if (/^\/rules#[a-z0-9]{1,10}[a-z0-9+/,\-]*$/.test(raw)) return true;
+    // OP Reply/View thread uses the server's ordinary semantic context. Match
+    // the raw root-relative path, never a URL-normalized or decoded alias, and
+    // retain the exact decimal identity across worker/main-thread validation.
+    const semantic = /^\/([a-z0-9]{1,10})\/thread\/([1-9][0-9]{0,18})\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(raw);
+    if (semantic) return semantic[0] === raw && semantic[1] === context.board && semantic[2] === context.thread
+      && postId(semantic[2]) === semantic[2] && semantic[3].length <= 49;
     return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18}|\?quote=[1-9][0-9]{0,18}#reply)?|catalog(?:#s=(?:[a-z0-9+\-]|%2F|%2C)+)?|)$/.test(raw);
   }
   const url = new URL(raw);

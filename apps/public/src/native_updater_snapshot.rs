@@ -419,6 +419,82 @@ mod tests {
     }
 
     #[test]
+    fn op_reply_context_is_shared_by_board_pages_and_fragments_only() {
+        for (subject, comment, dice, staff_only, expected) in [
+            ("Hello World 123", "ignored", None, false, "hello-world-123"),
+            ("", "First line\nSecond line", None, false, "first-line"),
+            ("", "ordinary comment", Some("Roll: 4"), false, "roll-4"),
+            ("", "", None, false, ""),
+            ("Private subject", "private comment", None, true, ""),
+            ("bad\tcontext", "ignored", None, false, ""),
+        ] {
+            let mut snapshot = fixture();
+            snapshot.board.staff_only = staff_only;
+            snapshot.posts[0].subject = subject.into();
+            snapshot.posts[0].comment = comment.into();
+            snapshot.posts[0].dice_result = dice.map(str::to_owned);
+            let id = snapshot.thread.id;
+            let base = format!("/test/thread/{id}");
+            let href = if expected.is_empty() {
+                base.clone()
+            } else {
+                format!("{base}/{expected}")
+            };
+            let view = ThreadView {
+                catalog_last_reply: None,
+                tail_size: 0,
+                latest_reply_id: None,
+                thread: snapshot.thread,
+                posts: snapshot.posts.into_iter().map(PostView::new).collect(),
+                omitted: 3,
+                image_replies: 0,
+            };
+            let fragment = PostFragment {
+                spoiler_thumbnail: "/static/catalog/spoiler.png",
+                item: &view.posts[0],
+                view: &view,
+                board: &snapshot.board,
+                media_origin: "",
+                catalog: false,
+            }
+            .render()
+            .unwrap();
+            let page = crate::views::BoardPage {
+                spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
+                navigation_boards: vec![],
+                quote: String::new(),
+                catalog_hidden: vec![],
+                board: snapshot.board,
+                threads: vec![view],
+                parent: 0,
+                previous: String::new(),
+                next: String::new(),
+                catalog: false,
+                catalog_options: crate::catalog::Options::default(),
+                media_origin: String::new(),
+            }
+            .render()
+            .unwrap();
+            assert!(page.contains(&format!(
+                "3 posts omitted. <a href=\"{base}\">View thread</a>"
+            )));
+            for html in [page, fragment] {
+                assert!(
+                    html.contains(&format!("[<a href=\"{href}\">Reply</a>]")),
+                    "{subject:?}: {html}"
+                );
+                assert_eq!(html.matches(&format!("href=\"{base}#p{id}\"")).count(), 2);
+                assert_eq!(
+                    html.matches(&format!("href=\"{base}?quote={id}#reply\""))
+                        .count(),
+                    2
+                );
+                assert!(!html.contains(&format!("{href}/")));
+            }
+        }
+    }
+
+    #[test]
     fn posting_forms_render_the_current_ordinary_cooldown_policy() {
         for (reply, image) in [(0, 0), (15, 30), (90, 120), (86400, 86400)] {
             let mut board = fixture().board;

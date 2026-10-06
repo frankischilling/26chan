@@ -6,6 +6,11 @@ without inserting the post number. Other modified clicks retain browser
 navigation. Only the original post's own header can open Quick Reply; copied
 previews remain ordinary links.
 
+The separate OP `Reply` link (or archived `View thread`) uses the
+[semantic thread context](semantic-thread-routes.md) when it fits the bounded
+route grammar. This does not change either post-number target, comment quote
+links or omitted-post navigation.
+
 When JavaScript or Quick Reply is disabled, the digits link opens
 `/{board}/thread/{thread}?quote={post}#reply`. The server prefills the ordinary
 comment field with `>>{post}` and a newline. The target must be a canonical,

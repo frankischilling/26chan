@@ -173,6 +173,16 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn reply_href(&self, board: &Board) -> askama::Result<String> {
+        let context =
+            crate::semantic_thread::context(self, board).map_err(|_| askama::Error::Fmt)?;
+        Ok(crate::semantic_thread::href(
+            &board.slug,
+            self.post.thread_id,
+            &context,
+        ))
+    }
+
     pub fn catalog_identity_visible(&self, board: &Board) -> bool {
         board_domain::capcode::catalog_identity_visible(
             self.post.capcode.as_deref(),

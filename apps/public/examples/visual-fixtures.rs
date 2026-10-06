@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
-// Test-only renderer for screenshot CI. It compiles the actual production view
+// Test-only renderer for screenshot CI. It imports the actual production view
 // module/templates. Persistence and real HTTP mutations have separate tests.
-use board_public::{archive, catalog};
+use board_public::{archive, catalog, views};
 #[path = "visual/catalog_controls.rs"]
 mod catalog_controls;
 #[path = "visual/catalog_filters.rs"]
@@ -14,8 +14,6 @@ mod flags;
 mod headers;
 #[path = "visual/media.rs"]
 mod media;
-#[path = "../src/views.rs"]
-mod views;
 use askama::Template;
 use axum::{Router, response::Html, routing::get};
 use board_store::{Board, Post, Thread};

@@ -220,13 +220,7 @@ pub(crate) fn row(
                 "Could not format thread context.",
             )
         })?;
-    let base = format!("/{}/thread/{}", board.slug, entry.id);
-    let candidate = format!("{base}/{context}");
-    let href = if crate::semantic_thread::is_path(&candidate) {
-        candidate
-    } else {
-        base
-    };
+    let href = crate::semantic_thread::href(&board.slug, entry.id, &context);
     let prepared = prepare(Input {
         subject: &subject,
         lines: &lines,

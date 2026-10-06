@@ -14,25 +14,59 @@ use serde_json::Value;
 use sqlx::PgPool;
 use tower::ServiceExt;
 
-async fn get(app: &Router, path: &str) -> Value {
+async fn get_text(app: &Router, path: &str) -> String {
     let response = app
         .clone()
         .oneshot(Request::get(path).body(Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(response.status(), 200, "{path}");
-    serde_json::from_slice(
-        &to_bytes(response.into_body(), 4 * 1024 * 1024)
+    String::from_utf8(
+        to_bytes(response.into_body(), 4 * 1024 * 1024)
             .await
-            .unwrap(),
+            .unwrap()
+            .to_vec(),
     )
     .unwrap()
 }
 
+async fn get(app: &Router, path: &str) -> Value {
+    serde_json::from_str(&get_text(app, path).await).unwrap()
+}
+
+fn assert_op_links(html: &str, slug: &str, id: i64, context: Option<&str>) {
+    let marker = format!("id=\"pc{id}\"");
+    let op = html.split_once(&marker).expect("OP article").1;
+    let op = op.split_once("</article>").unwrap().0;
+    let base = format!("/{slug}/thread/{id}");
+    // Source JSON may retain whitespace which cannot be used as an alias.
+    // Keep that JSON value unchanged and use the canonical HTML destination.
+    let href = match context {
+        Some(context) if !context.contains(char::is_whitespace) => {
+            format!("{base}/{context}")
+        }
+        _ => base.clone(),
+    };
+    assert!(
+        op.contains(&format!("[<a href=\"{href}\">Reply</a>]")),
+        "OP {id}: {href}"
+    );
+    for link in [
+        format!("href=\"{base}#p{id}\" title=\"Link to this post\">No.</a>"),
+        format!("href=\"{base}?quote={id}#reply\" title=\"Reply to this post\">{id}</a>"),
+    ] {
+        assert_eq!(op.matches(&link).count(), 2, "desktop/mobile OP {id}");
+    }
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let long = "a".repeat(50);
+    let boundary = "a".repeat(49);
     let cases = [
         ("Foo-bar Don't", "ignored", Some("foobar-dont")),
+        (boundary.as_str(), "ignored", Some(boundary.as_str())),
+        ("tab\tcontext", "ignored", Some("tab\tcontext")),
+        ("日本語", "!!!", None),
         ("", "First line\nSecond line", Some("first-line")),
         ("!!!", "Fallback words", Some("fallback-words")),
         (
@@ -73,6 +107,17 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         )
         .await
         .unwrap();
+        if subject.contains('\t') {
+            // Historical source subjects can retain whitespace that today's
+            // posting normalizer expands. Seed only this owned post's text.
+            sqlx::query("UPDATE content.posts SET subject=$2 WHERE id=$1 AND board=$3")
+                .bind(id)
+                .bind(subject)
+                .bind(&slug)
+                .execute(&owner)
+                .await
+                .unwrap();
+        }
         let reply = posting_fixture::create_post(
             &public,
             &slug,
@@ -103,6 +148,24 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
         ids.push((id, reply, expected));
+    }
+    // Force a real omitted-reply control in the board HTML. Its destination
+    // remains canonical even when the OP's Reply link carries source context.
+    for _ in 0..2 {
+        posting_fixture::create_post(
+            &public,
+            &slug,
+            ids[0].0,
+            &NewPost {
+                name: "Anonymous".into(),
+                subject: String::new(),
+                comment: "Omitted-reply fixture".into(),
+                deletion_hash: "semantic-context-fixture".into(),
+                sage: false,
+            },
+        )
+        .await
+        .unwrap();
     }
     sqlx::query("UPDATE content.boards SET dice_roll=true,fortune_trip=true,word_filter_enabled=true WHERE slug=$1")
         .bind(&slug).execute(&owner).await.unwrap();
@@ -171,6 +234,51 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     let (app, api) = posting_fixture::routers(public, &slug, "http://127.0.0.1:3000".into(), false);
+    let board_html = get_text(&app, &format!("/{slug}/")).await;
+    let page = get(&app, &format!("/_watch/{slug}/page/0")).await;
+    assert!(board_html.contains(&format!(
+        "<p class=\"omitted\">1 posts omitted. <a href=\"/{slug}/thread/{}\">View thread</a></p>",
+        ids[0].0
+    )));
+    for (id, expected) in ids
+        .iter()
+        .map(|(id, _, expected)| (*id, *expected))
+        .chain(generated.iter().copied())
+    {
+        let json = get(&app, &format!("/{slug}/thread/{id}.json")).await;
+        let context = json["posts"][0].get("semantic_url").and_then(Value::as_str);
+        assert_eq!(context, expected, "source JSON OP {id}");
+        assert_op_links(&board_html, &slug, id, context);
+        let thread_html = get_text(&app, &format!("/{slug}/thread/{id}")).await;
+        assert_op_links(&thread_html, &slug, id, context);
+        let expected_thread_id = id.to_string();
+        let preview = page["threads"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|thread| thread["thread"].as_str() == Some(expected_thread_id.as_str()))
+            .unwrap();
+        assert_op_links(
+            preview["posts"][0]["html"].as_str().unwrap(),
+            &slug,
+            id,
+            context,
+        );
+        let snapshot = get(&app, &format!("/_watch/{slug}/thread/{id}/posts")).await;
+        assert_op_links(
+            snapshot["posts"][0]["html"].as_str().unwrap(),
+            &slug,
+            id,
+            context,
+        );
+        let preview = get(&app, &format!("/_watch/{slug}/post/{id}")).await;
+        assert_op_links(
+            preview["post"]["html"].as_str().unwrap(),
+            &slug,
+            id,
+            context,
+        );
+    }
     for router in [&app, &api] {
         let catalog = get(router, &format!("/{slug}/catalog.json")).await;
         let index = get(router, &format!("/{slug}/1.json")).await;
@@ -257,7 +365,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
 }
 
 #[tokio::test]
-async fn source_context_is_consistent_across_json_projections_and_omits_empty_or_reply_values() {
+async fn source_context_agrees_across_json_board_and_watch_html_without_changing_post_controls() {
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();

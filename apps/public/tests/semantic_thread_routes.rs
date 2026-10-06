@@ -81,6 +81,43 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, private: String,
     let ordinary = request(&web, "GET", &canonical, ORIGIN).await;
     assert_eq!(ordinary.0, StatusCode::OK);
     assert!(String::from_utf8_lossy(&ordinary.2).contains(&format!("data-thread=\"{id}\"")));
+    let json = request(&web, "GET", &format!("{canonical}.json"), ORIGIN).await;
+    assert_eq!(json.0, StatusCode::OK);
+    let json: serde_json::Value = serde_json::from_slice(&json.2).unwrap();
+    assert_eq!(json["posts"][0]["no"].as_i64(), Some(id));
+    let context = json["posts"][0]["semantic_url"].as_str().unwrap();
+    assert_eq!(context, "owned-semantic-route");
+    let reply_link = format!("[<a href=\"{canonical}/{context}\">Reply</a>]");
+    for path in [format!("/{board}/"), canonical.clone()] {
+        let response = request(&web, "GET", &path, ORIGIN).await;
+        assert_eq!(response.0, StatusCode::OK);
+        let html = String::from_utf8(response.2).unwrap();
+        assert!(html.contains(&reply_link), "exact persisted ID: {path}");
+        assert!(html.contains(&format!("href=\"{canonical}#p{id}\"")));
+        assert!(html.contains(&format!("href=\"{canonical}?quote={id}#reply\"")));
+    }
+    for (path, page, preview) in [
+        (format!("/_watch/{board}/thread/{id}/posts"), false, false),
+        (format!("/_watch/{board}/page/0"), true, false),
+        (format!("/_watch/{board}/post/{id}"), false, true),
+    ] {
+        let response = request(&web, "GET", &path, ORIGIN).await;
+        assert_eq!(response.0, StatusCode::OK);
+        let value: serde_json::Value = serde_json::from_slice(&response.2).unwrap();
+        let post = if page {
+            assert_eq!(value["threads"][0]["thread"], id.to_string());
+            &value["threads"][0]["posts"][0]
+        } else if preview {
+            &value["post"]
+        } else {
+            &value["posts"][0]
+        };
+        assert_eq!(post["no"], id.to_string());
+        let html = post["html"].as_str().unwrap();
+        assert!(html.contains(&reply_link), "exact fragment ID: {path}");
+        assert!(html.contains(&format!("href=\"{canonical}#p{id}\"")));
+        assert!(html.contains(&format!("href=\"{canonical}?quote={id}#reply\"")));
+    }
 
     // These are shapes emitted by cleanup_context_string: single words,
     // lowercased subjects with spaces joined by hyphens, and the 49-byte bound.
@@ -212,6 +249,38 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, private: String,
         serde_json::from_slice::<serde_json::Value>(&json.2).unwrap()["posts"][0]["no"].as_i64(),
         Some(id)
     );
+    sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+        .bind(id)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let archived = request(&web, "GET", &canonical, ORIGIN).await;
+    assert_eq!(archived.0, StatusCode::OK);
+    let archived = String::from_utf8(archived.2).unwrap();
+    assert!(archived.contains(&format!(
+        "[<a href=\"{canonical}/owned-semantic-route\">View thread</a>]"
+    )));
+    assert!(archived.contains(&format!("href=\"{canonical}#p{id}\"")));
+    assert!(!archived.contains("?quote="));
+    for (path, preview) in [
+        (format!("/_watch/{board}/thread/{id}/posts"), false),
+        (format!("/_watch/{board}/post/{id}"), true),
+    ] {
+        let response = request(&web, "GET", &path, ORIGIN).await;
+        assert_eq!(response.0, StatusCode::OK);
+        let value: serde_json::Value = serde_json::from_slice(&response.2).unwrap();
+        let post = if preview {
+            &value["post"]
+        } else {
+            &value["posts"][0]
+        };
+        let html = post["html"].as_str().unwrap();
+        assert!(html.contains(&format!(
+            "[<a href=\"{canonical}/owned-semantic-route\">View thread</a>]"
+        )));
+        assert!(html.contains(&format!("href=\"{canonical}#p{id}\"")));
+        assert!(!html.contains("?quote="));
+    }
     sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
         .bind(id)
         .execute(&owner)
@@ -237,7 +306,7 @@ async fn persisted_semantic_aliases_keep_canonical_html_and_security_boundaries(
     let board = format!("su{random:08x}");
     let private = format!("sp{random:08x}");
     for (slug, staff_only) in [(&board, false), (&private, true)] {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,staff_only) VALUES($1,'Semantic route fixture','Owned route test',4000,100,75,100,10,$2)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,staff_only,archive_retention_seconds) VALUES($1,'Semantic route fixture','Owned route test',4000,100,75,100,10,$2,3600)")
             .bind(slug).bind(staff_only).execute(&owner).await.unwrap();
     }
     let id = 9_007_199_254_740_993 + i64::from(random) * 2;
