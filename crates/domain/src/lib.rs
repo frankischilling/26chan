@@ -9,6 +9,7 @@ pub mod identity;
 pub mod name_trip_admission;
 pub mod poster_id;
 pub mod public_deletion;
+pub mod semantic_context;
 pub mod word_break;
 
 pub mod bump;
