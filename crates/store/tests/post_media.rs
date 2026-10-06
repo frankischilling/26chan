@@ -235,9 +235,46 @@ async fn exercise(f: &Fixture) {
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=10 AND bool_and(p.oid=ANY(ARRAY['content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean)'::regprocedure,'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean,timestamp with time zone)'::regprocedure,'content.delete_post_attachment(text,bigint)'::regprocedure,'content.check_attachment_upload(text,text)'::regprocedure,'content.cancel_attachment_upload(text,text)'::regprocedure,'content.next_media_number()'::regprocedure,'content.require_attachment_for_empty_post()'::regprocedure,'content.attachment_upload_filename(text,text)'::regprocedure,'content.sync_image_spoiler()'::regprocedure,'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure]) AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
-        .fetch_one(&f.admin).await.unwrap();
-    assert!(functions_safe);
+    let functions_safe: bool = sqlx::query_scalar(
+        "WITH required AS (SELECT ARRAY[
+            'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean)'::regprocedure,
+            'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean,timestamp with time zone)'::regprocedure,
+            'content.delete_post_attachment(text,bigint)'::regprocedure,
+            'content.staff_delete_post_attachment(text,bigint)'::regprocedure,
+            'content.check_attachment_upload(text,text)'::regprocedure,
+            'content.cancel_attachment_upload(text,text)'::regprocedure,
+            'content.next_media_number()'::regprocedure,
+            'content.require_attachment_for_empty_post()'::regprocedure,
+            'content.attachment_upload_filename(text,text)'::regprocedure,
+            'content.sync_image_spoiler()'::regprocedure,
+            'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure
+        ] AS functions)
+        SELECT count(*)=cardinality(required.functions)
+            AND bool_and(p.oid=ANY(required.functions) AND p.prosecdef
+                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0))
+        FROM required CROSS JOIN pg_proc p JOIN pg_roles r ON r.oid=p.proowner
+        WHERE r.rolname='board_attachment_owner' GROUP BY required.functions",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        functions_safe,
+        "Attachment owner must have exactly the reviewed function set"
+    );
+    // The report-retiring variant is a staff action, never another public
+    // file-deletion entry point. Existing public deletion keeps report history.
+    let staff_wrapper_safe: bool = sqlx::query_scalar(
+        "SELECT has_function_privilege('board_staff',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_auth',p.oid,'EXECUTE')
+            AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
+                WHERE a.privilege_type='EXECUTE' AND a.grantee<>p.proowner
+                    AND (a.grantee<>(SELECT oid FROM pg_roles WHERE rolname='board_staff') OR a.is_grantable))
+        FROM pg_proc p WHERE p.oid='content.staff_delete_post_attachment(text,bigint)'::regprocedure",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        staff_wrapper_safe,
+        "Only staff may enter the report-retiring attachment wrapper"
+    );
 
     let a = f.reserve().await;
     let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();

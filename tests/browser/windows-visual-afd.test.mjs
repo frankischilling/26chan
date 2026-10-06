@@ -218,3 +218,173 @@ test('dimensions and attribute names retain strict independent bounds', () => {
     assert.ok(result.metadata_fields[0].rejections.includes('field-attribute-limit'));
   }
 });
+
+const enrichedMetadata = () => {
+  const input = metadata();
+  input.provider_guid = '01234567-89AB-CDEF-0123-456789ABCDEF';
+  Object.assign(input.events[0], { opcode: 255, task: 65535,
+    channel_name: 'Microsoft-Windows-Winsock-AFD/Operational',
+    keyword_values: ['0x8000000000000000', '0xFFFFFFFFFFFFFFFF', '0x0020000000000001'],
+    keywords_complete: true });
+  return input;
+};
+const descriptor = result => result.metadata_descriptors[result.metadata[0].descriptor];
+
+test('public provider and event descriptors retain exact bounded values without inferring raw dimensions', () => {
+  const result = gateMetadata(enrichedMetadata());
+  assert.equal(result.inventory_schema, 2);
+  assert.equal(result.provider_guid, '01234567-89ab-cdef-0123-456789abcdef');
+  assert.equal(result.provider_guid_available, true);
+  assert.equal(result.metadata_partial, false);
+  assert.deepEqual(descriptor(result), {
+    opcode: 255, task: 65535, channel_name: 'Microsoft-Windows-Winsock-AFD/Operational',
+    keyword_values: ['0x8000000000000000', '0xffffffffffffffff', '0x0020000000000001'],
+    available: { opcode: true, task: true, channel_name: true, keyword_values: true },
+    channel_id: null, keyword_mask: null, raw_descriptor_complete: false,
+  });
+  assert.equal(result.capture, 'unavailable');
+  assert.equal(result.complete, false);
+  assert.deepEqual(result.events, []);
+});
+
+test('old or missing public metadata remains explicitly unavailable, never defaulted to zero', () => {
+  const result = gateMetadata(metadata());
+  assert.equal(result.provider_guid, null);
+  assert.equal(result.provider_guid_available, false);
+  assert.equal(result.metadata_partial, true);
+  assert.equal(result.metadata_counts.events_total_exact, true);
+  assert.deepEqual(descriptor(result), { opcode: null, task: null, channel_name: null,
+    keyword_values: null,
+    available: { opcode: false, task: false, channel_name: false, keyword_values: false },
+    channel_id: null, keyword_mask: null, raw_descriptor_complete: false });
+  for (const key of ['opcode', 'task', 'channel_name', 'keyword_values', 'keywords_complete']) {
+    const input = enrichedMetadata(); delete input.events[0][key];
+    assert.equal(gateMetadata(input).metadata_partial, true, key);
+  }
+});
+
+test('descriptor numbers reject malformed, out-of-range and precision-losing values independently', () => {
+  for (const key of ['opcode', 'task']) {
+    const max = key === 'opcode' ? 255 : 65535;
+    for (const value of [null, undefined, -1, max + 1, 1.5, NaN, Infinity,
+      Number.MAX_SAFE_INTEGER + 1, '0', true, {}, []]) {
+      const input = enrichedMetadata(); input.events[0][key] = value;
+      const result = gateMetadata(input);
+      assert.equal(descriptor(result)[key], null);
+      assert.equal(descriptor(result).available[key], false);
+      assert.equal(result.metadata_partial, true);
+      assert.equal(descriptor(result)[key === 'opcode' ? 'task' : 'opcode'], key === 'opcode' ? 65535 : 255);
+    }
+    const input = enrichedMetadata(); input.events[0][key] = 0;
+    assert.equal(descriptor(gateMetadata(input))[key], 0);
+  }
+});
+
+test('keywords reject numbers, invalid widths and malformed collections without lossy conversion', () => {
+  for (const values of [null, {}, '0x0000000000000001', [1], [9007199254740993],
+    [-9223372036854775808], ['18446744073709551615'], ['-1'], ['0x1'],
+    ['0x10000000000000000'], ['0x000000000000000g'], [null], ['0x0000000000000001\n'],
+    ['0x0000000000000001', 'PRIVATE_KEYWORD_CANARY'], Array(65).fill('0x0000000000000001')]) {
+    const input = enrichedMetadata(); input.events[0].keyword_values = values;
+    const result = gateMetadata(input);
+    assert.equal(descriptor(result).keyword_values, null);
+    assert.equal(descriptor(result).available.keyword_values, false);
+    assert.equal(result.metadata_partial, true);
+    assert.ok(!encode(result).includes('PRIVATE_KEYWORD_CANARY'));
+  }
+  const input = enrichedMetadata();
+  input.events[0].keyword_values = [];
+  assert.deepEqual(descriptor(gateMetadata(input)).keyword_values, []);
+  assert.equal(descriptor(gateMetadata(input)).available.keyword_values, true);
+  input.events[0].keywords_complete = false;
+  assert.equal(descriptor(gateMetadata(input)).available.keyword_values, false);
+  input.events[0].keyword_values = ['0x8000000000000001'];
+  assert.deepEqual(descriptor(gateMetadata(input)).keyword_values, ['0x8000000000000001']);
+  assert.equal(gateMetadata(input).metadata_partial, true);
+});
+
+test('GUID and channel values are strictly bounded identifiers; unknown properties never leak', () => {
+  for (const value of ['PRIVATE VALUE CANARY', 'C:\\PRIVATE_CANARY', '../PRIVATE_CANARY',
+    'https://PRIVATE_CANARY', 'x'.repeat(129), 'Application\n', 'Application\r', 123, null, {}, []]) {
+    const input = enrichedMetadata(); input.provider_guid = value; input.events[0].channel_name = value;
+    const result = gateMetadata(input);
+    assert.equal(result.provider_guid, null);
+    assert.equal(descriptor(result).channel_name, null);
+    assert.equal(result.metadata_partial, true);
+    assert.ok(!encode(result).includes('PRIVATE_'));
+  }
+  const input = enrichedMetadata();
+  input.provider = 'Microsoft-Windows-Winsock-AFD';
+  input.provider_path = 'PRIVATE_PROVIDER_PATH';
+  Object.assign(input.events[0], { channel_id: 123, keyword_mask: '0xffffffffffffffff',
+    message: 'PRIVATE_EVENT_MESSAGE', description: 'PRIVATE_EVENT_DESCRIPTION',
+    pointer: '0xffffface12345678', data: 'PRIVATE_EVENT_PAYLOAD',
+    available: { channel_id: true, keyword_mask: true }, raw_descriptor_complete: true });
+  const result = gateMetadata(input);
+  assert.equal(descriptor(result).channel_id, null);
+  assert.equal(descriptor(result).keyword_mask, null);
+  assert.equal(descriptor(result).raw_descriptor_complete, false);
+  assert.ok(!encode(result).includes('PRIVATE_'));
+  assert.ok(!encode(result).includes('ffffface12345678'));
+});
+
+test('descriptor dictionary is deduplicated and rolled back within the unchanged JSON budget', () => {
+  const input = enrichedMetadata();
+  input.events = Array.from({ length: 256 }, (_, id) => ({ ...input.events[0], id }));
+  const compact = gateMetadata(input);
+  assert.equal(compact.metadata.length, 256);
+  assert.equal(compact.metadata_descriptors.length, 1);
+  for (const event of input.events) {
+    event.task = event.id;
+    event.keyword_values = Array.from({ length: 64 }, (_, bit) => `0x${(1n << BigInt(bit)).toString(16).padStart(16, '0')}`);
+  }
+  const result = gateMetadata(input);
+  assert.equal(result.metadata_truncated, true);
+  assert.ok(result.metadata.length > 0 && result.metadata.length < 256);
+  assert.equal(result.metadata_descriptors.length, result.metadata.length);
+  assert.equal(result.metadata_counts.events_retained, result.metadata.length);
+  for (const event of result.metadata) assert.ok(result.metadata_descriptors[event.descriptor]);
+  assert.ok(Buffer.byteLength(encode(result)) <= 65536);
+  assert.equal(JSON.parse(encode(result)).metadata.length, result.metadata.length);
+});
+
+test('all nine error-only future candidates stay metadata-only even with complete public descriptors', () => {
+  const input = enrichedMetadata();
+  input.events = [6, 9, 10, 11, 12, 13, 14, 17, 40].map(id => ({ ...input.events[0], id,
+    fields: [{ name: 'Process', type: 'win:Pointer', scalar: true },
+      { name: 'Endpoint', type: 'win:Pointer', scalar: true },
+      { name: 'Error', type: 'win:UInt32', scalar: true }] }));
+  const result = gateMetadata(input);
+  assert.equal(result.metadata.length, 9);
+  assert.equal(result.capture, 'unavailable');
+  assert.equal(result.reason, 'provider-schema-unverified');
+  assert.equal(result.complete, false);
+  assert.deepEqual(result.events, []);
+  assert.deepEqual(result.counts, { scanned: 0, correlated: 0, failures: 0 });
+  assert.equal(result.events_lost, null);
+  assert.equal(result.buffers_lost, null);
+  assert.equal(result.circular_overwrite, null);
+});
+
+test('wrapper uses only documented public properties and exact Int64 hex, with bounded keyword enumeration', () => {
+  const script = readFileSync(new URL('../../scripts/windows-visual-afd.ps1', import.meta.url), 'utf8');
+  assert.match(script, /\$provider.Id.ToString\('D'\)/);
+  assert.match(script, /\$event.Opcode.Value/);
+  assert.match(script, /\$event.Task.Value/);
+  assert.match(script, /\$event.LogLink.LogName/);
+  assert.match(script, /\$keywords = \$event.Keywords/);
+  assert.match(script, /\$keywordValues.Count -ge 64/);
+  assert.match(script, /\$keyword.Value -isnot \[long\]/);
+  assert.match(script, /\$keyword.Value.ToString\('X16', \[Globalization.CultureInfo\]::InvariantCulture\)/);
+  assert.ok(!/\[u?int(?:32)?\]\s*\$keyword|GetField|BindingFlags|ToXml\(|EventRecord|Start-Trace|Start-NetEvent|Set-Acl|icacls/i.test(script.replace('no EventRecord access', 'no record access')));
+  assert.equal(LIMITS.metadataBytes, 262144);
+  assert.equal(LIMITS.outputBytes, 65536);
+});
+
+
+test('GUID validation rejects trailing control characters rather than accepting a prefix', () => {
+  for (const suffix of ['\n', '\r', '\r\n', '\0']) {
+    const input = enrichedMetadata(); input.provider_guid += suffix;
+    assert.equal(gateMetadata(input).provider_guid_available, false);
+  }
+});

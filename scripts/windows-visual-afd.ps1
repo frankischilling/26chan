@@ -8,6 +8,11 @@ $PSNativeCommandUseErrorActionPreference = $false
 # https://learn.microsoft.com/en-us/windows/win32/winsock/winsock-tracing-event-details
 # https://learn.microsoft.com/en-us/windows/win32/winsock/control-of-winsock-tracing
 # https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-trace
+# Public metadata APIs (no EventRecord access or raw descriptor reflection):
+# https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.providermetadata.id
+# https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventmetadata
+# https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventkeyword.value
+# https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventloglink
 $root = $null
 $diagnostic = $null
 $testExit = 1
@@ -54,10 +59,14 @@ try {
             Set-Content -LiteralPath $statePath -Encoding utf8NoBOM
         $events = [Collections.Generic.List[object]]::new()
         $issues = [Collections.Generic.List[string]]::new()
+        $providerGuid = $null
         $eligible = 0
         $enumerationComplete = $true
         try {
             $provider = Get-WinEvent -ListProvider 'Microsoft-Windows-Winsock-AFD' -ErrorAction Stop
+            try {
+                if ($null -ne $provider.Id) { $providerGuid = $provider.Id.ToString('D') }
+            } catch { $providerGuid = $null }
             $scanned = 0
             foreach ($event in $provider.Events) {
                 $scanned++
@@ -66,6 +75,38 @@ try {
                 if ($null -ne $level -and $level -gt 4) { continue }
                 $eligible++
                 if ($events.Count -ge 256) { $issues.Add('metadata-limit'); continue }
+                # Keep each missing property null; a failed getter must not drop
+                # the other metadata or turn a missing descriptor into zero.
+                $opcode = $null
+                $task = $null
+                $channelName = $null
+                try { if ($null -ne $event.Opcode) { $opcode = $event.Opcode.Value } } catch { }
+                try { if ($null -ne $event.Task) { $task = $event.Task.Value } } catch { }
+                try {
+                    if ($null -ne $event.LogLink) {
+                        $candidate = $event.LogLink.LogName
+                        if ($candidate -is [string] -and $candidate -cmatch '^[A-Za-z][A-Za-z0-9_.-]{0,95}(?:/[A-Za-z][A-Za-z0-9_.-]{0,31})?\z') {
+                            $channelName = $candidate
+                        }
+                    }
+                } catch { }
+                $keywordValues = [Collections.Generic.List[string]]::new()
+                $keywordsComplete = $false
+                try {
+                    $keywords = $event.Keywords
+                    if ($null -ne $keywords) {
+                        $keywordsComplete = $true
+                        foreach ($keyword in $keywords) {
+                            if ($keywordValues.Count -ge 64) { $keywordsComplete = $false; break }
+                            # Int64.ToString(X16) preserves all 64 two's-complement
+                            # bits, including sign/high bits. No UInt32/JSON-number cast.
+                            if ($null -eq $keyword -or $keyword.Value -isnot [long]) {
+                                $keywordsComplete = $false; break
+                            }
+                            $keywordValues.Add('0x' + $keyword.Value.ToString('X16', [Globalization.CultureInfo]::InvariantCulture))
+                        }
+                    }
+                } catch { $keywordsComplete = $false }
                 $fields = [Collections.Generic.List[object]]::new()
                 $rejections = [Collections.Generic.List[string]]::new()
                 $unsupported = $false
@@ -110,11 +151,13 @@ try {
                     $rejections.Add('template-unavailable')
                 }
                 $events.Add(@{ id = [int]$event.Id; version = [int]$event.Version;
-                    level = $level; fields = @($fields.ToArray()); unsupported = $unsupported;
+                    level = $level; opcode = $opcode; task = $task; channel_name = $channelName;
+                    keyword_values = @($keywordValues.ToArray()); keywords_complete = $keywordsComplete;
+                    fields = @($fields.ToArray()); unsupported = $unsupported;
                     rejections = @($rejections.ToArray()) })
             }
         } catch { $issues.Add('provider-metadata-unavailable'); $enumerationComplete = $false }
-        $metadata = @{ provider = 'Microsoft-Windows-Winsock-AFD';
+        $metadata = @{ provider = 'Microsoft-Windows-Winsock-AFD'; provider_guid = $providerGuid;
             events = @($events.ToArray()); issues = @($issues | Select-Object -Unique);
             events_total = $eligible; events_total_exact = $enumerationComplete }
         $metadataJson = $metadata | ConvertTo-Json -Depth 8 -Compress

@@ -681,6 +681,13 @@ async fn delete_already_holding_secret_cannot_deadlock_board_first_archiver() {
             archive.commit().await.unwrap();
         });
         wait_behind(&f.owner, archiver, updater).await;
+        // Keep the original secret lock outside the rejected statement's
+        // subtransaction. A whole-transaction abort releases it immediately,
+        // allowing the queued archiver to commit before the visibility check.
+        sqlx::query("SAVEPOINT rejected_delete")
+            .execute(&mut *update)
+            .await
+            .unwrap();
         let error = tokio::time::timeout(
             Duration::from_secs(3),
             sqlx::query(
@@ -693,6 +700,10 @@ async fn delete_already_holding_secret_cannot_deadlock_board_first_archiver() {
         .expect("Guard must reject instead of joining a lock cycle")
         .unwrap_err();
         assert_eq!(code(&error), "55P03");
+        sqlx::query("ROLLBACK TO SAVEPOINT rejected_delete")
+            .execute(&mut *update)
+            .await
+            .unwrap();
         assert_eq!(f.hashes(&[op]).await, before,
             "Rejected deletion leaves authority intact until the archiver can commit");
         update.rollback().await.unwrap();
