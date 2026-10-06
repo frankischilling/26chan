@@ -1,9 +1,39 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, readdir, mkdir, symlink, link, stat, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, readdir, mkdir, symlink, link, stat, realpath, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { visualNetlogEnabled, visualNetlogPlan, acceptableNetlogSize, prepareVisualNetlog, acceptVisualNetlog, finishVisualNetlog, trackVisualNetlogFailure, NETLOG_ARTIFACT_BYTES, NETLOG_FILES_PER_SHARD } from './visual-netlog.js';
+
+// os.tmpdir() can use an 8.3 alias or different casing on Windows (and a
+// symlinked ancestor elsewhere). Canonicalize only the newly owned test root,
+// before deriving plans; the production guard must still reject linked paths.
+async function fixtureDirectory(prefix, temporaryRoot = os.tmpdir()) {
+  return realpath(await mkdtemp(path.join(temporaryRoot, prefix)));
+}
+
+test('fixture roots resolve temporary-directory aliases before creating owned plans', async () => {
+  const dir = await fixtureDirectory('visual-netlog-temp-alias-');
+  try {
+    const target = path.join(dir, 'target');
+    const alias = path.join(dir, 'alias');
+    await mkdir(target);
+    await symlink(target, alias, 'junction');
+    const fixture = await fixtureDirectory('capture-', alias);
+    assert.equal(fixture, await realpath(fixture));
+    assert.equal(path.dirname(fixture), target);
+
+    const plan = visualNetlogPlan({}, fixture, 0, 'canonical');
+    await prepareVisualNetlog(plan);
+    await writeFile(plan.pending, JSON.stringify({ constants: {}, events: [] }));
+    // Resolving owned fixture roots must not relax the production alias guard.
+    const aliasedPlan = visualNetlogPlan({}, path.join(alias, path.basename(fixture)), 0, 'canonical');
+    assert.equal(await finishVisualNetlog(aliasedPlan, { failed: true }), 'unsafe-path');
+    assert.equal(await finishVisualNetlog(aliasedPlan, { failed: false }), 'unsafe-path');
+    assert.equal(await finishVisualNetlog(plan, { failed: true }), 'accepted');
+    assert.ok((await stat(plan.accepted)).isFile());
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
 
 test('capture requires all three exact guards', () => {
   const yes = { VISUAL_FIXTURE_SERVER: '1', WINDOWS_VISUAL_NETLOG: '1' };
@@ -38,7 +68,7 @@ test('hard artifact size boundary rejects empty, invalid and oversized files', (
 });
 
 test('only complete bounded captures enter artifact directory, with four-file shard cap', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-test-'));
+  const dir = await fixtureDirectory('visual-netlog-test-');
   try {
     for (let i = 0; i < NETLOG_FILES_PER_SHARD + 1; i++) {
       const plan = visualNetlogPlan({}, dir, i, 'owned');
@@ -96,7 +126,7 @@ test('only unexpected outcomes mark a worker; failure remains sticky within that
 });
 
 test('successful workers never consume failure slots; four failed captures remain bounded', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-retention-'));
+  const dir = await fixtureDirectory('visual-netlog-retention-');
   try {
     for (let i = 0; i < 36 + NETLOG_FILES_PER_SHARD + 1; i++) {
       const plan = visualNetlogPlan({}, dir, i, 'retention');
@@ -115,7 +145,7 @@ test('successful workers never consume failure slots; four failed captures remai
 });
 
 test('successful cleanup uses only its exact owned path and tolerates absent capture', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-cleanup-'));
+  const dir = await fixtureDirectory('visual-netlog-cleanup-');
   try {
     const plan = visualNetlogPlan({}, dir, 0, 'cleanup');
     const sibling = visualNetlogPlan({}, dir, 1, 'sibling');
@@ -133,7 +163,7 @@ test('successful cleanup uses only its exact owned path and tolerates absent cap
 });
 
 test('cleanup refuses symlink/reparse directories', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-links-'));
+  const dir = await fixtureDirectory('visual-netlog-links-');
   try {
     const target = path.join(dir, 'target');
     const output = path.join(dir, 'output');
@@ -157,7 +187,7 @@ test('failure observer is automatic, registered before context diagnostics, and 
 
 
 test('cleanup refuses linked pending files without touching their targets', async t => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-file-link-'));
+  const dir = await fixtureDirectory('visual-netlog-file-link-');
   try {
     const plan = visualNetlogPlan({}, dir, 0, 'linked-file');
     await prepareVisualNetlog(plan);
@@ -178,7 +208,7 @@ test('cleanup refuses linked pending files without touching their targets', asyn
 
 
 test('failed admission uses original paths even when the exposed plan is altered', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-owned-failure-'));
+  const dir = await fixtureDirectory('visual-netlog-owned-failure-');
   try {
     const plan = visualNetlogPlan({}, dir, 0, 'owned-failure');
     await prepareVisualNetlog(plan);
@@ -201,7 +231,7 @@ test('failed admission uses original paths even when the exposed plan is altered
 
 test('failed admission refuses source and artifact symlink/junction directories before reading', async () => {
   for (const linkedDirectory of ['netlogs-pending', 'netlogs']) {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-admission-link-'));
+    const dir = await fixtureDirectory('visual-netlog-admission-link-');
     try {
       const target = path.join(dir, 'unrelated');
       const output = path.join(dir, 'output');
@@ -222,7 +252,7 @@ test('failed admission refuses source and artifact symlink/junction directories 
 test('failed admission refuses symlinked, hardlinked, and nonregular captures', async t => {
   for (const kind of ['symbolic', 'hard', 'directory']) {
     await t.test(kind, async t => {
-      const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-admission-file-'));
+      const dir = await fixtureDirectory('visual-netlog-admission-file-');
       try {
         const plan = visualNetlogPlan({}, dir, 0, 'linked-source');
         await prepareVisualNetlog(plan);
@@ -249,7 +279,7 @@ test('failed admission refuses symlinked, hardlinked, and nonregular captures', 
 });
 
 test('failed admission never replaces an existing artifact path', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'visual-netlog-existing-artifact-'));
+  const dir = await fixtureDirectory('visual-netlog-existing-artifact-');
   try {
     const plan = visualNetlogPlan({}, dir, 0, 'existing');
     await prepareVisualNetlog(plan);
