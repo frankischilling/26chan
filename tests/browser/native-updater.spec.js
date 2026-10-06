@@ -28,7 +28,7 @@ async function initialize(page, owned, settings = {}) {
   await page.goto(owned.url);
 }
 
-test('manual update preserves the document, draft and focus, inserts escaped replies, and wires real menus and forms', async ({ page, owned }) => {
+test('manual update preserves the document, draft and focus, inserts escaped replies, and wires real menus and forms', async ({ page, context, owned }) => {
   await initialize(page, owned, { keyBinds: true, threadWatcher: true });
   await page.getByRole('button', { name: `Watch thread ${owned.id}`, exact: true }).first().click();
   await page.locator('#togglePostFormLink a').click(); await page.locator('#com').fill('Unsubmitted draft');
@@ -50,13 +50,51 @@ test('manual update preserves the document, draft and focus, inserts escaped rep
   await expect.poll(() => page.evaluate(() => window.updateEvents)).toEqual([{ detail: { count: 1 }, constructor: 'Event', bubbles: false, cancelable: false, menus: 2 }]);
   await expect(page.locator('.threadNav.desktop a[data-cmd="update"]').first()).toBeFocused();
   await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem('4chan-watch'))[`${id}-demo`][1], owned.id)).toBe(Number(reply));
+  let writes = 0;
+  // Report selection opens a bound popup; count writes from every page.
+  context.on('request', request => { if (request.method() === 'POST') writes++; });
   await page.getByRole('button', { name: `Post menu for post ${reply}`, exact: true }).click();
+  const opened = page.waitForEvent('popup');
   await page.getByRole('menuitem', { name: 'Report post', exact: true }).click();
-  await expect(page.locator(`#report${reply}`)).toBeFocused();
-  await page.locator(`#report${reply}`).fill('Owned updater report');
-  const response = page.waitForResponse(r => new URL(r.url()).pathname === '/demo/report' && r.request().method() === 'POST');
-  await page.locator(`#p${reply}`).getByRole('button', { name: 'Report post', exact: true }).click();
+  const popup = await opened;
+  await popup.waitForLoadState();
+  const reportURL = `${origin}/demo/imgboard.php?mode=report&no=${reply}`;
+  await expect(popup).toHaveURL(reportURL);
+  await expect(popup.locator('#report-form')).toHaveAttribute('action', '/demo/report');
+  await expect(popup.locator('#report-form input[name="no"]')).toHaveValue(reply);
+  await expect(popup.locator('#reason')).toBeVisible();
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  expect(writes).toBe(0);
+  // Inspect the real success response before its native close timer expires.
+  await popup.clock.install();
+  await popup.clock.pauseAt(new Date(Date.now() + 1000));
+  await popup.locator('#reason').fill('Owned updater report');
+  const response = popup.waitForResponse(r => r.url() === `${origin}/demo/report` && r.request().method() === 'POST');
+  await popup.locator('#report-submit').click();
   expect((await response).status()).toBe(200);
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'success');
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-post', reply);
+  await expect(popup.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
+  await expect(popup.getByText('Your report was saved.', { exact: true })).toBeVisible();
+  expect(writes).toBe(1);
+  await expect(page.locator(`#m${reply}`)).toBeHidden();
+  await expect(page.locator(`#m${owned.id}`)).toBeVisible();
+  // A fresh GET with the popup's returned session cookie must observe the
+  // committed report. Do not send a second POST to prove duplicate admission.
+  const duplicate = await popup.goto(reportURL);
+  expect(duplicate.status()).toBe(422);
+  expect(await duplicate.headerValue('set-cookie')).toBe(null);
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'error');
+  await expect(popup.getByText('You have already reported this post.', { exact: true })).toBeVisible();
+  await expect(popup.locator('#report-form')).toHaveCount(0);
+  expect(writes).toBe(1);
+  const closed = popup.waitForEvent('close');
+  await popup.locator('#report-popup-close').click();
+  await closed;
+  await expect(page).toHaveURL(`${origin}${owned.url}`);
+  await expect(page.locator('#com')).toHaveValue('Unsubmitted draft');
+  expect(await page.evaluate(() => window.keptDocument && !window.bad)).toBe(true);
+  expect(navigation).toEqual([]);
 });
 
 test('R inserts only new replies once and obeys the editable-field and settings guards', async ({ page, owned }) => {

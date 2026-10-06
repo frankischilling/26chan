@@ -141,3 +141,18 @@ then forwards the original response unchanged and checks success, hiding and the
 close boundary. No production code or ordering assertion was removed. The
 pending-navigation popup DOM was never part of that commit-before-hide contract.
 Syntax is checked locally; the corrected browser cases require the next run.
+
+## Dynamically inserted post-menu report flow
+
+At e67a25a, all Windows jobs and media/operations passed. Linux passed the
+21-case popup/menu group and the 13-case thread-watcher/catalog-transport group,
+then failed the native-updater test's old inline-report focus expectation.
+The dynamically inserted post's menu correctly opened a popup.
+
+The updated test exercises that popup's canonical target and real form, verifies
+zero writes from selection and exactly one successful POST, observes reply-only
+hiding, then makes a fresh GET that must reject the committed duplicate. It
+retains the updater's document, draft, focus, escaping and event assertions.
+An audit found no other post-menu tests that still assumed inline submission;
+explicit fallback-form and unsent-draft tests keep their separate contracts.
+This change has a local syntax check; real browser qualification is pending.
