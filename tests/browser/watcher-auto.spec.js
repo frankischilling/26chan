@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -8,8 +8,8 @@ const test = base.extend({
     const password = 'owned-auto-watcher-password';
     const tag = `Auto${Date.now().toString(36)}`;
     const post = async (board, subject, thread = '0') => {
-      const response = await request.post(`/${board}/post`, { headers: { Origin: origin },
-        form: { resto: thread, sub: subject, com: 'Synthetic automatic watcher fixture', password }, maxRedirects: 0 });
+      const response = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin },
+        form: { resto: thread, sub: subject, com: 'Synthetic automatic watcher fixture', password }, maxRedirects: 0 }));
       expect(response.status()).toBe(303);
       const id = response.headers().location.match(thread === '0' ? /thread\/(\d+)/ : /#p(\d+)/)[1];
       if (thread === '0') created.push({ board, id });

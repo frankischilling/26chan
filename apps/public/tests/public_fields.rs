@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -46,9 +49,14 @@ async fn both_public_routes_validate_input_bytes_and_persist_complete_fields() {
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>()
     );
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Field boundary','Owned synthetic field test',4000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Field boundary','Owned synthetic field test',4000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let app = posting::router(
+        public.clone(),
+        &board,
+        "http://127.0.0.1:3000".into(),
+        false,
+    );
     let mut accepted = 0_i64;
     for route in ["post", "imgboard.php"] {
         for value in [

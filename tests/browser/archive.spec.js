@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -28,14 +29,14 @@ test('archive navigation and reports work without JavaScript while public deleti
     await page.locator('#sub').fill('<b>Synthetic archive subject</b>');
     await page.locator('#com').fill('Owned first thread displaced by a second thread.');
     await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
     const archived = /#p(\d+)$/.exec(page.url())[1];
     await page.getByRole('link', { name: 'Return', exact: true }).first().click();
     await expect(page).toHaveURL(`${origin}/${slug}/`);
     await page.locator('#com').fill('Owned replacement thread triggers rollover.');
     await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
     await page.getByRole('link', { name: 'Return', exact: true }).first().click();
     await expect(page).toHaveURL(`${origin}/${slug}/`);

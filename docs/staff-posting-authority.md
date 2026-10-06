@@ -39,18 +39,20 @@ configured, and keeps posting navigation for higher ranks. Both badge and
 ordinary posting use that entry point. The four-rank browser workflow enters
 through this link after each login.
 
-`STAFF_POSTER_ID_KEY` and `STAFF_COUNTRY_DATABASE` load optional ordinary
-identity sources under staff-specific names. Use the same private poster key
-as the public application's `POSTER_ID_KEY` to preserve thread labels, private
-counts and Robot9000 identity across both listeners. Use the same verified
-country data under the staff-specific path. The key parser rejects malformed
-and all-zero values. The country loader requires an absolute regular file,
+`STAFF_POSTER_ID_KEY` supplies the private identity key for staff posts. Use
+the same key as the public application's `POSTER_ID_KEY` to preserve thread
+labels, private counts, Robot9000 identity and posting history across both
+listeners. All staff posting and readiness require this key; the parser still
+permits an absent key for read-only startup. It rejects malformed and all-zero
+values. Optional `STAFF_COUNTRY_DATABASE` uses the same verified country data
+under its staff-specific path. The loader requires an absolute regular file,
 limits it to 64 MiB and verifies the country database format before serving.
 Startup errors disclose neither the key nor the supplied path. Inherited
 public identity variables and unrelated database credentials remain rejected.
-Ordinary posting requires the poster key and an actual listener peer. Production
-also requires the verified Unix proxy profile below. Badge posts retain their
-existing identity path.
+Ordinary and badged posting both require an actual listener peer. Production
+requires the verified Unix proxy profile below. Visible badge labels and staff
+permission checks remain unchanged; see [posting cooldowns](source-posting-cooldowns.md)
+for private history registration and the remaining staff timer differences.
 
 The public and staff binaries share the existing bounded HTTP transport and
 kernel-verified proxy resolver. Public callers keep their existing interface.

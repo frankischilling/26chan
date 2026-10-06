@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{
     Router,
@@ -24,7 +27,7 @@ struct Fixture {
 
 impl Fixture {
     async fn post(&self, parent: i64) -> i64 {
-        board_store::create_post(
+        posting::create_post(
             &self.public,
             &self.board,
             parent,
@@ -107,8 +110,21 @@ impl Fixture {
             .await
     }
 
+    // These authorization/selection cases are independent of deletion flood
+    // enforcement. Keep the same actor and clear only its owned quota between
+    // cases, never between a batch mutation and its partial-success assertions.
+    async fn reset_deletion_case(&self) {
+        let actor = posting::key(&self.board).public_deletion_rate_identity(posting::peer());
+        sqlx::query("DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=$1")
+            .bind(actor.as_bytes().as_slice())
+            .execute(&self.owner)
+            .await
+            .unwrap();
+    }
+
     async fn exercise(&self) {
         for multipart in [false, true] {
+            self.reset_deletion_case().await;
             let a = self.post(0).await;
             let b = self.post(0).await;
             for origin in [None, Some("null"), Some("https://untrusted.example")] {
@@ -125,6 +141,7 @@ impl Fixture {
             assert!(html.contains("Updating index"));
             assert!(!html.contains(PASSWORD));
             assert!(self.deleted(a).await && self.deleted(b).await);
+            self.reset_deletion_case().await;
             let single = self.post(0).await;
             assert_eq!(
                 self.batch(&[single], multipart, false).await.0,
@@ -135,6 +152,7 @@ impl Fixture {
             // Deliberately submit higher IDs first. Sorting or preflight-all
             // would leave `first` undeleted when the later protected item fails.
             for protection in ["password", "sticky", "age"] {
+                self.reset_deletion_case().await;
                 let denied = self.post(0).await;
                 match protection {
                     "password" => {
@@ -172,6 +190,7 @@ impl Fixture {
 
             // An OP deletion removes its replies. A selected reply encountered
             // afterwards reports the source age error, preserving the OP mutation.
+            self.reset_deletion_case().await;
             let op = self.post(0).await;
             let reply = self.post(op).await;
             let last = self.post(0).await;
@@ -181,6 +200,7 @@ impl Fixture {
             );
             assert!(self.deleted(op).await && self.deleted(reply).await);
             assert!(!self.deleted(last).await);
+            self.reset_deletion_case().await;
             let op = self.post(0).await;
             let reply = self.post(op).await;
             assert_eq!(
@@ -188,6 +208,8 @@ impl Fixture {
                 StatusCode::OK
             );
             assert!(self.deleted(op).await && self.deleted(reply).await);
+
+            self.reset_deletion_case().await;
 
             let a = self.post(0).await;
             let b = self.post(0).await;
@@ -203,6 +225,8 @@ impl Fixture {
             let (status, html) = self.batch(&[i64::MAX], multipart, false).await;
             assert_eq!(status, StatusCode::OK);
             assert!(html.contains("Updating index"));
+
+            self.reset_deletion_case().await;
 
             let uncredentialed = self.post(0).await;
             sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id=$1")
@@ -262,6 +286,8 @@ impl Fixture {
                 .unwrap();
             assert_eq!(modern.status(), StatusCode::NOT_FOUND);
 
+            self.reset_deletion_case().await;
+
             let op = self.post(0).await;
             let reply = self.post(op).await;
             for id in [op, reply] {
@@ -274,6 +300,7 @@ impl Fixture {
             for id in [op, reply] {
                 assert!(!self.deleted(id).await && self.file_deleted(id).await);
             }
+            self.reset_deletion_case().await;
             let a = self.post(0).await;
             let denied = self.post(0).await;
             let last = self.post(0).await;
@@ -295,6 +322,8 @@ impl Fixture {
                 assert!(!self.deleted(id).await);
             }
 
+            self.reset_deletion_case().await;
+
             let attached = self.post(0).await;
             let text_only = self.post(0).await;
             self.attachment(attached).await;
@@ -306,6 +335,7 @@ impl Fixture {
             assert!(!self.deleted(text_only).await);
 
             // Invalid syntax is rejected before any item mutates storage.
+            self.reset_deletion_case().await;
             let a = self.post(0).await;
             for mut bad in [
                 fields(&[a, a], false),
@@ -389,14 +419,15 @@ async fn legacy_batches_commit_in_submission_order_and_stop_at_the_first_error()
         .unwrap();
     let board = format!("lb{seed}");
     // Explicit synthetic policy; imported board policies must remain unchanged.
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds) VALUES($1,'Legacy batch deletion','Owned fixtures',200,100,100,1000,10,100,0,0,86400)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Legacy batch deletion','Owned fixtures',200,100,100,1000,10,100,0,0,86400,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
         "PUBLIC_WRITES_PER_MINUTE" => Some("120".into()),
         _ => None,
     })
     .unwrap();
-    let app = fixture_routers(public.clone(), ORIGIN.into(), false, None, limits).0;
+    let app =
+        posting::routers_with_limits(public.clone(), &board, ORIGIN.into(), false, None, limits).0;
     let fixture = Fixture {
         owner: owner.clone(),
         public: public.clone(),
@@ -427,73 +458,4 @@ async fn legacy_batches_commit_in_submission_order_and_stop_at_the_first_error()
     public.close().await;
     owner.close().await;
     outcome.unwrap();
-}
-
-// Fixture transport identities are isolated so unrelated authorization cases do
-// not consume each other's shared public deletion quota.
-fn fixture_peer() -> std::net::SocketAddr {
-    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
-    let nonce = NEXT
-        .get_or_init(|| {
-            std::sync::atomic::AtomicU64::new(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos() as u64,
-            )
-        })
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    std::net::SocketAddr::new(
-        std::net::IpAddr::V6(std::net::Ipv6Addr::new(
-            0x2001,
-            0xdb8,
-            3,
-            0,
-            (nonce >> 48) as u16,
-            (nonce >> 32) as u16,
-            (nonce >> 16) as u16,
-            nonce as u16,
-        )),
-        12345,
-    )
-}
-
-fn fixture_routers(
-    pool: sqlx::PgPool,
-    origin: String,
-    production: bool,
-    media: Option<board_config::PublicMediaSettings>,
-    limits: board_config::PublicRequestLimits,
-) -> (axum::Router, axum::Router) {
-    let (web, api) = board_public::routers_with_options(
-        pool,
-        board_public::PublicRouterOptions {
-            origin,
-            production,
-            media,
-            limits,
-            proxy_uid: None,
-            poster_id_key: Some(std::sync::Arc::new(
-                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
-            )),
-            tripcode_key: None,
-            country_database: None,
-        },
-    );
-
-    let transport = axum::middleware::from_fn(
-        move |mut request: axum::extract::Request, next: axum::middleware::Next| async move {
-            if request
-                .extensions()
-                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-                .is_none()
-            {
-                request
-                    .extensions_mut()
-                    .insert(axum::extract::ConnectInfo(fixture_peer()));
-            }
-            next.run(request).await
-        },
-    );
-    (web.layer(transport.clone()), api.layer(transport))
 }

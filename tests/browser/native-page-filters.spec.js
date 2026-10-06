@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
@@ -8,8 +8,8 @@ const test = base.extend({
     const password = 'owned-page-filter-password';
     const title = `Filter${Date.now().toString(36)}`;
     const post = async (resto, sub, com) => {
-      const response = await request.post('/demo/post', { headers: { Origin: origin },
-        form: { resto, sub, com, password }, maxRedirects: 0 });
+      const response = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+        form: { resto, sub, com, password }, maxRedirects: 0 }));
       expect(response.status()).toBe(303);
       return response.headers().location.match(resto === '0' ? /thread\/(\d+)/ : /#p(\d+)/)[1];
     };

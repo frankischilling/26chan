@@ -428,9 +428,11 @@ name = "board-media-admin"
 version = "0.1.0"
 dependencies = [
  "board-config",
+ "board-domain",
  "board-media",
  "board-media-dispatch",
  "board-store",
+ "chrono",
  "rcgen",
  "serde",
  "serde_json",

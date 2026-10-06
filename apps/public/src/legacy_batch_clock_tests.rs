@@ -3,7 +3,7 @@ use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use board_domain::anonymous_session::Capability;
 use board_store::{PublicDeletionContext, anonymous_session::PostingSession};
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
-use rand_core::OsRng;
+use rand_core::{OsRng, RngCore};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::{sync::Arc, time::Duration};
 
@@ -22,7 +22,7 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         .await
         .unwrap();
     let board = format!("lc{seed}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds) VALUES($1,'Batch clock','Owned fixture',200,100,100,100,10,60,600,86400)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Batch clock','Owned fixture',200,100,100,100,10,60,600,86400,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let capability = Capability::generate().unwrap();
     let fingerprints = capability.fingerprints(None, *b"XX");
@@ -31,13 +31,22 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
     let run_public = public.clone();
     let run_board = board.clone();
     let result = tokio::spawn(async move {
+        let mut key_bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut key_bytes);
+        let key_text: String = key_bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let key = Arc::new(board_domain::poster_id::PosterIdKey::parse(&key_text).unwrap());
+        let peer = std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+            0x2001, 0xdb8, 9, 0, 0, 0, (seed >> 16) as u16, seed as u16,
+        ));
         let password = "owned-batch-clock-password";
         let hash = Argon2::default().hash_password(password.as_bytes(),&SaltString::generate(&mut OsRng)).unwrap().to_string();
         let mut ids = Vec::new();
         for _ in 0..2 {
-            ids.push(board_store::create_post(&run_public,&run_board,0,&board_store::NewPost {
+            ids.push(board_store::create_post_with_identity_keys(&run_public,&run_board,0,&board_store::NewPost {
                 name: "Anonymous".into(),subject: "Owned clock fixture".into(),comment: "Keep the younger selection".into(),deletion_hash: hash.clone(),sage: false,
-            }).await.unwrap());
+            }, None, board_store::PostingContext {
+                request_start: Utc::now(), peer: Some(peer), op_password_proof: None,
+            }, board_store::PostIdentityKeys { tripcode: None, poster_id: Some(&key) }).await.unwrap());
         }
         let now = Utc::now().with_nanosecond(0).unwrap();
         // Inject a trusted internal capture clock to model a 100-second first
@@ -53,10 +62,6 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
             request_start: captured,
             session: Some(PostingSession { fingerprints,minted:false,now:captured }),
         };
-        let key = Arc::new(board_domain::poster_id::PosterIdKey::parse(&"44".repeat(32)).unwrap());
-        let peer = std::net::IpAddr::V6(std::net::Ipv6Addr::new(
-            0x2001, 0xdb8, 9, 0, 0, 0, (ids[0] >> 16) as u16, ids[0] as u16,
-        ));
         let mut batch = board_store::PublicDeletionBatch::new(
             &run_board, context, key.public_deletion_rate_identity(peer),
         );

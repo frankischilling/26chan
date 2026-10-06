@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 
@@ -13,17 +14,17 @@ test('source required subjects reject cleaned-empty OPs but allow subjectless re
     await page.locator('#sub').fill('##😀'); await page.locator('#com').fill(marker);
     await expect(page.locator('#postPassword')).toHaveValue('');
     const denied = page.waitForResponse(response => response.url().endsWith('/qst/imgboard.php') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     expect((await denied).status()).toBe(422);
     await expect(page.locator('body')).toContainText('Error: New threads require a subject.');
     await page.goto(`${origin}/qst/`);
     await page.locator('#sub').fill('Ｚ##ⓦ <b>'); await page.locator('#com').fill(marker);
-    await expect(page.locator('#postPassword')).toHaveValue(''); await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('#postPassword')).toHaveValue(''); await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/qst\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
     await expect(page.locator(`#pi${op} .subject`)).toHaveText('aw <b>');
     await expect(page.locator(`#pi${op} .subject b`)).toHaveCount(0);
     await page.locator('#com').fill('Owned subjectless reply'); await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/qst\/thread\/\d+#p\d+$/);
     const reply = /#p(\d+)$/.exec(page.url())[1]; expect(reply).not.toBe(op);
     await expect(page.locator(`#m${reply}`)).toHaveText('Owned subjectless reply');
@@ -51,19 +52,19 @@ for (const javaScriptEnabled of [false, true]) {
       await page.locator('#sub').fill('##😀'); await page.locator('#com').fill('Owned text-only post');
       await expect(page.locator('#postPassword')).toHaveValue('');
       const denied = page.waitForResponse(response => response.url().endsWith('/news/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await denied).status()).toBe(422);
       await expect(page.locator('body')).toContainText('Error: New threads require a subject.');
       await page.goto(`${origin}/news/`);
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await page.locator('#sub').fill(marker); await expect(page.locator('#postPassword')).toHaveValue('');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(/\/news\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
       await expect(page.locator(`#m${op}`)).toBeEmpty();
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await expect(page.locator('#sub')).toHaveCount(0);
       await page.locator('#com').fill('Owned subjectless reply'); await expect(page.locator('#postPassword')).toHaveValue('');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(/\/news\/thread\/\d+#p\d+$/);
       const reply = /#p(\d+)$/.exec(page.url())[1]; expect(reply).not.toBe(op);
       await expect(page.locator(`#m${reply}`)).toHaveText('Owned subjectless reply');

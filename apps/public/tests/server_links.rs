@@ -97,8 +97,28 @@ async fn submit(app: &Router, board: &str, parent: i64, mode: usize, comment: &s
     }
 }
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(fixture_key()),
+            country_database: None,
+        },
+    );
     let external = "https://example.org/path";
     let initial =
         format!("{external} https://www.4chan.org/faq >>>/g/catalog >>>/g/a+b >>>/g/rules/3");
@@ -191,7 +211,7 @@ async fn persisted_links_use_source_normalization_in_both_forms_routes_and_respo
     let mut nonce = [0u8; 4];
     OsRng.fill_bytes(&mut nonce);
     let board = format!("sl{:08x}", u32::from_be_bytes(nonce));
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned server links','',1000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned server links','',1000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let result = tokio::spawn({
         let owner = owner.clone();

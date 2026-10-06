@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 
@@ -64,10 +64,10 @@ test('custom navigation persists, synchronizes across tabs and remains editable 
 
 test('local time uses the real timestamp while settings and script-free pages preserve server output', async ({ browser, request }) => {
   const password = 'owned-display-password';
-  const created = await request.post('/fixture/post', {
+  const created = await withPostingHistory(() => request.post('/fixture/post', {
     headers: { Origin: origin }, maxRedirects: 0,
     form: { resto: '0', com: 'Owned display date.', password },
-  });
+  }));
   expect(created.status()).toBe(303);
   const url = created.headers().location.split('#')[0];
   const id = url.split('/').at(-1);

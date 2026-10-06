@@ -27,7 +27,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let slug = &args[1];
     let mut tx = pool.begin().await?;
     if args[0] == "setup" {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES ($1,'Synthetic tail test','Owned updater tail browser fixture',4000,1000,300,100,10,2)").bind(slug).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Synthetic tail test','Owned updater tail browser fixture',4000,1000,300,100,10,2,0,0,0)").bind(slug).execute(&mut *tx).await?;
     } else {
         let owned: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.boards WHERE slug=$1 AND description='Owned updater tail browser fixture')").bind(slug).fetch_one(&mut *tx).await?;
         if !owned {

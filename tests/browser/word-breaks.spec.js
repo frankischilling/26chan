@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-word-break-browser-password';
@@ -13,7 +13,7 @@ for (const javaScriptEnabled of [false, true]) {
       await page.locator('#sub').fill('Owned word breaks');
       await page.locator('#com').fill(`[b]${long}[/b]\n${'界'.repeat(35)}\n${destination}\nleft{{w_br}}right <script>`);
       await expect(page.locator('#postPassword')).toHaveValue('');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
       op = /#p(\d+)$/.exec(page.url())[1];
       const message = page.locator(`#m${op}`);
@@ -37,13 +37,13 @@ for (const javaScriptEnabled of [false, true]) {
         await page.locator('#qrCom').fill(reply);
         await expect(page.locator('#qr-pwd')).toHaveValue('');
         const before = page.url();
-        await page.locator('#quickReply input[type=submit]').click();
+        await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
         await expect(page.locator('.reply .mu-s wbr')).toHaveCount(2);
         expect(page.url()).toBe(before);
       } else {
         await page.locator('#com').fill(reply);
         await expect(page.locator('#postPassword')).toHaveValue('');
-        await page.getByRole('button', { name: 'Post', exact: true }).click();
+        await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
         await expect(page.locator('.reply .mu-s wbr')).toHaveCount(2);
       }
       await page.reload();

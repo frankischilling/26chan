@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -51,7 +51,7 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
       await writer.locator('#com').fill('Paper fixture for preference restoration.');
       await expect(writer.locator('#postPassword')).toHaveValue('');
       const response = writer.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-      await writer.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => writer.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await response).status()).toBe(303);
       await expect(writer).toHaveURL(/\/thread\/\d+#p\d+$/);
       created.push(/#p(\d+)$/.exec(writer.url())[1]);

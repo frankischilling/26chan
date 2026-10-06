@@ -18,6 +18,7 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
     let reference: Value =
         serde_json::from_str(include_str!("../../../fixtures/board-reference.json")).unwrap();
     let boards = reference["boards"].as_array().unwrap();
+    assert_eq!(boards.len(), 82);
     assert_eq!(boards.iter().filter(|b| b["listed"] == true).count(), 80);
     let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
     for expected in boards {
@@ -32,6 +33,21 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
             if !matches!(key.as_str(), "listed" | "source_policy") {
                 assert_eq!(&saved[key], value, "/{slug}/: {key}");
             }
+        }
+        // Check all global/category/board-inherited timers, including private
+        // and configuration-only boards, against the captured source policy.
+        for (column, source_key) in [
+            ("posting_reply_seconds", "RENZOKU"),
+            ("posting_image_seconds", "RENZOKU2"),
+            ("posting_thread_seconds", "RENZOKU3"),
+        ] {
+            let seconds = expected["source_policy"][source_key]
+                .as_str()
+                .unwrap()
+                .parse::<i64>()
+                .unwrap();
+            assert_eq!(expected[column], seconds, "/{slug}/: {source_key} fixture");
+            assert_eq!(saved[column], seconds, "/{slug}/: {source_key} policy");
         }
         let private = expected["staff_only"] == true;
         let rss_enabled = expected["source_policy"]["USE_RSS"] == "yes";

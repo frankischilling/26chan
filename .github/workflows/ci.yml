@@ -48,6 +48,7 @@ jobs:
       - name: Start disposable database and migrate
         run: |
           python3 scripts/test-dev-db-env.py
+          python3 scripts/test-dev-staff-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh
@@ -262,6 +263,8 @@ jobs:
         run: sudo bash scripts/test-public-deletion-migration.sh
       - name: Populated source rollover ordering migration
         run: sudo bash scripts/test-source-rollover-migration.sh
+      - name: Populated posting cooldown policy and private history migration
+        run: sudo bash scripts/test-posting-cooldown-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
@@ -341,6 +344,9 @@ jobs:
           test "$APPLICATION_RESULT" = success
           test "$QUALIFICATION_RESULT" = success
   visual-windows:
+    # Preserve the existing Windows check as a gate for every theme shard.
+    needs: [visual-windows-themes]
+    if: ${{ !cancelled() }}
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -364,6 +370,8 @@ jobs:
         with:
           key: windows-2025-${{ hashFiles('Cargo.toml') }}
           cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
           cache-on-failure: true
       - name: Install browser dependencies
         shell: pwsh
@@ -467,24 +475,9 @@ jobs:
       - name: Run attachment desktop and mobile visual fixtures
         shell: pwsh
         run: npm run test:media-visual
-      - name: Run referenced theme preferences and desktop/mobile visuals
+      - name: Verify bounded Chromium NetLog diagnostics
         shell: pwsh
-        env:
-          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
-          WINDOWS_VISUAL_NETLOG: '1'
-        run: |
-          node --test tests/helpers/visual-netlog.test.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./scripts/windows-visual-resources.ps1 -Phase before-themes
-          # Keep every case and assertion while bounding the lifetime of each
-          # browser/server pair. Retained traces show failed resource requests
-          # with ERR_NO_BUFFER_SPACE on the long Windows theme run.
-          $themeExit = 0
-          foreach ($themeShard in 1..4) {
-            npm run test:themes -- --shard "$themeShard/4" --output "test-results/windows-themes-$themeShard"
-            if ($LASTEXITCODE -ne 0) { $themeExit = $LASTEXITCODE }
-          }
-          if ($themeExit -ne 0) { exit $themeExit }
+        run: node --test tests/helpers/visual-netlog.test.mjs
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
@@ -506,3 +499,82 @@ jobs:
         if: always()
         shell: pwsh
         run: ./scripts/windows-visual-resources.ps1 -Phase after-visual
+      - name: Require every isolated Windows theme shard
+        if: always()
+        shell: pwsh
+        env:
+          THEMES_RESULT: ${{ needs.visual-windows-themes.result }}
+        run: |
+          if ($env:THEMES_RESULT -ne 'success') { throw "Windows theme shards did not all succeed: $env:THEMES_RESULT" }
+  visual-windows-themes:
+    # Isolation experiment: a fresh standard runner per existing shard avoids
+    # carrying earlier browser/socket activity into later shards. This does not
+    # establish the cause of WSAENOBUFS or change any assertion or timeout.
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned Rust
+        shell: pwsh
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
+      - name: Restore Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Match the original job's key, including rust-cache's job suffix.
+          shared-key: windows-2025-${{ hashFiles('Cargo.toml') }}-visual-windows
+          cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
+          # The original Windows job remains the only cache writer.
+          save-if: false
+      - name: Install browser dependencies
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install chromium
+      - name: Build visual fixture before the server startup deadline
+        shell: pwsh
+        run: cargo build -p board-public --example visual-fixtures --locked
+      - name: Run referenced theme preferences and desktop/mobile visuals
+        shell: pwsh
+        env:
+          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
+          WINDOWS_VISUAL_NETLOG: '1'
+          THEME_SHARD: ${{ matrix.shard }}
+        run: |
+          ./scripts/windows-visual-resources.ps1 -Phase before-themes
+          npm run test:themes -- --shard "$env:THEME_SHARD/4" --output "test-results/windows-themes-$env:THEME_SHARD"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain synthetic Windows theme shard failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-themes-${{ matrix.shard }}-failure-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**/*.png
+            test-results/**/trace.zip
+            test-results/**/error-context.md
+            test-results/**/netlogs/*.json
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+      - name: Record final Windows theme shard resource aggregates
+        if: always()
+        shell: pwsh
+        run: ./scripts/windows-visual-resources.ps1 -Phase after-themes

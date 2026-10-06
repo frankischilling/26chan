@@ -160,3 +160,25 @@ export async function withDeletionQuota(callback) {
     });
   } finally { release(); }
 }
+
+// An explicit independent posting action starts with only this run's history
+// cleared. Identity, deletion quota and Robot9000 state remain unchanged. Keep
+// actual cooldown scenarios together inside one callback, without inner scopes.
+const postingContext = new AsyncLocalStorage();
+let postingQueue = Promise.resolve();
+export async function withPostingHistory(callback) {
+  if (typeof callback !== 'function') throw new TypeError('Posting history callback required');
+  if (postingContext.getStore()) throw new Error('Nested posting history scopes are not allowed');
+  if (process.env.VISUAL_FIXTURE_SERVER === '1') return callback();
+  const filename = process.env[manifestVariable];
+  if (!filename) throw new Error('Owned deletion quota runner manifest is missing');
+  readManifest(filename);
+  const previous = postingQueue;
+  let release;
+  postingQueue = new Promise(resolve => { release = resolve; });
+  await previous;
+  try {
+    invoke('reset-posting');
+    return await postingContext.run(true, callback);
+  } finally { release(); }
+}

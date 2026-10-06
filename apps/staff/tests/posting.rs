@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "../../public/tests/support/posting.rs"]
+mod posting_fixture;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -15,6 +17,39 @@ async fn pool(key: &str) -> PgPool {
     PgPool::connect(&std::env::var(key).expect("explicit owned database credential required"))
         .await
         .unwrap()
+}
+
+// Direct SQL authority fixtures supply the same trusted admission identity and
+// lock ordering as the production writer, independently of forged proof fields.
+fn fixture_actor(case: &Fixture, peer: std::net::IpAddr) -> [u8; 32] {
+    *case
+        .state
+        .config
+        .poster_id_key
+        .as_deref()
+        .unwrap()
+        .public_posting_rate_identity(peer)
+        .as_bytes()
+}
+async fn prepare_posting_actor(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    actor: &[u8; 32],
+    new_thread: bool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut **tx)
+        .await?;
+    sqlx::query("SELECT content.lock_posting_actor($1,$2)")
+        .bind(actor.as_slice())
+        .bind(new_thread)
+        .execute(&mut **tx)
+        .await?;
+    let encoded: String = actor.iter().map(|byte| format!("{byte:02x}")).collect();
+    sqlx::query("SELECT set_config('board.posting_actor',$1,true)")
+        .bind(encoded)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
 }
 
 #[tokio::test]
@@ -48,6 +83,7 @@ async fn ordinary_staff_authority_binds_all_metadata_body_rank_and_one_use() {
 }
 
 struct OrdinaryProof {
+    actor: [u8; 32],
     id: i64,
     stamp: chrono::DateTime<chrono::Utc>,
     ticket: Vec<u8>,
@@ -138,6 +174,7 @@ impl OrdinaryProof {
             .bind(None::<Vec<u8>>).bind(None::<String>).bind("bypass_r9k").bind(None::<String>).bind(true).bind(&context)
             .execute(&case.state.auth).await.unwrap();
         Self {
+            actor: fixture_actor(case, peer),
             id,
             stamp,
             ticket,
@@ -149,6 +186,7 @@ impl OrdinaryProof {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         context: &serde_json::Value,
     ) {
+        prepare_posting_actor(tx, &self.actor, true).await.unwrap();
         let ticket = self
             .ticket
             .iter()
@@ -309,9 +347,7 @@ static ORDINARY_TESTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(()
 async fn ordinary_fixture() -> Arc<Fixture> {
     let mut case = Arc::try_unwrap(Fixture::new().await).ok().unwrap();
     let state = Arc::get_mut(&mut case.state).unwrap();
-    state.config.poster_id_key = Some(Arc::new(
-        board_domain::poster_id::PosterIdKey::parse(&"22".repeat(32)).unwrap(),
-    ));
+    // Keep the fresh fixture deployment key shared with its public router.
     state.config.country_database = Some(Arc::new(
         board_domain::country::CountryDatabase::from_bytes(
             include_bytes!("../../../crates/domain/tests/fixtures/GeoIP2-Country-Test.mmdb")
@@ -587,7 +623,7 @@ impl Fixture {
     async fn new() -> Arc<Self> {
         let owner = pool("MIGRATION_DATABASE_URL").await;
         let board = format!("c{}", &uuid::Uuid::new_v4().simple().to_string()[..9]);
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned staff posting','Synthetic',16000,100,100,100,10)")
+        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Owned staff posting','Synthetic',16000,100,100,100,10)")
             .bind(&board).execute(&owner).await.unwrap();
         let account: i64 = sqlx::query_scalar(
             "INSERT INTO staff_identity.accounts(role,flags) VALUES('moderator',ARRAY['capcode','capcodename','developer']) RETURNING id",
@@ -612,7 +648,7 @@ impl Fixture {
         let state = Arc::new(AppState {
             config: Config {
                 proxy: None,
-                poster_id_key: None,
+                poster_id_key: Some(posting_fixture::key(&board)),
                 country_database: None,
                 origin: origin.origin().ascii_serialization(),
                 public_origin: "http://127.0.0.1:3000".into(),
@@ -634,8 +670,9 @@ impl Fixture {
                 .unwrap(),
             limits: Limits::default(),
         });
-        let (public, api) = board_public::routers(
+        let (public, api) = posting_fixture::routers(
             pool("TEST_PUBLIC_DATABASE_URL").await,
+            &board,
             "http://127.0.0.1:3000".into(),
             false,
         );
@@ -658,6 +695,7 @@ impl Fixture {
         origin: &str,
     ) -> (StatusCode, Option<String>) {
         let response=board_staff::router(self.state.clone()).oneshot(Request::post("/post")
+            .extension(axum::extract::ConnectInfo(std::net::SocketAddr::new(posting_fixture::peer(), 40000)))
             .header("content-type","application/x-www-form-urlencoded").header("origin",origin).header("sec-fetch-site","same-origin")
             .header("cookie",format!("staff={}",self.token))
             .body(Body::from(format!("csrf={csrf}&board={}&thread={thread}&name=Owned+staff&subject=Owned+notice&comment=%3Cscript%3Eharmless%3C%2Fscript%3E{extra}",self.board))).unwrap()).await.unwrap();
@@ -778,8 +816,9 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
         let public_id=ordinary["pid"].as_i64().expect("Healthy public posting must work before forgery denials are qualified");
         assert!(sqlx::query_scalar::<_,Option<String>>("SELECT capcode FROM content.posts WHERE id=$1").bind(public_id).fetch_one(&case.owner).await.unwrap().is_none());
         let session_hash=auth::hash(&case.token); let csrf_hash=auth::hash(&case.csrf);
-        let direct=board_store::create_staff_post(&case.state.staff,&case.board,0,
-            &board_store::NewPost { name:"Owned direct staff#private-trip-suffix".into(),subject:"Owned".into(),comment:"Synthetic direct authority".into(),deletion_hash:String::new(),sage:false },chrono::Utc::now(),
+        let direct=board_store::create_staff_post_with_context_and_keys(&case.state.staff,&case.board,0,
+            &board_store::NewPost { name:"Owned direct staff#private-trip-suffix".into(),subject:"Owned".into(),comment:"Synthetic direct authority".into(),deletion_hash:String::new(),sage:false },board_store::PostingContext { request_start:chrono::Utc::now(),peer:Some(posting_fixture::peer()),op_password_proof:None },
+            board_store::PostIdentityKeys { tripcode:None,poster_id:case.state.config.poster_id_key.as_deref() },
             board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,identity:None }).await.expect("actual staff posting transaction must succeed");
         assert!(direct>0);
         assert_eq!(sqlx::query_scalar::<_,String>("SELECT name FROM content.posts WHERE id=$1").bind(direct).fetch_one(&case.owner).await.unwrap(),"Owned direct staff");
@@ -800,8 +839,11 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
         let public=pool("TEST_PUBLIC_DATABASE_URL").await;
         denied(&public,"SELECT content.consume_staff_post_authority(NULL,1,'x',1,'x','','x',clock_timestamp())").await;
         denied(&public,"SELECT * FROM post_secrets.staff_post_intents LIMIT 1").await;
+        let mut unproved = case.state.staff.begin().await.unwrap();
+        prepare_posting_actor(&mut unproved, &fixture_actor(&case, posting_fixture::peer()), false).await.unwrap();
         let direct=sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Unproved','','Harmless')")
-            .bind(&case.board).bind(op).execute(&case.state.staff).await.unwrap_err();
+            .bind(&case.board).bind(op).execute(&mut *unproved).await.unwrap_err();
+        unproved.rollback().await.unwrap();
         assert_eq!(direct.as_database_error().and_then(|error|error.code()).as_deref(),Some("28000"));
         sqlx::query("UPDATE staff_identity.accounts SET role='admin' WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
         for (label,highlight,saved) in [("admin",false,"admin"),("admin",true,"admin_highlight"),("manager",false,"manager"),("developer",false,"developer"),("founder",false,"founder")] {
@@ -924,6 +966,7 @@ async fn static_staff_ids_match_source_and_survive_policy_changes_without_networ
         }
         let public = pool("TEST_PUBLIC_DATABASE_URL").await;
         let mut forged = public.begin().await.unwrap();
+        prepare_posting_actor(&mut forged, &fixture_actor(&case, posting_fixture::peer()), false).await.unwrap();
         sqlx::query("SELECT set_config('board.poster_id','Admin',true),set_config('board.staff_is_admin','true',true),set_config('board.staff_post_ticket',repeat('0',64),true)")
             .execute(&mut *forged).await.unwrap();
         let error = sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Owned forged label','','Owned forged static staff ID')")
@@ -1076,6 +1119,12 @@ impl BoundPost {
     }
     async fn insert(&self, case: &Fixture) -> Result<String, sqlx::Error> {
         let mut tx = case.state.staff.begin().await?;
+        prepare_posting_actor(
+            &mut tx,
+            &fixture_actor(case, posting_fixture::peer()),
+            self.id == self.thread,
+        )
+        .await?;
         let ticket = self
             .ticket
             .iter()
@@ -1132,9 +1181,10 @@ async fn staff_wordfilters_bind_the_exact_saved_body_without_granting_html_autho
     let outcome=tokio::spawn(async move {
         sqlx::query("UPDATE content.boards SET word_filter_enabled=true,word_filter_profile=0 WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
         let session_hash=auth::hash(&case.token); let csrf_hash=auth::hash(&case.csrf);
-        let id=board_store::create_staff_post(&case.state.staff,&case.board,0,&board_store::NewPost {
+        let id=board_store::create_staff_post_with_context_and_keys(&case.state.staff,&case.board,0,&board_store::NewPost {
             name:"soy fam CUCK#private suffix".into(),subject:"soy fam CUCK".into(),comment:"soy fam CUCK <script>literal</script>".into(),deletion_hash:String::new(),sage:false,
-        },chrono::Utc::now(),
+        },board_store::PostingContext { request_start:chrono::Utc::now(),peer:Some(posting_fixture::peer()),op_password_proof:None },
+        board_store::PostIdentityKeys { tripcode:None,poster_id:case.state.config.poster_id_key.as_deref() },
         board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,identity:None }).await.unwrap();
         let public=pool("TEST_PUBLIC_DATABASE_URL").await;
         let saved=board_store::find_post(&public,&case.board,id).await.unwrap();
@@ -1324,10 +1374,16 @@ async fn private_request(
     path: &str,
     form: Option<String>,
 ) -> axum::response::Response {
-    let mut request = Request::builder().uri(path).header(
-        "cookie",
-        format!("staff={}; staff-csrf={}", case.token, case.csrf),
-    );
+    let mut request = Request::builder()
+        .uri(path)
+        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::new(
+            posting_fixture::peer(),
+            40000,
+        )))
+        .header(
+            "cookie",
+            format!("staff={}; staff-csrf={}", case.token, case.csrf),
+        );
     let body = if let Some(form) = form {
         request = request
             .method("POST")
@@ -1690,6 +1746,7 @@ async fn source_badge_permissions_mask_names_after_validation_and_preserve_admin
         assert_eq!(identity,("Owned".into(),None,String::new()));
         let public=pool("TEST_PUBLIC_DATABASE_URL").await;
         let mut tx=public.begin().await.unwrap();
+        prepare_posting_actor(&mut tx, &fixture_actor(&case, posting_fixture::peer()), false).await.unwrap();
         sqlx::query("SELECT set_config('board.staff_is_admin','true',true),set_config('board.post_trip','!ozOtJW9BFA',true)").execute(&mut *tx).await.unwrap();
         let identity:(String,Option<String>,String,Option<String>)=sqlx::query_as("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(nextval('content.post_number'),$1,$2,'Owned forged admin','Owned forged subject','Owned ordinary forged settings') RETURNING name,trip,subject,capcode")
             .bind(&case.board).bind(thread).fetch_one(&mut *tx).await.unwrap();
@@ -1961,6 +2018,7 @@ async fn authorized_proofs_require_current_rank_policy_and_non_null_bound_inputs
         }
         // A forged transaction setting cannot select the larger ordinary SQL bounds.
         let mut tx=public.begin().await.unwrap();
+        prepare_posting_actor(&mut tx, &fixture_actor(&case, posting_fixture::peer()), false).await.unwrap();
         sqlx::query("SELECT set_config('board.staff_authorized_limits','true',true)").execute(&mut *tx).await.unwrap();
         let id:i64=sqlx::query_scalar("SELECT nextval('content.post_number')").fetch_one(&mut *tx).await.unwrap();
         let error=sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous',$4,'Owned forged bound')")
@@ -2122,8 +2180,9 @@ async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public
         assert!(!invalid_text.contains("<script>"));
         let bad_csrf=private_form(&case,thread,"Rejected CSRF").replace(&case.csrf,"invalid");
         assert_eq!(private_request(&case,"/j/imgboard.php",Some(bad_csrf)).await.status(),StatusCode::FORBIDDEN);
-        let forged=board_store::create_staff_post(&case.state.staff,"j",thread,
-            &board_store::NewPost{name:"Forged identity".into(),subject:"Owned".into(),comment:"Must fail".into(),deletion_hash:String::new(),sage:false},chrono::Utc::now(),
+        let forged=board_store::create_staff_post_with_context_and_keys(&case.state.staff,"j",thread,
+            &board_store::NewPost{name:"Forged identity".into(),subject:"Owned".into(),comment:"Must fail".into(),deletion_hash:String::new(),sage:false},board_store::PostingContext { request_start:chrono::Utc::now(),peer:Some(posting_fixture::peer()),op_password_proof:None },
+            board_store::PostIdentityKeys { tripcode:None,poster_id:case.state.config.poster_id_key.as_deref() },
             board_store::StaffPostAuthority{auth_pool:&case.state.auth,session_hash:&auth::hash(&case.token),csrf_hash:&auth::hash(&case.csrf),ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,identity:None}).await;
         assert!(matches!(forged,Err(board_store::StoreError::AuthorizationChanged)));
         sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY['j'] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();

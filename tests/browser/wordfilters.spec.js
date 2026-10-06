@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -30,7 +31,7 @@ for (const [profile, name] of [[0, 'global'], [1, 'ck'], [2, 'asp'], [3, 'v'], [
         await page.locator(width === 390 ? '#mpostform .mobilePostFormToggle' : '#togglePostFormLink a').click();
         await page.locator('#name').fill('soy fam CUCK'); await page.locator('#sub').fill('Owned source wordfilter');
         await page.locator('#com').fill(input); await expect(page.locator('#postPassword')).toHaveValue('');
-        await page.getByRole('button', { name: 'Post', exact: true }).click();
+        await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
         await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
         const id = /#p(\d+)$/.exec(page.url())[1];
         const expected = source.profiles[name].filter(case_ => case_.input === input).map(case_ => case_.final);
@@ -42,7 +43,7 @@ for (const [profile, name] of [[0, 'global'], [1, 'ck'], [2, 'asp'], [3, 'v'], [
         const header = width === 390 ? `#pim${id}` : `#pi${id}`;
         await page.locator(`${header} > .postNum > a[title="Reply to this post"]`).click();
         await page.locator('#qrCom').fill(replyInput); await expect(page.locator('#qr-pwd')).toHaveValue('');
-        await page.locator('#quickReply input[type=submit]').click();
+        await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
         await expect(page.locator('.reply .postMessage')).toHaveCount(1);
         await expect(page.locator('#qrCom')).toHaveValue('');
         const completed = await (await context.request.get(`${origin}/${slug}/thread/${id}.json`)).json();

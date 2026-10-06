@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -20,8 +21,8 @@ for (const sage of [false, true]) {
     sql(board, `INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids)
       VALUES(:'board','Owned browser IDs','Synthetic fixture',1000,100,100,100,10,true);`);
     const post = async (parent, com) => {
-      const response = await request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
-        form: { resto: parent, name: 'Owned', email: sage ? 'sage' : '', sub: 'Owned poster IDs', com, password: 'owned-poster-password' } });
+      const response = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
+        form: { resto: parent, name: 'Owned', email: sage ? 'sage' : '', sub: 'Owned poster IDs', com, password: 'owned-poster-password' } }));
       expect(response.status()).toBe(303);
       return response.headers().location.match(/#p(\d+)$/)[1];
     };

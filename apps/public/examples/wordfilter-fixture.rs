@@ -33,7 +33,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             if !(0..=4).contains(&profile) {
                 return Err("Unknown fixed profile".into());
             }
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,word_filter_enabled,word_filter_profile) VALUES($1,'Owned wordfilters','Owned wordfilter browser fixture',4000,100,100,100,10,true,true,true,true,true,$2)").bind(slug).bind(profile).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,word_filter_enabled,word_filter_profile,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned wordfilters','Owned wordfilter browser fixture',4000,100,100,100,10,true,true,true,true,true,$2,0,0,0)").bind(slug).bind(profile).execute(&mut *tx).await?;
         }
         "cleanup" if args.len() == 2 => {
             let owned: bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.boards WHERE slug=$1 AND description='Owned wordfilter browser fixture')").bind(slug).fetch_one(&mut *tx).await?;

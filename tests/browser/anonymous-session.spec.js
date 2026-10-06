@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -12,7 +12,7 @@ async function submit(page, path, text) {
     await page.locator('#togglePostFormLink a:visible, #mpostform a:visible').first().click();
   }
   await page.locator('#com').fill(text);
-  await page.locator('form.postEditor button[type=submit]').click();
+  await withPostingHistory(() => page.locator('form.postEditor button[type=submit]').click());
   await expect(page).toHaveURL(/\/fixture\/thread\/[1-9][0-9]*#p[1-9][0-9]*$/);
   return /#p(\d+)$/.exec(page.url())[1];
 }
@@ -36,7 +36,7 @@ for (const width of [1280, 390]) {
       await expect(second.locator('#qr-pwd')).toHaveAttribute('type', 'hidden');
       await expect(second.locator('#qr-pwd')).toHaveValue('');
       await second.locator('#qrCom').fill(`Owned automatic Quick Reply at ${width}`);
-      await second.locator('#quickReply input[type=submit]').click();
+      await withPostingHistory(() => second.locator('#quickReply input[type=submit]').click());
       await expect(second.locator('.replyContainer .postMessage')).toHaveText(`Owned automatic Quick Reply at ${width}`);
       const thread = await (await context.request.get(`/fixture/thread/${op}.json`)).json();
       expect(thread.posts).toHaveLength(2);

@@ -1,4 +1,9 @@
-use crate::{AppError, AppState, access::Level, auth, handlers::StaffRequestStart};
+use crate::{
+    AppError, AppState,
+    access::Level,
+    auth,
+    handlers::{StaffRequestPeer, StaffRequestStart},
+};
 use askama::Template;
 use axum::{
     Extension, Form,
@@ -74,6 +79,7 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::RandomnessUnavailable => AppError::Internal,
         StoreError::ReadLimit => AppError::Capacity,
         StoreError::Robot9000Rejected(_)
+        | StoreError::PostingCooldownRejected(_)
         | StoreError::ContentRejected(_)
         | StoreError::PublicDeletionRejected(_)
         | StoreError::ContentQuiet { .. } => AppError::Internal,
@@ -349,6 +355,7 @@ pub(crate) struct PostForm {
 pub(crate) async fn submit(
     State(state): Shared,
     Extension(start): Extension<StaffRequestStart>,
+    Extension(peer): Extension<StaffRequestPeer>,
     headers: HeaderMap,
     Form(input): Form<PostForm>,
 ) -> Result<Response, AppError> {
@@ -384,7 +391,15 @@ pub(crate) async fn submit(
         .await
         .map_err(store_error)?;
     check_private(&board)?;
-    let result = board_store::create_staff_post(
+    if (state.config.production && state.config.proxy.is_none()) || peer.ip().is_none() {
+        return Err(AppError::Internal);
+    }
+    let key = state
+        .config
+        .poster_id_key
+        .as_deref()
+        .ok_or(AppError::Internal)?;
+    let result = board_store::create_staff_post_with_context_and_keys(
         &state.staff,
         "j",
         input.resto,
@@ -395,7 +410,15 @@ pub(crate) async fn submit(
             deletion_hash: String::new(),
             sage: false,
         },
-        start.0,
+        board_store::PostingContext {
+            request_start: start.0,
+            peer: peer.ip(),
+            op_password_proof: None,
+        },
+        board_store::PostIdentityKeys {
+            tripcode: state.config.tripcode_key.as_deref(),
+            poster_id: Some(key),
+        },
         board_store::StaffPostAuthority {
             auth_pool: &state.auth,
             session_hash: &session_hash,

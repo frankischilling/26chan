@@ -18,6 +18,8 @@ serde_json.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
+board-domain = { path = "../../crates/domain" }
+chrono.workspace = true
 sqlx.workspace = true
 tempfile = "=3.27.0"
 rcgen = { version = "=0.14.10", default-features = false, features = ["crypto", "ring", "pem"] }

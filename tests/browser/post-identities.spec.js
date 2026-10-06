@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -10,8 +10,8 @@ test('source boards suppress both trip types in native and Quick Reply posts', a
   for (const board of ['b', 's4s']) {
     for (const width of [1280, 390]) {
       const marker = ownedDeletionMarker();
-      const created = await request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
-        form: { name: '#password', sub: marker, com: 'Owned source suppression thread', password } });
+      const created = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
+        form: { name: '#password', sub: marker, com: 'Owned source suppression thread', password } }));
       expect(created.status()).toBe(303);
       const thread = /#p(\d+)$/.exec(created.headers().location)[1];
       const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width === 390,
@@ -30,13 +30,13 @@ test('source boards suppress both trip types in native and Quick Reply posts', a
           await expect(page.locator('#quickReply')).toBeVisible();
           await page.locator('#qr-name').fill('Named##password');
           await page.locator('#qrCom').fill('Owned suppressed secure reply');
-          await page.locator('#quickReply input[type=submit]').click();
+          await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
           await expect(page.locator('.postMessage').filter({ hasText: 'Owned suppressed secure reply' })).toHaveCount(1);
         } else {
           const form = page.locator('form[name=post]');
           await form.locator('[name=name]').fill('Named##password');
           await form.locator('[name=com]').fill('Owned suppressed secure reply');
-          await form.locator('button[type=submit]').click();
+          await withPostingHistory(() => form.locator('button[type=submit]').click());
           await expect(page).toHaveURL(new RegExp(`/thread/${thread}#p[0-9]+$`));
         }
         const data = await (await request.get(`/${board}/thread/${thread}.json`)).json();
@@ -55,8 +55,8 @@ test('source boards suppress both trip types in native and Quick Reply posts', a
 test('persisted tripcodes survive browser previews, filters and ordinary rendering', async ({ page, context, request }) => {
   const threads = [];
   const post = async (parent, name, com) => {
-    const response = await request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { resto: parent, name, sub: 'Owned identity', com, password } });
+    const response = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { resto: parent, name, sub: 'Owned identity', com, password } }));
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/#p(\d+)$/)[1];
     if (parent === '0') threads.push(id);
@@ -109,8 +109,8 @@ test('persisted tripcodes survive browser previews, filters and ordinary renderi
 test('CP932 trip-only names and cleaned text survive desktop, mobile and live rendering', async ({ browser, request }) => {
   const trip = `!${encoding.vectors.find(vector => vector.input === 'かみ').trip}`;
   for (const width of [1280, 390]) {
-    const created = await request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { name: '#かみ', com: 'Owned trip-only source thread', password } });
+    const created = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { name: '#かみ', com: 'Owned trip-only source thread', password } }));
     expect(created.status()).toBe(303);
     const thread = /#p(\d+)$/.exec(created.headers().location)[1];
     const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width === 390, hasTouch: width === 390 });
@@ -135,7 +135,7 @@ test('CP932 trip-only names and cleaned text survive desktop, mobile and live re
       await expect(page.locator('#quickReply')).toBeVisible();
       await page.locator('#qr-name').fill('＃Named！<owned>&"\'');
       await page.locator('#qrCom').fill('Owned cleaned name result');
-      await page.locator('#quickReply input[type=submit]').click();
+      await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
       await expect(page.locator('.postMessage').filter({ hasText: 'Owned cleaned name result' })).toHaveCount(1);
       data = await (await request.get(`/demo/thread/${thread}.json`)).json();
       expect(data.posts).toHaveLength(2);

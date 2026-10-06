@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -390,7 +393,7 @@ async fn native_uploads_preserve_isolated_intake_and_one_use_posting_authority()
             .await
             .unwrap();
     let filename = format!("native-{board}.png");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES($1,'Native upload','Owned synthetic data',2000,100,100,100,10,10,true)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Native upload','Owned synthetic data',2000,100,100,100,10,10,true,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let root = tempfile::tempdir().unwrap();
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
@@ -423,12 +426,17 @@ async fn native_uploads_preserve_isolated_intake_and_one_use_posting_authority()
     .unwrap();
     board_public::media_ready(&settings).await.unwrap();
     let fixture = Fixture {
-        app: board_public::routers_with_limits(
+        app: posting::routers_with_limits(
             public.clone(),
+            &board,
             ORIGIN.into(),
             false,
             Some(settings),
-            board_config::PublicRequestLimits::default(),
+            // Transport/admission matrix; limiter behavior has separate tests.
+            board_config::PublicRequestLimits::from_lookup(|name| {
+                (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
+            })
+            .unwrap(),
         )
         .0,
         owner: owner.clone(),

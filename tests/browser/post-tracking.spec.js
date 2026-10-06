@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -26,7 +26,7 @@ async function post(page, comment, { subject = '', option = '', nativeControls =
   if (subject) await page.locator('#sub').fill(subject);
   await page.locator('#email').fill(option);
   const response = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/imgboard.php'));
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   const posted = await response;
   expect(posted.status()).toBe(303);
   return ownerCookie(posted);
@@ -52,8 +52,8 @@ test('successful ordinary and board-return posts auto-watch, track own replies a
   await expect.poll(() => page.evaluate(({ thread, ownReply }) => JSON.parse(localStorage.getItem(`4chan-track-fixture-${thread}`))?.[`>>${ownReply}`], { thread, ownReply })).toBe(1);
   expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual([]);
   await expect(page.locator('.watcherNotice')).toContainText('Refresh complete.');
-  const other = await request.post('/fixture/post', { headers: { Origin: origin },
-    form: { resto: thread, com: `>>${ownReply}\nA reply to your fold`, password }, maxRedirects: 0 });
+  const other = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin },
+    form: { resto: thread, com: `>>${ownReply}\nA reply to your fold`, password }, maxRedirects: 0 }));
   expect(other.status()).toBe(303);
   await page.clock.fastForward(60001);
   const refreshed = page.waitForResponse(response => response.url().endsWith(`/_watch/fixture/thread/${thread}.json`));
@@ -66,9 +66,9 @@ test('successful ordinary and board-return posts auto-watch, track own replies a
 });
 test('concurrent successful posts use distinct receipts and failed posts create none', async ({ page, context }) => {
   await autoWatch(page);
-  const results = await Promise.all(['First concurrent thread', 'Second concurrent thread'].map(sub => context.request.post('/fixture/post', {
+  const results = await withPostingHistory(() => Promise.all(['First concurrent thread', 'Second concurrent thread'].map(sub => context.request.post('/fixture/post', {
     headers: { Origin: origin }, form: { sub, com: 'Owned concurrent fixture', password, track: '1', awt: '1' }, maxRedirects: 0,
-  })));
+  }))));
   const ids = results.map(response => { expect(response.status()).toBe(303); return response.headers().location.match(/thread\/(\d+)/)[1]; });
   for (const [index, id] of ids.entries()) owned.push({ id, cookie: await ownerCookie(results[index]) });
   const cookies = (await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-'));
@@ -80,7 +80,7 @@ test('concurrent successful posts use distinct receipts and failed posts create 
     await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem(`4chan-track-fixture-${id}`))?.[`>>${id}`], id)).toBe(1);
   }
   const before = await page.evaluate(() => localStorage.getItem('4chan-watch'));
-  const failed = await context.request.post('/fixture/post', { headers: { Origin: origin }, form: { com: '', password, track: '1', awt: '1' }, maxRedirects: 0 });
+  const failed = await withPostingHistory(() => context.request.post('/fixture/post', { headers: { Origin: origin }, form: { com: '', password, track: '1', awt: '1' }, maxRedirects: 0 }));
   expect(failed.status()).toBe(422);
   expect(failed.headers()['set-cookie']).toBeUndefined();
   await page.goto('/fixture/catalog?q=');

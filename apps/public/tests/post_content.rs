@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -105,7 +108,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .execute(&owner)
         .await
         .unwrap();
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) = posting::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
     let mut thread = 0;
     // Both post routes, form encodings and response modes use final rendered
     // content. A subject admits an OP but never an unattached blank reply.
@@ -175,7 +178,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                     comment: raw.into(),
                     ..post("")
                 };
-                let result = board_store::create_post(&public, &slug, parent, &draft).await;
+                let result = posting::create_post(&public, &slug, parent, &draft).await;
                 if blank {
                     let expected = if parent == 0 {
                         "Error: New threads require a subject or comment."
@@ -218,7 +221,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(async move {
-                board_store::create_post(
+                posting::create_post(
                     &public,
                     &slug,
                     thread,
@@ -266,7 +269,7 @@ async fn post_markup_admission_checks_http_transactions_and_locked_policy() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

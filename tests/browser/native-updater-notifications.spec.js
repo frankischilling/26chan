@@ -1,10 +1,10 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ context }, use) => {
     const request = context.request, password = 'owned-notifications-password';
-    const write = form => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } });
+    const write = form => withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } }));
     const response = await write({ resto: '0', sub: 'Owned notifications', com: 'Tracked original post', track: '1' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];

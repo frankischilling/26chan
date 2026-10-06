@@ -1,7 +1,8 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::{
-    NewPost, StoreError, create_post, create_post_with_attachment,
+    NewPost, StoreError,
     media::MediaQueue,
     media_assets::{MediaReader, OutputMetadata},
     media_intake::IntakeStore,
@@ -10,6 +11,7 @@ use board_store::{
 use sqlx::{Executor, PgPool};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use support::{create_post, create_post_with_attachment};
 
 struct Fixture {
     admin: PgPool,
@@ -33,6 +35,29 @@ fn post() -> NewPost {
 }
 
 impl Fixture {
+    // Direct SQL tests still enter with the same server-owned posting identity
+    // and lock order as the real writer, before any board, thread or job lock.
+    async fn prepare_direct_post(&self, connection: &mut sqlx::PgConnection, parent: i64) {
+        let key = support::key(&self.board);
+        let actor = key.public_posting_rate_identity(support::peer());
+        sqlx::query("SELECT content.lock_posting_actor($1,$2)")
+            .bind(actor.as_bytes().as_slice())
+            .bind(parent == 0)
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        let encoded: String = actor
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        sqlx::query("SELECT set_config('board.posting_actor',$1,true)")
+            .bind(encoded)
+            .execute(connection)
+            .await
+            .unwrap();
+    }
+
     async fn reserve(&self) -> NewAttachment {
         let upload = self.intake.reserve("<synthetic & file>.png").await.unwrap();
         self.jobs.lock().unwrap().push(upload.id.clone());
@@ -129,7 +154,7 @@ async fn run(attachment_only: bool) {
             .fetch_one(&admin)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10,true)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10,true,0,0,0)")
         .bind(&board).execute(&admin).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let f = Fixture {
@@ -333,6 +358,8 @@ async fn exercise(f: &Fixture) {
     let b = f.reserve().await;
     let b_asset = f.approve(&b).await;
     // A caller cannot use a new valid capability to replace another post's file.
+    let mut substitution = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut substitution, thread).await;
     let substituted = sqlx::query(
         "SELECT content.insert_post_attachment($1,$2,$3,'Anonymous','','replacement',$4,$5,false)",
     )
@@ -341,9 +368,10 @@ async fn exercise(f: &Fixture) {
     .bind(thread)
     .bind(&b.upload.id)
     .bind(&b.upload.capability)
-    .execute(&f.public)
+    .execute(&mut *substitution)
     .await
     .unwrap_err();
+    substitution.rollback().await.unwrap();
     assert_eq!(
         substituted.as_database_error().unwrap().code().as_deref(),
         Some("23505")
@@ -358,6 +386,7 @@ async fn exercise(f: &Fixture) {
     ] {
         let mut connection = f.public.acquire().await.unwrap();
         connection.execute(isolation).await.unwrap();
+        f.prepare_direct_post(&mut connection, thread).await;
         let rejected = sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Anonymous','','isolation',$4,$5,false)")
             .bind(id).bind(&f.board).bind(thread).bind(&b.upload.id).bind(&b.upload.capability)
             .execute(&mut *connection).await;
@@ -557,6 +586,7 @@ async fn direct_sql_spoiler_policy(f: &Fixture) {
             .await
             .unwrap();
         let mut tx = f.public.begin().await.unwrap();
+        f.prepare_direct_post(&mut tx, thread).await;
         let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
             .fetch_one(&mut *tx)
             .await
@@ -618,7 +648,7 @@ async fn poster_counts(f: &Fixture) {
         .execute(&f.admin)
         .await
         .unwrap();
-    let key = board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap();
+    let key = support::key(&f.board);
     let countries = board_domain::country::CountryDatabase::from_bytes(
         include_bytes!("../../domain/tests/fixtures/GeoIP2-Country-Test.mmdb").to_vec(),
     )
@@ -657,7 +687,7 @@ async fn poster_counts(f: &Fixture) {
         } else {
             "0"
         };
-        let id = board_store::create_post_with_metadata(
+        let id = support::create_post_with_metadata(
             &f.public,
             &f.board,
             thread,
@@ -896,6 +926,7 @@ async fn suppressed_trip_attachments(f: &Fixture) {
     let direct = f.reserve().await;
     f.approve(&direct).await;
     let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, parent).await;
     sqlx::query("SELECT set_config('board.post_trip','!ozOtJW9BFA',true)")
         .execute(&mut *tx)
         .await
@@ -995,13 +1026,16 @@ async fn forced_anonymous_attachment(f: &Fixture) {
         ("Anonymous", "")
     );
     assert!(attachment(&f.public, op).await.unwrap().is_some());
+    let mut direct = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut direct, op).await;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
-        .fetch_one(&f.public)
+        .fetch_one(&mut *direct)
         .await
         .unwrap();
     sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Direct SQL name','Direct SQL subject','Owned SQL reply',$4,$5,false,date_trunc('second',clock_timestamp()))")
         .bind(id).bind(&f.board).bind(op).bind(&direct_upload.upload.id).bind(&direct_upload.upload.capability)
-        .execute(&f.public).await.unwrap();
+        .execute(&mut *direct).await.unwrap();
+    direct.commit().await.unwrap();
     let saved = board_store::find_post(&f.public, &f.board, id)
         .await
         .unwrap();
@@ -1090,6 +1124,7 @@ async fn text_only_policy(f: &Fixture) {
     // A public caller cannot bypass the policy by invoking the scoped SQL
     // inserter directly. The invoker trigger rejects its real row insertion.
     let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, thread).await;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await
@@ -1506,6 +1541,9 @@ async fn image_admission_flags(f: &Fixture) {
 }
 
 async fn posting_times(f: &Fixture) {
+    // Earlier media scenarios used wall-clock times; this independent case
+    // deliberately supplies historical request times for the same owned actor.
+    support::reset_posting_history(&f.admin, &f.board).await;
     use chrono::{DateTime, Timelike, Utc};
     let mut post = post();
     if f.attachment_only {
@@ -1514,7 +1552,7 @@ async fn posting_times(f: &Fixture) {
     let requested = DateTime::from_timestamp(1_700_000_000, 987_654_321).unwrap();
     let op = f.reserve().await;
     f.approve(&op).await;
-    let id = board_store::create_post_with_attachment_at(
+    let id = support::create_post_with_attachment_at(
         &f.public,
         &f.board,
         0,
@@ -1537,7 +1575,7 @@ async fn posting_times(f: &Fixture) {
     let reply = f.reserve().await;
     f.approve(&reply).await;
     let earlier = requested - chrono::Duration::seconds(100);
-    let rid = board_store::create_post_with_attachment_at(
+    let rid = support::create_post_with_attachment_at(
         &f.public,
         &f.board,
         id,
@@ -1569,6 +1607,7 @@ async fn posting_times(f: &Fixture) {
     f.approve(&legacy).await;
     for invalid in [None, Some("infinity"), Some("-infinity")] {
         let mut tx = f.public.begin().await.unwrap();
+        f.prepare_direct_post(&mut tx, id).await;
         let new_id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
             .fetch_one(&mut *tx)
             .await
@@ -1594,6 +1633,7 @@ async fn posting_times(f: &Fixture) {
         tx.rollback().await.unwrap();
     }
     let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, id).await;
     let before: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
         .fetch_one(&mut *tx)
         .await
@@ -1637,7 +1677,7 @@ async fn posting_times(f: &Fixture) {
     .unwrap();
     assert!(
         matches!(
-            board_store::create_post_with_attachment_at(
+            support::create_post_with_attachment_at(
                 &f.public,
                 &f.board,
                 id,
@@ -1667,6 +1707,7 @@ async fn reject_unattached_empty_posts(f: &Fixture, thread: i64) {
     }
     for immediate in [false, true] {
         let mut tx = f.public.begin().await.unwrap();
+        f.prepare_direct_post(&mut tx, thread).await;
         let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
             .fetch_one(&mut *tx)
             .await
@@ -1987,6 +2028,7 @@ async fn retention(f: &Fixture) {
     let live = f.approve(&b).await;
     let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
     let mut posting = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut posting, thread).await;
     let number: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *posting)
         .await

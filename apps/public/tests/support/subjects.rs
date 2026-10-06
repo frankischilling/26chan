@@ -151,7 +151,7 @@ pub async fn exercise(app: &Router, owner: &PgPool, public: &PgPool, slug: &str,
             let public = public.clone();
             let slug = slug.to_owned();
             tokio::spawn(async move {
-                board_store::create_post(&public, &slug, thread, &post("Ａ\tＢ")).await
+                super::posting_fixture::create_post(&public, &slug, thread, &post("Ａ\tＢ")).await
             })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async { loop {
@@ -170,7 +170,7 @@ pub async fn exercise(app: &Router, owner: &PgPool, public: &PgPool, slug: &str,
         );
     }
     let raw = format!("A{}B", "\t".repeat(98));
-    let id = board_store::create_post(public, slug, 0, &post(&raw))
+    let id = super::posting_fixture::create_post(public, slug, 0, &post(&raw))
         .await
         .unwrap();
     let expanded = format!("A{}B", " ".repeat(392));
@@ -208,7 +208,7 @@ pub async fn exercise(app: &Router, owner: &PgPool, public: &PgPool, slug: &str,
     let before = board_store::thread(public, slug, thread).await.unwrap();
     for raw in ["#".repeat(101), "😀".repeat(26)] {
         assert!(matches!(
-            board_store::create_post(public, slug, thread, &post(&raw)).await,
+            super::posting_fixture::create_post(public, slug, thread, &post(&raw)).await,
             Err(StoreError::Invalid("Name or subject is too long."))
         ));
     }

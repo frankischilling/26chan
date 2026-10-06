@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{
     Router,
@@ -20,10 +23,6 @@ use tower::ServiceExt;
 const ORIGIN: &str = "http://127.0.0.1:3000";
 const PASSWORD: &str = "owned-quota-password";
 const FLOOD: &str = "Error: You cannot delete posts this often.";
-
-fn key() -> PosterIdKey {
-    PosterIdKey::parse(&"73".repeat(32)).unwrap()
-}
 
 #[derive(Clone, Copy)]
 enum Route {
@@ -48,10 +47,11 @@ struct Fixture {
     peers: [SocketAddr; 4],
     hash: String,
     app: Router,
+    key: Arc<PosterIdKey>,
 }
 
 impl Fixture {
-    fn router(public: PgPool, configured_key: bool) -> Router {
+    fn router(public: PgPool, key: Arc<PosterIdKey>, configured_key: bool) -> Router {
         board_public::routers_with_options(
             public,
             board_public::PublicRouterOptions {
@@ -63,7 +63,7 @@ impl Fixture {
                 })
                 .unwrap(),
                 proxy_uid: None,
-                poster_id_key: configured_key.then(|| Arc::new(key())),
+                poster_id_key: configured_key.then_some(key),
                 tripcode_key: None,
                 country_database: None,
             },
@@ -72,7 +72,12 @@ impl Fixture {
     }
 
     async fn post(&self, board: usize, attached: bool) -> i64 {
-        let id = board_store::create_post(
+        // Seed actions are independent of the deletion-quota scenario. Preserve
+        // one posting actor across both boards while clearing only its history.
+        for slug in &self.boards {
+            posting::cleanup_actor_posting(&self.owner, slug, &self.key, posting::peer()).await;
+        }
+        let id = posting::create_post(
             &self.public,
             &self.boards[board],
             0,
@@ -119,7 +124,7 @@ impl Fixture {
     }
 
     async fn count(&self, peer: SocketAddr) -> i32 {
-        let identity = key().public_deletion_rate_identity(peer.ip());
+        let identity = self.key.public_deletion_rate_identity(peer.ip());
         sqlx::query_scalar("SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=$1")
             .bind(identity.as_bytes().as_slice()).fetch_optional(&self.owner).await.unwrap().unwrap_or(0)
     }
@@ -207,7 +212,7 @@ impl Fixture {
         let peer = self.peers[0];
         // Each router has independent in-memory HTTP limits. The persisted quota
         // must still be shared across router instances, forms, boards and cookies.
-        let other_router = Self::router(self.public.clone(), true);
+        let other_router = Self::router(self.public.clone(), self.key.clone(), true);
         let cookies = [
             None,
             Some("board-anon=a1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
@@ -322,7 +327,7 @@ impl Fixture {
         assert!(self.deleted(id).await);
         assert_eq!(self.count(other).await, 1);
         assert_eq!(self.count(peer).await, 3);
-        let identity = key().public_deletion_rate_identity(peer.ip());
+        let identity = self.key.public_deletion_rate_identity(peer.ip());
         let error = sqlx::query(
             "SELECT events FROM post_secrets.public_deletion_actors WHERE actor_hash=$1",
         )
@@ -534,7 +539,7 @@ impl Fixture {
     }
 
     async fn unavailable(&self) {
-        let without_key = Self::router(self.public.clone(), false);
+        let without_key = Self::router(self.public.clone(), self.key.clone(), false);
         for route in [Route::Modern, Route::Legacy, Route::Multipart] {
             for (app, peer) in [(&without_key, Some(self.peers[0])), (&self.app, None)] {
                 for file_only in [false, true] {
@@ -587,6 +592,8 @@ async fn run(scenario: Scenario) {
         format!("dq{board_nonce:07x}a"),
         format!("dq{board_nonce:07x}b"),
     ];
+    posting::register_alias(&boards[1], &boards[0]);
+    let key = posting::key(&boards[0]);
     let peers = std::array::from_fn(|group| {
         SocketAddr::new(
             Ipv6Addr::new(
@@ -605,7 +612,7 @@ async fn run(scenario: Scenario) {
     });
     for board in &boards {
         // Explicit policy for owned synthetic boards only; production defaults remain intact.
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds) VALUES($1,'Deletion quota','Owned fixtures',200,100,100,1000,10,100,0,0,86400)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Deletion quota','Owned fixtures',200,100,100,1000,10,100,0,0,86400,0,0,0)")
             .bind(board).execute(&owner).await.unwrap();
     }
     let fixture = Fixture {
@@ -617,7 +624,8 @@ async fn run(scenario: Scenario) {
             .hash_password(PASSWORD.as_bytes(), &SaltString::generate(&mut OsRng))
             .unwrap()
             .to_string(),
-        app: Fixture::router(public.clone(), true),
+        app: Fixture::router(public.clone(), key.clone(), true),
+        key: key.clone(),
     };
     // Join errors are rethrown only after deleting this fixture's own rows.
     let outcome = tokio::spawn(async move {
@@ -645,7 +653,7 @@ async fn run(scenario: Scenario) {
         }
     }
     for peer in peers {
-        let identity = key().public_deletion_rate_identity(peer.ip());
+        let identity = key.public_deletion_rate_identity(peer.ip());
         sqlx::query("DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=$1")
             .bind(identity.as_bytes().as_slice())
             .execute(&owner)

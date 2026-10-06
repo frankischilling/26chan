@@ -11,7 +11,7 @@ async fn real_https_proxy_preserves_owner_identity_and_separate_client_limits() 
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,op_bump_limit) VALUES($1,'Proxy identity','Owned HTTPS proxy fixture',4000,200,150,100,10,true,true)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,op_bump_limit) VALUES(0,0,0,$1,'Proxy identity','Owned HTTPS proxy fixture',4000,200,150,100,10,true,true)").bind(&slug).execute(&owner).await.unwrap();
     let fixture = slug.clone();
     let inspector = owner.clone();
     let result = tokio::spawn(async move {

@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
@@ -93,14 +96,14 @@ async fn real_forms_preserve_rule_errors_quiet_success_and_fail_closed_storage()
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned HTTP admission','Synthetic',1000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Owned HTTP admission','Synthetic',1000,100,100,100,10)")
         .bind(&board).execute(&owner).await.unwrap();
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
         let (app,_) = board_public::routers_with_options(p,board_public::PublicRouterOptions {
             origin:"http://127.0.0.1:3000".into(),production:false,media:None,
             limits:board_config::PublicRequestLimits::default(),proxy_uid:None,
-            tripcode_key:None,poster_id_key:None,country_database:None,
+            tripcode_key:None,poster_id_key:Some(posting_fixture::key(&b)),country_database:None,
         });
         let first = json(submit(&app,&b,0,"ordinary thread","application/json").await,StatusCode::OK).await;
         let thread = first["pid"].as_i64().unwrap();

@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -6,9 +6,9 @@ const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-linkification-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const response = await write({ resto: '0', sub: 'Owned linkification', com: 'Initial https://initial.test/path' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
@@ -218,9 +218,9 @@ test('persisted mixed-case URLs keep server anchors while the browser links uppe
   const lower = 'https://www.4chan.org/faq';
   const upper = 'HTTPS://UPPER.TEST/Path?Q=One';
   const comment = `Existing ${lower} then ${upper}`;
-  const write = form => request.post('/demo/post', {
+  const write = form => withPostingHistory(() => request.post('/demo/post', {
     headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-  });
+  }));
   const created = await write({ resto: '0', sub: 'Persisted mixed linkification', com: comment });
   expect(created.status()).toBe(303);
   const id = created.headers().location.match(/thread\/(\d+)/)[1];

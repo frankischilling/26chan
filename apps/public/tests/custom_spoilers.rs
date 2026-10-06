@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -83,19 +86,8 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
     })
     .unwrap();
-    let options = |media| board_public::PublicRouterOptions {
-        origin: ORIGIN.into(),
-        production: false,
-        media,
-        limits,
-        proxy_uid: None,
-        poster_id_key: Some(std::sync::Arc::new(
-            board_domain::poster_id::PosterIdKey::parse(&"45".repeat(32)).unwrap(),
-        )),
-        tripcode_key: None,
-        country_database: None,
-    };
-    let plain = board_public::routers_with_options(public.clone(), options(None));
+    let plain =
+        posting::routers_with_limits(public.clone(), slug, ORIGIN.into(), false, None, limits);
     assert_eq!(
         plain
             .0
@@ -108,16 +100,20 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
     );
     // No decoding occurs here: only router presence and the public JSON projection
     // are under test. The real media pipeline has separate qualification.
-    let media = board_public::routers_with_options(
+    let media = posting::routers_with_limits(
         public.clone(),
-        options(Some(
+        slug,
+        ORIGIN.into(),
+        false,
+        Some(
             board_config::PublicMediaSettings::development(
                 "127.0.0.1:1",
                 &"a".repeat(64),
                 "http://localhost:3002",
             )
             .unwrap(),
-        )),
+        ),
+        limits,
     );
     let assets: Value =
         serde_json::from_str(include_str!("../../../docs/custom-spoiler-assets.json")).unwrap();
@@ -256,7 +252,7 @@ async fn custom_spoiler_metadata_matches_source_policy_and_keeps_runtime_authori
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES($1,'Owned custom spoilers','Synthetic metadata',2000,100,100,100,10,1)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned custom spoilers','Synthetic metadata',2000,100,100,100,10,1,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     let owned = owner.clone();
     let runtime = public.clone();
     let board = slug.clone();

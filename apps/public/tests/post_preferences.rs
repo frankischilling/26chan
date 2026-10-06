@@ -8,6 +8,14 @@ use axum::{
 use serde_json::Value;
 use tower::ServiceExt;
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 const ORIGIN: &str = "https://boards.example.com";
 
 async fn submit(
@@ -94,8 +102,21 @@ async fn successful_posting_remembers_only_public_preferences_and_errors_do_not_
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting preferences','Owned fixture',1000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
-    let app = board_public::router(public.clone(), ORIGIN.into(), true);
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Posting preferences','Owned fixture',1000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    let app = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: ORIGIN.into(),
+            production: true,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(fixture_key()),
+            country_database: None,
+        },
+    )
+    .0;
     let mut thread = 0;
     for index in 0..4 {
         let response = submit(

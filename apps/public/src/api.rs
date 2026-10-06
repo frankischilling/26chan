@@ -118,7 +118,11 @@ pub async fn boards(
         "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
         "max_filesize": 0, "max_webm_filesize": 0, "max_webm_duration": 0,
         "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": 0,
-        "cooldowns": { "threads": 0, "replies": 0, "images": 0 },
+        "cooldowns": {
+            "threads": board.posting_thread_seconds,
+            "replies": board.posting_reply_seconds,
+            "images": board.posting_image_seconds
+        },
         "meta_description": board.description, "text_only": 1
         });
         if board.archive_retention_seconds > 0 {

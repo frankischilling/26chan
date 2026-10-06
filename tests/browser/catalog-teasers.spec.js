@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
@@ -24,7 +24,7 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       await server.locator('#sub').fill(title);
       await server.locator('#com').fill(entry.comment);
       await expect(server.locator('#postPassword')).toHaveValue('');
-      await server.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => server.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);
       entry.id = /#p(\d+)$/.exec(server.url())[1];
       created.push(entry);

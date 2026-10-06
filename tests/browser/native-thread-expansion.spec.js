@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-expansion-password';
@@ -9,8 +9,8 @@ test('index expansion preserves the tail and drafts while fetched replies retain
   const replies = [];
   try {
     for (let index = 0; index < 9; index++) {
-      const response = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-        form: { resto: thread || '0', password, com: `Owned expansion post ${index}.`, sub: index ? '' : 'Owned expansion thread' } });
+      const response = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { resto: thread || '0', password, com: `Owned expansion post ${index}.`, sub: index ? '' : 'Owned expansion thread' } }));
       expect(response.status()).toBe(303);
       const id = response.headers().location.split('#p')[1];
       if (index) replies.push(id); else thread = id;

@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     body::{Body, to_bytes},
     http::Request,
@@ -24,7 +27,7 @@ fn post(comment: &str) -> NewPost {
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let thread = board_store::create_post(&public, &slug, 0, &post("Owned OP"))
+    let thread = posting_fixture::create_post(&public, &slug, 0, &post("Owned OP"))
         .await
         .unwrap();
     // Policy changes apply only to new posts, including an existing unnormalized row.
@@ -42,8 +45,9 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         _ => None,
     })
     .unwrap();
-    let (app, _) = board_public::routers_with_limits(
+    let (app, _) = posting_fixture::routers_with_limits(
         public.clone(),
+        &slug,
         "http://127.0.0.1:3000".into(),
         false,
         None,
@@ -61,7 +65,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     {
         sqlx::query("UPDATE content.boards SET comment_code_spacing=$2,comment_sjis_spacing=$3 WHERE slug=$1")
             .bind(&slug).bind(code).bind(sjis).execute(&owner).await.unwrap();
-        let id = board_store::create_post(&public, &slug, thread, &post(raw))
+        let id = posting_fixture::create_post(&public, &slug, thread, &post(raw))
             .await
             .unwrap();
         assert_eq!(
@@ -196,7 +200,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(async move {
-                board_store::create_post(&public, &slug, thread, &post("Ａ\t  B😀")).await
+                posting_fixture::create_post(&public, &slug, thread, &post("Ａ\t  B😀")).await
             })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async {
@@ -227,7 +231,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     .execute(&owner)
     .await
     .unwrap();
-    let id = board_store::create_post(&public, &slug, thread, &post("A\tB"))
+    let id = posting_fixture::create_post(&public, &slug, thread, &post("A\tB"))
         .await
         .unwrap();
     assert_eq!(
@@ -237,7 +241,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .comment,
         "A    B"
     );
-    let id = board_store::create_post(&public, &slug, thread, &post("😀X"))
+    let id = posting_fixture::create_post(&public, &slug, thread, &post("😀X"))
         .await
         .unwrap();
     assert_eq!(
@@ -273,7 +277,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         }
     }
     assert!(matches!(
-        board_store::create_post(&public, &slug, thread, &post(" A  ")).await,
+        posting_fixture::create_post(&public, &slug, thread, &post(" A  ")).await,
         Err(StoreError::Invalid(_))
     ));
     sqlx::query("UPDATE content.boards SET max_comment_chars=16000 WHERE slug=$1")
@@ -282,7 +286,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     assert!(matches!(
-        board_store::create_post(
+        posting_fixture::create_post(
             &public,
             &slug,
             thread,
@@ -309,7 +313,7 @@ async fn local_quotes(
     slug: &str,
     thread: i64,
 ) {
-    let target = board_store::create_post(public, slug, thread, &post("Owned quote target"))
+    let target = posting_fixture::create_post(public, slug, thread, &post("Owned quote target"))
         .await
         .unwrap();
     let raw = format!(
@@ -455,7 +459,7 @@ async fn local_quotes(
         .unwrap();
     let before = board_store::thread(public, slug, thread).await.unwrap();
     assert!(matches!(
-        board_store::create_post(public, slug, thread, &post(&format!(">>>/{slug}/1"))).await,
+        posting_fixture::create_post(public, slug, thread, &post(&format!(">>>/{slug}/1"))).await,
         Err(StoreError::Invalid(_))
     ));
     let after = board_store::thread(public, slug, thread).await.unwrap();
@@ -571,7 +575,7 @@ async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &
                     assert!(html.contains(error));
                 }
                 assert!(
-                    matches!(board_store::create_post(public, slug, thread, &post(&raw)).await, Err(StoreError::Invalid(message)) if message == error)
+                    matches!(posting_fixture::create_post(public, slug, thread, &post(&raw)).await, Err(StoreError::Invalid(message)) if message == error)
                 );
             }
             let after = board_store::thread(public, slug, thread).await.unwrap();
@@ -610,7 +614,7 @@ async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &
             let public = public.clone();
             let slug = slug.to_owned();
             tokio::spawn(async move {
-                board_store::create_post(
+                posting_fixture::create_post(
                     &public,
                     &slug,
                     thread,
@@ -726,7 +730,7 @@ async fn persisted_source_spacing_uses_locked_operator_policy_and_escaped_render
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Spacing','Owned fixture',1000,100,100,10,10)")
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Spacing','Owned fixture',1000,100,100,10,10)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -94,7 +97,7 @@ async fn real_intake_streaming_status_posting_and_file_deletion() {
             .await
             .unwrap();
     let filename = format!("<b>{board}</b>.png");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES ($1,'Image test','Synthetic',2000,100,100,100,10,3,true)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Image test','Synthetic',2000,100,100,100,10,3,true,0,0,0)")
         .bind(&board).execute(&admin).await.unwrap();
     let root = tempfile::tempdir().unwrap();
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
@@ -127,14 +130,15 @@ async fn real_intake_streaming_status_posting_and_file_deletion() {
     .unwrap();
     board_public::media_ready(&settings).await.unwrap();
     // Production request limits remain independently exercised by http_limits.rs;
-    // these admission and authorization cases use isolated fixture peers.
+    // these admission and authorization cases share one stable fixture peer.
     let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
-        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        "PUBLIC_WRITES_PER_MINUTE" => Some("1000".into()),
         _ => None,
     })
     .unwrap();
-    let app = fixture_routers(
+    let app = posting::routers_with_limits(
         public.clone(),
+        &board,
         "http://127.0.0.1:3000".into(),
         false,
         Some(settings),
@@ -854,7 +858,7 @@ async fn reject_text_only_reply_before_file_body(app: &Router, board: &str, admi
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
-    let thread = board_store::create_post(
+    let thread = posting::create_post(
         &public,
         board,
         0,
@@ -944,7 +948,7 @@ async fn image_admission_http(
         deletion_hash: "unused-owned-hash".into(),
         sage: false,
     };
-    let thread = board_store::create_post(&public, board, 0, &draft)
+    let thread = posting::create_post(&public, board, 0, &draft)
         .await
         .unwrap();
     for (index, (sticky, undead, permaage, accepted)) in [
@@ -1219,7 +1223,7 @@ async fn image_reply_contract(
                 .parse::<i64>()
                 .unwrap()
         } else {
-            board_store::create_post_with_attachment(
+            posting::create_post_with_attachment(
                 &public,
                 board,
                 thread,
@@ -1457,11 +1461,11 @@ async fn image_reply_contract(
         deletion_hash: "synthetic-unused-hash".into(),
         sage: false,
     };
-    let text_thread = board_store::create_post(&public, board, 0, &text)
+    let text_thread = posting::create_post(&public, board, 0, &text)
         .await
         .unwrap();
     for _ in 0..2 {
-        board_store::create_post(&public, board, text_thread, &text)
+        posting::create_post(&public, board, text_thread, &text)
             .await
             .unwrap();
     }
@@ -1475,73 +1479,4 @@ async fn image_reply_contract(
         .await
         .unwrap();
     public.close().await;
-}
-
-// Fixture transport identities are isolated so unrelated authorization cases do
-// not consume each other's shared public deletion quota.
-fn fixture_peer() -> std::net::SocketAddr {
-    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
-    let nonce = NEXT
-        .get_or_init(|| {
-            std::sync::atomic::AtomicU64::new(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos() as u64,
-            )
-        })
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    std::net::SocketAddr::new(
-        std::net::IpAddr::V6(std::net::Ipv6Addr::new(
-            0x2001,
-            0xdb8,
-            6,
-            0,
-            (nonce >> 48) as u16,
-            (nonce >> 32) as u16,
-            (nonce >> 16) as u16,
-            nonce as u16,
-        )),
-        12345,
-    )
-}
-
-fn fixture_routers(
-    pool: sqlx::PgPool,
-    origin: String,
-    production: bool,
-    media: Option<board_config::PublicMediaSettings>,
-    limits: board_config::PublicRequestLimits,
-) -> (axum::Router, axum::Router) {
-    let (web, api) = board_public::routers_with_options(
-        pool,
-        board_public::PublicRouterOptions {
-            origin,
-            production,
-            media,
-            limits,
-            proxy_uid: None,
-            poster_id_key: Some(std::sync::Arc::new(
-                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
-            )),
-            tripcode_key: None,
-            country_database: None,
-        },
-    );
-
-    let transport = axum::middleware::from_fn(
-        move |mut request: axum::extract::Request, next: axum::middleware::Next| async move {
-            if request
-                .extensions()
-                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-                .is_none()
-            {
-                request
-                    .extensions_mut()
-                    .insert(axum::extract::ConnectInfo(fixture_peer()));
-            }
-            next.run(request).await
-        },
-    );
-    (web.layer(transport.clone()), api.layer(transport))
 }

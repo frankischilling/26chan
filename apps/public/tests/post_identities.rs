@@ -8,6 +8,14 @@ use axum::{
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 const ORIGIN: &str = "http://127.0.0.1:3000";
 
 #[tokio::test]
@@ -35,8 +43,9 @@ async fn board_trip_suppression_uses_locked_policy_and_preserves_saved_identitie
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Trip suppression','Owned source policy fixture',1000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Trip suppression','Owned source policy fixture',1000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
+    let poster_key = fixture_key();
     let (app, api) = board_public::routers_with_options(
         public.clone(),
         board_public::PublicRouterOptions {
@@ -49,7 +58,7 @@ async fn board_trip_suppression_uses_locked_policy_and_preserves_saved_identitie
             })
             .unwrap(),
             proxy_uid: None,
-            poster_id_key: None,
+            poster_id_key: Some(poster_key.clone()),
             tripcode_key: None,
         },
     );
@@ -260,6 +269,10 @@ async fn post(app: &Router, board: &str, parent: i64, name: &str, index: usize) 
         .clone()
         .oneshot(
             Request::post(format!("/{board}/{route}"))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [192, 0, 2, 17],
+                    45000,
+                ))))
                 .header("origin", ORIGIN)
                 .header("accept", "application/json")
                 .header("content-type", kind)
@@ -288,7 +301,8 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting identities','Owned synthetic fixture',1000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Posting identities','Owned synthetic fixture',1000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    let poster_key = fixture_key();
     let (app, api) = board_public::routers_with_options(
         public.clone(),
         board_public::PublicRouterOptions {
@@ -298,7 +312,7 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
             media: None,
             limits: board_config::PublicRequestLimits::default(),
             proxy_uid: None,
-            poster_id_key: None,
+            poster_id_key: Some(poster_key.clone()),
             tripcode_key: Some(std::sync::Arc::new(
                 board_domain::identity::SecureKey::parse(&"1".repeat(64)).unwrap(),
             )),
@@ -390,7 +404,20 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
     }
     // Missing authority rejects a secure identity atomically and does not fall
     // back to publishing its password as an ordinary name.
-    let unkeyed = board_public::router(public.clone(), ORIGIN.into(), false);
+    let unkeyed = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: ORIGIN.into(),
+            production: false,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(poster_key.clone()),
+            country_database: None,
+        },
+    )
+    .0;
     let before = board_store::thread(&public, &board, thread).await.unwrap();
     let rejected = post(
         &unkeyed,
@@ -451,7 +478,7 @@ async fn source_names_reach_saved_posts_and_every_json_projection() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Source name cases','Owned fixture',1000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Source name cases','Owned fixture',1000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     // This corpus exceeds the production write budget through one router.
     // http_limits.rs separately checks the production write limit.
@@ -459,6 +486,7 @@ async fn source_names_reach_saved_posts_and_every_json_projection() {
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
     })
     .unwrap();
+    let poster_key = fixture_key();
     let (app, api) = board_public::routers_with_options(
         public.clone(),
         board_public::PublicRouterOptions {
@@ -468,7 +496,7 @@ async fn source_names_reach_saved_posts_and_every_json_projection() {
             media: None,
             limits,
             proxy_uid: None,
-            poster_id_key: None,
+            poster_id_key: Some(poster_key.clone()),
             tripcode_key: Some(std::sync::Arc::new(
                 board_domain::identity::SecureKey::parse(&"1".repeat(64)).unwrap(),
             )),

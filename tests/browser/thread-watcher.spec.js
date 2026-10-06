@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -7,8 +7,8 @@ const test = base.extend({
   createThread: async ({ request }, use) => {
     const created = [];
     await use(async (board, label) => {
-      const response = await request.post(`/${board}/post`, { headers: { Origin: origin },
-        form: { resto: '0', sub: label, com: 'Synthetic watcher fixture', password: 'watcher-test-password' }, maxRedirects: 0 });
+      const response = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin },
+        form: { resto: '0', sub: label, com: 'Synthetic watcher fixture', password: 'watcher-test-password' }, maxRedirects: 0 }));
       expect(response.status()).toBe(303);
       const id = response.headers().location.match(/thread\/(\d+)/)[1];
       created.push({ board, id });
@@ -43,8 +43,8 @@ test('owned thread API refresh, cross-tab watch state and read acknowledgement w
   await expect(other.locator('#threadWatcher')).toBeVisible();
   await other.getByRole('button', { name: `Watch thread ${b}`, exact: true }).click();
   await expect(page.locator(`#watch-${b}-fixture`)).toBeVisible();
-  const reply = await request.post('/demo/post', { headers: { Origin: origin },
-    form: { resto: a, com: 'A new reply for the watcher', password: 'watcher-test-password' }, maxRedirects: 0 });
+  const reply = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: a, com: 'A new reply for the watcher', password: 'watcher-test-password' }, maxRedirects: 0 }));
   expect(reply.status()).toBe(303);
   const id = reply.headers().location.match(/#p(\d+)/)[1];
   const fetched = page.waitForResponse(response => response.url().endsWith(`/_watch/demo/thread/${a}.json`));
@@ -115,8 +115,8 @@ test('mobile native update inserts actual replies without navigation and retains
   });
   await page.goto(`/demo/thread/${id}`);
   await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).first().click();
-  const response = await request.post('/demo/post', { headers: { Origin: origin },
-    form: { resto: id, com: 'Reply fetched by native mobile refresh', password: 'watcher-test-password' }, maxRedirects: 0 });
+  const response = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: id, com: 'Reply fetched by native mobile refresh', password: 'watcher-test-password' }, maxRedirects: 0 }));
   expect(response.status()).toBe(303);
   const reply = response.headers().location.match(/#p(\d+)/)[1];
   await expect(page.locator(`#p${reply}`)).toHaveCount(0);
@@ -202,8 +202,8 @@ test('board post menus watch persisted threads and synchronize an open menu acro
 
 test('post menus select the actual report and cookie-authorized deletion forms without submitting on selection', async ({ page, request, createThread }) => {
   const id = await createThread('demo', 'Post action menu fixture');
-  const replyResponse = await request.post('/demo/post', { headers: { Origin: origin },
-    form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 });
+  const replyResponse = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 }));
   expect(replyResponse.status()).toBe(303);
   const reply = replyResponse.headers().location.match(/#p(\d+)/)[1];
   await page.context().addCookies((await request.storageState()).cookies);

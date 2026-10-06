@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -8,8 +8,8 @@ for (const javaScriptEnabled of [false, true]) {
     const password = 'owned-static-quotes-password';
     let op;
     try {
-      const response = await context.request.post(`${origin}/fixture/post`, { headers: { origin, accept: 'application/json' },
-        form: { resto: '0', sub: 'Owned static references', com: '>>>/po/ >>>/g/catalog >>>/g/a+b/c,d-e >>>/unknown/catalog', pwd: password } });
+      const response = await withPostingHistory(() => context.request.post(`${origin}/fixture/post`, { headers: { origin, accept: 'application/json' },
+        form: { resto: '0', sub: 'Owned static references', com: '>>>/po/ >>>/g/catalog >>>/g/a+b/c,d-e >>>/unknown/catalog', pwd: password } }));
       expect(response.status()).toBe(200);
       op = String((await response.json()).pid);
       const page = await context.newPage();
@@ -24,8 +24,8 @@ for (const javaScriptEnabled of [false, true]) {
       expect(json.posts[0].com).not.toContain('href="/unknown/');
       if (javaScriptEnabled) {
         await page.locator('.threadNav.desktop input[data-cmd="auto"]').first().uncheck();
-        const reply = await context.request.post(`${origin}/fixture/post`, { headers: { origin, accept: 'application/json' },
-          form: { resto: op, com: '>>>/g/catalog', pwd: password } });
+        const reply = await withPostingHistory(() => context.request.post(`${origin}/fixture/post`, { headers: { origin, accept: 'application/json' },
+          form: { resto: op, com: '>>>/g/catalog', pwd: password } }));
         expect(reply.status()).toBe(200);
         const id = String((await reply.json()).pid);
         await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click();

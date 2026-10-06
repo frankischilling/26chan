@@ -1,4 +1,8 @@
 use axum::{body::Body, http::Request};
+
+#[cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
@@ -141,30 +145,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
     )
     .await
     .unwrap();
-    let app = board_public::routers_with_options(
-        pool.clone(),
-        board_public::PublicRouterOptions {
-            origin: ORIGIN.into(),
-            production: false,
-            media: None,
-            limits: board_config::PublicRequestLimits::default(),
-            proxy_uid: None,
-            poster_id_key: Some(std::sync::Arc::new(
-                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
-            )),
-            tripcode_key: None,
-            country_database: None,
-        },
-    )
-    .0
-    .layer(axum::middleware::from_fn(
-        |mut request: axum::extract::Request, next: axum::middleware::Next| async move {
-            request
-                .extensions_mut()
-                .insert(axum::extract::ConnectInfo(fixture_peer()));
-            next.run(request).await
-        },
-    ));
+    let app = posting::routers(pool.clone(), "fixture", ORIGIN.into(), false).0;
     let password = "owned-updater-snapshot-password";
     let mut ids: Vec<String> = Vec::new();
     for resto in ["0".to_owned(), String::new()] {
@@ -267,34 +248,4 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
         }
     }
     pool.close().await;
-}
-
-// Use isolated transport identities so the reply and thread deletion checks do
-// not consume each other's persisted public deletion quota, including on reruns.
-#[cfg(feature = "database-tests")]
-fn fixture_peer() -> std::net::SocketAddr {
-    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
-    let nonce = NEXT
-        .get_or_init(|| {
-            std::sync::atomic::AtomicU64::new(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos() as u64,
-            )
-        })
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    std::net::SocketAddr::new(
-        std::net::IpAddr::V6(std::net::Ipv6Addr::new(
-            0x2001,
-            0xdb8,
-            7,
-            0,
-            (nonce >> 48) as u16,
-            (nonce >> 32) as u16,
-            (nonce >> 16) as u16,
-            nonce as u16,
-        )),
-        12345,
-    )
 }

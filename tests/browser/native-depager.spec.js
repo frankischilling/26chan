@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
@@ -16,10 +17,10 @@ function fixture(command, board) {
 }
 
 async function createThread(request, board, index) {
-  const response = await request.post(`/${board}/post`, {
+  const response = await withPostingHistory(() => request.post(`/${board}/post`, {
     headers: { Origin: origin }, maxRedirects: 0,
     form: { resto: '0', password, com: `Owned depager thread ${index}.`, sub: `Depager ${index}` },
-  });
+  }));
   expect(response.status()).toBe(303);
   return response.headers().location.split('#p')[1];
 }

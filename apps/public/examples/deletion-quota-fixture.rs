@@ -1,4 +1,5 @@
-//! Test-only quota isolation for one finite, owned browser-run loopback actor.
+//! Test-only deletion and posting isolation for a finite owned browser run.
+//! Both separately derived actors retain the same real key and loopback peer.
 //! Build explicitly with --features browser-tests; never shipped as a server.
 #![forbid(unsafe_code)]
 
@@ -36,6 +37,12 @@ impl Manifest {
         }
         PosterIdKey::parse(&self.key)?;
         Ok(())
+    }
+
+    fn posting_actor(&self) -> Result<[u8; 32]> {
+        Ok(*PosterIdKey::parse(&self.key)?
+            .public_posting_rate_identity(std::net::Ipv4Addr::LOCALHOST.into())
+            .as_bytes())
     }
 
     fn actor(&self) -> Result<[u8; 32]> {
@@ -106,7 +113,12 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() != 1 || !matches!(args[0].as_str(), "init" | "reset" | "check" | "finish") {
+    if args.len() != 1
+        || !matches!(
+            args[0].as_str(),
+            "init" | "reset" | "reset-posting" | "check" | "finish"
+        )
+    {
         return Err("One fixed fixture command required".into());
     }
     let manifest = read_manifest(Path::new(&std::env::var(
@@ -122,7 +134,10 @@ async fn run() -> Result<()> {
 
 async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> {
     manifest.validate()?;
-    if !matches!(command, "init" | "reset" | "check" | "finish") {
+    if !matches!(
+        command,
+        "init" | "reset" | "reset-posting" | "check" | "finish"
+    ) {
         return Err("Unknown fixture command".into());
     }
     let mut tx = pool.begin().await?;
@@ -163,7 +178,26 @@ async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> 
     if owner != "board_migrator" {
         return Err("Owned lease table required".into());
     }
+    if command == "init" {
+        sqlx::query("ALTER TABLE post_secrets.browser_deletion_fixture_runs ADD COLUMN IF NOT EXISTS posting_actor_hash bytea UNIQUE CHECK(octet_length(posting_actor_hash)=32), ADD COLUMN IF NOT EXISTS posting_groups integer NOT NULL DEFAULT 0 CHECK(posting_groups BETWEEN 0 AND 10000)")
+            .execute(&mut *tx).await?;
+    }
     let actor = manifest.actor()?;
+    let posting_actor = manifest.posting_actor()?;
+    // Migrator membership is SET-only, not inherited. Assume the narrow function
+    // owner only to acquire the normal application locks; restore migrator before
+    // any lease or ledger operation. Transaction-local role and locks roll back
+    // together if the function fails. No runtime grants are widened.
+    sqlx::query("SET LOCAL ROLE board_posting_cooldown_owner")
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("SELECT content.lock_posting_actor($1,true)")
+        .bind(posting_actor.as_slice())
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("SET LOCAL ROLE board_migrator")
+        .execute(&mut *tx)
+        .await?;
     sqlx::query(
         "SELECT singleton FROM post_secrets.public_deletion_capacity WHERE singleton FOR UPDATE",
     )
@@ -171,22 +205,23 @@ async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> 
     .await?;
     if command == "init" {
         let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM post_secrets.public_deletion_actors WHERE actor_hash=$1)",
+            "SELECT EXISTS(SELECT 1 FROM post_secrets.public_deletion_actors WHERE actor_hash=$1) OR EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE actor_hash=$2) OR EXISTS(SELECT 1 FROM post_secrets.posting_thread_actions WHERE actor_hash=$2)",
         )
         .bind(actor.as_slice())
+        .bind(posting_actor.as_slice())
         .fetch_one(&mut *tx)
         .await?;
         if exists {
             return Err("A fresh unused synthetic actor is required".into());
         }
-        sqlx::query("INSERT INTO post_secrets.browser_deletion_fixture_runs(marker,actor_hash,database_name,expires_at) VALUES($1,$2,$3,now()+interval '12 hours')")
-            .bind(&manifest.marker).bind(actor.as_slice()).bind(&manifest.database)
+        sqlx::query("INSERT INTO post_secrets.browser_deletion_fixture_runs(marker,actor_hash,database_name,posting_actor_hash,expires_at) VALUES($1,$2,$3,$4,now()+interval '12 hours')")
+            .bind(&manifest.marker).bind(actor.as_slice()).bind(&manifest.database).bind(posting_actor.as_slice())
             .execute(&mut *tx).await?;
     } else {
-        let lease: Option<i32> = sqlx::query_scalar("SELECT groups FROM post_secrets.browser_deletion_fixture_runs WHERE marker=$1 AND actor_hash=$2 AND database_name=$3 AND expires_at>now() FOR UPDATE")
-            .bind(&manifest.marker).bind(actor.as_slice()).bind(&manifest.database)
+        let lease: Option<(i32, i32)> = sqlx::query_as("SELECT groups,posting_groups FROM post_secrets.browser_deletion_fixture_runs WHERE marker=$1 AND actor_hash=$2 AND database_name=$3 AND posting_actor_hash=$4 AND expires_at>now() FOR UPDATE")
+            .bind(&manifest.marker).bind(actor.as_slice()).bind(&manifest.database).bind(posting_actor.as_slice())
             .fetch_optional(&mut *tx).await?;
-        let groups = lease.ok_or("Current exact ownership lease required")?;
+        let (groups, posting_groups) = lease.ok_or("Current exact ownership lease required")?;
         match command {
             "reset" => {
                 if groups >= 10000 {
@@ -195,6 +230,14 @@ async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> 
                 remove_actor(&mut tx, &actor).await?;
                 sqlx::query("UPDATE post_secrets.browser_deletion_fixture_runs SET groups=groups+1 WHERE marker=$1 AND actor_hash=$2")
                     .bind(&manifest.marker).bind(actor.as_slice()).execute(&mut *tx).await?;
+            }
+            "reset-posting" => {
+                if posting_groups >= 10000 {
+                    return Err("Finite posting fixture run exhausted".into());
+                }
+                remove_posting_actor(&mut tx, &posting_actor).await?;
+                sqlx::query("UPDATE post_secrets.browser_deletion_fixture_runs SET posting_groups=posting_groups+1 WHERE marker=$1 AND posting_actor_hash=$2")
+                    .bind(&manifest.marker).bind(posting_actor.as_slice()).execute(&mut *tx).await?;
             }
             "check" => {
                 if groups == 0 {
@@ -207,6 +250,7 @@ async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> 
                 }
             }
             "finish" => {
+                remove_posting_actor(&mut tx, &posting_actor).await?;
                 remove_actor(&mut tx, &actor).await?;
                 let changed = sqlx::query("DELETE FROM post_secrets.browser_deletion_fixture_runs WHERE marker=$1 AND actor_hash=$2")
                     .bind(&manifest.marker).bind(actor.as_slice()).execute(&mut *tx).await?;
@@ -218,6 +262,18 @@ async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> 
         }
     }
     tx.commit().await?;
+    Ok(())
+}
+
+async fn remove_posting_actor(tx: &mut Transaction<'_, Postgres>, actor: &[u8; 32]) -> Result<()> {
+    sqlx::query("DELETE FROM post_secrets.posting_history WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&mut **tx)
+        .await?;
+    sqlx::query("DELETE FROM post_secrets.posting_thread_actions WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&mut **tx)
+        .await?;
     Ok(())
 }
 
@@ -274,6 +330,8 @@ mod tests {
         bad.key = "0".repeat(64);
         assert!(bad.validate().is_err());
         assert_ne!(m.actor().unwrap(), manifest().actor().unwrap());
+        assert_ne!(m.actor().unwrap(), m.posting_actor().unwrap());
+        assert_eq!(m.posting_actor().unwrap(), m.posting_actor().unwrap());
     }
 
     #[tokio::test]
@@ -293,10 +351,34 @@ mod tests {
         apply(&pool, &own, "init").await.unwrap();
         apply(&pool, &foreign, "init").await.unwrap();
         let outcome = async {
+            // Simulate a lease made before the nullable posting-actor upgrade.
+            // It cannot authorize any command or be adopted by a new init.
+            sqlx::query("UPDATE post_secrets.browser_deletion_fixture_runs SET posting_actor_hash=NULL WHERE marker=$1 AND actor_hash=$2 AND posting_actor_hash=$3")
+                .bind(&own.marker).bind(own.actor().unwrap().as_slice())
+                .bind(own.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
+            let mut legacy_rejections = Vec::new();
+            for command in ["init", "reset", "reset-posting", "check", "finish"] {
+                legacy_rejections.push(apply(&pool, &own, command).await.is_err());
+            }
+            // Restore only this test's exact proof before assertions or teardown.
+            sqlx::query("UPDATE post_secrets.browser_deletion_fixture_runs SET posting_actor_hash=$3 WHERE marker=$1 AND actor_hash=$2 AND posting_actor_hash IS NULL")
+                .bind(&own.marker).bind(own.actor().unwrap().as_slice())
+                .bind(own.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
+            assert!(legacy_rejections.into_iter().all(|rejected| rejected));
             for m in [&own, &foreign] {
                 sqlx::query("INSERT INTO post_secrets.public_deletion_actors(actor_hash,events,expires_at) VALUES($1,ARRAY[1,2,3]::bigint[],9999999999)")
                     .bind(m.actor().unwrap().as_slice()).execute(&pool).await.unwrap();
             }
+            let posts: Vec<(i64, i64)> = sqlx::query_as("SELECT id,thread_id FROM content.posts p WHERE board='demo' AND NOT EXISTS(SELECT 1 FROM post_secrets.posting_history h WHERE h.post_id=p.id) ORDER BY id LIMIT 2")
+                .fetch_all(&pool).await.unwrap();
+            assert_eq!(posts.len(), 2);
+            for (m, (post, thread)) in [&own, &foreign].into_iter().zip(posts) {
+                sqlx::query("INSERT INTO post_secrets.posting_history(post_id,board,thread_id,actor_hash,request_at) VALUES($1,'demo',$2,$3,123)")
+                    .bind(post).bind(thread).bind(m.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
+                sqlx::query("INSERT INTO post_secrets.posting_thread_actions(actor_hash,board,request_at) VALUES($1,'demo',123)")
+                    .bind(m.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
+            }
+            assert!(apply(&pool, &own, "unknown").await.is_err());
             assert!(apply(&pool, &own, "init").await.is_err());
             let wrong = Manifest {
                 marker: manifest().marker,
@@ -310,9 +392,56 @@ mod tests {
                 ..manifest()
             };
             assert!(apply(&pool, &wrong_marker, "reset").await.is_err());
+            assert!(apply(&pool, &wrong_marker, "reset-posting").await.is_err());
+            assert!(apply(&pool, &wrong_marker, "finish").await.is_err());
+            apply(&pool, &own, "reset-posting").await.unwrap();
+            let own_history: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM post_secrets.posting_history WHERE actor_hash=$1",
+            )
+            .bind(own.posting_actor().unwrap().as_slice())
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            let own_actions: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM post_secrets.posting_thread_actions WHERE actor_hash=$1",
+            )
+            .bind(own.posting_actor().unwrap().as_slice())
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            assert_eq!((own_history, own_actions), (0, 0));
+            let foreign_history: Vec<i64> = sqlx::query_scalar(
+                "SELECT request_at FROM post_secrets.posting_history WHERE actor_hash=$1",
+            )
+            .bind(foreign.posting_actor().unwrap().as_slice())
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+            let foreign_actions: Vec<i64> = sqlx::query_scalar(
+                "SELECT request_at FROM post_secrets.posting_thread_actions WHERE actor_hash=$1",
+            )
+            .bind(foreign.posting_actor().unwrap().as_slice())
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+            assert_eq!(foreign_history, vec![123]);
+            assert_eq!(foreign_actions, vec![123]);
+            let preserved_deletion: Vec<i64> = sqlx::query_scalar(
+                "SELECT events FROM post_secrets.public_deletion_actors WHERE actor_hash=$1",
+            )
+            .bind(own.actor().unwrap().as_slice())
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            assert_eq!(preserved_deletion, vec![1, 2, 3]);
             assert!(apply(&pool, &own, "check").await.is_err());
             apply(&pool, &own, "reset").await.unwrap();
             apply(&pool, &own, "check").await.unwrap();
+            sqlx::query("INSERT INTO post_secrets.public_deletion_actors(actor_hash,events,expires_at) VALUES($1,ARRAY[1,2,3,4]::bigint[],9999999999)")
+                .bind(own.actor().unwrap().as_slice()).execute(&pool).await.unwrap();
+            assert!(apply(&pool, &own, "check").await.is_err());
+            apply(&pool, &own, "reset-posting").await.unwrap();
+            assert!(apply(&pool, &own, "check").await.is_err());
             let unchanged: (Vec<i64>, i64) = sqlx::query_as("SELECT events,expires_at FROM post_secrets.public_deletion_actors WHERE actor_hash=$1")
                 .bind(foreign.actor().unwrap().as_slice()).fetch_one(&pool).await.unwrap();
             assert_eq!(unchanged, (vec![1, 2, 3], 9999999999));
@@ -321,8 +450,16 @@ mod tests {
         use futures_util::FutureExt;
         let checked = std::panic::AssertUnwindSafe(outcome).catch_unwind().await;
         apply(&pool, &own, "finish").await.unwrap();
+        // Capture foreign state after own teardown, but always retire the foreign
+        // lease before unwrapping or asserting any observation.
+        let foreign_after_finish: std::result::Result<i64, sqlx::Error> = sqlx::query_scalar("SELECT count(*) FROM post_secrets.posting_thread_actions WHERE actor_hash=$1 AND request_at=123")
+            .bind(foreign.posting_actor().unwrap().as_slice()).fetch_one(&pool).await;
         apply(&pool, &foreign, "finish").await.unwrap();
+        if checked.is_ok() {
+            assert_eq!(foreign_after_finish.unwrap(), 1);
+        }
         assert!(apply(&pool, &own, "reset").await.is_err());
+        assert!(apply(&pool, &own, "reset-posting").await.is_err());
         pool.close().await;
         if let Err(panic) = checked {
             std::panic::resume_unwind(panic);

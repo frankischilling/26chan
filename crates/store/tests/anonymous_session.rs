@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_domain::anonymous_session::{Capability, Fingerprints, State};
 use board_store::{
@@ -30,7 +31,7 @@ impl Fixture {
                 .fetch_one(&owner)
                 .await
                 .unwrap();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES($1,'Owned anonymous session','Synthetic',2000,100,100,100,10,true,0,0)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned anonymous session','Synthetic',2000,100,100,100,10,true,0,0,0,0,0)")
             .bind(&board).execute(&owner).await.unwrap();
         Self {
             owner,
@@ -65,7 +66,7 @@ impl Fixture {
         attachment: Option<&board_store::post_media::NewAttachment>,
         peer: Option<IpAddr>,
     ) -> Result<i64, StoreError> {
-        board_store::create_post_with_anonymous_session(
+        support::create_post_with_anonymous_session(
             &self.public,
             &self.board,
             parent,
@@ -710,6 +711,7 @@ async fn anonymous_op_markup_rechecks_authority_after_the_board_lock_wait() {
 async fn same_session_replies_on_different_boards_do_not_upgrade_shared_locks() {
     let first = Fixture::new().await;
     let second = Fixture::new().await;
+    support::share_key(&second.board, &first.board);
     let capability = Capability::generate().unwrap();
     let token = capability.storage_hash();
     let f = Fixture {
@@ -726,6 +728,8 @@ async fn same_session_replies_on_different_boards_do_not_upgrade_shared_locks() 
         let first = f;
         let second = s;
         let op1 = first.create(0, session(&capability, true)).await.unwrap();
+        // Independent parent setup; retain the same posting actor and session.
+        support::cleanup_posting(&first.owner, &first.board).await;
         let op2 = second.create(0, session(&capability, false)).await.unwrap();
         let mut held = first.owner.begin().await.unwrap();
         sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=$1 FOR SHARE")

@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -52,7 +52,7 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     }));
     await page.goto(client);
     async function submit(route, form) {
-      return page.evaluate(async ({ route, form }) => {
+      return withPostingHistory(() => page.evaluate(async ({ route, form }) => {
         const body = new FormData();
         for (const [name, value] of Object.entries(form)) body.append(name, value);
         body.append('upfile', new File([], '', { type: 'application/octet-stream' }));
@@ -62,7 +62,7 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
         });
         return { status: response.status, type: response.headers.get('content-type'),
           cache: response.headers.get('cache-control'), value: await response.json() };
-      }, { route, form: { ...form, pwd: password, mode: 'regist', track: '1', awt: '1' } });
+      }, { route, form: { ...form, pwd: password, mode: 'regist', track: '1', awt: '1' } }));
     }
     const op = await submit('post', { com: 'Owned JSON thread\r\nSecond line', sub: 'JSON browser thread', email: 'nonoko' });
     expect(op.status).toBe(200); expect(op.type).toBe('application/json'); expect(op.cache).toBe('no-store');
@@ -124,7 +124,7 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
   }
   try {
     await fill(name, subject);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     id = /#p(\d+)$/.exec(page.url())[1];
     // Source removes these emoticons after the independent raw 100-byte bound.
@@ -137,7 +137,7 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
     for (const [who, title] of [[`${name}x`, subject], [name, `${subject}x`]]) {
       await fill(who, title);
       const rejected = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await rejected).status()).toBe(422);
       await expect(page.locator('body')).toContainText('Name or subject is too long.');
     }
@@ -165,7 +165,7 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     await page.locator('#com').fill(`${marker} synthetic <script>fold</script>`);
     await expect(page.locator('#postPassword')).toHaveValue('');
     if (sage) await page.locator('#email').fill('sage');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     const id = /#p(\d+)$/.exec(page.url())[1];
     if (!parent) threads.push(id);
@@ -307,7 +307,7 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     await page.goto(`${origin}${path}`);
     await page.locator('#com').fill(comment);
     await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     return /#p(\d+)$/.exec(page.url())[1];
   }
@@ -536,7 +536,7 @@ test('posting, replying, reporting, and password deletion persist through reload
   await page.locator('#sub').fill('A synthetic browser thread');
   await page.locator('#com').fill('>hello\n<script>window.hostile = true</script>\n[spoiler]a hidden fold[/spoiler]');
   await expect(page.locator('#postPassword')).toHaveValue('');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const originalUrl = page.url();
   const op = /#p(\d+)$/.exec(originalUrl)[1];
@@ -547,7 +547,7 @@ test('posting, replying, reporting, and password deletion persist through reload
   await page.locator('#togglePostFormLink a').click();
   await page.locator('#com').fill(`>>${op}\nA persisted reply.`);
   await expect(page.locator('#postPassword')).toHaveValue('');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   await expect(page.locator('.replyContainer')).toHaveCount(1);
   await page.locator('.replyContainer .quotelink').click();
   await expect(page).toHaveURL(new RegExp(`#p${op}$`));
@@ -568,8 +568,8 @@ test('posting, replying, reporting, and password deletion persist through reload
 
 test('mobile native form controls retain a draft and submit a persisted reply', async ({ page, request }) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-mobile-form-password';
-  const response = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: 'Owned mobile form thread', password } });
+  const response = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned mobile form thread', password } }));
   expect(response.status()).toBe(303); const id = /#p(\d+)$/.exec(response.headers().location)[1];
   try {
     await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false })));
@@ -578,7 +578,7 @@ test('mobile native form controls retain a draft and submit a persisted reply', 
     await page.locator('#com').fill('Persisted mobile form reply'); await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('#mpostform a').click(); await expect(page.locator('#postForm')).toBeHidden();
     await page.locator('.postFormBottom a').click(); await expect(page.locator('#com')).toHaveValue('Persisted mobile form reply');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page.locator('.replyContainer .postMessage')).toHaveText('Persisted mobile form reply');
     const posts = (await (await request.get(`/fixture/thread/${id}.json`)).json()).posts;
     expect(posts).toHaveLength(2); expect(posts[1].com).toBe('Persisted mobile form reply');
@@ -599,7 +599,7 @@ test('documented board-return options work with JavaScript disabled', async ({ b
     await page.goto(`${origin}/fixture/`);
     await page.locator('#com').fill('Owned posting-options browser thread');
     await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     op = /#p(\d+)$/.exec(page.url())[1];
     const thread = `${origin}/fixture/thread/${op}`;
@@ -612,7 +612,7 @@ test('documented board-return options work with JavaScript disabled', async ({ b
       const [response] = await Promise.all([
         page.waitForResponse(response => response.request().method() === 'POST'
           && new URL(response.url()).pathname === '/fixture/imgboard.php'),
-        page.getByRole('button', { name: 'Post', exact: true }).click(),
+        withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click()),
       ]);
       expect(response.status()).toBe(303);
       await expect(page).toHaveURL(`${origin}/fixture/`);
@@ -645,13 +645,13 @@ test('source subject cleanup preserves expanded text and reply subjects without 
     await page.goto(`${origin}/fixture/`);
     const raw = `A${'\t'.repeat(98)}B`, expanded = `A${' '.repeat(392)}B`;
     await page.locator('#sub').fill(raw); await page.locator('#com').fill('Owned expanded subject');
-    await expect(page.locator('#postPassword')).toHaveValue(''); await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('#postPassword')).toHaveValue(''); await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
     await expect(page.locator(`#pi${op} .subject`)).toHaveJSProperty('textContent', expanded);
-    const response = await context.request.post(`${origin}/fixture/imgboard.php`, {
+    const response = await withPostingHistory(() => context.request.post(`${origin}/fixture/imgboard.php`, {
       headers: { Origin: origin, Accept: 'application/json' },
       form: { resto: op, sub: 'Ｚ##ⓦ <b>😀', com: 'Owned subject reply', pwd: password },
-    });
+    }));
     expect(response.status()).toBe(200); const reply = await response.json(); expect(reply.error).toBeUndefined();
     await page.reload();
     await expect(page.locator(`#m${reply.pid}`)).toHaveText('Owned subject reply');
@@ -680,7 +680,7 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
     await page.goto(`${origin}/fixture/`);
     await page.locator('#com').fill('a[spoiler]b[/spoiler]c');
     await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     op = /#p(\d+)$/.exec(page.url())[1];
     await expect(page.locator(`#m${op}`)).toHaveText('abc');
@@ -688,7 +688,7 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
     const threadUrl = `${origin}/fixture/thread/${op}`, jsonUrl = `${threadUrl}.json`;
     const accepted = Array.from({ length: 101 }, (_, index) => `line${index}`).join('\n');
     await page.locator('#com').fill(accepted); await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     const reply = /#p(\d+)$/.exec(page.url())[1]; expect(reply).not.toBe(op);
     await expect(page.locator(`#m${reply} br`)).toHaveCount(100);
@@ -701,7 +701,7 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
       await page.goto(threadUrl);
       await page.locator('#com').fill(raw); await expect(page.locator('#postPassword')).toHaveValue('');
       const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await denied).status()).toBe(422);
       await expect(page.locator('body')).toContainText(message);
       const after = await context.request.get(jsonUrl);
@@ -739,7 +739,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await expect(page.locator('#com')).not.toHaveAttribute('maxlength');
   await page.locator('#com').fill(comment);
   await expect(page.locator('#postPassword')).toHaveValue('');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const op = /#p(\d+)$/.exec(page.url())[1];
   const threadUrl = page.url();
@@ -754,7 +754,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await page.locator('#com').fill(`${comment}a`);
   await expect(page.locator('#postPassword')).toHaveValue('');
   const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   expect((await denied).status()).toBe(422);
   const after = await page.request.get(jsonUrl);
   expect(await after.json()).toEqual(beforeJson);
@@ -766,7 +766,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
     await page.locator('#com').fill(raw);
     await expect(page.locator('#postPassword')).toHaveValue('');
     const rejected = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     expect((await rejected).status()).toBe(422);
     const unchanged = await page.request.get(jsonUrl);
     expect(await unchanged.json()).toEqual(beforeJson);
@@ -777,7 +777,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await page.locator('#com').fill(multiline);
   await expect(page.locator('#postPassword')).toHaveValue('');
   const submitted = page.waitForRequest(request => request.url().endsWith('/fixture/imgboard.php') && request.method() === 'POST');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   const submission = await submitted;
   expect(submission.headers()['content-type']).toMatch(/^multipart\/form-data; boundary=/);
   const fields = await new Response(submission.postDataBuffer(), {
@@ -813,7 +813,7 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.locator('#com')).not.toHaveAttribute('required');
       await page.locator('#sub').fill('Owned subject-only thread');
       await expect(page.locator('#postPassword')).toHaveValue('');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
       op = /#p(\d+)$/.exec(page.url())[1];
       await expect(page.locator(`#m${op}`)).toBeEmpty();
@@ -826,7 +826,7 @@ for (const javaScriptEnabled of [false, true]) {
       await page.locator('#com').fill('[spoiler] \n[/spoiler]');
       await expect(page.locator('#postPassword')).toHaveValue('');
       const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await denied).status()).toBe(422);
       await expect(page.locator('body')).toContainText('Error: No text entered.');
       const after = await context.request.get(jsonUrl);

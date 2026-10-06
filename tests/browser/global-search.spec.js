@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
@@ -20,11 +20,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       });
     });
     async function post(subject, comment, thread = '0') {
-      const response = await context.request.post(`${origin}/fixture/imgboard.php`, {
+      const response = await withPostingHistory(() => context.request.post(`${origin}/fixture/imgboard.php`, {
         headers: { Origin: origin, Accept: 'application/json' },
         form: { mode: 'regist', pwd: password, sub: subject, com: comment, resto: thread },
         maxRedirects: 0,
-      });
+      }));
       expect(response.status(), await response.text()).toBe(200);
       const result = await response.json();
       expect(result.error).toBeUndefined();
@@ -102,10 +102,10 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     const threads = [];
     try {
       for (let index = 0; index < 12; index++) {
-        const response = await context.request.post(`${origin}/fixture/post`, {
+        const response = await withPostingHistory(() => context.request.post(`${origin}/fixture/post`, {
           headers: { Origin: origin, Accept: 'application/json' },
           form: { pwd: password, sub: `${marker} ${index}`, com: 'Owned pagination fixture', resto: '0' },
-        });
+        }));
         expect(response.status(), await response.text()).toBe(200);
         threads.push(String((await response.json()).pid));
       }

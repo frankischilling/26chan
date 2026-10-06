@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
@@ -8,9 +8,9 @@ const safeCSS = '.reply { background-color: #123456; padding-left: 8px; }';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-native-custom-css-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const created = await write({ resto: '0', sub: 'Owned custom CSS', com: 'Original custom CSS post' });
     expect(created.status()).toBe(303);
     const id = created.headers().location.match(/thread\/(\d+)/)[1];

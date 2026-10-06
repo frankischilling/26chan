@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -16,8 +16,8 @@ const test = base.extend({
     fixture('setup', slug);
     try {
       const write = async (resto, com, track = false) => {
-        const response = await request.post(`/${slug}/post`, { headers: { Origin: origin }, maxRedirects: 0,
-          form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned updater tail' } : {}), ...(track ? { track: '1' } : {}) } });
+        const response = await withPostingHistory(() => request.post(`/${slug}/post`, { headers: { Origin: origin }, maxRedirects: 0,
+          form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned updater tail' } : {}), ...(track ? { track: '1' } : {}) } }));
         expect(response.status()).toBe(303); return response.headers().location.match(/#p(\d+)/)[1];
       };
       const id = await write('0', 'Original post'), ids = [id];

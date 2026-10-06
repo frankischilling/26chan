@@ -8,7 +8,12 @@ const origin = new URL(process.argv[2]), board = process.argv[3], source = proce
 assert.ok(flags.every(flag => ['--inline', '--no-spoilers'].includes(flag))); assert.equal(new Set(flags).size, flags.length);
 const inline = flags.includes('--inline'), spoilers = !flags.includes('--no-spoilers');
 assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
-assert.match(board, /^[a-z0-9]{1,10}$/);
+assert.match(board, /^u[0-9a-f]{8}$/);
+// Private fixture identity and cleanup remain exclusively in the supervisor.
+for (const name of Object.keys(process.env)) {
+  assert.ok(!name.endsWith('DATABASE_URL') && !['POSTER_ID_KEY', 'PUBLIC_INTAKE_TOKEN'].includes(name),
+    'browser qualification must not inherit service credentials');
+}
 const password = 'owned-quick-reply-upload-password';
 let browser;
 const stop = () => { if (browser) void browser.close(); };

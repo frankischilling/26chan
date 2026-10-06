@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -56,7 +59,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     ];
     let mut ids = Vec::new();
     for (subject, comment, expected) in cases {
-        let id = board_store::create_post(
+        let id = posting_fixture::create_post(
             &public,
             &slug,
             0,
@@ -70,7 +73,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         )
         .await
         .unwrap();
-        let reply = board_store::create_post(
+        let reply = posting_fixture::create_post(
             &public,
             &slug,
             id,
@@ -85,7 +88,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
         // Tail publication starts at twice the configured tail size.
-        board_store::create_post(
+        posting_fixture::create_post(
             &public,
             &slug,
             id,
@@ -113,7 +116,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             Some("onions-senpai-kek"),
         ),
     ] {
-        let id = board_store::create_post_with_metadata(
+        let id = posting_fixture::create_post_with_metadata(
             &public,
             &slug,
             0,
@@ -167,7 +170,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .execute(&owner)
         .await
         .unwrap();
-    let (app, api) = board_public::routers(public, "http://127.0.0.1:3000".into(), false);
+    let (app, api) = posting_fixture::routers(public, &slug, "http://127.0.0.1:3000".into(), false);
     for router in [&app, &api] {
         let catalog = get(router, &format!("/{slug}/catalog.json")).await;
         let index = get(router, &format!("/{slug}/1.json")).await;
@@ -264,7 +267,7 @@ async fn source_context_is_consistent_across_json_projections_and_omits_empty_or
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,json_tail_size) VALUES($1,'Semantic context','Owned fixture',2000,100,100,100,20,true,1)")
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,json_tail_size) VALUES(0,0,0,$1,'Semantic context','Owned fixture',2000,100,100,100,20,true,1)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

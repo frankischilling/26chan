@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 test.use({ trace: 'off' });
@@ -12,10 +12,10 @@ for (const javaScriptEnabled of [false, true]) {
     const password = 'owned-legacy-browser-password';
     let id;
     try {
-      const created = await context.request.post(`${origin}/fixture/imgboard.php`, {
+      const created = await withPostingHistory(() => context.request.post(`${origin}/fixture/imgboard.php`, {
         headers: { Origin: origin }, maxRedirects: 0,
         form: { mode: 'regist', sub: 'Owned legacy action', com: 'Synthetic legacy route browser check.', pwd: password },
-      });
+      }));
       expect(created.status()).toBe(303);
       id = /#p(\d+)$/.exec(created.headers().location)[1];
 

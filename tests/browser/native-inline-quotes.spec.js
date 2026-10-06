@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -20,10 +20,10 @@ const test = base.extend({
     let last;
     async function write(board, resto, com, { tracked = false, subject = '' } = {}) {
       const client = tracked ? context.request : request;
-      const response = await client.post(`/${board}/post`, {
+      const response = await withPostingHistory(() => client.post(`/${board}/post`, {
         headers: fixtureHeaders, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: subject } : {}), ...(tracked ? { track: '1' } : {}) },
-      });
+      }));
       expect(response.status(), `Owned inline fixture must persist through the real posting form${response.status() === 303 ? '' : `: ${await response.text()}`}`).toBe(303);
       expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
       const ids = response.headers().location?.match(/\/thread\/([0-9]+)#p([0-9]+)$/);

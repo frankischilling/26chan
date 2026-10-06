@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 
@@ -12,7 +12,7 @@ test('persisted hover headers follow reply deletion and safely render literal us
     document.addEventListener('securitypolicyviolation', event => window.ownedViolations.push(event.violatedDirective));
   });
   const post = async (board, form) => {
-    const response = await request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } });
+    const response = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } }));
     expect(response.status()).toBe(303);
     return /#p(\d+)$/.exec(response.headers().location)[1];
   };

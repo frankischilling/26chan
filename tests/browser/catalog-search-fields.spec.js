@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -75,7 +75,7 @@ test('server GET and release live search agree on escaped formatted fields from 
       await server.locator('#com').fill(entry.comment);
       await expect(server.locator('#postPassword')).toHaveValue('');
       const submitted = server.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
-      await server.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => server.getByRole('button', { name: 'Post', exact: true }).click());
       const response = await submitted;
       expect(response.status(), `Native posting status; retry-after=${response.headers()['retry-after'] ?? 'absent'}`).toBe(303);
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);

@@ -1,11 +1,11 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-post-preferences-password';
 
 async function create(context, name = '') {
-  const response = await context.request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { name, email: 'sage', com: 'Owned preference thread', sub: 'Owned preferences', password } });
+  const response = await withPostingHistory(() => context.request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { name, email: 'sage', com: 'Owned preference thread', sub: 'Owned preferences', password } }));
   expect(response.status()).toBe(303);
   return response.headers().location.match(/#p(\d+)$/)[1];
 }
@@ -43,8 +43,8 @@ test('successful posting restores display preferences into both editors and keep
     await page.locator('#email').fill('nonoko'); await page.locator('.open-qr-link').click();
     await expect(page.locator('#qr-name')).toHaveValue('Unsubmitted ordinary identity');
     await expect(page.locator('#qrEmail')).toHaveValue('nonoko');
-    const failed = await context.request.post('/demo/imgboard.php', { headers: { Origin: origin, Accept: 'application/json' },
-      form: { resto: thread, name: 'Changed##owned-private-secret', com: 'Owned failed identity', email: 'nonoko', pwd: password } });
+    const failed = await withPostingHistory(() => context.request.post('/demo/imgboard.php', { headers: { Origin: origin, Accept: 'application/json' },
+      form: { resto: thread, name: 'Changed##owned-private-secret', com: 'Owned failed identity', email: 'nonoko', pwd: password } }));
     expect((await failed.json()).error).toBe('Secure tripcodes are unavailable.');
     expect(failed.headers()['set-cookie']).toBeUndefined();
     expect((await context.cookies(origin)).filter(cookie => ['4chan_name', 'options'].includes(cookie.name))).toEqual(
@@ -76,7 +76,7 @@ test('an unavailable cookie reader leaves posting controls usable', async ({ pag
     await page.locator('.open-qr-link').click(); await expect(page.locator('#quickReply')).toBeVisible();
     await expect(page.locator('#qr-name')).toHaveValue('');
     await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('Owned cookie-reader-denied reply');
-    await page.locator('#quickReply input[type=submit]').click(); await expect(page.locator('#quickReply')).toHaveCount(0);
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()); await expect(page.locator('#quickReply')).toHaveCount(0);
     const posts = (await (await context.request.get(`/demo/thread/${thread}.json`)).json()).posts;
     expect(posts).toHaveLength(2); expect(posts[1].name).toBe('Anonymous');
     expect(errors).toEqual([]);

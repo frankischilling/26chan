@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{body::Body, http::Request};
 use board_store::{NewPost, StoreError};
 use chrono::{DateTime, Utc};
@@ -17,6 +20,33 @@ fn post(sage: bool) -> NewPost {
         deletion_hash: "unused-fixture-hash".into(),
         sage,
     }
+}
+
+// These fixtures exercise ordinary non-OP bump rules. OP self-bump timing has
+// its own same-peer coverage in op_bumps.rs.
+fn reply_peer() -> std::net::IpAddr {
+    "192.0.2.202".parse().unwrap()
+}
+async fn create_reply(
+    public: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    request_start: chrono::DateTime<chrono::Utc>,
+) -> Result<i64, board_store::StoreError> {
+    posting_fixture::create_post_with_context(
+        public,
+        slug,
+        parent,
+        post,
+        None,
+        board_store::PostingContext {
+            request_start,
+            peer: Some(reply_peer()),
+            op_password_proof: None,
+        },
+    )
+    .await
 }
 
 struct Fixture {
@@ -46,15 +76,22 @@ impl Fixture {
     }
 
     async fn append(&self, request_seconds: i64, sage: bool, bump: bool) {
+        // Each age boundary is an independent posting setup, with its supplied clock intact.
+        posting_fixture::cleanup_actor_posting(
+            &self.owner,
+            &self.slug,
+            &posting_fixture::key(&self.slug),
+            reply_peer(),
+        )
+        .await;
         let before = board_store::thread(&self.public, &self.slug, self.id)
             .await
             .unwrap();
-        board_store::create_post_with_attachment_at(
+        create_reply(
             &self.public,
             &self.slug,
             self.id,
             &post(sage),
-            None,
             DateTime::from_timestamp(request_seconds, 0).unwrap(),
         )
         .await
@@ -162,7 +199,12 @@ impl Fixture {
             }
         }
         self.state(created, (false, false, false)).await;
-        let app = board_public::router(self.public.clone(), "http://127.0.0.1:3000".into(), false);
+        let app = posting_fixture::router(
+            self.public.clone(),
+            &self.slug,
+            "http://127.0.0.1:3000".into(),
+            false,
+        );
         self.indicators(&app).await;
         // Both production posting aliases and both accepted body encodings.
         for route in ["post", "imgboard.php"] {
@@ -189,6 +231,10 @@ impl Fixture {
                     .clone()
                     .oneshot(
                         Request::post(format!("/{}/{route}", self.slug))
+                            .extension(axum::extract::ConnectInfo(std::net::SocketAddr::new(
+                                reply_peer(),
+                                40000,
+                            )))
                             .header("origin", "http://127.0.0.1:3000")
                             .header("accept", "application/json")
                             .header("content-type", content_type)
@@ -220,7 +266,7 @@ impl Fixture {
         let mut invalid = post(false);
         invalid.deletion_hash = "x".repeat(257);
         assert!(matches!(
-            board_store::create_post(&self.public, &self.slug, self.id, &invalid).await,
+            create_reply(&self.public, &self.slug, self.id, &invalid, Utc::now()).await,
             Err(StoreError::Database(_))
         ));
         let after = board_store::thread(&self.public, &self.slug, self.id)
@@ -236,7 +282,7 @@ impl Fixture {
             .await
             .unwrap();
         assert!(matches!(
-            board_store::create_post(&self.public, &self.slug, self.id, &post(false)).await,
+            create_reply(&self.public, &self.slug, self.id, &post(false), Utc::now()).await,
             Err(StoreError::Conflict(_))
         ));
         sqlx::query("UPDATE content.threads SET closed=false WHERE id=$1")
@@ -266,10 +312,19 @@ impl Fixture {
                 "resto={id}&com=Delayed+owned+body&pwd=owned-secret"
             )))
         }));
-        let app = board_public::router(self.public.clone(), "http://127.0.0.1:3000".into(), false);
+        let app = posting_fixture::router(
+            self.public.clone(),
+            &self.slug,
+            "http://127.0.0.1:3000".into(),
+            false,
+        );
         let response = app
             .oneshot(
                 Request::post(format!("/{}/imgboard.php", self.slug))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::new(
+                        reply_peer(),
+                        40000,
+                    )))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("content-type", "application/x-www-form-urlencoded")
                     .body(body)
@@ -295,7 +350,7 @@ impl Fixture {
             after.bumped_at.timestamp() > 1_000_000_000,
             "production handler must retain its pre-body request clock"
         );
-        board_store::create_post(&self.public, &self.slug, self.id, &post(false))
+        create_reply(&self.public, &self.slug, self.id, &post(false), Utc::now())
             .await
             .unwrap();
         assert_eq!(
@@ -327,12 +382,11 @@ impl Fixture {
         let slug = self.slug.clone();
         let id = self.id;
         let writer = tokio::spawn(async move {
-            board_store::create_post_with_attachment_at(
+            create_reply(
                 &public,
                 &slug,
                 id,
                 &post(false),
-                None,
                 DateTime::from_timestamp(start, 0).unwrap(),
             )
             .await
@@ -377,7 +431,7 @@ impl Fixture {
             1
         );
         let before = after.bumped_at;
-        board_store::create_post(&self.public, &self.slug, self.id, &post(false))
+        create_reply(&self.public, &self.slug, self.id, &post(false), Utc::now())
             .await
             .unwrap();
         assert_eq!(
@@ -402,8 +456,8 @@ async fn source_age_policy_uses_request_start_and_op_seconds_without_changing_ad
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES($1,'Age rules','Owned synthetic fixture',1000,1000,1000,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
-    let id = board_store::create_post(&public, &slug, 0, &post(false))
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(0,0,0,$1,'Age rules','Owned synthetic fixture',1000,1000,1000,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
+    let id = posting_fixture::create_post(&public, &slug, 0, &post(false))
         .await
         .unwrap();
     let fixture = Fixture {

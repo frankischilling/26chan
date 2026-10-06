@@ -9,7 +9,17 @@ use serde_json::Value;
 use std::{net::SocketAddr, sync::Arc};
 use tower::ServiceExt;
 
-fn options(key: bool) -> board_public::PublicRouterOptions {
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
+fn options(
+    key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
+) -> board_public::PublicRouterOptions {
     board_public::PublicRouterOptions {
         country_database: None,
         origin: "https://boards.example.com".into(),
@@ -18,9 +28,7 @@ fn options(key: bool) -> board_public::PublicRouterOptions {
         limits: board_config::PublicRequestLimits::default(),
         proxy_uid: None,
         tripcode_key: None,
-        poster_id_key: key.then(|| {
-            Arc::new(board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap())
-        }),
+        poster_id_key: key,
     }
 }
 async fn post(app: &Router, board: &str, parent: i64, peer: Option<&str>) -> Value {
@@ -32,6 +40,24 @@ async fn post_with_options(
     parent: i64,
     peer: Option<&str>,
     email: &str,
+) -> Value {
+    post_response(
+        app,
+        board,
+        parent,
+        peer,
+        email,
+        if peer.is_none() { 503 } else { 200 },
+    )
+    .await
+}
+async fn post_response(
+    app: &Router,
+    board: &str,
+    parent: i64,
+    peer: Option<&str>,
+    email: &str,
+    expected_status: u16,
 ) -> Value {
     let mut request = Request::post(format!("/{board}/post"))
         .header("origin", "https://boards.example.com")
@@ -46,7 +72,7 @@ async fn post_with_options(
         ));
     }
     let response = app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), if peer.is_none() { 503 } else { 200 });
+    assert_eq!(response.status(), expected_status);
     serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap()
 }
 
@@ -63,9 +89,10 @@ async fn source_sage_ids_follow_locked_heaven_policy_and_preserve_saved_fields()
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES($1,'Owned source sage IDs','Synthetic fixture',1000,100,100,100,10,2)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned source sage IDs','Synthetic fixture',1000,100,100,100,10,2,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
-    let (app, api) = board_public::routers_with_options(public.clone(), options(true));
+    let key = fixture_key();
+    let (app, api) = board_public::routers_with_options(public.clone(), options(Some(key.clone())));
     let reference: Value = serde_json::from_str(include_str!(
         "../../../fixtures/poster-id-display-reference.json"
     ))
@@ -74,7 +101,6 @@ async fn source_sage_ids_follow_locked_heaven_policy_and_preserve_saved_fields()
     let thread = post(&app, &board, 0, Some("192.0.2.10:9000")).await["pid"]
         .as_i64()
         .unwrap();
-    let key = board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap();
     let mut saved: Vec<(i64, Option<String>)> = vec![(thread, None)];
     for (index, row) in reference["cases"]
         .as_array()
@@ -132,14 +158,22 @@ async fn source_sage_ids_follow_locked_heaven_policy_and_preserve_saved_fields()
         Some("Heaven")
     );
     saved.push((second_heaven, Some("Heaven".to_owned())));
-    let no_key = board_public::routers_with_options(public.clone(), options(false)).0;
+    let no_key = board_public::routers_with_options(public.clone(), options(None)).0;
     assert_eq!(
-        post_with_options(&no_key, &board, thread, Some("192.0.2.11:9000"), "sage").await["error"],
-        "Poster IDs are unavailable."
+        post_response(
+            &no_key,
+            &board,
+            thread,
+            Some("192.0.2.11:9000"),
+            "sage",
+            503
+        )
+        .await["error"],
+        "Posting identity is unavailable."
     );
     assert_eq!(
         post_with_options(&app, &board, thread, None, "sage").await["error"],
-        "Posting transport identity is unavailable."
+        "Posting identity is unavailable."
     );
     let mut policy = owner.begin().await.unwrap();
     sqlx::query("SELECT poster_id_no_heaven FROM content.boards WHERE slug=$1 FOR UPDATE")
@@ -426,16 +460,17 @@ async fn poster_labels_are_persisted_scoped_and_never_supplied_by_headers_or_fie
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids) VALUES($1,'Owned poster IDs','Synthetic fixture',1000,100,100,100,10,true)").bind(&board).execute(&owner).await.unwrap();
-    let (app, api) = board_public::routers_with_options(public.clone(), options(true));
-    let no_key = board_public::routers_with_options(public.clone(), options(false)).0;
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned poster IDs','Synthetic fixture',1000,100,100,100,10,true,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    let key = fixture_key();
+    let (app, api) = board_public::routers_with_options(public.clone(), options(Some(key.clone())));
+    let no_key = board_public::routers_with_options(public.clone(), options(None)).0;
     assert_eq!(
-        post(&no_key, &board, 0, Some("192.0.2.10:9000")).await["error"],
-        "Poster IDs are unavailable."
+        post_response(&no_key, &board, 0, Some("192.0.2.10:9000"), "", 503).await["error"],
+        "Posting identity is unavailable."
     );
     assert_eq!(
         post(&app, &board, 0, None).await["error"],
-        "Posting transport identity is unavailable."
+        "Posting identity is unavailable."
     );
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count(*) FROM content.threads WHERE board=$1")
@@ -454,9 +489,7 @@ async fn poster_labels_are_persisted_scoped_and_never_supplied_by_headers_or_fie
         .unwrap();
     assert_eq!(
         original,
-        board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64))
-            .unwrap()
-            .label(&board, thread, "192.0.2.10".parse().unwrap())
+        key.label(&board, thread, "192.0.2.10".parse().unwrap())
             .unwrap()
     );
     let (etag, value) = get(&api, &format!("/{board}/thread/{thread}.json")).await;
@@ -554,7 +587,11 @@ async fn poster_labels_are_persisted_scoped_and_never_supplied_by_headers_or_fie
         .execute(&owner)
         .await
         .unwrap();
-    let plain = post(&no_key, &board, thread, Some("192.0.2.10:9000")).await["pid"]
+    assert_eq!(
+        post_response(&no_key, &board, thread, Some("192.0.2.10:9000"), "", 503).await["error"],
+        "Posting identity is unavailable."
+    );
+    let plain = post(&app, &board, thread, Some("192.0.2.10:9000")).await["pid"]
         .as_i64()
         .unwrap();
     assert!(

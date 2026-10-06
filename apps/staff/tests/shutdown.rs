@@ -55,10 +55,17 @@ fn drains_after(signal: &str) {
     let metrics_request = format!(
         "GET /metrics HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n"
     );
+    let poster_key: String = board_domain::anonymous_session::Capability::generate()
+        .unwrap()
+        .storage_hash()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
     let mut command = Command::new(env!("CARGO_BIN_EXE_board-staff"));
     command
         .env_clear()
         .env("STAFF_MODE", "development")
+        .env("STAFF_POSTER_ID_KEY", poster_key)
         .env("STAFF_ORIGIN", &origin)
         .env("STAFF_BIND", address.to_string())
         .env("PUBLIC_ORIGIN", "http://127.0.0.1:3000")

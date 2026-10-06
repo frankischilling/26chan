@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
@@ -6,10 +6,10 @@ const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-native-keybind-password', ids = [];
     const create = async () => {
-      const response = await request.post('/demo/post', {
+      const response = await withPostingHistory(() => request.post('/demo/post', {
         headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0,
         form: { resto: '0', sub: 'Owned keyboard shortcut', com: 'Owned keyboard shortcut text', password },
-      });
+      }));
       expect(response.status()).toBe(303);
       const id = response.headers().location.match(/thread\/(\d+)/)[1]; ids.push(id); return id;
     };

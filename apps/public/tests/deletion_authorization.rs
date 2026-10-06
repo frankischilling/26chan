@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{
     body::Body,
@@ -129,7 +132,7 @@ impl Fixture {
         } else {
             None
         };
-        board_store::create_post_with_attachment(
+        posting_fixture::create_post_with_attachment(
             &self.public,
             &self.board,
             parent,
@@ -155,7 +158,15 @@ impl Fixture {
             _ => None,
         })
         .unwrap();
-        let app = fixture_routers(self.public.clone(), ORIGIN.into(), false, None, limits).0;
+        let app = fixture_routers(
+            self.public.clone(),
+            &self.board,
+            ORIGIN.into(),
+            false,
+            None,
+            limits,
+        )
+        .0;
         for route in 0..3 {
             for file_only in [false, true] {
                 let post = self.post(0, file_only).await;
@@ -279,7 +290,15 @@ impl Fixture {
             _ => None,
         })
         .unwrap();
-        let app = fixture_routers(self.public.clone(), ORIGIN.into(), false, None, limits).0;
+        let app = fixture_routers(
+            self.public.clone(),
+            &self.board,
+            ORIGIN.into(),
+            false,
+            None,
+            limits,
+        )
+        .0;
         let public_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
             .fetch_one(&self.public)
             .await
@@ -506,11 +525,19 @@ impl Fixture {
 
     async fn credential_reassignment_locks_both_boards(&self) {
         let next_board = format!("{}b", self.board);
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Credential reassignment','Owned fixture',200,100,100,100,10)")
+        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Credential reassignment','Owned fixture',200,100,100,100,10)")
             .bind(&next_board).execute(&self.owner).await.unwrap();
         self.boards.lock().unwrap().push(next_board.clone());
+        posting_fixture::register_alias(&next_board, &self.board);
         let source = self.post(0, false).await;
-        let target = board_store::create_post(
+        posting_fixture::cleanup_actor_posting(
+            &self.owner,
+            &self.board,
+            &posting_fixture::key(&self.board),
+            posting_fixture::peer(),
+        )
+        .await;
+        let target = posting_fixture::create_post(
             &self.public,
             &next_board,
             0,
@@ -524,6 +551,13 @@ impl Fixture {
         )
         .await
         .unwrap();
+        posting_fixture::cleanup_actor_posting(
+            &self.owner,
+            &next_board,
+            &posting_fixture::key(&self.board),
+            posting_fixture::peer(),
+        )
+        .await;
         sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id=$1")
             .bind(target)
             .execute(&self.owner)
@@ -646,7 +680,7 @@ async fn run(scenario: Scenario) {
         .await
         .unwrap();
     let board = format!("da{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES($1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100,0,0)")
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES(0,0,0,$1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let boards = Arc::new(Mutex::new(vec![board.clone()]));
@@ -739,6 +773,7 @@ fn fixture_peer() -> std::net::SocketAddr {
 
 fn fixture_routers(
     pool: sqlx::PgPool,
+    board: &str,
     origin: String,
     production: bool,
     media: Option<board_config::PublicMediaSettings>,
@@ -752,9 +787,7 @@ fn fixture_routers(
             media,
             limits,
             proxy_uid: None,
-            poster_id_key: Some(std::sync::Arc::new(
-                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
-            )),
+            poster_id_key: Some(posting_fixture::key(board)),
             tripcode_key: None,
             country_database: None,
         },

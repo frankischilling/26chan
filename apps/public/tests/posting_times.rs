@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{body::Body, http::Request};
 use board_store::NewPost;
 use chrono::{DateTime, Timelike, Utc};
@@ -30,7 +33,7 @@ async fn get(
         .unwrap()
 }
 
-async fn exercise(public: PgPool, slug: String) {
+async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let post = NewPost {
         name: "Anonymous".into(),
         subject: "Owned clocks".into(),
@@ -39,9 +42,10 @@ async fn exercise(public: PgPool, slug: String) {
         sage: false,
     };
     let requested = DateTime::from_timestamp(1_700_000_000, 987_654_321).unwrap();
-    let id = board_store::create_post_with_attachment_at(&public, &slug, 0, &post, None, requested)
-        .await
-        .unwrap();
+    let id =
+        posting_fixture::create_post_with_attachment_at(&public, &slug, 0, &post, None, requested)
+            .await
+            .unwrap();
     let before = board_store::thread_snapshot(&public, &slug, id)
         .await
         .unwrap();
@@ -53,13 +57,13 @@ async fn exercise(public: PgPool, slug: String) {
         before.thread.bumped_at > requested,
         "root ordering uses the database clock"
     );
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let app = posting_fixture::router(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
     let tail_path = format!("/{slug}/thread/{id}-tail.json");
     assert_eq!(get(&app, &tail_path, None).await.status(), 404);
     // A one-reply tail is available only after two surviving replies.
     // Establish that source threshold before testing its cache validators.
     for _ in 0..2 {
-        board_store::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
+        posting_fixture::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
             .await
             .unwrap();
     }
@@ -82,7 +86,7 @@ async fn exercise(public: PgPool, slug: String) {
     }
     // The same source second still changes the representation and its ETag.
     let same =
-        board_store::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
+        posting_fixture::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
             .await
             .unwrap();
     for (path, (etag, modified)) in paths.iter().zip(&validators) {
@@ -109,8 +113,15 @@ async fn exercise(public: PgPool, slug: String) {
     let mut sage = post.clone();
     sage.sage = true;
     let earlier = requested - chrono::Duration::seconds(100);
+    posting_fixture::cleanup_actor_posting(
+        &owner,
+        &slug,
+        &posting_fixture::key(&slug),
+        posting_fixture::peer(),
+    )
+    .await;
     let late =
-        board_store::create_post_with_attachment_at(&public, &slug, id, &sage, None, earlier)
+        posting_fixture::create_post_with_attachment_at(&public, &slug, id, &sage, None, earlier)
             .await
             .unwrap();
     let after = board_store::thread_snapshot(&public, &slug, id)
@@ -317,8 +328,8 @@ async fn source_posting_seconds_and_http_change_clocks_are_independent() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES($1,'Posting times','Owned synthetic fixture',1000,100,100,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
-    let result = tokio::spawn(exercise(public.clone(), slug.clone())).await;
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(0,0,0,$1,'Posting times','Owned synthetic fixture',1000,100,100,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
+    let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();
     for query in [

@@ -65,6 +65,9 @@ def extract(root, names_encoding="utf-8"):
             "bump_limit": integer("MAX_RES"), "image_limit": integer("MAX_IMGRES"),
             "thread_limit": maximum, "threads_per_page": integer("DEF_PAGES"),
             "expire_neglected": boolean("EXPIRE_NEGLECTED"),
+            "posting_reply_seconds": integer("RENZOKU"),
+            "posting_image_seconds": integer("RENZOKU2"),
+            "posting_thread_seconds": integer("RENZOKU3"),
             "archive_retention_seconds": integer("ARCHIVE_MAX_AGE") * 3600 if boolean("ENABLE_ARCHIVE") else 0,
             "json_tail_size": integer("JSON_TAIL_SIZE"), "permasage_hours": integer("PERMASAGE_HOURS"),
             "catalog_enabled": boolean("ENABLE_CATALOG"), "json_enabled": boolean("ENABLE_JSON"),
@@ -79,7 +82,11 @@ def extract(root, names_encoding="utf-8"):
 
 
 def migration(reference):
-    columns = [key for key in reference["boards"][0] if key not in {"listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected"}]
+    # Later policy columns must not rewrite the already-applied 0045 import.
+    columns = [key for key in reference["boards"][0] if key not in {
+        "listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected",
+        "posting_reply_seconds", "posting_image_seconds", "posting_thread_seconds",
+    }]
     def sql(value):
         if isinstance(value, bool):
             return "true" if value else "false"

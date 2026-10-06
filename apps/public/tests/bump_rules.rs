@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{body::Body, http::Request};
 use board_store::{NewPost, Thread};
 use http_body_util::BodyExt;
@@ -15,6 +18,33 @@ fn post(sage: bool) -> NewPost {
         deletion_hash: "synthetic-unused-hash".into(),
         sage,
     }
+}
+
+// These fixtures exercise ordinary non-OP bump rules. OP self-bump timing has
+// its own same-peer coverage in op_bumps.rs.
+fn reply_peer() -> std::net::IpAddr {
+    "192.0.2.202".parse().unwrap()
+}
+async fn create_reply(
+    public: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    request_start: chrono::DateTime<chrono::Utc>,
+) -> Result<i64, board_store::StoreError> {
+    posting_fixture::create_post_with_context(
+        public,
+        slug,
+        parent,
+        post,
+        None,
+        board_store::PostingContext {
+            request_start,
+            peer: Some(reply_peer()),
+            op_password_proof: None,
+        },
+    )
+    .await
 }
 
 async fn reset_clock(owner: &PgPool, id: i64) {
@@ -35,7 +65,7 @@ async fn append(
 ) -> i64 {
     reset_clock(owner, id).await;
     let before = board_store::thread(public, slug, id).await.unwrap();
-    let reply = board_store::create_post(public, slug, id, &post(sage))
+    let reply = create_reply(public, slug, id, &post(sage), chrono::Utc::now())
         .await
         .unwrap();
     let after = board_store::thread(public, slug, id).await.unwrap();
@@ -133,8 +163,8 @@ async fn flags(app: &axum::Router, slug: &str, id: i64, replies: i64, limited: b
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
-    let id = board_store::create_post(&public, &slug, 0, &post(false))
+    let app = posting_fixture::router(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
+    let id = posting_fixture::create_post(&public, &slug, 0, &post(false))
         .await
         .unwrap();
     let first = append(&owner, &public, &slug, id, false, true).await;
@@ -209,7 +239,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     assert!(matches!(
-        board_store::create_post(&public, &slug, id, &post(false)).await,
+        create_reply(&public, &slug, id, &post(false), chrono::Utc::now()).await,
         Err(board_store::StoreError::Conflict(_))
     ));
     board_store::delete_post(&public, &slug, id).await.unwrap();
@@ -220,7 +250,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .execute(&owner)
         .await
         .unwrap();
-    let id = board_store::create_post(&public, &slug, 0, &post(false))
+    let id = posting_fixture::create_post(&public, &slug, 0, &post(false))
         .await
         .unwrap();
     reset_clock(&owner, id).await;
@@ -230,7 +260,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let public = public.clone();
         let slug = slug.clone();
         jobs.spawn(async move {
-            board_store::create_post(&public, &slug, id, &post(false))
+            create_reply(&public, &slug, id, &post(false), chrono::Utc::now())
                 .await
                 .unwrap()
         });
@@ -255,7 +285,7 @@ async fn current_reply_counts_drive_bumps_and_all_public_limit_flags() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES($1,'Bump rules','Owned source-rule fixture',1000,100,3,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(0,0,0,$1,'Bump rules','Owned source-rule fixture',1000,100,3,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

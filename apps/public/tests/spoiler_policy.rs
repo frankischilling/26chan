@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -29,8 +32,8 @@ async fn spoiler_choice_uses_policy_after_an_observed_board_lock_wait() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned spoiler lock','Synthetic policy wait',2000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
-    let op = board_store::create_post(
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned spoiler lock','Synthetic policy wait',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    let op = posting::create_post(
         &public,
         &board,
         0,
@@ -44,7 +47,7 @@ async fn spoiler_choice_uses_policy_after_an_observed_board_lock_wait() {
     )
     .await
     .unwrap();
-    let app = board_public::routers(public.clone(), ORIGIN.into(), false).0;
+    let app = posting::routers(public.clone(), &board, ORIGIN.into(), false).0;
     let owned = owner.clone();
     let runtime = public.clone();
     let run_board = board.clone();
@@ -175,7 +178,7 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
             .unwrap();
     let boards = [format!("s0{suffix}"), format!("s1{suffix}")];
     for (enabled, board) in boards.iter().enumerate() {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES($1,'Owned spoiler policy','Synthetic source comparison',2000,1000,1000,1000,10,1000,$2)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned spoiler policy','Synthetic source comparison',2000,1000,1000,1000,10,1000,$2,0,0,0)")
             .bind(board).bind(enabled==1).execute(&owner).await.unwrap();
     }
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
@@ -216,14 +219,15 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
     })
     .unwrap();
-    let (web, api) = board_public::routers_with_limits(
+    let (web, api) = posting::routers_with_limits(
         public.clone(),
+        &boards[0],
         ORIGIN.into(),
         false,
         Some(media),
         limits,
     );
-    let (text_web, text_api) = board_public::routers(public.clone(), ORIGIN.into(), false);
+    let (text_web, text_api) = posting::routers(public.clone(), &boards[0], ORIGIN.into(), false);
     let run_boards = boards.clone();
     let run_owner = owner.clone();
     let run_public = public.clone();
@@ -265,6 +269,17 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
             }
         }
         for case in cases {
+            // Each source-policy row is an independent post action, but all
+            // boards and listener variants retain the same fixture actor.
+            for board in &run_boards {
+                posting::cleanup_actor_posting(
+                    &run_owner,
+                    board,
+                    &posting::key(&run_boards[0]),
+                    posting::peer(),
+                )
+                .await;
+            }
             let enabled = case["enabled"].as_bool().unwrap();
             let requested = case["requested"].as_bool().unwrap();
             let attached = case["attachment"].as_bool().unwrap();

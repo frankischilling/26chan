@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     body::Body,
     http::{HeaderMap, Request, StatusCode},
@@ -74,8 +77,13 @@ async fn exercise(multipart: bool) {
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     );
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    let (app, api) = posting_fixture::routers(
+        public.clone(),
+        &board,
+        "http://127.0.0.1:3000".into(),
+        false,
+    );
     let fields = "name=Anonymous&sub=JSON+thread&com=Line+one%0D%0ALine+two&password=owned-json-password&track=1&awt=1&email=sageNONOKOSaGe";
     let (headers, posted) = json(
         app.clone()

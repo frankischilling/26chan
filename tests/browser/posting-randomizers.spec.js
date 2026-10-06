@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
@@ -27,10 +27,10 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       });
     });
     async function post(board, options, comment = marker, parent = '0') {
-      const response = await context.request.post(`${origin}/${board}/imgboard.php`, {
+      const response = await withPostingHistory(() => context.request.post(`${origin}/${board}/imgboard.php`, {
         headers: { Origin: origin, Accept: 'application/json' },
         form: { mode: 'regist', resto: parent, sub: marker, com: comment, pwd: password, email: options },
-      });
+      }));
       expect(response.status(), await response.text()).toBe(200);
       const id = String((await response.json()).pid);
       if (parent === '0') threads.push({ board, id });

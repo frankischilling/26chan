@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -107,7 +110,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     .execute(&owner)
     .await
     .unwrap();
-    let historical = board_store::create_post(&public, &slug, 0, &post(""))
+    let historical = posting::create_post(&public, &slug, 0, &post(""))
         .await
         .unwrap();
     // These routes only read media settings; intake transport is exercised by
@@ -118,8 +121,9 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         "http://localhost:3002",
     )
     .unwrap();
-    let (app, api) = board_public::routers_with_media(
+    let (app, api) = posting::routers_with_media(
         public.clone(),
+        &slug,
         "http://127.0.0.1:3000".into(),
         false,
         Some(media),
@@ -255,9 +259,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let pending = {
             let public = public.clone();
             let slug = slug.clone();
-            tokio::spawn(
-                async move { board_store::create_post(&public, &slug, 0, &post("")).await },
-            )
+            tokio::spawn(async move { posting::create_post(&public, &slug, 0, &post("")).await })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async { loop {
             let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
@@ -296,7 +298,7 @@ async fn text_only_policy_controls_http_json_forms_and_locked_admission() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

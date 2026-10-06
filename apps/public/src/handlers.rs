@@ -104,10 +104,10 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
     if state.poster_id_key.is_none() {
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
-            "Public deletion is unavailable: POSTER_ID_KEY is required.",
+            "Public posting and deletion are unavailable: POSTER_ID_KEY is required.",
         ));
     }
-    sqlx::query("SELECT slug,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
@@ -135,6 +135,35 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Public deletion is unavailable.",
+        ));
+    }
+    let posting_cooldowns: bool = sqlx::query_scalar(
+        "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
+         AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_posting_cooldown(bytea,text,bigint,boolean,bigint)'), 'EXECUTE'), false)
+         AND to_regprocedure('content.record_posting_history(bytea,bigint)') IS NULL
+         AND EXISTS (
+             SELECT 1 FROM pg_catalog.pg_trigger t
+             JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+             JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+             WHERE t.tgrelid='content.posts'::regclass
+               AND t.tgname='record_inserted_posting_history'
+               AND t.tgtype=5 AND t.tgenabled='O' AND NOT t.tgisinternal
+               AND t.tgqual IS NULL AND t.tgnargs=0
+               AND p.oid=to_regprocedure('content.record_inserted_posting_history()')
+               AND p.prorettype='trigger'::regtype AND p.prosecdef
+               AND r.rolname='board_posting_cooldown_owner'
+               AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+                   WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+               AND NOT has_function_privilege(current_user,p.oid,'EXECUTE')
+         )",
+    )
+    .fetch_one(&state.pool)
+    .await
+    .map_err(StoreError::from)?;
+    if !posting_cooldowns {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public posting is unavailable.",
         ));
     }
     if let Some(media) = &state.media {
@@ -493,10 +522,12 @@ async fn submit_post(
     format: crate::posting_response::Format,
     mut context: board_store::PostingContext,
 ) -> Result<Response, AppError> {
-    if state.production && context.peer.is_none() {
+    // Ordinary cooldown identity must come from verified transport on every
+    // real posting route, including development and legacy/multipart requests.
+    if context.peer.is_none() || state.poster_id_key.is_none() {
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
-            "Posting transport identity is unavailable.",
+            "Posting identity is unavailable.",
         ));
     }
     if [form.awt, form.track]
@@ -638,6 +669,9 @@ async fn submit_post(
     .await;
     let id = match id {
         Ok(id) => id,
+        Err(StoreError::PostingCooldownRejected(rejection)) => {
+            return Ok(format.rule_error(&rejection.source_message()));
+        }
         Err(StoreError::Robot9000Rejected(message) | StoreError::ContentRejected(message)) => {
             return Ok(format.rule_error(&message));
         }

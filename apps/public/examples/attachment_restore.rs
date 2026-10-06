@@ -5,6 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::Request,
 };
+use board_domain::poster_id::PosterIdKey;
 use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
 use board_store::{
     media::MediaQueue,
@@ -47,10 +48,25 @@ struct Fixture {
     intake: IntakeStore,
     root: PathBuf,
     store: PublicationStore,
+    posting_key: PosterIdKey,
+    posting_peer: std::net::IpAddr,
 }
 impl Fixture {
     async fn open(root: &Path) -> Self {
         let quarantine = Quarantine::new(root.join("quarantine")).unwrap();
+        // Owned direct-store fixture: fresh private key and a peer observed on
+        // its own loopback socket, never inherited production credentials.
+        let posting_key = PosterIdKey::parse(&format!(
+            "{}{}",
+            board_media::ObjectId::generate().unwrap(),
+            board_media::ObjectId::generate().unwrap()
+        ))
+        .unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (_accepted, peer) = listener.accept().unwrap();
+        assert_eq!(peer, client.local_addr().unwrap());
+        assert!(peer.ip().is_loopback());
         Self {
             admin: PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
                 .await
@@ -67,7 +83,22 @@ impl Fixture {
                 .await
                 .unwrap(),
             root: root.to_owned(),
+            posting_key,
+            posting_peer: peer.ip(),
             store: PublicationStore::new(root.join("objects"), &quarantine).unwrap(),
+        }
+    }
+    fn posting_context(&self) -> board_store::PostingContext {
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some(self.posting_peer),
+            op_password_proof: None,
+        }
+    }
+    fn posting_keys(&self) -> board_store::PostIdentityKeys<'_> {
+        board_store::PostIdentityKeys {
+            tripcode: None,
+            poster_id: Some(&self.posting_key),
         }
     }
     async fn add(&self, parent: i64, spoiler: bool) -> Record {
@@ -104,12 +135,14 @@ impl Fixture {
             upload: receipt,
             spoiler,
         };
-        let post = board_store::create_post_with_attachment(
+        let post = board_store::create_post_with_identity_keys(
             &self.public,
             "restore",
             parent,
             &new_post(),
             Some(&attachment),
+            self.posting_context(),
+            self.posting_keys(),
         )
         .await
         .unwrap();
@@ -156,7 +189,7 @@ impl Fixture {
             .unwrap(),
             "Source must be a freshly migrated database without posts or media"
         );
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,archive_retention_seconds) VALUES ('restore','Restore fixture','Synthetic only',2000,100,100,100,10,20,3600)").execute(&self.admin).await.unwrap();
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ('restore','Restore fixture','Synthetic only',2000,100,100,100,10,20,3600,0,0,0)").execute(&self.admin).await.unwrap();
         // An ahead-of-wall-clock counter catches a restore that resets the clock.
         sqlx::query("UPDATE content.media_clock SET last_number=floor(extract(epoch FROM clock_timestamp())*1000)::bigint+86400000").execute(&self.admin).await.unwrap();
         let op = self.add(0, false).await;
@@ -301,16 +334,22 @@ impl Fixture {
                 spoiler: false,
             };
             assert!(
-                board_store::create_post_with_attachment(
-                    &self.public,
-                    "restore",
-                    0,
-                    &new_post(),
-                    Some(&reused)
-                )
-                .await
-                .is_err(),
-                "Restore must not resurrect a consumed receipt"
+                matches!(
+                    board_store::create_post_with_identity_keys(
+                        &self.public,
+                        "restore",
+                        0,
+                        &new_post(),
+                        Some(&reused),
+                        self.posting_context(),
+                        self.posting_keys(),
+                    )
+                    .await,
+                    Err(board_store::StoreError::Conflict(
+                        "Attachment is unavailable, already used, or the image limit was reached."
+                    ))
+                ),
+                "Restore must reject a consumed receipt at attachment admission"
             );
         }
         let removed = board_media_admin::reconcile(&self.queue, &self.store)

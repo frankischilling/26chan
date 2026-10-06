@@ -114,7 +114,8 @@ class PublicUpload:
         # This owned synthetic board qualifies media deletion and cleanup directly
         # after posting. Source-board age eligibility is tested separately; retain
         # the normal maximum age and all authentication/resource checks here.
-        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true,0,0);")
+        # Zero ordinary timers belong only to this disposable media board.
+        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true,0,0,0,0,0);")
         self.created = True
 
     def _actor_hex(self):
@@ -123,6 +124,21 @@ class PublicUpload:
         return hmac.new(bytes.fromhex(self._poster_id_key),
                         b'26chan-public-deletion-rate-v1\0\x04\x7f\0\0\x01',
                         hashlib.sha256).hexdigest()
+
+    def _posting_actor_hex(self):
+        # Distinct domain, same fresh fixture key and actual IPv4 loopback peer.
+        return hmac.new(bytes.fromhex(self._poster_id_key),
+                        b'26chan-public-posting-rate-v1\0\x04\x7f\0\0\x01',
+                        hashlib.sha256).hexdigest()
+
+    def reset_posting_history(self):
+        assert self.created and self.board == self._owned_board
+        assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
+        assert sql(f"SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards WHERE slug='{self.board}';") == '0|0|0'
+        # Only the trusted supervisor can touch private admission state. Both
+        # full actor identity and owned board scope must match; no global reset.
+        for table in ('posting_history', 'posting_thread_actions'):
+            sql(f"DELETE FROM post_secrets.{table} WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';")
 
     def reset_deletion_quota(self):
         assert self.created and self.board == self._owned_board
@@ -161,6 +177,7 @@ class PublicUpload:
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
         self.reset_deletion_quota()
+        self.reset_posting_history()
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
@@ -199,6 +216,9 @@ class PublicUpload:
         f.clean_vm()
         output = finish_browser(process, script)
         assert sql(f"SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');") == '1'
+        expected_posts = 3 if quick_reply else (2 if javascript else 1)
+        assert sql(f"SELECT count(*) FROM post_secrets.posting_history WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';") == str(expected_posts)
+        assert sql(f"SELECT count(*) FROM post_secrets.posting_thread_actions WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';") == '1'
         mode = b'JavaScript' if javascript else b'no-JavaScript'
         assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
@@ -221,6 +241,7 @@ class PublicUpload:
             self.f.stop(self.unit)
         if self.created:
             self.reset_deletion_quota()
+            self.reset_posting_history()
             for filename in self.filenames:
                 assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():

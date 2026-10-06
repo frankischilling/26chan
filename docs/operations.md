@@ -15,6 +15,14 @@ before migration 0040. The [private poster-count notes](private-poster-counts.md
 cover its restricted function owner, key continuity, historical omission and
 rollback behavior. Fresh `deploy/roles.sql` already creates this NOLOGIN owner.
 
+Existing installations also need `deploy/posting-cooldown-role.sql` before
+migration 0087; fresh role bootstrap includes its restricted NOLOGIN owner.
+Stop public and staff writers for this upgrade and deploy matching binaries.
+The [ordinary posting cooldown notes](source-posting-cooldowns.md) cover the
+insert-only history trigger, bounded capacity, history lifecycle and unsafe
+old-writer rollback. Public `POSTER_ID_KEY` and staff `STAFF_POSTER_ID_KEY`
+must contain the same stable private key material.
+
 Migration 0041 keeps [country and board flags](post-flags.md) disabled on existing
 boards. Geographic boards need an operator-owned country database loaded through
 `COUNTRY_DATABASE`; data updates take effect after a public-service restart.
@@ -39,7 +47,7 @@ content/staff reads and media writes with healthy controls. It rejects
 production startup. Follow the reader notes for explicit shared-publication
 permissions, health semantics, resource limits and remaining deployment work.
 
-In the public application, `/healthz` checks process availability and `/readyz` requires the configured `POSTER_ID_KEY` needed for public deletion and performs a content query, returning 503 on a missing key or unavailable storage. An omitted key still allows read-only startup/routes, but does not claim full readiness. Keep the private key stable across replicas and restarts; see [configuration](poster-ids.md#configuration-and-persistence). Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
+In the public application, `/healthz` checks process availability and `/readyz` requires the configured `POSTER_ID_KEY` needed for all posting and public deletion, queries content, and checks posting admission functions and the private insert trigger. Missing identity or unavailable schema/storage fails readiness. An omitted key still allows read-only startup/routes, but does not claim full readiness. Keep the private key stable across replicas and restarts; see [configuration](poster-ids.md#configuration-and-persistence). Every posting write separately requires a verified transport peer, even on boards without displayed IDs. Staff readiness likewise requires its poster key and posting schema. Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
 
 The following table describes public limits. [Staff notes](staff.md) record the separate staff limits and readiness checks of both its authentication and moderation stores; [media notes](media.md) record intake and queue bounds.
 

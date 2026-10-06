@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     Router,
     body::Body,
@@ -41,7 +44,7 @@ async fn body(response: Response) -> String {
 }
 
 async fn contract(owner: PgPool, public: PgPool, slug: String) {
-    let (web, api) = board_public::routers(public.clone(), ORIGIN.into(), false);
+    let (web, api) = posting_fixture::routers(public.clone(), &slug, ORIGIN.into(), false);
     let archive = format!("/{slug}/archive.json");
     for app in [&web, &api] {
         let empty = request(app, &archive, "GET", None).await;
@@ -61,14 +64,14 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
         deletion_hash: "synthetic-unused-hash".into(),
         sage: false,
     };
-    let archived = board_store::create_post(&public, &slug, 0, &new_post)
+    let archived = posting_fixture::create_post(&public, &slug, 0, &new_post)
         .await
         .unwrap();
-    let reply = board_store::create_post(&public, &slug, archived, &new_post)
+    let reply = posting_fixture::create_post(&public, &slug, archived, &new_post)
         .await
         .unwrap();
     sqlx::query("UPDATE content.threads SET archived_at='2026-01-01T00:00:00Z',archive_expires_at=now()+interval '1 hour',closed=false WHERE id=$1").bind(archived).execute(&owner).await.unwrap();
-    let active = board_store::create_post(&public, &slug, 0, &new_post)
+    let active = posting_fixture::create_post(&public, &slug, 0, &new_post)
         .await
         .unwrap();
     let mut archive_etag = String::new();
@@ -248,7 +251,7 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
 }
 
 async fn ordering_contract(owner: PgPool, public: PgPool, slug: String) {
-    let (web, api) = board_public::routers(public.clone(), ORIGIN.into(), false);
+    let (web, api) = posting_fixture::routers(public.clone(), &slug, ORIGIN.into(), false);
     let post = board_store::NewPost {
         name: "Anonymous".into(),
         subject: "<script>archive ordering</script>".into(),
@@ -259,7 +262,7 @@ async fn ordering_contract(owner: PgPool, public: PgPool, slug: String) {
     let mut ids = Vec::new();
     for _ in 0..6 {
         ids.push(
-            board_store::create_post(&public, &slug, 0, &post)
+            posting_fixture::create_post(&public, &slug, 0, &post)
                 .await
                 .unwrap(),
         );
@@ -344,7 +347,7 @@ async fn archive_fixture(ordering: bool) {
         .await
         .unwrap();
     let slug = format!("p{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,10,10,3600)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES (0,0,0,$1,'Archive fixture','Synthetic owned data',100,20,10,10,10,3600)").bind(&slug).execute(&owner).await.unwrap();
     let result = if ordering {
         tokio::spawn(ordering_contract(
             owner.clone(),

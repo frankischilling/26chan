@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     body::Body,
     http::{HeaderMap, Request, StatusCode},
@@ -37,7 +40,7 @@ fn json(bytes: &[u8]) -> serde_json::Value {
     serde_json::from_slice(bytes).unwrap()
 }
 async fn add(pool: &sqlx::PgPool, slug: &str, parent: i64) -> i64 {
-    board_store::create_post(
+    posting_fixture::create_post(
         pool,
         slug,
         parent,
@@ -71,13 +74,14 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             .unwrap()
             .subsec_nanos()
     );
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES ($1,'Owned tail contract','Synthetic tail HTTP fixture',4000,1000,300,100,10,2)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES (0,0,0,$1,'Owned tail contract','Synthetic tail HTTP fixture',4000,1000,300,100,10,2)").bind(&slug).execute(&owner).await.unwrap();
     let id = add(&public, &slug, 0).await;
     let mut ids = vec![id];
     for _ in 0..3 {
         ids.push(add(&public, &slug, id).await);
     }
-    let (web, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (web, api) =
+        posting_fixture::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
     let full = format!("/{slug}/thread/{id}.json");
     let tail = format!("/{slug}/thread/{id}-tail.json");
     let projection = format!("/_watch/{slug}/thread/{id}/posts-tail");

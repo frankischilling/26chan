@@ -11,6 +11,8 @@ pub mod media_assets;
 pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
+mod posting_cooldown;
+pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
 mod public_deletion;
 pub use public_deletion::{
     PublicDeletionBatch, PublicDeletionContext, public_deletion_precheck,
@@ -58,6 +60,8 @@ pub enum StoreError {
     ReadLimit,
     #[error("{0}")]
     Robot9000Rejected(String),
+    #[error("{0}")]
+    PostingCooldownRejected(PostingCooldownRejection),
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -92,6 +96,9 @@ pub struct Board {
     pub reply_limit: i32,
     pub bump_limit: i32,
     pub permasage_hours: i32,
+    pub posting_reply_seconds: i32,
+    pub posting_image_seconds: i32,
+    pub posting_thread_seconds: i32,
     pub op_bump_limit: bool,
     pub op_bump_initial_seconds: i32,
     pub op_bump_repeat_seconds: i32,

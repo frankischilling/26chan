@@ -28,7 +28,7 @@ async fn pool(key: &str) -> PgPool {
 async fn legacy_backfill_preserves_originals_fences_output_and_commits_cache_metadata() {
     let owner = pool("MIGRATION_DATABASE_URL").await;
     let board = ObjectId::generate().unwrap().to_string()[..10].to_owned();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Legacy media fixture','Synthetic',2000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Legacy media fixture','Synthetic',2000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let ids = Arc::new(Mutex::new(Vec::<String>::new()));
     let task_ids = ids.clone();
@@ -362,8 +362,21 @@ async fn posting_during_upgrade(
         .await
         .unwrap();
     let posting_board = board.to_string();
+    // Observe an actual peer on an owned fixture socket. Neither this identity
+    // nor the fresh private key can overlap an unrelated posting workflow.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (_accepted, peer) = listener.accept().unwrap();
+    assert_eq!(peer, client.local_addr().unwrap());
+    assert!(peer.ip().is_loopback());
+    let key = board_domain::poster_id::PosterIdKey::parse(&format!(
+        "{}{}",
+        ObjectId::generate().unwrap(),
+        ObjectId::generate().unwrap()
+    ))
+    .unwrap();
     let posting = tokio::spawn(async move {
-        board_store::create_post_with_attachment(
+        board_store::create_post_with_identity_keys(
             &public,
             &posting_board,
             0,
@@ -378,6 +391,15 @@ async fn posting_during_upgrade(
                 upload,
                 spoiler: false,
             }),
+            board_store::PostingContext {
+                request_start: chrono::Utc::now(),
+                peer: Some(peer.ip()),
+                op_password_proof: None,
+            },
+            board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&key),
+            },
         )
         .await
     });

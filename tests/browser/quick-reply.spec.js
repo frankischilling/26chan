@@ -1,11 +1,11 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-quick-reply-password';
 
 test('post permalinks stay navigable while digits quote original and live-updated posts', async ({ page, request }) => {
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: 'Owned post-number thread', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned post-number thread', password } }));
   expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
   try {
     await page.goto(`/fixture/thread/${id}`);
@@ -19,8 +19,8 @@ test('post permalinks stay navigable while digits quote original and live-update
     await expect(page.locator('#qrCom')).toHaveValue(`>>${id}\n`);
     await expect(page).toHaveURL(`${origin}/fixture/thread/${id}#p${id}`);
     await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
-    const response = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { resto: id, com: 'Owned live post-number reply', password } });
+    const response = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { resto: id, com: 'Owned live post-number reply', password } }));
     expect(response.status()).toBe(303); const reply = /#p(\d+)$/.exec(response.headers().location)[1];
     await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
     await expect(page.locator(`#m${reply}`)).toHaveText('Owned live post-number reply');
@@ -36,8 +36,8 @@ test('post permalinks stay navigable while digits quote original and live-update
 });
 
 test('the reply link prefills and submits a real quote without JavaScript on desktop and mobile', async ({ browser, request }) => {
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: 'Owned script-free quote thread', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned script-free quote thread', password } }));
   expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
   const context = await browser.newContext({ javaScriptEnabled: false });
   try {
@@ -51,7 +51,7 @@ test('the reply link prefills and submits a real quote without JavaScript on des
       await expect(page.locator('#com')).toBeVisible();
       await page.locator('#com').fill(`>>${id}\nOwned script-free quote at ${width}`);
       await expect(page.locator('#postPassword')).toHaveValue('');
-      await page.locator('form.postEditor button[type="submit"]').click();
+      await withPostingHistory(() => page.locator('form.postEditor button[type="submit"]').click());
       await expect(page).toHaveURL(new RegExp(`/fixture/thread/${id}#p[1-9][0-9]*$`));
       await expect(page.locator('.postMessage').filter({ hasText: `Owned script-free quote at ${width}` })).toHaveCount(1);
     }
@@ -67,8 +67,8 @@ test('the reply link prefills and submits a real quote without JavaScript on des
 });
 
 test('disabling Quick Reply keeps the mobile reply form visible and rejects invalid quote targets', async ({ page, request }) => {
-  const create = text => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: text, password } });
+  const create = text => withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: text, password } }));
   const created = await create('Owned disabled Quick Reply thread'), other = await create('Owned other quote thread');
   expect(created.status()).toBe(303); expect(other.status()).toBe(303);
   const id = /#p(\d+)$/.exec(created.headers().location)[1], foreign = /#p(\d+)$/.exec(other.headers().location)[1];
@@ -117,8 +117,8 @@ async function observePostingBody(page) {
 }
 
 test('a mobile quote form keeps edits made before its client script initializes', async ({ browser, request }) => {
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: 'Owned early mobile form thread', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned early mobile form thread', password } }));
   expect(created.status()).toBe(303);
   const id = /#p(\d+)$/.exec(created.headers().location)[1];
   const context = await browser.newContext({ viewport: { width: 390, height: 900 }, isMobile: true, hasTouch: true });
@@ -142,7 +142,7 @@ test('a mobile quote form keeps edits made before its client script initializes'
     await expect(page.locator('form#reply')).toHaveClass(/nativePostForm/);
     await expect(page.locator('#com')).toBeVisible();
     await expect(page.locator('#com')).toHaveValue('Owned edit made before mobile form initialization');
-    await page.locator('form#reply button[type="submit"]').click();
+    await withPostingHistory(() => page.locator('form#reply button[type="submit"]').click());
     await expect(page).toHaveURL(new RegExp(`/fixture/thread/${id}#p[1-9][0-9]*$`));
     const saved = await (await request.get(`/fixture/thread/${id}.json`)).json();
     expect(saved.posts).toHaveLength(2);
@@ -158,8 +158,8 @@ test('a mobile quote form keeps edits made before its client script initializes'
 });
 
 test('Quick Reply persists replies, retains failed drafts, tracks own posts and updates without navigation', async ({ page, context, request }) => {
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: 'Owned Quick Reply thread', sub: 'Owned Quick Reply', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned Quick Reply thread', sub: 'Owned Quick Reply', password } }));
   expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
   try {
     await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true, keyBinds: true, threadWatcher: true })));
@@ -168,13 +168,13 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q');
     await expect(page.locator('#quickReply')).toBeVisible();
     await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('');
-    await page.locator('#quickReply input[type=submit]').click();
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
     await expect(page.locator('#qrError')).toHaveText('Error: No text entered.');
     await expect(page.locator('#qr-pwd')).toHaveValue('');
     await page.locator('#qrCom').fill(`>>${id}\nOwned Quick Reply result`);
     await observePostingBody(page);
     const posted = page.evaluate(() => window.ownedPostingResponse);
-    const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+    const [, response] = await Promise.all([withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()), posted]);
     expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
     const result = JSON.parse(response.text); expect(result.error).toBeUndefined();
     const reply = String(result.pid); expect(String(result.tid)).toBe(id);
@@ -189,14 +189,14 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     const data = await (await request.get(`/fixture/thread/${id}.json`)).json(); expect(data.posts).toHaveLength(2);
     await page.locator('#qrCom').fill('Preserved on failure');
     await page.route(`**/fixture/imgboard.php`, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"Owned unavailable service"}' }));
-    await page.locator('#quickReply input[type=submit]').click(); await expect(page.locator('#qrError')).toHaveText('Owned unavailable service');
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()); await expect(page.locator('#qrError')).toHaveText('Owned unavailable service');
     await expect(page.locator('#qrCom')).toHaveValue('Preserved on failure');
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(2);
     await page.unroute('**/fixture/imgboard.php');
     await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
     await context.clearCookies(); await page.reload();
     await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q'); await page.locator('#qrCom').fill('Second owned reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
-    await page.locator('#quickReply input[type=submit]').click();
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
     await expect(page.locator('.postMessage').filter({ hasText: 'Second owned reply' })).toBeVisible();
   } finally {
     await withDeletionQuota(async () => {
@@ -208,7 +208,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
 test('posting CSP permits only the current board handler and preserves healthy denied controls', async ({ page, context, request }) => {
   await page.goto('/demo/');
   const healthy = await request.get('/healthz'); expect(healthy.status()).toBe(200);
-  const other = await request.post('/fixture/imgboard.php', { headers: { Origin: origin, Accept: 'application/json' }, form: { pwd: password, com: '' } });
+  const other = await withPostingHistory(() => request.post('/fixture/imgboard.php', { headers: { Origin: origin, Accept: 'application/json' }, form: { pwd: password, com: '' } }));
   expect(other.status()).toBe(200); expect((await other.json()).error).toBe('Error: New threads require a subject or comment.');
   expect(await page.evaluate(() => fetch('/healthz').then(() => 'allowed', () => 'blocked'))).toBe('blocked');
   expect(await page.evaluate(() => fetch('/fixture/imgboard.php', { method: 'POST' }).then(() => 'allowed', () => 'blocked'))).toBe('blocked');
@@ -220,7 +220,7 @@ test('posting CSP permits only the current board handler and preserves healthy d
 
 for (const additional of [false, true]) {
   test(`automatic updates suppress only the sole Quick Reply post (other reply: ${additional})`, async ({ page, request }) => {
-    const write = form => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } });
+    const write = form => withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } }));
     const created = await write({ com: 'Owned Quick Reply notification thread' }); expect(created.status()).toBe(303);
     const id = /#p(\d+)$/.exec(created.headers().location)[1];
     try {
@@ -234,7 +234,7 @@ for (const additional of [false, true]) {
       await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
       await observePostingBody(page);
       const posted = page.evaluate(() => window.ownedPostingResponse);
-      const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+      const [, response] = await Promise.all([withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()), posted]);
       expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
       const value = JSON.parse(response.text); expect(value.error).toBeUndefined();
       expect(String(value.tid)).toBe(id); const reply = String(value.pid);
@@ -253,7 +253,7 @@ for (const additional of [false, true]) {
 }
 
 test('a Quick Reply committed during an in-flight update schedules one follow-up snapshot', async ({ page, request }) => {
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: 'Owned busy update thread', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: 'Owned busy update thread', password } }));
   expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
   const path = `/_watch/fixture/thread/${id}/posts`;
   try {
@@ -264,7 +264,7 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
     await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click(); await expect.poll(() => calls).toBe(1);
     await page.locator('.open-qr-link').click();
     await page.locator('#qrCom').fill('Committed while updater was busy'); await expect(page.locator('#qr-pwd')).toHaveValue('');
-    await page.locator('#quickReply input[type=submit]').click(); await expect(page.locator('#quickReply')).toHaveCount(0);
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()); await expect(page.locator('#quickReply')).toHaveCount(0);
     await page.clock.runFor(600); expect(calls).toBe(1);
     await held.fulfill({ contentType: 'application/json', body: snapshot });
     await expect(page.locator('.nativeUpdaterStatus').first()).toHaveText('No new posts');
@@ -276,7 +276,7 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
 });
 
 test('the source byte advisory does not block a Unicode reply within the server character limit', async ({ page, request }) => {
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: 'Owned Unicode advisory thread', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: 'Owned Unicode advisory thread', password } }));
   expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
   try {
     await page.goto(`/fixture/thread/${id}`);
@@ -289,7 +289,7 @@ test('the source byte advisory does not block a Unicode reply within the server 
     await expect(page.locator('#quickReply input[type=submit]')).toBeEnabled();
     await observePostingBody(page);
     const posted = page.evaluate(() => window.ownedPostingResponse);
-    const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+    const [, response] = await Promise.all([withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()), posted]);
     expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
     const result = JSON.parse(response.text); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
     await expect(page.locator('#quickReply')).toHaveCount(0);
@@ -305,7 +305,7 @@ test('the source byte advisory does not block a Unicode reply within the server 
 
 test('Q posts selected text and Ctrl-click works without optional keyboard shortcuts on persisted threads', async ({ page, context, request }) => {
   const selected = 'Owned selected post text';
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: selected, password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0, form: { com: selected, password } }));
   expect(created.status()).toBe(303); const id = /#p(\d+)$/.exec(created.headers().location)[1];
   try {
     await page.goto(`/fixture/thread/${id}`);
@@ -315,7 +315,7 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await expect(page.locator('#qr-pwd')).toHaveValue('');
     await observePostingBody(page);
     const posted = page.evaluate(() => window.ownedPostingResponse);
-    const [, response] = await Promise.all([page.locator('#quickReply input[type=submit]').click(), posted]);
+    const [, response] = await Promise.all([withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()), posted]);
     expect(response.status).toBe(200); expect(response.text.length).toBeLessThanOrEqual(8192);
     const result = JSON.parse(response.text); expect(result.error).toBeUndefined(); expect(String(result.tid)).toBe(id);
     await expect(page.locator(`#m${result.pid} .quote`)).toHaveText(`>${selected}`);
@@ -324,7 +324,7 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click({ modifiers: ['Control'] });
     await expect(page.locator('#qrCom')).toHaveValue(''); expect(context.pages()).toHaveLength(1);
     await page.locator('#qrCom').fill('Posted after Ctrl-click'); await expect(page.locator('#qr-pwd')).toHaveValue('');
-    await page.locator('#quickReply input[type=submit]').click();
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
     await expect(page.locator('.postMessage').filter({ hasText: 'Posted after Ctrl-click' })).toBeVisible();
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(3);
   } finally { await withDeletionQuota(async () => {

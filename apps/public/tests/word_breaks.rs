@@ -106,8 +106,28 @@ async fn get(app: &Router, path: &str) -> String {
     .unwrap()
 }
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(fixture_key()),
+            country_database: None,
+        },
+    );
     let mut history = None;
     for mode in 0..8 {
         let op = submit(&app, &slug, 0, mode).await;
@@ -200,7 +220,7 @@ async fn source_word_breaks_survive_posting_api_updater_and_policy_changes() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,comment_spoiler_cleanup,comment_code_spacing,comment_sjis_spacing) VALUES($1,'Word breaks','Owned fixture',4000,100,100,100,10,true,true,true,true)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,comment_spoiler_cleanup,comment_code_spacing,comment_sjis_spacing,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Word breaks','Owned fixture',4000,100,100,100,10,true,true,true,true,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

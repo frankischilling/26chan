@@ -24,7 +24,10 @@ class PublicUploadBoardTest(unittest.TestCase):
                 comment_spoiler_cleanup BOOLEAN,
                 deletion_known_min_seconds INTEGER NOT NULL DEFAULT 60,
                 deletion_unknown_min_seconds INTEGER NOT NULL DEFAULT 600,
-                deletion_max_seconds INTEGER NOT NULL DEFAULT 1800
+                deletion_max_seconds INTEGER NOT NULL DEFAULT 1800,
+                posting_reply_seconds INTEGER NOT NULL DEFAULT 60,
+                posting_image_seconds INTEGER NOT NULL DEFAULT 60,
+                posting_thread_seconds INTEGER NOT NULL DEFAULT 600
             )''')
             db.execute("INSERT INTO content.boards(slug) VALUES ('a')")
             fixture = self.fixture()
@@ -33,9 +36,10 @@ class PublicUploadBoardTest(unittest.TestCase):
             sql.assert_called_once()
             self.assertTrue(fixture.created)
             self.assertEqual(db.execute('''SELECT slug, deletion_known_min_seconds,
-                deletion_unknown_min_seconds, deletion_max_seconds
+                deletion_unknown_min_seconds, deletion_max_seconds,
+                posting_reply_seconds, posting_image_seconds, posting_thread_seconds
                 FROM content.boards ORDER BY slug''').fetchall(),
-                [('a', 60, 600, 1800), (fixture.board, 0, 0, 1800)])
+                [('a', 60, 600, 1800, 60, 60, 600), (fixture.board, 0, 0, 1800, 0, 0, 0)])
 
     def test_non_synthetic_slugs_are_rejected_before_sql(self):
         for board in ('a', 'demo', 'fixture', 'u12345678-extra', 'u12345678\n', 'uffffffff'):
@@ -117,6 +121,60 @@ class PublicUploadBoardTest(unittest.TestCase):
             with self.subTest(policy=policy), mock.patch('public_upload_fixture.sql', return_value=policy) as sql:
                 with self.assertRaises(AssertionError):
                     fixture.reset_deletion_quota()
+                self.assertEqual(sql.call_count, 1)
+                self.assertTrue(sql.call_args.args[0].startswith('SELECT '))
+
+    def test_posting_actor_is_separate_and_matches_loopback_domain_vector(self):
+        fixture = self.fixture()
+        fixture._poster_id_key = '11' * 32
+        self.assertEqual(fixture._posting_actor_hex(),
+                         '86dc8cf300333e51f602b95c5c4833cefb6d92d1e19b2431f5025558004e4d51')
+        self.assertNotEqual(fixture._posting_actor_hex(), fixture._actor_hex())
+        self.assertNotEqual(self.fixture()._posting_actor_hex(), self.fixture()._posting_actor_hex())
+
+    def test_posting_reset_preserves_other_actors_and_other_boards(self):
+        fixture = self.fixture()
+        fixture.created = True
+        own = bytes.fromhex(fixture._posting_actor_hex())
+        foreign = bytes.fromhex(self.fixture()._posting_actor_hex())
+        with sqlite3.connect(':memory:') as db:
+            db.execute("ATTACH DATABASE ':memory:' AS content")
+            db.execute("ATTACH DATABASE ':memory:' AS post_secrets")
+            db.create_function('decode', 2, lambda value, encoding: bytes.fromhex(value)
+                               if encoding == 'hex' else None)
+            db.execute('CREATE TABLE content.boards (slug TEXT PRIMARY KEY, posting_reply_seconds INTEGER, posting_image_seconds INTEGER, posting_thread_seconds INTEGER)')
+            db.execute('INSERT INTO content.boards VALUES (?,0,0,0)', (fixture.board,))
+            sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43)]
+            for table in ('posting_history', 'posting_thread_actions'):
+                db.execute(f'CREATE TABLE post_secrets.{table} (actor_hash BLOB, board TEXT, request_at INTEGER)')
+                db.executemany(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)',
+                               [(own, fixture.board, 41), *sentinels])
+
+            def sql(statement):
+                cursor = db.execute(statement)
+                return '|'.join(map(str, cursor.fetchone())) if cursor.description else ''
+
+            with mock.patch('public_upload_fixture.sql', side_effect=sql):
+                fixture.reset_posting_history()
+                fixture.reset_posting_history()
+            for table in ('posting_history', 'posting_thread_actions'):
+                self.assertEqual(db.execute(f'SELECT * FROM post_secrets.{table} ORDER BY request_at').fetchall(), sentinels)
+
+    def test_posting_reset_rejects_missing_ownership_and_changed_policy(self):
+        fixture = self.fixture()
+        with mock.patch('public_upload_fixture.sql') as sql:
+            with self.assertRaises(AssertionError):
+                fixture.reset_posting_history()
+            fixture.created = True
+            fixture.board = 'uffffffff'
+            with self.assertRaises(AssertionError):
+                fixture.reset_posting_history()
+        sql.assert_not_called()
+        fixture.board = fixture._owned_board
+        for policy in ('60|60|600', '0|0|1', ''):
+            with self.subTest(policy=policy), mock.patch('public_upload_fixture.sql', return_value=policy) as sql:
+                with self.assertRaises(AssertionError):
+                    fixture.reset_posting_history()
                 self.assertEqual(sql.call_count, 1)
                 self.assertTrue(sql.call_args.args[0].startswith('SELECT '))
 

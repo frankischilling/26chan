@@ -1,7 +1,18 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::{NewPost, StoreError};
 use sqlx::PgPool;
+
+// An ordinary reader distinct from the OP fixture actor. Keep this identity
+// stable across requests so runtime OP ownership and self-bump rules stay real.
+fn reader_context() -> board_store::PostingContext {
+    board_store::PostingContext {
+        request_start: chrono::Utc::now(),
+        peer: Some("192.0.2.202".parse().unwrap()),
+        op_password_proof: None,
+    }
+}
 
 fn post() -> NewPost {
     NewPost {
@@ -26,7 +37,7 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
         .await
         .unwrap();
     let slug = format!("a{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,1,1)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,1,1,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     assert!(
         board_store::board(&public, &slug)
             .await
@@ -38,10 +49,10 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
     let test_public = public.clone();
     let test_owner = owner.clone();
     let result = tokio::spawn(async move {
-        let first = board_store::create_post(&test_public, &test_slug, 0, &post())
+        let first = support::create_post(&test_public, &test_slug, 0, &post())
             .await
             .unwrap();
-        let second = board_store::create_post(&test_public, &test_slug, 0, &post())
+        let second = support::create_post(&test_public, &test_slug, 0, &post())
             .await
             .expect("A new thread displaces the oldest unpinned thread");
         assert!(matches!(
@@ -92,7 +103,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
     .execute(owner)
     .await
     .unwrap();
-    let third = board_store::create_post(public, slug, 0, &post())
+    let third = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     let archived = board_store::archive_snapshot(public, slug).await.unwrap();
@@ -111,7 +122,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         "Archiving must not require public closed/sticky authority"
     );
     assert!(matches!(
-        board_store::create_post(public, slug, second, &post()).await,
+        support::create_post(public, slug, second, &post()).await,
         Err(StoreError::Conflict(_))
     ));
     for statement in [
@@ -133,10 +144,10 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
             1
         );
     }
-    let fourth = board_store::create_post(public, slug, 0, &post())
+    let fourth = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
-    let fifth = board_store::create_post(public, slug, 0, &post())
+    let fifth = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     assert!(matches!(
@@ -187,7 +198,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         Err(StoreError::NotFound)
     ));
     assert!(matches!(
-        board_store::create_post(public, slug, third, &post()).await,
+        support::create_post(public, slug, third, &post()).await,
         Err(StoreError::NotFound)
     ));
     assert_eq!(
@@ -216,7 +227,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         .execute(owner)
         .await
         .unwrap();
-    let alongside_pinned = board_store::create_post(public, slug, 0, &post())
+    let alongside_pinned = support::create_post(public, slug, 0, &post())
         .await
         .expect("Pinned threads do not consume ordinary capacity");
     assert_eq!(
@@ -243,15 +254,15 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         .execute(owner)
         .await
         .unwrap();
-    let sixth = board_store::create_post(public, slug, 0, &post())
+    let sixth = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     let mut sage = post();
     sage.sage = true;
-    board_store::create_post(public, slug, fifth, &sage)
+    support::create_post_with_context(public, slug, fifth, &sage, None, reader_context())
         .await
         .unwrap();
-    let seventh = board_store::create_post(public, slug, 0, &post())
+    let seventh = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     assert!(
@@ -261,10 +272,32 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
             .archived_at
             .is_some()
     );
-    board_store::create_post(public, slug, sixth, &post())
+    // Make the victim ordering explicit even when every request lands in the
+    // same second. Only the real public reply below may move sixth ahead.
+    sqlx::query("UPDATE content.threads SET bumped_at=CASE WHEN id=$2 THEN '2000-01-01'::timestamptz ELSE '2001-01-01'::timestamptz END WHERE board=$1 AND id=ANY($3)")
+        .bind(slug)
+        .bind(sixth)
+        .bind(vec![sixth, seventh])
+        .execute(owner)
         .await
         .unwrap();
-    let eighth = board_store::create_post(public, slug, 0, &post())
+    let sixth_before = board_store::thread(public, slug, sixth).await.unwrap();
+    let seventh_before = board_store::thread(public, slug, seventh).await.unwrap();
+    assert!(sixth_before.bumped_at < seventh_before.bumped_at);
+    // The legacy no-peer call was an ordinary non-OP reply. Give this reader
+    // its own stable trusted peer so the OP self-bump timer stays irrelevant.
+    support::create_post_with_context(public, slug, sixth, &post(), None, reader_context())
+        .await
+        .unwrap();
+    assert!(
+        board_store::thread(public, slug, sixth)
+            .await
+            .unwrap()
+            .bumped_at
+            > seventh_before.bumped_at,
+        "The actual public reply must bump sixth ahead of seventh"
+    );
+    let eighth = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     assert!(
@@ -287,7 +320,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         let pool = public.clone();
         let slug = slug.to_owned();
         tasks.spawn(async move {
-            board_store::create_post(&pool, &slug, 0, &post())
+            support::create_post(&pool, &slug, 0, &post())
                 .await
                 .unwrap()
         });
@@ -383,10 +416,10 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
             .execute(owner)
             .await
             .unwrap();
-        let target = board_store::create_post(public, slug, 0, &post())
+        let target = support::create_post(public, slug, 0, &post())
             .await
             .unwrap();
-        let other = board_store::create_post(public, slug, 0, &post())
+        let other = support::create_post(public, slug, 0, &post())
             .await
             .unwrap();
         sqlx::query("UPDATE content.threads SET bumped_at=CASE WHEN id=$2 THEN '2000-01-01'::timestamptz ELSE '2000-01-02'::timestamptz END WHERE board=$1 AND NOT deleted").bind(slug).bind(target).execute(owner).await.unwrap();
@@ -403,11 +436,13 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
         let first_pool = one.clone();
         let first_slug = slug.to_owned();
         let first = tokio::spawn(async move {
-            board_store::create_post(
+            support::create_post_with_context(
                 &first_pool,
                 &first_slug,
                 if reply_first { target } else { 0 },
                 &post(),
+                None,
+                reader_context(),
             )
             .await
         });
@@ -415,11 +450,13 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
         let second_pool = two.clone();
         let second_slug = slug.to_owned();
         let second = tokio::spawn(async move {
-            board_store::create_post(
+            support::create_post_with_context(
                 &second_pool,
                 &second_slug,
                 if reply_first { 0 } else { target },
                 &post(),
+                None,
+                reader_context(),
             )
             .await
         });
@@ -469,7 +506,7 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
         .execute(owner)
         .await
         .unwrap();
-    let pinned = board_store::create_post(public, slug, 0, &post())
+    let pinned = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     sqlx::query(
@@ -479,7 +516,7 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
     .execute(owner)
     .await
     .unwrap();
-    let undead = board_store::create_post(public, slug, 0, &post())
+    let undead = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     sqlx::query(
@@ -489,12 +526,12 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
     .execute(owner)
     .await
     .unwrap();
-    let both = board_store::create_post(public, slug, 0, &post())
+    let both = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     sqlx::query("UPDATE content.threads SET sticky=true,undead=true,bumped_at='2000-01-03'::timestamptz WHERE id=$1")
         .bind(both).execute(owner).await.unwrap();
-    let ordinary = board_store::create_post(public, slug, 0, &post())
+    let ordinary = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     sqlx::query("UPDATE content.threads SET bumped_at='2001-01-01'::timestamptz WHERE id=$1")
@@ -502,7 +539,7 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
         .execute(owner)
         .await
         .unwrap();
-    let other = board_store::create_post(public, slug, 0, &post())
+    let other = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     for id in [pinned, undead, both, ordinary, other] {
@@ -515,7 +552,7 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
             "Three protected OPs must leave both ordinary slots available"
         );
     }
-    let newest = board_store::create_post(public, slug, 0, &post())
+    let newest = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     for id in [pinned, undead, both, other, newest] {
@@ -554,7 +591,7 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
         .execute(owner)
         .await
         .unwrap();
-    let replacement = board_store::create_post(public, slug, 0, &post())
+    let replacement = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     assert!(matches!(
@@ -611,10 +648,10 @@ async fn queued_op_observes_protection(
             .execute(owner)
             .await
             .unwrap();
-        let protected = board_store::create_post(public, slug, 0, &post())
+        let protected = support::create_post(public, slug, 0, &post())
             .await
             .unwrap();
-        let ordinary = board_store::create_post(public, slug, 0, &post())
+        let ordinary = support::create_post(public, slug, 0, &post())
             .await
             .unwrap();
         sqlx::query("UPDATE content.threads SET bumped_at=CASE WHEN id=$2 THEN '2000-01-01'::timestamptz ELSE '2000-01-02'::timestamptz END WHERE board=$1 AND NOT deleted")
@@ -632,7 +669,7 @@ async fn queued_op_observes_protection(
         let pool = queued_pool.clone();
         let board = slug.to_owned();
         let queued =
-            tokio::spawn(async move { board_store::create_post(&pool, &board, 0, &post()).await });
+            tokio::spawn(async move { support::create_post(&pool, &board, 0, &post()).await });
         // Observe the actual PostgreSQL lock dependency before changing protection.
         // Elapsed time alone cannot establish that the OP is queued.
         wait_behind(owner, queued_pid, owner_pid).await;
@@ -665,7 +702,7 @@ async fn queued_op_observes_protection(
                 .len(),
             3
         );
-        board_store::create_post(public, slug, 0, &post())
+        support::create_post(public, slug, 0, &post())
             .await
             .unwrap();
         assert!(
@@ -696,18 +733,18 @@ async fn expired_entries_do_not_displace_valid_archives(
         .await
         .unwrap();
     sqlx::query("UPDATE content.boards SET archive_retention_seconds=3600,archive_limit=2,thread_limit=1 WHERE slug=$1").bind(slug).execute(owner).await.unwrap();
-    let older = board_store::create_post(public, slug, 0, &post())
+    let older = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
-    let expired = board_store::create_post(public, slug, 0, &post())
+    let expired = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
-    let newest = board_store::create_post(public, slug, 0, &post())
+    let newest = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp()-interval '3 hours',archive_expires_at=statement_timestamp()+interval '1 hour' WHERE id=$1").bind(older).execute(owner).await.unwrap();
     sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp()-interval '2 hours',archive_expires_at=statement_timestamp()-interval '1 hour' WHERE id=$1").bind(expired).execute(owner).await.unwrap();
-    board_store::create_post(public, slug, 0, &post())
+    support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
     let ids = board_store::archive_snapshot(public, slug)
@@ -893,17 +930,17 @@ async fn source_rollover_order(owner: &PgPool, public: &PgPool, slug: &str) {
                     .bind(slug).bind(retention).bind(!expire_neglected).execute(owner).await.unwrap();
                 let mut protected = Vec::new();
                 for (sticky, undead) in [(true, false), (false, true), (true, true)] {
-                    let id = board_store::create_post(public, slug, 0, &post())
+                    let id = support::create_post(public, slug, 0, &post())
                         .await
                         .unwrap();
                     sqlx::query("UPDATE content.threads SET sticky=$2,undead=$3,bumped_at='1999-01-01Z' WHERE id=$1")
                         .bind(id).bind(sticky).bind(undead).execute(owner).await.unwrap();
                     protected.push(id);
                 }
-                let first = board_store::create_post(public, slug, 0, &post())
+                let first = support::create_post(public, slug, 0, &post())
                     .await
                     .unwrap();
-                let second = board_store::create_post(public, slug, 0, &post())
+                let second = support::create_post(public, slug, 0, &post())
                     .await
                     .unwrap();
                 assert!(first < second);
@@ -937,9 +974,10 @@ async fn source_rollover_order(owner: &PgPool, public: &PgPool, slug: &str) {
                     .unwrap();
                 let pool = queued_pool.clone();
                 let board = slug.to_owned();
-                let queued = tokio::spawn(async move {
-                    board_store::create_post(&pool, &board, 0, &post()).await
-                });
+                let queued =
+                    tokio::spawn(
+                        async move { support::create_post(&pool, &board, 0, &post()).await },
+                    );
                 wait_behind(owner, queued_pid, owner_pid).await;
                 sqlx::query("UPDATE content.boards SET expire_neglected=$2 WHERE slug=$1")
                     .bind(slug)

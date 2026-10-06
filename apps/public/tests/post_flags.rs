@@ -8,14 +8,25 @@ use serde_json::Value;
 use std::{net::SocketAddr, sync::Arc};
 use tower::ServiceExt;
 
-fn options(database: bool) -> board_public::PublicRouterOptions {
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
+fn options(
+    database: bool,
+    key: Arc<board_domain::poster_id::PosterIdKey>,
+) -> board_public::PublicRouterOptions {
     board_public::PublicRouterOptions {
         origin: "https://boards.example.com".into(),
         production: true,
         media: None,
         limits: board_config::PublicRequestLimits::default(),
         proxy_uid: None,
-        poster_id_key: None,
+        poster_id_key: Some(key),
         tripcode_key: None,
         country_database: database.then(|| {
             Arc::new(
@@ -103,7 +114,7 @@ async fn flags_are_persisted_from_verified_peers_and_locked_board_choices() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,country_flags,board_flags,json_tail_size) VALUES($1,'Owned flags','Synthetic fixture',1000,100,100,100,10,true,ARRAY['AC','UN'],1)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,country_flags,board_flags,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned flags','Synthetic fixture',1000,100,100,100,10,true,ARRAY['AC','UN'],1,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(owner.clone(), public.clone(), board.clone())).await;
     for query in [
         "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
@@ -122,15 +133,17 @@ async fn flags_are_persisted_from_verified_peers_and_locked_board_choices() {
     outcome.unwrap();
 }
 async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
-    let (app, api) = board_public::routers_with_options(public.clone(), options(true));
-    let no_database = board_public::routers_with_options(public.clone(), options(false)).0;
+    let key = fixture_key();
+    let (app, api) = board_public::routers_with_options(public.clone(), options(true, key.clone()));
+    let no_database =
+        board_public::routers_with_options(public.clone(), options(false, key.clone())).0;
     assert_eq!(
         post(&no_database, &board, 0, Some("81.2.69.142:9000"), "", false).await["error"],
         "Country flags are unavailable."
     );
     assert_eq!(
         post(&app, &board, 0, None, "", false).await["error"],
-        "Posting transport identity is unavailable."
+        "Posting identity is unavailable."
     );
     assert_eq!(
         post(&app, &board, 0, Some("81.2.69.142:9000"), "&flag=EU", false).await["error"],
@@ -238,7 +251,7 @@ async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
             .contains("bfl bfl-ac")
     );
     #[cfg(feature = "browser-tests")]
-    browser(&public, &board).await;
+    browser(&public, &board, key.clone()).await;
     for extra in [
         "&country=US",
         "&country_name=Forged",
@@ -316,11 +329,15 @@ async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
 }
 
 #[cfg(feature = "browser-tests")]
-async fn browser(public: &sqlx::PgPool, board: &str) {
+async fn browser(
+    public: &sqlx::PgPool,
+    board: &str,
+    key: Arc<board_domain::poster_id::PosterIdKey>,
+) {
     use std::time::Duration;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
-    let mut settings = options(true);
+    let mut settings = options(true, key);
     settings.origin = origin.clone();
     settings.production = false;
     let app = board_public::routers_with_options(public.clone(), settings).0;
@@ -435,7 +452,7 @@ async fn all_source_flag_types_labels_orders_and_captured_choices_reach_public_r
         };
         assert_eq!(board.board_flags, expected, "{}", board.slug);
     }
-    let mut configured = options(false);
+    let mut configured = options(false, fixture_key());
     configured.limits = board_config::PublicRequestLimits::from_lookup(|name| {
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
     })
@@ -451,7 +468,7 @@ async fn all_source_flag_types_labels_orders_and_captured_choices_reach_public_r
             .iter()
             .map(|flag| flag.code.to_owned())
             .collect();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,board_flag_type,board_flags) VALUES($1,'Owned source flags','Synthetic',1000,1000,1000,100,10,$2,$3)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,board_flag_type,board_flags,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned source flags','Synthetic',1000,1000,1000,100,10,$2,$3,0,0,0)")
             .bind(&slug).bind(kind).bind(&codes).execute(&owner).await.unwrap();
         let own = owner.clone();
         let site = app.clone();

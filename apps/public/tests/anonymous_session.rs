@@ -9,6 +9,14 @@ use board_domain::anonymous_session::Capability;
 use sqlx::PgPool;
 use tower::ServiceExt;
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 const ORIGIN: &str = "http://127.0.0.1:3000";
 
 fn form(
@@ -104,7 +112,12 @@ async fn get(app: &Router, path: &str, cookie: Option<&str>) -> (HeaderMap, Vec<
     )
 }
 
-async fn fixture() -> (PgPool, PgPool, String) {
+async fn fixture() -> (
+    PgPool,
+    PgPool,
+    String,
+    std::sync::Arc<board_domain::poster_id::PosterIdKey>,
+) {
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -116,9 +129,9 @@ async fn fixture() -> (PgPool, PgPool, String) {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES($1,'Owned anonymous HTTP','Synthetic',2000,100,100,100,10,true,0,0)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned anonymous HTTP','Synthetic',2000,100,100,100,10,true,0,0,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
-    (owner, public, board)
+    (owner, public, board, fixture_key())
 }
 
 async fn cleanup(owner: &PgPool, board: &str) {
@@ -144,10 +157,10 @@ async fn cleanup(owner: &PgPool, board: &str) {
 
 #[tokio::test]
 async fn automatic_cookie_owns_posts_across_forms_and_tabs_without_public_identity_leaks() {
-    let (owner, public, board) = fixture().await;
+    let (owner, public, board, key) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
-        let (app, api) = fixture_routers(p.clone(), ORIGIN.into(), false, None, board_config::PublicRequestLimits::default());
+        let (app, api) = fixture_routers(p.clone(), ORIGIN.into(), false, None, board_config::PublicRequestLimits::default(), key.clone());
         let (_, form_html) = get(&app, &format!("/{b}/"), None).await;
         let form_html = String::from_utf8(form_html).unwrap();
         assert!(form_html.contains("id=\"postPassword\" name=\"pwd\" type=\"hidden\""));
@@ -198,7 +211,7 @@ async fn automatic_cookie_owns_posts_across_forms_and_tabs_without_public_identi
 
 #[tokio::test]
 async fn malformed_reset_and_expired_cookies_cannot_choose_or_recover_an_identity() {
-    let (owner, public, board) = fixture().await;
+    let (owner, public, board, key) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
         let app = fixture_routers(
@@ -207,6 +220,7 @@ async fn malformed_reset_and_expired_cookies_cannot_choose_or_recover_an_identit
             false,
             None,
             board_config::PublicRequestLimits::default(),
+            key.clone(),
         )
         .0;
         let chosen = Capability::generate().unwrap();
@@ -334,10 +348,10 @@ async fn malformed_reset_and_expired_cookies_cannot_choose_or_recover_an_identit
 
 #[tokio::test]
 async fn report_activity_is_private_and_only_successful_reports_receive_cookies() {
-    let (owner, public, board) = fixture().await;
+    let (owner, public, board, key) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
-        let app = fixture_routers(p, ORIGIN.into(), false, None, board_config::PublicRequestLimits::default()).0;
+        let app = fixture_routers(p, ORIGIN.into(), false, None, board_config::PublicRequestLimits::default(), key.clone()).0;
         let (op, _, _) = posted(&app, &format!("/{b}/post"), &[("com", "Owned report target")], None, false).await;
         let response = app.clone().oneshot(form(&format!("/{b}/report"), &[("no", &op.to_string()), ("reason", "Owned anonymous report")], None, false)).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -361,7 +375,7 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
 
 #[tokio::test]
 async fn public_deletion_resumes_the_cookie_with_the_current_transport_peer() {
-    let (owner, public, board) = fixture().await;
+    let (owner, public, board, key) = fixture().await;
     sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
         .bind(&board).execute(&owner).await.unwrap();
     for route in 0..3 {
@@ -371,6 +385,7 @@ async fn public_deletion_resumes_the_cookie_with_the_current_transport_peer() {
             false,
             None,
             board_config::PublicRequestLimits::default(),
+            key.clone(),
         )
         .0;
         let (post, cookie, _) = posted(
@@ -465,6 +480,7 @@ fn fixture_routers(
     production: bool,
     media: Option<board_config::PublicMediaSettings>,
     limits: board_config::PublicRequestLimits,
+    key: std::sync::Arc<board_domain::poster_id::PosterIdKey>,
 ) -> (axum::Router, axum::Router) {
     let (web, api) = board_public::routers_with_options(
         pool,
@@ -474,9 +490,7 @@ fn fixture_routers(
             media,
             limits,
             proxy_uid: None,
-            poster_id_key: Some(std::sync::Arc::new(
-                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
-            )),
+            poster_id_key: Some(key),
             tripcode_key: None,
             country_database: None,
         },

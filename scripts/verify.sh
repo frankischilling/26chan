@@ -25,6 +25,8 @@ python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
 cargo test --workspace --all-features --locked
+cargo test -p board-public --example deletion-fixture --features database-tests --locked
+cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
 npx playwright test tests/browser/anonymous-session.spec.js
 npm run test:global-search
 npm run test:posting-randomizers

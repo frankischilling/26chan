@@ -222,12 +222,47 @@ pub struct StaffPostAuthority<'a> {
     pub identity: Option<StaffPostIdentity<'a>>,
 }
 
+/// Compile-compatible legacy entry point. Without a trusted peer and posting
+/// identity key this fails closed; use `create_staff_post_with_context_and_keys`.
 pub async fn create_staff_post(
     pool: &PgPool,
     slug: &str,
     parent: i64,
     post: &NewPost,
     request_start: DateTime<Utc>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let tripcode = authority
+        .identity
+        .and_then(|identity| identity.tripcode_key);
+    create_staff_post_with_context_and_keys(
+        pool,
+        slug,
+        parent,
+        post,
+        PostingContext {
+            request_start,
+            peer: None,
+            op_password_proof: None,
+        },
+        PostIdentityKeys {
+            tripcode,
+            poster_id: None,
+        },
+        authority,
+    )
+    .await
+}
+
+/// Trusted staff still contribute private posting history. Both peer and key
+/// must come from server-owned state, independent of badge or request fields.
+pub async fn create_staff_post_with_context_and_keys(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    context: PostingContext,
+    keys: PostIdentityKeys<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
     if authority
@@ -238,27 +273,17 @@ pub async fn create_staff_post(
             "Ordinary staff posting context is required.",
         ));
     }
-    let tripcode = authority
-        .identity
-        .and_then(|identity| identity.tripcode_key);
     create_post_in_context(
         pool,
         slug,
         parent,
         post,
         None,
-        PostingContext {
-            request_start,
-            peer: None,
-            op_password_proof: None,
-        },
+        context,
         PostWriteOptions {
             metadata: PostMetadata {
                 spoiler: false,
-                keys: PostIdentityKeys {
-                    tripcode,
-                    poster_id: None,
-                },
+                keys,
                 country_database: None,
                 flag: "",
                 options: "",
@@ -385,7 +410,29 @@ async fn create_post_in_context(
         .request_start
         .with_nanosecond(0)
         .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
+    // Public admission requires a server-owned deployment key and trusted peer
+    // even on boards that do not display poster IDs. Missing infrastructure is
+    // a hard failure; legacy convenience wrappers cannot bypass the gate.
+    let posting_actor = {
+        let key = keys.poster_id.ok_or_else(|| {
+            StoreError::Database(sqlx::Error::Protocol(
+                "Posting identity is unavailable.".into(),
+            ))
+        })?;
+        let peer = context.peer.ok_or_else(|| {
+            StoreError::Database(sqlx::Error::Protocol(
+                "Posting identity is unavailable.".into(),
+            ))
+        })?;
+        key.public_posting_rate_identity(peer)
+    };
     let mut tx = pool.begin().await?;
+    // The decision must see the preceding actor's commit after waiting on its
+    // gate, regardless of the connection's default transaction isolation.
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::posting_cooldown::lock(&mut tx, &posting_actor, parent == 0).await?;
     if staff.is_some() {
         let role: String = sqlx::query_scalar("SELECT current_user::text")
             .fetch_one(&mut *tx)
@@ -474,7 +521,12 @@ async fn create_post_in_context(
         .bind(country.as_ref().map_or("", |value| value.code.as_str()))
         .bind(country.as_ref().map_or("", |value| value.name.as_str()))
         .bind(flag).execute(&mut *tx).await?;
-    let peer = context.peer.map(|peer| peer.to_canonical().to_string());
+    // Badged staff now supply a peer for private cooldown accounting, but must
+    // not thereby acquire public OP membership or direct secret-table access.
+    let peer = context
+        .peer
+        .filter(|_| ordinary)
+        .map(|peer| peer.to_canonical().to_string());
     let staff_op: Option<(bool, Option<DateTime<Utc>>)> = if ordinary_staff && parent > 0 {
         sqlx::query_as("SELECT * FROM content.staff_op_context($1,$2,$3)")
             .bind(slug)
@@ -770,6 +822,20 @@ async fn create_post_in_context(
         .bind(wordfilter_search.as_deref().unwrap_or_default())
         .execute(&mut *tx)
         .await?;
+    // Staff authority is independently verified by the insert proof, including
+    // its minimum janitor rank. The source's staff five-second timer and its
+    // named/meta janitor exception are separate, not implemented in this slice.
+    if staff.is_none() {
+        crate::posting_cooldown::check(
+            &mut tx,
+            &posting_actor,
+            slug,
+            parent,
+            attachment.is_some(),
+            posted_at.timestamp(),
+        )
+        .await?;
+    }
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.
     let robot_applies = match staff.as_ref() {
@@ -885,7 +951,7 @@ async fn create_post_in_context(
     .await?;
     let count_context = keys
         .poster_id
-        .zip(context.peer)
+        .zip(context.peer.filter(|_| ordinary))
         .map(|(key, peer)| key.count_context(slug, thread_id, peer))
         .transpose()
         .map_err(|error| StoreError::Invalid(error.0))?;
@@ -990,6 +1056,9 @@ async fn create_post_in_context(
         })
         .execute(&mut *tx)
         .await?;
+    // The insert-only trigger registers history inside the post savepoint.
+    // A Robot9000 rejection rolls it back together with the post and actions.
+    crate::posting_cooldown::set_insert_actor(&mut tx, &posting_actor).await?;
     if let Some(attachment) = attachment {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)

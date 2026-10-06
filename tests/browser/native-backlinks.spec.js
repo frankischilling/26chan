@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
@@ -27,10 +27,10 @@ const test = base.extend({
     let last;
     async function write(board, resto, com, { tracked = false } = {}) {
       const client = tracked ? context.request : request;
-      const response = await client.post(`/${board}/post`, {
+      const response = await withPostingHistory(() => client.post(`/${board}/post`, {
         headers: fixtureHeaders, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned native backlinks' } : {}), ...(tracked ? { track: '1' } : {}) },
-      });
+      }));
       expect(response.status(), 'The real form submission must persist successfully').toBe(303);
       expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
       const location = response.headers().location;
@@ -177,7 +177,7 @@ test.describe('unmodified persisted backlink graph', () => {
     const action = await page.locator('form.postEditor').getAttribute('action');
     const posted = page.waitForResponse(response => response.request().method() === 'POST'
       && response.url() === new URL(action, origin).href);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     expect((await posted).status()).toBe(303);
     await expect(page).toHaveURL(new RegExp(`/demo/thread/${owned.id}#p[0-9]+$`));
     const source = page.url().match(/#p([0-9]+)$/)[1];

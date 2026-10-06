@@ -46,3 +46,5 @@ ALTER ROLE board_monitor SET statement_timeout = '2s';
 ALTER ROLE board_monitor SET lock_timeout = '1s';
 ALTER ROLE board_monitor SET idle_in_transaction_session_timeout = '2s';
 ALTER ROLE board_monitor SET search_path = pg_catalog;
+CREATE ROLE board_posting_cooldown_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_posting_cooldown_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

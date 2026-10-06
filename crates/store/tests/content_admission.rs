@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::{NewPost, PostIdentityKeys, PostMetadata, PostingContext, StoreError};
 use chrono::Utc;
@@ -30,8 +31,9 @@ impl Fixture {
                 .await
                 .unwrap();
         let boards = [format!("ca{token}"), format!("cb{token}")];
+        support::share_key(&boards[1], &boards[0]);
         for board in &boards {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup) VALUES($1,'Owned content admission','Synthetic',2000,100,100,100,10,true)")
+            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned content admission','Synthetic',2000,100,100,100,10,true,0,0,0)")
                 .bind(board).execute(&owner).await.unwrap();
         }
         let peer = format!("2001:db8:ad:{}:{}::1", &token[..4], &token[4..])
@@ -73,7 +75,7 @@ impl Fixture {
         subject: &str,
         comment: &str,
     ) -> Result<i64, StoreError> {
-        board_store::create_post_with_metadata(
+        support::create_post_with_metadata(
             &self.public,
             &self.boards[board],
             parent,
@@ -680,6 +682,8 @@ async fn ordered_reject_autosage_log_quiet_and_global_ban_are_persisted() {
     .execute(&f.owner)
     .await
     .unwrap();
+    // The prior OP belongs to an independent ban-expiry setup operation.
+    support::cleanup_posting(&f.owner, &f.boards[0]).await;
     f.create(1, 0, "", "allowed after expiry").await.unwrap();
     f.cleanup().await;
 }
@@ -724,7 +728,7 @@ async fn invalid_policy_and_capacity_failures_preserve_post_and_effect_state() {
     let board = f.boards[0].clone();
     let peer = f.peer;
     let pending = tokio::spawn(async move {
-        board_store::create_post_with_context(
+        support::create_post_with_context(
             &public,
             &board,
             0,
@@ -888,7 +892,7 @@ async fn filename_proxy_uses_authenticated_approved_metadata_and_byte_semantics(
         upload,
         spoiler: false,
     };
-    let result = board_store::create_post_with_context(
+    let result = support::create_post_with_context(
         &f.public,
         &f.boards[0],
         0,
@@ -1042,15 +1046,15 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
         minted: true,
         now: Utc::now(),
     };
-    let create = |board: usize, session: PostingSession| {
+    let create = |board: usize, parent: i64, session: PostingSession| {
         let public = f.public.clone();
         let board = f.boards[board].clone();
         let peer = f.peer;
         async move {
-            board_store::create_post_with_anonymous_session(
+            support::create_post_with_anonymous_session(
                 &public,
                 &board,
-                0,
+                parent,
                 &NewPost {
                     name: "Anonymous".into(),
                     subject: "".into(),
@@ -1081,7 +1085,7 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
             .await
         }
     };
-    create(0, session).await.unwrap();
+    let op = create(0, 0, session).await.unwrap();
     let rule = f.rule("paper").await;
     sqlx::query("UPDATE admission.rules SET lenient=true WHERE id=$1")
         .bind(rule)
@@ -1096,7 +1100,7 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
         ..session
     };
     assert!(matches!(
-        create(0, session).await,
+        create(0, 0, session).await,
         Err(StoreError::ContentRejected(_))
     ));
     sqlx::query("UPDATE post_secrets.anonymous_sessions SET posts=11 WHERE token_hash=$1")
@@ -1104,8 +1108,11 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
         .execute(&f.owner)
         .await
         .unwrap();
+    // Retain same-actor session contention across boards without asking one
+    // actor to create two OPs in the cross-board cooldown window.
+    support::cleanup_posting(&f.owner, &f.boards[0]).await;
     let (a, b) = tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        tokio::join!(create(0, session), create(1, session))
+        tokio::join!(create(0, op, session), create(1, 0, session))
     })
     .await
     .unwrap();
@@ -1115,7 +1122,7 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
     sqlx::query("UPDATE post_secrets.anonymous_sessions SET expires_at=extract(epoch FROM clock_timestamp())::bigint-1 WHERE token_hash=$1")
         .bind(fingerprints.token.as_slice()).execute(&f.owner).await.unwrap();
     assert!(matches!(
-        create(0, session).await,
+        create(0, 0, session).await,
         Err(StoreError::AuthorizationChanged)
     ));
     assert_eq!(f.count("posts").await, 3);

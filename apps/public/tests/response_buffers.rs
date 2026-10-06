@@ -1,3 +1,5 @@
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     Router,
     body::Body,
@@ -172,8 +174,9 @@ mod persisted {
     use sqlx::PgPool;
 
     async fn exercise(owner: PgPool, pool: PgPool, slug: String) {
-        let (normal, _) = board_public::routers_with_limits(
+        let (normal, _) = posting_fixture::routers_with_limits(
             pool.clone(),
+            &slug,
             ORIGIN.into(),
             false,
             None,
@@ -216,8 +219,9 @@ mod persisted {
         // Two real replies make the configured one-reply tail eligible. The
         // bounded numeric acknowledgement remains available with a one-byte
         // dynamic output ceiling after the write has committed.
-        let (write_only, _) = board_public::routers_with_limits(
+        let (write_only, _) = posting_fixture::routers_with_limits(
             pool.clone(),
+            &slug,
             ORIGIN.into(),
             false,
             None,
@@ -475,7 +479,7 @@ mod persisted {
         let mut random = [0_u8; 5];
         OsRng.fill_bytes(&mut random);
         let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,json_tail_size) VALUES($1,'Output budgets','Owned output fixture',4000,100,50,10,10,3600,10,1)")
+        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,json_tail_size) VALUES(0,0,0,$1,'Output budgets','Owned output fixture',4000,100,50,10,10,3600,10,1)")
             .bind(&slug).execute(&owner).await.unwrap();
         let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
         public.close().await;

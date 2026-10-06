@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{body::Body, extract::ConnectInfo, http::Request};
 use board_store::{NewPost, PostingContext, StoreError};
 use chrono::{DateTime, Utc};
@@ -31,7 +34,7 @@ struct Fixture {
 }
 impl Fixture {
     async fn create(&self, parent: i64, seconds: i64, peer: &str, sage: bool) -> i64 {
-        board_store::create_post_with_context(
+        posting_fixture::create_post_with_context(
             &self.public,
             &self.slug,
             parent,
@@ -151,7 +154,7 @@ impl Fixture {
         let mut invalid = post(false);
         invalid.deletion_hash = "x".repeat(257);
         assert!(matches!(
-            board_store::create_post_with_context(
+            posting_fixture::create_post_with_context(
                 &self.public,
                 &self.slug,
                 id,
@@ -179,7 +182,12 @@ impl Fixture {
     }
     async fn http(&self) {
         sqlx::query("UPDATE content.boards SET op_bump_initial_seconds=900,op_bump_repeat_seconds=300 WHERE slug=$1").bind(&self.slug).execute(&self.owner).await.unwrap();
-        let app = board_public::router(self.public.clone(), "http://127.0.0.1:3000".into(), false);
+        let app = posting_fixture::router(
+            self.public.clone(),
+            &self.slug,
+            "http://127.0.0.1:3000".into(),
+            false,
+        );
         let send = |parent, peer: IpAddr| {
             let app = app.clone();
             let slug = self.slug.clone();
@@ -348,7 +356,7 @@ impl Fixture {
             let pool = self.public.clone();
             let slug = self.slug.clone();
             jobs.spawn(async move {
-                board_store::create_post_with_context(
+                posting_fixture::create_post_with_context(
                     &pool,
                     &slug,
                     id,
@@ -405,7 +413,7 @@ async fn source_op_peer_intervals_are_private_atomic_and_deletion_aware() {
     let mut random = [0; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'OP rules','Owned synthetic fixture',1000,1000,1000,10,10)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'OP rules','Owned synthetic fixture',1000,1000,1000,10,10)").bind(&slug).execute(&owner).await.unwrap();
     let f = Fixture {
         owner: owner.clone(),
         public: public.clone(),

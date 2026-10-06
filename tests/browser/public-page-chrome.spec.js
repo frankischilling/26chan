@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -48,8 +48,8 @@ for (const catalog of [false, true]) {
 test('thread Settings reuses all three server links without duplicate handlers or storage writes', async ({ page, context, request }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const password = 'owned-chrome-thread-password';
-  const created = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { resto: '0', sub: 'Owned navigation thread', com: 'Owned page navigation fixture.', password } });
+  const created = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { resto: '0', sub: 'Owned navigation thread', com: 'Owned page navigation fixture.', password } }));
   expect(created.status()).toBe(303);
   const location = created.headers().location.split('#')[0], id = location.split('/').at(-1);
   await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true })));

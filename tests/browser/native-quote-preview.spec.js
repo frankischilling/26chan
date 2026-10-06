@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
@@ -13,10 +13,10 @@ const test = base.extend({
     const password = 'owned-quote-preview-password';
     const threads = [];
     const write = async (board, resto, com) => {
-      const response = await request.post(`/${board}/post`, {
+      const response = await withPostingHistory(() => request.post(`/${board}/post`, {
         headers: { Origin: origin }, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned quote preview' } : {}) },
-      });
+      }));
       expect(response.status(), 'Persisted preview fixture must be accepted').toBe(303);
       const location = response.headers().location;
       const match = location?.match(/\/thread\/(\d+)#p(\d+)$/);

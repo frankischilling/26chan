@@ -82,7 +82,7 @@ cargo run -p board-public --locked
 
 Open `http://127.0.0.1:3000/`. `/demo/` contains sample posts, and `/test/` accepts new threads.
 
-The setup script creates a separate disposable database on port 55432 and generates credentials and a fresh development `POSTER_ID_KEY` in the ignored `.local/database.env` and `.local/database.ps1` files. Reloading these files preserves the same development identity key across server restarts. It refuses to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
+The setup script creates a separate disposable database on port 55432 and generates credentials and a fresh development `POSTER_ID_KEY` in the ignored `.local/database.env` and `.local/database.ps1` files. Staff setup copies that validated key into `STAFF_POSTER_ID_KEY` in the private `.local/staff.env` and `.local/staff.ps1` files; load the staff file when starting the staff server. Reloading these files preserves the same development identity key across server restarts. The scripts refuse to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
 
 For browser JSON clients on a separate origin, enable the optional [read-only API listener](docs/api.md) with `API_ORIGIN` and `API_BIND_ADDR`. It permits CORS from the configured board origin and shares the public process's database and resource limits.
 
@@ -142,6 +142,7 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 ## Documentation
 
 - [Compatibility matrix and exceptions](docs/compatibility.md)
+- [Ordinary posting cooldowns and deployment requirements](docs/source-posting-cooldowns.md)
 - [Read-only API origin and browser contract](docs/api.md)
 - [Architecture and trust boundaries](docs/architecture.md)
 - [Deployment and operations](docs/operations.md)

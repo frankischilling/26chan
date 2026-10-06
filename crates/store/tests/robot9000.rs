@@ -1,14 +1,10 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
-use board_domain::poster_id::PosterIdKey;
 use board_store::{NewPost, PostIdentityKeys, PostMetadata, PostingContext, StoreError};
 use chrono::Utc;
 use sqlx::PgPool;
 use std::net::{IpAddr, Ipv4Addr};
-
-fn key() -> PosterIdKey {
-    PosterIdKey::parse(&"12".repeat(32)).unwrap()
-}
 
 async fn create(
     pool: &PgPool,
@@ -19,8 +15,8 @@ async fn create(
     options: &str,
     attachment: Option<&board_store::post_media::NewAttachment>,
 ) -> Result<i64, StoreError> {
-    let key = key();
-    board_store::create_post_with_metadata(
+    let key = support::key(board);
+    support::create_post_with_metadata(
         pool,
         board,
         parent,
@@ -63,7 +59,7 @@ async fn fixture() -> (PgPool, PgPool, String) {
             .fetch_one(&admin)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned Robot9000','Synthetic',2000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned Robot9000','Synthetic',2000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&admin).await.unwrap();
     (admin, public, board)
 }
@@ -125,7 +121,7 @@ async fn originality_mutes_decay_and_rejections_are_persisted_atomically() {
         let after: String = sqlx::query_scalar("SELECT to_jsonb(t)::text FROM content.threads t WHERE id=$1")
             .bind(first).fetch_one(&a).await.unwrap();
         assert_eq!(before,after,"Rejected reply must not change counts, bumps or clocks");
-        let fingerprint=key().robot9000_fingerprint(&b,"192.0.2.1".parse().unwrap()).unwrap();
+        let fingerprint=support::key(&b).robot9000_fingerprint(&b,"192.0.2.1".parse().unwrap()).unwrap();
         sqlx::query("UPDATE post_secrets.robot9000_mutes SET mute_until=date_trunc('second',clock_timestamp())+interval '60 seconds',next_expire=date_trunc('second',clock_timestamp())+interval '60 seconds' WHERE board=$1 AND actor=$2")
             .bind(&b).bind(fingerprint.as_slice()).execute(&a).await.unwrap();
         let unchanged: String=sqlx::query_scalar("SELECT to_jsonb(m)::text FROM post_secrets.robot9000_mutes m WHERE board=$1 AND actor=$2")
@@ -198,7 +194,7 @@ async fn private_state_capacity_and_missing_identity_fail_closed() {
         sqlx::query("UPDATE content.boards SET robot9000=true,robot9000_state_limit=1,thread_limit=1 WHERE slug=$1")
             .bind(&b).execute(&a).await.unwrap();
         let input=NewPost {name:"Anonymous".into(),subject:"Owned".into(),comment:"first original comment".into(),deletion_hash:"owned".into(),sage:false};
-        assert!(matches!(board_store::create_post(&p,&b,0,&input).await,Err(StoreError::Invalid("Robot9000 identity is unavailable."))));
+        assert!(matches!(board_store::create_post(&p,&b,0,&input).await, Err(StoreError::Database(sqlx::Error::Protocol(message))) if message == "Posting identity is unavailable."));
         assert_eq!(state(&a,&b).await,(0,0,0,0));
         let first=create(&p,&b,0,&input.comment,1,"",None).await.unwrap();
         assert!(matches!(create(&p,&b,0,"a different original text",2,"",None).await,Err(StoreError::Database(_))));

@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -23,7 +24,7 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.locator('form.postEditor input[name=name]')).toHaveAttribute('type', 'hidden');
       await page.screenshot({ path: info.outputPath('forced-anonymous-form.png'), fullPage: true });
       await page.locator('#com').fill('Owned anonymous OP'); await expect(page.locator('#postPassword')).toHaveValue('');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(new RegExp(`/${slug}/thread/\\d+#p\\d+$`));
       const op = /#p(\d+)$/.exec(page.url())[1];
       await expect(page.locator(`#pi${op} .name`)).toHaveText('Anonymous');
@@ -33,11 +34,11 @@ for (const javaScriptEnabled of [false, true]) {
         await expect(page.locator('#qr-name')).toHaveCount(0);
         await expect(page.locator('#quickReply input[name=name]')).toHaveAttribute('type', 'hidden');
         await page.locator('#qrCom').fill('Owned anonymous reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
-        const url = page.url(); await page.locator('#quickReply input[type=submit]').click();
+        const url = page.url(); await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
         await expect(page.locator('.reply .postMessage')).toHaveText('Owned anonymous reply'); expect(page.url()).toBe(url);
       } else {
         await page.locator('#com').fill('Owned anonymous reply'); await expect(page.locator('#postPassword')).toHaveValue('');
-        await page.getByRole('button', { name: 'Post', exact: true }).click();
+        await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       }
       await expect(page.locator('.reply .postInfo .name')).toHaveText('Anonymous');
       await page.reload(); await expect(page.locator('.reply .postInfo .name')).toHaveText('Anonymous');

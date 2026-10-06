@@ -1,12 +1,12 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-post-menu-event-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const response = await write({ resto: '0', sub: 'Owned menu event', com: 'Owned OP for menu events' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];

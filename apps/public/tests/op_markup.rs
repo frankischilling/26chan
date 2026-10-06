@@ -14,14 +14,14 @@ use tower::ServiceExt;
 const RAW: &str = "[b]<script>[/b][i]italic[/i][red]red[/red][green]green[/green][blue]blue[/blue]";
 const PASSWORD: &str = "owned-op-markup-password";
 
-async fn submit(
+async fn submit_response(
     app: &Router,
     slug: &str,
     parent: i64,
     peer: Option<&str>,
     password: &str,
     mode: usize,
-) -> i64 {
+) -> axum::response::Response {
     let fields = [
         ("mode", "regist".into()),
         ("resto", parent.to_string()),
@@ -70,7 +70,18 @@ async fn submit(
             .extensions_mut()
             .insert(ConnectInfo(peer.parse::<SocketAddr>().unwrap()));
     }
-    let response = app.clone().oneshot(request).await.unwrap();
+    app.clone().oneshot(request).await.unwrap()
+}
+
+async fn submit(
+    app: &Router,
+    slug: &str,
+    parent: i64,
+    peer: Option<&str>,
+    password: &str,
+    mode: usize,
+) -> i64 {
+    let response = submit_response(app, slug, parent, peer, password, mode).await;
     if mode & 4 == 0 {
         assert_eq!(response.status(), 200);
         let json: serde_json::Value =
@@ -106,8 +117,28 @@ async fn get(app: &Router, path: &str) -> String {
     .unwrap()
 }
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(fixture_key()),
+            country_database: None,
+        },
+    );
     let op = submit(&app, &slug, 0, Some("192.0.2.10:6000"), PASSWORD, 0).await;
     assert_eq!(
         board_store::find_post(&public, &slug, op)
@@ -123,8 +154,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             (Some("[::ffff:192.0.2.10]:6002"), "different-password", true),
             (Some("192.0.2.11:6000"), PASSWORD, true),
             (Some("192.0.2.11:6001"), "different-password", false),
-            (None, PASSWORD, true),
-            (None, "different-password", false),
+            (Some("192.0.2.16:6000"), PASSWORD, true),
+            (Some("192.0.2.17:6000"), "different-password", false),
         ] {
             let id = submit(&app, &slug, op, peer, password, mode).await;
             let saved = board_store::find_post(&public, &slug, id).await.unwrap();
@@ -147,6 +178,20 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             );
         }
     }
+    // A password cannot replace the mandatory trusted transport identity.
+    for mode in 0..8 {
+        for password in [PASSWORD, "different-password"] {
+            let response = submit_response(&app, &slug, op, None, password, mode).await;
+            assert_eq!(response.status(), 503);
+            assert!(!response.headers().contains_key("set-cookie"));
+            let body = to_bytes(response.into_body(), 8192).await.unwrap();
+            assert!(String::from_utf8_lossy(&body).contains("Posting identity is unavailable."));
+        }
+    }
+    assert_eq!(
+        board_store::posts(&public, &slug, op).await.unwrap().len(),
+        expected.len()
+    );
     // Password matching must not become the address-only self-bump identity.
     let owner_rows: i64 =
         sqlx::query_scalar("SELECT count(*) FROM post_secrets.op_replies WHERE thread_id=$1")
@@ -336,6 +381,9 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     }
     for field in ["op_markup", "comment_format", "op_password_proof"] {
         let request = Request::post(format!("/{slug}/post"))
+            .extension(ConnectInfo(
+                "192.0.2.18:6000".parse::<SocketAddr>().unwrap(),
+            ))
             .header("origin", "http://127.0.0.1:3000")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -371,7 +419,7 @@ async fn source_op_markup_uses_address_or_password_and_preserves_locked_posting_
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup) VALUES($1,'OP markup','Owned fixture',4000,200,150,100,10,true)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'OP markup','Owned fixture',4000,200,150,100,10,true,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

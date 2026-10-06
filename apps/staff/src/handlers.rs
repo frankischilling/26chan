@@ -109,6 +109,9 @@ pub async fn post_limits_javascript() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
+    if state.config.poster_id_key.is_none() {
+        return Err(AppError::Internal);
+    }
     auth::check_identity(&state.auth, "board_auth").await?;
     auth::check_identity(&state.staff, "board_staff").await?;
     sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
@@ -120,6 +123,33 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     sqlx::query("SELECT post_id,available FROM content.staff_post_media LIMIT 0")
         .execute(&state.staff)
         .await?;
+    sqlx::query("SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 0")
+        .execute(&state.staff)
+        .await?;
+    let posting_history: bool = sqlx::query_scalar(
+        "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
+         AND to_regprocedure('content.record_posting_history(bytea,bigint)') IS NULL
+         AND EXISTS (
+             SELECT 1 FROM pg_catalog.pg_trigger t
+             JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+             JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+             WHERE t.tgrelid='content.posts'::regclass
+               AND t.tgname='record_inserted_posting_history'
+               AND t.tgtype=5 AND t.tgenabled='O' AND NOT t.tgisinternal
+               AND t.tgqual IS NULL AND t.tgnargs=0
+               AND p.oid=to_regprocedure('content.record_inserted_posting_history()')
+               AND p.prorettype='trigger'::regtype AND p.prosecdef
+               AND r.rolname='board_posting_cooldown_owner'
+               AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+                   WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+               AND NOT has_function_privilege(current_user,p.oid,'EXECUTE')
+         )",
+    )
+    .fetch_one(&state.staff)
+    .await?;
+    if !posting_history {
+        return Err(AppError::Internal);
+    }
     Ok("ready")
 }
 
@@ -680,15 +710,15 @@ pub async fn post_message(
         deletion_hash: String::new(),
         sage: source.sage,
     };
+    if (state.config.production && state.config.proxy.is_none()) || peer.ip().is_none() {
+        return Err(AppError::Internal);
+    }
+    let key = state
+        .config
+        .poster_id_key
+        .as_deref()
+        .ok_or(AppError::Internal)?;
     let result = if badge.is_none() {
-        if (state.config.production && state.config.proxy.is_none()) || peer.ip().is_none() {
-            return Err(AppError::Internal);
-        }
-        let key = state
-            .config
-            .poster_id_key
-            .as_deref()
-            .ok_or(AppError::Internal)?;
         let op_hash = if input.thread > 0 {
             board_store::staff_op_deletion_hash(&state.staff, &input.board, input.thread)
                 .await
@@ -722,12 +752,20 @@ pub async fn post_message(
         )
         .await
     } else {
-        board_store::create_staff_post(
+        board_store::create_staff_post_with_context_and_keys(
             &state.staff,
             &input.board,
             input.thread,
             &post,
-            request_start,
+            board_store::PostingContext {
+                request_start,
+                peer: peer.ip(),
+                op_password_proof: None,
+            },
+            board_store::PostIdentityKeys {
+                tripcode: state.config.tripcode_key.as_deref(),
+                poster_id: Some(key),
+            },
             authority,
         )
         .await

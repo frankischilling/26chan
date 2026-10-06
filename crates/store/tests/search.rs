@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::NewPost;
 use sqlx::PgPool;
@@ -30,7 +31,7 @@ async fn search_groups_public_matches_and_never_crosses_board_visibility() {
     let marker = format!("owned-search-{seed:x}");
 
     for (slug, staff_only) in [(&public_slug, false), (&private_slug, true)] {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,staff_only) VALUES($1,'Search fixture','Owned search data',16000,100,100,100,10,$2)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,staff_only,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Search fixture','Owned search data',16000,100,100,100,10,$2,0,0,0)")
             .bind(slug)
             .bind(staff_only)
             .execute(&owner)
@@ -44,7 +45,7 @@ async fn search_groups_public_matches_and_never_crosses_board_visibility() {
     let test_private = private_slug.clone();
     let test_marker = marker.clone();
     let outcome = tokio::spawn(async move {
-        let first = board_store::create_post(
+        let first = support::create_post(
             &test_public,
             &test_slug,
             0,
@@ -52,7 +53,7 @@ async fn search_groups_public_matches_and_never_crosses_board_visibility() {
         )
         .await
         .unwrap();
-        board_store::create_post(
+        support::create_post(
             &test_public,
             &test_slug,
             first,
@@ -60,7 +61,7 @@ async fn search_groups_public_matches_and_never_crosses_board_visibility() {
         )
         .await
         .unwrap();
-        board_store::create_post(
+        support::create_post(
             &test_public,
             &test_slug,
             first,
@@ -68,7 +69,7 @@ async fn search_groups_public_matches_and_never_crosses_board_visibility() {
         )
         .await
         .unwrap();
-        let second = board_store::create_post(
+        let second = support::create_post(
             &test_public,
             &test_slug,
             0,

@@ -1,4 +1,4 @@
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -10,9 +10,9 @@ const soundcloud = 'https://soundcloud.com/forss/flickermood';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-native-embeds-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const response = await write({ resto: '0', sub: 'Owned native embeds', com: `${youtube}\n${soundcloud}` });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];

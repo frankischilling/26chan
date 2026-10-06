@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { spawn, spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -36,11 +36,11 @@ test('public spoiler policy controls Quick Reply and forged text choices on desk
         await expect(qr.locator('[name=spoiler]')).toHaveCount(enabled ? 1 : 0);
         if (enabled) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
         await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
-        const posted = await page.request.post(`${publicOrigin}/${board}/imgboard.php`, {
+        const posted = await withPostingHistory(() => page.request.post(`${publicOrigin}/${board}/imgboard.php`, {
           headers: { Origin: publicOrigin, Accept: 'application/json' },
           multipart: { mode: 'regist', resto: String(data.thread), pwd: 'owned-public-spoiler-password',
             com: 'Owned forged spoiler text', spoiler: 'false' },
-        });
+        }));
         expect(posted.status()).toBe(200);
         const result = await posted.json(); expect(result.error).toBeUndefined();
         const json = await (await page.request.get(`${publicOrigin}/${board}/thread/${data.thread}.json`)).json();
@@ -100,7 +100,7 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
         await page.getByLabel('Comment', { exact: true }).fill(comment);
         const [response] = await Promise.all([
           page.waitForResponse(response => response.url() === 'http://localhost:3001/post' && response.request().method() === 'POST'),
-          page.getByRole('button', { name: 'Post', exact: true }).click(),
+          withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click()),
         ]);
         if (noScript) await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
         const reason = response.status() === 303 ? '' : (await response.text()).slice(0, 256);
@@ -136,8 +136,8 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
       const id = publicPage.locator(`#p${op} .posteruid .hand:visible`);
       await id.click(); await expect(id).toHaveAttribute('aria-pressed', 'true');
       await expect(publicPage.locator(`#p${flagged}`)).toHaveClass(/poster-id-highlight/);
-      const posted = await page.request.post(`${publicOrigin}/${board}/post`, { headers: { Origin: publicOrigin }, maxRedirects: 0,
-        form: { resto: op, name: 'Owned public peer', email: '', sub: '', com: 'Owned public and staff identity continuity', password } });
+      const posted = await withPostingHistory(() => page.request.post(`${publicOrigin}/${board}/post`, { headers: { Origin: publicOrigin }, maxRedirects: 0,
+        form: { resto: op, name: 'Owned public peer', email: '', sub: '', com: 'Owned public and staff identity continuity', password } }));
       expect(posted.status()).toBe(303);
       const added = posted.headers().location.match(/#p(\d+)$/)[1];
       await publicPage.locator('.threadNav.mobile a[data-cmd="update"]').first().click();
@@ -273,7 +273,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await page.getByLabel('Subject', { exact: true }).fill('s'.repeat(255));
     await staffComment.fill('Script-free staff notice ' + String.fromCodePoint(0x20000).repeat(4900) + ' <script>harmless</script>');
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
     const moderatorPost = new URL(page.url()).searchParams.get('posted');
     await expect(page.getByRole('link', { name: 'Open public post' })).toHaveAttribute('href', `${staffThreadUrl}#p${moderatorPost}`);
@@ -466,7 +466,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await page.getByLabel('Name', { exact: true }).fill(`Owned administrator##${administratorSecret}`);
     await page.getByLabel('Comment', { exact: true }).fill(`Administrator reply >>${moderatorPost}`);
     await page.getByLabel('Highlight administrator post').check();
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
     const adminPost = new URL(page.url()).searchParams.get('posted');
     await publicStaffPage.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
@@ -499,7 +499,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       await page.getByLabel('Name', { exact: true }).fill(`Owned catalog ${badge}##${administratorSecret}`);
       await page.getByLabel('Subject', { exact: true }).fill('Owned forced subject');
       await page.getByLabel('Comment', { exact: true }).fill('Owned catalog badge predicate');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(/\/post\?board=.*&thread=.*&posted=[1-9][0-9]*$/);
       const op = new URL(page.url()).searchParams.get('posted');
       const stored = (await (await page.request.get(`http://127.0.0.1:3000/${board}/thread/${op}.json`)).json()).posts[0];

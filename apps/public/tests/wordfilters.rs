@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -35,7 +38,7 @@ async fn fixture() -> (PgPool, PgPool, String) {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,rss_enabled,word_filter_enabled) VALUES($1,'Owned wordfilters','Owned wordfilter HTTP fixture',16000,100,100,100,10,true,true,true,true,true,true)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,rss_enabled,word_filter_enabled) VALUES(0,0,0,$1,'Owned wordfilters','Owned wordfilter HTTP fixture',16000,100,100,100,10,true,true,true,true,true,true)").bind(&slug).execute(&owner).await.unwrap();
     (owner, public, slug)
 }
 async fn cleanup(owner: &PgPool, slug: &str) {
@@ -58,7 +61,7 @@ async fn caller_cleanup_precedes_filters_and_markup_without_repeating_the_early_
             "../../../fixtures/wordfilter-posting-reference.json"
         ))
         .unwrap();
-        let app = board_public::router(p.clone(), "http://127.0.0.1:3000".into(), false);
+        let app = posting_fixture::router(p.clone(), &b, "http://127.0.0.1:3000".into(), false);
         for (profile, source) in [(0, "global"), (1, "ck"), (2, "asp"), (3, "v"), (4, "test")] {
             sqlx::query("UPDATE content.boards SET word_filter_profile=$2 WHERE slug=$1")
                 .bind(&b)
@@ -172,7 +175,12 @@ async fn original_test_board_keeps_its_source_filter_while_generic_fixtures_stay
             .unwrap()
             .word_filter_enabled
     );
-    let app = board_public::router(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let app = posting_fixture::router(
+        public.clone(),
+        "test",
+        "http://127.0.0.1:3000".into(),
+        false,
+    );
     let input = "ordinary text fam soy CUCK finna pcfat";
     let fields = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("com", input)
@@ -201,6 +209,13 @@ async fn original_test_board_keeps_its_source_filter_while_generic_fixtures_stay
     ] {
         sqlx::query(query).bind(id).execute(&owner).await.unwrap();
     }
+    posting_fixture::cleanup_actor_posting(
+        &owner,
+        "test",
+        &posting_fixture::key("test"),
+        posting_fixture::peer(),
+    )
+    .await;
     let typed = PreparedComment::decode(saved.wordfilter_payload.as_deref().unwrap()).unwrap();
     let rolls = typed.rolls().unwrap().choices();
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
@@ -223,7 +238,7 @@ async fn negotiated_posts_render_the_same_source_result_on_pages_json_updater_ca
     let (a, p, b) = (owner.clone(), public.clone(), slug.clone());
     let outcome = tokio::spawn(async move {
         let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../fixtures/wordfilter-posting-reference.json")).unwrap();
-        let (app, api) = board_public::routers(p.clone(), "http://127.0.0.1:3000".into(), false);
+        let (app, api) = posting_fixture::routers(p.clone(), &b, "http://127.0.0.1:3000".into(), false);
         let input = "[code]soy fam CUCK[/code]";
         for (profile, source) in [(0,"global"),(1,"ck"),(2,"asp"),(3,"v"),(4,"test")] {
             sqlx::query("UPDATE content.boards SET word_filter_profile=$2 WHERE slug=$1").bind(&b).bind(profile as i16).execute(&a).await.unwrap();
@@ -278,9 +293,9 @@ async fn late_normalized_search_matches_and_literal_script_text_stay_bounded_and
     let (owner, public, slug) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), slug.clone());
     let outcome=tokio::spawn(async move {
-        let app=board_public::router(p.clone(),"http://127.0.0.1:3000".into(),false);
+        let app=posting_fixture::router(p.clone(), &b,"http://127.0.0.1:3000".into(),false);
         let comment=format!("{} [code]{} https://boards.4chan.org/g/thread/42 target~?rep?~needle <script>literal</script> {}[/code]", "prefix ".repeat(230),"code prefix ".repeat(150),"tail ".repeat(200));
-        let id=board_store::create_post(&p,&b,0,&board_store::NewPost{name:"Anonymous".into(),subject:"Owned late search".into(),comment,deletion_hash:"owned".into(),sage:false}).await.unwrap();
+        let id=posting_fixture::create_post(&p,&b,0,&board_store::NewPost{name:"Anonymous".into(),subject:"Owned late search".into(),comment,deletion_hash:"owned".into(),sage:false}).await.unwrap();
         let text: String=sqlx::query_scalar("SELECT wordfilter_search FROM content.posts WHERE id=$1").bind(id).fetch_one(&a).await.unwrap();
         assert!(text.contains(">>>/g/42 targetneedle <script>literal</script>"));
         for query in [">>>/g/42","targetneedle","<script>literal</script>"] {

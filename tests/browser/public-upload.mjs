@@ -18,7 +18,12 @@ const screenshots = process.env.PUBLIC_UPLOAD_SCREENSHOTS;
 if (screenshots) assert.ok(path.isAbsolute(screenshots));
 assert.equal(origin.hostname, '127.0.0.1');
 assert.equal(origin.protocol, 'http:');
-assert.match(board, /^[a-z0-9]{1,10}$/);
+assert.match(board, /^u[0-9a-f]{8}$/);
+// Private fixture identity and cleanup remain exclusively in the supervisor.
+for (const name of Object.keys(process.env)) {
+  assert.ok(!name.endsWith('DATABASE_URL') && !['POSTER_ID_KEY', 'PUBLIC_INTAKE_TOKEN'].includes(name),
+    'browser qualification must not inherit service credentials');
+}
 let browser;
 let cancelled = false;
 const cancel = () => {

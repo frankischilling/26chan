@@ -21,7 +21,7 @@ function fixture(source, environment = {}) {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import assert from 'node:assert/strict';
       import { readFileSync, existsSync, chmodSync, writeFileSync, rmSync } from 'node:fs';
-      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota } from ${JSON.stringify(moduleUrl)};
+      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota, withPostingHistory } from ${JSON.stringify(moduleUrl)};
       ${source}
     `], {
       encoding: 'utf8', timeout: 10_000,
@@ -244,4 +244,68 @@ test('an uncertain init retains its proof, refuses blind re-init, and permits ex
     assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
   `);
   assert.deepEqual(commands, ['init', 'finish']);
+});
+
+
+test('posting scopes serialize independently, retain identity, and never reset deletion quota', () => {
+  const { commands } = fixture(`
+    const run = initializeDeletionQuotaRun();
+    const proof = readFileSync(process.env.BROWSER_DELETION_QUOTA_MANIFEST, 'utf8');
+    try {
+      const sequence = [];
+      await Promise.all([
+        withPostingHistory(async () => { sequence.push('first'); await new Promise(r => setTimeout(r, 20)); sequence.push('last'); }),
+        withPostingHistory(async () => { sequence.push('second'); }),
+      ]);
+      assert.deepEqual(sequence, ['first', 'last', 'second']);
+      await assert.rejects(withPostingHistory(async () => { throw new Error('posting failure'); }), /posting failure/);
+      await withDeletionQuota(async () => {
+        assert.equal(await withPostingHistory(async () => 17), 17);
+      });
+      assert.equal(prepareDeletionQuotaRun(), run);
+      assert.equal(readFileSync(process.env.BROWSER_DELETION_QUOTA_MANIFEST, 'utf8'), proof);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset-posting', 'reset-posting', 'reset-posting', 'reset', 'reset-posting', 'check', 'finish']);
+});
+
+test('posting scopes reject nesting and invalid manifests before touching history', () => {
+  const { commands } = fixture(`
+    await assert.rejects(withPostingHistory(async () => {}), /manifest is missing/);
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    try {
+      chmodSync(filename, 0o644);
+      await assert.rejects(withPostingHistory(async () => {}), /Private owned/);
+      chmodSync(filename, 0o600);
+      await withPostingHistory(async () => {
+        await assert.rejects(withPostingHistory(async () => {}), /Nested posting history/);
+      });
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset-posting', 'finish']);
+});
+
+test('failed posting reset never runs or retries the action and releases its queue', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-reset-posting';
+    try {
+      writeFileSync(fail, 'synthetic failure');
+      let called = false;
+      await assert.rejects(withPostingHistory(async () => { called = true; }), /reset-posting failed/);
+      assert.equal(called, false);
+      rmSync(fail);
+      await withPostingHistory(async () => { called = true; });
+      assert.equal(called, true);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset-posting', 'reset-posting', 'finish']);
+});
+
+test('visual-only posting scope needs no manifest and returns the callback result', () => {
+  const { commands } = fixture(`assert.equal(await withPostingHistory(async () => 23), 23);`, {
+    VISUAL_FIXTURE_SERVER: '1', MIGRATION_DATABASE_URL: '',
+  });
+  assert.deepEqual(commands, []);
 });
