@@ -2,6 +2,10 @@ import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
+// API contexts share Playwright's keep-alive agent. Complete each fixture
+// exchange on its own connection so later setup cannot reuse a socket at the
+// public listener's retirement deadline. Browser requests keep their defaults.
+const fixtureHeaders = { Origin: origin, Connection: 'close' };
 const mobileAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorrow'];
 // Pinned theme CSS, including the v1191 extension's burichan override.
@@ -23,10 +27,11 @@ const test = base.extend({
     async function write(board, resto, com, { tracked = false } = {}) {
       const client = tracked ? context.request : request;
       const response = await client.post(`/${board}/post`, {
-        headers: { Origin: origin }, maxRedirects: 0,
+        headers: fixtureHeaders, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned native backlinks' } : {}), ...(tracked ? { track: '1' } : {}) },
       });
       expect(response.status(), 'The real form submission must persist successfully').toBe(303);
+      expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
       const location = response.headers().location;
       const ids = location?.match(/\/thread\/(\d+)#p(\d+)$/);
       expect(ids, 'The posting redirect must identify the actual thread and post').not.toBeNull();
@@ -50,9 +55,11 @@ const test = base.extend({
       });
     } finally {
       for (const { board, id } of threads.reverse()) {
-        expect((await request.post(`/${board}/delete`, {
-          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
-        })).status(), 'Only this test\'s owned threads are deleted').toBe(303);
+        const response = await request.post(`/${board}/delete`, {
+          headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(response.status(), 'Only this test\'s owned threads are deleted').toBe(303);
+        expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
       }
     }
   },
@@ -625,7 +632,10 @@ test.describe('persisted layout and preview integration', () => {
 test('the real backlink module is allowed as a same-origin page asset but rejected as a worker and foreign-origin module', async ({ page, request, owned }) => {
   const source = await owned.reply(`>>${owned.id}\nCSP backlink control`);
   const path = '/static/native-backlinks.v1.js';
-  const response = await request.get(path), foreign = await request.get(`http://localhost:3000${path}`);
+  const response = await request.get(path, { headers: { Connection: 'close' } });
+  const foreign = await request.get(`http://localhost:3000${path}`, { headers: { Connection: 'close' } });
+  expect(response.headers().connection, 'Same-origin fixture reads must close their HTTP connection').toBe('close');
+  expect(foreign.headers().connection, 'Foreign-origin fixture reads must close their HTTP connection').toBe('close');
   expect(response.status()).toBe(200);
   expect(foreign.status()).toBe(200);
   expect(response.headers()['content-type']).toMatch(/javascript/);
