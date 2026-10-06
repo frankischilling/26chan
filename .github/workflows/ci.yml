@@ -283,6 +283,8 @@ jobs:
         run: sudo bash scripts/test-automatic-identity-migration.sh
       - name: Upgrade session-aware report admission and restricted mutation APIs
         run: sudo bash scripts/test-session-report-migration.sh
+      - name: Qualify private report catalog imports without changing runtime reporting
+        run: sudo bash scripts/test-report-catalog-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

@@ -15,9 +15,9 @@ chrono-tz = "0.10"
 thiserror.workspace = true
 tokio.workspace = true
 sha2 = "0.10"
+serde.workspace = true
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 
-[dev-dependencies]
-serde_json.workspace = true
 
 [lints]
 workspace = true

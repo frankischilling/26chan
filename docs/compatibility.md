@@ -79,11 +79,15 @@ source board, sticky-OP and capcode gates across form display and submission.
 The same-origin popup receiver binds completion to its opened window and target,
 with settings-aware hiding and a no-JavaScript fallback. Free-text reasons remain;
 source categories, weights, CAPTCHA, Pass, illegal-report authority and legacy
-POST report dispatch are still outside this slice. [IP report admission](source-report-admission.md)
-adds duplicate protection and strict rolling cooldown/hour/day checks. Its
+POST report dispatch are still outside this slice. [Report admission](source-report-admission.md)
+matches IP or registered automatic-session identity for duplicate protection
+and strict rolling cooldown/hour/day checks. Its
 private membership survives anonymous-session cleanup and retires on proven
 deletion paths without erasing retained report or audit rows. Source password
 matching and category-dependent archive retirement remain gaps.
+The [category selector and private catalog importer](source-report-categories.md)
+are available as inactive configuration groundwork. Imports do not activate
+category reporting or replace the free-text form.
 
 ## Earlier public-reference checkpoints
 
