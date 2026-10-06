@@ -14,12 +14,14 @@ the earlier behavior that rejected every new thread on a full board.
 
 ## Board policy
 
-Migration 0009 adds these operator-owned settings:
+Migration 0009 introduced archive retention and count settings. Migration 0086
+adds the source rollover-order setting. All remain operator-owned:
 
 | Setting | Range and default | Behavior |
 |---|---|---|
 | `archive_retention_seconds` | 0 through 2,592,000; default 0 | Zero disables archives; positive values fix each newly archived thread's lifetime |
 | `archive_limit` | 1 through 1,000; default 1,000 | Retain at most this many unexpired archived threads after each successful new OP |
+| `expire_neglected` | Boolean; default true, false on `/f/` | True chooses oldest bump clock; false chooses oldest OP number |
 
 For example, an operator may enable one day of archives and a 500-thread cap
 on a deliberately selected board:
@@ -30,15 +32,17 @@ SET archive_retention_seconds=86400, archive_limit=500
 WHERE slug='demo';
 ```
 
-The public login cannot change either setting. Increasing retention does not
+Runtime logins cannot change these settings. Increasing retention does not
 extend existing expiry timestamps. Disabling archives hides existing archived
 threads immediately; re-enabling may expose still-unexpired entries that have
 not been soft-deleted. Lowering the count cap prunes oldest entries on the next
 successful new OP. Until then, reads retain the previous set. JSON reads are bounded to 1,000
-IDs; the independent HTML read ceiling is 3,000 summaries. These retention/count policies and all-pinned handling are project
-choices; they do not reproduce the complete source archive lifecycle. Current
-rollover still uses oldest bump clock followed by ID; the source
-`EXPIRE_NEGLECTED=no` override on `/f/` remains separate work.
+IDs; the independent HTML read ceiling is 3,000 summaries. These retention/count
+policies are project choices and do not reproduce the complete source archive
+lifecycle. Rollover ordering follows `EXPIRE_NEGLECTED`, including the active
+`/f/` override. Equal bump clocks use OP number as a deterministic local tie-break.
+The source private `/j/` board bypasses trimming entirely; that exemption is not
+implemented by this ordering change.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
 This is public visibility policy, not physical erasure. Base-table text and
@@ -102,12 +106,17 @@ body, badge-ID and response budgets remain in force.
 Store regressions cover sticky, Undead and combined protection, archive and
 soft-delete rollover, complete listings above ordinary capacity, bounded-read
 failures and queued OPs that resume after protection changes. They do not prove
-full original-page visual parity or the remaining rollover-order policy.
+full original-page visual parity or the remaining private-board trim exemption.
 
 ## Migration and verification
 
-Stop public and staff serving, back up the database, apply migration 0009 as the
-operator, then start the matching binaries. Existing settings, text, staff flags
+Current binaries require migrations through 0086. For an existing pre-0085
+database, apply `deploy/public-deletion-role.sql` as the bootstrap administrator
+before migration 0085. Fresh databases use `deploy/roles.sql`. Stop serving, back
+up the database, apply pending migrations as the operator, then start the matching
+binaries. Readiness rejects a schema missing the rollover policy column.
+
+Migration 0009 originally introduced archives. Existing settings, text, staff flags
 and deletion state are preserved, and archives start disabled. Rollover is a
 behavior change even on disabled boards. Old binaries do not filter archive
 state, so replacing only the binaries is not a supported rollback after archives
@@ -121,3 +130,10 @@ concurrent reply/rollover ordering, coherent reads and audited moderation.
 `npm run test:archive-visual` runs six deterministic Windows layout baselines
 from shared templates. These are project regressions, not original-site visual
 parity evidence. See [verification](verification-thread-archives.md).
+
+`scripts/test-source-rollover-migration.sh` upgrades a populated 0085 database,
+checks unchanged content, clocks, ownership, functions and privileges, and probes
+policy-write rejection through seven actual runtime roles. The runtime archive
+regression covers both ordering policies with disagreeing IDs/clocks, equal
+clocks, protected threads, archival and soft deletion, and policy changes made
+while an OP waits for the board lock.

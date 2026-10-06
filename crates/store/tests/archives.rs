@@ -27,6 +27,13 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
         .unwrap();
     let slug = format!("a{seed:x}");
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,1,1)").bind(&slug).execute(&owner).await.unwrap();
+    assert!(
+        board_store::board(&public, &slug)
+            .await
+            .unwrap()
+            .expire_neglected,
+        "New boards inherit source default"
+    );
     let test_slug = slug.clone();
     let test_public = public.clone();
     let test_owner = owner.clone();
@@ -323,6 +330,7 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
     coherent_archive_snapshot(owner, public, slug).await;
     expired_entries_do_not_displace_valid_archives(owner, public, slug).await;
     reply_and_rollover_serialize(owner, public, slug).await;
+    source_rollover_order(owner, public, slug).await;
 }
 
 async fn wait_behind(owner: &PgPool, pid: i32, blocker: i32) {
@@ -839,4 +847,163 @@ async fn assert_complete_protected_listing(public: &PgPool, slug: &str, expected
         board_store::board_snapshot(public, slug, board_store::BoardSelection::Page(3), None).await,
         Err(StoreError::PageNotFound)
     ));
+}
+
+async fn source_rollover_order(owner: &PgPool, public: &PgPool, slug: &str) {
+    // Imported /f/ is the only active source override; /test/'s no is commented.
+    for source in [
+        "f", "b", "r9k", "trash", "soc", "y", "bant", "u", "test", "j",
+    ] {
+        assert_eq!(
+            board_store::board(owner, source)
+                .await
+                .unwrap()
+                .expire_neglected,
+            source != "f",
+            "/{source}/ source rollover policy"
+        );
+    }
+    let denied = sqlx::query("UPDATE content.boards SET expire_neglected=false WHERE slug=$1")
+        .bind(slug)
+        .execute(public)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        denied.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    let queued_pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let queued_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&queued_pool)
+        .await
+        .unwrap();
+    for retention in [0, 3600] {
+        for expire_neglected in [false, true] {
+            for equal_clocks in [false, true] {
+                sqlx::query("UPDATE content.threads SET deleted=true WHERE board=$1")
+                    .bind(slug)
+                    .execute(owner)
+                    .await
+                    .unwrap();
+                sqlx::query("UPDATE content.boards SET thread_limit=2,archive_limit=1000,archive_retention_seconds=$2,expire_neglected=$3 WHERE slug=$1")
+                    .bind(slug).bind(retention).bind(!expire_neglected).execute(owner).await.unwrap();
+                let mut protected = Vec::new();
+                for (sticky, undead) in [(true, false), (false, true), (true, true)] {
+                    let id = board_store::create_post(public, slug, 0, &post())
+                        .await
+                        .unwrap();
+                    sqlx::query("UPDATE content.threads SET sticky=$2,undead=$3,bumped_at='1999-01-01Z' WHERE id=$1")
+                        .bind(id).bind(sticky).bind(undead).execute(owner).await.unwrap();
+                    protected.push(id);
+                }
+                let first = board_store::create_post(public, slug, 0, &post())
+                    .await
+                    .unwrap();
+                let second = board_store::create_post(public, slug, 0, &post())
+                    .await
+                    .unwrap();
+                assert!(first < second);
+                // Lower OP ID has the NEWER bump clock: fixed bump ordering or
+                // fixed ID ordering necessarily fails one of the two policies.
+                sqlx::query("UPDATE content.threads SET bumped_at=CASE WHEN id=$2 AND NOT $4 THEN '2001-01-02Z'::timestamptz ELSE '2001-01-01Z'::timestamptz END WHERE board=$1 AND id=ANY($3)")
+                    .bind(slug).bind(first).bind(vec![first, second]).bind(equal_clocks)
+                    .execute(owner).await.unwrap();
+                let original_ids = [protected.clone(), vec![first, second]].concat();
+                let clocks: Vec<(i64, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> =
+                    sqlx::query_as("SELECT id,created_at,bumped_at FROM content.threads WHERE id=ANY($1) ORDER BY id")
+                        .bind(&original_ids).fetch_all(owner).await.unwrap();
+                let posts: Vec<serde_json::Value> = sqlx::query_scalar(
+                    "SELECT to_jsonb(p) FROM content.posts p WHERE id=ANY($1) ORDER BY id",
+                )
+                .bind(&original_ids)
+                .fetch_all(owner)
+                .await
+                .unwrap();
+                // Observe an actual queued writer, then change policy while
+                // holding its board lock. It must use the newly committed value.
+                let mut lock = owner.begin().await.unwrap();
+                let owner_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                    .fetch_one(&mut *lock)
+                    .await
+                    .unwrap();
+                sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+                    .bind(slug)
+                    .execute(&mut *lock)
+                    .await
+                    .unwrap();
+                let pool = queued_pool.clone();
+                let board = slug.to_owned();
+                let queued = tokio::spawn(async move {
+                    board_store::create_post(&pool, &board, 0, &post()).await
+                });
+                wait_behind(owner, queued_pid, owner_pid).await;
+                sqlx::query("UPDATE content.boards SET expire_neglected=$2 WHERE slug=$1")
+                    .bind(slug)
+                    .bind(expire_neglected)
+                    .execute(&mut *lock)
+                    .await
+                    .unwrap();
+                lock.commit().await.unwrap();
+                let created = queued.await.unwrap().unwrap();
+                assert_eq!(
+                    board_store::board(public, slug)
+                        .await
+                        .unwrap()
+                        .expire_neglected,
+                    expire_neglected
+                );
+                let victim = if expire_neglected && !equal_clocks {
+                    second
+                } else {
+                    first
+                };
+                let survivor = if victim == first { second } else { first };
+                let states: Vec<(i64, bool, bool)> = sqlx::query_as("SELECT id,deleted,archived_at IS NOT NULL FROM content.threads WHERE id=ANY($1) ORDER BY id")
+                    .bind(&original_ids).fetch_all(owner).await.unwrap();
+                assert_eq!(states.len(), 5);
+                for (id, deleted, archived) in states {
+                    assert_eq!(
+                        (deleted, archived),
+                        (
+                            id == victim && retention == 0,
+                            id == victim && retention > 0
+                        ),
+                        "retention={retention}, expire_neglected={expire_neglected}, equal_clocks={equal_clocks}, id={id}"
+                    );
+                }
+                for id in [protected.clone(), vec![survivor, created]].concat() {
+                    assert!(
+                        board_store::thread(public, slug, id)
+                            .await
+                            .unwrap()
+                            .archived_at
+                            .is_none()
+                    );
+                }
+                let after_clocks: Vec<(i64, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> =
+                    sqlx::query_as("SELECT id,created_at,bumped_at FROM content.threads WHERE id=ANY($1) ORDER BY id")
+                        .bind(&original_ids).fetch_all(owner).await.unwrap();
+                assert_eq!(
+                    after_clocks, clocks,
+                    "Rollover preserves OP creation/bump clocks"
+                );
+                let after_posts: Vec<serde_json::Value> = sqlx::query_scalar(
+                    "SELECT to_jsonb(p) FROM content.posts p WHERE id=ANY($1) ORDER BY id",
+                )
+                .bind(&original_ids)
+                .fetch_all(owner)
+                .await
+                .unwrap();
+                assert_eq!(
+                    after_posts, posts,
+                    "Rollover preserves every original post and timestamp"
+                );
+            }
+        }
+    }
+    queued_pool.close().await;
 }

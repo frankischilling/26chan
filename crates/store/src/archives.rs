@@ -77,8 +77,20 @@ pub(crate) async fn make_room(
                 "Board capacity requires operator reconciliation.",
             ));
         }
-        let victims: Vec<i64> = sqlx::query_scalar("SELECT id FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL AND NOT sticky AND NOT undead ORDER BY bumped_at,id LIMIT $2 FOR UPDATE")
-            .bind(&board.slug).bind(needed).fetch_all(&mut **tx).await?;
+        // Source EXPIRE_NEGLECTED switches root/bump-clock ordering to OP ID.
+        // The caller loaded this policy while acquiring the board row lock, so
+        // queued mutations see an operator change committed ahead of them.
+        // Equal bump clocks use IDs as a deterministic local tie-break.
+        let victim_query = if board.expire_neglected {
+            "SELECT id FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL AND NOT sticky AND NOT undead ORDER BY bumped_at,id LIMIT $2 FOR UPDATE"
+        } else {
+            "SELECT id FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL AND NOT sticky AND NOT undead ORDER BY id LIMIT $2 FOR UPDATE"
+        };
+        let victims: Vec<i64> = sqlx::query_scalar(victim_query)
+            .bind(&board.slug)
+            .bind(needed)
+            .fetch_all(&mut **tx)
+            .await?;
         if victims.len() as i64 != needed {
             return Err(StoreError::Conflict(
                 "Board capacity requires operator reconciliation.",

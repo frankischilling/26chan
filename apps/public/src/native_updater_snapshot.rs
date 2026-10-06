@@ -456,6 +456,7 @@ mod tests {
             op_bump_initial_seconds: 900,
             op_bump_repeat_seconds: 300,
             thread_limit: 10,
+            expire_neglected: true,
             threads_per_page: 10,
             worksafe: true,
             archive_retention_seconds: 0,

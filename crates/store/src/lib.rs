@@ -96,6 +96,7 @@ pub struct Board {
     pub op_bump_initial_seconds: i32,
     pub op_bump_repeat_seconds: i32,
     pub thread_limit: i32,
+    pub expire_neglected: bool,
     pub threads_per_page: i32,
     pub worksafe: bool,
     pub archive_retention_seconds: i32,

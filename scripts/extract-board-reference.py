@@ -10,6 +10,7 @@ from pathlib import Path
 POLICY_KEYS = set("CATEGORY TITLE META_DESCRIPTION MAX_COM_CHARS MAX_LINES CODE_TAGS SJIS_TAGS SPOILERS REQUIRE_SUBJECT OP_MARKUP FORCED_ANON DISP_ID SHOW_COUNTRY_FLAGS ENABLE_BOARD_FLAGS BOARD_FLAGS_TYPE TEXT_ONLY MAX_RES MAX_IMGRES PAGE_MAX DEF_PAGES LOG_MAX ENABLE_ARCHIVE ARCHIVE_MAX_AGE JSON_TAIL_SIZE PERMASAGE_HOURS ENABLE_CATALOG ENABLE_JSON JANITOR_BOARD UPLOAD_BOARD USE_RSS MAX_KB ENABLE_WEBM ENABLE_WEBM_AUDIO MAX_WEBM_FILESIZE MAX_WEBM_DURATION RENZOKU RENZOKU2 RENZOKU3 NO_TEXTONLY GIF_ONLY PASS_ONLY ROBOT9000 WORD_FILT".split())
 
 
+POLICY_KEYS.add("EXPIRE_NEGLECTED")
 POLICY_KEYS.add("META_BOARD")
 POLICY_KEYS.add("DISP_ID_NO_HEAVEN")
 
@@ -63,6 +64,7 @@ def extract(root, names_encoding="utf-8"):
             "text_only": boolean("TEXT_ONLY"), "reply_limit": 1000,
             "bump_limit": integer("MAX_RES"), "image_limit": integer("MAX_IMGRES"),
             "thread_limit": maximum, "threads_per_page": integer("DEF_PAGES"),
+            "expire_neglected": boolean("EXPIRE_NEGLECTED"),
             "archive_retention_seconds": integer("ARCHIVE_MAX_AGE") * 3600 if boolean("ENABLE_ARCHIVE") else 0,
             "json_tail_size": integer("JSON_TAIL_SIZE"), "permasage_hours": integer("PERMASAGE_HOURS"),
             "catalog_enabled": boolean("ENABLE_CATALOG"), "json_enabled": boolean("ENABLE_JSON"),
@@ -77,7 +79,7 @@ def extract(root, names_encoding="utf-8"):
 
 
 def migration(reference):
-    columns = [key for key in reference["boards"][0] if key not in {"listed", "source_policy", "meta_board", "poster_id_no_heaven"}]
+    columns = [key for key in reference["boards"][0] if key not in {"listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected"}]
     def sql(value):
         if isinstance(value, bool):
             return "true" if value else "false"

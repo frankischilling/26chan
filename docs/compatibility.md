@@ -710,8 +710,11 @@ The HTML archive list (`imgboard.php:9253`) selects only the past
 three days, orders root descending, limits 3,000 entries and truncates
 summaries at 100. Public archive JSON instead lists archived IDs ascending.
 The 72-hour HTML window is not the full 276-hour global storage lifetime.
-The rewrite's fixed per-thread expiry, bounded archive-count policy, soft
-retention and all-pinned rejection remain separate documented behavior.
+The rewrite now excludes sticky and Undead threads from ordinary capacity and
+uses the source rollover-order policy, including the `/f/` override. Its fixed
+per-thread expiry, bounded archive-count policy, soft retention and private-board
+trim behavior remain separate documented behavior. Complete active listings have
+an independent 1,000-thread resource ceiling and fail closed beyond it.
 
 ### Media
 

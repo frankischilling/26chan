@@ -107,7 +107,7 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public deletion is unavailable: POSTER_ID_KEY is required.",
         ));
     }
-    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
