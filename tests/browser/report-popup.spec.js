@@ -42,6 +42,39 @@ async function submit(popup) {
 }
 const hidden = (page, id) => page.locator(`#m${id}`);
 
+async function expectReportTheme(page, color) {
+  await expect(page.locator('link[rel="stylesheet"]')).toHaveCount(2);
+  await expect(page.locator('link[rel="stylesheet"]').nth(0)).toHaveAttribute('href', '/static/board.css');
+  await expect(page.locator('link[rel="stylesheet"]').nth(1)).toHaveAttribute('href', '/static/theme.css?worksafe=true');
+  await expect(page.locator('html')).toHaveCSS('background-color', color);
+}
+
+for (const [preference, color] of [[null, 'rgb(238, 242, 255)'], ['invalid', 'rgb(238, 242, 255)'], ['tomorrow', 'rgb(29, 31, 33)']]) {
+  test(`report forms and results inherit the validated board theme with ${preference ?? 'default'} preference`, async ({ page, context, owned }) => {
+    // A conflicting non-worksafe preference must not affect this worksafe board.
+    await context.addCookies([{ name: 'board-theme', value: 'photon', url: origin }]);
+    if (preference) await context.addCookies([{ name: 'board-theme-ws', value: preference, url: origin }]);
+    await page.goto(owned.url);
+    const styled = context.waitForEvent('response', response => response.url() === `${origin}/static/theme.css?worksafe=true`);
+    const popup = await openReport(page, owned.reply);
+    const css = await styled;
+    expect(css.status()).toBe(200);
+    expect(css.headers()['cache-control']).toContain('no-store');
+    expect(css.headers().vary.toLowerCase()).toContain('cookie');
+    await expectReportTheme(popup, color);
+    await popup.clock.install();
+    await popup.clock.pauseAt(new Date(Date.now() + 1000));
+    await submit(popup);
+    await expectReportTheme(popup, color);
+    await expect(hidden(page, owned.reply)).toBeHidden();
+    await popup.close();
+    const duplicate = await openReport(page, owned.reply);
+    await expect(duplicate.locator('#report-popup-context')).toHaveAttribute('data-result', 'error');
+    await expectReportTheme(duplicate, color);
+    await duplicate.close();
+  });
+}
+
 test('native report popup commits, hides only its registered reply, and closes after the source delay', async ({ page, owned }) => {
   await page.goto(owned.url);
   const popup = await openReport(page, owned.reply);
@@ -272,10 +305,12 @@ test('synthetic categorical radios switch the select and Close cancels without a
 });
 
 for (const kind of ['rule', 'illegal']) {
-  test(`synthetic ${kind} report commits captured metadata before the opener hides and closes at the boundary`, async ({ page, request }) => {
+  test(`synthetic ${kind} report commits captured metadata before the opener hides and closes at the boundary`, async ({ page, context, request }) => {
     await withCategoricalThread(request, async owned => {
       await page.goto(owned.url);
+      await context.addCookies([{ name: 'board-theme-ws', value: 'tomorrow', url: origin }]);
       const popup = await openReport(page, owned.reply);
+      await expectReportTheme(popup, 'rgb(29, 31, 33)');
       await popup.clock.install();
       await popup.clock.pauseAt(new Date(Date.now() + 1000));
       await selectCategorical(popup, owned.catalog, kind);
@@ -314,6 +349,7 @@ for (const kind of ['rule', 'illegal']) {
         await submission;
       }
       await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'success');
+      await expectReportTheme(popup, 'rgb(29, 31, 33)');
       await expect(hidden(page, owned.reply)).toBeHidden();
       await expect(hidden(page, owned.id)).toBeVisible();
       await popup.clock.fastForward(2999);

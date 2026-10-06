@@ -28,18 +28,18 @@ session state remain private, with no added public read grants. Rendering the
 GET form uses the eligible target's public board, post and thread IDs; the
 subsequent advisory admission check uses the private, trusted-IP decision API.
 
-The current free-text reason remains required, nonblank, NUL-free and at most
-1,000 UTF-8 bytes. The supplied source queries `report_categories`, but its
-authoritative rows, labels and weights are unavailable. The source names illegal
-category ID 31; that constant alone does not supply a category model or illegal
-report authority. Categories, weights, CAPTCHA, Pass and illegal-report handling
-remain outside this slice.
+With category mode inactive, the free-text reason is required, nonblank,
+NUL-free and at most 1,000 UTF-8 bytes. An operator can import and explicitly
+activate a trusted catalog to enable categorical reports; production category
+rows are not supplied or invented. See [category rollout](source-report-categories.md)
+for scope, selection and revision checks. CAPTCHA, Pass and complete weighted
+moderation remain unqualified.
 
 ## Routes and response boundary
 
-The native menu opens `/{board}/imgboard.php?mode=report&no={post}`. The form
-submits to the modern `/{board}/report` endpoint. Legacy POST `mode=report`
-dispatch is still outside this slice. GET validates the board and canonical
+The native menu opens `/{board}/imgboard.php?mode=report&no={post}`. The free-text form
+submits to `/{board}/report`; the categorical form uses legacy POST `mode=report`
+with the query target bound to the submitted fields. GET validates the board and canonical
 positive signed-64-bit post ID before querying storage; IDs stay decimal strings
 in the browser, including values above JavaScript's safe-integer range.
 
@@ -57,6 +57,19 @@ is the exact same-origin `/static/report-popup.v1.js` path. Inline event handler
 connections, workers, frames and framing are forbidden; forms stay same-origin.
 The shell does not load the board's interactive modules. Generic legacy-route
 errors do not acquire report-script permission merely by sharing a URL.
+
+## Board themes
+
+Forms and results with an already validated public target load the existing
+`/static/theme.css?worksafe=...` stylesheet after `board.css`. The worksafe value
+comes from the target's board join. The theme endpoint applies the matching
+finite cookie preference and board-group default, with `private, no-store` and
+`Vary: Cookie`. Styling works without JavaScript and needs no broader CSP.
+
+Generic errors that occur before target validation omit board-style context.
+They do not query private or unavailable board metadata merely for appearance.
+The success shell includes its styling before admission, preserving the reserved
+response boundary without an additional lookup after commit.
 
 ## Popup completion and hiding
 
@@ -88,7 +101,7 @@ and opener hiding.
 ## Deployment and verification scope
 
 Migration 0093 introduced this target policy. Matching services now also require
-migration 0100, the [identity admission and retirement rules](source-report-admission.md),
+migration 0102, the [identity admission and retirement rules](source-report-admission.md),
 and the [explicit category-mode rollout](source-report-categories.md).
 Follow that rollout sequence before starting a paired release.
 Migration 0093 preserves existing report rows and changes no categories or

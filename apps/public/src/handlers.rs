@@ -1162,16 +1162,18 @@ pub(crate) async fn submit_report(
         Err(error) => return Ok(fail(error)),
     };
     // Target policy precedes cookie resolution; admission rechecks under locks.
-    if let Err(error) = board_store::report_target(&state.pool, board, no).await {
-        return Ok(fail(error.into()));
-    }
+    let target = match board_store::report_target(&state.pool, board, no).await {
+        Ok(target) => target,
+        Err(error) => return Ok(fail(error.into())),
+    };
+    let fail = |error| crate::legacy_report::target_error(state, &target, error);
     let session = match crate::anonymous_session::Session::resolve(state, headers, peer.0).await {
         Ok(session) => session,
         Err(error) => return Ok(fail(error)),
     };
     // Reserve and render the bounded response before committing. An exhausted
     // output budget must never make a saved report appear to have failed.
-    let mut response = crate::legacy_report::success(state, board, no)?;
+    let mut response = crate::legacy_report::success(state, &target)?;
     let result = match form {
         ReportSubmission::FreeText { reason, .. } => {
             board_store::report_with_anonymous_session(

@@ -8,6 +8,7 @@ pub struct ReportTarget {
     pub board: String,
     pub post_id: i64,
     pub thread_id: i64,
+    pub worksafe: bool,
 }
 
 pub async fn report_target(pool: &PgPool, slug: &str, id: i64) -> Result<ReportTarget, StoreError> {
@@ -22,14 +23,15 @@ pub(crate) async fn report_target_on(
     slug: &str,
     id: i64,
 ) -> Result<ReportTarget, StoreError> {
-    let (enabled, post_id, thread_id, sticky, capcode): (
+    let (enabled, worksafe, post_id, thread_id, sticky, capcode): (
+        bool,
         bool,
         Option<i64>,
         Option<i64>,
         Option<bool>,
         Option<String>,
     ) = sqlx::query_as(
-        "SELECT b.can_report_posts,p.id,t.id,t.sticky,p.capcode \
+        "SELECT b.can_report_posts,b.worksafe,p.id,t.id,t.sticky,p.capcode \
          FROM content.boards b \
          LEFT JOIN content.posts p ON p.board=b.slug AND p.id=$2 AND NOT p.deleted \
          LEFT JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id AND NOT t.deleted \
@@ -58,5 +60,6 @@ pub(crate) async fn report_target_on(
         board: slug.to_owned(),
         post_id,
         thread_id,
+        worksafe,
     })
 }

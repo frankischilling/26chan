@@ -34,6 +34,7 @@ struct CategoricalReportPage<'a> {
     board: &'a str,
     no: i64,
     thread: i64,
+    worksafe: bool,
     revision: i64,
     rules: Vec<&'a board_store::report_categories::CategoryChoice>,
     illegal: Option<&'a board_store::report_categories::CategoryChoice>,
@@ -49,6 +50,7 @@ struct ReportPage<'a> {
     board: &'a str,
     no: i64,
     thread: i64,
+    worksafe: bool,
 }
 
 #[derive(Template)]
@@ -57,6 +59,8 @@ struct ReportResult<'a> {
     board: &'a str,
     no: i64,
     success: bool,
+    // Absent for generic errors: never infer private or invalid board metadata.
+    worksafe: Option<bool>,
     message: &'a str,
 }
 
@@ -78,13 +82,17 @@ fn shell(mut response: Response, status: StatusCode) -> Response {
     response
 }
 
-pub(crate) fn success(state: &AppState, board: &str, no: i64) -> Result<Response, AppError> {
+pub(crate) fn success(
+    state: &AppState,
+    target: &board_store::ReportTarget,
+) -> Result<Response, AppError> {
     crate::output::html(
         state,
         &ReportResult {
-            board,
-            no,
+            board: &target.board,
+            no: target.post_id,
             success: true,
+            worksafe: Some(target.worksafe),
             message: "Your report was saved.",
         },
     )
@@ -92,6 +100,30 @@ pub(crate) fn success(state: &AppState, board: &str, no: i64) -> Result<Response
 }
 
 pub(crate) fn error(state: &AppState, board: &str, no: Option<i64>, error: AppError) -> Response {
+    render_error(state, board, no, None, error)
+}
+
+pub(crate) fn target_error(
+    state: &AppState,
+    target: &board_store::ReportTarget,
+    error: AppError,
+) -> Response {
+    render_error(
+        state,
+        &target.board,
+        Some(target.post_id),
+        Some(target.worksafe),
+        error,
+    )
+}
+
+fn render_error(
+    state: &AppState,
+    board: &str,
+    no: Option<i64>,
+    worksafe: Option<bool>,
+    error: AppError,
+) -> Response {
     use axum::response::IntoResponse;
     if !safe_board(board) {
         return error.into_response();
@@ -102,6 +134,7 @@ pub(crate) fn error(state: &AppState, board: &str, no: Option<i64>, error: AppEr
             board,
             no: no.filter(|no| *no > 0).unwrap_or(0),
             success: false,
+            worksafe,
             message: error.1,
         },
     ) {
@@ -143,11 +176,11 @@ pub(crate) async fn get(
     // This advisory read neither reserves capacity nor registers a session.
     let identity = match crate::handlers::report_rate_identity(&state, peer) {
         Ok(identity) => identity,
-        Err(cause) => return Ok(error(&state, &board, Some(no), cause)),
+        Err(cause) => return Ok(target_error(&state, &target, cause)),
     };
     let capability = match crate::anonymous_session::Session::existing(&state, &headers).await {
         Ok(capability) => capability,
-        Err(cause) => return Ok(error(&state, &board, Some(no), cause)),
+        Err(cause) => return Ok(target_error(&state, &target, cause)),
     };
     let token = capability.map(|capability| capability.storage_hash());
     if let Err(cause) = board_store::report_admission::check_with_session(
@@ -160,12 +193,12 @@ pub(crate) async fn get(
     )
     .await
     {
-        return Ok(error(&state, &board, Some(no), cause.into()));
+        return Ok(target_error(&state, &target, cause.into()));
     }
     let categories =
         match board_store::report_categories::category_form(&state.pool, &board, no).await {
             Ok(categories) => categories,
-            Err(cause) => return Ok(error(&state, &board, Some(no), cause.into())),
+            Err(cause) => return Ok(target_error(&state, &target, cause.into())),
         };
     if let Some(revision) = categories.revision {
         use board_store::report_categories::CategoryKind;
@@ -175,6 +208,7 @@ pub(crate) async fn get(
                 board: &target.board,
                 no: target.post_id,
                 thread: target.thread_id,
+                worksafe: target.worksafe,
                 revision,
                 rules: categories
                     .categories
@@ -195,6 +229,7 @@ pub(crate) async fn get(
             board: &target.board,
             no: target.post_id,
             thread: target.thread_id,
+            worksafe: target.worksafe,
         },
     )
     .map(|response| shell(response, StatusCode::OK))
@@ -267,6 +302,7 @@ mod tests {
             board: "test",
             no: 20,
             thread: 10,
+            worksafe: false,
             revision: 2,
             rules: choices[..3].iter().collect(),
             illegal: Some(&choices[3]),
@@ -292,6 +328,7 @@ mod tests {
             board: "x\"<",
             no: 17,
             thread: 12,
+            worksafe: true,
         }
         .render()
         .unwrap();
@@ -305,6 +342,7 @@ mod tests {
                 board: "test",
                 no: 17,
                 success,
+                worksafe: Some(true),
                 message: "<script>alert(1)</script>",
             }
             .render()
@@ -315,6 +353,63 @@ mod tests {
             assert!(html.contains("id=\"report-popup-return\" href=\"/test/\""));
             assert!(!html.contains("javascript:"));
         }
+    }
+
+    #[test]
+    fn report_templates_use_only_validated_board_theme_context_after_base_css() {
+        for worksafe in [false, true] {
+            let form = super::ReportPage {
+                board: "test",
+                no: 17,
+                thread: 12,
+                worksafe,
+            }
+            .render()
+            .unwrap();
+            let categorical = super::CategoricalReportPage {
+                board: "test",
+                no: 17,
+                thread: 12,
+                worksafe,
+                revision: 1,
+                rules: Vec::new(),
+                illegal: None,
+            }
+            .render()
+            .unwrap();
+            let mut pages = vec![form, categorical];
+            for success in [false, true] {
+                pages.push(
+                    super::ReportResult {
+                        board: "test",
+                        no: 17,
+                        success,
+                        worksafe: Some(worksafe),
+                        message: "Owned result",
+                    }
+                    .render()
+                    .unwrap(),
+                );
+            }
+            for html in pages {
+                let base = html.find("/static/board.css").unwrap();
+                let theme = html
+                    .find(&format!("/static/theme.css?worksafe={worksafe}"))
+                    .unwrap();
+                assert!(theme > base);
+                assert_eq!(html.matches("/static/theme.css").count(), 1);
+            }
+        }
+        let generic = super::ReportResult {
+            board: "j",
+            no: 0,
+            success: false,
+            worksafe: None,
+            message: "Not found.",
+        }
+        .render()
+        .unwrap();
+        assert!(!generic.contains("/static/theme.css"));
     }
 
     #[tokio::test]
@@ -349,6 +444,7 @@ mod tests {
             let html = std::str::from_utf8(&bytes).unwrap();
             assert!(html.contains("data-result=\"error\""));
             assert!(!html.contains("Report received"));
+            assert!(!html.contains("/static/theme.css"));
             assert!(!html.contains("data-result=\"success\""));
         }
     }
@@ -477,13 +573,28 @@ mod tests {
                     response.headers()["content-security-policy"]
                         .to_str()
                         .unwrap()
-                        .contains("script-src 'none'")
+                        .contains("script-src 'none'"),
+                    "query={query:?}"
                 );
             }
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             let html = std::str::from_utf8(&bytes).unwrap();
-            assert_eq!(html.contains("data-result=\"error\""), reporting);
-            assert!(!html.contains("Report received"));
+            assert_eq!(
+                html.contains("data-result=\"error\""),
+                reporting,
+                "query={query:?}"
+            );
+            assert!(!html.contains("Report received"), "query={query:?}");
+            if reporting {
+                assert!(!html.contains("/static/theme.css"), "query={query:?}");
+            } else {
+                // Ordinary AppError pages retain the shared default stylesheet.
+                assert!(
+                    html.contains("href=\"/static/theme.css\""),
+                    "query={query:?}"
+                );
+            }
+            assert!(!html.contains("worksafe="), "query={query:?}");
         }
     }
 }

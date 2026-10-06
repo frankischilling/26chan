@@ -93,6 +93,12 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         board_config::PublicRequestLimits::default(),
     )
     .0;
+    let worksafe: bool =
+        sqlx::query_scalar("SELECT worksafe FROM content.boards WHERE slug='fixture'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let theme_link = format!("/static/theme.css?worksafe={worksafe}");
     for multipart in [false, true] {
         // Independent lifecycle cases use distinct trusted transport peers.
         let report_peer = if multipart { 212 } else { 210 };
@@ -142,6 +148,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         assert!(popup.contains("action=\"/fixture/report\""));
         assert!(popup.contains(&format!("name=\"no\" value=\"{id}\"")));
         assert!(popup.contains("name=\"reason\""));
+        assert!(popup.contains(&theme_link));
         let report = app
             .clone()
             .oneshot(from_peer(
@@ -165,6 +172,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let result = std::str::from_utf8(&result).unwrap();
         assert!(result.contains("<h1>Report received</h1>"));
         assert!(result.contains("data-result=\"success\""));
+        assert!(result.contains(&theme_link));
         assert!(result.contains(&format!("data-post=\"{id}\"")));
         let reason: String = sqlx::query_scalar(
             "SELECT reason FROM content.reports WHERE board='fixture' AND post_id=$1",
@@ -207,6 +215,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             let html = std::str::from_utf8(&bytes).unwrap();
             assert!(html.contains("You have already reported this post."));
+            assert!(html.contains(&theme_link));
             assert!(html.contains("data-result=\"error\""));
             assert!(!html.contains("data-result=\"success\""));
             let after: serde_json::Value = sqlx::query_scalar(private_activity)
@@ -426,6 +435,29 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             .await
             .unwrap();
         assert_eq!(wrong_popup.status(), StatusCode::NOT_FOUND);
+        let bytes = wrong_popup.into_body().collect().await.unwrap().to_bytes();
+        assert!(
+            !std::str::from_utf8(&bytes)
+                .unwrap()
+                .contains("/static/theme.css")
+        );
+        let private_popup = app
+            .clone()
+            .oneshot(report_get("j", &id, report_peer))
+            .await
+            .unwrap();
+        assert_eq!(private_popup.status(), StatusCode::NOT_FOUND);
+        let bytes = private_popup
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        assert!(
+            !std::str::from_utf8(&bytes)
+                .unwrap()
+                .contains("/static/theme.css")
+        );
         let fields = [
             ("mode", "usrdel"),
             (id.as_str(), "delete"),

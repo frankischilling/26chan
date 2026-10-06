@@ -104,6 +104,11 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
         let reply = support::create_post(public, slug, op, &post).await.unwrap();
         let target = board_store::report_target(public, slug, reply).await.unwrap();
         assert_eq!((target.board.as_str(), target.post_id, target.thread_id), (slug.as_str(), reply, op));
+        for worksafe in [false, true] {
+            sqlx::query("UPDATE content.boards SET worksafe=$2 WHERE slug=$1")
+                .bind(slug).bind(worksafe).execute(owner).await.unwrap();
+            assert_eq!(board_store::report_target(public, slug, reply).await.unwrap().worksafe, worksafe);
+        }
         rejected(public, slug, -1, "Not found.", sessions).await;
         rejected(public, "missing", op, "Not found.", sessions).await;
 
