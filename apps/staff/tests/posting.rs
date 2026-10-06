@@ -1784,9 +1784,11 @@ async fn source_badge_permissions_mask_names_after_validation_and_preserve_admin
             let marker=format!("data-reply-id=\"{id}\"");
             let last=catalog.split_once(&marker).unwrap().1.split("</div>").next().unwrap();
             let visible=matches!(badge,"admin"|"admin_highlight");
-            assert_eq!(last.contains("<span class=\"post-author\">Owned</span>"),visible);
+            let reply_label = match badge { "mod"=>"Mod", "manager"=>"Manager", "admin"=>"Admin", "admin_highlight"=>"Admin_highlight", "founder"=>"Founder", _=>unreachable!() };
+            let author = if visible { "Owned <span class=\"post-tripcode\">!ozOtJW9BFA</span>" } else { "Anonymous" };
+            assert!(last.contains(&format!("<span class=\"{badge}-capcode post-author\">{author} ## {reply_label}</span>")));
             assert_eq!(last.contains("!ozOtJW9BFA"),visible);
-            assert_eq!(last.contains("<span class=\"post-author\">Anonymous</span>"),!visible);
+            assert!(!last.contains("postertrip"));
             elapse_staff_timer(&case, &case.board, posting_fixture::peer()).await;
             assert_eq!(private_request(&case,"/post",Some(staff_form(&case,0,"Owned#password","","Owned catalog administrator")+"&badge="+badge)).await.status(),StatusCode::SEE_OTHER);
             let (op,_,_)=case.latest().await;
@@ -1795,7 +1797,8 @@ async fn source_badge_permissions_mask_names_after_validation_and_preserve_admin
                 let catalog=public_text(&case.public,&format!("/{}/catalog",case.board)).await;
                 let marker=format!("id=\"thread-{op}\"");
                 let card=catalog.split_once(&marker).unwrap().1.split("id=\"thread-").next().unwrap();
-                assert_eq!(card.contains("<span class=\"post-author\">Owned</span>"),visible);
+                let op_label = match badge { "mod"=>"Moderator", "manager"=>"Manager", "admin"=>"Administrator", "admin_highlight"=>"undefined", "founder"=>"Founder", _=>unreachable!() };
+                assert!(card.contains(&format!("<span class=\"{badge}-capcode post-author\">{author} ## {op_label}</span>")));
                 assert_eq!(card.contains("data-filter-name=\"Owned\""),visible);
                 assert_eq!(card.contains("data-filter-trip=\"!ozOtJW9BFA\""),visible);
                 assert_eq!(card.contains("data-filter-name=\"Anonymous\""),!visible);

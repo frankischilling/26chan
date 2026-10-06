@@ -360,14 +360,28 @@ async fn archive_lifecycle(
             .is_none()
     );
     // Concurrent new OPs serialize without exceeding active capacity or losing posts.
+    // Use distinct actors: request timestamps can reach the actor gate out of
+    // order, so sharing one peer can correctly trip its cooldown even at zero
+    // delay. This scenario tests board rollover, not same-actor admission.
     let mut tasks = tokio::task::JoinSet::new();
-    for _ in 0..12 {
+    for actor in 1..=12 {
         let pool = public.clone();
         let slug = slug.to_owned();
         tasks.spawn(async move {
-            support::create_post(&pool, &slug, 0, &post())
-                .await
-                .unwrap()
+            support::create_post_with_context(
+                &pool,
+                &slug,
+                0,
+                &post(),
+                None,
+                board_store::PostingContext {
+                    request_start: chrono::Utc::now(),
+                    peer: Some(std::net::Ipv4Addr::new(198, 51, 100, actor).into()),
+                    op_password_proof: None,
+                },
+            )
+            .await
+            .unwrap()
         });
     }
     let mut created = Vec::new();
