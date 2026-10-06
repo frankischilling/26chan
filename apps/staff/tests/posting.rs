@@ -320,7 +320,6 @@ async fn ordinary_staff_private_tables_and_owner_helpers_remain_inaccessible() {
 #[tokio::test]
 async fn ordinary_staff_verified_unix_peer_drives_persisted_identity() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let _serial = ORDINARY_TESTS.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -339,8 +338,10 @@ async fn ordinary_staff_verified_unix_peer_drives_persisted_identity() {
                 let before:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
                 let form=ordinary_form(&case,0,"","","Owned actual staff Unix peer");
                 let request=format!("POST /post HTTP/1.1\r\nHost: localhost\r\nOrigin: http://localhost:3001\r\nSec-Fetch-Site: same-origin\r\nCookie: staff={}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n{headers}\r\n{form}",case.token,form.len());
+                let password_slot=password_request_slot("/post",Some(&form)).await;
                 let mut client=tokio::net::UnixStream::connect(&socket).await.unwrap();client.write_all(request.as_bytes()).await.unwrap();
                 let mut response=String::new();tokio::time::timeout(Duration::from_secs(5),client.read_to_string(&mut response)).await.unwrap().unwrap();
+                drop(password_slot);
                 let expected_status=if expected==uid {status} else {403};
                 assert!(response.starts_with(&format!("HTTP/1.1 {expected_status}")),"Unexpected ordinary staff listener status.");
                 let after:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
@@ -358,7 +359,27 @@ async fn ordinary_staff_verified_unix_peer_drives_persisted_identity() {
     result.unwrap();
 }
 
-static ORDINARY_TESTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+// Isolate expensive semantic password hashing one request at a time, while
+// unrelated HTTP calls, fixture setup and tests remain parallel. The real
+// production two-slot saturation and concurrent recovery are tested separately
+// in posting_password's unit tests, without this fixture admission gate.
+static PASSWORD_REQUESTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(1);
+
+async fn password_request_slot(
+    path: &str,
+    form: Option<&str>,
+) -> Option<tokio::sync::SemaphorePermit<'static>> {
+    let hashes_password = path == "/post"
+        && form.is_some_and(|form| {
+            url::form_urlencoded::parse(form.as_bytes())
+                .any(|(key, value)| key == "password" && (8..=128).contains(&value.len()))
+        });
+    if hashes_password {
+        Some(PASSWORD_REQUESTS.acquire().await.unwrap())
+    } else {
+        None
+    }
+}
 
 async fn ordinary_fixture() -> Arc<Fixture> {
     let mut case = Arc::try_unwrap(Fixture::new().await).ok().unwrap();
@@ -392,6 +413,7 @@ async fn ordinary_request(
     form: String,
     peer: Option<&str>,
 ) -> axum::response::Response {
+    let _password_slot = password_request_slot("/post", Some(&form)).await;
     let mut request = Request::post("/post")
         .header("content-type", "application/x-www-form-urlencoded")
         .header("origin", &case.state.config.origin)
@@ -415,7 +437,6 @@ async fn ordinary_request(
 
 #[tokio::test]
 async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_deletion() {
-    let _serial = ORDINARY_TESTS.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -479,7 +500,6 @@ async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_de
 
 #[tokio::test]
 async fn ordinary_staff_flags_use_the_selected_board_dictionary_and_locked_policy() {
-    let _serial = ORDINARY_TESTS.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -533,7 +553,6 @@ async fn ordinary_staff_flags_use_the_selected_board_dictionary_and_locked_polic
 
 #[tokio::test]
 async fn ordinary_staff_content_admission_rejects_quietly_and_records_autosage() {
-    let _serial = ORDINARY_TESTS.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -573,7 +592,6 @@ async fn ordinary_staff_content_admission_rejects_quietly_and_records_autosage()
 
 #[tokio::test]
 async fn ordinary_staff_robot9000_rejections_roll_back_posts_and_discard_proofs() {
-    let _serial = ORDINARY_TESTS.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -1390,6 +1408,18 @@ async fn revocation_lock_case(consume: bool) {
 }
 
 async fn private_request(
+    case: &Fixture,
+    path: &str,
+    form: Option<String>,
+) -> axum::response::Response {
+    let _password_slot = password_request_slot(path, form.as_deref()).await;
+    private_request_unqueued(case, path, form).await
+}
+
+// Password-bearing callers must already hold password_request_slot. Timer
+// fixtures use this after acquiring admission and setting their owned clock
+// boundary, so waiting for unrelated hashes cannot age the tested history.
+async fn private_request_unqueued(
     case: &Fixture,
     path: &str,
     form: Option<String>,
@@ -2239,8 +2269,9 @@ async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public
     result.unwrap();
 }
 
-// Exercise the production router and its trusted listener identity. Only the
-// acceptance boundary setup changes time; the denial follows a real HTTP insert.
+// Exercise the production router and its trusted listener identity. Each
+// boundary uses history from a real HTTP insert, positioned only after test
+// password admission; production still supplies the request clock.
 async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool) {
     let board = if discussion { "j" } else { &case.board };
     let path = if discussion {
@@ -2277,14 +2308,16 @@ async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool)
     .await
     .unwrap();
     assert_eq!(history.0, thread, "The OP itself starts the staff timer");
-    let before = posting_snapshot(case, board, thread).await;
     for parent in [thread, 0] {
-        let response = private_request(
-            case,
-            path,
-            Some(form(parent, "Keep <script>draft</script>")),
-        )
-        .await;
+        let form = form(parent, "Keep <script>draft</script>");
+        let password_slot = password_request_slot(path, Some(&form)).await;
+        age_owned_history(case, board, 0).await;
+        let history: (i64, i64) = sqlx::query_as(
+            "SELECT post_id,request_at FROM post_secrets.posting_history WHERE board=$1 AND actor_hash=$2 ORDER BY post_id DESC LIMIT 1",
+        ).bind(board).bind(actor.as_slice()).fetch_one(&case.owner).await.unwrap();
+        let before = posting_snapshot(case, board, thread).await;
+        let response = private_request_unqueued(case, path, Some(form)).await;
+        drop(password_slot);
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         let text = String::from_utf8(
             to_bytes(response.into_body(), 4_194_304)
@@ -2320,20 +2353,15 @@ async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool)
     // Set the newest owned row to five elapsed whole seconds. The production
     // router supplies current request time; no request can forge the clock.
     for parent in [thread, 0] {
+        let form = form(parent, "Owned accepted at five seconds");
+        let password_slot = password_request_slot(path, Some(&form)).await;
         let changed = sqlx::query(
             "UPDATE post_secrets.posting_history SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-5 WHERE board=$1 AND actor_hash=$2 AND post_id=(SELECT max(post_id) FROM post_secrets.posting_history WHERE board=$1 AND actor_hash=$2)",
         ).bind(board).bind(actor.as_slice()).execute(&case.owner).await.unwrap().rows_affected();
         assert_eq!(changed, 1);
-        assert_eq!(
-            private_request(
-                case,
-                path,
-                Some(form(parent, "Owned accepted at five seconds"))
-            )
-            .await
-            .status(),
-            StatusCode::SEE_OTHER
-        );
+        let response = private_request_unqueued(case, path, Some(form)).await;
+        drop(password_slot);
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
     let intents: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$1",
@@ -2424,27 +2452,40 @@ async fn janitor_http_raw_name_meta_and_role_select_ordinary_reply_timer() {
             // Seed with moderator authority, then test the current trusted rank.
             sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
             sqlx::query("UPDATE content.boards SET meta_board=$2 WHERE slug=$1").bind(&case.board).bind(meta).execute(&case.owner).await.unwrap();
+            let seed_form=ordinary_form(&case,thread,"","","Owned reply seed");
+            let password_slot=password_request_slot("/post",Some(&seed_form)).await;
             elapse_staff_timer(&case,&case.board,posting_fixture::peer()).await;
-            let seed=private_request(&case,"/post",Some(ordinary_form(&case,thread,"","","Owned reply seed"))).await;
+            let seed=private_request_unqueued(&case,"/post",Some(seed_form)).await;
+            drop(password_slot);
             let status=seed.status();
             assert_eq!(status,StatusCode::SEE_OTHER,"Reply seed for {role}/{meta}/{name:?}: {}",response_text(seed).await);
             sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1").bind(case.account).bind(role).execute(&case.owner).await.unwrap();
             let form = || replace_form_field(&ordinary_form(&case,thread,"","","Owned selected timer reply"),"name",name);
             let ordinary = role == "janitor" && (meta || !name.is_empty());
+            let denied_form=form();
+            let password_slot=password_request_slot("/post",Some(&denied_form)).await;
+            age_owned_history(&case,&case.board,0).await;
             let before = posting_snapshot(&case,&case.board,thread).await;
-            let denied = private_request(&case,"/post",Some(form())).await;
+            let denied = private_request_unqueued(&case,"/post",Some(denied_form)).await;
+            drop(password_slot);
             assert_eq!(denied.status(),StatusCode::BAD_REQUEST,"{role}/{meta}/{name:?}");
             let text = response_text(denied).await;
             let remaining:i64 = text.split_once("Error: You must wait  ").unwrap().1.split_whitespace().next().unwrap().parse().unwrap();
             assert!(if ordinary { (25..=31).contains(&remaining) } else { (1..=5).contains(&remaining) },"{role}/{meta}/{name:?}: {text}");
             assert_eq!(posting_snapshot(&case,&case.board,thread).await,before);
+            let boundary_form=form();
+            let password_slot=password_request_slot("/post",Some(&boundary_form)).await;
             age_owned_history(&case,&case.board,5).await;
-            let response=private_request(&case,"/post",Some(form())).await;
+            let response=private_request_unqueued(&case,"/post",Some(boundary_form)).await;
+            drop(password_slot);
             assert_eq!(response.status(),if ordinary {StatusCode::BAD_REQUEST} else {StatusCode::SEE_OTHER},"{role}/{meta}/{name:?}");
             if ordinary {
                 // ceil(61/2)=31. The full public delay is not applied.
+                let boundary_form=form();
+                let password_slot=password_request_slot("/post",Some(&boundary_form)).await;
                 age_owned_history(&case,&case.board,31).await;
-                let response=private_request(&case,"/post",Some(form())).await;
+                let response=private_request_unqueued(&case,"/post",Some(boundary_form)).await;
+                drop(password_slot);
                 let status=response.status();
                 assert_eq!(status,StatusCode::SEE_OTHER,"Elapsed timer for {role}/{meta}/{name:?}: {}",response_text(response).await);
             }
@@ -2477,10 +2518,12 @@ async fn janitor_http_op_ordinary_error_precedes_staff_five_second_error() {
             StatusCode::SEE_OTHER
         );
         let (thread, _, _) = case.latest().await;
-        let before = posting_snapshot(&case, &case.board, thread).await;
         for seconds in [0, 51, 90] {
+            let password_slot = password_request_slot("/post", Some(&form)).await;
             age_owned_history(&case, &case.board, seconds).await;
-            let response = private_request(&case, "/post", Some(form.clone())).await;
+            let before = posting_snapshot(&case, &case.board, thread).await;
+            let response = private_request_unqueued(&case, "/post", Some(form.clone())).await;
+            drop(password_slot);
             assert_eq!(response.status(), StatusCode::BAD_REQUEST);
             let text = response_text(response).await;
             assert!(
@@ -2490,11 +2533,11 @@ async fn janitor_http_op_ordinary_error_precedes_staff_five_second_error() {
             assert!(!text.contains("before posting a reply."));
             assert_eq!(posting_snapshot(&case, &case.board, thread).await, before);
         }
+        let password_slot = password_request_slot("/post", Some(&form)).await;
         age_owned_history(&case, &case.board, 101).await;
-        assert_eq!(
-            private_request(&case, "/post", Some(form)).await.status(),
-            StatusCode::SEE_OTHER
-        );
+        let response = private_request_unqueued(&case, "/post", Some(form)).await;
+        drop(password_slot);
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
     })
     .await;
     fixture.cleanup().await;
@@ -2550,17 +2593,22 @@ async fn named_janitor_http_cross_board_op_keeps_full_delay() {
         assert_eq!(private_request(&case,"/post",Some(ordinary_form(&case,0,"","","Owned cross-board OP"))).await.status(),StatusCode::SEE_OTHER);
         let form=replace_form_field(&ordinary_form(&case,0,"","","Owned other-board OP"),"board",&target.board);
         for seconds in [0,151,290] {
+            let password_slot=password_request_slot("/post",Some(&form)).await;
             sqlx::query("UPDATE post_secrets.posting_thread_actions SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-$2 WHERE actor_hash=$1")
                 .bind(fixture_actor(&case,posting_fixture::peer()).as_slice()).bind(i64::from(seconds)).execute(&case.owner).await.unwrap();
-            let response=private_request(&case,"/post",Some(form.clone())).await;
+            let response=private_request_unqueued(&case,"/post",Some(form.clone())).await;
+            drop(password_slot);
             assert_eq!(response.status(),StatusCode::BAD_REQUEST);
             assert!(response_text(response).await.contains("Error: You must wait longer before posting a new thread."));
             let rows:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&target.board).fetch_one(&case.owner).await.unwrap();
             assert_eq!(rows,0);
         }
+        let password_slot=password_request_slot("/post",Some(&form)).await;
         sqlx::query("UPDATE post_secrets.posting_thread_actions SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-301 WHERE actor_hash=$1")
             .bind(fixture_actor(&case,posting_fixture::peer()).as_slice()).execute(&case.owner).await.unwrap();
-        assert_eq!(private_request(&case,"/post",Some(form)).await.status(),StatusCode::SEE_OTHER);
+        let response=private_request_unqueued(&case,"/post",Some(form)).await;
+        drop(password_slot);
+        assert_eq!(response.status(),StatusCode::SEE_OTHER);
     }).await;
     target_fixture.cleanup().await;
     fixture.cleanup().await;

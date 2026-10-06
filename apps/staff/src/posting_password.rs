@@ -52,3 +52,39 @@ pub(crate) async fn prepare(
     .await
     .map_err(|_| AppError::Internal)?
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn password_hash_capacity_rejects_then_recovers() {
+        // Exercise the real production semaphore independently of the HTTP
+        // semantic fixtures' queued admission.
+        let held =
+            tokio::time::timeout(Duration::from_secs(5), HASHES.clone().acquire_many_owned(2))
+                .await
+                .unwrap()
+                .unwrap();
+        let password = "owned-capacity-password".to_owned();
+        assert!(matches!(
+            prepare(password.clone(), None).await,
+            Err(AppError::Capacity)
+        ));
+        drop(held);
+        let recovered = tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(
+                prepare(password.clone(), None),
+                prepare(password.clone(), None),
+            )
+        })
+        .await
+        .unwrap();
+        for result in [recovered.0, recovered.1] {
+            let (hash, proof) = result.unwrap();
+            assert!(verify(&password, &hash));
+            assert_eq!(proof, None);
+        }
+    }
+}
