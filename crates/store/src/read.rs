@@ -1,5 +1,19 @@
 use crate::*;
 
+/// Legacy res lookup: return identity only, with public target visibility.
+pub async fn legacy_res_thread(pool: &PgPool, slug: &str, post: i64) -> Result<i64, StoreError> {
+    board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
+    if post <= 0 {
+        return Err(StoreError::NotFound);
+    }
+    sqlx::query_scalar("SELECT p.thread_id FROM content.posts p JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id JOIN content.boards b ON b.slug=p.board WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT b.staff_only")
+        .bind(slug)
+        .bind(post)
+        .fetch_optional(pool)
+        .await?
+        .ok_or(StoreError::NotFound)
+}
+
 /// Count rows without transferring comment bodies to a web process.
 pub async fn visible_post_count(pool: &PgPool, slug: &str, id: i64) -> Result<i64, StoreError> {
     Ok(sqlx::query_scalar("SELECT count(*) FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.thread_id=$2 AND NOT p.deleted AND NOT t.deleted").bind(slug).bind(id).fetch_one(pool).await?)

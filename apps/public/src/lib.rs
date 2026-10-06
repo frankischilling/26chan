@@ -9,6 +9,7 @@ mod derefer;
 mod handlers;
 mod intake;
 mod legacy_form;
+mod legacy_get;
 mod legacy_report;
 mod native_board_snapshot;
 mod native_thread_stats;
@@ -275,7 +276,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         .route("/{board}/post", post(handlers::post))
         .route(
             "/{board}/imgboard.php",
-            get(legacy_report::get).post(legacy_form::submit),
+            get(legacy_get::get).post(legacy_form::submit),
         )
         .route("/{board}/delete", post(handlers::delete))
         .route("/{board}/report", post(handlers::report));

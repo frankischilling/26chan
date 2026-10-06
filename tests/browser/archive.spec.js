@@ -85,3 +85,72 @@ test('archive navigation and reports work without JavaScript while public deleti
     finally { fixture('cleanup', slug); }
   }
 });
+
+for (const javaScriptEnabled of [false, true]) {
+  test(`legacy res lookup redirects live and retained archived OPs and replies with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({ browser, request }) => {
+    const slug = `z${randomBytes(5).toString('hex').slice(0, 9)}`;
+    const origin = 'http://127.0.0.1:3000';
+    let context;
+    fixture('setup', slug);
+    try {
+      // Posting uses a separate request context; lookup readers start without
+      // an anonymous session or posting receipt that could conceal minting.
+      const post = async (parent, comment) => {
+        const response = await withPostingHistory(() => request.post(`${origin}/${slug}/post`, {
+          headers: { Origin: origin }, maxRedirects: 0,
+          form: { resto: parent, sub: parent === '0' ? 'Owned res lookup' : '', com: comment, password: 'owned-res-lookup-password' },
+        }));
+        expect(response.status()).toBe(303);
+        return /#p(\d+)$/.exec(response.headers().location)[1];
+      };
+      const op = await post('0', 'Owned lookup OP');
+      const reply = await post(op, 'Owned lookup reply');
+      for (const archived of [false, true]) {
+        if (archived) {
+          await post('0', 'Owned replacement triggers real archive rollover');
+          expect(await (await request.get(`${origin}/${slug}/archive.json`)).json()).toEqual([Number(op)]);
+        }
+        // Fresh contexts also prevent a cached permanent redirect from hiding
+        // the real server lookup after the target moves into the archive.
+        context = await browser.newContext({ javaScriptEnabled });
+        const page = await context.newPage();
+        const writes = [], completionMessages = [];
+        context.on('request', request => { if (request.method() === 'POST') writes.push(request.url()); });
+        await context.exposeBinding('observeLookupCompletion', (_, message) => completionMessages.push(message));
+        await context.addInitScript(() => window.addEventListener('message', event => {
+          if (typeof event.data === 'string' && event.data.startsWith('done-report')) {
+            window.observeLookupCompletion(event.data);
+          }
+        }));
+        expect(await context.cookies()).toEqual([]);
+        for (const target of [op, reply]) {
+          const lookup = `${origin}/${slug}/imgboard.php?res=${target}`;
+          const destination = `${origin}/${slug}/thread/${op}#p${target}`;
+          const loaded = await page.goto(lookup);
+          expect(loaded.status()).toBe(200);
+          const redirected = loaded.request().redirectedFrom();
+          expect(redirected).not.toBe(null);
+          expect(redirected.url()).toBe(lookup);
+          expect(redirected.method()).toBe('GET');
+          const redirect = await redirected.response();
+          expect(redirect.status()).toBe(301);
+          expect(redirect.headers().location).toBe(`/${slug}/thread/${op}#p${target}`);
+          expect(await redirect.headerValue('set-cookie')).toBe(null);
+          expect(await loaded.headerValue('set-cookie')).toBe(null);
+          await expect(page).toHaveURL(destination);
+          await expect(page.locator(`#p${target}`)).toBeVisible();
+          await expect(page.getByText('This thread is archived and read-only.', { exact: true })).toHaveCount(archived ? 1 : 0);
+          await expect(page.locator('#report-popup-context, script[src="/static/report-popup.v1.js"]')).toHaveCount(0);
+          expect(await context.cookies()).toEqual([]);
+          expect(writes).toEqual([]);
+          expect(completionMessages).toEqual([]);
+        }
+        await context.close();
+        context = null;
+      }
+    } finally {
+      try { if (context) await context.close(); }
+      finally { fixture('cleanup', slug); }
+    }
+  });
+}

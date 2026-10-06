@@ -1,8 +1,10 @@
-# Legacy deletion and report routes
+# Legacy post actions and lookups
 
-`/{board}/imgboard.php` now accepts password-authorized deletion and opens a
+`/{board}/imgboard.php` accepts authorized deletion and opens a
 report form for a visible post. Posting through this route continues to use the
 existing transaction, field validation and HTML/JSON response selection.
+[Legacy `res` post lookups](legacy-post-lookups.md) resolve OPs and replies to
+local canonical thread anchors without report or session side effects.
 
 ## Public reference
 
@@ -16,8 +18,9 @@ request with `mode=report` and `no`. The extension recognizes `Updating index`
 in a successful deletion response. No live external write or report was sent.
 
 The reference does not establish the server's authorization, report categories,
-captcha policy or complete success-page appearance. This implementation retains
-the project's explicit deletion password and free-text report reason. Same-origin
+captcha policy or complete success-page appearance. The rewrite supports automatic anonymous ownership and optional recovery
+passwords. Free-text reporting remains available when the explicitly imported
+[category mode](source-report-categories.md) is inactive. Same-origin
 routes replace the original separate posting domain. Public archived deletion is
 rejected by the [source eligibility gates](source-public-deletion.md). Multiple
 selected posts follow the source request order and partial-success behavior.
@@ -73,8 +76,8 @@ keeps its redirect response. Neither route reflects the password.
 
 The GET report route validates its query and applies the shared
 [source report eligibility gates](source-report-popup.md) before rendering an
-accessible form. Submission uses the modern `/report` transaction and staff
-queue; legacy POST report dispatch remains outside that slice. Missing or removed
+accessible form. Free-text submission uses the modern `/report` transaction; categorical forms
+use the validated legacy POST adapter. Both feed the private staff queue. Missing or removed
 posts return 404. The form requires no JavaScript and uses the dedicated exact-path
 report-script CSP, denied framing and shared response-size budget. The linked
 contract records popup completion, cancellation and normal-tab behavior.
