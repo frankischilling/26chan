@@ -66,7 +66,7 @@ Public, staff and authentication runtime roles cannot import catalogs.
 Imports use Read Committed and a private import gate; they do not lock the
 current report-admission gate or change live reporting.
 
-After upgrading both services through 0099, an operator can run
+After applying current migrations and starting matching services, an operator can run
 `board-report-catalog activate <revision>` or `board-report-catalog deactivate`
 with the same migration connection. Activation requires a nonempty imported
 revision and changes live report mode; old free-text submissions then fail

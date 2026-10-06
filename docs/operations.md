@@ -203,3 +203,11 @@ activation. The operator CLI supports validation, import, activation and
 deactivation through the migration login. See [category configuration and
 rollout](source-report-categories.md). Production category definitions are not
 seeded. Configured base weights do not supply source-equivalent queue priority.
+
+
+Migration 0100 adds [forward report-group archive handling](report-group-lifetimes.md).
+It installs no historical counters. Unknown groups remain conservative; imports
+and retained report history are never used to invent past classifications.
+Privileged bulk maintenance must pre-lock every affected board in canonical
+order before writing membership, then revalidate its target set. AFTER-trigger
+checks do not protect earlier foreign-key or tuple waits.

@@ -85,7 +85,9 @@ matches IP or registered automatic-session identity for duplicate protection
 and strict rolling cooldown/hour/day checks. Its
 private membership survives anonymous-session cleanup and retires on proven
 deletion paths without erasing retained report or audit rows. Source password
-matching and category-dependent archive retirement remain gaps.
+matching and historical counter replay remain gaps.
+[Forward group lifetimes](report-group-lifetimes.md) preserve partial-purge
+counters and apply archive retirement only to complete tracked groups.
 The [category selector and private catalog importer](source-report-categories.md)
 preserve source scope rules and immutable configured labels. Import alone never
 activates a catalog; operator activation is separate, and original production

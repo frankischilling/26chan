@@ -287,6 +287,8 @@ jobs:
         run: sudo bash scripts/test-report-catalog-migration.sh
       - name: Qualify opt-in categorical reporting and current administrator dump restore
         run: sudo bash scripts/test-categorical-report-migration.sh
+      - name: Upgrade forward report-group lifetimes and archive retirement without historical backfill
+        run: sudo bash scripts/test-report-group-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

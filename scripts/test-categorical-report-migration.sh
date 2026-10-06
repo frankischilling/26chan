@@ -37,15 +37,11 @@ REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO board_migrator,board_public,board_staff,board_auth;
 SQL
 }
-# Pull the current application contract, never a separately maintained copy.
+# Frozen 0099 profile: this qualification intentionally stops before 0100.
 python3 - "$cluster" <<'PYREADINESS'
-import pathlib, re, sys
+import pathlib, sys
 root = pathlib.Path(sys.argv[1])
-source = pathlib.Path('crates/store/src/report_admission.rs').read_text()
-match = re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;', source, re.S)
-if not match:
- raise SystemExit('Cannot extract actual report_admission READINESS_SQL')
-query = match.group(1)
+query = pathlib.Path('scripts/fixtures/categorical-report-0099-readiness.sql').read_text().strip().rstrip(';')
 with (root/'readiness.sql').open('w') as out:
  for role in ('board_public','board_staff'):
   out.write(f"BEGIN; SET LOCAL ROLE {role}; DO $check$ BEGIN IF ({query}) IS DISTINCT FROM true THEN RAISE EXCEPTION 'Current report readiness failed'; END IF; END $check$; ROLLBACK;\n")
