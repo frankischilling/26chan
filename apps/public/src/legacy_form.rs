@@ -18,10 +18,17 @@ const INVALID: &str = "Invalid posting or deletion form.";
 
 enum Submission {
     Post(Box<PostForm>),
-    Delete(DeleteForm),
+    Delete(Deletion),
 }
 
 pub(crate) struct LegacyForm(Submission);
+
+struct Deletion {
+    // Preserve submitted order, including IDs larger than JavaScript's safe integer.
+    posts: Vec<i64>,
+    password: String,
+    file_only: bool,
+}
 
 // Enforce the field-count bound while deserializing, before an attacker can
 // allocate a vector for every small pair in the otherwise bounded request.
@@ -56,8 +63,8 @@ fn invalid() -> Rejection {
     Rejection::Multipart(StatusCode::UNPROCESSABLE_ENTITY, INVALID)
 }
 
-fn deletion(fields: Vec<(String, String)>) -> Result<DeleteForm, Rejection> {
-    let mut no = None;
+fn deletion(fields: Vec<(String, String)>) -> Result<Deletion, Rejection> {
+    let mut posts = Vec::new();
     let mut password = None;
     let mut file_only = false;
     for (name, value) in fields {
@@ -65,18 +72,21 @@ fn deletion(fields: Vec<(String, String)>) -> Result<DeleteForm, Rejection> {
             "mode" if value == "usrdel" => {}
             "pwd" | "password" if password.is_none() => password = Some(value),
             "onlyimgdel" if value == "on" => file_only = true,
-            _ if no.is_none() && value == "delete" => {
+            _ if value == "delete" => {
                 let id = name.parse::<i64>().map_err(|_| invalid())?;
                 if id <= 0 || id.to_string() != name {
                     return Err(invalid());
                 }
-                no = Some(id);
+                posts.push(id);
             }
             _ => return Err(invalid()),
         }
     }
-    Ok(DeleteForm {
-        no: no.ok_or_else(invalid)?,
+    if posts.is_empty() {
+        return Err(invalid());
+    }
+    Ok(Deletion {
+        posts,
         password: password.unwrap_or_default(),
         file_only,
     })
@@ -156,20 +166,18 @@ pub(crate) async fn submit(
             .await
         }
         Ok(LegacyForm(Submission::Delete(form))) => {
-            match handlers::delete(
-                State(state.clone()),
-                Path(board.clone()),
-                Extension(peer),
-                Extension(start),
-                headers,
-                Form(form),
-            )
-            .await
-            {
-                Ok(_) => crate::output::html(&state, &Deleted { board: &board })
-                    .unwrap_or_else(AppError::into_response),
-                Err(error) => error.into_response(),
-            }
+            // UserPwd captures its time once before the source deletion loop.
+            // Never recompute known-age eligibility because an earlier item waited.
+            let session =
+                match crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await {
+                    Ok(session) => session,
+                    Err(error) => return error.into_response(),
+                };
+            let context = board_store::PublicDeletionContext {
+                request_start: start.0,
+                session: (!session.posting.minted).then_some(session.posting),
+            };
+            delete_selection(&state, &board, form, context).await
         }
         Err(error) => {
             let format = crate::posting_response::Format::from_headers(&headers);
@@ -177,6 +185,56 @@ pub(crate) async fn submit(
         }
     }
 }
+
+async fn delete_selection(
+    state: &AppState,
+    board: &str,
+    form: Deletion,
+    context: board_store::PublicDeletionContext,
+) -> Response {
+    // Source user_delete processes selections sequentially. Each operation
+    // commits independently and rechecks authority/policy under its own
+    // storage lock. A later failure must not undo an earlier deletion.
+    // The shared form-field cap also bounds work per legacy request.
+    let multiple = form.posts.len() > 1;
+    for no in form.posts {
+        if let Err(error) = handlers::delete_with_context(
+            state,
+            board,
+            DeleteForm {
+                no,
+                password: form.password.clone(),
+                file_only: form.file_only,
+            },
+            context,
+        )
+        .await
+        {
+            if error.0 == StatusCode::NOT_FOUND {
+                match board_store::public_deletion_target_exists(&state.pool, board, no).await {
+                    Ok(false) if multiple => {
+                        // Source delete_post(die=false) falls through to
+                        // the upper-age error for a missing manual target.
+                        return AppError(
+                            StatusCode::FORBIDDEN,
+                            board_domain::public_deletion::Rejection::TooOld.message(),
+                        )
+                        .into_response();
+                    }
+                    Ok(false) => break, // Source single missing: updating_index().
+                    Ok(true) => {}      // Missing authority/file is still an error.
+                    Err(error) => return AppError::from(error).into_response(),
+                }
+            }
+            return error.into_response();
+        }
+    }
+    crate::output::html(state, &Deleted { board }).unwrap_or_else(AppError::into_response)
+}
+
+#[cfg(all(test, feature = "database-tests"))]
+#[path = "legacy_batch_clock_tests.rs"]
+mod batch_clock_tests;
 
 #[cfg(test)]
 mod tests {
@@ -223,7 +281,7 @@ mod tests {
                 else {
                     panic!("valid client deletion was rejected")
                 };
-                assert_eq!(form.no, i64::MAX);
+                assert_eq!(form.posts, [i64::MAX]);
                 assert_eq!(form.password, "owned password + & 😀");
                 assert!(form.file_only);
             }
@@ -236,8 +294,50 @@ mod tests {
             else {
                 panic!("query deletion was rejected")
             };
-            assert_eq!(form.no, 17);
+            assert_eq!(form.posts, [17]);
             assert!(!form.file_only);
+        }
+    }
+
+    #[tokio::test]
+    async fn multiple_selections_preserve_order_and_exact_ids_with_a_bounded_count() {
+        for multipart in [false, true] {
+            let fields = [
+                ("mode", "usrdel"),
+                ("9223372036854775807", "delete"),
+                ("pwd", "owned-password"),
+                ("17", "delete"),
+                ("9007199254740993", "delete"),
+                ("onlyimgdel", "on"),
+            ];
+            let Ok(LegacyForm(Submission::Delete(form))) =
+                LegacyForm::from_request(request("/test/imgboard.php", &fields, multipart), &())
+                    .await
+            else {
+                panic!("valid batch was rejected")
+            };
+            assert_eq!(form.posts, [i64::MAX, 17, 9007199254740993]);
+            assert_eq!(form.password, "owned-password");
+            assert!(form.file_only);
+
+            let ids: Vec<_> = (1..=MAX_FORM_FIELDS).map(|id| id.to_string()).collect();
+            let mut fields = vec![("mode", "usrdel"), ("pwd", "owned-password")];
+            fields.extend(
+                ids[..MAX_FORM_FIELDS - 2]
+                    .iter()
+                    .map(|id| (id.as_str(), "delete")),
+            );
+            assert!(
+                LegacyForm::from_request(request("/test/imgboard.php", &fields, multipart), &())
+                    .await
+                    .is_ok()
+            );
+            fields.push((ids[MAX_FORM_FIELDS - 2].as_str(), "delete"));
+            assert!(
+                LegacyForm::from_request(request("/test/imgboard.php", &fields, multipart), &())
+                    .await
+                    .is_err()
+            );
         }
     }
 
@@ -277,7 +377,7 @@ mod tests {
                 else {
                     panic!("Expected source deletion form");
                 };
-                assert_eq!(form.no, 17);
+                assert_eq!(form.posts, [17]);
                 assert!(form.password.is_empty());
                 assert!(!form.file_only);
             }
@@ -310,12 +410,6 @@ mod tests {
                 ("17", "delete"),
                 ("pwd", "owned-password"),
                 ("17", "delete"),
-            ],
-            vec![
-                ("mode", "usrdel"),
-                ("17", "delete"),
-                ("pwd", "owned-password"),
-                ("18", "delete"),
             ],
             vec![
                 ("mode", "usrdel"),

@@ -104,6 +104,7 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
                     || page.parse::<u16>().is_ok_and(|page| page < 1000))
         }
         [board, "thread", id] => !board.is_empty() && id.parse::<i64>().is_ok_and(|id| id > 0),
+        [_, "thread", _, _] => crate::semantic_thread::is_path(request.uri().path()),
         _ => false,
     };
     let upload_page = *request.method() == Method::POST
@@ -111,9 +112,9 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
     let page = if search_page && matches!(*request.method(), Method::GET | Method::HEAD) {
         Some(InteractivePage::Search)
     } else if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
-        Some(if parts.last() == Some(&"archive") {
+        Some(if matches!(parts.as_slice(), [_, "archive"]) {
             InteractivePage::Archive
-        } else if parts.last() == Some(&"catalog") {
+        } else if matches!(parts.as_slice(), [_, "catalog"]) {
             InteractivePage::Catalog
         } else {
             InteractivePage::Board

@@ -20,6 +20,7 @@ mod posting_response;
 mod rss;
 mod search;
 mod security;
+mod semantic_thread;
 pub mod themes;
 pub mod transport;
 mod ui_assets;
@@ -268,6 +269,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))
         .route("/{board}/thread/{key}", get(handlers::thread))
+        .route("/{board}/thread/{key}/{context}", get(semantic_thread::get))
         .route("/{board}/post/{id}", get(handlers::quote))
         .route("/{board}/post", post(handlers::post))
         .route(

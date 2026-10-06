@@ -12,7 +12,9 @@ pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
 mod public_deletion;
-pub use public_deletion::{PublicDeletionContext, public_deletion_precheck};
+pub use public_deletion::{
+    PublicDeletionContext, public_deletion_precheck, public_deletion_target_exists,
+};
 mod read;
 mod robot9000;
 mod rss;

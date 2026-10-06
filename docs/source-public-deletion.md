@@ -58,8 +58,9 @@ Exact commands and outcomes belong to the corresponding pull-request checkpoint.
 
 ## Remaining scope
 
-This slice does not complete issue #214. The source's peer-address-only authority,
-multiple selected posts, hourly/daily action counters, physical row/file erasure
+This slice does not complete issue #214. [Legacy batches](legacy-actions.md#multiple-selections)
+now preserve submitted order and partial success. The source's peer-address-only authority,
+hourly/daily action counters, physical row/file erasure
 and report cleanup remain separate work. The rewrite continues using opaque
 session capabilities, hashed recovery passwords and its existing retention model.
 Shared-network peer equality alone does not grant deletion authority.

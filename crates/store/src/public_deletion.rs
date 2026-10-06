@@ -123,3 +123,16 @@ pub async fn public_deletion_precheck(
         .await?
         .before_authority(start)
 }
+
+/// Classify a legacy missing target without confusing a hidden/missing board
+/// with an absent post. Board visibility and target visibility share one SQL
+/// snapshot; a missing credential or attachment on a live post is not absence.
+pub async fn public_deletion_target_exists(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+) -> Result<bool, StoreError> {
+    board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
+    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=b.slug AND p.id=$2 AND NOT p.deleted) FROM content.boards b WHERE b.slug=$1")
+        .bind(slug).bind(id).fetch_optional(pool).await?.ok_or(StoreError::NotFound)
+}

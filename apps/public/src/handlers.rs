@@ -701,14 +701,36 @@ pub async fn delete(
         request_start: start.0,
         session: (!session.posting.minted).then_some(session.posting),
     };
-    if !session.posting.minted {
-        let token = session.posting.fingerprints.token;
+    delete_authorized(&state, &board, form, context).await
+}
+
+/// A legacy batch captures the trusted request/session clocks once. Each item
+/// still obtains fresh authority and rechecks policy under its mutation lock.
+pub(crate) async fn delete_with_context(
+    state: &AppState,
+    board: &str,
+    form: DeleteForm,
+    context: board_store::PublicDeletionContext,
+) -> Result<Redirect, AppError> {
+    board_store::public_deletion_precheck(&state.pool, board, form.no, context.request_start)
+        .await?;
+    delete_authorized(state, board, form, context).await
+}
+
+async fn delete_authorized(
+    state: &AppState,
+    board: &str,
+    form: DeleteForm,
+    context: board_store::PublicDeletionContext,
+) -> Result<Redirect, AppError> {
+    if let Some(session) = context.session {
+        let token = session.fingerprints.token;
         if let Some(proof) =
-            board_store::anonymous_session::post_proof(&state.pool, &token, &board, form.no).await?
+            board_store::anonymous_session::post_proof(&state.pool, &token, board, form.no).await?
         {
             board_store::delete_with_anonymous_proof_context(
                 &state.pool,
-                &board,
+                board,
                 form.no,
                 token,
                 proof,
@@ -725,7 +747,7 @@ pub async fn delete(
             "Error: Password incorrect.",
         ));
     }
-    let hash = board_store::deletion_hash(&state.pool, &board, form.no).await?;
+    let hash = board_store::deletion_hash(&state.pool, board, form.no).await?;
     let permit = state
         .limits
         .hashes
@@ -752,7 +774,7 @@ pub async fn delete(
     };
     board_store::delete_with_password_proof_context(
         &state.pool,
-        &board,
+        board,
         form.no,
         proof,
         form.file_only,

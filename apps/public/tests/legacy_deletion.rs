@@ -151,12 +151,34 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
                 .unwrap();
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
         }
+        let original_state = "SELECT jsonb_build_object('post',to_jsonb(p),'thread',to_jsonb(t)) FROM content.posts p JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board='fixture' AND p.id=$1";
+        let before: serde_json::Value = sqlx::query_scalar(original_state)
+            .bind(id.parse::<i64>().unwrap())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
         let response = app
             .clone()
             .oneshot(form("/demo/imgboard.php", &fields, Some(ORIGIN), multipart))
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        // The target is missing on this accessible board: source single-delete
+        // returns Updating index, without granting authority over another board.
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let html = std::str::from_utf8(&body).unwrap();
+        assert!(html.contains("Updating index"));
+        assert!(html.contains("href=\"/demo/\""));
+        assert_eq!(thread_status(&app, &id).await, StatusCode::OK);
+        let after: serde_json::Value = sqlx::query_scalar(original_state)
+            .bind(id.parse::<i64>().unwrap())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+        assert_eq!(
+            before, after,
+            "Wrong-board deletion must leave the original post and thread unchanged"
+        );
         let mut wrong = fields;
         wrong[2].1 = "wrong-password";
         let response = app

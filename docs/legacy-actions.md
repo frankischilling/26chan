@@ -19,15 +19,16 @@ The reference does not establish the server's authorization, report categories,
 captcha policy or complete success-page appearance. This implementation retains
 the project's explicit deletion password and free-text report reason. Same-origin
 routes replace the original separate posting domain. Public archived deletion is
-rejected by the [source eligibility gates](source-public-deletion.md). Bulk
-deletion remains outside this adapter's supported contract.
+rejected by the [source eligibility gates](source-public-deletion.md). Multiple
+selected posts follow the source request order and partial-success behavior.
 
 ## Request and authorization rules
 
 Deletion accepts either URL-encoded fields or bounded text-only multipart. It
-requires one canonical positive signed-64-bit post ID and one `pwd` or `password`
-field. IDs retain their exact decimal value, including values above JavaScript's
-safe-integer range. `onlyimgdel=on` selects the existing file-only transaction.
+requires at least one canonical positive signed-64-bit selected post ID. An
+optional `pwd` or `password` field supplies recovery credentials; the anonymous
+cookie can authorize the request without it. IDs retain their exact decimal
+value, including values above JavaScript's safe-integer range. `onlyimgdel=on` selects the existing file-only transaction.
 Duplicate, conflicting, unknown or incomplete deletion fields are rejected.
 An optional query `mode` must agree with a body `mode` when both are present.
 
@@ -74,6 +75,30 @@ The GET report route validates its query and visible board/post before rendering
 an accessible form. Submission uses the existing `/report` transaction and staff
 queue. Missing or removed posts return 404. The form requires no JavaScript and
 inherits the normal CSP, framing and response-size policies.
+
+## Multiple selections
+
+Numeric fields whose value is `delete` are processed in submitted order, as in
+`imgboard.php:7513–7519,7576–7582`. Each successful item commits independently.
+A later ownership, policy or storage failure stops the request without undoing
+an earlier deletion. File-only requests use the same selection order and gates.
+
+The server captures the request/session context once for the batch. The session's
+network-age clock cannot cross into the known-user category merely because an
+earlier item waited. Each item still rereads and locks its current authority and
+policy. Its minimum post-age check uses the current server clock.
+
+For an accessible board, a missing single target returns the source's bounded
+`Updating index` success page without a mutation. A missing target in a multiple
+selection stops with the source old-post error. Earlier successful items remain
+committed. Unknown/private boards keep their denial response, and missing
+credentials or attachments on an existing post are not treated as missing posts.
+The modern `/delete` endpoint retains its existing missing-target response.
+
+The 20-field streamed form limit also bounds batch work. Canonical IDs, duplicate
+field rejection, the body limit and Origin checks remain security restrictions.
+A form with no selection is rejected. Original deletion action counters and full-page
+multi-selection controls remain separate work.
 
 ## Verification
 
