@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from '@playwright/test';
 
-// Category order follows 4chan-old/js/extension.js at 545b781. Visibility and
-// defaults deliberately retain the rewrite's existing supported controls.
+// Category order and layout availability follow 4chan-old/js/extension.js at
+// 545b781, restricted to the rewrite's implemented controls.
 const groups = [
   ['Quotes & Replying', 'quotePreview backlinks inlineQuotes quickReply persistentQR'],
   ['Monitoring', 'threadUpdater alwaysAutoUpdate threadWatcher threadAutoWatcher autoScroll updaterSound fixedThreadWatcher threadStats'],
@@ -12,7 +12,12 @@ const groups = [
   ['Images & Media', 'imageExpansion fitToScreenExpansion imageHover imageHoverBg revealSpoilers noPictures embedYouTube embedSoundCloud'],
   ['Miscellaneous', 'linkify darkTheme customCSS IDColor compactThreads centeredThreads localTime'],
 ].map(([name, keys]) => ({ name, keys: keys.split(' ') }));
-const desktopOnly = new Set('inlineQuotes fixedThreadWatcher fitToScreenExpansion imageHover imageHoverBg embedYouTube embedSoundCloud'.split(' '));
+const mobileKeys = new Set('quotePreview backlinks quickReply threadUpdater alwaysAutoUpdate threadWatcher threadAutoWatcher threadStats threadHiding threadExpansion alwaysDepage imageExpansion revealSpoilers noPictures linkify darkTheme customCSS IDColor localTime'.split(' '));
+const expectedGroups = mobile => groups.map(group => ({ ...group,
+  keys: group.keys.filter(key => mobile ? mobileKeys.has(key) : key !== 'darkTheme'),
+}));
+// These are isolated installSettings fallback defaults, not integrated app defaults.
+// The app supplies optionChecked (including embedYouTube's enabled default).
 const enabledByDefault = new Set('threadHiding threadUpdater threadExpansion threadStats quickReply quotePreview backlinks imageExpansion localTime IDColor'.split(' '));
 const sources = new Map(await Promise.all(['native-settings.v1.js', 'native-custom-css.v1.js'].map(async name =>
   [`/static/${name}`, await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8')])));
@@ -80,9 +85,9 @@ async function categoryState(page) {
 }
 
 for (const mobile of [false, true]) {
-  test(`${mobile ? 'mobile' : 'desktop'} has exactly six ordered groups, unchanged controls and defaults`, async ({ page }) => {
+  test(`${mobile ? 'mobile' : 'desktop'} has exactly six ordered groups, source-visible controls and fallback defaults`, async ({ page }) => {
     await fixture(page, { mobile });
-    const expected = groups.map(group => ({ ...group, keys: group.keys.filter(key => !mobile || !desktopOnly.has(key)) }));
+    const expected = expectedGroups(mobile);
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expected);
     const controls = await page.locator('[data-option]').evaluateAll(inputs => inputs.map(input => ({
       key: input.dataset.option, id: input.id, checked: input.checked, label: input.parentElement.textContent.trim(),
@@ -95,10 +100,10 @@ for (const mobile of [false, true]) {
       assert.ok(input.label.length > 0);
     }
     assert.equal(await page.locator('.settings-cat #setting-disableAll').count(), 0);
-    assert.equal(await page.locator('#setting-darkTheme').count(), 1);
+    assert.equal(await page.locator('#setting-darkTheme').count(), mobile ? 1 : 0);
     assert.equal(await page.locator('#setting-unmuteWebm, #setting-forceHTTPS').count(), 0);
     assert.deepEqual(await page.locator('.settings-sub input').evaluateAll(inputs => inputs.map(input => input.dataset.option)),
-      ['persistentQR', 'alwaysAutoUpdate', 'threadAutoWatcher', 'classicNav', 'autoHideNav', ...(!mobile ? ['imageHoverBg'] : [])]);
+      mobile ? ['threadAutoWatcher'] : ['threadAutoWatcher', 'classicNav', 'autoHideNav', 'imageHoverBg']);
     assert.equal(await page.locator('#settings-export').textContent(), 'Export Settings');
     assert.equal(await page.locator('#settings-save').textContent(), 'Save Settings');
     assert.equal(await page.evaluate(() => document.activeElement.id), 'setting-quotePreview');
@@ -146,16 +151,18 @@ test('cancel discards edits across all groups and resizing does not replace the 
   assert.equal(await page.locator('#settingsMenu').count(), 0);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'settingsWindowLink');
   await page.locator('#settingsWindowLink').click();
+  assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(true));
   assert.equal(await page.locator('#setting-inlineQuotes').count(), 0);
-  for (const group of groups) assert.equal(await page.locator(`#setting-${group.keys[0]}`).isChecked(), enabledByDefault.has(group.keys[0]));
+  assert.equal(await page.locator('#setting-darkTheme').isChecked(), false);
+  for (const group of expectedGroups(true)) assert.equal(await page.locator(`#setting-${group.keys[0]}`).isChecked(), enabledByDefault.has(group.keys[0]));
   assert.ok((await categoryState(page)).every(group => !group.hidden));
   assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls, settings: settingsState })),
     { writes: [], saves: [], settings: {} });
 });
 
 test('callbacks retain their openers and save submits only changed controls while merging fresh state', async ({ page }) => {
-  await fixture(page, { override: { darkTheme: true, backlinks: false } });
-  assert.equal(await page.locator('#setting-darkTheme').isChecked(), true);
+  await fixture(page, { override: { embedYouTube: true, backlinks: false } });
+  assert.equal(await page.locator('#setting-embedYouTube').isChecked(), true);
   assert.equal(await page.locator('#setting-backlinks').isChecked(), false);
   for (const id of ['filters-edit', 'thread-hiding-clear', 'custom-menu-edit', 'keybinds-open', 'custom-css-edit', 'settings-export']) {
     await page.locator(`#${id}`).click();
@@ -197,3 +204,42 @@ test('save errors remain recoverable and closing aborts pending saves without ap
   assert.deepEqual(await page.evaluate(() => ({ settings: settingsState, events: savedEvents, writes: storageWrites })),
     { settings: {}, events: 0, writes: [] });
 });
+
+for (const mobile of [false, true]) {
+  test(`${mobile ? 'mobile' : 'desktop'} save preserves hidden saved preferences and concurrent unseen changes`, async ({ page }) => {
+    const hiddenKeys = groups.flatMap(group => group.keys)
+      .filter(key => mobile ? !mobileKeys.has(key) : key === 'darkTheme');
+    const hidden = Object.fromEntries(hiddenKeys.map((key, index) => [key, index % 2 === 0]));
+    await fixture(page, { mobile, settings: { ...hidden, linkify: false } });
+    await page.locator('#settings-expand-all').click();
+    for (const key of hiddenKeys) assert.equal(await page.locator(`#setting-${key}`).count(), 0, key);
+    if (mobile) {
+      assert.equal(await page.locator('#filters-edit, #custom-menu-edit, #keybinds-open').count(), 0);
+      await page.locator('#thread-hiding-clear').click();
+      await page.locator('#custom-css-edit').click();
+      assert.deepEqual(await page.evaluate(() => callbacks), [['clear', undefined], ['css', 'custom-css-edit']]);
+    }
+    await page.locator('#setting-linkify').check();
+    const concurrent = { [hiddenKeys[0]]: !hidden[hiddenKeys[0]], unknownFutureSetting: 'preserved' };
+    await page.evaluate(changes => { Object.assign(settingsState, changes); }, concurrent);
+    await page.locator('#settings-save').click();
+    await page.waitForFunction(() => !document.getElementById('settingsMenu'));
+    assert.deepEqual(await page.evaluate(() => saveCalls[0].changes), { linkify: true });
+    assert.deepEqual(await page.evaluate(() => settingsState), { ...hidden, ...concurrent, linkify: true });
+    assert.deepEqual(await page.evaluate(() => storageWrites), []);
+    await page.locator('#settingsWindowLink').click();
+    assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
+    await page.locator('#settings-expand-all').click();
+    assert.equal(await page.locator('#setting-linkify').isChecked(), true);
+    await page.setViewportSize({ width: mobile ? 1000 : 390, height: 800 });
+    // Availability is sampled at open; resizing must leave this draft intact.
+    assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
+    await page.keyboard.press('Escape');
+    await page.locator('#settingsWindowLink').click();
+    assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(!mobile));
+    await page.locator('#settings-expand-all').click();
+    for (const key of hiddenKeys) {
+      assert.equal(await page.locator(`#setting-${key}`).isChecked(), { ...hidden, ...concurrent }[key], key);
+    }
+  });
+}

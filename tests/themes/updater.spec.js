@@ -28,8 +28,17 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
       if (!(await page.locator('#setting-threadUpdater').isVisible())) await page.getByRole('button', { name: 'Monitoring', exact: true }).click();
       await expect(page.locator('#setting-threadUpdater')).toBeChecked();
       await expect(page.locator('#setting-alwaysAutoUpdate')).not.toBeChecked();
-      await expect(page.locator('#setting-autoScroll')).not.toBeChecked();
-      await expect(page.locator('#setting-updaterSound')).toBeChecked();
+      if (width === 1280) {
+        await expect(page.locator('#setting-autoScroll')).not.toBeChecked();
+        await expect(page.locator('#setting-updaterSound')).toBeChecked();
+      } else {
+        await expect(page.locator('#setting-autoScroll, #setting-updaterSound')).toHaveCount(0);
+        expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).updaterSound)).toBe(true);
+        // Saved availability does not imply the separate per-page Sound toggle is enabled.
+        const sound = page.locator('.threadNav.desktop input[data-cmd="sound"]').first();
+        expect(await sound.evaluate(input => input.parentElement.parentElement.hidden)).toBe(false);
+        await expect(sound).not.toBeChecked();
+      }
       const dialog = page.getByRole('dialog', { name: 'Settings', exact: true }), bounds = await dialog.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(900);

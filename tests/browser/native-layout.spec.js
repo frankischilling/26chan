@@ -52,16 +52,18 @@ async function openSettings(page) {
 
 test('native layout settings preserve source precedence across desktop, mobile and cross-tab disableAll', async ({ page, context, owned }) => {
   await page.goto(owned.url);
+  // Source exposes darkTheme only on mobile; an existing desktop preference still applies.
+  await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ darkTheme: true })));
+  await page.reload();
   const dialog = await openSettings(page);
   const compact = dialog.getByLabel('Force long posts to wrap');
   const centered = dialog.getByLabel('Center threads');
   const dark = dialog.getByLabel('Use a dark theme');
   await expect(compact).toBeVisible();
   await expect(centered).toBeVisible();
-  await expect(dark).toBeVisible();
+  await expect(dark).toHaveCount(0);
   await compact.check();
   await centered.check();
-  await dark.check();
   const navigation = page.waitForEvent('framenavigated');
   await dialog.getByRole('button', { name: 'Save Settings' }).click();
   await navigation;
@@ -74,11 +76,17 @@ test('native layout settings preserve source precedence across desktop, mobile a
   let reopened = await openSettings(page);
   await expect(reopened.getByLabel('Force long posts to wrap')).toBeChecked();
   await expect(reopened.getByLabel('Center threads')).toBeChecked();
-  await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
+  await expect(reopened.getByLabel('Use a dark theme')).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).darkTheme)).toBe(true);
   await reopened.getByRole('button', { name: 'Close settings' }).click();
 
   await page.setViewportSize({ width: 390, height: 800 });
   await expect.poll(() => layout(page)).toBe('centered');
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
+  await expect(reopened.getByLabel('Force long posts to wrap')).toHaveCount(0);
+  await expect(reopened.getByLabel('Center threads')).toHaveCount(0);
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
   await expect.poll(() => page.locator('.sideArrows').first().evaluate(node => getComputedStyle(node).display)).toBe('none');
 
   await page.evaluate(() => {

@@ -1,6 +1,20 @@
 // Release-owned settings controls. Stored strings never become HTML.
 import { parseCatalogCSS } from './native-custom-css.v1.js';
 
+// Source SettingsMenu.options at 545b781: presentation availability only.
+// Hidden preferences remain stored and are still honored by their runtimes.
+const mobileSettings = new Set(`quotePreview backlinks quickReply threadUpdater alwaysAutoUpdate
+  threadWatcher threadAutoWatcher threadStats threadHiding threadExpansion alwaysDepage
+  imageExpansion revealSpoilers noPictures linkify darkTheme customCSS IDColor localTime disableAll`.split(/\s+/));
+const desktopOnlySettings = new Set(`inlineQuotes persistentQR autoScroll updaterSound fixedThreadWatcher
+  filter hideStubs dropDownNav classicNav autoHideNav customMenu topPageNav stickyNav keyBinds
+  fitToScreenExpansion imageHover imageHoverBg embedYouTube embedSoundCloud compactThreads centeredThreads`.split(/\s+/));
+
+export function settingAvailable(key, mobileLayout) {
+  return mobileLayout ? mobileSettings.has(key)
+    : key !== 'darkTheme' && (mobileSettings.has(key) || desktopOnlySettings.has(key));
+}
+
 export const CATALOG_THEME_LIMITS = Object.freeze({ storage: 24576, css: 16384 });
 
 export function catalogDropDownEnabled(raw, mobileLayout) {
@@ -97,8 +111,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     content.append(header);
     const form = node('form');
     const fields = new Map();
-    function option(parent, key, label, tip, className, desktopOnly = false) {
-      if (desktopOnly && mobileLayout) return null;
+    function option(parent, key, label, tip, className) {
+      if (!catalog && !settingAvailable(key, mobileLayout)) return null;
       const row = node('li', undefined, className);
       const caption = node('label');
       const input = node('input', undefined, 'menuOption');
@@ -150,21 +164,21 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       const quotesCategory = addCategory('quotes', 'Quotes & Replying');
       option(quotesCategory, 'quotePreview', 'Quote preview', 'Show post when mousing over post links');
       option(quotesCategory, 'backlinks', 'Backlinks', 'Show who has replied to a post');
-      option(quotesCategory, 'inlineQuotes', 'Inline quote links', 'Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining', undefined, true);
+      option(quotesCategory, 'inlineQuotes', 'Inline quote links', 'Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining');
       option(quotesCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
-      option(quotesCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
+      option(quotesCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting');
       const monitoringCategory = addCategory('monitoring', 'Monitoring');
       option(monitoringCategory, 'threadUpdater', 'Thread updater', 'Append new posts to bottom of thread without refreshing the page');
-      option(monitoringCategory, 'alwaysAutoUpdate', 'Auto-update by default', 'Always auto-update threads', 'settings-sub');
+      option(monitoringCategory, 'alwaysAutoUpdate', 'Auto-update by default', 'Always auto-update threads');
       option(monitoringCategory, 'threadWatcher', 'Thread Watcher', "Keep track of threads you're watching and see when they receive new posts");
       option(monitoringCategory, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
       option(monitoringCategory, 'autoScroll', 'Auto-scroll with auto-updated posts', 'Automatically scroll the page as new posts are added');
       option(monitoringCategory, 'updaterSound', 'Sound notification', 'Play a sound when somebody replies to your post(s)');
-      option(monitoringCategory, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', undefined, true);
+      option(monitoringCategory, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you');
       option(monitoringCategory, 'threadStats', 'Thread statistics', 'Display reply and image counts; italics indicate a reached bump or image limit');
       const filtersCategory = addCategory('filters', 'Filters & Post Hiding');
       const filter = option(filtersCategory, 'filter', 'Filter and highlight specific threads/posts', 'Enable pattern-based filters');
-      filter.parentElement.parentElement.append(' [', link('filters-edit', 'Edit', source => openFilters?.(source)), ']');
+      filter?.parentElement.parentElement.append(' [', link('filters-edit', 'Edit', source => openFilters?.(source)), ']');
       const hiding = option(filtersCategory, 'threadHiding', 'Thread hiding', 'Hide entire threads by clicking the minus button');
       hiding.parentElement.parentElement.append(' [', link('thread-hiding-clear', 'Clear History', () => clearThreads?.()), ']');
       option(filtersCategory, 'hideStubs', 'Hide thread stubs', "Don't display stubs of hidden threads");
@@ -174,21 +188,21 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       option(navigationCategory, 'classicNav', 'Use traditional board list', 'Show board links instead of the selection menu', 'settings-sub');
       option(navigationCategory, 'autoHideNav', 'Auto-hide on scroll', 'Hide persistent navigation while scrolling down', 'settings-sub');
       const customMenu = option(navigationCategory, 'customMenu', 'Custom board list', 'Only show selected boards in the board navigation');
-      customMenu.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
+      customMenu?.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
       option(navigationCategory, 'alwaysDepage', 'Always use infinite scroll', 'Load later index pages as you approach the bottom');
       option(navigationCategory, 'topPageNav', 'Page navigation at top of page', 'Hold Shift and drag to move the page switcher');
       option(navigationCategory, 'stickyNav', 'Navigation arrows', 'Show Top and Bottom arrows; hold Shift and drag to move');
       const keys = option(navigationCategory, 'keyBinds', 'Use keyboard shortcuts', 'Enable handy keyboard shortcuts for common actions');
-      keys.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
+      keys?.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
       const imagesCategory = addCategory('images', 'Images & Media');
       option(imagesCategory, 'imageExpansion', 'Image expansion', 'Enable inline image expansion, limited to browser width');
-      option(imagesCategory, 'fitToScreenExpansion', 'Fit expanded images to screen', 'Limit expanded images to both browser width and height', undefined, true);
-      option(imagesCategory, 'imageHover', 'Image hover', 'Mouse over images to view full size, limited to browser size', undefined, true);
-      option(imagesCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
+      option(imagesCategory, 'fitToScreenExpansion', 'Fit expanded images to screen', 'Limit expanded images to both browser width and height');
+      option(imagesCategory, 'imageHover', 'Image hover', 'Mouse over images to view full size, limited to browser size');
+      option(imagesCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub');
       option(imagesCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
       option(imagesCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
-      option(imagesCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed', undefined, true);
-      option(imagesCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed', undefined, true);
+      option(imagesCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed');
+      option(imagesCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed');
       const miscellaneousCategory = addCategory('miscellaneous', 'Miscellaneous');
       option(miscellaneousCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
       option(miscellaneousCategory, 'darkTheme', 'Use a dark theme', 'Use the Tomorrow theme while browsing');

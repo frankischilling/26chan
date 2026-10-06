@@ -926,7 +926,8 @@ not a missing original updater feature.
 Config/defaults (`8795-8848`) and Settings (`8968`) expose more than
 the implemented control set. The [six source-ordered Settings categories](native-settings-categories.md)
 cover Quotes, Monitoring, Filters/Post Hiding, Navigation, Images/Media and
-Miscellaneous. Mobile option visibility and first-run persistence still differ. The native default table below
+Miscellaneous. Existing controls follow source mobile visibility; unsupported
+playback/transport controls and first-run persistence remain separate gaps. The native default table below
 records native boolean defaults and mobile overrides. Quick Reply, quote
 preview/backlinks, updater and thread hiding default true; watcher, shortcuts,
 sound and many optional features default false. Full settings and feature
@@ -1057,6 +1058,10 @@ unspecified:
   abuse/admission outcomes; source UI alone is not captcha-service equivalence.
 - External media binary versions/behavior, missing board-specific image bytes
   and deployed original-file/media MIME/cache policies.
+- The external `team.4chan.org/stafflog` reader linked from
+  `lib/archives.php:116–160` is absent from the supplied checkout. Its permission,
+  filtering, pagination and presentation rules cannot be inferred from the
+  retained `actions_log` writers or schema alone.
 - Original full rendered desktop/mobile/state/loading reference, browser/fonts
   and external UI integrations, including third-party menu-ready subscribers.
 - API/CDN/proxy headers/status/cache/CORS/domain mapping, effective rebuild/
