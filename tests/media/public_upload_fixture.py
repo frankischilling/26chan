@@ -94,14 +94,21 @@ class PublicUpload:
         result = subprocess.run(['systemd-analyze', 'verify', '/run/systemd/system/' + self.unit.name],
                                 env=SAFE, capture_output=True, timeout=15)
         assert result.returncode == 0, 'public development unit verification failed'
-        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true);")
-        self.created = True
+        self.create_board()
         systemctl('start', self.unit.name)
         wait_until(self.ready)
         status = pathlib.Path(f'/proc/{self.unit.pid}/status').read_text()
         ids = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
         assert set(map(int, ids['Uid'].split())) == {public.pw_uid}
         assert set(map(int, ids['Gid'].split())) == {edge.gr_gid}
+
+    def create_board(self):
+        assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
+        # This owned synthetic board qualifies media deletion and cleanup directly
+        # after posting. Source-board age eligibility is tested separately; retain
+        # the normal maximum age and all authentication/resource checks here.
+        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true,0,0);")
+        self.created = True
 
     def ready(self):
         assert self.unit.poll() is None, 'public development startup rejected'
