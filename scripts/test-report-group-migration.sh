@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Owned synthetic clusters only. Qualify 0099 -> 0100 and current dump/restore.
+# Owned synthetic clusters only. Qualify 0099 -> 0100 and frozen 0100 dump/restore.
 set -euo pipefail
 umask 077
 cd "$(dirname "$0")/.."
@@ -37,16 +37,13 @@ REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO board_migrator,board_public,board_staff,board_auth;
 SQL
 }
-# Extract the actual current serving contract; never resolve private objects as
-# a runtime role and never grant test-only private access to those roles.
+# Frozen 0100 contract: this historical qualification deliberately stops before
+# 0101. Never grant test-only private access to runtime roles.
 python3 - "$cluster" <<'PYREADINESS'
-import pathlib, re, sys
+import pathlib, sys
 root=pathlib.Path(sys.argv[1])
-source=pathlib.Path('crates/store/src/report_admission.rs').read_text()
-match=re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;',source,re.S)
-if not match: raise SystemExit('Cannot extract actual report readiness')
-query=match.group(1)
-(root/'readiness.sql').write_text("DO $check$ BEGIN IF ("+query+") IS DISTINCT FROM true THEN RAISE EXCEPTION 'Current readiness failed'; END IF; END $check$;")
+query=pathlib.Path('scripts/fixtures/report-group-0100-readiness.sql').read_text().strip().rstrip(';')
+(root/'readiness.sql').write_text("DO $check$ BEGIN IF ("+query+") IS DISTINCT FROM true THEN RAISE EXCEPTION '0100 readiness failed'; END IF; END $check$;")
 changes=[
  'ALTER TABLE post_secrets.report_group RENAME TO missing_report_group',
  'ALTER TABLE post_secrets.report_group OWNER TO board_migrator',
