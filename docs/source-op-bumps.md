@@ -105,9 +105,10 @@ corresponding evidence; undelete does not reconstruct missing history.
 ## Deployment and recovery
 
 The original address records require migration 0024. For the current writer,
-stop public and staff posting, apply migrations through 0090 and deploy matching
-binaries before restoring posting. Migration 0090 reuses existing owners and
-adds no bootstrap role. The upgrade does not invent addresses or HMAC history
+stop public and staff posting, apply migrations through 0091 and deploy matching
+binaries before restoring posting. Migrations 0090 and 0091 reuse existing owners
+and add no bootstrap role. See [archive deletion-password retirement](archive-deletion-secrets.md)
+for the 0091 boundary. The upgrade does not invent addresses or HMAC history
 for historical rows: old threads without either ownership source cannot apply
 self-bump suppression. Imports need authorized source identity data if
 historical self-bump behavior is required. Every application write requires a

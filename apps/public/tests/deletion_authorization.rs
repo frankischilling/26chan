@@ -461,15 +461,58 @@ impl Fixture {
                 .execute(&mut *mutation)
                 .await
                 .unwrap();
-            let mut writer = self.owner.acquire().await.unwrap();
+            let authority_before: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id=$1",
+            )
+            .bind(id)
+            .fetch_one(&mut *mutation)
+            .await
+            .unwrap();
+            // 0091 rejects tuple-first operator UPDATE and DELETE instead
+            // of permitting a secret -> board cycle with archive retirement.
+            let error = tokio::time::timeout(
+                Duration::from_secs(3),
+                sqlx::query(statement).bind(id).execute(&self.owner),
+            )
+            .await
+            .expect("Out-of-order credential mutation must fail without waiting")
+            .unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("55P03")
+            );
+            let unchanged: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id=$1",
+            )
+            .bind(id)
+            .fetch_one(&mut *mutation)
+            .await
+            .unwrap();
+            assert_eq!(unchanged, authority_before);
+            let mut writer = self.owner.begin().await.unwrap();
             let writer_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *writer)
                 .await
                 .unwrap();
-            let changing =
-                tokio::spawn(
-                    async move { sqlx::query(statement).bind(id).execute(&mut *writer).await },
-                );
+            let board = self.board.clone();
+            let changing = tokio::spawn(async move {
+                // Retry either mutation in a board-first transaction.
+                sqlx::query(
+                    "SELECT slug FROM content.boards WHERE slug=$1 ORDER BY slug FOR UPDATE",
+                )
+                .bind(&board)
+                .execute(&mut *writer)
+                .await?;
+                let changed = sqlx::query(statement)
+                    .bind(id)
+                    .execute(&mut *writer)
+                    .await?;
+                writer.commit().await?;
+                Ok::<_, sqlx::Error>(changed)
+            });
             tokio::time::timeout(Duration::from_secs(3), async {
                 loop {
                     assert!(
@@ -489,17 +532,17 @@ impl Fixture {
                 }
             })
             .await
-            .expect("The credential writer must reach the board lock without taking it explicitly");
-            let before: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1)",
+            .expect("The credential writer must actually wait for the held board lock");
+            let unchanged: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id=$1",
             )
             .bind(id)
             .fetch_one(&mut *mutation)
             .await
             .unwrap();
-            assert!(
-                before,
-                "Authority must remain present while this mutation owns the board"
+            assert_eq!(
+                unchanged, authority_before,
+                "Authority must remain unchanged while this mutation owns the board"
             );
             mutation.commit().await.unwrap();
             assert_eq!(changing.await.unwrap().unwrap().rows_affected(), 1);
@@ -567,6 +610,19 @@ impl Fixture {
         // Hold the second board for both directions: it is first the target's
         // board and then the source's board. Either missing lock must fail.
         for (from, to) in [(source, target), (target, source)] {
+            let error = sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
+                .bind(from)
+                .bind(to)
+                .execute(&self.public)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("42501")
+            );
             let mut mutation = self.public.begin().await.unwrap();
             let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *mutation)
@@ -577,17 +633,55 @@ impl Fixture {
                 .execute(&mut *mutation)
                 .await
                 .unwrap();
-            let mut writer = self.owner.acquire().await.unwrap();
+            let authority_before: Vec<(i64, String)> = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2) ORDER BY post_id",
+            ).bind(source).bind(target).fetch_all(&mut *mutation).await.unwrap();
+            assert_eq!(authority_before, vec![(from, self.hash.clone())]);
+            let error = tokio::time::timeout(
+                Duration::from_secs(3),
+                sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
+                    .bind(from)
+                    .bind(to)
+                    .execute(&self.owner),
+            )
+            .await
+            .expect("Out-of-order reassignment must fail without waiting")
+            .unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("55P03")
+            );
+            let unchanged: Vec<(i64, String)> = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2) ORDER BY post_id",
+            ).bind(source).bind(target).fetch_all(&mut *mutation).await.unwrap();
+            assert_eq!(unchanged, authority_before);
+
+            let mut writer = self.owner.begin().await.unwrap();
             let writer_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *writer)
                 .await
                 .unwrap();
+            let boards = [self.board.clone(), next_board.clone()];
             let changing = tokio::spawn(async move {
-                sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
-                    .bind(from)
-                    .bind(to)
-                    .execute(&mut *writer)
-                    .await
+                // Lock both OLD and NEW boards in canonical order before
+                // taking the secret tuple, in either reassignment direction.
+                sqlx::query(
+                    "SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE",
+                )
+                .bind(&boards[..])
+                .execute(&mut *writer)
+                .await?;
+                let changed =
+                    sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
+                        .bind(from)
+                        .bind(to)
+                        .execute(&mut *writer)
+                        .await?;
+                writer.commit().await?;
+                Ok::<_, sqlx::Error>(changed)
             });
             tokio::time::timeout(Duration::from_secs(3), async {
                 loop {
@@ -609,17 +703,24 @@ impl Fixture {
             })
             .await
             .expect("The credential reassignment must reach the held source or target board lock");
+            let unchanged: Vec<(i64, String)> = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2) ORDER BY post_id",
+            ).bind(source).bind(target).fetch_all(&mut *mutation).await.unwrap();
+            assert_eq!(
+                unchanged, authority_before,
+                "Queued board-first retry must leave both post ID and hash unchanged"
+            );
             mutation.commit().await.unwrap();
             assert_eq!(changing.await.unwrap().unwrap().rows_affected(), 1);
-            let saved: i64 = sqlx::query_scalar(
-                "SELECT post_id FROM post_secrets.deletion WHERE post_id IN ($1,$2)",
+            let saved: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2)",
             )
             .bind(source)
             .bind(target)
             .fetch_one(&self.public)
             .await
             .unwrap();
-            assert_eq!(saved, to);
+            assert_eq!(saved, (to, self.hash.clone()));
             assert!(
                 board_store::find_post(&self.public, &self.board, source)
                     .await

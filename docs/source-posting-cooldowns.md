@@ -185,9 +185,11 @@ as a routine way to restore capacity, since that changes admission behavior.
 For an existing installation, a bootstrap administrator must apply
 `deploy/posting-cooldown-role.sql` before migration 0087. Fresh
 `deploy/roles.sql` already creates the owner. Stop public and staff writers,
-apply migrations through 0090 with the migration identity, and deploy matching
-binaries. Migrations 0088 through 0090 reuse existing owners and require no
-additional bootstrap role. Existing 15-second in-flight proofs must
+apply migrations through 0091 with the migration identity, and deploy matching
+binaries. Migrations 0088 through 0091 reuse existing owners and require no
+additional bootstrap role. Migration 0091 adds
+[archive deletion-password retirement](archive-deletion-secrets.md).
+Existing 15-second in-flight proofs must
 be retried through the new issuer; migration 0089 leaves their new context
 fields null and fails closed rather than guessing raw-name or role facts.
 The new insert trigger requires actor context from those binaries; an older

@@ -113,9 +113,10 @@ an honest HTTP request against a compromised application database role.
 
 ## Upgrade and qualification
 
-Stop public and staff writers, apply migrations through 0090, and deploy
-matching binaries before restoring posting. Migrations 0089 and 0090 need no
-new bootstrap role. Migration 0090 leaves existing content and history intact.
+Stop public and staff writers, apply migrations through 0091, and deploy
+matching binaries before restoring posting. Migrations 0089 through 0091 need no
+new bootstrap role. Migration 0090 leaves existing content and history intact;
+0091 adds [archive deletion-password retirement](archive-deletion-secrets.md).
 Migration 0089 does not recover old posting identity or invent context for
 existing proofs. Its three added fields remain
 null on pre-upgrade proofs. Those proofs fail closed even if their original

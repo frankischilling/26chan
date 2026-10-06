@@ -100,6 +100,12 @@ host. Staff, media and metrics retain their separate transport policies.
 
 ## Backup and recovery
 
+[Archive deletion-password retirement](archive-deletion-secrets.md) removes
+OP/reply hashes on new archive transitions from migration 0091 onward.
+Already-archived hashes remain unchanged. A current restore preserves that
+exact state; older backups may still contain retired hashes. Neither migration
+nor restore cleanses those older copies or establishes physical erasure.
+
 [Migration 0025](source-posting-times.md) preserves historical posting clocks
 and adds an independent HTTP change clock. Apply it before the binary; retain
 it on binary rollback. Synchronize application/database hosts. The restore
@@ -149,6 +155,14 @@ understand archive visibility; binary-only rollback after archiving is unsafe.
 Retention policy affects public visibility and does not physically erase retained
 base tables or backups. The actual upgrade exercise is recorded in
 [archive verification](verification-thread-archives.md).
+
+Current public and staff binaries and readiness require migrations through
+0091. Stop writers and follow [posting deployment](source-posting-cooldowns.md#deployment)
+before starting matching binaries. Migration 0091 needs no new bootstrap role.
+Operator archive transitions require Read Committed isolation. Lock affected
+boards in slug order before secret updates/deletions or archive writes; an
+out-of-order operation can fail with `55P03` and require a transaction retry.
+See [archive transaction rules](archive-deletion-secrets.md#authority-and-concurrency).
 
 Build release artifacts from a reviewed commit with the lockfile. Run migrations using the operator identity before starting compatible application code. Migrations are forward-only; rollback of destructive schema changes requires a reviewed compensating migration or restoration. Do not assume replacing a binary reverses a migration. No release automation or production deploy has run.
 

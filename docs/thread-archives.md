@@ -58,9 +58,11 @@ archive expiry and count cleanup. This change does not restore deleted content,
 change imported board settings or add a new retention policy.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
-This is public visibility policy, not physical erasure. Base-table text and
-deletion secrets remain in the database under existing grants, including the
-public and staff content readers. Backups have separate retention requirements.
+This is public visibility policy, not physical erasure. Base-table text remains
+under existing grants, including the public and staff content readers.
+Migration 0091 [retires deletion-password hashes](archive-deletion-secrets.md)
+for new archive transitions; hashes on already-archived threads are unchanged.
+Backups have separate retention requirements.
 Media handling has separate qualification requirements; see the current media
 documentation for supported formats and isolation profiles.
 
@@ -176,7 +178,7 @@ full original-page visual parity.
 ## Migration and verification
 
 The archive rollover policy requires migration 0086; current binaries and
-readiness require migrations through 0090. Follow the current
+readiness require migrations through 0091. Follow the current
 [posting deployment instructions](source-posting-cooldowns.md#deployment) for
 writer shutdown, bootstrap prerequisites and matching binaries. For an existing
 pre-0085 database, apply `deploy/public-deletion-role.sql` as the bootstrap

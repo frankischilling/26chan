@@ -9,6 +9,10 @@ The source checks the board's OP/reply deletion switch and rejects posts at leas
 request-start time. An authorized public request still cannot delete an archived
 post, a sticky OP, a `/vg/` OP, or an OP with a surviving staff-badged reply.
 
+Migration 0091 also [retires deletion-password hashes](archive-deletion-secrets.md)
+for the OP and replies on new archive transitions. Historical archived hashes
+remain unchanged pending a separate decision.
+
 The minimum age is 60 seconds when the current anonymous session's network
 lifetime is at least 900 seconds, and 600 seconds otherwise. Equality admits the
 request at either minimum. The lower age uses the current server time after the

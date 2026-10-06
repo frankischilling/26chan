@@ -116,6 +116,102 @@ const OP_BUMP_CONTEXT_READY_SQL: &str = "SELECT EXISTS (
           WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
 )";
 
+// Catalog-only: never read deletion hashes, invoke a trigger, or mutate content.
+const ARCHIVE_DELETION_SECRETS_READY_SQL: &str = r#"WITH relations AS (
+    SELECT c.oid,n.nspname,c.relname
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE (n.nspname='post_secrets' AND c.relname='deletion')
+       OR (n.nspname='content' AND c.relname IN ('boards','threads','posts'))
+), owner_role AS (
+    SELECT r.oid FROM pg_catalog.pg_roles r
+    WHERE r.rolname='board_posting_cooldown_owner'
+      AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+)
+SELECT EXISTS (SELECT 1 FROM owner_role)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('post_secrets','deletion','deletion_archive_guard','guard_archived_deletion_secret',31,false),
+        ('content','threads','retire_archived_deletion_secrets','retire_archived_deletion_secrets',17,true)
+    ) AS required(schema_name,table_name,trigger_name,function_name,trigger_type,archive_transition)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_trigger t
+        JOIN relations c ON c.oid=t.tgrelid
+        JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        JOIN owner_role r ON r.oid=p.proowner
+        WHERE c.nspname=required.schema_name AND c.relname=required.table_name
+          AND t.tgname=required.trigger_name AND t.tgtype=required.trigger_type
+          AND t.tgenabled='O' AND NOT t.tgisinternal
+          AND t.tgnargs=0 AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred
+          AND t.tgoldtable IS NULL AND t.tgnewtable IS NULL
+          AND n.nspname='post_secrets' AND p.proname=required.function_name
+          AND p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype
+          AND p.prosecdef AND p.provolatile='v'
+          AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+              WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+          AND NOT has_function_privilege(current_user,p.oid,'EXECUTE')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_staff','board_auth')
+                AND has_function_privilege(runtime.oid,p.oid,'EXECUTE'))
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+          AND CASE WHEN required.archive_transition THEN
+              t.tgqual IS NOT NULL
+              AND t.tgattr::text=(SELECT a.attnum::text FROM pg_catalog.pg_attribute a
+                  WHERE a.attrelid=c.oid AND a.attname='archived_at' AND NOT a.attisdropped)
+              AND translate(split_part(split_part(pg_catalog.pg_get_triggerdef(t.oid,false),' WHEN ',2),' EXECUTE ',1),' ()','')
+                  ='old.archived_atISNULLANDnew.archived_atISNOTNULL'
+          ELSE t.tgqual IS NULL AND t.tgattr::text='' END
+    )
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('post_secrets','deletion','post_id','SELECT'),
+        ('content','threads','id','UPDATE'),
+        ('content','threads','id','SELECT'),
+        ('content','threads','board','SELECT'),
+        ('content','threads','archived_at','SELECT'),
+        ('content','posts','id','SELECT'),
+        ('content','posts','board','SELECT'),
+        ('content','posts','thread_id','SELECT'),
+        ('content','boards','slug','SELECT'),
+        ('content','boards','staff_only','SELECT'),
+        ('content','boards','slug','UPDATE')
+    ) AS required(schema_name,table_name,column_name,privilege_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c CROSS JOIN owner_role r
+        JOIN pg_catalog.pg_attribute a ON a.attname=required.column_name AND NOT a.attisdropped
+        WHERE c.nspname=required.schema_name AND c.relname=required.table_name AND a.attrelid=c.oid
+          AND has_column_privilege(r.oid,c.oid,a.attnum,required.privilege_name)
+    )
+)
+AND EXISTS (
+    SELECT 1 FROM relations c CROSS JOIN owner_role r
+    WHERE c.nspname='post_secrets' AND c.relname='deletion'
+      AND has_table_privilege(r.oid,c.oid,'DELETE')
+      AND NOT has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER')
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND ((a.attname<>'post_id' AND has_column_privilege(r.oid,c.oid,a.attnum,'SELECT'))
+                OR has_column_privilege(r.oid,c.oid,a.attnum,'INSERT,UPDATE,REFERENCES')))
+)
+AND EXISTS (
+    SELECT 1 FROM relations c CROSS JOIN owner_role r
+    WHERE c.nspname='content' AND c.relname='threads'
+      AND NOT has_table_privilege(r.oid,c.oid,'UPDATE')
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped AND a.attname<>'id'
+            AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('content'),('post_secrets')) AS required(schema_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN owner_role r
+        WHERE n.nspname=required.schema_name AND has_schema_privilege(r.oid,n.oid,'USAGE')
+          AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
+    )
+)"#;
+
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
     if state.poster_id_key.is_none() {
         return Err(AppError(
@@ -190,6 +286,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Public posting is unavailable.",
+        ));
+    }
+    let archive_deletion_secrets: bool = sqlx::query_scalar(ARCHIVE_DELETION_SECRETS_READY_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !archive_deletion_secrets {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public posting and deletion are unavailable.",
         ));
     }
     if let Some(media) = &state.media {
@@ -931,7 +1037,82 @@ pub async fn report(
 
 #[cfg(test)]
 mod readiness_tests {
-    use super::OP_BUMP_CONTEXT_READY_SQL;
+    use super::{ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL};
+
+    #[test]
+    fn archive_secret_readiness_requires_exact_trigger_metadata() {
+        for contract in [
+            "('post_secrets','deletion','deletion_archive_guard','guard_archived_deletion_secret',31,false)",
+            "('content','threads','retire_archived_deletion_secrets','retire_archived_deletion_secrets',17,true)",
+            "t.tgenabled='O' AND NOT t.tgisinternal",
+            "t.tgnargs=0 AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred",
+            "t.tgoldtable IS NULL AND t.tgnewtable IS NULL",
+            "n.nspname='post_secrets' AND p.proname=required.function_name",
+            "p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype",
+            "p.prosecdef AND p.provolatile='v'",
+            "r.rolname='board_posting_cooldown_owner'",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "NOT has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "runtime.rolname IN ('board_public','board_staff','board_auth')",
+            "a.grantee=0 AND a.privilege_type='EXECUTE'",
+            "t.tgattr::text=(SELECT a.attnum::text",
+            "a.attname='archived_at' AND NOT a.attisdropped",
+            "old.archived_atISNULLANDnew.archived_atISNOTNULL",
+            "ELSE t.tgqual IS NULL AND t.tgattr::text='' END",
+        ] {
+            assert!(
+                ARCHIVE_DELETION_SECRETS_READY_SQL.contains(contract),
+                "{contract}"
+            );
+        }
+    }
+
+    #[test]
+    fn archive_secret_readiness_requires_narrow_owner_privileges_without_probes() {
+        for contract in [
+            "SELECT EXISTS (SELECT 1 FROM owner_role)",
+            "WHERE NOT EXISTS (",
+            "('post_secrets','deletion','post_id','SELECT')",
+            "('content','threads','id','UPDATE')",
+            "('content','threads','archived_at','SELECT')",
+            "('content','posts','thread_id','SELECT')",
+            "('content','boards','staff_only','SELECT')",
+            "('content','boards','slug','UPDATE')",
+            "has_table_privilege(r.oid,c.oid,'DELETE')",
+            "NOT has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER')",
+            "a.attname<>'post_id' AND has_column_privilege(r.oid,c.oid,a.attnum,'SELECT')",
+            "has_column_privilege(r.oid,c.oid,a.attnum,'INSERT,UPDATE,REFERENCES')",
+            "NOT has_table_privilege(r.oid,c.oid,'UPDATE')",
+            "a.attname<>'id'",
+            "has_schema_privilege(r.oid,n.oid,'USAGE')",
+            "NOT has_schema_privilege(r.oid,n.oid,'CREATE')",
+        ] {
+            assert!(
+                ARCHIVE_DELETION_SECRETS_READY_SQL.contains(contract),
+                "{contract}"
+            );
+        }
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "JOIN content.",
+            "JOIN post_secrets.",
+            "password_hash",
+            "guard_archived_deletion_secret()",
+            "retire_archived_deletion_secrets()",
+            "to_regprocedure(",
+            "INSERT INTO",
+            "DELETE FROM",
+            "UPDATE content.",
+            "UPDATE post_secrets.",
+        ] {
+            assert!(
+                !ARCHIVE_DELETION_SECRETS_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
 
     #[test]
     fn op_bump_readiness_requires_the_exact_restricted_api() {
