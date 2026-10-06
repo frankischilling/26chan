@@ -51,9 +51,12 @@ impl Fixture {
             .bind(&asset).bind(digest).execute(&owner).await.unwrap();
         sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES ($1,$2,$2,$3,100,500,300,false)")
             .bind(post).bind(&asset).bind("<img src=x onerror=alert(1)> & \"name\".png").execute(&owner).await.unwrap();
+        // Parallel cases deliberately reuse digest bytes. Keep each report
+        // queue scoped to its fixture instead of observing another case's rows.
         let account: i64 = sqlx::query_scalar(
-            "INSERT INTO staff_identity.accounts(role) VALUES ('moderator') RETURNING id",
+            "INSERT INTO staff_identity.accounts(role,allow_boards) VALUES ('moderator',ARRAY[$1]) RETURNING id",
         )
+        .bind(&board)
         .fetch_one(&owner)
         .await
         .unwrap();
@@ -180,13 +183,20 @@ const DIGEST: &str = "00112233445566778899aabbccddeeff";
 #[tokio::test]
 async fn file_md5_is_read_only_scoped_and_consistent_for_duplicate_reports() {
     let f = Arc::new(Fixture::new(Some(DIGEST)).await);
+    const OTHER_DIGEST: &str = "ffeeddccbbaa99887766554433221100";
+    let other = Arc::new(Fixture::new(Some(OTHER_DIGEST)).await);
+    other.archived().await;
     let exercise = f.clone();
+    let other_exercise = other.clone();
     let result = tokio::spawn(async move {
         let f = exercise;
+        let other = other_exercise;
         assert_eq!(f.digest().await, (true, Some(DIGEST.into())));
         let (status, html) = f.html(true).await;
         assert_eq!(status, StatusCode::OK);
         assert!(!html.contains("<summary>File MD5</summary>"));
+        assert!(!html.contains(&format!("<article id=\"report-{}\">", other.report)));
+        assert!(!html.contains(OTHER_DIGEST));
         f.archived().await;
         let duplicate: i64 = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Duplicate synthetic') RETURNING id")
             .bind(&f.board).bind(f.post).fetch_one(&f.owner).await.unwrap();
@@ -204,26 +214,40 @@ async fn file_md5_is_read_only_scoped_and_consistent_for_duplicate_reports() {
         assert_eq!(public_md5, "ABEiM0RVZneImaq7zN3u/w==");
         let session = auth::Session {
             account_id: f.account, role: "moderator".into(), csrf_hash: vec![], recent: true,
-            permissions: board_staff::access::Permissions::all_boards(),
+            permissions: board_staff::access::Permissions {
+                allow_boards: vec![f.board.clone()],
+                ..Default::default()
+            },
         };
         let reports = store::reports(&f.state.staff, &session).await.unwrap();
-        for report in reports.iter().filter(|report| report.post_id == f.post) {
+        assert_eq!(reports.len(), 2);
+        for report in &reports {
+            assert_eq!(report.post_id, f.post);
             assert_eq!(report.attachment.as_ref().unwrap().file_md5(), Some(DIGEST));
         }
         let (status, html) = f.html(false).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert!(!html.contains(DIGEST));
-        sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY[$2] WHERE id=$1")
-            .bind(f.account).bind(&f.board).execute(&f.owner).await.unwrap();
+        // Deny must win over an explicit allow without hiding reports from
+        // the other allowed board. This also makes the scope check non-vacuous.
+        sqlx::query("UPDATE staff_identity.accounts SET allow_boards=ARRAY[$2,$3],deny_boards=ARRAY[$2] WHERE id=$1")
+            .bind(f.account).bind(&f.board).bind(&other.board).execute(&f.owner).await.unwrap();
         let (status, html) = f.html(true).await;
         assert_eq!(status, StatusCode::OK);
-        assert!(!html.contains(&format!("report-{}", f.report)));
+        for report in [f.report, duplicate] {
+            assert!(!html.contains(&format!("<article id=\"report-{report}\">")));
+        }
         assert!(!html.contains(DIGEST));
+        let other_article = html.split(&format!("<article id=\"report-{}\">", other.report))
+            .nth(1).unwrap().split("</article>").next().unwrap();
+        assert!(other_article.contains("<summary>File MD5</summary>"));
+        assert!(other_article.contains(OTHER_DIGEST));
         let state: (bool, bool, i64) = sqlx::query_as("SELECT m.file_deleted,p.deleted,(SELECT count(*) FROM content.moderation_audit WHERE board=$1) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.id=$2")
             .bind(&f.board).bind(f.post).fetch_one(&f.owner).await.unwrap();
         assert_eq!(state, (false, false, 0));
     }).await;
     f.cleanup().await;
+    other.cleanup().await;
     result.unwrap();
 }
 

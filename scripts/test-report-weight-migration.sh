@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Owned synthetic clusters only. Qualify 0101 -> 0102 and current dump/restore.
+# Owned synthetic clusters only. Qualify 0101 -> 0102, then upgrade to current
+# before exercising the current readiness contract and dump/restore.
 set -euo pipefail
 umask 077
 cd "$(dirname "$0")/.."
@@ -200,6 +201,26 @@ UNION ALL SELECT 'table',relname,jsonb_build_array(pg_get_userbyid(relowner),rel
  ORDER BY pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)
  FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a))
 FROM pg_class c WHERE c.oid='post_secrets.report_weight_evidence'::regclass;
+CREATE TABLE public.before_current_evidence AS TABLE post_secrets.report_weight_evidence;
+CREATE TABLE public.before_current_weight_schema AS TABLE public.weight_schema;
+SQL
+ # Keep the historical 0102 assertions above at their real migration boundary.
+ # Current readiness also requires later migrations (including reporter clear
+ # in 0106); never weaken the runtime query to fit a historical schema.
+ for migration in migrations/*.sql; do
+  [[ $migration > migrations/0102_report_weight_evidence.sql ]] || continue
+  "${migrator[@]}" --single-transaction -f - < "$migration"
+ done
+ "${admin[@]}" <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(TABLE public.before_current_evidence EXCEPT ALL TABLE post_secrets.report_weight_evidence)
+ OR EXISTS(TABLE post_secrets.report_weight_evidence EXCEPT ALL TABLE public.before_current_evidence)
+ OR EXISTS(TABLE public.before_current_weight_schema EXCEPT ALL TABLE public.weight_schema)
+ OR EXISTS(TABLE public.weight_schema EXCEPT ALL TABLE public.before_current_weight_schema)
+ THEN RAISE EXCEPTION 'Current upgrade changed captured weight evidence or its contract'; END IF;
+END $$;
+DROP TABLE public.before_current_evidence;
+DROP TABLE public.before_current_weight_schema;
 SQL
  for phase in live restored; do
   if [[ $phase = restored ]]; then
@@ -238,4 +259,4 @@ SQL
  }
  printf '%s private report-weight evidence migration and administrator dump/restore passed.\n' "$mode" >&3
 done
-printf '0102 private captured evidence and no-backfill migration qualified; report clearance remains unwired.\n' >&3
+printf '0102 private captured evidence and no-backfill migration qualified; current upgrade, readiness drift and dump/restore preserved evidence.\n' >&3
