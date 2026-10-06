@@ -47,6 +47,7 @@ jobs:
           cache-on-failure: true
       - name: Start disposable database and migrate
         run: |
+          python3 scripts/test-dev-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh

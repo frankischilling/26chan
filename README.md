@@ -82,7 +82,7 @@ cargo run -p board-public --locked
 
 Open `http://127.0.0.1:3000/`. `/demo/` contains sample posts, and `/test/` accepts new threads.
 
-The setup script creates a separate disposable database on port 55432 and generates credentials under the ignored `.local/` directory. It refuses to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
+The setup script creates a separate disposable database on port 55432 and generates credentials and a fresh development `POSTER_ID_KEY` in the ignored `.local/database.env` and `.local/database.ps1` files. Reloading these files preserves the same development identity key across server restarts. It refuses to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
 
 For browser JSON clients on a separate origin, enable the optional [read-only API listener](docs/api.md) with `API_ORIGIN` and `API_BIND_ADDR`. It permits CORS from the configured board origin and shares the public process's database and resource limits.
 
@@ -105,10 +105,12 @@ source .local/media-reader.env
 source .local/intake.env
 source .local/monitor.env
 source .local/staff.env
+export APP_ENV=development
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
+cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run test:images-core
