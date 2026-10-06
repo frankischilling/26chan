@@ -257,6 +257,8 @@ jobs:
         run: sudo bash scripts/test-spoiler-thumbnail-migration.sh
       - name: Populated source flag policy migration
         run: sudo bash scripts/test-source-board-flags-migration.sh
+      - name: Populated public deletion policy and runtime privilege migration
+        run: sudo bash scripts/test-public-deletion-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
