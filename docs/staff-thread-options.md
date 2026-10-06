@@ -35,14 +35,15 @@ Database calls and feedback are bounded synthetic boundaries. The extractor
 does not execute the whole legacy endpoint, its page renderer, sticky ordering
 or rebuilds, and does not connect to an original database.
 
-The rewrite exposes one option per authenticated POST form. A forged protected
-option returns 403 rather than being silently ignored as part of a larger
+The isolated rewrite actions expose one option per authenticated POST form.
+A forged protected option returns 403 rather than being silently ignored as part of a larger
 source options submission. Current allow/deny scope applies to every rank.
 These request and authority replacements use the existing staff security
-boundary in [staff operations](staff.md). Full source Thread Options and action
-log presentation remain unfinished, including grouped submissions and numeric sticky
-ranks. The account/board/target audit is not the complete source action-log
-record or interface.
+boundary in [staff operations](staff.md).
+[Grouped Thread Options and numeric sticky ranks](grouped-thread-options.md)
+now have a separate implementation whose qualification is pending. Full source
+action-log presentation remains unfinished. The account/board/target audit is
+not the complete source action-log record or interface.
 
 ## Releasing a sticky thread
 
@@ -65,7 +66,8 @@ use `root=root` without an audit. All combinations keep the other four flags.
 It executes only the selected assignment branch and audit helper with a recorder,
 not the endpoint, database, rank calculation, rebuilds or actual clock operation.
 Database tests qualify the corresponding mutation clock and transactional state.
-Numeric sticky ranks remain separate work.
+Numeric sticky ranks are documented in the separate
+[grouped-options continuation](grouped-thread-options.md).
 
 ## Isolated close and perma-sage actions
 
@@ -79,8 +81,9 @@ This follows the unchanged-mask rule in `log_thread_opts_action` for the existin
 isolated forms. It does not reproduce ReportQueue's sparse Perma-sage shortcut:
 that source request omits other fields consumed by `adminopt`, so it can reset
 sibling flags and legitimately produce an audit even when perma-sage was already
-set. The rewrite's explicit one-flag actions retain those siblings. Full grouped
-Thread Options remains separate work.
+set. The rewrite's explicit one-flag actions retain those siblings. The separate
+[grouped Thread Options route](grouped-thread-options.md) implements grouped
+submission semantics; it does not change these isolated actions.
 
 The [isolated-action audit fixture](../apps/staff/tests/fixtures/staff-isolated-options.json)
 executes the pinned audit helper for all 128 old-mask/action combinations:
@@ -114,6 +117,10 @@ audit history during binary rollback, and review enabled options against the
 older binary's behavior. No destructive down migration is provided.
 
 ## Qualification and remaining work
+
+The results below describe earlier isolated-option checkpoints. They do not
+qualify the new [grouped/rank continuation](grouped-thread-options.md), whose
+verification is pending.
 
 Hosted build/test for `a804708` failed on an older public thread-tail
 permission assertion that still denied staff Undead writes. The corrected
@@ -187,6 +194,7 @@ additionally needs the supplied ignored checkout and recorded PHP runtime.
 CI uses the derived fixture without the original checkout.
 
 These controls do not complete move/copy/forcearchive, ordinary staff
-attachments, private-board media, grouped/sticky options or the staff extension
-and action-log interfaces in issue #222. Whole-source behavior and frontend
-parity remain the completion target.
+attachments, private-board media or the staff extension and full action-log
+interfaces in issue #222. The grouped/rank continuation still requires its own
+qualification and does not establish complete source UI parity. Whole-source
+behavior and frontend parity remain the completion target.

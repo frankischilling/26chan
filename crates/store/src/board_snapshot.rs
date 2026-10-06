@@ -159,7 +159,7 @@ async fn read_board_snapshot(
     };
     // One extra metadata row detects a successor for numbered pages, or an
     // incomplete full listing. Reject excess complete listings before bodies/media.
-    let mut threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
+    let mut threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,CASE WHEN sticky THEN sticky_rank ELSE 0 END DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
         .bind(slug).bind(offset).bind(limit + i64::from(later_page || complete)).fetch_all(&mut *tx).await?;
     if complete && threads.len() > max_threads {
         return Err(StoreError::ReadLimit);

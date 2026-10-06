@@ -53,6 +53,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             ..post.clone()
         };
         threads.push(views::ThreadView {
+            catalog_position: None,
             catalog_last_reply: None,
             tail_size: 0,
             latest_reply_id: Some(id + 1),

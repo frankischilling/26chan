@@ -133,6 +133,7 @@ fn encode(
     }
     let omitted = replies - (posts.len() - 1);
     let view = ThreadView {
+        catalog_position: None,
         catalog_last_reply: None,
         tail_size,
         latest_reply_id: posts
@@ -261,6 +262,7 @@ fn encode_preview(
     }
     let item = PostView::new(post);
     let view = ThreadView {
+        catalog_position: None,
         catalog_last_reply: None,
         tail_size: 0,
         latest_reply_id: None,
@@ -441,6 +443,7 @@ mod tests {
                 format!("{base}/{expected}")
             };
             let view = ThreadView {
+                catalog_position: None,
                 catalog_last_reply: None,
                 tail_size: 0,
                 latest_reply_id: None,
@@ -937,6 +940,7 @@ mod tests {
             );
             // Exercise every source choice through the same post and page templates.
             let view = ThreadView {
+                catalog_position: None,
                 catalog_last_reply: None,
                 tail_size: 0,
                 latest_reply_id: None,

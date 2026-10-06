@@ -90,6 +90,7 @@ async fn api(
             .find(|post| post.id != hit.thread.id)
             .map(|post| post.id);
         let view = ThreadView {
+            catalog_position: None,
             catalog_last_reply: None,
             tail_size: 0,
             latest_reply_id,

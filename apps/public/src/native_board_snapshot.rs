@@ -88,6 +88,7 @@ fn encode(
         let images = preview.visible_images as usize;
         let omitted = replies - (preview.posts.len() - 1);
         let view = ThreadView {
+            catalog_position: None,
             thread,
             posts: preview.posts.into_iter().map(PostView::new).collect(),
             omitted,

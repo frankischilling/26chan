@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Thread Options</title></head><body><main>
+<h1>Thread Options: /{{ board }}/{{ target }}</h1>
+<p><a href="/reports">Return to report queue</a></p>
+{% if !recent %}<p>Authentication is older than ten minutes. <a href="/">Sign in again</a> before saving options.</p>{% endif %}
+<form method="post" action="/thread-options">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}">
+<p><label><input type="checkbox" name="sticky" value="1"{% if options.sticky %} checked{% endif %}> Sticky</label></p>
+<p><label>Sticky rank <input type="number" name="sticky_rank" min="0" max="60" step="1" value="{{ options.sticky_rank }}"></label> Higher ranks appear first (0–60). Ignored when Sticky is off.</p>
+<p><label><input type="checkbox" name="permasage" value="1"{% if options.permasage %} checked{% endif %}> Perma-sage</label></p>
+<p><label><input type="checkbox" name="closed" value="1"{% if options.closed %} checked{% endif %}> Closed</label></p>
+{% if can_permaage %}<p><label><input type="checkbox" name="permaage" value="1"{% if options.permaage %} checked{% endif %}> Perma-age</label></p>{% endif %}
+<p><label><input type="checkbox" name="undead" value="1"{% if options.undead %} checked{% endif %}> Undead</label></p>
+<button type="submit">Set Options</button>
+</form></main></body></html>

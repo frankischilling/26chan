@@ -7,6 +7,7 @@ mod handlers;
 mod latest;
 mod posting_password;
 pub mod store;
+mod thread_options;
 mod views;
 use axum::{
     Router,
@@ -164,6 +165,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/login/finish", post(handlers::login_finish))
         .route("/logout", post(handlers::logout))
         .route("/moderate", post(handlers::moderate))
+        .route(
+            "/thread-options",
+            get(thread_options::show)
+                .post(thread_options::submit)
+                .layer(DefaultBodyLimit::max(4096)),
+        )
         .layer(DefaultBodyLimit::max(262144))
         .layer(middleware::from_fn_with_state(
             state.clone(),

@@ -3,8 +3,43 @@ import { mountCatalogFilters } from './catalog-filters.v1.js';
 import { readCatalogTheme } from './native-settings.v1.js';
 import { updateCatalogSpoilers } from './catalog-theme.v1.js';
 
+// The source catalog carries original board positions, rather than reconstructing
+// them from clocks. All rows (including GET-filtered rows) form one permutation.
+// Old documents may omit the field entirely; a partial/malformed upgrade fails
+// closed to the ordinary GET form instead of silently producing a wrong order.
+export function readCatalogPositions(values) {
+  if (!Array.isArray(values) || values.length > 1000) throw new Error('Invalid catalog positions');
+  if (values.every(value => value === undefined)) return null;
+  const positions = values.map(value => {
+    if (typeof value !== 'string' || !/^(0|[1-9][0-9]{0,2})$/.test(value)) throw new Error('Invalid catalog position');
+    const position = Number(value);
+    if (position >= values.length) throw new Error('Invalid catalog position');
+    return position;
+  });
+  if (new Set(positions).size !== positions.length) throw new Error('Duplicate catalog position');
+  return positions;
+}
+
+export function compareCatalogBump(a, b) {
+  if (a.position !== null && b.position !== null) return a.position - b.position;
+  const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+  return compare(b.bumped, a.bumped) || compare(b.id, a.id);
+}
+
+export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
+  if (!textOnly) {
+    const sticky = Number(b.sticky) - Number(a.sticky);
+    // Source catalog.js renders stickyHtml before topHtml, preserving the
+    // selected order within stickies even when one is pinned or filter-top.
+    if (sticky || a.sticky) return sticky;
+  }
+  return Number(!!bTop) - Number(!!aTop);
+}
+
 (() => {
   'use strict';
+  // Keep the position contract independently testable without a DOM.
+  if (typeof document === 'undefined') return;
   const form = document.getElementById('ctrl');
   const order = document.getElementById('order-ctrl');
   const size = document.getElementById('size-ctrl');
@@ -85,7 +120,8 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
       hiddenCount = excluded.length;
       nodes.push(...excluded);
     }
-    entries = nodes.map(node => {
+    const positions = readCatalogPositions(nodes.map(node => node.dataset.bumpPosition));
+    entries = nodes.map((node, index) => {
       const data = node.dataset;
       if (!['true', 'false'].includes(data.sticky)) throw new Error('Invalid sticky flag');
       const teaserNode = node.querySelector(':scope > .teaser')
@@ -105,7 +141,7 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
             ...(fields.filterTrip ? { trip: fields.filterTrip } : {}), ...(fields.filterCapcode ? { capcode: fields.filterCapcode } : {}) } : null,
         small: thumb ? dimensions(thumb, 'small', 150) : null,
         large: thumb ? dimensions(thumb, 'large', 250) : null,
-        id: integer(data.threadId), bumped: integer(data.bumped, true),
+        id: integer(data.threadId), bumped: integer(data.bumped, true), position: positions?.[index] ?? null,
         latest: data.latestReply === '' ? null : integer(data.latestReply), replies: integer(data.replies), sticky: data.sticky === 'true' };
     });
   } catch { entries = null; }
@@ -186,7 +222,7 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
   const pages = new Map();
   if (stateReady && Number.isInteger(pageSize) && pageSize >= 1 && pageSize <= 1000) {
     [...entries].sort((a, b) => Number(b.sticky) - Number(a.sticky)
-      || compare(b.bumped, a.bumped) || compare(b.id, a.id))
+      || compareCatalogBump(a, b))
       .forEach((entry, index) => pages.set(entry.id.toString(), 1 + Math.floor(index / pageSize)));
   }
   let hiddenOnly = false;
@@ -564,13 +600,13 @@ import { updateCatalogSpoilers } from './catalog-theme.v1.js';
     const ruleFor = entry => filterActive && !(stateReady && pins.has(entry.id.toString()))
       ? filterSnapshot.rules[filterSnapshot.matches.get(entry.id.toString())] : undefined;
     if (filterSnapshot.rules.length || value.orderby !== renderedOrder) {
-      entries.sort((a, b) => (textOnly ? 0 : Number(b.sticky) - Number(a.sticky))
-        || Number(!!(stateReady && pins.has(b.id.toString()) || ruleFor(b)?.top))
-          - Number(!!(stateReady && pins.has(a.id.toString()) || ruleFor(a)?.top)) || (
+      entries.sort((a, b) => compareCatalogPriority(a, b, textOnly,
+        stateReady && pins.has(a.id.toString()) || ruleFor(a)?.top,
+        stateReady && pins.has(b.id.toString()) || ruleFor(b)?.top) || (
         value.orderby === 'date' ? compare(b.id, a.id)
           : value.orderby === 'absdate' ? compareOptional(b.latest, a.latest) || compare(a.id, b.id)
             : value.orderby === 'r' ? compare(b.replies, a.replies) || compare(a.id, b.id)
-              : compare(b.bumped, a.bumped) || compare(b.id, a.id)));
+              : compareCatalogBump(a, b)));
       renderedOrder = value.orderby;
     }
     if (searchReady && query !== cachedQuery) {

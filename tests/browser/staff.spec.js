@@ -93,6 +93,107 @@ async function verifyUnstickyOrdering(page, context, publicMediaRequests) {
   await page.goto('/reports');
 }
 
+async function verifyGroupedOptions(page, context, cdp, publicMediaRequests) {
+  // Isolate this sequence from the primary flow's exact legacy audit assertions.
+  const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
+  const publicOrigin = 'http://127.0.0.1:3000';
+  const mediaRoot = path.resolve(`.local/staff-media-${board}`);
+  const data = fixture('setup', board);
+  let publicPage;
+  try {
+    expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+    const created = await withPostingHistory(() => page.request.post(`${publicOrigin}/${board}/post`, {
+      headers: { Origin: publicOrigin }, maxRedirects: 0,
+      form: { resto: '0', sub: 'Owned grouped options peer', com: 'Owned rank ordering fixture', password: 'owned-grouped-options-password' },
+    }));
+    expect(created.status()).toBe(303);
+    const peer = created.headers().location.match(/thread\/(\d+)/)[1];
+    publicPage = await context.newPage();
+    publicPage.on('request', request => { if (request.url().startsWith('http://127.0.0.2:3002/')) publicMediaRequests.add(request); });
+    const expectOrder = async ids => {
+      await publicPage.goto(`${publicOrigin}/${board}/catalog?order=alt`);
+      expect(await publicPage.locator('#threads > .thread').evaluateAll(nodes => nodes.map(node => node.dataset.threadId))).toEqual(ids);
+    };
+    await expectOrder([peer, String(data.thread)]);
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await page.goto('/reports');
+    const report = page.locator(`#report-${data.report}`);
+    const optionsLink = report.getByRole('link', { name: 'Thread Options', exact: true });
+    await expect(optionsLink).toHaveAttribute('href', `/thread-options?board=${board}&target=${data.thread}`);
+    const open = async () => {
+      await optionsLink.click();
+      await expect(page.getByRole('heading', { name: `Thread Options: /${board}/${data.thread}`, exact: true })).toBeVisible();
+      await expect(page.locator('form')).toHaveAttribute('method', 'post');
+      await expect(page.locator('form')).toHaveAttribute('action', '/thread-options');
+    };
+    const save = async () => {
+      const [response] = await Promise.all([
+        page.waitForResponse(response => response.url() === 'http://localhost:3001/thread-options' && response.request().method() === 'POST'),
+        page.getByRole('button', { name: 'Set Options', exact: true }).click(),
+      ]);
+      expect(response.status()).toBe(303);
+      expect(response.headers().location).toBe('/reports');
+      await expect(page).toHaveURL(/\/reports$/);
+    };
+    await open();
+    for (const name of ['Sticky', 'Closed', 'Perma-sage', 'Undead']) await expect(page.getByLabel(name, { exact: true })).not.toBeChecked();
+    await expect(page.getByLabel('Sticky rank', { exact: true })).toHaveValue('0');
+    await expect(page.getByLabel('Perma-age', { exact: true })).toHaveCount(0);
+    for (const name of ['Sticky', 'Closed', 'Perma-sage', 'Undead']) await page.getByLabel(name, { exact: true }).check();
+    await page.getByLabel('Sticky rank', { exact: true }).fill('10');
+    await save();
+    const combined = fixture('inspect', board);
+    expect(combined.states).toEqual([[true, true, false], [false, false, false]]);
+    expect(combined.bumpFlags).toEqual([[true, false], [false, false]]);
+    expect(combined.threadOptions[0][1]).toBe(true);
+    expect(combined.audit).toEqual(['thread-options']);
+    await open();
+    for (const name of ['Sticky', 'Closed', 'Perma-sage', 'Undead']) await expect(page.getByLabel(name, { exact: true })).toBeChecked();
+    await expect(page.getByLabel('Sticky rank', { exact: true })).toHaveValue('10');
+    // Set a competing sticky through the same real grouped handler.
+    const csrf = await page.locator('input[name=csrf]').inputValue();
+    const peerSaved = await page.request.post('/thread-options', {
+      headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' }, maxRedirects: 0,
+      form: { csrf, board, target: peer, sticky: '1', sticky_rank: '20' },
+    });
+    expect(peerSaved.status()).toBe(303);
+    await expectOrder([peer, String(data.thread)]);
+    const beforeRank = fixture('inspect', board);
+    await page.getByLabel('Sticky rank', { exact: true }).fill('30');
+    await save();
+    expect(fixture('inspect', board).audit).toEqual(beforeRank.audit);
+    await expectOrder([String(data.thread), peer]);
+    await open();
+    await expect(page.getByLabel('Sticky rank', { exact: true })).toHaveValue('30');
+    await save();
+    expect(fixture('inspect', board).audit).toEqual(beforeRank.audit);
+    await expectOrder([String(data.thread), peer]);
+  } finally {
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+    try {
+      await publicPage?.close();
+    } finally {
+      try {
+        fixture('cleanup', board);
+      } finally {
+        const privateRoot = path.resolve('.local');
+        if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
+            || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid grouped options media cleanup path');
+        rmSync(mediaRoot, { recursive: true });
+      }
+    }
+  }
+  await page.goto('/reports');
+}
+
+async function verifyPermaageOption(page, board, target, visible) {
+  await page.goto(`/thread-options?board=${board}&target=${target}`);
+  await expect(page.getByRole('button', { name: 'Set Options', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Perma-age', { exact: true })).toHaveCount(visible ? 1 : 0);
+  if (visible) await expect(page.getByLabel('Perma-age', { exact: true })).not.toBeChecked();
+  await page.getByRole('link', { name: 'Return to report queue', exact: true }).click();
+}
+
 test('public spoiler policy controls Quick Reply and forged text choices on desktop and mobile', async ({ page }) => {
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const data = fixture('setup', board), publicOrigin = 'http://127.0.0.1:3000';
@@ -454,6 +555,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('button', { name: 'Sticky thread', exact: true }).click();
     await report.getByRole('button', { name: 'Unsticky thread', exact: true }).click();
     await verifyUnstickyOrdering(page, context, publicMediaRequests);
+    await verifyGroupedOptions(page, context, cdp, publicMediaRequests);
     fixture('bump-limit', board);
     expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
     await expect(report.getByRole('button', { name: 'Enable permaage', exact: true })).toHaveCount(0);
@@ -504,6 +606,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     run('staff-operator', ['role', board, 'manager']);
     expect((await page.request.get('/reports')).status()).toBe(401);
     await login();
+    await verifyPermaageOption(page, board, data.thread, true);
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
     await report.getByRole('button', { name: 'Enable permaage', exact: true }).click();
     await expect(report).toContainText('permasage: true, permaage: true');
@@ -515,12 +618,14 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     run('staff-operator', ['flags', board, 'developer']);
     expect((await page.request.get('/reports')).status()).toBe(401);
     await login();
+    await verifyPermaageOption(page, board, data.thread, true);
     await report.getByRole('button', { name: 'Enable permaage', exact: true }).click();
     await expect(report).toContainText('permasage: true, permaage: true');
     await report.getByRole('button', { name: 'Disable permaage', exact: true }).click();
     run('staff-operator', ['scope', board, board, '-']);
     expect((await page.request.get('/reports')).status()).toBe(401);
     await login();
+    await verifyPermaageOption(page, board, data.thread, false);
     await expect(report.getByRole('button', { name: 'Enable permaage', exact: true })).toHaveCount(0);
     run('staff-operator', ['scope', board, 'all', '-']);
     expect((await page.request.get('/reports')).status()).toBe(401);

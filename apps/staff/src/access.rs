@@ -179,7 +179,7 @@ impl Permissions {
             "remove-post" | "remove-file" | "remove-thread" | "resolve" | "dismiss" | "spoiler"
             | "unspoiler" => true,
             "close" | "reopen" | "sticky" | "unsticky" | "permasage" | "unpermasage" | "undead"
-            | "unundead" => level >= Level::Moderator,
+            | "unundead" | "thread-options" => level >= Level::Moderator,
             "permaage" | "unpermaage" => self.can_set_permaage(role),
             _ => false,
         }

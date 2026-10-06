@@ -11,6 +11,7 @@ pub fn page() -> String {
     ]
     .into_iter()
     .map(|(id, subject, comment)| views::ThreadView {
+        catalog_position: None,
         catalog_last_reply: None,
         tail_size: 0,
         latest_reply_id: None,

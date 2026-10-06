@@ -1,7 +1,7 @@
 {% import "formatting.html" as formatting %}
 {% import "catalog_preview.html" as catalog_previews %}
 {% macro card(view, board, media_origin, options, spoiler_thumbnail) %}
-<section class="thread" id="thread-{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}" data-thread-id="{{ view.thread.id }}" data-bumped="{{ view.thread.bumped_at.timestamp_micros() }}" data-latest-reply="{% if let Some(id) = view.latest_reply_id %}{{ id }}{% endif %}" data-replies="{{ view.visible_replies() }}" data-sticky="{{ view.thread.sticky }}">
+<section class="thread" id="thread-{{ view.thread.id }}" aria-label="Thread {{ view.thread.id }}" data-thread-id="{{ view.thread.id }}" {% if let Some(position) = view.catalog_position %}data-bump-position="{{ position }}" {% endif %}data-bumped="{{ view.thread.bumped_at.timestamp_micros() }}" data-latest-reply="{% if let Some(id) = view.latest_reply_id %}{{ id }}{% endif %}" data-replies="{{ view.visible_replies() }}" data-sticky="{{ view.thread.sticky }}">
 {% for item in view.posts %}{% if item.post.id == view.thread.id %}
 {% let teaser = item.catalog_teaser(board) %}
 {% call catalog_previews::preview(item, view, board, teaser) %}{% endcall %}

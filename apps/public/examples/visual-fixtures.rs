@@ -256,6 +256,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         catalog_hidden: Vec::new(),
         board,
         threads: vec![ThreadView {
+            catalog_position: None,
             catalog_last_reply: Some(board_store::CatalogReply {
                 thread_id: 1_000_001,
                 id: 1_000_002,
@@ -437,6 +438,7 @@ fn archived_thread() -> String {
         parent: thread.id,
         board,
         threads: vec![ThreadView {
+            catalog_position: None,
             catalog_last_reply: None,
             tail_size: 0,
             latest_reply_id: posts

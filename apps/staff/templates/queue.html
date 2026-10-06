@@ -26,6 +26,7 @@
 {% if r.image_spoiler %}{% call action(csrf,r.board,r.post_id,"unspoiler","Remove image spoiler") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.post_id,"spoiler","Spoiler image") %}{% endcall %}{% endif %}
 {% endif %}
 {% if moderator && !r.archived %}
+<p><a href="/thread-options?board={{ r.board }}&amp;target={{ r.thread_id }}">Thread Options</a></p>
 {% if r.closed %}{% call action(csrf,r.board,r.thread_id,"reopen","Reopen thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"close","Close thread") %}{% endcall %}{% endif %}
 {% if r.sticky %}{% call action(csrf,r.board,r.thread_id,"unsticky","Unsticky thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"sticky","Sticky thread") %}{% endcall %}{% endif %}
 {% if r.permasage %}{% call action(csrf,r.board,r.thread_id,"unpermasage","Disable permasage") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"permasage","Enable permasage") %}{% endcall %}{% endif %}

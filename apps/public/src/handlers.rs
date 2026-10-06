@@ -262,6 +262,11 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
+    // Rank-aware readers require the additive ordering projection before ready.
+    sqlx::query("SELECT sticky_rank FROM content.visible_threads LIMIT 0")
+        .execute(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
     let attachment_policy: bool = sqlx::query_scalar("SELECT has_column_privilege('board_attachment_owner','content.boards','meta_board','SELECT') AND has_column_privilege('board_attachment_owner','content.boards','poster_id_no_heaven','SELECT')")
         .fetch_one(&state.pool)
         .await
@@ -477,6 +482,16 @@ async fn board_page(
     if catalog && !snapshot.board.catalog_enabled {
         return Err(AppError(StatusCode::NOT_FOUND, "Catalog not found."));
     }
+    let catalog_positions: std::collections::BTreeMap<_, _> = if catalog {
+        snapshot
+            .threads
+            .iter()
+            .enumerate()
+            .map(|(position, preview)| (preview.thread.id, position))
+            .collect()
+    } else {
+        std::collections::BTreeMap::new()
+    };
     let hidden = if catalog {
         options.apply(&mut snapshot)
     } else {
@@ -499,6 +514,7 @@ async fn board_page(
         let total = preview.visible_posts as usize;
         let omitted = total.saturating_sub(posts.len());
         let view = ThreadView {
+            catalog_position: catalog_positions.get(&preview.thread.id).copied(),
             catalog_last_reply: preview.catalog_last_reply,
             tail_size: 0,
             latest_reply_id: preview.latest_reply_id,
@@ -614,6 +630,7 @@ pub async fn thread(
             catalog_hidden: Vec::new(),
             board,
             threads: vec![ThreadView {
+                catalog_position: None,
                 catalog_last_reply: None,
                 tail_size,
                 latest_reply_id,

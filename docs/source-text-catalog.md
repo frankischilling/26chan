@@ -30,7 +30,10 @@ Rows have no thumbnail, inline teaser, image counter, sticky/closed icon, watch
 button or pin page number. Image-size, teaser and image-spoiler controls are
 hidden without changing the bounded stored preference format. The source text
 renderer has no separate sticky-first branch: all four sorts use their normal
-rank, with pins first in the browser. Pin reply deltas retain the source's
+rank, with pins first in the browser. For Bump/`alt`, that rank is the original
+board position, so numeric sticky ordering remains visible even though text
+rows have no additional sticky bucket. Creation/reply sorts do not force
+stickies ahead of ordinary text rows. Pin reply deltas retain the source's
 ` (+N)` versus `(+0)` spelling and baseline update. The first cell of a pinned
 row has the black one-pixel left shadow.
 

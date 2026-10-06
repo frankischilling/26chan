@@ -306,7 +306,10 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
         .execute(&state.auth)
         .await?;
-    sqlx::query("SELECT id FROM content.moderation_audit LIMIT 0")
+    sqlx::query("SELECT id,before_mask,after_mask FROM content.moderation_audit LIMIT 0")
+        .execute(&state.staff)
+        .await?;
+    sqlx::query("SELECT sticky_rank FROM content.visible_threads LIMIT 0")
         .execute(&state.staff)
         .await?;
     sqlx::query("SELECT post_id,available FROM content.staff_post_media LIMIT 0")

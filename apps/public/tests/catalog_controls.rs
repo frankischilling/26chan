@@ -167,13 +167,14 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     for (query, expected) in [
-        ("", vec![*a, *b, *c, *s]),
+        // Source text catalogs also sort `alt` by original root-order position.
+        ("", vec![*s, *a, *b, *c]),
         ("?order=date", vec![*s, *c, *b, *a]),
         ("?order=absdate", vec![*b, *a, *c, *s]),
         ("?order=r", vec![*c, *b, *a, *s]),
         ("?q=Crane", vec![*c]),
         ("?q=absent", vec![]),
-        ("?size=large&teaser=off", vec![*a, *b, *c, *s]),
+        ("?size=large&teaser=off", vec![*s, *a, *b, *c]),
     ] {
         let (status, page) = read(&app, &format!("/{slug}/catalog{query}")).await;
         assert_eq!(status, 200);

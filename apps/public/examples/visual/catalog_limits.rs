@@ -58,6 +58,7 @@ fn render(
     .map(|(index, (lifetime, visible, images, subject))| {
         let id = 1_000_400 + index as i64;
         views::ThreadView {
+            catalog_position: None,
             catalog_last_reply: (visible > 0).then(|| board_store::CatalogReply {
                 thread_id: id,
                 id: id + visible as i64,

@@ -228,7 +228,7 @@ pub(crate) async fn prepare_moderation(
                 audit_changed = sticky != requested_sticky;
                 // Source thread options refresh root only on actual unsticky.
                 // Use mutation time after the locks, not transaction start.
-                sqlx::query("UPDATE content.threads SET sticky=$3,bumped_at=CASE WHEN $4 THEN clock_timestamp() ELSE bumped_at END,modified_at=clock_timestamp() WHERE board=$1 AND id=$2")
+                sqlx::query("UPDATE content.threads SET sticky=$3,sticky_rank=CASE WHEN $3 AND sticky THEN sticky_rank ELSE 0 END,bumped_at=CASE WHEN $4 THEN clock_timestamp() ELSE bumped_at END,modified_at=clock_timestamp() WHERE board=$1 AND id=$2")
                     .bind(board)
                     .bind(thread)
                     .bind(requested_sticky)

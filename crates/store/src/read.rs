@@ -231,7 +231,7 @@ pub async fn threads(
     if !(0..=1000).contains(&offset) || !(1..=1000).contains(&limit) {
         return Err(StoreError::NotFound);
     }
-    Ok(sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3").bind(slug).bind(offset).bind(limit).fetch_all(pool).await?)
+    Ok(sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,CASE WHEN sticky THEN sticky_rank ELSE 0 END DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3").bind(slug).bind(offset).bind(limit).fetch_all(pool).await?)
 }
 pub async fn posts(pool: &PgPool, slug: &str, id: i64) -> Result<Vec<Post>, StoreError> {
     Ok(sqlx::query_as("SELECT p.* FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.thread_id=$2 AND NOT p.deleted AND NOT t.deleted ORDER BY p.id LIMIT 1001").bind(slug).bind(id).fetch_all(pool).await?)

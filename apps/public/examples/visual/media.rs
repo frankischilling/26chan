@@ -196,6 +196,7 @@ impl Fixture {
             posts
                 .into_iter()
                 .map(|post| views::ThreadView {
+                    catalog_position: None,
                     catalog_last_reply: None,
                     tail_size: 0,
                     latest_reply_id: None,
@@ -213,6 +214,7 @@ impl Fixture {
                 .collect()
         } else {
             vec![views::ThreadView {
+                catalog_position: None,
                 catalog_last_reply: None,
                 tail_size: 0,
                 latest_reply_id: posts

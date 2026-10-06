@@ -113,6 +113,9 @@ fn board_navigation<'a>(boards: &'a [Board], current: &'a Board) -> Vec<&'a Boar
 }
 
 pub struct ThreadView {
+    /// Original active-board SQL position, before catalog sorting or filtering.
+    /// This is public ordering metadata, not the private staff rank value.
+    pub catalog_position: Option<usize>,
     pub catalog_last_reply: Option<board_store::CatalogReply>,
     pub tail_size: usize,
     pub latest_reply_id: Option<i64>,
