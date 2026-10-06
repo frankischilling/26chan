@@ -1,8 +1,8 @@
 # OP self-bump intervals
 
 [Issue #122](https://github.com/frankischilling/26chan/issues/122) implements
-the supplied `imgboard.php:5975-6003` rule. A reply from the OP's network address
-sets sage when either the initial interval has not elapsed or the latest
+the supplied `imgboard.php:5975-6003` rule. An eligible reply from the OP's network
+address sets sage when either the initial interval has not elapsed or the latest
 surviving same-address reply is within the repeat interval. Both comparisons
 are strict: equality permits bumping. The source selects that latest reply by
 post number, not maximum timestamp, and counts replies that did not bump too.
@@ -15,6 +15,21 @@ and 300 repeat seconds. Initial overrides are 600 for `b`, `bant` and `v`,
 Operator-only integer policies accept zero through 2,147,483,647. Zero is an
 interval of zero seconds, not a substitute for the separate enable switch.
 Operators recreating a source board must configure its overrides explicitly.
+
+Public posts use these intervals. Unbadged staff posts use the authenticated
+`ordinary_timers` branch returned by the migration 0089 proof issuer: janitors
+with a nonempty raw name or on a meta board receive the full initial and repeat
+intervals. The half-length janitor reply/image cooldown does not discount OP
+self-bump intervals. Unbadged moderator-or-higher posts and empty-name janitor
+posts on non-meta boards are exempt from self-bump suppression. Display names,
+badges and client-supplied roles do not select this branch. See
+[staff posting cooldowns](staff-posting-cooldowns.md).
+
+Matching unbadged staff replies still record OP membership when exempt, so a
+later eligible same-address reply includes them when selecting its latest
+surviving own reply. The gate does not expand the existing public/private
+membership boundary or establish full private `/j/` or historical badged-host
+parity.
 
 The server carries its captured request-start clock and transport peer into
 the board-locked posting transaction. It compares canonical IPv4/IPv6 addresses;
@@ -99,6 +114,9 @@ staff/media read denials and cleanup/rollback. Local domain/public tests and
 all-target Clippy pass. PostgreSQL is unavailable locally; persisted, upgrade
 and populated restore execution require complete current-head Linux CI.
 [Posting timestamp assignments](source-posting-times.md) have separate
-persisted and upgrade coverage. Staff flood privileges, other cooldown/admission
-policies, unique-visitor accounting and deployed production qualification
-remain unfinished.
+persisted and upgrade coverage. The unbadged staff self-bump gate does not change
+the request-start clock, post-number ordering or flag precedence described
+above; its tests are in progress, with no new pass or CI-completion claim here.
+Remaining staff flood privileges, full private `/j/` and historical badged-host
+bump parity, other cooldown/admission policies, unique-visitor accounting and
+deployed production qualification remain unfinished.

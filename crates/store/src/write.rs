@@ -909,42 +909,6 @@ async fn create_post_in_context(
         }
         id
     } else {
-        let thread = reply_target.expect("validated locked reply target");
-        // Count under the same board lock as posting/deletion. The incoming
-        // row is not inserted yet; the source's decision includes that reply.
-        let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
-            .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
-        let mut self_sage = false;
-        if own_reply && board.op_bump_limit {
-            let latest: Option<DateTime<Utc>> = if ordinary_staff {
-                staff_op.as_ref().and_then(|(_, time)| *time)
-            } else {
-                sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
-                    .bind(parent).bind(slug).fetch_optional(&mut *tx).await?
-            };
-            self_sage = board_domain::op_bump::limited(
-                true,
-                context.request_start.timestamp(),
-                op_created.timestamp(),
-                latest.map(|time| time.timestamp()),
-                board.op_bump_initial_seconds as u32,
-                board.op_bump_repeat_seconds as u32,
-            );
-        }
-        let bump = board_domain::bump::should_bump(
-            thread.sticky,
-            thread.permasage,
-            thread.permaage,
-            post.sage || self_sage,
-            replies as u64 + 1,
-            board.bump_limit as u32,
-            board_domain::bump::age_limited(
-                context.request_start.timestamp(),
-                op_created.timestamp(),
-                board.permasage_hours as u32,
-            ),
-        );
-        sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
         parent
     };
     let poster_id = if ordinary && board.user_ids {
@@ -990,7 +954,7 @@ async fn create_post_in_context(
         .bind(if op_markup { "true" } else { "false" })
         .execute(&mut *tx)
         .await?;
-    if let Some(authority) = &staff {
+    let ordinary_timers = if let Some(authority) = &staff {
         let ordinary_timers: bool = if ordinary_staff {
             let proof = context
                 .op_password_proof
@@ -1095,6 +1059,49 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
         }
+        ordinary_timers
+    } else {
+        true
+    };
+    if parent > 0 {
+        let thread = reply_target.expect("validated locked reply target");
+        // Count under the same board lock as posting/deletion. The incoming
+        // row is not inserted yet; the source's decision includes that reply.
+        let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
+            .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
+        let mut self_sage = false;
+        // Public posts and issuer-authenticated named/meta janitors use the
+        // source OP self-bump timers; OP membership is independent of this gate.
+        if ordinary_timers && own_reply && board.op_bump_limit {
+            let latest: Option<DateTime<Utc>> = if ordinary_staff {
+                staff_op.as_ref().and_then(|(_, time)| *time)
+            } else {
+                sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
+                    .bind(parent).bind(slug).fetch_optional(&mut *tx).await?
+            };
+            self_sage = board_domain::op_bump::limited(
+                true,
+                context.request_start.timestamp(),
+                op_created.timestamp(),
+                latest.map(|time| time.timestamp()),
+                board.op_bump_initial_seconds as u32,
+                board.op_bump_repeat_seconds as u32,
+            );
+        }
+        let bump = board_domain::bump::should_bump(
+            thread.sticky,
+            thread.permasage,
+            thread.permaage,
+            post.sage || self_sage,
+            replies as u64 + 1,
+            board.bump_limit as u32,
+            board_domain::bump::age_limited(
+                context.request_start.timestamp(),
+                op_created.timestamp(),
+                board.permasage_hours as u32,
+            ),
+        );
+        sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
     }
     let spoiler = board.comment_spoiler_cleanup
         && (metadata.spoiler || attachment.is_some_and(|file| file.spoiler));
