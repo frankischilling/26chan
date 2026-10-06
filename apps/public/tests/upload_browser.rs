@@ -63,12 +63,13 @@ impl OwnedUploadQuota {
         let mut bytes = [0u8; 32];
         OsRng.fill_bytes(&mut bytes);
         let key = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-        let mut board_bytes = [0u8; 5];
+        let mut board_bytes = [0u8; 4];
         OsRng.fill_bytes(&mut board_bytes);
-        let board = board_bytes
+        let suffix: String = board_bytes
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect();
+        let board = format!("u{suffix}");
         Self { board, key }
     }
 
@@ -108,6 +109,19 @@ impl OwnedUploadQuota {
             .bind(self.actor().as_bytes().as_slice()).fetch_one(owner).await.unwrap();
         assert_eq!(count, 1, "each upload workflow has one successful deletion");
     }
+}
+
+#[test]
+fn owned_upload_board_matches_browser_fixture_contract() {
+    let quota = OwnedUploadQuota::new();
+    // Both upload browsers require /^u[0-9a-f]{8}$/ for their owned board.
+    assert_eq!(quota.board.len(), 9);
+    assert!(quota.board.starts_with('u'));
+    assert!(
+        quota.board.as_bytes()[1..]
+            .iter()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
+    );
 }
 
 #[tokio::test]
