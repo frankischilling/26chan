@@ -419,7 +419,9 @@ async fn legacy_batches_commit_in_submission_order_and_stop_at_the_first_error()
         .unwrap();
     let board = format!("lb{seed}");
     // Explicit synthetic policy; imported board policies must remain unchanged.
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Legacy batch deletion','Owned fixtures',200,100,100,1000,10,100,0,0,86400,0,0,0)")
+    // Batch failures intentionally retain OPs; give this owned board enough
+    // actor capacity to exercise deletion ordering without clearing history.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Legacy batch deletion','Owned fixtures',200,100,100,1000,10,100,0,0,86400,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
         "PUBLIC_WRITES_PER_MINUTE" => Some("120".into()),

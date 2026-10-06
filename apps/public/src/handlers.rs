@@ -116,6 +116,38 @@ const OP_BUMP_CONTEXT_READY_SQL: &str = "SELECT EXISTS (
           WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
 )";
 
+// Catalog-only quota contract: never invoke the decision API or read actors.
+const USER_THREAD_QUOTA_READY_SQL: &str = "SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+    WHERE p.oid=to_regprocedure('content.check_user_thread_quota(bytea,text,bigint)')
+      AND has_function_privilege(current_user,p.oid,'EXECUTE')
+      AND has_function_privilege('board_public',p.oid,'EXECUTE')
+      AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+      AND p.prosecdef AND p.provolatile='v'
+      AND r.rolname='board_posting_cooldown_owner'
+      AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+      AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+          WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+      AND pg_catalog.pg_get_function_result(p.oid)='TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)'
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+          WHERE a.privilege_type='EXECUTE' AND (a.grantee=0
+              OR a.grantee NOT IN (p.proowner,
+                  (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_public'),
+                  (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_staff'))))
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('user_thread_limit'),('user_thread_period_hours')) AS required(column_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=to_regclass('content.boards') AND a.attname=required.column_name
+          AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+          AND a.atttypid='integer'::regtype
+          AND has_column_privilege(current_user,a.attrelid,a.attnum,'SELECT')
+          AND has_column_privilege('board_posting_cooldown_owner',a.attrelid,a.attnum,'SELECT')
+    )
+)";
+
 // Catalog-only: never read deletion hashes, invoke a trigger, or mutate content.
 const ARCHIVE_DELETION_SECRETS_READY_SQL: &str = r#"WITH relations AS (
     SELECT c.oid,n.nspname,c.relname
@@ -273,6 +305,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
     .await
     .map_err(StoreError::from)?;
     if !posting_cooldowns {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public posting is unavailable.",
+        ));
+    }
+    let user_thread_quota: bool = sqlx::query_scalar(USER_THREAD_QUOTA_READY_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !user_thread_quota {
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Public posting is unavailable.",
@@ -1037,7 +1079,51 @@ pub async fn report(
 
 #[cfg(test)]
 mod readiness_tests {
-    use super::{ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL};
+    use super::{
+        ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, USER_THREAD_QUOTA_READY_SQL,
+    };
+
+    #[test]
+    fn user_thread_quota_readiness_checks_only_restricted_catalog_contracts() {
+        for contract in [
+            "to_regprocedure('content.check_user_thread_quota(bytea,text,bigint)')",
+            "has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "has_function_privilege('board_public',p.oid,'EXECUTE')",
+            "has_function_privilege('board_staff',p.oid,'EXECUTE')",
+            "p.prosecdef AND p.provolatile='v'",
+            "r.rolname='board_posting_cooldown_owner'",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)",
+            "coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))",
+            "a.grantee=0",
+            "a.grantee NOT IN (p.proowner,",
+            "('user_thread_limit'),('user_thread_period_hours')",
+            "a.attrelid=to_regclass('content.boards')",
+            "a.attnum>0 AND NOT a.attisdropped AND a.attnotnull",
+            "a.atttypid='integer'::regtype",
+            "has_column_privilege('board_posting_cooldown_owner',a.attrelid,a.attnum,'SELECT')",
+        ] {
+            assert!(USER_THREAD_QUOTA_READY_SQL.contains(contract), "{contract}");
+        }
+        assert!(USER_THREAD_QUOTA_READY_SQL.starts_with("SELECT EXISTS ("));
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "JOIN content.",
+            "JOIN post_secrets.",
+            "actor_hash",
+            "INSERT INTO",
+            "DELETE FROM",
+            "UPDATE content.",
+            "SELECT content.check_user_thread_quota",
+        ] {
+            assert!(
+                !USER_THREAD_QUOTA_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
 
     #[test]
     fn archive_secret_readiness_requires_exact_trigger_metadata() {

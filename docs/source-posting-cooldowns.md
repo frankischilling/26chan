@@ -8,6 +8,10 @@ private history for [OP self-bump evidence](source-op-bumps.md#bump-only-posting
 not complete posting-admission or source parity. The source references below
 were read as text; the original PHP was not executed.
 
+Migration 0092 also reuses that history for the
+[IP-only active-thread quota](source-user-thread-quotas.md). It applies to all
+OPs independently of cooldown exemptions; password/Pass matching remains open.
+
 ## Source rules and board policy
 
 `4chan-old/imgboard.php:5887-5900` checks same-board and cross-board new
@@ -185,8 +189,8 @@ as a routine way to restore capacity, since that changes admission behavior.
 For an existing installation, a bootstrap administrator must apply
 `deploy/posting-cooldown-role.sql` before migration 0087. Fresh
 `deploy/roles.sql` already creates the owner. Stop public and staff writers,
-apply migrations through 0091 with the migration identity, and deploy matching
-binaries. Migrations 0088 through 0091 reuse existing owners and require no
+apply migrations through 0092 with the migration identity, and deploy matching
+binaries. Migrations 0088 through 0092 reuse existing owners and require no
 additional bootstrap role. Migration 0091 adds
 [archive deletion-password retirement](archive-deletion-secrets.md).
 Existing 15-second in-flight proofs must

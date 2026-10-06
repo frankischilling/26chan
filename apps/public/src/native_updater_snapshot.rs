@@ -505,6 +505,8 @@ mod tests {
             posting_reply_seconds: 0,
             posting_image_seconds: 0,
             posting_thread_seconds: 0,
+            user_thread_limit: 5,
+            user_thread_period_hours: 24,
             op_bump_limit: true,
             op_bump_initial_seconds: 900,
             op_bump_repeat_seconds: 300,

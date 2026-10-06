@@ -356,7 +356,9 @@ async fn forced_anonymous_clears_new_identity_before_admission_and_preserves_his
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Forced anonymous','Owned fixture',4000,200,150,100,10)").bind(&slug).execute(&owner).await.unwrap();
+    // Retain the identity-policy matrix's OPs on this owned board without
+    // exhausting the unrelated per-actor thread quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Forced anonymous','Owned fixture',4000,200,150,100,10,100)").bind(&slug).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

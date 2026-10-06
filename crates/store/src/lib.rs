@@ -25,6 +25,7 @@ pub use public_deletion::{
 mod read;
 mod robot9000;
 mod rss;
+mod thread_quota;
 mod thread_statistics;
 mod write;
 pub use board_snapshot::*;
@@ -103,6 +104,8 @@ pub struct Board {
     pub posting_reply_seconds: i32,
     pub posting_image_seconds: i32,
     pub posting_thread_seconds: i32,
+    pub user_thread_limit: i32,
+    pub user_thread_period_hours: i32,
     pub op_bump_limit: bool,
     pub op_bump_initial_seconds: i32,
     pub op_bump_repeat_seconds: i32,

@@ -326,7 +326,9 @@ async fn source_archive_rows_use_saved_typed_excerpts_and_bounded_snapshots() {
         .await
         .unwrap();
     let slug = format!("ar{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup) VALUES($1,'Archive excerpts','Owned regression fixture',0,0,0,16000,100,100,100,20,3600,100,true,true,true,true)")
+    // Build the saved-excerpt matrix before archiving it, with enough actor OP
+    // capacity on this owned board to preserve all rendering controls.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,user_thread_limit) VALUES($1,'Archive excerpts','Owned regression fixture',0,0,0,16000,100,100,100,20,3600,100,true,true,true,true,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(contract(owner.clone(), public.clone(), slug.clone())).await;
     posting_fixture::cleanup_posting(&owner, &slug).await;

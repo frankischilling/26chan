@@ -37,7 +37,9 @@ async fn bounded_boards_roll_over_through_the_actual_public_role() {
         .await
         .unwrap();
     let slug = format!("a{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,1,1,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
+    // Protected OPs can exceed rollover capacity; give this owned lifecycle
+    // fixture room to exercise rollover independently of the actor OP quota.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES ($1,'Archive fixture','Synthetic owned data',100,20,10,1,1,0,0,0,100)").bind(&slug).execute(&owner).await.unwrap();
     assert!(
         board_store::board(&public, &slug)
             .await

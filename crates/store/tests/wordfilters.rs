@@ -111,6 +111,13 @@ async fn selected_thread_body_budgets_are_checked_before_rows_transfer() {
 #[tokio::test]
 async fn source_profiles_field_scope_once_only_results_and_atomic_failure_are_persisted() {
     let (owner, public, slug) = fixture().await;
+    // This profile matrix retains eight same-actor OPs to check saved results.
+    // Increase capacity only on its owned board, preserving posting history.
+    sqlx::query("UPDATE content.boards SET user_thread_limit=100 WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
     let (a, p, b) = (owner.clone(), public.clone(), slug.clone());
     let outcome=tokio::spawn(async move {
         let inventory: (i64,i64)=sqlx::query_as("SELECT count(*) FILTER (WHERE word_filter_enabled),count(*) FILTER (WHERE NOT word_filter_enabled) FROM content.boards WHERE source_order<1000").fetch_one(&a).await.unwrap();

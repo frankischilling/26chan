@@ -827,6 +827,14 @@ async fn public_deletion_gates_preserve_state_and_apply_to_both_authorities_and_
             }
             "archived" => {
                 sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1").bind(post).execute(&f.owner).await.unwrap();
+                let retained_hash: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1)",
+                )
+                .bind(post)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
+                assert!(!retained_hash, "New archives retire deletion authority");
                 "Error: Password incorrect."
             }
             _ => unreachable!(),
@@ -866,10 +874,20 @@ async fn public_deletion_gates_preserve_state_and_apply_to_both_authorities_and_
                     )
                     .await
                 };
-                assert!(
-                    matches!(result,Err(StoreError::PublicDeletionRejected(message)) if message==expected),
-                    "{case}: {result:?}"
-                );
+                if case == "archived" {
+                    // 0091 retires the hash, so both stale proofs fail before
+                    // the post-authority archive gate. HTTP still reports the
+                    // same password error.
+                    assert!(
+                        matches!(result, Err(StoreError::AuthorizationChanged)),
+                        "{case}: {result:?}"
+                    );
+                } else {
+                    assert!(
+                        matches!(result,Err(StoreError::PublicDeletionRejected(message)) if message==expected),
+                        "{case}: {result:?}"
+                    );
+                }
                 assert_eq!(deletion_state(&f).await, before, "{case}");
             }
         }
@@ -933,7 +951,9 @@ async fn deletion_known_age_uses_resumed_network_lifetime_and_never_verified_lev
     use board_store::PublicDeletionContext;
     use sha2::{Digest, Sha256};
     let f = Fixture::new().await;
-    sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
+    // Keep rejected deletions live across this age matrix without exhausting
+    // the unrelated per-actor OP quota on this owned board.
+    sqlx::query("UPDATE content.boards SET user_thread_limit=100,deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
         .bind(&f.board).execute(&f.owner).await.unwrap();
     let capability = Capability::generate().unwrap();
     let token = capability.storage_hash();

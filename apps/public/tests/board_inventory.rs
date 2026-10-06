@@ -34,20 +34,22 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
                 assert_eq!(&saved[key], value, "/{slug}/: {key}");
             }
         }
-        // Check all global/category/board-inherited timers, including private
+        // Check global/category/board-inherited posting limits, including private
         // and configuration-only boards, against the captured source policy.
         for (column, source_key) in [
             ("posting_reply_seconds", "RENZOKU"),
             ("posting_image_seconds", "RENZOKU2"),
             ("posting_thread_seconds", "RENZOKU3"),
+            ("user_thread_limit", "MAX_USER_THREADS"),
+            ("user_thread_period_hours", "MAX_USER_THREADS_PERIOD"),
         ] {
-            let seconds = expected["source_policy"][source_key]
+            let limit = expected["source_policy"][source_key]
                 .as_str()
                 .unwrap()
                 .parse::<i64>()
                 .unwrap();
-            assert_eq!(expected[column], seconds, "/{slug}/: {source_key} fixture");
-            assert_eq!(saved[column], seconds, "/{slug}/: {source_key} policy");
+            assert_eq!(expected[column], limit, "/{slug}/: {source_key} fixture");
+            assert_eq!(saved[column], limit, "/{slug}/: {source_key} policy");
         }
         let private = expected["staff_only"] == true;
         let rss_enabled = expected["source_policy"]["USE_RSS"] == "yes";

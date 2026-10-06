@@ -704,6 +704,12 @@ async fn create_post_in_context(
     } else {
         None
     };
+    // Source checks active OP quota after bans and before content filters,
+    // duplicate admission and cooldowns. Staff must first obtain the bound
+    // authority below; a cosmetic identity must never authorize this check.
+    if parent == 0 && staff.is_none() {
+        crate::thread_quota::check(&mut tx, &posting_actor, slug, posted_at.timestamp()).await?;
+    }
     let mut autosage_proof = None;
     if let Some(admission) = admission {
         let filename = if let Some(attachment) = attachment {
@@ -1033,6 +1039,12 @@ async fn create_post_in_context(
             .await?;
         // Actor/board locks and READ COMMITTED are already held. A validated
         // authority, not capcode or client fields, selects this admission path.
+        // All staff OPs share the IP quota, including badged and private-board
+        // posts. Check before timers and rollover can remove counted rows.
+        if parent == 0 {
+            crate::thread_quota::check(&mut tx, &posting_actor, slug, posted_at.timestamp())
+                .await?;
+        }
         if ordinary_timers {
             crate::posting_cooldown::check_janitor(
                 &mut tx,

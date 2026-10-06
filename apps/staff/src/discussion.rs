@@ -81,8 +81,8 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::PostingCooldownRejected(rejection) => {
             AppError::Posting(rejection.source_message())
         }
+        StoreError::ContentRejected(message) => AppError::Posting(message),
         StoreError::Robot9000Rejected(_)
-        | StoreError::ContentRejected(_)
         | StoreError::PublicDeletionRejected(_)
         | StoreError::ContentQuiet { .. } => AppError::Internal,
     }
@@ -449,6 +449,16 @@ pub(crate) async fn submit(
             *response.status_mut() = StatusCode::BAD_REQUEST;
             Ok(response)
         }
+        Err(StoreError::ContentRejected(message)) => {
+            let mut page =
+                build_page(&state, &headers, input.resto, 1, ViewQuery::default()).await?;
+            page.subject = input.sub;
+            page.comment = input.com;
+            page.error = message;
+            let mut response = html(&state, &page)?;
+            *response.status_mut() = StatusCode::BAD_REQUEST;
+            Ok(response)
+        }
         Err(StoreError::Invalid(message) | StoreError::Conflict(message)) => {
             let mut page =
                 build_page(&state, &headers, input.resto, 1, ViewQuery::default()).await?;
@@ -481,6 +491,14 @@ pub(crate) async fn stylesheet() -> impl IntoResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quota_rejection_remains_a_source_text_posting_error() {
+        let message = "Error: You may not post more than 1 active thread at a time.";
+        let error = store_error(StoreError::ContentRejected(message.into()));
+        assert!(matches!(&error, AppError::Posting(text) if text == message));
+        assert_eq!(error.into_response().status(), StatusCode::BAD_REQUEST);
+    }
 
     #[test]
     fn private_source_page_numbers_are_bounded_and_keep_php_aliases() {

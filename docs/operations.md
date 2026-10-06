@@ -157,8 +157,10 @@ base tables or backups. The actual upgrade exercise is recorded in
 [archive verification](verification-thread-archives.md).
 
 Current public and staff binaries and readiness require migrations through
-0091. Stop writers and follow [posting deployment](source-posting-cooldowns.md#deployment)
-before starting matching binaries. Migration 0091 needs no new bootstrap role.
+0092. Stop writers and follow [posting deployment](source-posting-cooldowns.md#deployment)
+before starting matching binaries. Migrations 0091 and 0092 need no new bootstrap
+role. The [active OP quota](source-user-thread-quotas.md) has an independent
+per-IP maximum and period; its password/Pass identity branches remain unfinished.
 Operator archive transitions require Read Committed isolation. Lock affected
 boards in slug order before secret updates/deletions or archive writes; an
 out-of-order operation can fail with `55P03` and require a transaction retry.

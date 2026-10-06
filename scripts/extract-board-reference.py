@@ -13,6 +13,7 @@ POLICY_KEYS = set("CATEGORY TITLE META_DESCRIPTION MAX_COM_CHARS MAX_LINES CODE_
 POLICY_KEYS.add("EXPIRE_NEGLECTED")
 POLICY_KEYS.add("META_BOARD")
 POLICY_KEYS.add("DISP_ID_NO_HEAVEN")
+POLICY_KEYS.update({"MAX_USER_THREADS", "MAX_USER_THREADS_PERIOD"})
 
 
 def policy(path):
@@ -68,6 +69,8 @@ def extract(root, names_encoding="utf-8"):
             "posting_reply_seconds": integer("RENZOKU"),
             "posting_image_seconds": integer("RENZOKU2"),
             "posting_thread_seconds": integer("RENZOKU3"),
+            "user_thread_limit": integer("MAX_USER_THREADS"),
+            "user_thread_period_hours": integer("MAX_USER_THREADS_PERIOD"),
             "archive_retention_seconds": integer("ARCHIVE_MAX_AGE") * 3600 if boolean("ENABLE_ARCHIVE") else 0,
             "json_tail_size": integer("JSON_TAIL_SIZE"), "permasage_hours": integer("PERMASAGE_HOURS"),
             "catalog_enabled": boolean("ENABLE_CATALOG"), "json_enabled": boolean("ENABLE_JSON"),
@@ -86,6 +89,7 @@ def migration(reference):
     columns = [key for key in reference["boards"][0] if key not in {
         "listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected",
         "posting_reply_seconds", "posting_image_seconds", "posting_thread_seconds",
+        "user_thread_limit", "user_thread_period_hours",
     }]
     def sql(value):
         if isinstance(value, bool):

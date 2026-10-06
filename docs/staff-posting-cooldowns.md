@@ -24,6 +24,10 @@ valid staff authority do not gain the five-second route merely by supplying
 staff-looking fields. The actor lock, timer decision and content write use the
 same posting transaction; rejected writes leave no post or successful action.
 
+Migration 0092 adds the separate [IP-only active-thread quota](source-user-thread-quotas.md)
+for every OP, including badged, unbadged and private `/j/` posts. Staff timer
+exemptions do not bypass it. Source password/Pass matching remains unimplemented.
+
 Only `board_staff` can execute the new decision function at runtime. Its
 NOLOGIN owner and fixed search path match the ordinary timer functions.
 Migration 0088 changes no board intervals or existing history rows and does
@@ -113,8 +117,8 @@ an honest HTTP request against a compromised application database role.
 
 ## Upgrade and qualification
 
-Stop public and staff writers, apply migrations through 0091, and deploy
-matching binaries before restoring posting. Migrations 0089 through 0091 need no
+Stop public and staff writers, apply migrations through 0092, and deploy
+matching binaries before restoring posting. Migrations 0089 through 0092 need no
 new bootstrap role. Migration 0090 leaves existing content and history intact;
 0091 adds [archive deletion-password retirement](archive-deletion-secrets.md).
 Migration 0089 does not recover old posting identity or invent context for

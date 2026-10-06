@@ -34,6 +34,16 @@ routes and navigation. `/f/` has no ordinary catalog. Its specialized upload
 workflow remains in #206. Source flags for unsupported policies are recorded
 in the fixture and tracked through #192; recording a flag does not implement it.
 
+Migration 0092 imports the executable `MAX_USER_THREADS` and
+`MAX_USER_THREADS_PERIOD` settings as `user_thread_limit` and
+`user_thread_period_hours`. The source defaults are five OPs per board over
+24 hours. `/a/`, `/bant/`, `/v/`, `/vm/`, `/vmg/`, `/vrpg/` and `/vst/` use
+three over 24 hours; `/i/` uses three over 168 hours, `/pol/` three over six,
+`/qa/` three over 48, `/qst/` five over 72, `/news/` five over 120, and
+`/test/` 50 over 24. The inventory fixture and database assertions cover all
+82 definitions, including private and configuration-only boards. A configured
+zero limit denies OP creation; it does not disable this quota.
+
 `/j/` is installed as a private board. Row policies protect boards, threads,
 posts, reports, deletion credentials and OP peer metadata. Public, attachment
 and counting credentials cannot bypass those policies through ordinary queries.

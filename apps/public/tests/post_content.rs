@@ -269,7 +269,9 @@ async fn post_markup_admission_checks_http_transactions_and_locked_policy() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
+    // Retain the route and markup matrices' OPs on this owned board without
+    // letting the unrelated actor quota preempt content-admission assertions.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Final content admission','Owned fixture',1000,100,100,100,10,0,0,0,100)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

@@ -383,7 +383,9 @@ async fn new_posts_stamp_locked_markup_policy_without_changing_earlier_posts() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Markup policy','Owned fixture',1000,100,100,100,10)")
+    // Retain each policy case's OP for rendering comparisons on this owned
+    // board without exhausting the unrelated per-actor thread quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Markup policy','Owned fixture',1000,100,100,100,10,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

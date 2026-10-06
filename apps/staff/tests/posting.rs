@@ -1724,6 +1724,13 @@ async fn source_staff_proofs_bind_hashes_and_recheck_flags_without_granting_lega
 async fn source_badge_permissions_mask_names_after_validation_and_preserve_admin_board_exceptions()
 {
     let fixture = Fixture::new().await;
+    // Retain the initial OP and all five badge-specific catalog controls on
+    // this owned board while testing permissions independently of OP quota.
+    sqlx::query("UPDATE content.boards SET user_thread_limit=100 WHERE slug=$1")
+        .bind(&fixture.board)
+        .execute(&fixture.owner)
+        .await
+        .unwrap();
     let case = fixture.clone();
     let result=tokio::spawn(async move {
         assert_eq!(case.submit(0,"",&case.csrf,"http://localhost:3001").await.0,StatusCode::SEE_OTHER);

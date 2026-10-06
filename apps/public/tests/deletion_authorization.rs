@@ -285,6 +285,13 @@ impl Fixture {
     }
 
     async fn exercise(&self) {
+        // Rotated and revoked targets stay live throughout this matrix. Give
+        // its owned board enough OP capacity to test deletion authorization.
+        sqlx::query("UPDATE content.boards SET user_thread_limit=100 WHERE slug=$1")
+            .bind(&self.board)
+            .execute(&self.owner)
+            .await
+            .unwrap();
         let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
             "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
             _ => None,
