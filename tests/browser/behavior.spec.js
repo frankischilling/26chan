@@ -9,17 +9,28 @@ const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watch
 const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updater-assets.json', import.meta.url), 'utf8'));
 const navigationAssets = JSON.parse(await readFile(new URL('../../docs/public-navigation-assets.json', import.meta.url), 'utf8'));
 const flagAssets = JSON.parse(await readFile(new URL('../../docs/public-country-flags-reference.json', import.meta.url), 'utf8'));
+const sourceFlagAssets = JSON.parse(await readFile(new URL('../../docs/source-board-flag-assets.json', import.meta.url), 'utf8'));
+const spoilerAssets = JSON.parse(await readFile(new URL('../../docs/custom-spoiler-assets.json', import.meta.url), 'utf8'));
 const capcodeAssets = JSON.parse(await readFile(new URL('../../docs/public-capcode-reference.json', import.meta.url), 'utf8'));
 const filterAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-filter-assets.json', import.meta.url), 'utf8'));
 const boardReference = JSON.parse(await readFile(new URL('../../fixtures/board-reference.json', import.meta.url), 'utf8'));
 const releaseImages = [
+  // The generic spoiler is already in the catalog manifest below.
+  ...spoilerAssets.assets.filter(asset => asset.status === 200 && asset.name !== 'spoiler.png').map(asset => ({
+    path: `/static/catalog/${asset.name}`, dimensions: [asset.width, asset.height],
+  })),
   ...flagAssets.assets.filter(asset => asset.mime.startsWith('image/')).map(asset => ({ ...asset, path: `${flagAssets.local_base}${asset.name}` })),
+  ...[['mlp', [144, 160]], ['lgbt', [112, 88]]].map(([kind, dimensions]) => ({
+    path: sourceFlagAssets[kind].find(asset => asset.role === 'sprite').release_path, dimensions,
+  })),
   ...capcodeAssets.assets.map(asset => ({ ...asset, path: `${capcodeAssets.local_base}${asset.name}` })),
   ...navigationAssets.files.map(asset => ({ path: asset.path.replace('apps/public', ''), dimensions: [asset.width, asset.height] })),
   ...[uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
     manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` }))),
   ...filterAssets.assets.map(asset => ({ ...asset, path: `${filterAssets.local_base}${asset.name}`, dimensions: [asset.width, asset.height] })),
 ];
+const unavailableImages = spoilerAssets.assets.filter(asset => asset.status !== 200)
+  .map(asset => `/static/catalog/${asset.name}`);
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
@@ -343,7 +354,12 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
   const origin = new URL(page.url()).origin;
   const policy = response.headers()['content-security-policy'];
   const sources = policy.split(';').map(part => part.trim()).find(part => part.startsWith('img-src '));
-  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${releaseImages.map(asset => `${origin}${asset.path}`).join(' ')}`);
+  // The two source names remain permitted but have no replacement artwork.
+  // Keep them explicit so newly missing assets cannot silently leave this check.
+  expect(unavailableImages).toEqual(['/static/catalog/spoiler-news1.png', '/static/catalog/spoiler-vm1.png']);
+  expect(spoilerAssets.assets.filter(asset => asset.status !== 200).every(asset => asset.available === false)).toBe(true);
+  const imagePaths = [...releaseImages.map(asset => asset.path), ...unavailableImages];
+  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${imagePaths.map(path => `${origin}${path}`).join(' ')}`);
   for (const asset of releaseImages) {
     const dimensions = await page.evaluate(src => new Promise(resolve => {
       const image = new Image();
@@ -351,7 +367,10 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
       image.onerror = () => resolve(null);
       image.src = src;
     }), `${origin}${asset.path}`);
-    expect(dimensions).toEqual(asset.dimensions);
+    expect(dimensions, asset.path).toEqual(asset.dimensions);
+  }
+  for (const path of unavailableImages) {
+    expect((await page.request.get(`${origin}${path}`)).status(), path).toBe(404);
   }
   const allowed = `${origin}/static/themes/fade-blue.png`;
   const denied = new URL(allowed);
@@ -363,7 +382,7 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
   expect(healthy.headers()['content-type']).toBe('image/png');
   expect(await healthy.body()).toEqual(await positive.body());
   const unlisted = `${origin}/static/watcher/unknown.png`;
-  const outcome = await page.evaluate(async ({ allowed, denied, unlisted }) => {
+  const outcome = await page.evaluate(async ({ allowed, denied, unlisted, unavailable }) => {
     const violations = [];
     document.addEventListener('securitypolicyviolation', event => violations.push({ uri: event.blockedURI, directive: event.effectiveDirective }));
     const load = src => new Promise(resolve => {
@@ -375,12 +394,17 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
     const positive = await load(allowed);
     const negative = await load(denied);
     const unknown = await load(unlisted);
+    const missing = await Promise.all(unavailable.map(load));
     await new Promise(resolve => setTimeout(resolve, 50));
-    return { positive, negative, unknown, violations };
-  }, { allowed, denied: denied.href, unlisted });
+    return { positive, negative, unknown, missing, violations };
+  }, { allowed, denied: denied.href, unlisted, unavailable: unavailableImages.map(path => `${origin}${path}`) });
   expect(outcome.positive).toEqual([1, 200]);
   expect(outcome.negative).toBeNull();
   expect(outcome.unknown).toBeNull();
+  expect(outcome.missing).toEqual([null, null]);
+  for (const path of unavailableImages) {
+    expect(outcome.violations).not.toContainEqual({ uri: `${origin}${path}`, directive: 'img-src' });
+  }
   expect(outcome.violations).toContainEqual({ uri: denied.href, directive: 'img-src' });
   expect(outcome.violations).toContainEqual({ uri: unlisted, directive: 'img-src' });
 });
