@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 const origin = 'http://127.0.0.1:3000', lockName = 'paperboard-thread-watcher';
@@ -12,7 +13,9 @@ const test = base.extend({
       const response = await write({ resto: id, com, ...(track ? { track: '1' } : {}) });
       expect(response.status()).toBe(303); return response.headers().location.match(/#p(\d+)/)[1];
     } }); }
-    finally { await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } }); }
+    finally { await withDeletionQuota(async () => {
+      await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
+    }); }
   },
   holder: async ({ context }, use) => {
     const other = await context.newPage(); await other.goto('/settings/theme');

@@ -53,10 +53,17 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
             request_start: captured,
             session: Some(PostingSession { fingerprints,minted:false,now:captured }),
         };
+        let key = Arc::new(board_domain::poster_id::PosterIdKey::parse(&"44".repeat(32)).unwrap());
+        let peer = std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+            0x2001, 0xdb8, 9, 0, 0, 0, (ids[0] >> 16) as u16, ids[0] as u16,
+        ));
+        let mut batch = board_store::PublicDeletionBatch::new(
+            &run_board, context, key.public_deletion_rate_identity(peer),
+        );
         let state = AppState {
             pool: run_public.clone(),origin:"http://127.0.0.1:3000".into(),production:false,
             limits: Arc::new(crate::security::Limits::new(board_config::PublicRequestLimits::default())),
-            media:None,proxy_uid:None,poster_id_key:None,tripcode_key:None,country_database:None,
+            media:None,proxy_uid:None,poster_id_key:Some(key.clone()),tripcode_key:None,country_database:None,
         };
         let public_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
             .fetch_one(&run_public).await.unwrap();
@@ -64,12 +71,11 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
             .bind(&run_board).execute(&mut *blocker).await.unwrap();
         let delete_state = state.clone();
-        let delete_board = run_board.clone();
         let selected = ids.clone();
         let deleting = tokio::spawn(async move {
-            delete_selection(&delete_state,&delete_board,Deletion {
+            delete_selection(&delete_state,&mut batch,Deletion {
                 posts:selected,password:password.into(),file_only:false,
-            },context).await
+            }).await
         });
         tokio::time::timeout(Duration::from_secs(5),async {
             loop {
@@ -95,9 +101,12 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
             request_start:Utc::now(),
             session:Some(PostingSession { now:Utc::now(),..context.session.unwrap() }),
         };
-        assert!(handlers::delete_with_context(&state,&run_board,DeleteForm {
+        let mut next_batch = board_store::PublicDeletionBatch::new(
+            &run_board, refreshed, key.public_deletion_rate_identity(peer),
+        );
+        assert!(handlers::delete_with_context(&state,&mut next_batch,DeleteForm {
             no:ids[1],password:password.into(),file_only:false,
-        },refreshed).await.is_ok(),"A new request is now known; the batch must not refresh its capture clock");
+        }).await.is_ok(),"A new request is now known; the batch must not refresh its capture clock");
     }).await;
     for statement in [
         "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",

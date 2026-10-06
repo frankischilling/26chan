@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-expansion-password';
@@ -68,13 +69,20 @@ test('index expansion preserves the tail and drafts while fetched replies retain
     const earlier = section.locator(`#pc${replies[0]}`);
     await earlier.locator('details.postActions').evaluate(element => { element.open = true; });
     await expect(earlier.locator(`#delete${replies[0]}`)).toHaveValue('');
-    await earlier.getByRole('button', { name: 'Delete post', exact: true }).click();
-    await expect(page).toHaveURL(`${origin}/fixture/`);
-    const body = await (await request.get(`/fixture/thread/${thread}.json`)).json();
-    expect(body.posts.some(post => String(post.no) === replies[0])).toBe(false);
+    await withDeletionQuota(async () => {
+      const deleted = page.waitForResponse(response =>
+        new URL(response.url()).pathname === '/fixture/delete' && response.request().method() === 'POST');
+      await earlier.getByRole('button', { name: 'Delete post', exact: true }).click();
+      expect((await deleted).status()).toBe(303);
+      await expect(page).toHaveURL(`${origin}/fixture/`);
+      const body = await (await request.get(`/fixture/thread/${thread}.json`)).json();
+      expect(body.posts.some(post => String(post.no) === replies[0])).toBe(false);
+    });
   } finally {
-    if (thread) expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { no: thread, password } })).status()).toBe(303);
+    if (thread) await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { no: thread, password } })).status()).toBe(303);
+    });
   }
 });
 

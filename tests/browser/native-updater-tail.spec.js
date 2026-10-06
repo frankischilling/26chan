@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -85,9 +86,11 @@ test('a removed tail falls back without marking the thread dead, while a later f
   await expect(page.locator(`#t${owned.id}`)).toHaveAttribute('data-tail-size', '0');
   await page.clock.runFor(1100); await update(page); await expect.poll(() => responses.length).toBe(3);
   expect(new URL(responses[2].url()).pathname).toBe(owned.full); expect(responses[2].status()).toBe(304);
-  expect((await owned.remove()).status()).toBe(303);
-  await page.clock.runFor(1100); await update(page); await expect(status(page)).toHaveText('This thread has been pruned or deleted');
-  expect(responses.at(-1).status()).toBe(404);
+  await withDeletionQuota(async () => {
+    expect((await owned.remove()).status()).toBe(303);
+    await page.clock.runFor(1100); await update(page); await expect(status(page)).toHaveText('This thread has been pruned or deleted');
+    expect(responses.at(-1).status()).toBe(404);
+  });
 });
 
 test('disabling during a held full fallback cancels the entire cycle and a fresh enabled update recovers the gap', async ({ page, context, owned }) => {

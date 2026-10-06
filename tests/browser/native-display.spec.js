@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 
@@ -97,7 +98,9 @@ test('local time uses the real timestamp while settings and script-free pages pr
     expect(data.posts[0].now).toBe(server);
   } finally {
     await context.close(); await plain.close();
-    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 

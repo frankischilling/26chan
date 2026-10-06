@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -22,7 +23,7 @@ const test = base.extend({
       await reply('First owned stats reply');
       await reply('Second owned stats reply');
       await use({ id, url: `/demo/thread/${id}`, stats: `/_watch/demo/thread/${id}/stats` });
-    } finally { await remove(id); }
+    } finally { await withDeletionQuota(async () => { await remove(id); }); }
   },
 });
 

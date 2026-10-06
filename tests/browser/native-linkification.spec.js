@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -23,7 +24,7 @@ const test = base.extend({
           return result.headers().location.match(/#p(\d+)/)[1];
         },
       });
-    } finally { await remove(); }
+    } finally { await withDeletionQuota(async () => { await remove(); }); }
   },
 });
 
@@ -280,8 +281,10 @@ test('persisted mixed-case URLs keep server anchors while the browser links uppe
     expect(storedReply).toContain(upper);
     expect(storedReply).not.toContain(`/derefer?url=${encodeURIComponent(upper)}`);
   } finally {
-    await request.post('/demo/delete', {
-      headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+    await withDeletionQuota(async () => {
+      await request.post('/demo/delete', {
+        headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+      });
     });
   }
 });

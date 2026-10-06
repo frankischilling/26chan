@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -67,7 +68,9 @@ test('thread Settings reuses all three server links without duplicate handlers o
     expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(before);
     expect(errors).toEqual([]);
   } finally {
-    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 

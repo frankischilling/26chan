@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -21,8 +22,10 @@ const test = base.extend({
       return result.headers().location.match(/#p(\d+)/)[1];
     } }); }
     finally {
-      await request.post('/demo/delete', {
-        headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+      await withDeletionQuota(async () => {
+        await request.post('/demo/delete', {
+          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+        });
       });
     }
   },

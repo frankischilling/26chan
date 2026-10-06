@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect, chromium } from '@playwright/test';
 import { mkdtemp, mkdir, writeFile, readFile, realpath, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -90,8 +91,10 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
             expect(await page.evaluate(() => document.cookie)).toBe('');
             expect((await context.cookies()).filter(cookie => cookie.name === 'board-anon')).toEqual([]);
             await expect(page.locator('#name')).toHaveValue('');
-            expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: thread }, maxRedirects: 0 })).status()).toBe(403);
-            expect((await request.get(`/fixture/thread/${thread}.json`)).status()).toBe(200);
+            await withDeletionQuota(async () => {
+              expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: thread }, maxRedirects: 0 })).status()).toBe(403);
+              expect((await request.get(`/fixture/thread/${thread}.json`)).status()).toBe(200);
+            });
           }
           expect((await context.cookies()).filter(cookie => receiptName(cookie.name))).toEqual([]);
         };
@@ -145,10 +148,12 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
     for (const [id, cookie] of owned) {
       // Only cleanup restores the capability returned for this synthetic OP.
       // The rejected browser cookie remains unavailable in the assertions.
-      const deleted = await request.post('/fixture/delete', { headers: { Origin: origin, Cookie: cookie },
-        form: { no: id }, maxRedirects: 0 });
-      expect(deleted.status()).toBe(303);
-      expect((await request.get(`/fixture/thread/${id}.json`)).status()).toBe(404);
+      await withDeletionQuota(async () => {
+        const deleted = await request.post('/fixture/delete', { headers: { Origin: origin, Cookie: cookie },
+          form: { no: id }, maxRedirects: 0 });
+        expect(deleted.status()).toBe(303);
+        expect((await request.get(`/fixture/thread/${id}.json`)).status()).toBe(404);
+      });
     }
   }
 });

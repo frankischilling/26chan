@@ -1,4 +1,6 @@
 """Development public web unit connected to real intake, dispatch and reader."""
+import hashlib
+import hmac
 import http.client
 import grp
 import os
@@ -44,6 +46,9 @@ class PublicUpload:
         self.f = fixture
         token = fixture.root.name.removeprefix('26chan-dispatch-')
         self.board = 'u' + secrets.token_hex(4)
+        self._owned_board = self.board
+        # Fresh synthetic server key, never inherited from an external environment.
+        self._poster_id_key = secrets.token_hex(32)
         self.unit = PublicUnit(token)
         self.installed = False
         self.created = False
@@ -73,6 +78,7 @@ class PublicUpload:
         assert not any(c in credential for c in '\n\r"\\')
         f.write(f.root / 'public.env',
                 f'APP_ENV=development\nMEDIA_ENABLED=true\nPUBLIC_MEDIA_PROFILE=isolated-development\n'
+                f'POSTER_ID_KEY={self._poster_id_key}\n'
                 f'DATABASE_URL="{credential}"\nBIND_ADDR=127.0.0.1:{self.port}\nPUBLIC_ORIGIN={self.origin}\n'
                 f'STAFF_ORIGIN=http://localhost:3001\nMEDIA_ORIGIN=http://127.0.0.1:{f.http_port}\n'
                 # These workflows share one loopback peer; retain enforcement
@@ -103,12 +109,28 @@ class PublicUpload:
         assert set(map(int, ids['Gid'].split())) == {edge.gr_gid}
 
     def create_board(self):
+        assert self.board == self._owned_board
         assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
         # This owned synthetic board qualifies media deletion and cleanup directly
         # after posting. Source-board age eligibility is tested separately; retain
         # the normal maximum age and all authentication/resource checks here.
         sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true,0,0);")
         self.created = True
+
+    def _actor_hex(self):
+        # Match PosterIdKey::public_deletion_rate_identity exactly: domain,
+        # canonical IPv4 family byte, then the real loopback peer's four octets.
+        return hmac.new(bytes.fromhex(self._poster_id_key),
+                        b'26chan-public-deletion-rate-v1\0\x04\x7f\0\0\x01',
+                        hashlib.sha256).hexdigest()
+
+    def reset_deletion_quota(self):
+        assert self.created and self.board == self._owned_board
+        assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
+        assert sql(f"SELECT deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards WHERE slug='{self.board}';") == '0|0|1800'
+        # sql() runs only in this trusted owner harness. Neither its credential
+        # nor this operation is exposed to the public service/browser.
+        sql(f"DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');")
 
     def ready(self):
         assert self.unit.poll() is None, 'public development startup rejected'
@@ -138,6 +160,7 @@ class PublicUpload:
         self.upload_one('quick-reply-inline-disabled.png', red_png(), True, quick_reply='inline', spoilers=False)
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
+        self.reset_deletion_quota()
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
@@ -175,6 +198,7 @@ class PublicUpload:
         assert HEX.fullmatch(asset)
         f.clean_vm()
         output = finish_browser(process, script)
+        assert sql(f"SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');") == '1'
         mode = b'JavaScript' if javascript else b'no-JavaScript'
         assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
@@ -196,6 +220,7 @@ class PublicUpload:
         if self.installed:
             self.f.stop(self.unit)
         if self.created:
+            self.reset_deletion_quota()
             for filename in self.filenames:
                 assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():

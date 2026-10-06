@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -101,7 +102,13 @@ test('catalog filter restore refreshes the current catalog once, keeps pins and 
       const actions = writer.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
       await expect(actions.locator('input[name=password]')).toHaveValue('');
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await withDeletionQuota(async () => {
+        const deleted = writer.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
     }
     await writerContext.close();
   }

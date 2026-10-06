@@ -166,6 +166,15 @@ pub(crate) async fn submit(
             .await
         }
         Ok(LegacyForm(Submission::Delete(form))) => {
+            let identity = match handlers::deletion_rate_identity(&state, peer) {
+                Ok(identity) => identity,
+                Err(error) => return error.into_response(),
+            };
+            if let Err(error) =
+                board_store::public_deletion_quota_precheck(&state.pool, &identity).await
+            {
+                return AppError::from(error).into_response();
+            }
             // UserPwd captures its time once before the source deletion loop.
             // Never recompute known-age eligibility because an earlier item waited.
             let session =
@@ -177,7 +186,8 @@ pub(crate) async fn submit(
                 request_start: start.0,
                 session: (!session.posting.minted).then_some(session.posting),
             };
-            delete_selection(&state, &board, form, context).await
+            let mut batch = board_store::PublicDeletionBatch::new(board, context, identity);
+            delete_selection(&state, &mut batch, form).await
         }
         Err(error) => {
             let format = crate::posting_response::Format::from_headers(&headers);
@@ -188,10 +198,10 @@ pub(crate) async fn submit(
 
 async fn delete_selection(
     state: &AppState,
-    board: &str,
+    batch: &mut board_store::PublicDeletionBatch,
     form: Deletion,
-    context: board_store::PublicDeletionContext,
 ) -> Response {
+    let board = batch.slug().to_owned();
     // Source user_delete processes selections sequentially. Each operation
     // commits independently and rechecks authority/policy under its own
     // storage lock. A later failure must not undo an earlier deletion.
@@ -200,18 +210,17 @@ async fn delete_selection(
     for no in form.posts {
         if let Err(error) = handlers::delete_with_context(
             state,
-            board,
+            batch,
             DeleteForm {
                 no,
                 password: form.password.clone(),
                 file_only: form.file_only,
             },
-            context,
         )
         .await
         {
             if error.0 == StatusCode::NOT_FOUND {
-                match board_store::public_deletion_target_exists(&state.pool, board, no).await {
+                match board_store::public_deletion_target_exists(&state.pool, &board, no).await {
                     Ok(false) if multiple => {
                         // Source delete_post(die=false) falls through to
                         // the upper-age error for a missing manual target.
@@ -229,7 +238,7 @@ async fn delete_selection(
             return error.into_response();
         }
     }
-    crate::output::html(state, &Deleted { board }).unwrap_or_else(AppError::into_response)
+    crate::output::html(state, &Deleted { board: &board }).unwrap_or_else(AppError::into_response)
 }
 
 #[cfg(all(test, feature = "database-tests"))]

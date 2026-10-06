@@ -155,14 +155,7 @@ impl Fixture {
             _ => None,
         })
         .unwrap();
-        let app = board_public::routers_with_limits(
-            self.public.clone(),
-            ORIGIN.into(),
-            false,
-            None,
-            limits,
-        )
-        .0;
+        let app = fixture_routers(self.public.clone(), ORIGIN.into(), false, None, limits).0;
         for route in 0..3 {
             for file_only in [false, true] {
                 let post = self.post(0, file_only).await;
@@ -286,14 +279,7 @@ impl Fixture {
             _ => None,
         })
         .unwrap();
-        let app = board_public::routers_with_limits(
-            self.public.clone(),
-            ORIGIN.into(),
-            false,
-            None,
-            limits,
-        )
-        .0;
+        let app = fixture_routers(self.public.clone(), ORIGIN.into(), false, None, limits).0;
         let public_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
             .fetch_one(&self.public)
             .await
@@ -720,4 +706,73 @@ async fn run(scenario: Scenario) {
     public.close().await;
     owner.close().await;
     outcome.unwrap();
+}
+
+// Fixture transport identities are isolated so unrelated authorization cases do
+// not consume each other's shared public deletion quota.
+fn fixture_peer() -> std::net::SocketAddr {
+    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
+    let nonce = NEXT
+        .get_or_init(|| {
+            std::sync::atomic::AtomicU64::new(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as u64,
+            )
+        })
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    std::net::SocketAddr::new(
+        std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+            0x2001,
+            0xdb8,
+            1,
+            0,
+            (nonce >> 48) as u16,
+            (nonce >> 32) as u16,
+            (nonce >> 16) as u16,
+            nonce as u16,
+        )),
+        12345,
+    )
+}
+
+fn fixture_routers(
+    pool: sqlx::PgPool,
+    origin: String,
+    production: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+) -> (axum::Router, axum::Router) {
+    let (web, api) = board_public::routers_with_options(
+        pool,
+        board_public::PublicRouterOptions {
+            origin,
+            production,
+            media,
+            limits,
+            proxy_uid: None,
+            poster_id_key: Some(std::sync::Arc::new(
+                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
+            )),
+            tripcode_key: None,
+            country_database: None,
+        },
+    );
+
+    let transport = axum::middleware::from_fn(
+        move |mut request: axum::extract::Request, next: axum::middleware::Next| async move {
+            if request
+                .extensions()
+                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                .is_none()
+            {
+                request
+                    .extensions_mut()
+                    .insert(axum::extract::ConnectInfo(fixture_peer()));
+            }
+            next.run(request).await
+        },
+    );
+    (web.layer(transport.clone()), api.layer(transport))
 }

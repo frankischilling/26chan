@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { mobileHeaderLabel } from '../../apps/public/client/native-post-numbers.js';
 
@@ -17,9 +18,11 @@ const test = base.extend({
       const reply = await write({ resto: id, com: `>>${id}\nOwned mobile header reply` });
       await use({ id, reply, name, subject, url: `/demo/thread/${id}`, replyTo: form => write({ resto: id, ...form }) });
     } finally {
-      const response = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
-        maxRedirects: 0, form: { no: id, password } });
-      expect(response.status()).toBe(303); expect(response.headers().connection).toBe('close');
+      await withDeletionQuota(async () => {
+        const response = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
+          maxRedirects: 0, form: { no: id, password } });
+        expect(response.status()).toBe(303); expect(response.headers().connection).toBe('close');
+      });
     }
   },
 });

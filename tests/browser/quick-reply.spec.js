@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-quick-reply-password';
@@ -27,8 +28,10 @@ test('post permalinks stay navigable while digits quote original and live-update
     await expect(page.locator('#qrCom')).toHaveValue(`>>${reply}\n`);
     await expect(page.locator('#qrResto')).toHaveValue(id);
   } finally {
-    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 
@@ -56,8 +59,10 @@ test('the reply link prefills and submits a real quote without JavaScript on des
     expect(data.posts).toHaveLength(3);
   } finally {
     await context.close();
-    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 
@@ -85,8 +90,10 @@ test('disabling Quick Reply keeps the mobile reply form visible and rejects inva
     await expect(page.locator('#com')).toHaveValue(`>>${id}\n`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally {
-    for (const no of [id, foreign]) expect((await request.post('/fixture/delete', { headers: { Origin: origin },
-      maxRedirects: 0, form: { no, password } })).status()).toBe(303);
+    for (const no of [id, foreign]) await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin },
+        maxRedirects: 0, form: { no, password } })).status()).toBe(303);
+    });
   }
 });
 
@@ -143,8 +150,10 @@ test('a mobile quote form keeps edits made before its client script initializes'
   } finally {
     release();
     await context.close();
-    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 
@@ -190,7 +199,9 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await page.locator('#quickReply input[type=submit]').click();
     await expect(page.locator('.postMessage').filter({ hasText: 'Second owned reply' })).toBeVisible();
   } finally {
-    const removed = await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } }); expect(removed.status()).toBe(303);
+    await withDeletionQuota(async () => {
+      const removed = await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } }); expect(removed.status()).toBe(303);
+    });
   }
 });
 
@@ -235,7 +246,9 @@ for (const additional of [false, true]) {
       await expect(page).toHaveTitle(additional ? `(2) ${title}` : title);
       await expect(page.locator('link[rel="shortcut icon"]')).toHaveAttribute('href', additional
         ? '/static/notifications/favicon-ws-newposts.ico' : '/static/notifications/favicon-ws.ico');
-    } finally { expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
+    } finally { await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    }); }
   });
 }
 
@@ -257,7 +270,9 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
     await expect(page.locator('.nativeUpdaterStatus').first()).toHaveText('No new posts');
     await page.clock.runFor(500); await expect(page.locator('.postMessage').filter({ hasText: 'Committed while updater was busy' })).toBeVisible();
     expect(calls).toBe(2); await page.clock.runFor(2000); expect(calls).toBe(2);
-  } finally { await page.unrouteAll({ behavior: 'ignoreErrors' }); expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
+  } finally { await page.unrouteAll({ behavior: 'ignoreErrors' }); await withDeletionQuota(async () => {
+    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+  }); }
 });
 
 test('the source byte advisory does not block a Unicode reply within the server character limit', async ({ page, request }) => {
@@ -283,7 +298,9 @@ test('the source byte advisory does not block a Unicode reply within the server 
     const wrapped = `${'𠮷'.repeat(35)}<wbr>`.repeat(Math.floor(scalars / 35)) + '𠮷'.repeat(scalars % 35);
     await expect(page.locator(`#m${result.pid} wbr`)).toHaveCount(Math.floor(scalars / 35));
     const data = await (await request.get(`/fixture/thread/${id}.json`)).json(); expect(data.posts.at(-1).com).toBe(wrapped);
-  } finally { expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
+  } finally { await withDeletionQuota(async () => {
+    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+  }); }
 });
 
 test('Q posts selected text and Ctrl-click works without optional keyboard shortcuts on persisted threads', async ({ page, context, request }) => {
@@ -310,5 +327,7 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await page.locator('#quickReply input[type=submit]').click();
     await expect(page.locator('.postMessage').filter({ hasText: 'Posted after Ctrl-click' })).toBeVisible();
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(3);
-  } finally { expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303); }
+  } finally { await withDeletionQuota(async () => {
+    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+  }); }
 });

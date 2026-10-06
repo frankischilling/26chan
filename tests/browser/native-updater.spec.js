@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
@@ -10,7 +11,7 @@ const test = base.extend({
     const remove = no => request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no, password } });
     try { await use({ id, url: `/demo/thread/${id}`, path: `/_watch/demo/thread/${id}/posts`, remove,
       reply: async com => { const response = await write({ resto: id, com }); expect(response.status()).toBe(303); return response.headers().location.match(/#p(\d+)/)[1]; } }); }
-    finally { await remove(id); }
+    finally { await withDeletionQuota(async () => { await remove(id); }); }
   },
 });
 const update = page => page.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
@@ -113,8 +114,10 @@ test('404 is terminal while transient failures preserve a usable retry', async (
   await page.route(`**${owned.path}`, route => route.fulfill({ status: 503, body: 'Unavailable' }));
   await update(page); await expect(status(page)).toContainText('Connection Error');
   await page.unrouteAll(); await page.waitForTimeout(1100);
-  await owned.remove(owned.id); await update(page);
-  await expect(status(page)).toHaveText('This thread has been pruned or deleted');
+  await withDeletionQuota(async () => {
+    await owned.remove(owned.id); await update(page);
+    await expect(status(page)).toHaveText('This thread has been pruned or deleted');
+  });
   let fetched = 0; page.on('request', request => { if (new URL(request.url()).pathname === owned.path) fetched++; });
   await page.waitForTimeout(1100); await update(page);
   expect(fetched).toBe(0); await expect(page.locator(`#p${owned.id}`)).toBeVisible();

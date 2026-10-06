@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
@@ -55,11 +56,13 @@ const test = base.extend({
       });
     } finally {
       for (const { board, id } of threads.reverse()) {
-        const response = await request.post(`/${board}/delete`, {
-          headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+        await withDeletionQuota(async () => {
+          const response = await request.post(`/${board}/delete`, {
+            headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+          });
+          expect(response.status(), 'Only this test\'s owned threads are deleted').toBe(303);
+          expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
         });
-        expect(response.status(), 'Only this test\'s owned threads are deleted').toBe(303);
-        expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
       }
     }
   },

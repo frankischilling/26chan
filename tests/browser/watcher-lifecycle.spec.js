@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -11,7 +12,9 @@ const test = base.extend({
     });
     const remove = async id => {
       expect(posts.has(id)).toBe(true);
-      expect((await write('delete', { no: id })).status()).toBe(303);
+      await withDeletionQuota(async () => {
+        expect((await write('delete', { no: id })).status()).toBe(303);
+      });
       threads.delete(id);
       posts.delete(id);
     };

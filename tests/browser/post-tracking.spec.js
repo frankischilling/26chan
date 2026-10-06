@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -6,9 +7,11 @@ const password = 'owned-post-tracking-password';
 const owned = [];
 test.afterEach(async ({ request }) => {
   for (const { id, cookie } of owned.splice(0)) {
-    const deleted = await request.post('/fixture/delete', { headers: { Origin: origin, Cookie: cookie }, form: { no: id }, maxRedirects: 0 });
-    expect(deleted.status()).toBe(303);
-    expect((await request.get(`/fixture/thread/${id}.json`)).status()).toBe(404);
+    await withDeletionQuota(async () => {
+      const deleted = await request.post('/fixture/delete', { headers: { Origin: origin, Cookie: cookie }, form: { no: id }, maxRedirects: 0 });
+      expect(deleted.status()).toBe(303);
+      expect((await request.get(`/fixture/thread/${id}.json`)).status()).toBe(404);
+    });
   }
 });
 async function ownerCookie(response) {

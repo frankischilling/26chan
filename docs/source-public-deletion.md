@@ -40,6 +40,40 @@ Browser cleanup on imported boards requires an exact owned post receipt and a
 per-test marker. The privileged test helper checks both before aging an owned
 reply or removing its fixture thread; it never relaxes the board policy.
 
+## Per-peer request quota
+
+Migration 0085 adds the private cross-board counter. Configure `POSTER_ID_KEY`
+as described in [deployment configuration](poster-ids.md#configuration-and-persistence).
+It must remain stable across restarts and replicas. Both deletion endpoints
+require that key and a verified current transport peer in every environment.
+Missing either fails closed with 503; cookies, forwarded headers and form fields
+cannot supply the quota identity. The authenticated Unix-proxy transport keeps
+its existing verified-peer rules. The private keyed digest is never returned to
+clients or logged.
+
+At most three successful requests per hour and eleven per day are admitted,
+including the exact hourly/daily boundary. A modern request has one server-owned
+batch; one legacy submission shares one batch across its ordered selections.
+Only the first successful mutation charges that batch. Failed authorization,
+ineligible targets, no-op file requests and a single missing legacy target do
+not charge it. Earlier committed selections remain deleted and charged if a
+later selection fails. This intentionally closes the source's partial-failure
+bypass: its action log was written only after the entire batch finished.
+No client batch token is accepted.
+
+A read-only quota precheck runs once before target eligibility, ownership or
+legacy missing-target handling, preserving source error precedence without
+charging a request. Reservation rechecks the current quota under its lock.
+Reservation and the first mutation share a database transaction and roll back
+together. Hourly/daily exhaustion returns the existing 403 source-flood response;
+counter capacity or storage failures return 503. The bounded actor table has
+opportunistic expiry cleanup rather than a guaranteed physical retention period.
+It retains at most eleven events for each of 100,000 actors, removes at most 64
+expired actors per new admission, and never evicts live history. New actors hold
+a shared capacity guard through their first mutation transaction; existing actors
+need only their own row lock. This can serialize unrelated first-time requests
+under contention.
+
 ## Verification
 
 The domain tests exercise minimum, maximum and network-lifetime boundaries and
@@ -55,12 +89,14 @@ public deletion where it is allowed and explicitly reject archived deletion.
 
 These checks do not qualify production authentication or every browser platform.
 Exact commands and outcomes belong to the corresponding pull-request checkpoint.
+[Quota fixture isolation](deletion-quota-verification.md) explains the separate
+limits of happy-path browser qualification.
 
 ## Remaining scope
 
 This slice does not complete issue #214. [Legacy batches](legacy-actions.md#multiple-selections)
 now preserve submitted order and partial success. The source's peer-address-only authority,
-hourly/daily action counters, physical row/file erasure
+physical row/file erasure
 and report cleanup remain separate work. The rewrite continues using opaque
 session capabilities, hashed recovery passwords and its existing retention model.
 Shared-network peer equality alone does not grant deletion authority.

@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
@@ -10,7 +11,7 @@ const test = base.extend({
     const remove = () => request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
     try { await use({ id, url: `/demo/thread/${id}`, path: `/_watch/demo/thread/${id}/posts`, remove,
       reply: async com => { const result = await write({ resto: id, com }); expect(result.status()).toBe(303); return result.headers().location.match(/#p(\d+)/)[1]; } }); }
-    finally { await remove(); }
+    finally { await withDeletionQuota(async () => { await remove(); }); }
   },
 });
 const icon = page => page.locator('link[rel="shortcut icon"]');
@@ -119,9 +120,12 @@ test('manual updates retain the default icon and terminal archival and deletion 
   await page.route(`**${owned.path}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }));
   await tick(page, 1); await update(page); await expect(status(page)).toHaveText('This thread is archived');
   await expect(icon(page)).toHaveAttribute('href', '/static/notifications/favicon-ws-deadthread.ico');
-  await page.unrouteAll(); await page.reload(); await owned.remove(); await update(page);
-  await expect(status(page)).toHaveText('This thread has been pruned or deleted');
-  await expect(icon(page)).toHaveAttribute('href', '/static/notifications/favicon-ws-deadthread.ico');
+  await page.unrouteAll(); await page.reload();
+  await withDeletionQuota(async () => {
+    await owned.remove(); await update(page);
+    await expect(status(page)).toHaveText('This thread has been pruned or deleted');
+    await expect(icon(page)).toHaveAttribute('href', '/static/notifications/favicon-ws-deadthread.ico');
+  });
 });
 
 test('opted-in hidden reply notifications play real local audio and playback rejection cannot stop updates', async ({ page, owned }) => {

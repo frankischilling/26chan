@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -118,7 +119,13 @@ test('server GET and release live search agree on escaped formatted fields from 
       const actions = server.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
       await expect(actions.locator('input[name=password]')).toHaveValue('');
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await withDeletionQuota(async () => {
+        const deleted = server.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
     }
     await liveContext.close();
     await noScript.close();

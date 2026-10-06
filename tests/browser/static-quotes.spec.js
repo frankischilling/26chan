@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -31,7 +32,9 @@ for (const javaScriptEnabled of [false, true]) {
         await expect(page.locator(`#m${id}`).getByRole('link', { name: '>>>/g/catalog', exact: true })).toHaveAttribute('href', '/g/catalog');
       }
     } finally {
-      try { if (op) expect((await context.request.post(`${origin}/fixture/delete`, { headers: { origin }, form: { no: op, password }, maxRedirects: 0 })).status()).toBe(303); }
+      try { if (op) await withDeletionQuota(async () => {
+        expect((await context.request.post(`${origin}/fixture/delete`, { headers: { origin }, form: { no: op, password }, maxRedirects: 0 })).status()).toBe(303);
+      }); }
       finally { await context.close(); }
     }
   });

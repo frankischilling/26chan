@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
@@ -96,9 +97,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           cleanupDeletionFixtures(threads.filter(({ board }) => board !== 'fixture').map(entry => ({ ...entry, marker })));
         } finally {
           for (const { board, id } of threads.filter(({ board }) => board === 'fixture')) {
-            expect((await context.request.post(`${origin}/${board}/delete`, {
-              headers: { Origin: origin }, form: { no: id, password }, maxRedirects: 0,
-            })).status()).toBe(303);
+            await withDeletionQuota(async () => {
+              expect((await context.request.post(`${origin}/${board}/delete`, {
+                headers: { Origin: origin }, form: { no: id, password }, maxRedirects: 0,
+              })).status()).toBe(303);
+            });
           }
         }
       } finally { await context.close(); }

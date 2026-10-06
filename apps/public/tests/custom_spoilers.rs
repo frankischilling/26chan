@@ -83,8 +83,19 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
     })
     .unwrap();
-    let plain =
-        board_public::routers_with_limits(public.clone(), ORIGIN.into(), false, None, limits);
+    let options = |media| board_public::PublicRouterOptions {
+        origin: ORIGIN.into(),
+        production: false,
+        media,
+        limits,
+        proxy_uid: None,
+        poster_id_key: Some(std::sync::Arc::new(
+            board_domain::poster_id::PosterIdKey::parse(&"45".repeat(32)).unwrap(),
+        )),
+        tripcode_key: None,
+        country_database: None,
+    };
+    let plain = board_public::routers_with_options(public.clone(), options(None));
     assert_eq!(
         plain
             .0
@@ -97,19 +108,16 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
     );
     // No decoding occurs here: only router presence and the public JSON projection
     // are under test. The real media pipeline has separate qualification.
-    let media = board_public::routers_with_limits(
+    let media = board_public::routers_with_options(
         public.clone(),
-        ORIGIN.into(),
-        false,
-        Some(
+        options(Some(
             board_config::PublicMediaSettings::development(
                 "127.0.0.1:1",
                 &"a".repeat(64),
                 "http://localhost:3002",
             )
             .unwrap(),
-        ),
-        limits,
+        )),
     );
     let assets: Value =
         serde_json::from_str(include_str!("../../../docs/custom-spoiler-assets.json")).unwrap();

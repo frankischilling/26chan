@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
@@ -64,10 +65,12 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(page.locator('#js-sf-qf')).toHaveValue(marker);
       await expect(page.locator('#js-sf-results .thread')).toHaveCount(2);
 
-      const removed = await context.request.post(`${origin}/fixture/delete`, {
-        headers: { Origin: origin }, form: { no: first, password }, maxRedirects: 0,
+      await withDeletionQuota(async () => {
+        const removed = await context.request.post(`${origin}/fixture/delete`, {
+          headers: { Origin: origin }, form: { no: first, password }, maxRedirects: 0,
+        });
+        expect(removed.status()).toBe(303);
       });
-      expect(removed.status()).toBe(303);
       threads.splice(threads.indexOf(first), 1);
       await page.reload();
       await expect(page.locator('#js-sf-results .thread')).toHaveCount(1);
@@ -80,10 +83,12 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       expect(errors).toEqual([]);
     } finally {
       for (const thread of threads) {
-        const response = await context.request.post(`${origin}/fixture/delete`, {
-          headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const response = await context.request.post(`${origin}/fixture/delete`, {
+            headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+          });
+          expect(response.status()).toBe(303);
         });
-        expect(response.status()).toBe(303);
       }
       await context.close();
     }
@@ -132,9 +137,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     } finally {
       try {
         for (const thread of threads) {
-          expect((await context.request.post(`${origin}/fixture/delete`, {
-            headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
-          })).status()).toBe(303);
+          await withDeletionQuota(async () => {
+            expect((await context.request.post(`${origin}/fixture/delete`, {
+              headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+            })).status()).toBe(303);
+          });
         }
       } finally { await context.close(); }
     }

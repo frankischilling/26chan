@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
@@ -19,10 +20,12 @@ const test = base.extend({
     expect(reply).toBeTruthy();
     try { await use({ id, reply, url: `/demo/thread/${id}` }); }
     finally {
-      const removed = await request.post('/demo/delete', {
-        headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', {
+          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(removed.status()).toBe(303);
       });
-      expect(removed.status()).toBe(303);
     }
   },
 });

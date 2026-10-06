@@ -1,8 +1,10 @@
 #![cfg(feature = "browser-tests")]
 //! Uses synthetic validated pixels, not a guest. Native CI runs the same browser
 //! against the actual Firecracker pipeline in tests/media/public_upload_fixture.py.
+use board_domain::poster_id::{PosterIdKey, PublicDeletionRateIdentity};
 use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
 use board_store::{media::MediaQueue, media_assets::MediaReader, media_intake::IntakeStore};
+use rand_core::{OsRng, RngCore};
 use std::{path::Path, process::Stdio, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -49,16 +51,58 @@ fn server(
     (stop, task)
 }
 
+// No caller-supplied key, actor, board or peer: this authority is confined to
+// one disposable fixture and the actual loopback transport used by its browsers.
+struct OwnedUploadQuota {
+    board: String,
+    key: String,
+}
+
+impl OwnedUploadQuota {
+    fn new() -> Self {
+        let mut bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut bytes);
+        let key = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let mut board_bytes = [0u8; 5];
+        OsRng.fill_bytes(&mut board_bytes);
+        let board = board_bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        Self { board, key }
+    }
+
+    fn actor(&self) -> PublicDeletionRateIdentity {
+        PosterIdKey::parse(&self.key)
+            .unwrap()
+            .public_deletion_rate_identity(std::net::Ipv4Addr::LOCALHOST.into())
+    }
+
+    async fn reset(&self, owner: &sqlx::PgPool) {
+        let policy: (i32, i32, i32) = sqlx::query_as("SELECT deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards WHERE slug=$1")
+            .bind(&self.board).fetch_one(owner).await.unwrap();
+        assert_eq!(policy, (0, 0, 1800));
+        sqlx::query("DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=$1")
+            .bind(self.actor().as_bytes().as_slice())
+            .execute(owner)
+            .await
+            .unwrap();
+    }
+
+    async fn assert_one_deletion(&self, owner: &sqlx::PgPool) {
+        let count: i32 = sqlx::query_scalar("SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=$1")
+            .bind(self.actor().as_bytes().as_slice()).fetch_one(owner).await.unwrap();
+        assert_eq!(count, 1, "each upload workflow has one successful deletion");
+    }
+}
+
 #[tokio::test]
 async fn browsers_post_and_delete_approved_attachments_with_and_without_javascript() {
     let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
-    let board: String =
-        sqlx::query_scalar("SELECT substr(replace(gen_random_uuid()::text,'-',''),1,10)")
-            .fetch_one(&admin)
-            .await
-            .unwrap();
+    let quota = std::sync::Arc::new(OwnedUploadQuota::new());
+    let board = quota.board.clone();
     let filename = format!("public-upload-{board}.png");
     // This random fixture board tests immediate media deletion, independently
     // of the source age gates exercised by deletion_authorization.
@@ -103,6 +147,7 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
     environment(&mut command);
     let mut public = command
         .env("APP_ENV", "development")
+        .env("POSTER_ID_KEY", &quota.key)
         .env("MEDIA_ENABLED", "true")
         .env("PUBLIC_MEDIA_PROFILE", "isolated-development")
         .env(
@@ -127,6 +172,7 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
     let test_board = board.clone();
     let test_root = directory.path().to_owned();
     let test_admin = admin.clone();
+    let test_quota = quota.clone();
     let outcome = tokio::spawn(async move {
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
@@ -143,11 +189,17 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
         // same board. Browser assertions must identify the post they changed.
         for javascript in [false, true] {
             for attachment_only in [false, true] {
+                test_quota.reset(&test_admin).await;
                 exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::Native { attachment_only, javascript }).await;
+                test_quota.assert_one_deletion(&test_admin).await;
             }
         }
+        test_quota.reset(&test_admin).await;
         exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::QuickReply { inline: false }).await;
+        test_quota.assert_one_deletion(&test_admin).await;
+        test_quota.reset(&test_admin).await;
         exercise(&test_admin, &test_root, &test_board, &public_origin, &store, UploadBrowser::QuickReply { inline: true }).await;
+        test_quota.assert_one_deletion(&test_admin).await;
     }).await;
     public.kill().await.unwrap();
     public.wait().await.unwrap();
@@ -156,6 +208,7 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
     intake_task.await.unwrap();
     media_task.await.unwrap();
     // The spawned assertion task unwinds before cleanup, including browser drop.
+    quota.reset(&admin).await;
     sqlx::query("DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&board).execute(&admin).await.unwrap();
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&board).execute(&admin).await.unwrap();
     sqlx::query("DELETE FROM content.posts WHERE board=$1")

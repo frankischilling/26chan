@@ -250,9 +250,22 @@ async fn attachment_consumption_and_image_activity_commit_only_with_anonymous_me
             .await
             .unwrap()
             .unwrap();
-        board_store::delete_with_anonymous_proof(&f.public, &f.board, post, token, proof, true)
-            .await
-            .unwrap();
+        board_store::delete_with_anonymous_proof(
+            &f.public,
+            &mut deletion_batch(
+                &f.board,
+                board_store::PublicDeletionContext {
+                    request_start: Utc::now(),
+                    session: None,
+                },
+            ),
+            post,
+            token,
+            proof,
+            true,
+        )
+        .await
+        .unwrap();
         assert!(
             board_store::find_post(&f.public, &f.board, post)
                 .await
@@ -277,9 +290,22 @@ async fn attachment_consumption_and_image_activity_commit_only_with_anonymous_me
                 .unwrap()
                 .is_some()
         );
-        board_store::delete_with_anonymous_proof(&f.public, &f.board, post, token, proof, false)
-            .await
-            .unwrap();
+        board_store::delete_with_anonymous_proof(
+            &f.public,
+            &mut deletion_batch(
+                &f.board,
+                board_store::PublicDeletionContext {
+                    request_start: Utc::now(),
+                    session: None,
+                },
+            ),
+            post,
+            token,
+            proof,
+            false,
+        )
+        .await
+        .unwrap();
         assert!(
             board_store::find_post(&f.public, &f.board, post)
                 .await
@@ -448,10 +474,10 @@ async fn idle_activity_resets_without_losing_deletion_ownership_and_rotation_rev
         sqlx::query("UPDATE post_secrets.deletion SET password_hash='owned-rotated-hash' WHERE post_id=$1")
             .bind(reply).execute(&f.owner).await.unwrap();
         assert!(post_proof(&f.public, &token, &f.board, reply).await.unwrap().is_none());
-        assert!(matches!(board_store::delete_with_anonymous_proof(&f.public, &f.board, reply, token, proof, false).await, Err(StoreError::AuthorizationChanged)));
+        assert!(matches!(board_store::delete_with_anonymous_proof(&f.public, &mut deletion_batch(&f.board, board_store::PublicDeletionContext { request_start: Utc::now(), session: None }), reply, token, proof, false).await, Err(StoreError::AuthorizationChanged)));
         assert!(!board_store::find_post(&f.public, &f.board, reply).await.unwrap().deleted);
         let op_proof = post_proof(&f.public, &token, &f.board, op).await.unwrap().unwrap();
-        board_store::delete_with_anonymous_proof(&f.public, &f.board, op, token, op_proof, false).await.unwrap();
+        board_store::delete_with_anonymous_proof(&f.public, &mut deletion_batch(&f.board, board_store::PublicDeletionContext { request_start: Utc::now(), session: None }), op, token, op_proof, false).await.unwrap();
         assert!(matches!(board_store::find_post(&f.public, &f.board, op).await, Err(StoreError::NotFound)));
     }).await;
     fixture.cleanup(&[token]).await;
@@ -519,7 +545,7 @@ async fn deletion_rechecks_membership_session_hash_and_expiry_after_the_board_lo
                 _ => unreachable!(),
             }
             let (pool, board) = (mutation_pool.clone(), f.board.clone());
-            let deletion = tokio::spawn(async move { board_store::delete_with_anonymous_proof(&pool, &board, post, token, proof, false).await });
+            let deletion = tokio::spawn(async move { board_store::delete_with_anonymous_proof(&pool, &mut deletion_batch(&board, board_store::PublicDeletionContext { request_start: Utc::now(), session: None }), post, token, proof, false).await });
             let deadline = Instant::now() + Duration::from_millis(1500);
             loop {
                 let blocked: bool = sqlx::query_scalar("SELECT cardinality(pg_blocking_pids($1))>0").bind(pid).fetch_one(&f.owner).await.unwrap();
@@ -806,13 +832,30 @@ async fn public_deletion_gates_preserve_state_and_apply_to_both_authorities_and_
             for anonymous in [false, true] {
                 let result = if anonymous {
                     board_store::delete_with_anonymous_proof(
-                        &f.public, &f.board, post, token, proof, file_only,
+                        &f.public,
+                        &mut deletion_batch(
+                            &f.board,
+                            board_store::PublicDeletionContext {
+                                request_start: Utc::now(),
+                                session: None,
+                            },
+                        ),
+                        post,
+                        token,
+                        proof,
+                        file_only,
                     )
                     .await
                 } else {
                     board_store::delete_with_password_proof(
                         &f.public,
-                        &f.board,
+                        &mut deletion_batch(
+                            &f.board,
+                            board_store::PublicDeletionContext {
+                                request_start: Utc::now(),
+                                session: None,
+                            },
+                        ),
                         post,
                         password_proof,
                         file_only,
@@ -852,7 +895,13 @@ async fn public_deletion_gates_preserve_state_and_apply_to_both_authorities_and_
     assert!(matches!(
         board_store::delete_with_anonymous_proof(
             &f.public,
-            &f.board,
+            &mut deletion_batch(
+                &f.board,
+                board_store::PublicDeletionContext {
+                    request_start: Utc::now(),
+                    session: None
+                }
+            ),
             reply,
             token,
             reply_proof,
@@ -929,17 +978,21 @@ async fn deletion_known_age_uses_resumed_network_lifetime_and_never_verified_lev
             let before = deletion_state(&f).await;
             let result = if anonymous {
                 board_store::delete_with_anonymous_proof_context(
-                    &f.public, &f.board, post, token, proof, false, context,
+                    &f.public,
+                    &mut deletion_batch(&f.board, context),
+                    post,
+                    token,
+                    proof,
+                    false,
                 )
                 .await
             } else {
                 board_store::delete_with_password_proof_context(
                     &f.public,
-                    &f.board,
+                    &mut deletion_batch(&f.board, context),
                     post,
                     Sha256::digest(b"owned-private-deletion-hash").into(),
                     false,
-                    context,
                 )
                 .await
             };
@@ -980,7 +1033,21 @@ async fn deletion_rechecks_policy_after_waiting_for_the_board_lock() {
     let before = deletion_state(&f).await;
     let board = f.board.clone();
     let deletion = tokio::spawn(async move {
-        board_store::delete_with_anonymous_proof(&pool, &board, post, token, proof, false).await
+        board_store::delete_with_anonymous_proof(
+            &pool,
+            &mut deletion_batch(
+                &board,
+                board_store::PublicDeletionContext {
+                    request_start: Utc::now(),
+                    session: None,
+                },
+            ),
+            post,
+            token,
+            proof,
+            false,
+        )
+        .await
     });
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
@@ -1120,7 +1187,12 @@ async fn deletion_rechecks_network_lifetime_after_waiting_for_the_board_lock() {
     let board = f.board.clone();
     let deletion = tokio::spawn(async move {
         board_store::delete_with_anonymous_proof_context(
-            &pool, &board, post, token, proof, false, context,
+            &pool,
+            &mut deletion_batch(&board, context),
+            post,
+            token,
+            proof,
+            false,
         )
         .await
     });
@@ -1148,4 +1220,33 @@ async fn deletion_rechecks_network_lifetime_after_waiting_for_the_board_lock() {
     ));
     assert_eq!(deletion_state(&f).await, before);
     f.cleanup(&[token]).await;
+}
+
+fn deletion_batch(
+    board: &str,
+    context: board_store::PublicDeletionContext,
+) -> board_store::PublicDeletionBatch {
+    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
+    let nonce = NEXT
+        .get_or_init(|| {
+            std::sync::atomic::AtomicU64::new(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as u64,
+            )
+        })
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let peer = std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+        0x2001,
+        0xdb8,
+        7,
+        0,
+        (nonce >> 48) as u16,
+        (nonce >> 32) as u16,
+        (nonce >> 16) as u16,
+        nonce as u16,
+    ));
+    let key = board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap();
+    board_store::PublicDeletionBatch::new(board, context, key.public_deletion_rate_identity(peer))
 }

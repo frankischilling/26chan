@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -24,9 +25,11 @@ const test = base.extend({
     ];
     await use({ tag, control, demo, other, reply, filters, post });
     for (const { board, id } of created) {
-      expect((await request.post(`/${board}/delete`, { headers: { Origin: origin },
-        form: { no: id, password }, maxRedirects: 0 })).status()).toBe(303);
-      expect((await request.get(`/_watch/${board}/thread/${id}.json`)).status()).toBe(404);
+      await withDeletionQuota(async () => {
+        expect((await request.post(`/${board}/delete`, { headers: { Origin: origin },
+          form: { no: id, password }, maxRedirects: 0 })).status()).toBe(303);
+        expect((await request.get(`/_watch/${board}/thread/${id}.json`)).status()).toBe(404);
+      });
     }
   },
 });

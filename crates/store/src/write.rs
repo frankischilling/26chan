@@ -1091,6 +1091,9 @@ fn staff_post_error(error: sqlx::Error) -> StoreError {
 /// Public password requests must use `delete_with_password_proof` instead.
 pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), StoreError> {
     let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
     lock_deletion_board(&mut tx, slug).await?;
     delete_post_in(&mut tx, slug, id).await?;
     tx.commit().await?;
@@ -1102,31 +1105,14 @@ pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), Store
 /// outside database locks; current authority is checked inside the mutation.
 pub async fn delete_with_password_proof(
     pool: &PgPool,
-    slug: &str,
+    batch: &mut PublicDeletionBatch,
     id: i64,
     proof: [u8; 32],
     file_only: bool,
 ) -> Result<(), StoreError> {
-    delete_with_password_proof_context(
-        pool,
-        slug,
-        id,
-        proof,
-        file_only,
-        PublicDeletionContext::default(),
-    )
-    .await
-}
-
-pub async fn delete_with_password_proof_context(
-    pool: &PgPool,
-    slug: &str,
-    id: i64,
-    proof: [u8; 32],
-    file_only: bool,
-    context: PublicDeletionContext,
-) -> Result<(), StoreError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = batch.begin(pool).await?;
+    let slug = batch.slug();
+    let context = batch.context();
     lock_deletion_board(&mut tx, slug).await?;
     let eligibility = public_deletion::eligibility(&mut tx, slug, id).await?;
     eligibility.before_authority(context.request_start)?;
@@ -1144,48 +1130,39 @@ pub async fn delete_with_password_proof_context(
     } else {
         delete_post_in(&mut tx, slug, id).await?;
     }
-    tx.commit().await?;
-    Ok(())
+    batch.commit(tx).await
+}
+
+/// Compatibility name; all authority and quota context belongs to the batch.
+pub async fn delete_with_password_proof_context(
+    pool: &PgPool,
+    batch: &mut PublicDeletionBatch,
+    id: i64,
+    proof: [u8; 32],
+    file_only: bool,
+) -> Result<(), StoreError> {
+    delete_with_password_proof(pool, batch, id, proof, file_only).await
 }
 
 /// Recheck and lock the private session membership under the board mutation
 /// lock. Revocation or password rotation during the earlier read fails closed.
 pub async fn delete_with_anonymous_proof(
     pool: &PgPool,
-    slug: &str,
+    batch: &mut PublicDeletionBatch,
     id: i64,
     token: [u8; 32],
     proof: [u8; 32],
     file_only: bool,
 ) -> Result<(), StoreError> {
-    delete_with_anonymous_proof_context(
-        pool,
-        slug,
-        id,
-        token,
-        proof,
-        file_only,
-        PublicDeletionContext::default(),
-    )
-    .await
-}
-
-pub async fn delete_with_anonymous_proof_context(
-    pool: &PgPool,
-    slug: &str,
-    id: i64,
-    token: [u8; 32],
-    proof: [u8; 32],
-    file_only: bool,
-    context: PublicDeletionContext,
-) -> Result<(), StoreError> {
+    let context = batch.context();
     if context
         .session
         .is_some_and(|session| session.fingerprints.token != token)
     {
         return Err(StoreError::AuthorizationChanged);
     }
-    let mut tx = pool.begin().await?;
+    let mut tx = batch.begin(pool).await?;
+    let slug = batch.slug();
     lock_deletion_board(&mut tx, slug).await?;
     let eligibility = public_deletion::eligibility(&mut tx, slug, id).await?;
     eligibility.before_authority(context.request_start)?;
@@ -1198,19 +1175,25 @@ pub async fn delete_with_anonymous_proof_context(
     } else {
         delete_post_in(&mut tx, slug, id).await?;
     }
-    tx.commit().await?;
-    Ok(())
+    batch.commit(tx).await
+}
+
+/// Compatibility name; all authority and quota context belongs to the batch.
+pub async fn delete_with_anonymous_proof_context(
+    pool: &PgPool,
+    batch: &mut PublicDeletionBatch,
+    id: i64,
+    token: [u8; 32],
+    proof: [u8; 32],
+    file_only: bool,
+) -> Result<(), StoreError> {
+    delete_with_anonymous_proof(pool, batch, id, token, proof, file_only).await
 }
 
 async fn lock_deletion_board(
     connection: &mut sqlx::PgConnection,
     slug: &str,
 ) -> Result<(), StoreError> {
-    // The next statement must see credential changes committed during this wait,
-    // even when the pool's default isolation level is more restrictive.
-    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
-        .execute(&mut *connection)
-        .await?;
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(slug)
         .fetch_optional(&mut *connection)

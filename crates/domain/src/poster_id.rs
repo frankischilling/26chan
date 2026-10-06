@@ -1,8 +1,21 @@
-//! Thread-scoped public labels, never authentication or a raw network address.
+//! Domain-separated peer identities; only thread-scoped labels are public.
 use base64::{Engine, engine::general_purpose::STANDARD};
 use std::net::IpAddr;
 
 pub struct PosterIdKey([u8; 32]);
+
+/// Private, cross-board deletion throttle identity. Never project to clients or
+/// logs; deliberately has no Debug, Display, or serialization implementation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct PublicDeletionRateIdentity([u8; 32]);
+
+impl PublicDeletionRateIdentity {
+    /// Full digest for private rate-limit storage, never a public identifier.
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
 pub struct PosterCountContext {
     pub fingerprint: String,
     pub epoch: String,
@@ -26,6 +39,26 @@ impl PosterIdKey {
         }
         Ok(Self(key))
     }
+    /// The caller must supply the verified current transport peer, never a
+    /// request field. Cookies, boards and environment cannot change this key.
+    /// Missing transport identity must be handled by the caller, not fabricated.
+    pub fn public_deletion_rate_identity(&self, peer: IpAddr) -> PublicDeletionRateIdentity {
+        let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &self.0);
+        let mut context = ring::hmac::Context::with_key(&signing);
+        context.update(b"26chan-public-deletion-rate-v1\0");
+        match peer.to_canonical() {
+            IpAddr::V4(peer) => {
+                context.update(&[4]);
+                context.update(&peer.octets());
+            }
+            IpAddr::V6(peer) => {
+                context.update(&[6]);
+                context.update(&peer.octets());
+            }
+        }
+        PublicDeletionRateIdentity(context.sign().as_ref().try_into().expect("SHA-256 length"))
+    }
+
     pub fn label(
         &self,
         board: &str,
@@ -107,6 +140,96 @@ impl PosterIdKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deletion_rate_identity_is_canonical_full_address_and_keyed() {
+        let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();
+        for (peer, expected) in [
+            (
+                "192.0.2.10",
+                "42003ef63786626b3e6656c329529a6fbd331f2967bac9b69a605ec7ad86ab18",
+            ),
+            (
+                "2001:db8::10",
+                "7b36e8d645393e34e130b6ef0aa38c546f3ccb4ab52d09dd1eb90f9f182fc60f",
+            ),
+        ] {
+            let identity = key.public_deletion_rate_identity(peer.parse().unwrap());
+            // Independent Python stdlib HMAC-SHA256 vectors.
+            assert_eq!(
+                identity
+                    .as_bytes()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+                expected
+            );
+            assert!(
+                identity
+                    != PosterIdKey::parse(&"2".repeat(64))
+                        .unwrap()
+                        .public_deletion_rate_identity(peer.parse().unwrap())
+            );
+        }
+        let ipv4 = key.public_deletion_rate_identity("192.0.2.10".parse().unwrap());
+        assert!(ipv4 == key.public_deletion_rate_identity("::ffff:192.0.2.10".parse().unwrap()));
+        assert!(ipv4 != key.public_deletion_rate_identity("192.0.2.11".parse().unwrap()));
+        // Keep the full address, not the anonymous network's IPv6 /64.
+        assert!(
+            key.public_deletion_rate_identity("2001:db8::10".parse().unwrap())
+                != key.public_deletion_rate_identity("2001:db8::11".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn deletion_rate_identity_is_independent_of_boards_cookies_and_environment() {
+        let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();
+        let peer = "192.0.2.10".parse().unwrap();
+        let expected = key.public_deletion_rate_identity(peer);
+        let initial =
+            crate::anonymous_session::Capability::parse(&format!("a1_{}", "1".repeat(64)))
+                .unwrap()
+                .fingerprints(Some(peer), *b"US");
+        for board in ["test", "other"] {
+            for cookie in ["1", "2"] {
+                for country in [*b"US", *b"JP"] {
+                    let capability = crate::anonymous_session::Capability::parse(&format!(
+                        "a1_{}",
+                        cookie.repeat(64)
+                    ))
+                    .unwrap();
+                    let session = capability.fingerprints(Some(peer), country);
+                    if cookie != "1" {
+                        assert_ne!(initial.address, session.address);
+                    }
+                    if country != *b"US" {
+                        assert_ne!(initial.environment, session.environment);
+                    }
+                    assert!(expected == key.public_deletion_rate_identity(peer));
+                    // Sharing the server key never shares another purpose's identity.
+                    assert_ne!(expected.as_bytes(), &session.address);
+                    assert_ne!(
+                        expected.as_bytes(),
+                        &key.robot9000_fingerprint(board, peer).unwrap()
+                    );
+                    for domain in [
+                        b"26chan-poster-id-v1\0".as_slice(),
+                        b"26chan-poster-count-v1\0".as_slice(),
+                    ] {
+                        assert_ne!(
+                            expected.as_bytes(),
+                            &key.digest(domain, board, 42, peer).unwrap()
+                        );
+                    }
+                }
+            }
+        }
+        // Isolate domain separation from changes in the payload layout.
+        let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &key.0);
+        let other_domain = ring::hmac::sign(&signing, b"26chan-r9k-v1\0\x04\xc0\x00\x02\x0a");
+        assert_ne!(expected.as_bytes().as_slice(), other_domain.as_ref());
+    }
+
     #[test]
     fn count_contexts_keep_full_digests_and_detect_key_epochs() {
         let key = PosterIdKey::parse(&"1".repeat(64)).unwrap();

@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 test.use({ trace: 'off' });
@@ -26,28 +27,30 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
       expect((await context.request.get(`${origin}/fixture/thread/${id}.json`)).status()).toBe(200);
 
-      if (javaScriptEnabled) {
-        await page.goto(`${origin}/fixture/thread/${id}`);
-        // The released client sends FormData. Keep the project's explicit
-        // deletion password while exercising the browser's real Origin/CSP.
-        const deleted = await page.evaluate(async ({ id, password }) => {
-          const body = new FormData();
-          body.append('mode', 'usrdel'); body.append(id, 'delete'); body.append('pwd', password);
-          const response = await fetch('/fixture/imgboard.php', { method: 'POST', body, credentials: 'same-origin' });
-          return { status: response.status, body: await response.text() };
-        }, { id, password });
-        expect(deleted.status).toBe(200);
-        expect(deleted.body).toContain('Updating index');
-        expect(deleted.body).not.toContain(password);
-      } else {
-        const deleted = await context.request.post(`${origin}/fixture/imgboard.php`, {
-          headers: { Origin: origin }, maxRedirects: 0,
-          form: { mode: 'usrdel', [id]: 'delete', pwd: password },
-        });
-        expect(deleted.status()).toBe(200);
-        expect(await deleted.text()).toContain('Updating index');
-      }
-      expect((await context.request.get(`${origin}/fixture/thread/${id}.json`)).status()).toBe(404);
+      await withDeletionQuota(async () => {
+        if (javaScriptEnabled) {
+          await page.goto(`${origin}/fixture/thread/${id}`);
+          // The released client sends FormData. Keep the project's explicit
+          // deletion password while exercising the browser's real Origin/CSP.
+          const deleted = await page.evaluate(async ({ id, password }) => {
+            const body = new FormData();
+            body.append('mode', 'usrdel'); body.append(id, 'delete'); body.append('pwd', password);
+            const response = await fetch('/fixture/imgboard.php', { method: 'POST', body, credentials: 'same-origin' });
+            return { status: response.status, body: await response.text() };
+          }, { id, password });
+          expect(deleted.status).toBe(200);
+          expect(deleted.body).toContain('Updating index');
+          expect(deleted.body).not.toContain(password);
+        } else {
+          const deleted = await context.request.post(`${origin}/fixture/imgboard.php`, {
+            headers: { Origin: origin }, maxRedirects: 0,
+            form: { mode: 'usrdel', [id]: 'delete', pwd: password },
+          });
+          expect(deleted.status()).toBe(200);
+          expect(await deleted.text()).toContain('Updating index');
+        }
+        expect((await context.request.get(`${origin}/fixture/thread/${id}.json`)).status()).toBe(404);
+      });
       const gone = await page.goto(`${origin}/fixture/imgboard.php?mode=report&no=${id}`);
       expect(gone.status()).toBe(404);
       await expect(page.getByRole('button', { name: 'Report post', exact: true })).toHaveCount(0);
@@ -55,10 +58,12 @@ for (const javaScriptEnabled of [false, true]) {
     } finally {
       try {
         if (id) {
-          const deleted = await context.request.post(`${origin}/fixture/delete`, {
-            headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+          await withDeletionQuota(async () => {
+            const deleted = await context.request.post(`${origin}/fixture/delete`, {
+              headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+            });
+            expect([303, 404]).toContain(deleted.status());
           });
-          expect([303, 404]).toContain(deleted.status());
         }
       } finally { await context.close(); }
     }

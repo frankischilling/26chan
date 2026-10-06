@@ -41,6 +41,17 @@ generated during a restart. Back up the key privately when continuity matters;
 rotation changes IDs on subsequent posts, including replies to existing threads.
 Saved posts retain their original labels.
 
+Public deletion also requires this key in every environment, even on boards
+without public IDs. A separately domain-separated, full HMAC digest of the
+verified current transport peer supplies its private cross-board action counter;
+it is independent of cookies and anonymous-session lifetimes. Keep the same key
+across replicas and restarts. Rotation starts a new deletion-counter identity,
+so rotate deliberately rather than as a way to clear limits. Missing key or
+transport identity makes deletion return 503. An omitted key still permits
+startup and unrelated read-only routes, but public `/readyz` returns 503 and
+reports that deletion is unavailable. No synthetic peer or random fallback key
+is used.
+
 After migration 0039, an operator may enable `content.boards.user_ids`. New
 boards default to disabled. An enabled board rejects posting if the key or
 verified connection identity is unavailable. Ordinary HTTP headers and form

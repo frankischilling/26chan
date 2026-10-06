@@ -117,6 +117,7 @@ def main():
                           f'include {root}/site.conf; }}\n')
         environment = {'PATH': os.environ['PATH'], 'APP_ENV': 'development',
                        'DATABASE_URL': os.environ['TEST_PUBLIC_DATABASE_URL'],
+                       'POSTER_ID_KEY': '1' * 64,  # Disposable qualification identity only.
                        'PUBLIC_ORIGIN': origin, 'MEDIA_ENABLED': 'false',
                        'BIND_ADDR': f'127.0.0.1:{unused_port}',
                        'API_ORIGIN': f'http://127.0.0.1:{api_port}',

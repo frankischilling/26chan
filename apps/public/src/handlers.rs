@@ -101,6 +101,12 @@ pub async fn css() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
+    if state.poster_id_key.is_none() {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public deletion is unavailable: POSTER_ID_KEY is required.",
+        ));
+    }
     sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
@@ -117,6 +123,18 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Service unavailable.",
+        ));
+    }
+    let deletion_quota: bool = sqlx::query_scalar(
+        "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.reserve_public_deletion(bytea)'), 'EXECUTE'), false) AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_public_deletion_quota(bytea)'), 'EXECUTE'), false)",
+    )
+    .fetch_one(&state.pool)
+    .await
+    .map_err(StoreError::from)?;
+    if !deletion_quota {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public deletion is unavailable.",
         ));
     }
     if let Some(media) = &state.media {
@@ -695,47 +713,70 @@ pub async fn delete(
     headers: HeaderMap,
     Form(form): Form<DeleteForm>,
 ) -> Result<Redirect, AppError> {
+    let identity = deletion_rate_identity(&state, peer)?;
+    board_store::public_deletion_quota_precheck(&state.pool, &identity).await?;
     board_store::public_deletion_precheck(&state.pool, &board, form.no, start.0).await?;
     let session = crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await?;
     let context = board_store::PublicDeletionContext {
         request_start: start.0,
         session: (!session.posting.minted).then_some(session.posting),
     };
-    delete_authorized(&state, &board, form, context).await
+    let mut batch = board_store::PublicDeletionBatch::new(board, context, identity);
+    delete_authorized(&state, &mut batch, form).await
+}
+
+/// Only the current verified transport peer supplies throttle identity. Session
+/// cookies and request fields never choose it, including in development.
+pub(crate) fn deletion_rate_identity(
+    state: &AppState,
+    peer: crate::security::RequestPeer,
+) -> Result<board_domain::poster_id::PublicDeletionRateIdentity, AppError> {
+    let unavailable = || {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public deletion is unavailable.",
+        )
+    };
+    let key = state.poster_id_key.as_deref().ok_or_else(unavailable)?;
+    let peer = peer.0.ok_or_else(unavailable)?;
+    Ok(key.public_deletion_rate_identity(peer))
 }
 
 /// A legacy batch captures the trusted request/session clocks once. Each item
 /// still obtains fresh authority and rechecks policy under its mutation lock.
 pub(crate) async fn delete_with_context(
     state: &AppState,
-    board: &str,
+    batch: &mut board_store::PublicDeletionBatch,
     form: DeleteForm,
-    context: board_store::PublicDeletionContext,
 ) -> Result<Redirect, AppError> {
-    board_store::public_deletion_precheck(&state.pool, board, form.no, context.request_start)
-        .await?;
-    delete_authorized(state, board, form, context).await
+    board_store::public_deletion_precheck(
+        &state.pool,
+        batch.slug(),
+        form.no,
+        batch.context().request_start,
+    )
+    .await?;
+    delete_authorized(state, batch, form).await
 }
 
 async fn delete_authorized(
     state: &AppState,
-    board: &str,
+    batch: &mut board_store::PublicDeletionBatch,
     form: DeleteForm,
-    context: board_store::PublicDeletionContext,
 ) -> Result<Redirect, AppError> {
-    if let Some(session) = context.session {
+    let board = batch.slug().to_owned();
+    if let Some(session) = batch.context().session {
         let token = session.fingerprints.token;
         if let Some(proof) =
-            board_store::anonymous_session::post_proof(&state.pool, &token, board, form.no).await?
+            board_store::anonymous_session::post_proof(&state.pool, &token, &board, form.no).await?
         {
             board_store::delete_with_anonymous_proof_context(
                 &state.pool,
-                board,
+                batch,
                 form.no,
                 token,
                 proof,
                 form.file_only,
-                context,
             )
             .await?;
             return Ok(Redirect::to(&format!("/{board}/")));
@@ -747,7 +788,7 @@ async fn delete_authorized(
             "Error: Password incorrect.",
         ));
     }
-    let hash = board_store::deletion_hash(&state.pool, board, form.no).await?;
+    let hash = board_store::deletion_hash(&state.pool, &board, form.no).await?;
     let permit = state
         .limits
         .hashes
@@ -774,11 +815,10 @@ async fn delete_authorized(
     };
     board_store::delete_with_password_proof_context(
         &state.pool,
-        board,
+        batch,
         form.no,
         proof,
         form.file_only,
-        context,
     )
     .await?;
     Ok(Redirect::to(&format!("/{board}/")))

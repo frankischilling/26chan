@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 
@@ -17,8 +18,10 @@ test('persisted hover headers follow reply deletion and safely render literal us
   };
   const remove = async (board, id) => {
     if (board === 'news') deletionFixture('age', board, id, marker);
-    const response = await request.post(`/${board}/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
-    expect(response.status()).toBe(303);
+    await withDeletionQuota(async () => {
+      const response = await request.post(`/${board}/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
+      expect(response.status()).toBe(303);
+    });
   };
   try {
     for (const board of ['demo', 'news']) {

@@ -147,7 +147,7 @@ async fn automatic_cookie_owns_posts_across_forms_and_tabs_without_public_identi
     let (owner, public, board) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
-        let (app, api) = board_public::routers(p.clone(), ORIGIN.into(), false);
+        let (app, api) = fixture_routers(p.clone(), ORIGIN.into(), false, None, board_config::PublicRequestLimits::default());
         let (_, form_html) = get(&app, &format!("/{b}/"), None).await;
         let form_html = String::from_utf8(form_html).unwrap();
         assert!(form_html.contains("id=\"postPassword\" name=\"pwd\" type=\"hidden\""));
@@ -201,7 +201,14 @@ async fn malformed_reset_and_expired_cookies_cannot_choose_or_recover_an_identit
     let (owner, public, board) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
-        let app = board_public::router(p.clone(), ORIGIN.into(), false);
+        let app = fixture_routers(
+            p.clone(),
+            ORIGIN.into(),
+            false,
+            None,
+            board_config::PublicRequestLimits::default(),
+        )
+        .0;
         let chosen = Capability::generate().unwrap();
         let unknown = format!("board-anon={}", chosen.credential());
         let (op, cookie, _) = posted(
@@ -330,7 +337,7 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
     let (owner, public, board) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
-        let app = board_public::router(p, ORIGIN.into(), false);
+        let app = fixture_routers(p, ORIGIN.into(), false, None, board_config::PublicRequestLimits::default()).0;
         let (op, _, _) = posted(&app, &format!("/{b}/post"), &[("com", "Owned report target")], None, false).await;
         let response = app.clone().oneshot(form(&format!("/{b}/report"), &[("no", &op.to_string()), ("reason", "Owned anonymous report")], None, false)).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -357,8 +364,15 @@ async fn public_deletion_resumes_the_cookie_with_the_current_transport_peer() {
     let (owner, public, board) = fixture().await;
     sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
         .bind(&board).execute(&owner).await.unwrap();
-    let app = board_public::router(public.clone(), ORIGIN.into(), false);
     for route in 0..3 {
+        let app = fixture_routers(
+            public.clone(),
+            ORIGIN.into(),
+            false,
+            None,
+            board_config::PublicRequestLimits::default(),
+        )
+        .0;
         let (post, cookie, _) = posted(
             &app,
             &format!("/{board}/post"),
@@ -414,4 +428,73 @@ async fn public_deletion_resumes_the_cookie_with_the_current_transport_peer() {
         ));
     }
     cleanup(&owner, &board).await;
+}
+
+// Fixture transport identities are isolated so unrelated authorization cases do
+// not consume each other's shared public deletion quota.
+fn fixture_peer() -> std::net::SocketAddr {
+    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
+    let nonce = NEXT
+        .get_or_init(|| {
+            std::sync::atomic::AtomicU64::new(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as u64,
+            )
+        })
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    std::net::SocketAddr::new(
+        std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+            0x2001,
+            0xdb8,
+            4,
+            0,
+            (nonce >> 48) as u16,
+            (nonce >> 32) as u16,
+            (nonce >> 16) as u16,
+            nonce as u16,
+        )),
+        12345,
+    )
+}
+
+fn fixture_routers(
+    pool: sqlx::PgPool,
+    origin: String,
+    production: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+) -> (axum::Router, axum::Router) {
+    let (web, api) = board_public::routers_with_options(
+        pool,
+        board_public::PublicRouterOptions {
+            origin,
+            production,
+            media,
+            limits,
+            proxy_uid: None,
+            poster_id_key: Some(std::sync::Arc::new(
+                board_domain::poster_id::PosterIdKey::parse(&"42".repeat(32)).unwrap(),
+            )),
+            tripcode_key: None,
+            country_database: None,
+        },
+    );
+    let peer = fixture_peer();
+    let transport = axum::middleware::from_fn(
+        move |mut request: axum::extract::Request, next: axum::middleware::Next| async move {
+            if request
+                .extensions()
+                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                .is_none()
+            {
+                request
+                    .extensions_mut()
+                    .insert(axum::extract::ConnectInfo(peer));
+            }
+            next.run(request).await
+        },
+    );
+    (web.layer(transport.clone()), api.layer(transport))
 }

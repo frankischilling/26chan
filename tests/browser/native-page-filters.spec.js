@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
@@ -17,9 +18,11 @@ const test = base.extend({
       const reply = await post(thread, '', 'Owned filter reply needle');
       await use({ thread, reply, title });
     } finally {
-      expect((await request.post('/demo/delete', { headers: { Origin: origin },
-        form: { no: thread, password }, maxRedirects: 0 })).status()).toBe(303);
-      expect((await request.get(`/_watch/demo/thread/${thread}.json`)).status()).toBe(404);
+      await withDeletionQuota(async () => {
+        expect((await request.post('/demo/delete', { headers: { Origin: origin },
+          form: { no: thread, password }, maxRedirects: 0 })).status()).toBe(303);
+        expect((await request.get(`/_watch/demo/thread/${thread}.json`)).status()).toBe(404);
+      });
     }
   },
 });

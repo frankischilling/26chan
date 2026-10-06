@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -16,10 +17,12 @@ const test = base.extend({
     // Delete only IDs created by this test, through the ordinary password gate.
     // Teardown also runs after an assertion failure; other threads are untouched.
     for (const { board, id } of created) {
-      const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
-        form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
-      expect(deleted.status()).toBe(303);
-      expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
+      await withDeletionQuota(async () => {
+        const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
+          form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
+        expect(deleted.status()).toBe(303);
+        expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
+      });
     }
   },
 });
@@ -226,11 +229,15 @@ test('post menus select the actual report and cookie-authorized deletion forms w
   await expect(page.locator(`#p${reply} form[action="/demo/delete"] button`)).toBeFocused();
   expect(writes).toBe(1);
   await expect(page.locator(`#delete${reply}`)).toHaveValue('');
-  const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
-  await page.locator(`#p${reply} form[action="/demo/delete"] button`).click();
-  expect((await deleted).status()).toBe(303);
-  const thread = await (await request.get(`/demo/thread/${id}.json`)).json();
-  expect(thread.posts.some(post => String(post.no) === reply)).toBe(false);
+  await withDeletionQuota(async () => {
+    const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
+    await page.locator(`#p${reply} form[action="/demo/delete"] button`).click();
+    const response = await deleted;
+    expect(response.status()).toBe(303);
+    await response.finished();
+    const thread = await (await request.get(`/demo/thread/${id}.json`)).json();
+    expect(thread.posts.some(post => String(post.no) === reply)).toBe(false);
+  });
 });
 
 test('post menus close on outside activation, Escape and viewport changes and honor global disabling', async ({ page, context, createThread }) => {

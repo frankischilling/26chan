@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const key = '4chan-hide-r-demo';
@@ -19,9 +20,11 @@ const test = base.extend({
       }
       await use({ thread, replies, url: `/demo/thread/${thread}` });
     } finally {
-      const removed = await request.post('/demo/delete', { headers: { Origin: 'http://127.0.0.1:3000' },
-        form: { no: thread, password }, maxRedirects: 0 });
-      expect(removed.status()).toBe(303);
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', { headers: { Origin: 'http://127.0.0.1:3000' },
+          form: { no: thread, password }, maxRedirects: 0 });
+        expect(removed.status()).toBe(303);
+      });
     }
   },
 });

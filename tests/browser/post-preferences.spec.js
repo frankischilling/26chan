@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-post-preferences-password';
@@ -10,8 +11,10 @@ async function create(context, name = '') {
 }
 
 async function remove(context, thread) {
-  expect((await context.request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { no: thread, password } })).status()).toBe(303);
+  await withDeletionQuota(async () => {
+    expect((await context.request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { no: thread, password } })).status()).toBe(303);
+  });
 }
 
 test('successful posting restores display preferences into both editors and keeps passwords empty', async ({ page, context }) => {

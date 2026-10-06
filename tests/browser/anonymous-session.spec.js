@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -44,12 +45,16 @@ for (const width of [1280, 390]) {
       await page.goto(`/fixture/thread/${op}`);
       await page.locator(`#p${reply} summary`).click();
       await expect(page.locator(`#delete${reply}`)).toHaveAttribute('type', 'hidden');
-      await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-      await expect(page).toHaveURL(`${origin}/fixture/`);
-      expect((await (await context.request.get(`/fixture/thread/${op}.json`)).json()).posts).toHaveLength(1);
+      await withDeletionQuota(async () => {
+        await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+        await expect(page).toHaveURL(`${origin}/fixture/`);
+        expect((await (await context.request.get(`/fixture/thread/${op}.json`)).json()).posts).toHaveLength(1);
+      });
       await second.close();
     } finally {
-      expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+      await withDeletionQuota(async () => {
+        expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+      });
     }
   });
 
@@ -61,9 +66,13 @@ for (const width of [1280, 390]) {
       const reply = await submit(page, `${origin}/fixture/thread/${op}`, `Owned script-free anonymous reply at ${width}`);
       expect((await (await context.request.get(`${origin}/fixture/thread/${op}.json`)).json()).posts).toHaveLength(2);
       await page.locator(`#p${reply} summary`).click();
-      await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-      await expect(page).toHaveURL(`${origin}/fixture/`);
-      expect((await context.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+      await withDeletionQuota(async () => {
+        await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+        await expect(page).toHaveURL(`${origin}/fixture/`);
+      });
+      await withDeletionQuota(async () => {
+        expect((await context.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+      });
     } finally { await context.close(); }
   });
 }
@@ -79,12 +88,16 @@ test('rejecting browser storage preserves posting but cannot retain deletion aut
     expect(thread.posts).toHaveLength(1);
     await context.clearCookies();
     await page.goto(`/fixture/thread/${op}`);
-    const denied = await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 });
-    expect(denied.status()).toBe(403);
-    expect((await request.get(`/fixture/thread/${op}.json`)).status()).toBe(200);
+    await withDeletionQuota(async () => {
+      const denied = await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 });
+      expect(denied.status()).toBe(403);
+      expect((await request.get(`/fixture/thread/${op}.json`)).status()).toBe(200);
+    });
   } finally {
     await context.addCookies(saved);
-    expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+    });
   }
 });
 
@@ -95,18 +108,26 @@ test('display tracking and a replacement anonymous session cannot delete another
   let replacement;
   try {
     await outsider.addCookies([{ name: `board-posted-${op}`, value: `${op}.1`, url: origin }, { name: '4chan_awt', value: op, url: origin }]);
-    expect((await outsider.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(403);
+    await withDeletionQuota(async () => {
+      expect((await outsider.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(403);
+    });
     await context.clearCookies();
     replacement = await submit(page, '/fixture/', 'Owned identity after cookie reset');
     const current = (await context.cookies(origin)).find(cookie => cookie.name === 'board-anon');
     expect(current.value).not.toBe(saved.find(cookie => cookie.name === 'board-anon').value);
-    expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(403);
-    expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: replacement }, maxRedirects: 0 })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(403);
+      expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: replacement }, maxRedirects: 0 })).status()).toBe(303);
+    });
     replacement = undefined;
   } finally {
-    if (replacement) await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: replacement }, maxRedirects: 0 });
+    if (replacement) await withDeletionQuota(async () => {
+      await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: replacement }, maxRedirects: 0 });
+    });
     await context.addCookies(saved);
-    expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: op }, maxRedirects: 0 })).status()).toBe(303);
+    });
     await outsider.close();
   }
 });

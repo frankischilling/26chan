@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -97,8 +98,10 @@ test('persisted tripcodes survive browser previews, filters and ordinary renderi
     expect(data.posts.map(post => post.name)).toEqual(['&lt;owned name&gt;', 'Reply']);
   } finally {
     for (const thread of threads.reverse()) {
-      expect((await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
-        form: { no: thread, password } })).status()).toBe(303);
+      await withDeletionQuota(async () => {
+        expect((await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
+          form: { no: thread, password } })).status()).toBe(303);
+      });
     }
   }
 });
@@ -143,8 +146,10 @@ test('CP932 trip-only names and cleaned text survive desktop, mobile and live re
       await expect(page.locator('owned')).toHaveCount(0);
     } finally {
       await context.close();
-      expect((await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
-        form: { no: thread, password } })).status()).toBe(303);
+      await withDeletionQuota(async () => {
+        expect((await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0,
+          form: { no: thread, password } })).status()).toBe(303);
+      });
     }
   }
 });

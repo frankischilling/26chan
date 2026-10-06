@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -96,10 +97,12 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
   } finally {
     try {
       if (thread) {
-        const deleted = await context.request.post(`${origin}/fixture/delete`, {
-          headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const deleted = await context.request.post(`${origin}/fixture/delete`, {
+            headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+          });
+          expect(deleted.status()).toBe(303);
         });
-        expect(deleted.status()).toBe(303);
       }
     } finally { await context.close(); }
   }
@@ -140,8 +143,10 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
     }
   } finally {
     if (id) {
-      const deleted = await context.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
-      expect(deleted.status()).toBe(303);
+      await withDeletionQuota(async () => {
+        const deleted = await context.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
+        expect(deleted.status()).toBe(303);
+      });
     }
     await context.close();
   }
@@ -256,7 +261,13 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
       const actions = page.locator(`#p${lastAReply} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
       await expect(actions.locator('input[name=password]')).toHaveValue('');
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await withDeletionQuota(async () => {
+        const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
       await live.reload();
       await expect(live.locator(`#meta-${a} b`).first()).toHaveText('1');
       for (const [order, expected] of [['absdate',[b,a,c]], ['r',[a,b,c]]]) {
@@ -274,7 +285,13 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
       const actions = page.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
       await expect(actions.locator('input[name=password]')).toHaveValue('');
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await withDeletionQuota(async () => {
+        const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
     }
     await context.close();
   }
@@ -329,8 +346,10 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     await expect(page.locator(`#p${reply}`)).toBeVisible();
     await page.locator(`#p${reply} summary`).click();
     await expect(page.locator(`#delete${reply}`)).toHaveValue('');
-    await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-    expect((await context.request.get(`${origin}/demo/post/${reply}`)).status()).toBe(404);
+    await withDeletionQuota(async () => {
+      await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+      expect((await context.request.get(`${origin}/demo/post/${reply}`)).status()).toBe(404);
+    });
     await page.goto(sourceUrl);
     await expect(link).toHaveCount(1);
     const navigation = page.waitForResponse(response => response.url() === `${origin}/demo/post/${reply}`);
@@ -340,10 +359,12 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   } finally {
     try {
       for (const [board, no] of threads.reverse()) {
-        const deleted = await context.request.post(`${origin}/${board}/delete`, {
-          headers: { origin }, form: { no, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const deleted = await context.request.post(`${origin}/${board}/delete`, {
+            headers: { origin }, form: { no, password }, maxRedirects: 0,
+          });
+          expect(deleted.status()).toBe(303);
         });
-        expect(deleted.status()).toBe(303);
       }
     } finally { await context.close(); }
   }
@@ -537,10 +558,12 @@ test('posting, replying, reporting, and password deletion persist through reload
   await page.goto(originalUrl);
   await page.locator(`#p${op} summary`).click();
   await expect(page.locator(`#delete${op}`)).toHaveValue('');
-  await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-  await expect(page).toHaveURL(/\/fixture\/$/);
-  const deleted = await page.request.get(`/fixture/thread/${op}.json`);
-  expect(deleted.status()).toBe(404);
+  await withDeletionQuota(async () => {
+    await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+    await expect(page).toHaveURL(/\/fixture\/$/);
+    const deleted = await page.request.get(`/fixture/thread/${op}.json`);
+    expect(deleted.status()).toBe(404);
+  });
 });
 
 test('mobile native form controls retain a draft and submit a persisted reply', async ({ page, request }) => {
@@ -560,7 +583,9 @@ test('mobile native form controls retain a draft and submit a persisted reply', 
     const posts = (await (await request.get(`/fixture/thread/${id}.json`)).json()).posts;
     expect(posts).toHaveLength(2); expect(posts[1].com).toBe('Persisted mobile form reply');
   } finally {
-    expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 
@@ -599,10 +624,12 @@ test('documented board-return options work with JavaScript disabled', async ({ b
   } finally {
     try {
       if (op) {
-        const deleted = await context.request.post(`${origin}/fixture/delete`, {
-          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const deleted = await context.request.post(`${origin}/fixture/delete`, {
+            headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+          });
+          expect(deleted.status()).toBe(303);
         });
-        expect(deleted.status()).toBe(303);
       }
     } finally {
       await context.close();
@@ -637,9 +664,11 @@ test('source subject cleanup preserves expanded text and reply subjects without 
     await expect(card.locator('.teaser b')).toHaveJSProperty('textContent', expanded);
     await expect(card.locator('.catalogThumb')).toHaveAttribute('data-search-text', `<b>${expanded}</b>: Owned expanded subject`);
   } finally {
-    try { if (op) expect((await context.request.post(`${origin}/fixture/delete`, {
-      headers: { Origin: origin }, form: { no: op, password }, maxRedirects: 0,
-    })).status()).toBe(303); } finally { await context.close(); }
+    try { if (op) await withDeletionQuota(async () => {
+      expect((await context.request.post(`${origin}/fixture/delete`, {
+        headers: { Origin: origin }, form: { no: op, password }, maxRedirects: 0,
+      })).status()).toBe(303);
+    }); } finally { await context.close(); }
   }
 });
 
@@ -680,9 +709,11 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
     }
   } finally {
     try {
-      if (op) expect((await context.request.post(`${origin}/fixture/delete`, {
-        headers: { origin }, form: { no: op, password }, maxRedirects: 0,
-      })).status()).toBe(303);
+      if (op) await withDeletionQuota(async () => {
+        expect((await context.request.post(`${origin}/fixture/delete`, {
+          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        })).status()).toBe(303);
+      });
     } finally { await context.close(); }
   }
 });
@@ -759,9 +790,11 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(multilineJson.posts.find(post => String(post.no) === reply).com).toBe(`${wrapped(limit - 2)}<br>X`);
   await page.locator(`#p${op} summary`).click();
   await expect(page.locator(`#delete${op}`)).toHaveValue('');
-  await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-  await expect(page).toHaveURL(/\/test\/$/);
-  expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
+  await withDeletionQuota(async () => {
+    await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+    await expect(page).toHaveURL(/\/test\/$/);
+    expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
+  });
   await context.close();
 });
 
@@ -796,9 +829,11 @@ for (const javaScriptEnabled of [false, true]) {
       expect(await after.json()).toEqual(snapshot); expect(after.headers().etag).toBe(before.headers().etag);
     } finally {
       try {
-        if (op) expect((await context.request.post(`${origin}/fixture/delete`, {
-          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
-        })).status()).toBe(303);
+        if (op) await withDeletionQuota(async () => {
+          expect((await context.request.post(`${origin}/fixture/delete`, {
+            headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+          })).status()).toBe(303);
+        });
       } finally { await context.close(); }
     }
   });

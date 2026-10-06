@@ -39,7 +39,7 @@ content/staff reads and media writes with healthy controls. It rejects
 production startup. Follow the reader notes for explicit shared-publication
 permissions, health semantics, resource limits and remaining deployment work.
 
-In the public application, `/healthz` checks process availability and `/readyz` performs a content query, returning 503 on unavailable storage. Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
+In the public application, `/healthz` checks process availability and `/readyz` requires the configured `POSTER_ID_KEY` needed for public deletion and performs a content query, returning 503 on a missing key or unavailable storage. An omitted key still allows read-only startup/routes, but does not claim full readiness. Keep the private key stable across replicas and restarts; see [configuration](poster-ids.md#configuration-and-persistence). Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
 
 The following table describes public limits. [Staff notes](staff.md) record the separate staff limits and readiness checks of both its authentication and moderation stores; [media notes](media.md) record intake and queue bounds.
 

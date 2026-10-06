@@ -51,3 +51,8 @@ roxmltree = "=0.21.1"
 
 [lints]
 workspace = true
+
+# This executable is a disposable browser-test authority, never a runtime tool.
+[[example]]
+name = "deletion-quota-fixture"
+required-features = ["browser-tests"]

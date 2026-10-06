@@ -1,3 +1,4 @@
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -11,9 +12,11 @@ const test = base.extend({
     const no = response.headers().location.match(/#p(\d+)$/)[1];
     try { await use({ no, name, url: `/demo/thread/${no}` }); }
     finally {
-      const deleted = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
-        maxRedirects: 0, form: { no, password } });
-      expect(deleted.status()).toBe(303);
+      await withDeletionQuota(async () => {
+        const deleted = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
+          maxRedirects: 0, form: { no, password } });
+        expect(deleted.status()).toBe(303);
+      });
     }
   },
 });
