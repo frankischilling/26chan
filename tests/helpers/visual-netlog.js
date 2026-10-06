@@ -1,6 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, stat } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, realpath, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
+
+// Keep both original paths private; mutable caller fields cannot redirect I/O.
+const ownedPaths = new WeakMap();
+
+function originalPaths(plan) {
+  const paths = ownedPaths.get(plan);
+  if (!paths) throw new Error('Unowned diagnostic plan');
+  return paths;
+}
+
+async function unlinkedDirectory(directory) {
+  return await realpath(directory) === directory && (await lstat(directory)).isDirectory();
+}
 
 export const NETLOG_CAPTURE_MIB = 8;
 export const NETLOG_ARTIFACT_BYTES = 12 * 1024 * 1024;
@@ -18,8 +31,10 @@ export function visualNetlogPlan(options, outputDir, workerIndex, id = randomUUI
   const name = `worker-${workerIndex}-${id}.json`;
   const pending = path.resolve(outputDir, 'netlogs-pending', name);
   const accepted = path.resolve(outputDir, 'netlogs', name);
-  return { pending, accepted, options: { ...options, args: [...(options.args ?? []),
+  const plan = { pending, accepted, options: { ...options, args: [...(options.args ?? []),
     `--log-net-log=${pending}`, '--net-log-capture-mode=Default', `--net-log-max-size-mb=${NETLOG_CAPTURE_MIB}`] } };
+  ownedPaths.set(plan, { pending, accepted });
+  return plan;
 }
 
 export function acceptableNetlogSize(bytes) {
@@ -27,7 +42,7 @@ export function acceptableNetlogSize(bytes) {
 }
 
 export async function prepareVisualNetlog(plan) {
-  await mkdir(path.dirname(plan.pending), { recursive: true });
+  await mkdir(path.dirname(originalPaths(plan).pending), { recursive: true });
 }
 
 export async function acceptVisualNetlog(plan) {
@@ -35,13 +50,51 @@ export async function acceptVisualNetlog(plan) {
   // budget. Only complete, post-close JSON passing this hard limit is uploaded.
   // Sources: chromium/src/net/log/file_net_log_observer.h and
   // services/network/public/cpp/network_switches.cc (Default capture mode).
-  if (!acceptableNetlogSize((await stat(plan.pending)).size)) return 'size-limit';
-  const parsed = JSON.parse(await readFile(plan.pending, 'utf8'));
+  const { pending, accepted } = originalPaths(plan);
+  const directory = path.dirname(accepted);
+  // Validate both parents before reading the capture or creating an artifact
+  // directory. Canonical comparison rejects symlink/junction traversal.
+  if (!await unlinkedDirectory(path.dirname(pending)) ||
+      !await unlinkedDirectory(path.dirname(directory))) return 'unsafe-path';
+  const file = await lstat(pending);
+  if (!file.isFile() || file.isSymbolicLink() || file.nlink !== 1) return 'unsafe-path';
+  if (!acceptableNetlogSize(file.size)) return 'size-limit';
+  try { await mkdir(directory); }
+  catch (error) { if (error.code !== 'EEXIST') throw error; }
+  if (!await unlinkedDirectory(directory)) return 'unsafe-path';
+  // Do not replace an existing artifact, including a link at the final path.
+  try { await lstat(accepted); return 'existing-path'; }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const parsed = JSON.parse(await readFile(pending, 'utf8'));
   if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.events) || !parsed.constants) return 'incomplete';
-  const directory = path.dirname(plan.accepted);
-  await mkdir(directory, { recursive: true });
   if ((await readdir(directory)).filter(name => /^worker-[0-9]+-[a-zA-Z0-9-]+\.json$/.test(name)).length >= NETLOG_FILES_PER_SHARD) return 'file-limit';
   // The existing themes runner is serial (one worker); no concurrent admission.
-  await rename(plan.pending, plan.accepted);
+  await rename(pending, accepted);
   return 'accepted';
+}
+
+// A test-scoped auto fixture calls this without depending on context/browser.
+// Its teardown runs even when subsequent context setup or the test body fails.
+export async function trackVisualNetlogFailure(state, use, info) {
+  try { await use(); }
+  finally {
+    if (info.status !== 'skipped' && info.status !== info.expectedStatus) state.failed = true;
+  }
+}
+
+export async function finishVisualNetlog(plan, state) {
+  const { pending } = originalPaths(plan);
+  if (state.failed) return acceptVisualNetlog(plan);
+  // Browser closure precedes this call. Only this worker's exact pending file
+  // is removed; sibling captures and Chromium's temporary files are untouched.
+  try {
+    // Never traverse a symlink/reparse directory or remove a linked capture.
+    const directory = path.dirname(pending);
+    if (!await unlinkedDirectory(directory)) return 'unsafe-path';
+    const file = await lstat(pending);
+    if (!file.isFile() || file.isSymbolicLink() || file.nlink !== 1) return 'unsafe-path';
+    await unlink(pending);
+  }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  return 'discarded-success';
 }

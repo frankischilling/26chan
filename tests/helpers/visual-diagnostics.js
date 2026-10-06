@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { visualNetlogEnabled, visualNetlogPlan, prepareVisualNetlog, acceptVisualNetlog } from './visual-netlog.js';
+import { visualNetlogEnabled, visualNetlogPlan, prepareVisualNetlog, finishVisualNetlog, trackVisualNetlogFailure } from './visual-netlog.js';
 
 export { expect };
 
@@ -72,7 +72,15 @@ export async function readVisualState(page) {
 }
 
 export const test = base.extend({
-  launchOptions: [async ({ launchOptions }, use, workerInfo) => {
+  visualNetlogState: [async ({}, use) => {
+    await use({ failed: false });
+  }, { scope: 'worker' }],
+  // Register before the context-dependent auto fixture so failed context setup
+  // is observed too. Test teardown precedes worker browser/options teardown.
+  visualNetlogFailure: [async ({ visualNetlogState }, use, info) => {
+    await trackVisualNetlogFailure(visualNetlogState, use, info);
+  }, { auto: true }],
+  launchOptions: [async ({ launchOptions, visualNetlogState }, use, workerInfo) => {
     let plan = null;
     if (visualNetlogEnabled(process.platform, process.env)) {
       try {
@@ -86,7 +94,7 @@ export const test = base.extend({
       // The browser depends on launchOptions, so it closes before this teardown.
       // Diagnostics must never replace the original test/worker result.
       if (plan) {
-        try { console.log(`Synthetic NetLog artifact: ${await acceptVisualNetlog(plan)}.`); }
+        try { console.log(`Synthetic NetLog artifact: ${await finishVisualNetlog(plan, visualNetlogState)}.`); }
         catch { console.log('Synthetic NetLog unavailable: incomplete capture.'); }
       }
     }
