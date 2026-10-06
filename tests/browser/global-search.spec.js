@@ -89,7 +89,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       // The 43-byte marker fits; adding the next word exceeds the source 50-byte budget.
       expect(op.semantic_url).toBe(marker.toLowerCase());
       const replyHref = `/fixture/thread/${second}/${op.semantic_url}`;
-      const replyLink = page.locator(`#pi${second}`).getByRole('link', { name: 'Reply', exact: true });
+      // Check the rendered href even when the source mobile layout hides its header.
+      const replyLink = page.locator(`#pi${second}`).getByRole('link', { name: 'Reply', exact: true, includeHidden: true });
       await expect(replyLink).toHaveAttribute('href', replyHref);
       // The desktop header is hidden by the source mobile layout; the same
       // server link remains testable through a normal click at desktop width.
