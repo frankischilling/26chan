@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 

@@ -1,5 +1,5 @@
 import { fillCatalogSearch } from '../browser/catalog-actions.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 test.use({ javaScriptEnabled: true });
 const now = new Date('2026-09-08T12:07:00Z');

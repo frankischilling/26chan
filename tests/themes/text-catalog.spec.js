@@ -1,5 +1,5 @@
 import { fillCatalogSearch, applyCatalogSearch } from '../browser/catalog-actions.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon'];
 

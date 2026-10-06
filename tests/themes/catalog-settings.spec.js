@@ -1,5 +1,5 @@
 import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 import { readFile } from 'node:fs/promises';
 const reference = JSON.parse(await readFile(new URL('../../docs/public-catalog-settings-reference.json', import.meta.url), 'utf8'));
 test.use({ javaScriptEnabled: true });

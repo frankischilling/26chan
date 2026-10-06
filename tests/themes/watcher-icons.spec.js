@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 const themes = { yotsuba: 'futaba', 'yotsuba-b': 'burichan', futaba: 'futaba',
   burichan: 'burichan', tomorrow: 'tomorrow', photon: 'photon' };

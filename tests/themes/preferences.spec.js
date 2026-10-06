@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 const themes = [
   ['yotsuba', 'rgb(255, 255, 238)', 'rgb(128, 0, 0)', 'rgb(240, 224, 214)', 'rgb(204, 17, 5)', 'rgb(17, 119, 67)', false],

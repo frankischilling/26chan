@@ -1,5 +1,5 @@
 import { watcherSettingsOpener } from '../browser/helpers/watcher-settings.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 test.use({ javaScriptEnabled: true });
 for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
   test(`${theme} updater controls, countdown, settings and failure status fit desktop and mobile`, async ({ page, context }, info) => {
