@@ -1,0 +1,3869 @@
+{
+    "reference": "operator-supplied 4chan-old checkout; synthetic inputs only",
+    "files": {
+        "lib/postfilter.php": "d0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207"
+    },
+    "functions": [
+        "spam_filter_get_threat_score"
+    ],
+    "function_sha256": "258a972c331faab651eff2f0ee2444553b6ff01ffa5b7238b4fd7920b87c1503",
+    "function_lines": [
+        1684,
+        2316
+    ],
+    "call_args": [
+        null,
+        true,
+        false
+    ],
+    "constants": {
+        "DEFAULT_BURICHAN": false
+    },
+    "country_helper": "fail-closed stub; unreachable with null country",
+    "nonbrowser_regex": "headless|node-fetch|python-|java/|jakarta|-perl|http-?client|-resty-|awesomium/",
+    "presence_server_keys": [
+        "HTTP_PATH",
+        "HTTP_SAME_ORIGIN",
+        "HTTP_REFERRER_POLICY"
+    ],
+    "threshold": 0.4,
+    "scope": "Positive-only bounded evidence from ASCII case-insensitive UA matches or exact unusual-header presence, including empty values. Negative cases do not prove low full-source threat, and the classifier does not reproduce numeric source scores.",
+    "evidence": "Executed exact isolated source function against synthetic inputs; positive signal implies score >= 0.4, negative signal is not a low-score proof.",
+    "cases": [
+        {
+            "name": "benign-browser-no-signal",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-exact-headless",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 headless"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-headless",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 HeAdLeSs"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-headless",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "headless"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-headless",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 headles"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-headless",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforeheadlessafter"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-node-fetch",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 node-fetch"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-node-fetch",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 NoDe-fEtCh"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-node-fetch",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "node-fetch"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-node-fetch",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 node_fetch"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-node-fetch",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforenode-fetchafter"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-python",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 python-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-python",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 PyThOn-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-python",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "python-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-python",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 python/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-python",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforepython-after"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-java-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 java/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-java-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 JaVa/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-java-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "java/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-java-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 java-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-java-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforejava/after"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-jakarta",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 jakarta"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-jakarta",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 JaKaRtA"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-jakarta",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "jakarta"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-jakarta",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 jakart"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-jakarta",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforejakartaafter"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-perl",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 -perl"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-perl",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 -pErL"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-perl",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "-perl"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-perl",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 _perl"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-perl",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 before-perlafter"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-httpclient",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 httpclient"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-httpclient",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 HtTpClIeNt"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-httpclient",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "httpclient"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-httpclient",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 http_client"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-httpclient",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforehttpclientafter"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-http-client",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 http-client"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-http-client",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 HtTp-cLiEnT"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-http-client",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "http-client"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-http-client",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 http--client"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-http-client",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforehttp-clientafter"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-resty",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 -resty-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-resty",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 -rEsTy-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-resty",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "-resty-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-resty",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 _resty_"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-resty",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 before-resty-after"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-exact-awesomium-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 awesomium/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-mixed-case-awesomium-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 AwEsOmIuM/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-standalone-awesomium-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "awesomium/"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1.54,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "ua-near-miss-awesomium-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 awesomium-"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-substring-awesomium-slash",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 beforeawesomium/after"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 1,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-empty-path",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "path",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-nonempty-path",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "path",
+                    "value": "synthetic"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-empty-same-origin",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "same-origin",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-nonempty-same-origin",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "same-origin",
+                    "value": "synthetic"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-empty-referrer-policy",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "referrer-policy",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-nonempty-referrer-policy",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "referrer-policy",
+                    "value": "synthetic"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "headers-empty-combination-3",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "path",
+                    "value": ""
+                },
+                {
+                    "name": "same-origin",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "headers-empty-combination-5",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "path",
+                    "value": ""
+                },
+                {
+                    "name": "referrer-policy",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "headers-empty-combination-6",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "same-origin",
+                    "value": ""
+                },
+                {
+                    "name": "referrer-policy",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "headers-empty-combination-7",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "path",
+                    "value": ""
+                },
+                {
+                    "name": "same-origin",
+                    "value": ""
+                },
+                {
+                    "name": "referrer-policy",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "header-near-miss-path-extra",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "path-extra",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "header-near-miss-same-origin-extra",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "same-origin-extra",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "header-near-miss-referrer-policy-extra",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "referrer-policy-extra",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "header-near-miss-referer-policy",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "referer-policy",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "header-near-miss-x-path",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "x-path",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "header-near-miss-x-same-origin",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "x-same-origin",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "header-near-miss-x-referrer-policy",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "x-referrer-policy",
+                    "value": ""
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-nonascii-long-s-near-miss",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 headleſs"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "ua-fullwidth-h-near-miss",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0 ｈeadless"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "unrelated-language",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "fr-CA,fr;q=0.8,en;q=0.5"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "unrelated-valid-request-headers",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "dnt",
+                    "value": "1"
+                },
+                {
+                    "name": "cache-control",
+                    "value": "no-cache"
+                },
+                {
+                    "name": "x-client-note",
+                    "value": "synthetic"
+                },
+                {
+                    "name": "accept-encoding",
+                    "value": "gzip, deflate, br"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "unrelated-valid-referer",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "referer",
+                    "value": "https://boards.4chan.org/test/"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "unrelated-http-version",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "x-http-version",
+                    "value": "HTTP/1.1"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "outside-slice-future-firefox",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/501.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0.5,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "outside-slice-wrong-report-content-type",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "text/plain"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0.75,
+            "source_at_or_above_threshold": true
+        },
+        {
+            "name": "outside-slice-missing-cookie",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0.06,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "outside-slice-empty-ua",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": ""
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "en-US,en;q=0.9"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": false,
+            "source_score": 0.25,
+            "source_at_or_above_threshold": false
+        },
+        {
+            "name": "positive-with-unrelated-valid-headers",
+            "headers": [
+                {
+                    "name": "user-agent",
+                    "value": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+                },
+                {
+                    "name": "content-type",
+                    "value": "application/x-www-form-urlencoded"
+                },
+                {
+                    "name": "accept",
+                    "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                },
+                {
+                    "name": "accept-language",
+                    "value": "fr-CA,fr;q=0.8"
+                },
+                {
+                    "name": "cookie",
+                    "value": "fixture=synthetic"
+                },
+                {
+                    "name": "sec-ch-ua-mobile",
+                    "value": "?0"
+                },
+                {
+                    "name": "sec-fetch-dest",
+                    "value": "document"
+                },
+                {
+                    "name": "sec-fetch-mode",
+                    "value": "navigate"
+                },
+                {
+                    "name": "sec-fetch-site",
+                    "value": "same-origin"
+                },
+                {
+                    "name": "same-origin",
+                    "value": ""
+                },
+                {
+                    "name": "dnt",
+                    "value": "1"
+                },
+                {
+                    "name": "x-client-note",
+                    "value": "synthetic"
+                }
+            ],
+            "cookies": {
+                "fixture": "synthetic"
+            },
+            "expected_signal": true,
+            "source_score": 0.8,
+            "source_at_or_above_threshold": true
+        }
+    ],
+    "extractor_php": "8.4.26",
+    "extractor_pcre": "10.46 2025-08-27"
+}
