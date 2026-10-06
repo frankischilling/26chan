@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { visualNetlogEnabled, visualNetlogPlan, prepareVisualNetlog, acceptVisualNetlog } from './visual-netlog.js';
 
 export { expect };
 
@@ -71,6 +72,25 @@ export async function readVisualState(page) {
 }
 
 export const test = base.extend({
+  launchOptions: [async ({ launchOptions }, use, workerInfo) => {
+    let plan = null;
+    if (visualNetlogEnabled(process.platform, process.env)) {
+      try {
+        plan = visualNetlogPlan(launchOptions, workerInfo.project.outputDir, workerInfo.workerIndex);
+        if (plan) await prepareVisualNetlog(plan);
+        else console.log('Synthetic NetLog unavailable: caller supplied logging options.');
+      } catch { plan = null; console.log('Synthetic NetLog unavailable: setup.'); }
+    }
+    try { await use(plan?.options ?? launchOptions); }
+    finally {
+      // The browser depends on launchOptions, so it closes before this teardown.
+      // Diagnostics must never replace the original test/worker result.
+      if (plan) {
+        try { console.log(`Synthetic NetLog artifact: ${await acceptVisualNetlog(plan)}.`); }
+        catch { console.log('Synthetic NetLog unavailable: incomplete capture.'); }
+      }
+    }
+  }, { scope: 'worker' }],
   visualDiagnostics: [async ({ context }, use, info) => {
     const errors = [], scripts = [], failedScripts = [], stylesheets = [], failedStylesheets = [];
     const observed = new Set();

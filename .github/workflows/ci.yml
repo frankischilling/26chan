@@ -471,7 +471,10 @@ jobs:
         shell: pwsh
         env:
           WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
+          WINDOWS_VISUAL_NETLOG: '1'
         run: |
+          node --test tests/helpers/visual-netlog.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./scripts/windows-visual-resources.ps1 -Phase before-themes
           # Keep every case and assertion while bounding the lifetime of each
           # browser/server pair. Retained traces show failed resource requests
@@ -494,6 +497,7 @@ jobs:
             test-results/**/*.png
             test-results/**/trace.zip
             test-results/**/error-context.md
+            test-results/**/netlogs/*.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0
