@@ -11,6 +11,11 @@ use std::{sync::Arc, time::Duration};
 use tower::ServiceExt;
 use webauthn_rs::prelude::*;
 
+// These tests deliberately lock the global moderation audit table to exercise
+// atomic rollback. Isolate that fault injection within this test binary while
+// retaining each test's explicit concurrent requests and lock-order proofs.
+static PERMISSIONS_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[derive(Clone)]
 struct Fixture {
     owner: PgPool,
@@ -381,6 +386,7 @@ async fn exercise(f: &Fixture) {
 
 #[tokio::test]
 async fn scoped_staff_actions_and_queues_hold_authorization_through_commit() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn({
         let fixture = fixture.clone();
@@ -676,6 +682,7 @@ async fn thread_options_source_cases(f: &Fixture) {
 
 #[tokio::test]
 async fn permaage_and_undead_match_original_permission_state_and_audit_cases() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn({
         let fixture = fixture.clone();
@@ -883,6 +890,7 @@ async fn exercise_unsticky_order(f: &Fixture) {
 
 #[tokio::test]
 async fn unsticky_http_transition_uses_post_lock_time_and_orders_board_and_catalog_once() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn({
         let f = fixture.clone();
@@ -895,6 +903,7 @@ async fn unsticky_http_transition_uses_post_lock_time_and_orders_board_and_catal
 
 #[tokio::test]
 async fn unsticky_audit_statement_failure_rolls_back_the_flag_bump_and_modified_clock() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let staff = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
         .after_connect(|connection, _| {
@@ -1021,6 +1030,7 @@ async fn exercise_unsticky_rollover(f: &Fixture) {
 
 #[tokio::test]
 async fn unsticky_refresh_changes_oldest_activity_rollover_but_not_post_number_rollover() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn({
         let f = fixture.clone();
@@ -1154,6 +1164,7 @@ async fn exercise_isolated_option_matrix(f: &Fixture) {
 
 #[tokio::test]
 async fn isolated_close_and_permasage_controls_preserve_siblings_and_audit_only_transitions() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn({
         let f = fixture.clone();
@@ -1253,6 +1264,7 @@ async fn exercise_isolated_option_rejections(f: &Fixture) {
 
 #[tokio::test]
 async fn isolated_option_guards_and_archived_rows_preserve_all_flags_clocks_and_audit() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn({
         let f = fixture.clone();
@@ -1265,6 +1277,7 @@ async fn isolated_option_guards_and_archived_rows_preserve_all_flags_clocks_and_
 
 #[tokio::test]
 async fn isolated_option_audit_failures_roll_back_each_selected_flag_and_both_freshness_clocks() {
+    let _serial = PERMISSIONS_TEST.lock().await;
     let staff = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
         .after_connect(|connection, _| {
