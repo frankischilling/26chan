@@ -415,6 +415,7 @@ jobs:
         shell: pwsh
         run: |
           npm ci --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npx playwright install chromium
       - name: Build visual fixture before the server startup deadline
         shell: pwsh
@@ -426,15 +427,21 @@ jobs:
         shell: pwsh
         run: |
           cargo test -p board-domain admission_normalization --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p board-domain content_admission --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p board-domain name_trip_admission --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p board-domain identity --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p board-domain trip_cp932 --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/browser/owned-upload-response.test.mjs
       - name: Verify public TCP transport budgets
         shell: pwsh
         run: |
           cargo test -p board-http --lib transport:: --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p board-public --lib transport:: --locked
       - name: Verify public startup and paired listeners
         shell: pwsh
@@ -500,6 +507,7 @@ jobs:
           npm run test:custom-css-core
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:settings-categories
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:settings-transfer-core
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:catalog-preference-locks-core
@@ -585,6 +593,7 @@ jobs:
         shell: pwsh
         run: |
           npm ci --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npx playwright install chromium
       - name: Build visual fixture before the server startup deadline
         shell: pwsh
