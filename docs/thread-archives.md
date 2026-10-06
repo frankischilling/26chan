@@ -1,10 +1,11 @@
 # Thread rollover and archives
 
-New threads displace the oldest nonsticky active threads once a board reaches
-its configured `thread_limit`. A successful reply can bump a thread ahead of
-another candidate; sage replies do not. The board lock serializes replies,
-rollover, deletion, reports and staff mutations. If pinned threads occupy all
-available capacity, a new thread returns 409 and leaves existing threads intact.
+New threads displace the oldest ordinary active threads once a board reaches
+its configured `thread_limit`. Sticky and Undead threads neither consume ordinary
+capacity nor qualify as victims, matching `imgboard.php:2851–2869`. A successful
+reply can bump an ordinary thread ahead of another candidate; sage replies do
+not. The board lock serializes replies, rollover, deletion, reports and staff
+mutations, so queued posts see protection changes committed before they resume.
 
 Archives are optional. An enabled board keeps displaced threads read-only until
 their fixed expiry or until its archive count is exceeded. A disabled board
@@ -35,7 +36,9 @@ threads immediately; re-enabling may expose still-unexpired entries that have
 not been soft-deleted. Lowering the count cap prunes oldest entries on the next
 successful new OP. Until then, reads retain the previous set. JSON reads are bounded to 1,000
 IDs; the independent HTML read ceiling is 3,000 summaries. These retention/count policies and all-pinned handling are project
-choices; they do not reproduce the complete source archive lifecycle.
+choices; they do not reproduce the complete source archive lifecycle. Current
+rollover still uses oldest bump clock followed by ID; the source
+`EXPIRE_NEGLECTED=no` override on `/f/` remains separate work.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
 This is public visibility policy, not physical erasure. Base-table text and
@@ -86,6 +89,20 @@ The archive-capacity database test bulk-loads an owned synthetic set beyond
 normal retention to verify 1,200 entries and the exact 3,000-entry ceiling. It
 checks rendered ordering, escaping and rejection under a smaller configured
 response budget without returning partial HTML.
+
+## Complete board listings
+
+Catalog and thread-list snapshots include protected threads above the ordinary
+capacity. Their independent resource ceiling is 1,000 active threads. A query
+reads at most 1,001 metadata rows and fails closed if the complete list would
+exceed that ceiling, before loading bodies or media. It never presents a silent
+truncated catalog. Numbered pages retain their configured page policy; existing
+body, badge-ID and response budgets remain in force.
+
+Store regressions cover sticky, Undead and combined protection, archive and
+soft-delete rollover, complete listings above ordinary capacity, bounded-read
+failures and queued OPs that resume after protection changes. They do not prove
+full original-page visual parity or the remaining rollover-order policy.
 
 ## Migration and verification
 

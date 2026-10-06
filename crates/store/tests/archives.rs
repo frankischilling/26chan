@@ -209,14 +209,27 @@ async fn archive_lifecycle(owner: &PgPool, public: &PgPool, slug: &str, second: 
         .execute(owner)
         .await
         .unwrap();
-    assert!(matches!(
-        board_store::create_post(public, slug, 0, &post()).await,
-        Err(StoreError::Conflict(_))
-    ));
+    let alongside_pinned = board_store::create_post(public, slug, 0, &post())
+        .await
+        .expect("Pinned threads do not consume ordinary capacity");
     assert_eq!(
-        board_store::threads(public, slug, 0, 10).await.unwrap()[0].id,
-        fifth
+        board_store::threads(public, slug, 0, 10)
+            .await
+            .unwrap()
+            .len(),
+        2
     );
+    assert!(
+        board_store::thread(public, slug, fifth)
+            .await
+            .unwrap()
+            .archived_at
+            .is_none()
+    );
+    // Keep the subsequent sage/bump scenario independent of this new OP.
+    board_store::delete_post(public, slug, alongside_pinned)
+        .await
+        .unwrap();
     sqlx::query("UPDATE content.threads SET sticky=false,bumped_at=clock_timestamp()-interval '2 hours' WHERE id=$1").bind(fifth).execute(owner).await.unwrap();
     sqlx::query("UPDATE content.boards SET thread_limit=2,archive_limit=1000 WHERE slug=$1")
         .bind(slug)
@@ -440,6 +453,7 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
             2
         );
     }
+    queued_op_observes_protection(owner, public, slug, &one, one_pid).await;
     one.close().await;
     two.close().await;
     sqlx::query("UPDATE content.threads SET deleted=true WHERE board=$1")
@@ -450,9 +464,6 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
     let pinned = board_store::create_post(public, slug, 0, &post())
         .await
         .unwrap();
-    let ordinary = board_store::create_post(public, slug, 0, &post())
-        .await
-        .unwrap();
     sqlx::query(
         "UPDATE content.threads SET sticky=true,bumped_at='2000-01-01'::timestamptz WHERE id=$1",
     )
@@ -460,16 +471,55 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
     .execute(owner)
     .await
     .unwrap();
-    board_store::create_post(public, slug, 0, &post())
+    let undead = board_store::create_post(public, slug, 0, &post())
         .await
         .unwrap();
-    assert!(
-        board_store::thread(public, slug, pinned)
-            .await
-            .unwrap()
-            .archived_at
-            .is_none()
-    );
+    sqlx::query(
+        "UPDATE content.threads SET undead=true,bumped_at='2000-01-02'::timestamptz WHERE id=$1",
+    )
+    .bind(undead)
+    .execute(owner)
+    .await
+    .unwrap();
+    let both = board_store::create_post(public, slug, 0, &post())
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET sticky=true,undead=true,bumped_at='2000-01-03'::timestamptz WHERE id=$1")
+        .bind(both).execute(owner).await.unwrap();
+    let ordinary = board_store::create_post(public, slug, 0, &post())
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET bumped_at='2001-01-01'::timestamptz WHERE id=$1")
+        .bind(ordinary)
+        .execute(owner)
+        .await
+        .unwrap();
+    let other = board_store::create_post(public, slug, 0, &post())
+        .await
+        .unwrap();
+    for id in [pinned, undead, both, ordinary, other] {
+        assert!(
+            board_store::thread(public, slug, id)
+                .await
+                .unwrap()
+                .archived_at
+                .is_none(),
+            "Three protected OPs must leave both ordinary slots available"
+        );
+    }
+    let newest = board_store::create_post(public, slug, 0, &post())
+        .await
+        .unwrap();
+    for id in [pinned, undead, both, other, newest] {
+        assert!(
+            board_store::thread(public, slug, id)
+                .await
+                .unwrap()
+                .archived_at
+                .is_none()
+        );
+    }
+    assert_complete_protected_listing(public, slug, [pinned, undead, both, other, newest]).await;
     let before = board_store::thread(public, slug, ordinary).await.unwrap();
     assert!(before.archived_at.is_some());
     sqlx::query("UPDATE content.boards SET archive_retention_seconds=86400 WHERE slug=$1")
@@ -485,6 +535,146 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
         before.archive_expires_at,
         "changing policy must not extend an existing archive lifetime"
     );
+    // The same protection predicate applies when ordinary rollover soft-deletes.
+    sqlx::query("UPDATE content.boards SET archive_retention_seconds=0 WHERE slug=$1")
+        .bind(slug)
+        .execute(owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET bumped_at='2001-01-01'::timestamptz WHERE id=$1")
+        .bind(other)
+        .execute(owner)
+        .await
+        .unwrap();
+    let replacement = board_store::create_post(public, slug, 0, &post())
+        .await
+        .unwrap();
+    assert!(matches!(
+        board_store::thread(public, slug, other).await,
+        Err(StoreError::NotFound)
+    ));
+    let deleted: bool = sqlx::query_scalar("SELECT deleted FROM content.threads WHERE id=$1")
+        .bind(other)
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    assert!(
+        deleted,
+        "Rollover must soft-delete, not physically erase the ordinary OP"
+    );
+    for id in [pinned, undead, both, newest, replacement] {
+        assert!(
+            board_store::thread(public, slug, id)
+                .await
+                .unwrap()
+                .archived_at
+                .is_none()
+        );
+    }
+    // Owned fixtures exceed the default ceiling without relaxing schema bounds.
+    sqlx::query("WITH roots AS (INSERT INTO content.threads(board,sticky) SELECT $1,true FROM generate_series(1,$2::integer) RETURNING id,board) INSERT INTO content.posts(id,board,thread_id,name,subject,comment) SELECT id,board,id,'Anonymous','Protected read bound','Owned fixture' FROM roots")
+        .bind(slug).bind(board_store::MAX_BOARD_READ_THREADS as i32 - 4)
+        .execute(owner).await.unwrap();
+    assert!(matches!(
+        board_store::board_snapshot(public, slug, board_store::BoardSelection::All, None).await,
+        Err(StoreError::ReadLimit)
+    ));
+    assert!(matches!(
+        board_store::json_board_snapshot(public, slug, board_store::BoardSelection::All, 0).await,
+        Err(StoreError::ReadLimit)
+    ));
+    assert!(matches!(
+        board_store::board_page_snapshot(public, slug, board_store::BoardSelection::All, Some(0))
+            .await,
+        Err(StoreError::ReadLimit)
+    ));
+}
+
+async fn queued_op_observes_protection(
+    owner: &PgPool,
+    public: &PgPool,
+    slug: &str,
+    queued_pool: &PgPool,
+    queued_pid: i32,
+) {
+    for sticky in [true, false] {
+        sqlx::query("UPDATE content.threads SET deleted=true WHERE board=$1")
+            .bind(slug)
+            .execute(owner)
+            .await
+            .unwrap();
+        let protected = board_store::create_post(public, slug, 0, &post())
+            .await
+            .unwrap();
+        let ordinary = board_store::create_post(public, slug, 0, &post())
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.threads SET bumped_at=CASE WHEN id=$2 THEN '2000-01-01'::timestamptz ELSE '2000-01-02'::timestamptz END WHERE board=$1 AND NOT deleted")
+            .bind(slug).bind(protected).execute(owner).await.unwrap();
+        let mut lock = owner.begin().await.unwrap();
+        let owner_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *lock)
+            .await
+            .unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(slug)
+            .execute(&mut *lock)
+            .await
+            .unwrap();
+        let pool = queued_pool.clone();
+        let board = slug.to_owned();
+        let queued =
+            tokio::spawn(async move { board_store::create_post(&pool, &board, 0, &post()).await });
+        // Observe the actual PostgreSQL lock dependency before changing protection.
+        // Elapsed time alone cannot establish that the OP is queued.
+        wait_behind(owner, queued_pid, owner_pid).await;
+        sqlx::query("UPDATE content.threads SET sticky=$2,undead=$3 WHERE id=$1")
+            .bind(protected)
+            .bind(sticky)
+            .bind(!sticky)
+            .execute(&mut *lock)
+            .await
+            .unwrap();
+        lock.commit().await.unwrap();
+        let created = queued.await.unwrap().unwrap();
+        let protected_thread = board_store::thread(public, slug, protected).await.unwrap();
+        assert_eq!(protected_thread.sticky, sticky);
+        assert_eq!(protected_thread.undead, !sticky);
+        for id in [protected, ordinary, created] {
+            assert!(
+                board_store::thread(public, slug, id)
+                    .await
+                    .unwrap()
+                    .archived_at
+                    .is_none(),
+                "Queued OP must use protection committed before its board lock is granted"
+            );
+        }
+        assert_eq!(
+            board_store::threads(public, slug, 0, 10)
+                .await
+                .unwrap()
+                .len(),
+            3
+        );
+        board_store::create_post(public, slug, 0, &post())
+            .await
+            .unwrap();
+        assert!(
+            board_store::thread(public, slug, ordinary)
+                .await
+                .unwrap()
+                .archived_at
+                .is_some()
+        );
+        assert!(
+            board_store::thread(public, slug, protected)
+                .await
+                .unwrap()
+                .archived_at
+                .is_none()
+        );
+    }
 }
 
 async fn expired_entries_do_not_displace_valid_archives(
@@ -587,4 +777,66 @@ async fn coherent_archive_snapshot(owner: &PgPool, public: &PgPool, slug: &str) 
         Err(StoreError::NotFound)
     ));
     reader.close().await;
+}
+
+async fn assert_complete_protected_listing(public: &PgPool, slug: &str, expected: [i64; 5]) {
+    // All projections must expose protected extras above ordinary capacity (2).
+    let html =
+        board_store::board_page_snapshot(public, slug, board_store::BoardSelection::All, Some(0))
+            .await
+            .unwrap()
+            .snapshot;
+    let catalog =
+        board_store::json_board_snapshot(public, slug, board_store::BoardSelection::All, 0)
+            .await
+            .unwrap();
+    let thread_list =
+        board_store::board_snapshot(public, slug, board_store::BoardSelection::All, None)
+            .await
+            .unwrap();
+    let exact = board_store::board_snapshot_all_bounded(public, slug, Some(0), expected.len())
+        .await
+        .unwrap();
+    let mut expected = expected.to_vec();
+    expected.sort_unstable();
+    for snapshot in [html, catalog, thread_list, exact] {
+        assert_eq!(snapshot.board.thread_limit, 2);
+        assert!(!snapshot.has_next);
+        let mut ids = snapshot
+            .threads
+            .iter()
+            .map(|entry| entry.thread.id)
+            .collect::<Vec<_>>();
+        ids.sort_unstable();
+        assert_eq!(
+            ids, expected,
+            "Complete projections must not truncate to ordinary capacity"
+        );
+    }
+    for replies in [None, Some(0), Some(5)] {
+        assert!(
+            matches!(
+                board_store::board_snapshot_all_bounded(public, slug, replies, 4).await,
+                Err(StoreError::ReadLimit)
+            ),
+            "A lower complete-read limit must fail, never return a truncated listing"
+        );
+    }
+    for invalid in [0, board_store::MAX_BOARD_READ_THREADS + 1] {
+        assert!(matches!(
+            board_store::board_snapshot_all_bounded(public, slug, None, invalid).await,
+            Err(StoreError::Invalid(_))
+        ));
+    }
+    // Numbered-page policy remains separately bounded by ordinary capacity.
+    let page =
+        board_store::board_snapshot(public, slug, board_store::BoardSelection::Page(2), None)
+            .await
+            .unwrap();
+    assert_eq!(page.threads.len(), 1);
+    assert!(!page.has_next);
+    assert!(matches!(
+        board_store::board_snapshot(public, slug, board_store::BoardSelection::Page(3), None).await,
+        Err(StoreError::PageNotFound)
+    ));
 }

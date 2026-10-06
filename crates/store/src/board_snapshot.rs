@@ -42,11 +42,17 @@ pub async fn board_snapshot(
     selection: BoardSelection,
     replies: Option<i64>,
 ) -> Result<BoardSnapshot, StoreError> {
-    Ok(
-        read_board_snapshot(pool, slug, selection, replies, false, false)
-            .await?
-            .snapshot,
+    Ok(read_board_snapshot(
+        pool,
+        slug,
+        selection,
+        replies,
+        false,
+        false,
+        MAX_BOARD_READ_THREADS,
     )
+    .await?
+    .snapshot)
 }
 
 /// Meta-board JSON includes badge IDs from replies omitted from the preview.
@@ -57,11 +63,44 @@ pub async fn json_board_snapshot(
     selection: BoardSelection,
     replies: i64,
 ) -> Result<BoardSnapshot, StoreError> {
-    Ok(
-        read_board_snapshot(pool, slug, selection, Some(replies), false, true)
-            .await?
-            .snapshot,
+    Ok(read_board_snapshot(
+        pool,
+        slug,
+        selection,
+        Some(replies),
+        false,
+        true,
+        MAX_BOARD_READ_THREADS,
     )
+    .await?
+    .snapshot)
+}
+
+/// Independent of ordinary board capacity: protected OPs also need listing.
+/// Complete listings fail closed rather than silently dropping excess threads.
+pub const MAX_BOARD_READ_THREADS: usize = 1000;
+
+/// A release-owned complete projection can impose a smaller metadata budget.
+pub async fn board_snapshot_all_bounded(
+    pool: &PgPool,
+    slug: &str,
+    replies: Option<i64>,
+    max_threads: usize,
+) -> Result<BoardSnapshot, StoreError> {
+    if max_threads == 0 || max_threads > MAX_BOARD_READ_THREADS {
+        return Err(StoreError::Invalid("Invalid snapshot thread budget."));
+    }
+    Ok(read_board_snapshot(
+        pool,
+        slug,
+        BoardSelection::All,
+        replies,
+        false,
+        false,
+        max_threads,
+    )
+    .await?
+    .snapshot)
 }
 
 pub const MAX_JSON_CAPCODE_REPLY_IDS: usize = 100_000;
@@ -73,7 +112,16 @@ pub async fn board_page_snapshot(
     selection: BoardSelection,
     replies: Option<i64>,
 ) -> Result<PageSnapshot<BoardSnapshot>, StoreError> {
-    read_board_snapshot(pool, slug, selection, replies, true, false).await
+    read_board_snapshot(
+        pool,
+        slug,
+        selection,
+        replies,
+        true,
+        false,
+        MAX_BOARD_READ_THREADS,
+    )
+    .await
 }
 
 async fn read_board_snapshot(
@@ -83,6 +131,7 @@ async fn read_board_snapshot(
     replies: Option<i64>,
     include_navigation: bool,
     include_capcode_replies: bool,
+    max_threads: usize,
 ) -> Result<PageSnapshot<BoardSnapshot>, StoreError> {
     board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
     if replies.is_some_and(|limit| !(0..=5).contains(&limit)) {
@@ -100,17 +149,21 @@ async fn read_board_snapshot(
     let per_page = i64::from(board.threads_per_page);
     let maximum = i64::from(board.thread_limit);
     let max_pages = (maximum + per_page - 1) / per_page;
+    let complete = matches!(selection, BoardSelection::All);
     let (offset, limit, later_page) = match selection {
         BoardSelection::Page(page) if (1..=max_pages).contains(&page) => {
             ((page - 1) * per_page, per_page, page < max_pages)
         }
         BoardSelection::Page(_) => return Err(StoreError::PageNotFound),
-        BoardSelection::All => (0, maximum, false),
+        BoardSelection::All => (0, max_threads as i64, false),
     };
-    // One extra metadata row distinguishes a full final page from a page with
-    // a real successor. Discard it before loading any post bodies or media.
+    // One extra metadata row detects a successor for numbered pages, or an
+    // incomplete full listing. Reject excess complete listings before bodies/media.
     let mut threads: Vec<Thread> = sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3")
-        .bind(slug).bind(offset).bind(limit + i64::from(later_page)).fetch_all(&mut *tx).await?;
+        .bind(slug).bind(offset).bind(limit + i64::from(later_page || complete)).fetch_all(&mut *tx).await?;
+    if complete && threads.len() > max_threads {
+        return Err(StoreError::ReadLimit);
+    }
     let has_next = later_page && threads.len() > limit as usize;
     threads.truncate(limit as usize);
     let ids: Vec<i64> = threads.iter().map(|thread| thread.id).collect();

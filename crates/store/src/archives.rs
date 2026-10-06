@@ -66,7 +66,9 @@ pub(crate) async fn make_room(
     tx: &mut Transaction<'_, Postgres>,
     board: &Board,
 ) -> Result<(), StoreError> {
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL")
+    // Source capacity applies only to ordinary OPs; protected threads neither
+    // consume ordinary slots nor qualify as rollover victims.
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL AND NOT sticky AND NOT undead")
         .bind(&board.slug).fetch_one(&mut **tx).await?;
     let needed = count - i64::from(board.thread_limit) + 1;
     if needed > 0 {
@@ -75,11 +77,11 @@ pub(crate) async fn make_room(
                 "Board capacity requires operator reconciliation.",
             ));
         }
-        let victims: Vec<i64> = sqlx::query_scalar("SELECT id FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL AND NOT sticky ORDER BY bumped_at,id LIMIT $2 FOR UPDATE")
+        let victims: Vec<i64> = sqlx::query_scalar("SELECT id FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL AND NOT sticky AND NOT undead ORDER BY bumped_at,id LIMIT $2 FOR UPDATE")
             .bind(&board.slug).bind(needed).fetch_all(&mut **tx).await?;
         if victims.len() as i64 != needed {
             return Err(StoreError::Conflict(
-                "Pinned threads occupy this board's active capacity.",
+                "Board capacity requires operator reconciliation.",
             ));
         }
         if board.archive_retention_seconds > 0 {
