@@ -54,6 +54,38 @@ contended locks. The lower edge is inclusive: an action exactly 300 seconds
 old still blocks; it clears at the next whole second. Successful OP actions
 retain the greatest request timestamp for each actor/board pair.
 
+## Native Quick Reply advisory
+
+The server renders the current ordinary reply and image intervals as
+`data-posting-reply-seconds` and `data-posting-image-seconds` on board/thread
+posting forms and approved-upload forms. Native Quick Reply uses those values
+with a per-board local success timestamp, `4chan-cd-<board>`, written only
+after a confirmed Quick Reply success. The timestamp uses the client's
+millisecond receipt clock. It neither exposes nor replaces the server's
+private actor history, whole-second request clock or transaction decision.
+
+The incoming draft selects text or image timing, including selected/pending
+media and copied approved capabilities. The button displays remaining seconds
+rounded upward. During a countdown, a valid ready draft's submit click toggles
+one-shot automatic posting; expiry clears that intent before attempting the
+post. Shift-click bypasses only the advisory. Server errors remain authoritative
+and never trigger an automatic retry or record a local success.
+
+Edits, replacement drafts, target changes and media changes fence the armed
+intent. Close, feature disable and page suspension stop pending callbacks;
+thread closure and upload readiness still prevent submission. A later upload
+approval cannot revive canceled intent. Matching localStorage events refresh
+the same-board countdown, but tabs retain independent automatic intent rather
+than a cross-tab posting lock. Invalid/future timestamps and unavailable
+storage do not block posting. The
+[Quick Reply lifecycle](native-quick-reply.md#ordinary-reply-countdown-and-automatic-posting)
+describes these client checks in detail.
+
+This advisory covers ordinary replies only. It does not reproduce trusted Pass
+discounts, staff-specific timers, duplicate flood rules or new-thread client
+timing. It is not complete parity under the
+[active reference boundary](compatibility.md#active-reference-boundary).
+
 ## Private identity and lifecycle
 
 The application derives a full 32-byte HMAC-SHA256 digest from the verified
@@ -185,9 +217,16 @@ Test sources include `crates/store/tests/posting_cooldown.rs`,
 `apps/public/tests/content_admission.rs`, and
 `scripts/test-posting-cooldown-migration.sh`. Their presence is not an execution
 result; this document makes no test-pass or production
-qualification claim.
+qualification claim for the server admission fixtures.
+
+For the current client advisory, nine Node helper cases and one Rust form-policy
+render test passed; the Quick Reply bundle measures 27,349 bytes. The 22 new browser scenarios have not been run. Their synthetic browser
+intervals do not alter database policy or qualify authoritative cooldown
+behavior. See [Quick Reply verification](native-quick-reply.md#verification-and-remaining-work).
 
 Duplicate-comment and duplicate-image flood rules, trusted Pass discounts,
-native-client countdown/automatic posting behavior, the staff exceptions
-above, and complete source-formatting equivalence remain unfinished. This
-slice does not close #213 or establish complete posting-admission parity.
+new-thread client timing, the staff exceptions above, and complete
+source-formatting equivalence remain unfinished. The ordinary native Quick
+Reply countdown/one-shot implementation still needs its new browser scenarios
+executed. This slice does not close #213 or establish complete
+posting-admission parity.

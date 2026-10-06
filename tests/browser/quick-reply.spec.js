@@ -189,14 +189,16 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     const data = await (await request.get(`/fixture/thread/${id}.json`)).json(); expect(data.posts).toHaveLength(2);
     await page.locator('#qrCom').fill('Preserved on failure');
     await page.route(`**/fixture/imgboard.php`, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"Owned unavailable service"}' }));
-    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click()); await expect(page.locator('#qrError')).toHaveText('Owned unavailable service');
+    // Bypass the client advisory to exercise failure handling; server checks remain unchanged.
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] })); await expect(page.locator('#qrError')).toHaveText('Owned unavailable service');
     await expect(page.locator('#qrCom')).toHaveValue('Preserved on failure');
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(2);
     await page.unroute('**/fixture/imgboard.php');
     await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
     await context.clearCookies(); await page.reload();
     await page.getByRole('heading', { level: 1 }).click(); await page.keyboard.press('q'); await page.locator('#qrCom').fill('Second owned reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
-    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
+    // Bypass the client advisory for the cookie-reset scenario; server checks remain unchanged.
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] }));
     await expect(page.locator('.postMessage').filter({ hasText: 'Second owned reply' })).toBeVisible();
   } finally {
     await withDeletionQuota(async () => {
@@ -324,7 +326,8 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     await page.locator(`#pi${id} > .postNum > a[title="Reply to this post"]`).click({ modifiers: ['Control'] });
     await expect(page.locator('#qrCom')).toHaveValue(''); expect(context.pages()).toHaveLength(1);
     await page.locator('#qrCom').fill('Posted after Ctrl-click'); await expect(page.locator('#qr-pwd')).toHaveValue('');
-    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
+    // Bypass the client advisory for the shortcut scenario; server checks remain unchanged.
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] }));
     await expect(page.locator('.postMessage').filter({ hasText: 'Posted after Ctrl-click' })).toBeVisible();
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(3);
   } finally { await withDeletionQuota(async () => {

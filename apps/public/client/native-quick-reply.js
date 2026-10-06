@@ -5,6 +5,7 @@ import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
 import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
 import { postNumberReply } from './native-post-numbers.js';
+import { createQuickReplyCooldown } from './native-quick-reply-cooldown.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
   const source = document.querySelector('form.postEditor');
@@ -18,6 +19,21 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   let busy = false, commentTimer, uploadInput, uploadStatus, uploadCheck, uploadCancel, uploadSpoiler;
   let uploadReceipt = null, uploadOwned = false, uploadBusy = false, uploadController, uploadTimer;
   let uploadName = '', uploadPhase = 'empty', uploadCanCheck = false, uploadPolls = 0, uploadEpoch = 0, postingAttachment = false;
+  let armedDraft = null, storage;
+  try { storage = window.localStorage; } catch { /* Posting works without storage. */ }
+  const draft = () => JSON.stringify([current, uploadEpoch, ...new FormData(form).entries()].map(value =>
+    Array.isArray(value) ? [value[0], typeof value[1] === 'string' ? value[1]
+      : value[1].name ? [value[1].name, value[1].size, value[1].lastModified] : null] : value));
+  const cooldown = createQuickReplyCooldown({ board, storage,
+    replySeconds: source?.dataset.postingReplySeconds, imageSeconds: source?.dataset.postingImageSeconds,
+    changed: state => { if (submit && !busy) submit.value = state.label; },
+    expired: () => {
+      const previous = armedDraft; armedDraft = null;
+      if (dialog && previous?.form === form && previous.value === draft()) void send(true);
+    },
+  });
+  const cancelAuto = () => { armedDraft = null; cooldown.disarm(); };
+  const hasImage = () => !!(form?.elements.namedItem('upload_id')?.value || uploadInput?.files?.length || uploadPhase !== 'empty');
   const pollDelays = [1000, 2000, 4000];
   const disabled = () => settings().disableAll === true || settings().quickReply === false;
   const section = id => document.getElementById(`t${id}`);
@@ -105,6 +121,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     uploadPhase = 'empty'; uploadCanCheck = false; removeInlineCapability(); renderUpload();
   }
   function close() {
+    cancelAuto(); cooldown.stop();
     if (!dialog) return;
     if (postingAttachment) retireAmbiguousAttachment(); else bestEffortCancel();
     epoch++; controller?.abort(); controller = null; busy = false;
@@ -126,7 +143,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (entry) entry.hidden = disabled() || closed(thread) || mobile();
     if (!dialog) return;
     const locked = closed(current);
+    if (locked) cancelAuto();
     submit.disabled = uploadBusy || (uploadOwned && uploadReceipt?.state !== 'approved') || (locked && !busy);
+    if (!busy) cooldown.refresh(hasImage());
     if (locked) message('This thread is closed.');
     else if (error.textContent === 'This thread is closed.') message('');
   }
@@ -134,6 +153,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (!source || disabled() || !postId(id) || closed(id) || busy) return false;
     if (dialog) {
       if (current !== id) {
+        cancelAuto();
         if (uploadOwned || uploadBusy) {
           void cancelInlineUpload().then(ok => { if (ok && dialog) open(id, quote, selected, quoting); });
           return true;
@@ -224,9 +244,14 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.append(header, form, error); document.body.append(dialog); dialog.show();
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     form.addEventListener('submit', event => { event.preventDefault(); void send(); });
+    submit.addEventListener('click', event => {
+      if (event.shiftKey) { event.preventDefault(); void send(true); }
+    });
+    for (const type of ['input', 'change']) form.addEventListener(type, () => { cancelAuto(); sync(); });
     const onEdit = event => {
       if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) { event.preventDefault(); close(); return; }
       else if (event.ctrlKey && event.key?.toLowerCase() === 's') {
+        cancelAuto();
         event.preventDefault(); event.stopPropagation();
         const start = comment.selectionStart, end = comment.selectionEnd, empty = comment.value.length === 0;
         const value = `[spoiler]${comment.value.slice(start, end)}[/spoiler]`;
@@ -250,6 +275,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     return true;
   }
   function insert(id, selected) {
+    cancelAuto();
     const result = quoteInsertion(comment.value, comment.selectionStart, comment.selectionEnd, id, selected.slice(0, 65536));
     comment.value = result.value; comment.setSelectionRange(result.caret, result.caret);
     if (result.caret === comment.value.length) comment.scrollTop = comment.scrollHeight;
@@ -260,10 +286,15 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (closed(id)) { alert('This thread is closed'); return false; }
     return open(id, post, selected, true);
   }
-  async function send() {
+  async function send(force = false) {
     if (busy) { controller?.abort(); return; }
     if (uploadBusy || (uploadOwned && uploadReceipt?.state !== 'approved')) return;
     if (!dialog || disabled() || closed(current) || !form.reportValidity()) return;
+    if (!force && cooldown.refresh(hasImage())) {
+      armedDraft = cooldown.toggle() ? { form, value: draft() } : null;
+      return;
+    }
+    cancelAuto(); cooldown.stop();
     message(''); busy = true; submit.value = 'Sending';
     const active = ++epoch, id = current; controller = new AbortController();
     const fields = Object.fromEntries(new FormData(form));
@@ -273,6 +304,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       const result = await sendQuickReply({ board, thread: id, fields, signal: controller.signal });
       if (active !== epoch || disabled()) return;
       if (result.error) { postingAttachment = false; message(result.error); return; }
+      cooldown.success();
       if (source.elements.namedItem('upload_id')) {
         // Both editors refer to the same one-use approval. Once committed,
         // neither reopening QR nor submitting the ordinary form can reuse it.
@@ -293,7 +325,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         postingAttachment = false;
         message(failure instanceof Error ? failure.message : 'Connection error. Check the thread before retrying.');
       }
-    } finally { if (active === epoch) { busy = false; controller = null; submit.value = 'Post'; renderUpload(); sync(); } }
+    } finally { if (active === epoch) { busy = false; controller = null; renderUpload(); sync(); } }
   }
   function scheduleUploadCheck() {
     clearTimeout(uploadTimer);
@@ -327,6 +359,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   async function cancelInlineUpload() {
     if (busy) return false;
     if (disabled()) { close(); return false; }
+    cancelAuto();
     if (!uploadOwned && !uploadBusy) return true;
     stopUploadRequest();
     if (!uploadReceipt) { resetInlineUpload(); message(''); return true; }
@@ -345,6 +378,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (busy) return;
     if (disabled()) { close(); return; }
     if (!dialog || !postId(current)) return;
+    cancelAuto();
     if (uploadReceipt && !await cancelInlineUpload()) return;
     else if (uploadBusy) { stopUploadRequest(); uploadEpoch++; }
     const active = ++uploadEpoch, id = current; uploadName = file.name; uploadPhase = 'uploading'; uploadCanCheck = false; uploadPolls = 0;
@@ -372,6 +406,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     event.preventDefault(); quote(target.thread, event.ctrlKey ? null : target.post, getSelection()?.toString() ?? '');
   });
   window.addEventListener('pagehide', close); window.addEventListener('resize', () => { place(position); sync(); });
+  window.addEventListener('storage', event => cooldown.storageEvent(event));
   document.addEventListener('4chanThreadUpdated', sync);
   document.addEventListener('boardThreadStateChanged', sync);
   mountNativePostForm({ source, thread, openQuickReply: () => {

@@ -418,6 +418,56 @@ mod tests {
         Ok(encoded.chunks().flatten().copied().collect())
     }
 
+    #[test]
+    fn posting_forms_render_the_current_ordinary_cooldown_policy() {
+        for (reply, image) in [(0, 0), (15, 30), (90, 120), (86400, 86400)] {
+            let mut board = fixture().board;
+            board.posting_reply_seconds = reply;
+            board.posting_image_seconds = image;
+            let upload = crate::views::UploadPage {
+                board: board.clone(),
+                form: crate::views::UploadForm {
+                    upload_id: "1".repeat(32),
+                    upload_capability: "2".repeat(64),
+                    resto: 42,
+                },
+                ready: true,
+                message: "Approved",
+            }
+            .render()
+            .unwrap();
+            let page = crate::views::BoardPage {
+                spoiler_thumbnail: "spoiler.png".into(),
+                navigation_boards: vec![],
+                quote: String::new(),
+                catalog_hidden: vec![],
+                board,
+                threads: vec![],
+                parent: 0,
+                previous: String::new(),
+                next: String::new(),
+                catalog: false,
+                catalog_options: crate::catalog::Options::default(),
+                media_origin: String::new(),
+            }
+            .render()
+            .unwrap();
+            for html in [page, upload] {
+                assert_eq!(
+                    html.matches(&format!("data-posting-reply-seconds=\"{reply}\""))
+                        .count(),
+                    1
+                );
+                assert_eq!(
+                    html.matches(&format!("data-posting-image-seconds=\"{image}\""))
+                        .count(),
+                    1
+                );
+                assert!(!html.contains("window.cooldowns"));
+            }
+        }
+    }
+
     fn fixture() -> ThreadSnapshot {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();
         let id = i64::MAX - 1;

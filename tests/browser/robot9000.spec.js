@@ -48,7 +48,8 @@ test('desktop and mobile posting retain robot errors and Quick Reply drafts with
         if (mobile) {
           await page.locator('#qrCom').fill(marker);
           const response = page.waitForResponse(response => response.url() === `${origin}/r9k/imgboard.php` && response.request().method() === 'POST');
-          await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
+          // Bypass the client advisory to exercise the server's duplicate-post rejection.
+          await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] }));
           const rejected = await response;
           expect(rejected.status()).toBe(200);
           expect(await rejected.json()).toEqual({ error: 'You have been muted for 2 seconds, because your comment was not original.' });

@@ -48,7 +48,7 @@
     "test:images-core": "npm run check:native-images && node --test tests/browser/native-images.test.mjs tests/browser/native-images-dom.test.mjs",
     "build:native-images": "node scripts/build-native-images.mjs",
     "check:native-images": "node scripts/build-native-images.mjs --check",
-    "test:quick-reply": "npm run check:native-quick-reply && node --test tests/browser/native-quick-reply.test.mjs tests/browser/native-post-preferences.test.mjs && playwright test tests/browser/quick-reply.spec.js tests/browser/post-preferences.spec.js",
+    "test:quick-reply": "npm run check:native-quick-reply && node --test tests/browser/native-quick-reply.test.mjs tests/browser/native-quick-reply-cooldown.test.mjs tests/browser/native-post-preferences.test.mjs && playwright test tests/browser/quick-reply.spec.js tests/browser/post-preferences.spec.js tests/browser/native-quick-reply-cooldowns.spec.js",
     "build:native-quick-reply": "node scripts/build-native-quick-reply.mjs",
     "check:native-quick-reply": "node scripts/build-native-quick-reply.mjs --check",
     "test": "playwright test",
