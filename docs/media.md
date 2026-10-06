@@ -58,6 +58,10 @@ Cancellation and ordinary stream errors remove partial files. Abrupt process ter
 
 ## Untrusted output
 
+The unused [source-processed PNG digest prerequisite](source-media-digests.md)
+has a separate byte-level compatibility contract. It does not change runtime
+hashes, publication or duplicate-image admission.
+
 The protocol is eight ASCII bytes `IBRGBA01`, then width and height as unsigned big-endian 32-bit integers, then exactly `width * height * 4` RGBA bytes, followed by EOF. Each dimension must be 1 through 1,024. A caller must apply an external job deadline to a stream that never supplies EOF. The validator allocates only after checking dimensions and rejects truncated or trailing data.
 
 The promoter accepts only the library's validated type. It encodes PNG without supplied ancillary metadata, caps the actual encoder output, and creates `{generated_id}.png` without overwriting. An identical replay succeeds; a different existing object fails. Neither success flags nor filenames, archive structures, commands or paths are accepted from a worker. No original-file download route exists and failed processing never publishes the upload.

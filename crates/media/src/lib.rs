@@ -10,6 +10,7 @@ mod output;
 mod promotion;
 mod publication;
 mod quarantine;
+pub mod source_digest;
 
 pub use block::{OUTPUT_DISK_BYTES, write_input_disk};
 pub use id::ObjectId;
