@@ -105,10 +105,12 @@ pub(crate) async fn normalize_multipart<S: Send + Sync>(
     {
         let name = field.name().unwrap_or("").to_owned();
         let deletion_field = legacy
-            && (name == "onlyimgdel"
-                || (!name.is_empty()
-                    && name.len() <= 19
-                    && name.bytes().all(|byte| byte.is_ascii_digit())));
+            && (matches!(
+                name.as_str(),
+                "onlyimgdel" | "board" | "no" | "cat" | "cat_id" | "revision"
+            ) || (!name.is_empty()
+                && name.len() <= 19
+                && name.bytes().all(|byte| byte.is_ascii_digit())));
         if (!TEXT_FIELDS.contains(&name.as_str()) && name != "upfile" && !deletion_field)
             || !names.insert(name.clone())
             || names.len() > MAX_FORM_FIELDS

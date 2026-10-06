@@ -1,5 +1,5 @@
-//! Bounded operator-only catalog import. These deployment safety limits are
-//! rewrite choices, not claims about the legacy source's configuration limits.
+//! Bounded operator-only catalog import and explicit activation. These deployment
+//! safety limits are rewrite choices, not claims about legacy configuration limits.
 //! Importing a revision does not activate it or change report admission.
 
 use board_domain::report_category::{Catalog, Category, CategoryId};
@@ -46,6 +46,78 @@ pub enum ImportError {
     Verification,
     #[error("Database operation failed; no credentials or server details are displayed.")]
     Database,
+}
+
+/// An imported revision identifier. Construction excludes zero and negative IDs.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CatalogRevision(i64);
+
+impl CatalogRevision {
+    pub fn new(revision: i64) -> Option<Self> {
+        (revision > 0).then_some(Self(revision))
+    }
+
+    pub fn get(self) -> i64 {
+        self.0
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ActivationError {
+    #[error("Catalog activation changes require an actual board_migrator login and role.")]
+    Role,
+    #[error("Catalog activation requires an existing, nonempty imported revision.")]
+    InvalidRevision,
+    #[error("Database operation failed; no credentials or server details are displayed.")]
+    Database,
+}
+
+/// Explicitly switch report admission to an imported catalog, or restore the
+/// default free-text mode with `None`. Importing alone never invokes this helper.
+/// SQL validates the revision and serializes the switch with report admission.
+pub async fn set_report_catalog_active(
+    connection: &mut PgConnection,
+    revision: Option<CatalogRevision>,
+) -> Result<(), ActivationError> {
+    let mut transaction = connection
+        .begin()
+        .await
+        .map_err(activation_database_error)?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *transaction)
+        .await
+        .map_err(activation_database_error)?;
+    let role: bool = sqlx::query_scalar(
+        "SELECT session_user = 'board_migrator' AND current_user = 'board_migrator'",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .map_err(activation_database_error)?;
+    if !role {
+        return Err(ActivationError::Role);
+    }
+    sqlx::query("SELECT content.set_report_catalog_active($1::bigint)")
+        .bind(revision.map(CatalogRevision::get))
+        .execute(&mut *transaction)
+        .await
+        .map_err(activation_database_error)?;
+    transaction
+        .commit()
+        .await
+        .map_err(activation_database_error)?;
+    Ok(())
+}
+
+fn activation_database_error(error: sqlx::Error) -> ActivationError {
+    match error
+        .as_database_error()
+        .and_then(|error| error.code())
+        .as_deref()
+    {
+        Some("42501") => ActivationError::Role,
+        Some("22023" | "P0002") => ActivationError::InvalidRevision,
+        _ => ActivationError::Database,
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -155,8 +227,8 @@ pub fn parse_catalog(bytes: &[u8]) -> Result<ValidatedCatalog, ImportError> {
 }
 
 /// Append and verify an immutable private revision in one transaction. A failed
-/// comparison rolls back. No activation, runtime selection, or report write is
-/// available here. SQL separately enforces its normalized-JSONB 8 MiB budget and
+/// comparison rolls back. This import helper does not activate a revision, select
+/// it for runtime use, or write a report. SQL separately enforces its normalized-JSONB 8 MiB budget and
 /// revision capacity, so offline success does not promise import success.
 pub async fn import_catalog(
     connection: &mut PgConnection,
@@ -222,6 +294,24 @@ mod tests {
 
     fn bytes(rows: Vec<Value>) -> Vec<u8> {
         serde_json::to_vec(&json!({"version": 1, "categories": rows})).unwrap()
+    }
+
+    #[test]
+    fn revision_requires_a_positive_i64() {
+        for value in [i64::MIN, -1, 0] {
+            assert!(CatalogRevision::new(value).is_none());
+        }
+        for value in [1, i64::MAX] {
+            assert_eq!(CatalogRevision::new(value).unwrap().get(), value);
+        }
+    }
+
+    #[test]
+    fn activation_errors_never_include_database_details() {
+        let error = sqlx::Error::Protocol("secret URL or catalog text".to_owned());
+        let displayed = activation_database_error(error).to_string();
+        assert!(!displayed.contains("secret"));
+        assert!(!displayed.contains("catalog text"));
     }
 
     #[test]

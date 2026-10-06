@@ -87,6 +87,8 @@ mod tests {
             post_id: 1,
             thread_id: 1,
             reason: "<b>untrusted report</b>".into(),
+            category_id: None,
+            category_kind: None,
             name: "<em>name</em>".into(),
             trip: Some("<em>untrusted trip</em>".into()),
             poster_id: Some("<b>untrusted ID</b>".into()),
@@ -129,6 +131,8 @@ mod tests {
         assert!(!html.contains("<b>"));
         assert!(!html.contains("<em>"));
         assert!(!html.contains("<i>"));
+        assert!(html.contains("<p>Reason: "));
+        assert!(!html.contains("<p>Category: "));
         assert!(html.contains("class=\"postertrip\""));
         assert!(html.contains("untrusted trip"));
         assert!(html.contains("untrusted ID"));
@@ -145,6 +149,78 @@ mod tests {
     }
 
     #[test]
+    fn category_preview_uses_captured_title_and_identity() {
+        for (kind, label, title) in [
+            (1, "rule", "<script>untrusted category</script>".to_owned()),
+            (2, "illegal", String::new()),
+            (1, "rule", "😀".repeat(1024)),
+        ] {
+            let report = Report {
+                id: 1,
+                board: "test".into(),
+                post_id: 1,
+                thread_id: 1,
+                reason: title.clone(),
+                category_id: Some(42),
+                category_kind: Some(kind),
+                name: "Anonymous".into(),
+                trip: None,
+                poster_id: None,
+                capcode: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                board_flag_type: "pol".into(),
+                flag_name: None,
+                subject: String::new(),
+                comment: String::new(),
+                comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                state: "open".into(),
+                closed: false,
+                sticky: false,
+                permasage: false,
+                permaage: false,
+                undead: false,
+                archived: false,
+                deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
+                attachment: None,
+            };
+            let html = Queue {
+                media_origin: String::new(),
+                reports: vec![report.into()],
+                csrf: "category-fixture".into(),
+                recent: true,
+                can_permaage: false,
+                moderator: true,
+                can_post: false,
+                discussion: false,
+            }
+            .render()
+            .unwrap();
+            assert!(html.contains(&format!("<p>Category: 42 ({label})")));
+            assert!(!html.contains("<p>Reason: "));
+            assert!(!html.contains("<script>"));
+            assert!(!html.contains("priority"));
+            if title.is_empty() {
+                assert!(html.contains("<p>Category: 42 (illegal)</p>"));
+            } else if title.starts_with('<') {
+                assert!(
+                    html.contains("&#60;script&#62;untrusted category&#60;/script&#62;")
+                        || html.contains("&lt;script&gt;untrusted category&lt;/script&gt;")
+                );
+            } else {
+                assert!(html.contains(&title));
+            }
+            assert!(html.contains("Resolve report"));
+            assert!(html.contains("Dismiss report"));
+        }
+    }
+
+    #[test]
     fn stamped_preview_keeps_markup_and_escapes_hostile_text() {
         for format in [0, 8, 9, 15, 24, 31, 40, 47, 56, 63, 104, 105, 111, 120, 127] {
             let preview = Preview::from(Report {
@@ -153,6 +229,8 @@ mod tests {
                 post_id: 1,
                 thread_id: 1,
                 reason: "Owned preview".into(),
+                category_id: None,
+                category_kind: None,
                 name: "Anonymous".into(),
                 trip: None,
                 poster_id: None,
@@ -217,6 +295,8 @@ mod tests {
                 post_id: 1,
                 thread_id: 1,
                 reason: "Synthetic full preview".into(),
+                category_id: None,
+                category_kind: None,
                 name: "Anonymous".into(),
                 trip: None,
                 poster_id: None,

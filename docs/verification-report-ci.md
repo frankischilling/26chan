@@ -113,3 +113,16 @@ queued job with a bounded row lock, verifies state, attempt count, input size an
 expiry, then explicitly releases the lock before the single `SKIP LOCKED` claim.
 This establishes the idle-queue precondition without retries or production queue
 changes. The exact source of the transient lock has not been established.
+
+## Post-menu browser contract after popup completion
+
+At b860089, main Windows, all four Windows theme shards and media/operations
+passed. Linux passed the dedicated report-popup group, then failed the older
+thread-watcher menu test: it still expected the inline report input to receive
+focus after the menu action opened the registered popup.
+
+That test now checks the actual popup URL and target, counts POSTs across the
+opener and popup, submits the real form, and verifies persisted reply hiding.
+It then uses the real Unhide menu before the original cookie-authorized deletion
+checks. Production menu behavior is unchanged. Its syntax is checked locally;
+actual browser execution still requires the next exact-head run.

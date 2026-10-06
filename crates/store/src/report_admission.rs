@@ -90,7 +90,38 @@ pub(crate) async fn admit_with_session_on(
         .map_err(admission_error)
 }
 
-fn admission_error(error: sqlx::Error) -> StoreError {
+/// Category resolution and captured metadata are owned by the SQL boundary.
+/// The caller supplies only an ID and the advisory form's expected revision.
+pub(crate) async fn admit_categorical_with_session_on(
+    connection: &mut PgConnection,
+    slug: &str,
+    id: i64,
+    category_id: i64,
+    expected_revision: i64,
+    identity: &PublicReportRateIdentity,
+    session: PostingSession,
+) -> Result<i64, StoreError> {
+    let fingerprints = session.fingerprints;
+    sqlx::query_scalar(
+        "SELECT content.admit_categorical_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+    )
+    .bind(slug)
+    .bind(id)
+    .bind(category_id)
+    .bind(expected_revision)
+    .bind(identity.as_bytes().as_slice())
+    .bind(fingerprints.token.as_slice())
+    .bind(fingerprints.network.as_slice())
+    .bind(fingerprints.address.as_slice())
+    .bind(fingerprints.environment.as_slice())
+    .bind(session.minted)
+    .bind(session.now.timestamp())
+    .fetch_one(connection)
+    .await
+    .map_err(admission_error)
+}
+
+pub(crate) fn admission_error(error: sqlx::Error) -> StoreError {
     if let Some(database) = error.as_database_error() {
         match database.code().as_deref() {
             Some("P0002") => return StoreError::NotFound,
@@ -113,6 +144,14 @@ fn admission_error(error: sqlx::Error) -> StoreError {
                     "You have to wait a while before reporting another post." => {
                         "You have to wait a while before reporting another post."
                     }
+                    "Free-text reporting is not active." => "Free-text reporting is not active.",
+                    "Categorical reporting is not active." => {
+                        "Categorical reporting is not active."
+                    }
+                    "Report categories changed. Please reload the report form." => {
+                        "Report categories changed. Please reload the report form."
+                    }
+                    "Invalid category selected." => "Invalid category selected.",
                     _ => return StoreError::Database(error),
                 };
                 return StoreError::Invalid(message);
@@ -136,8 +175,8 @@ pub const READINESS_SQL: &str = r#"WITH owner_role AS (
 ), relations AS (
     SELECT c.oid,c.relowner,n.nspname,c.relname
     FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-    WHERE (n.nspname='post_secrets' AND c.relname IN ('report_membership','report_admission_gate'))
-       OR (n.nspname='content' AND c.relname IN ('reports','reports_id_seq','boards','posts','threads'))
+    WHERE (n.nspname='post_secrets' AND c.relname IN ('report_membership','report_admission_gate','report_catalog_gate','report_catalog_versions','report_catalog_rows'))
+       OR (n.nspname='content' AND c.relname IN ('reports','reports_id_seq','boards','posts','threads','post_media'))
 )
 SELECT EXISTS (SELECT 1 FROM owner_role)
 AND NOT EXISTS (
@@ -147,15 +186,18 @@ AND NOT EXISTS (
 )
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES
-        ('content.check_report_admission(text,bigint,bytea)','void',true,true),
-        ('content.check_report_admission(text,bigint,bytea,bytea,bigint)','void',true,true),
-        ('content.admit_report(text,bigint,text,bytea)','bigint',false,true),
-        ('content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false)
-    ) AS required(signature,result_type,public_allowed,staff_allowed)
+        ('content.check_report_admission(text,bigint,bytea)','void',true,true,false),
+        ('content.check_report_admission(text,bigint,bytea,bytea,bigint)','void',true,true,false),
+        ('content.admit_report(text,bigint,text,bytea)','bigint',false,true,false),
+        ('content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,false),
+        ('content.report_category_form(text,bigint)','jsonb',true,true,true),
+        ('content.admit_categorical_report(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,true),
+        ('content.set_report_catalog_active(bigint)','void',false,false,true)
+    ) AS required(signature,result_type,public_allowed,staff_allowed,migrator_allowed)
     WHERE NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_proc p JOIN owner_role r ON r.oid=p.proowner
         WHERE p.oid=to_regprocedure(required.signature)
-          AND p.prokind='f' AND p.prosecdef AND p.provolatile='v'
+          AND p.prokind='f' AND p.prosecdef AND p.provolatile='v' AND NOT p.proretset
           AND p.prorettype=to_regtype(required.result_type)
           AND p.pronargdefaults=0 AND p.provariadic=0
           AND cardinality(p.proconfig)=1
@@ -166,10 +208,12 @@ AND NOT EXISTS (
           AND has_function_privilege('board_public',p.oid,'EXECUTE')=required.public_allowed
           AND has_function_privilege('board_staff',p.oid,'EXECUTE')=required.staff_allowed
           AND NOT has_function_privilege('board_auth',p.oid,'EXECUTE')
+          AND has_function_privilege('board_migrator',p.oid,'EXECUTE')=required.migrator_allowed
           AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
               WHERE a.privilege_type='EXECUTE' AND (a.is_grantable OR a.grantee NOT IN
                   (p.proowner,CASE WHEN required.public_allowed THEN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_public') ELSE p.proowner END,
-                   CASE WHEN required.staff_allowed THEN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_staff') ELSE p.proowner END)))
+                   CASE WHEN required.staff_allowed THEN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_staff') ELSE p.proowner END,
+                   CASE WHEN required.migrator_allowed THEN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_migrator') ELSE p.proowner END)))
     )
 )
 AND NOT EXISTS (
@@ -188,7 +232,7 @@ AND NOT EXISTS (
         JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
         WHERE n.nspname='post_secrets' AND p.proname=required.function_name
           AND p.proargtypes=required.argument_types::oidvector
-          AND p.prokind='f' AND p.prosecdef AND p.provolatile='v'
+          AND p.prokind='f' AND p.prosecdef AND p.provolatile='v' AND NOT p.proretset
           AND p.prorettype=to_regtype(required.result_type)
           AND p.pronargdefaults=0 AND p.provariadic=0
           AND cardinality(p.proconfig)=1
@@ -239,7 +283,7 @@ AND NOT EXISTS (
     )
 )
 AND NOT EXISTS (
-    SELECT 1 FROM (VALUES ('report_membership'),('report_admission_gate')) AS required(table_name)
+    SELECT 1 FROM (VALUES ('report_membership'),('report_admission_gate'),('report_catalog_gate'),('report_catalog_versions'),('report_catalog_rows')) AS required(table_name)
     WHERE NOT EXISTS (
         SELECT 1 FROM relations c CROSS JOIN owner_role r
         WHERE c.nspname='post_secrets' AND c.relname=required.table_name AND c.relowner=r.oid
@@ -284,7 +328,11 @@ AND NOT EXISTS (
         ('threads','id','SELECT'),('threads','board','SELECT'),('threads','deleted','SELECT'),
         ('threads','sticky','SELECT'),('threads','archived_at','SELECT'),('threads','archive_expires_at','SELECT'),
         ('reports','id','SELECT'),('reports','board','INSERT'),('reports','post_id','INSERT'),
-        ('reports','reason','INSERT'),('reports','created_at','INSERT')
+        ('reports','reason','INSERT'),('reports','created_at','INSERT'),
+        ('reports','category_revision','INSERT'),('reports','category_id','INSERT'),
+        ('reports','category_kind','INSERT'),('reports','category_base_weight','INSERT'),
+        ('boards','worksafe','SELECT'),('post_media','post_id','SELECT'),
+        ('post_media','bytes','SELECT'),('post_media','file_deleted','SELECT')
     ) AS required(table_name,column_name,privilege_name)
     WHERE NOT EXISTS (
         SELECT 1 FROM relations c CROSS JOIN owner_role r
@@ -306,6 +354,92 @@ AND EXISTS (
             AND k.conkey=ARRAY[a.attnum]::smallint[]
             AND lower(translate(pg_catalog.pg_get_expr(k.conbin,k.conrelid),' ()',''))
                 ='membership_limit>=1andmembership_limit<=1000000')
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content','reports','category_revision','int8'),
+        ('content','reports','category_id','int8'),
+        ('content','reports','category_kind','int2'),
+        ('content','reports','category_base_weight','float8'),
+        ('post_secrets','report_admission_gate','active_catalog_revision','int8')
+    ) AS required(schema_name,table_name,column_name,type_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid
+        WHERE c.nspname=required.schema_name AND c.relname=required.table_name
+          AND a.attname=required.column_name AND a.attnum>0 AND NOT a.attisdropped
+          AND a.atttypid=to_regtype('pg_catalog.'||required.type_name)
+          AND a.atttypmod=-1 AND NOT a.attnotnull AND NOT a.atthasdef
+          AND a.attgenerated='' AND a.attidentity=''
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_staff','board_auth')
+                AND has_column_privilege(runtime.oid,c.oid,a.attnum,'UPDATE,REFERENCES'))
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_auth')
+                AND has_column_privilege(runtime.oid,c.oid,a.attnum,'SELECT'))
+    )
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('reports_category_complete',ARRAY['category_revision','category_id','category_kind','category_base_weight'],
+         '(num_nonnulls(category_revision,category_id,category_kind,category_base_weight)=any(array[0,4]))'),
+        ('reports_category_kind_check',ARRAY['category_kind','category_id'],
+         '(category_kind=casewhen(category_id=31)then2else1end)'),
+        ('reports_category_weight_check',ARRAY['category_base_weight'],
+         '(category_base_weight<>all(array[''infinity''::doubleprecision,''-infinity''::doubleprecision,''nan''::doubleprecision]))'),
+        ('reports_reason_check',ARRAY['category_revision','reason'],
+         '(((category_revisionisnull)and((octet_length(reason)>=1)and(octet_length(reason)<=1000)))or((category_revisionisnotnull)and((octet_length(reason)>=0)and(octet_length(reason)<=4096))))')
+    ) AS required(constraint_name,columns,expression)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c JOIN pg_catalog.pg_constraint k ON k.conrelid=c.oid
+        WHERE c.nspname='content' AND c.relname='reports' AND k.conname=required.constraint_name
+          AND k.contype='c' AND k.convalidated AND NOT k.connoinherit
+          AND NOT k.condeferrable AND NOT k.condeferred
+          AND k.conkey=ARRAY(SELECT a.attnum FROM unnest(required.columns) WITH ORDINALITY AS names(name,ordinal)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attname=names.name
+                  AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
+          AND lower(regexp_replace(pg_catalog.pg_get_expr(k.conbin,k.conrelid),'[[:space:]]','','g'))
+              =required.expression
+    )
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content','reports',ARRAY['category_revision','category_id'],
+         'report_catalog_rows',ARRAY['revision','id'])
+    ) AS required(schema_name,table_name,columns,referenced_table,referenced_columns)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c JOIN pg_catalog.pg_constraint k ON k.conrelid=c.oid
+        JOIN relations referenced ON referenced.oid=k.confrelid
+        WHERE c.nspname=required.schema_name AND c.relname=required.table_name
+          AND referenced.nspname='post_secrets' AND referenced.relname=required.referenced_table
+          AND k.contype='f' AND k.convalidated AND NOT k.condeferrable AND NOT k.condeferred
+          AND k.confmatchtype='s' AND k.confupdtype='a' AND k.confdeltype='a'
+          AND (SELECT count(*)=4 AND bool_and(t.tgisinternal AND t.tgenabled='O')
+              FROM pg_catalog.pg_trigger t WHERE t.tgconstraint=k.oid)
+          AND k.conkey=ARRAY(SELECT a.attnum FROM unnest(required.columns) WITH ORDINALITY AS names(name,ordinal)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attname=names.name
+                  AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
+          AND k.confkey=ARRAY(SELECT a.attnum FROM unnest(required.referenced_columns) WITH ORDINALITY AS names(name,ordinal)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid=referenced.oid AND a.attname=names.name
+                  AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
+    )
+)
+AND EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p JOIN owner_role r ON r.oid=p.proowner
+    JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='post_secrets' AND p.proname='eligible_report_categories'
+      AND p.proargtypes='25 20 20'::oidvector
+      AND p.proallargtypes=ARRAY[25,20,20,20,25,21,701,23,23]::oid[]
+      AND p.proargmodes=ARRAY['i','i','i','t','t','t','t','t','t']::"char"[]
+      AND p.prokind='f' AND NOT p.prosecdef AND p.provolatile='s'
+      AND p.prorettype='pg_catalog.record'::regtype AND p.proretset
+      AND p.pronargdefaults=0 AND p.provariadic=0
+      AND cardinality(p.proconfig)=1
+      AND replace(p.proconfig[1],' ','')='search_path=pg_catalog,pg_temp'
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+          WHERE runtime.rolname IN ('board_public','board_staff','board_auth','board_migrator')
+            AND has_function_privilege(runtime.oid,p.oid,'EXECUTE'))
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+          WHERE a.privilege_type='EXECUTE' AND (a.is_grantable OR a.grantee<>p.proowner))
 )
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES ('content'),('post_secrets')) AS required(schema_name)

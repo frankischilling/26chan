@@ -3,7 +3,9 @@
 Migration 0094 introduced the IP branch of `4chan-old/modes/report.php:110-168`.
 Migration 0097 adds forward registered automatic-session equality. This remains
 partial report parity: verified-email and Pass identity, CAPTCHA, report bans,
-category weights and illegal-report policy are separate work.
+effective category weights and illegal-report moderation policy are separate work.
+Migration 0099 adds [opt-in category selection](source-report-categories.md)
+without claiming those remaining abuse-control semantics.
 
 ## Decisions
 
@@ -86,7 +88,7 @@ explicit lifecycle gaps.
 
 For an existing installation, the bootstrap administrator runs
 `deploy/report-admission-role.sql` once before migration 0094. Fresh installations
-use `deploy/roles.sql`. Stop old writers, apply through 0097, then start matching
+use `deploy/roles.sql`. Stop old writers, apply through 0099, then start matching
 public and staff binaries. Both readiness checks require the new restricted interfaces.
 Old public binaries cannot insert reports after the direct grant is revoked;
 rolling back only the binary is not a compatible reporting rollback.

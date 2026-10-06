@@ -7,7 +7,7 @@ use askama::Template;
 use axum::{
     Extension, Form,
     body::Body,
-    extract::{FromRequest, Path, Request, State},
+    extract::{FromRequest, OriginalUri, Path, Request, State},
     http::{HeaderMap, StatusCode, header::CONTENT_TYPE},
     response::{IntoResponse, Response},
 };
@@ -19,6 +19,10 @@ const INVALID: &str = "Invalid posting or deletion form.";
 enum Submission {
     Post(Box<PostForm>),
     Delete(Deletion),
+    Report {
+        board: Option<String>,
+        form: handlers::ReportSubmission,
+    },
 }
 
 pub(crate) struct LegacyForm(Submission);
@@ -92,15 +96,92 @@ fn deletion(fields: Vec<(String, String)>) -> Result<Deletion, Rejection> {
     })
 }
 
+fn categorical_report(
+    fields: Vec<(String, String)>,
+    query: &[(String, String)],
+) -> Result<(Option<String>, handlers::ReportSubmission), Rejection> {
+    let value = |name: &str| {
+        fields
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.as_str())
+    };
+    let query_value = |name: &str| {
+        query
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.as_str())
+    };
+    if fields.iter().any(|(name, _)| {
+        !matches!(
+            name.as_str(),
+            "mode" | "board" | "no" | "cat" | "cat_id" | "revision"
+        )
+    }) {
+        return Err(invalid());
+    }
+    for name in ["mode", "board", "no"] {
+        if let (Some(body), Some(query)) = (value(name), query_value(name))
+            && body != query
+        {
+            return Err(invalid());
+        }
+    }
+    let no = query_value("no")
+        .and_then(crate::legacy_report::positive_id)
+        .ok_or_else(invalid)?;
+    let expected_revision = value("revision")
+        .and_then(crate::legacy_report::positive_id)
+        .ok_or_else(invalid)?;
+    let selected = board_domain::report_category::selected_field(value("cat"), value("cat_id"))
+        .map_err(|_| {
+            Rejection::Multipart(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Invalid category selected.",
+            )
+        })?;
+    let category_id = crate::legacy_report::positive_id(selected).ok_or(Rejection::Multipart(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "Invalid category selected.",
+    ))?;
+    let board = value("board")
+        .or_else(|| query_value("board"))
+        .map(str::to_owned);
+    Ok((
+        board,
+        handlers::ReportSubmission::Categorical {
+            no,
+            category_id,
+            expected_revision,
+        },
+    ))
+}
+
 impl<S: Send + Sync> FromRequest<S> for LegacyForm {
     type Rejection = Rejection;
 
     async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
-        let mut query_mode = None;
-        for (name, value) in
+        let query: Vec<_> =
             url::form_urlencoded::parse(request.uri().query().unwrap_or("").as_bytes())
-        {
-            if name == "mode" && query_mode.replace(value.into_owned()).is_some() {
+                .take(MAX_FORM_FIELDS + 1)
+                .map(|(name, value)| (name.into_owned(), value.into_owned()))
+                .collect();
+        if query.len() > MAX_FORM_FIELDS {
+            return Err(invalid());
+        }
+        let reporting = query
+            .iter()
+            .any(|(name, value)| name == "mode" && value == "report");
+        let mut query_mode = None;
+        let mut query_names = BTreeSet::new();
+        for (name, value) in &query {
+            if reporting
+                && (!query_names.insert(name.as_str())
+                    || !matches!(name.as_str(), "mode" | "no" | "board"))
+            {
+                return Err(invalid());
+            }
+            if name == "mode" && query_mode.replace(value.clone()).is_some() {
                 return Err(invalid());
             }
         }
@@ -111,6 +192,10 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
         let mut names = BTreeSet::new();
         if fields.iter().any(|(name, _)| !names.insert(name.as_str())) {
             return Err(invalid());
+        }
+        if reporting {
+            return categorical_report(fields, &query)
+                .map(|(board, form)| Self(Submission::Report { board, form }));
         }
         if let Some(query_mode) = query_mode {
             match fields.iter().find(|(name, _)| name == "mode") {
@@ -151,9 +236,32 @@ pub(crate) async fn submit(
     Extension(start): Extension<crate::security::RequestStart>,
     Extension(peer): Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
+    OriginalUri(uri): OriginalUri,
     form: Result<LegacyForm, Rejection>,
 ) -> Response {
+    let reporting = url::form_urlencoded::parse(uri.query().unwrap_or("").as_bytes())
+        .any(|(name, value)| name == "mode" && value == "report");
     match form {
+        Ok(LegacyForm(Submission::Report {
+            board: submitted_board,
+            form,
+        })) => {
+            if !crate::legacy_report::safe_board(&board)
+                || submitted_board
+                    .as_deref()
+                    .is_some_and(|submitted| submitted != board)
+            {
+                return crate::legacy_report::error(
+                    &state,
+                    &board,
+                    None,
+                    AppError(StatusCode::BAD_REQUEST, "Invalid reporting request."),
+                );
+            }
+            handlers::submit_report(&state, &board, peer, &headers, form)
+                .await
+                .unwrap_or_else(AppError::into_response)
+        }
         Ok(LegacyForm(Submission::Post(form))) => {
             handlers::post(
                 State(state),
@@ -188,6 +296,14 @@ pub(crate) async fn submit(
             };
             let mut batch = board_store::PublicDeletionBatch::new(board, context, identity);
             delete_selection(&state, &mut batch, form).await
+        }
+        Err(error) if reporting => {
+            let message = if error.message() == "Invalid category selected." {
+                error.message()
+            } else {
+                "Invalid reporting form."
+            };
+            crate::legacy_report::error(&state, &board, None, AppError(error.status(), message))
         }
         Err(error) => {
             let format = crate::posting_response::Format::from_headers(&headers);
@@ -273,6 +389,108 @@ mod tests {
             .header(CONTENT_TYPE, content_type)
             .body(Body::from(body))
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn categorical_reports_use_query_target_and_php_selection_before_strict_ids() {
+        for multipart in [false, true] {
+            for (cat, cat_id, expected) in
+                [("", "17", 17), ("0", "17", 17), ("31", "malformed", 31)]
+            {
+                let fields = [
+                    ("board", "test"),
+                    ("no", "19"),
+                    ("revision", "2"),
+                    ("cat", cat),
+                    ("cat_id", cat_id),
+                ];
+                let Ok(LegacyForm(Submission::Report {
+                    board,
+                    form:
+                        handlers::ReportSubmission::Categorical {
+                            no,
+                            category_id,
+                            expected_revision,
+                        },
+                })) = LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=report&no=19", &fields, multipart),
+                    &(),
+                )
+                .await
+                else {
+                    panic!("valid categorical form rejected");
+                };
+                assert_eq!(board.as_deref(), Some("test"));
+                assert_eq!((no, category_id, expected_revision), (19, expected, 2));
+            }
+            for fields in [
+                vec![("revision", "2"), ("cat", "bad"), ("cat_id", "17")],
+                vec![("revision", "2"), ("cat", "031"), ("cat_id", "17")],
+                vec![("revision", "2"), ("cat", "31"), ("no", "20")],
+                vec![("revision", "02"), ("cat", "31")],
+                vec![("revision", "2"), ("cat", "31"), ("cat", "31")],
+                vec![("revision", "2"), ("cat[]", "31")],
+                vec![("revision", "2"), ("cat", "31"), ("reason", "other")],
+                vec![("revision", "2"), ("cat", "31"), ("mode", "regist")],
+            ] {
+                assert!(
+                    LegacyForm::from_request(
+                        request("/test/imgboard.php?mode=report&no=19", &fields, multipart),
+                        &()
+                    )
+                    .await
+                    .is_err()
+                );
+            }
+            for uri in [
+                "/test/imgboard.php?mode=report",
+                "/test/imgboard.php?mode=report&no=019",
+                "/test/imgboard.php?mode=report&no=19&no=19",
+                "/test/imgboard.php?mode=report&no=19&cat=31",
+                "/test/imgboard.php?mode=report&mode=regist&no=19",
+            ] {
+                assert!(
+                    LegacyForm::from_request(
+                        request(uri, &[("revision", "2"), ("cat", "31")], multipart),
+                        &()
+                    )
+                    .await
+                    .is_err()
+                );
+            }
+            for mode in ["regist", "post", "usrdel"] {
+                for key in ["board", "no", "cat", "cat_id", "revision"] {
+                    let fields = [
+                        ("mode", mode),
+                        ("pwd", "owned-password"),
+                        ("17", "delete"),
+                        (key, "17"),
+                    ];
+                    assert!(
+                        LegacyForm::from_request(
+                            request("/test/imgboard.php", &fields, multipart),
+                            &()
+                        )
+                        .await
+                        .is_err()
+                    );
+                    let posting = [
+                        ("mode", mode),
+                        ("pwd", "owned-password"),
+                        ("com", "message"),
+                        (key, "17"),
+                    ];
+                    assert!(
+                        LegacyForm::from_request(
+                            request("/test/imgboard.php", &posting, multipart),
+                            &()
+                        )
+                        .await
+                        .is_err()
+                    );
+                }
+            }
+        }
     }
 
     #[tokio::test]

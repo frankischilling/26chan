@@ -48,6 +48,15 @@ export function mountReportPopup({ window: win, document: doc }) {
       event.preventDefault(); close();
     }
   }
+  const rule = doc.getElementById('report-category-rule');
+  const illegal = doc.getElementById('report-category-illegal');
+  const category = doc.getElementById('report-category-select');
+  function syncCategory() {
+    if (category) category.disabled = !!illegal?.checked;
+  }
+  rule?.addEventListener('change', syncCategory);
+  illegal?.addEventListener('change', syncCategory);
+  syncCategory();
   const control = doc.getElementById('report-popup-close');
   if (control) control.hidden = false;
   control?.addEventListener('click', close);
@@ -62,6 +71,8 @@ export function mountReportPopup({ window: win, document: doc }) {
   function destroy() {
     if (timer !== null) win.clearTimeout(timer);
     control?.removeEventListener('click', close);
+    rule?.removeEventListener('change', syncCategory);
+    illegal?.removeEventListener('change', syncCategory);
     doc.removeEventListener('keydown', keydown);
     win.removeEventListener('pagehide', destroy);
   }

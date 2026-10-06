@@ -15,13 +15,13 @@ function fixture(source, environment = {}) {
   mkdirSync(examples, { recursive: true });
   // This stand-in verifies only orchestration. Rust tests qualify database ownership.
   const executable = path.join(examples, 'deletion-quota-fixture');
-  writeFileSync(executable, `#!${process.execPath}\nconst fs = require('node:fs');\nfs.appendFileSync(${JSON.stringify(log)}, process.argv[2] + '\\n');\nif (fs.existsSync(${JSON.stringify(directory)} + '/fail-' + process.argv[2])) process.exit(1);\n`);
+  writeFileSync(executable, `#!${process.execPath}\nconst fs = require('node:fs');\nfs.appendFileSync(${JSON.stringify(log)}, process.argv[2] + '\\n');\nif (fs.existsSync(${JSON.stringify(directory)} + '/fail-' + process.argv[2])) process.exit(1);\nif (process.argv[2] === 'catalog-enable' || process.argv[2] === 'catalog-disable') console.log(JSON.stringify({revision:7,ruleId:9001,illegalId:31}));\nif (process.argv[2] === 'catalog-inspect') console.log(JSON.stringify({reportCount:1,categories:[{revision:7,id:9001,kind:1,baseWeight:1.25,title:'Synthetic board rule'}]}));\n`);
   chmodSync(executable, 0o700);
   try {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import assert from 'node:assert/strict';
       import { readFileSync, existsSync, chmodSync, writeFileSync, rmSync } from 'node:fs';
-      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota, withPostingHistory } from ${JSON.stringify(moduleUrl)};
+      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota, withPostingHistory, withReportCatalog } from ${JSON.stringify(moduleUrl)};
       ${source}
     `], {
       encoding: 'utf8', timeout: 10_000,
@@ -308,4 +308,99 @@ test('visual-only posting scope needs no manifest and returns the callback resul
     VISUAL_FIXTURE_SERVER: '1', MIGRATION_DATABASE_URL: '',
   });
   assert.deepEqual(commands, []);
+});
+
+
+test('catalog preparation is lazy, scopes queue and expose only synthetic metadata', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    try {
+      const order = [];
+      const first = withReportCatalog(async catalog => {
+        assert.equal(catalog.revision, 7);
+        assert.equal(catalog.ruleId, 9001);
+        assert.equal(catalog.illegalId, 31);
+        assert.equal(catalog.marker, prepareDeletionQuotaRun().marker);
+        const result = await catalog.inspect({op:1, target:'2'});
+        assert.deepEqual(result, {reportCount:1,categories:[{revision:7,id:9001,kind:1,baseWeight:1.25,title:'Synthetic board rule'}]});
+        order.push('first');
+        await new Promise(r => setTimeout(r, 20));
+        order.push('last');
+        await catalog.disable();
+        return 9;
+      });
+      const second = withReportCatalog(async () => { order.push('second'); });
+      assert.equal(await first, 9);
+      await second;
+      assert.deepEqual(order, ['first','last','second']);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-inspect','catalog-disable','catalog-disable','catalog-enable','catalog-disable','finish']);
+});
+
+test('catalog rejects fake backends, missing or insecure manifests and nesting', () => {
+  assert.deepEqual(fixture(`await assert.rejects(withReportCatalog(async () => {}), /real backend/);`, {VISUAL_FIXTURE_SERVER:'1'}).commands, []);
+  const { commands } = fixture(`
+    await assert.rejects(withReportCatalog(async () => {}), /manifest is missing/);
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    try {
+      chmodSync(filename, 0o644);
+      await assert.rejects(withReportCatalog(async () => {}), /Private owned/);
+      chmodSync(filename, 0o600);
+      let escaped;
+      await withReportCatalog(async catalog => {
+        escaped = catalog;
+        await assert.rejects(withReportCatalog(async () => {}), /Nested report catalog/);
+        const copy = await import(${JSON.stringify(`${moduleUrl}?catalog-copy`)});
+        await assert.rejects(copy.withReportCatalog(async () => {}), /Nested report catalog/);
+        for (const target of [0, -1, 1.5, '1; DROP TABLE', '9223372036854775808', {}, Number.MAX_SAFE_INTEGER+1]) {
+          await assert.rejects(catalog.inspect({op:1,target}), /Positive owned receipt/);
+        }
+      });
+      await assert.rejects(escaped.disable(), /scope has ended/);
+      await assert.rejects(escaped.inspect({op:1,target:2}), /scope has ended/);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','finish']);
+});
+
+test('catalog callback and cleanup errors aggregate, retaining proof and releasing queue', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    const proof = readFileSync(filename,'utf8');
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-catalog-disable';
+    writeFileSync(fail, 'synthetic failure');
+    try {
+      const primary = new Error('callback failed');
+      await assert.rejects(withReportCatalog(async () => { throw primary; }), error => {
+        assert.ok(error instanceof AggregateError);
+        assert.equal(error.errors[0], primary);
+        assert.match(error.errors[1].message, /catalog-disable failed/);
+        return true;
+      });
+      assert.equal(readFileSync(filename,'utf8'), proof);
+      rmSync(fail);
+      await withReportCatalog(async () => {});
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','catalog-enable','catalog-disable','finish']);
+});
+
+test('uncertain catalog enable attempts exact cleanup without rerunning the callback', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-catalog-enable';
+    writeFileSync(fail,'lost acknowledgement');
+    let called = false;
+    try {
+      await assert.rejects(withReportCatalog(async () => { called = true; }), /catalog-enable failed/);
+      assert.equal(called,false);
+      rmSync(fail);
+      await withReportCatalog(async () => { called = true; });
+      assert.equal(called,true);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','catalog-enable','catalog-disable','finish']);
 });

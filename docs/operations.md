@@ -192,3 +192,14 @@ For migration 0007, stop public and staff serving, take a backup, apply the oper
 Rotate database credentials through the operator channel, restart affected pools and revoke the old credential. Staff authenticator revocation and recovery use the separate operator workflow described in [staff operations](staff.md); normal staff runtime credentials cannot change account roles. Rotate release and backup credentials outside web services. Re-run permission and recovery tests after grant changes.
 
 If the public process is compromised, isolate it, revoke its database credential, preserve restricted forensic evidence and rebuild from a trusted artifact. Review content mutations and report spam; public compromise can expose retained deleted text and password hashes. Do not assume staff identities were exposed solely because they share the server: verify actual grants and evidence. If future media workers are compromised, stop promotion/intake, destroy guest workspaces, preserve bounded forensic records and patch the guest/host stack before resuming. The planned worker must not have credentials to revoke from application or staff databases in the first place.
+
+
+### Optional categorical reports
+
+Migration 0098 stores bounded private catalog revisions; 0099 adds explicit
+activation and categorical admission. Importing never activates a revision.
+Stop old writers, migrate, and start matching public/staff binaries before
+activation. The operator CLI supports validation, import, activation and
+deactivation through the migration login. See [category configuration and
+rollout](source-report-categories.md). Production category definitions are not
+seeded. Configured base weights do not supply source-equivalent queue priority.

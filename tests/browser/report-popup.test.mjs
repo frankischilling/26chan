@@ -47,12 +47,13 @@ test('registry bounds live popups, expires stale entries and clears on teardown'
   registry.clear(); assert.equal(registry.size, 0);
 });
 
-function fixture({ result = 'form', popup = true, opener = true, href = '/demo/thread/1#p2', id = '2' } = {}) {
+function fixture({ result = 'form', popup = true, opener = true, href = '/demo/thread/1#p2', id = '2', controls = {} } = {}) {
   const messages = [], timers = new Map(), listeners = new Map(), clicks = new Map();
   const doc = { getElementById: name => ({
     'report-popup-context': { dataset: { board: 'demo', post: id, result } },
     'report-popup-return': { getAttribute: () => href },
     'report-popup-close': { addEventListener: (name, fn) => clicks.set(name, fn), removeEventListener: name => clicks.delete(name) },
+    ...controls,
   })[name], addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
   const win = { name: popup ? 'report-popup-demo-2-random' : '',
     opener: opener ? { closed: false, location: { origin }, postMessage: (...args) => messages.push(args) } : null,
@@ -61,6 +62,87 @@ function fixture({ result = 'form', popup = true, opener = true, href = '/demo/t
     clearTimeout: id => timers.delete(id), addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
   return { doc, win, messages, timers, listeners, clicks, mount: () => mountReportPopup({ window: win, document: doc }) };
 }
+
+function categoryControls({ illegalChecked = false, disabled = false } = {}) {
+  const rule = Object.assign(new EventTarget(), { checked: !illegalChecked });
+  const illegal = Object.assign(new EventTarget(), { checked: illegalChecked });
+  const category = { disabled };
+  return {
+    rule, illegal, category,
+    controls: { 'report-category-rule': rule, 'report-category-illegal': illegal, 'report-category-select': category },
+    chooseIllegal(checked) {
+      illegal.checked = checked;
+      rule.checked = !checked;
+      (checked ? illegal : rule).dispatchEvent(new Event('change'));
+    },
+  };
+}
+
+test('category select initializes from the checked radio and follows rule/illegal changes', () => {
+  for (const illegalChecked of [false, true]) {
+    const c = categoryControls({ illegalChecked, disabled: !illegalChecked });
+    const f = fixture({ controls: c.controls }); f.mount();
+    assert.equal(c.category.disabled, illegalChecked);
+    c.chooseIllegal(true); assert.equal(c.category.disabled, true);
+    c.chooseIllegal(false); assert.equal(c.category.disabled, false);
+    c.chooseIllegal(true); assert.equal(c.category.disabled, true);
+    assert.deepEqual(f.messages, []); assert.equal(f.timers.size, 0);
+  }
+});
+
+test('missing category controls and illegal-only forms preserve manual cancellation', () => {
+  for (const names of [[], ['report-category-illegal'], ['report-category-rule'],
+    ['report-category-select'], ['report-category-illegal', 'report-category-select'],
+    ['report-category-rule', 'report-category-select']]) {
+    const c = categoryControls({ illegalChecked: true, disabled: true });
+    const controls = Object.fromEntries(names.map(name => [name, c.controls[name]]));
+    const f = fixture({ controls });
+    assert.doesNotThrow(() => f.mount());
+    c.rule.dispatchEvent(new Event('change'));
+    c.illegal.dispatchEvent(new Event('change'));
+    if (names.includes('report-category-select')) {
+      assert.equal(c.category.disabled, names.includes('report-category-illegal'));
+    }
+    f.clicks.get('click')(); assert.equal(f.win.closedCount, 1);
+    assert.deepEqual(f.messages, []); assert.equal(f.timers.size, 0);
+    assert.doesNotThrow(() => f.listeners.get('pagehide')());
+    assert.equal(f.listeners.size, 0); assert.equal(f.clicks.size, 0);
+  }
+});
+
+test('pagehide removes both category listeners together with close handlers and success timer', () => {
+  const c = categoryControls();
+  const f = fixture({ result: 'success', controls: c.controls }); f.mount();
+  assert.deepEqual(f.messages, [['done-report-2-demo', origin]]);
+  assert.equal(f.timers.get(1).ms, 3000);
+  c.chooseIllegal(true); assert.equal(c.category.disabled, true);
+  f.listeners.get('pagehide')();
+  assert.equal(f.timers.size, 0); assert.equal(f.listeners.size, 0); assert.equal(f.clicks.size, 0);
+  c.chooseIllegal(false); assert.equal(c.category.disabled, true, 'rule listener was removed');
+  c.category.disabled = false;
+  c.chooseIllegal(true); assert.equal(c.category.disabled, false, 'illegal listener was removed');
+  assert.equal(f.win.closedCount, 0); assert.equal(f.win.assigned, undefined);
+  assert.deepEqual(f.messages, [['done-report-2-demo', origin]]);
+});
+
+test('category changes do not bypass opener validation or canonical success targets', () => {
+  for (const options of [{ opener: false }, { popup: false }, { id: '3' }]) {
+    const c = categoryControls();
+    const f = fixture({ ...options, result: 'success', controls: c.controls }); f.mount();
+    c.chooseIllegal(true); assert.equal(c.category.disabled, true);
+    c.chooseIllegal(false); assert.equal(c.category.disabled, false);
+    assert.deepEqual(f.messages, []); assert.equal(f.timers.size, 0);
+  }
+  const c = categoryControls();
+  const f = fixture({ controls: c.controls }); f.mount();
+  Object.defineProperty(f.win.opener, 'location', { get() { throw new Error('foreign'); } });
+  c.chooseIllegal(true); c.chooseIllegal(false);
+  const event = { key: 'Escape', preventDefault() { this.prevented = true; } };
+  f.listeners.get('keydown')(event);
+  assert.equal(event.prevented, undefined); assert.equal(f.win.closedCount, 0);
+  f.clicks.get('click')(); assert.equal(f.win.assigned, `${origin}/demo/thread/1#p2`);
+  assert.equal(f.win.closedCount, 0); assert.deepEqual(f.messages, []);
+});
 
 test('only committed success in an accessible popup signals exact origin then closes at 3000ms', () => {
   const f = fixture({ result: 'success' }); f.mount();

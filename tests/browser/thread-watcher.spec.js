@@ -200,7 +200,7 @@ test('board post menus watch persisted threads and synchronize an open menu acro
   await expect(trigger).toBeFocused();
 });
 
-test('post menus select the actual report and cookie-authorized deletion forms without submitting on selection', async ({ page, request, createThread }) => {
+test('post menus select the actual report popup and cookie-authorized deletion forms without submitting on selection', async ({ page, context, request, createThread }) => {
   const id = await createThread('demo', 'Post action menu fixture');
   const replyResponse = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
     form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 }));
@@ -211,19 +211,45 @@ test('post menus select the actual report and cookie-authorized deletion forms w
   await page.goto(`/demo/thread/${id}`);
   const trigger = page.getByRole('button', { name: `Post menu for post ${reply}`, exact: true });
   let writes = 0;
-  page.on('request', request => { if (request.method() === 'POST') writes++; });
+  // Include the report popup as well as the opener in the no-write assertion.
+  context.on('request', request => { if (request.method() === 'POST') writes++; });
   await trigger.click();
   await expect(page.locator('#post-menu [data-cmd="watch"]')).toHaveCount(0);
+  const opened = page.waitForEvent('popup');
   await page.getByRole('menuitem', { name: 'Report post', exact: true }).click();
-  await expect(page.locator(`#report${reply}`)).toBeFocused();
+  const popup = await opened;
+  await popup.waitForLoadState();
+  await expect(popup).toHaveURL(`${origin}/demo/imgboard.php?mode=report&no=${reply}`);
+  await expect(popup.locator('#report-form')).toHaveAttribute('action', '/demo/report');
+  await expect(popup.locator('#report-form input[name="no"]')).toHaveValue(reply);
+  await expect(popup.locator('#reason')).toBeVisible();
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(page).toHaveURL(`${origin}/demo/thread/${id}`);
   expect(writes).toBe(0);
-  await page.locator(`#report${reply}`).fill('Owned post-menu report fixture');
-  const reported = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/report'));
-  await page.locator(`#p${reply} form[action="/demo/report"] button`).click();
+  // Keep the success page available for assertions before its native close timer.
+  await popup.clock.install();
+  await popup.clock.pauseAt(new Date(Date.now() + 1000));
+  await popup.locator('#reason').fill('Owned post-menu report fixture');
+  const reported = popup.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/report'));
+  await popup.locator('#report-submit').click();
   expect((await reported).status()).toBe(200);
-  await expect(page.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('Your report was saved.');
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'success');
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-post', reply);
+  await expect(popup.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
+  await expect(popup.getByText('Your report was saved.', { exact: true })).toBeVisible();
+  expect(writes).toBe(1);
+  // Successful registered reports persist a hide. Restore visibility through
+  // the real menu before exercising deletion, without bypassing report authority.
+  await expect(page.locator(`#m${reply}`)).toBeHidden();
+  await expect(page.locator(`#m${id}`)).toBeVisible();
+  const closed = popup.waitForEvent('close');
+  await popup.locator('#report-popup-close').click();
+  await closed;
   await page.goto(`/demo/thread/${id}`);
+  await expect(page.locator(`#m${reply}`)).toBeHidden();
+  await trigger.click();
+  await page.getByRole('menuitem', { name: 'Unhide post', exact: true }).click();
+  await expect(page.locator(`#m${reply}`)).toBeVisible();
   await trigger.click();
   await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
   await expect(page.locator(`#p${reply} form[action="/demo/delete"] button`)).toBeFocused();

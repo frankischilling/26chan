@@ -48,7 +48,7 @@ SELECT 9700000+i,'sessreport',9700001,'Synthetic','','Retained body' FROM genera
 INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES(9700001,'owned-deletion-hash');
 COMMIT;
 SQL
-# Pull the exact readiness SQL used by each current runtime. Catalog drift is
+# Use the frozen 0097/0098 report contract for this historical target. Catalog drift is
 # introduced only by the owned administrator, and always rolled back. Staff
 # receives no private-schema USAGE or other qualification-only grants.
 python3 - "$cluster/readiness.sql" <<'PYREADINESS'
@@ -84,6 +84,8 @@ with open(sys.argv[1], 'w') as out:
   if not match:
    raise SystemExit(f'Cannot extract actual {profile} READINESS_SQL')
   query = match.group(1)
+  if profile == 'report_admission':
+   query = pathlib.Path('scripts/fixtures/session-report-0097-readiness.sql').read_text()
   for case, (change, expected) in enumerate([('', True), *[(c, False) for c in changes]]):
    out.write('BEGIN;\n' + (change + ';\n' if change else ''))
    for role in ('board_public', 'board_staff'):

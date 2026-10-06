@@ -77,17 +77,19 @@ interfaces and classifiers remain open in #212.
 [Report eligibility and popup completion](source-report-popup.md) now share the
 source board, sticky-OP and capcode gates across form display and submission.
 The same-origin popup receiver binds completion to its opened window and target,
-with settings-aware hiding and a no-JavaScript fallback. Free-text reasons remain;
-source categories, weights, CAPTCHA, Pass, illegal-report authority and legacy
-POST report dispatch are still outside this slice. [Report admission](source-report-admission.md)
+with settings-aware hiding and a no-JavaScript fallback. Free-text reporting
+remains the default until an imported category catalog is explicitly activated.
+The opt-in path adds category selection and legacy POST dispatch; effective
+weights, CAPTCHA, Pass and illegal-report moderation authority remain incomplete. [Report admission](source-report-admission.md)
 matches IP or registered automatic-session identity for duplicate protection
 and strict rolling cooldown/hour/day checks. Its
 private membership survives anonymous-session cleanup and retires on proven
 deletion paths without erasing retained report or audit rows. Source password
 matching and category-dependent archive retirement remain gaps.
 The [category selector and private catalog importer](source-report-categories.md)
-are available as inactive configuration groundwork. Imports do not activate
-category reporting or replace the free-text form.
+preserve source scope rules and immutable configured labels. Import alone never
+activates a catalog; operator activation is separate, and original production
+category definitions are still required.
 
 ## Earlier public-reference checkpoints
 

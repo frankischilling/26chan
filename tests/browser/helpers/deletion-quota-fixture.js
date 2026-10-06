@@ -40,10 +40,10 @@ function missingExecutable() {
   return new Error('Owned deletion quota fixture is not built; run cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked');
 }
 
-function invoke(command) {
+function invoke(command, args = []) {
   const executable = executablePath();
-  const result = spawnSync(executable, [command], {
-    encoding: 'utf8', timeout: 15_000,
+  const result = spawnSync(executable, [command, ...args], {
+    encoding: 'utf8', timeout: 15_000, maxBuffer: 262_144,
     // Never pass inherited actor selectors or identity keys to this authority.
     env: {
       APP_ENV: process.env.APP_ENV,
@@ -59,6 +59,7 @@ function invoke(command) {
     // Do not echo command environments, credentials, manifest keys or SQL errors.
     throw new Error(`Owned deletion quota fixture ${command} failed`);
   }
+  return result.stdout;
 }
 
 // Config import prepares identity in memory only: --list and failed server
@@ -180,5 +181,71 @@ export async function withPostingHistory(callback) {
   try {
     invoke('reset-posting');
     return await postingContext.run(true, callback);
+  } finally { release(); }
+}
+
+// Catalog activation is global to this disposable database. This queue only
+// serializes scopes in this worker; the Rust lease rejects other fixture runs.
+// Other workloads must have their own exclusive disposable database.
+const catalogState = globalThis[Symbol.for('paperboard.ownedReportCatalogScopes')] ||= {
+  context: new AsyncLocalStorage(), queue: Promise.resolve(),
+};
+function catalogCommand(command, args = []) {
+  const text = invoke(command, args);
+  try { return JSON.parse(text); } catch { throw new Error(`Owned report catalog ${command} returned invalid data`); }
+}
+function receipt(value) {
+  if (typeof value === 'number' && (!Number.isSafeInteger(value) || value <= 0)) throw new TypeError('Positive owned receipt required');
+  if (!['number', 'string'].includes(typeof value) || !/^[1-9][0-9]{0,18}$/.test(String(value)) || BigInt(value) > 9223372036854775807n) {
+    throw new TypeError('Positive owned receipt required');
+  }
+  return String(value);
+}
+export async function withReportCatalog(callback) {
+  if (typeof callback !== 'function') throw new TypeError('Report catalog callback required');
+  if (catalogState.context.getStore()) throw new Error('Nested report catalog scopes are not allowed');
+  if (process.env.VISUAL_FIXTURE_SERVER === '1') throw new Error('Report catalog requires the real backend, not VISUAL_FIXTURE_SERVER');
+  const filename = process.env[manifestVariable];
+  if (!filename) throw new Error('Owned deletion quota runner manifest is missing');
+  const manifest = readManifest(filename);
+  const previous = catalogState.queue;
+  let release;
+  catalogState.queue = new Promise(resolve => { release = resolve; });
+  await previous;
+  try {
+    return await catalogState.context.run(true, async () => {
+      let value;
+      let open = true;
+      const failures = [];
+      const requireOpen = () => { if (!open) throw new Error('Report catalog scope has ended'); };
+      try {
+        const enabled = catalogCommand('catalog-enable');
+        if (!Number.isSafeInteger(enabled.revision) || enabled.revision < 1 || enabled.revision > 64
+            || enabled.ruleId !== 9001 || enabled.illegalId !== 31) throw new Error('Invalid synthetic report catalog');
+        const catalog = Object.freeze({
+          revision: enabled.revision, ruleId: 9001, illegalId: 31, marker: manifest.marker,
+          async disable() { requireOpen(); catalogCommand('catalog-disable'); },
+          async inspect({ op, target }) {
+            requireOpen();
+            const result = catalogCommand('catalog-inspect', [receipt(op), receipt(target)]);
+            if (!Number.isSafeInteger(result.reportCount) || result.reportCount < 0 || result.reportCount > 32
+                || !Array.isArray(result.categories) || result.categories.length !== result.reportCount) {
+              throw new Error('Invalid owned report inspection');
+            }
+            return { reportCount: result.reportCount, categories: result.categories.map(({ revision, id, kind, baseWeight, title }) => ({ revision, id, kind, baseWeight, title })) };
+          },
+        });
+        value = await callback(catalog);
+      } catch (error) { failures.push(error); }
+      finally {
+        open = false;
+        // Even a lost enable acknowledgement may have committed activation.
+        // Disable is exact-owned and safe to retry; retain proof if it fails.
+        try { catalogCommand('catalog-disable'); } catch (error) { failures.push(error); }
+      }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1) throw new AggregateError(failures, 'Report catalog action and cleanup both failed');
+      return value;
+    });
   } finally { release(); }
 }

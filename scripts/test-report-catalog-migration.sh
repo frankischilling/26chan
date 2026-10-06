@@ -48,7 +48,7 @@ SELECT 9700000+i,'sessreport',9700001,'Synthetic','','Retained body' FROM genera
 INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES(9700001,'owned-deletion-hash');
 COMMIT;
 SQL
-# Pull the actual runtime readiness queries, without qualification-only grants.
+# Use the frozen 0097/0098 report contract for this historical target.
 python3 - "$cluster/readiness.sql" <<'PYREADINESS'
 import pathlib, re, sys
 with open(sys.argv[1], 'w') as out:
@@ -57,8 +57,11 @@ with open(sys.argv[1], 'w') as out:
   match = re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;', source, re.S)
   if not match:
    raise SystemExit(f'Cannot extract actual {profile} READINESS_SQL')
+  query = match.group(1)
+  if profile == 'report_admission':
+   query = pathlib.Path('scripts/fixtures/session-report-0097-readiness.sql').read_text()
   for role in ('board_public', 'board_staff'):
-   out.write(f"BEGIN; SET LOCAL ROLE {role}; DO $readiness$ BEGIN IF ({match.group(1)}) IS DISTINCT FROM true THEN RAISE EXCEPTION '{profile} readiness failed'; END IF; END $readiness$; ROLLBACK;\n")
+   out.write(f"BEGIN; SET LOCAL ROLE {role}; DO $readiness$ BEGIN IF ({query}) IS DISTINCT FROM true THEN RAISE EXCEPTION '{profile} readiness failed'; END IF; END $readiness$; ROLLBACK;\n")
 PYREADINESS
 seed_reports() {
  "${migrator[@]}" -f - < "$cluster/fixtures.sql"

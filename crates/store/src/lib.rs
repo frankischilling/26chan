@@ -26,6 +26,8 @@ pub use public_deletion::{
 mod read;
 pub mod report_admission;
 pub mod report_catalog;
+pub mod report_categories;
+pub use report_categories::{CategoryChoice, CategoryForm, CategoryKind, category_form};
 mod report_target;
 pub use report_target::{ReportTarget, report_target};
 mod robot9000;

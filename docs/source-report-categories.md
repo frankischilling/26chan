@@ -1,9 +1,9 @@
 # Report category configuration
 
-This slice adds a pure category selector and private, immutable catalog imports.
-It does not activate category reporting. There is no activation pointer or
-command, no seeded production catalog, and no change to the current free-text
-report form or staff queue. Importing a catalog does not make it live.
+Migration 0098 adds a pure selector and private, immutable catalog imports.
+Migration 0099 adds explicit opt-in category reporting. There is no seeded
+production catalog: importing a revision leaves reporting unchanged until an
+operator activates it. Inactive installations retain the free-text report form.
 
 ## Source contract
 
@@ -65,6 +65,14 @@ so this is not a promise to preserve floating-point sign bits.
 Public, staff and authentication runtime roles cannot import catalogs.
 Imports use Read Committed and a private import gate; they do not lock the
 current report-admission gate or change live reporting.
+
+After upgrading both services through 0099, an operator can run
+`board-report-catalog activate <revision>` or `board-report-catalog deactivate`
+with the same migration connection. Activation requires a nonempty imported
+revision and changes live report mode; old free-text submissions then fail
+closed. Deactivation restores free-text admission. Neither command imports or
+invents category data. Activation serializes on the report-admission gate,
+without acquiring a board or session lock afterward.
 Every row supplies all nine fields explicitly. NULL and empty strings remain
 distinct; category IDs must be positive and unique, and weights must be finite.
 No finite weight range or filtering-threshold default is inferred from the source.
@@ -90,18 +98,39 @@ field precedence. They preserve configured weight/filter metadata without
 calculating a reporter's effective weight. Test results belong in the checkpoint;
 this document does not claim they passed.
 
-Before activation, categorical submission must recheck the selected row against
-the current board, post and catalog inside the existing report-admission
-transaction. Catalog changes must serialize with that check, and the report,
-duplicate/quota membership and anonymous-session activity must commit together.
-Image checks need the stored attachment size and deletion flag, not the public
-media view's asset-availability fallback. Existing free-text reports must remain
-readable, while every mutation entry point must enforce the selected reporting
-mode. None of that integration is provided by a catalog import alone.
+## Runtime boundary
+
+Active forms submit to the legacy query-target report route. The server uses
+PHP string falseyness to choose `cat` before `cat_id`, then requires canonical
+positive integer IDs. It rejects duplicate fields, conflicting modes and body
+board/post hints that disagree with the query or route. These strict parsing
+rules and revision checks are deliberate hardening differences from PHP's
+permissive coercion and ignored hidden fields.
+
+The database rechecks mode, expected revision and current category eligibility
+inside the existing board → report gate → session transaction. Target and quota
+checks still precede category selection. The report, duplicate/quota membership
+and anonymous activity commit together. Every older free-text mutation API
+checks the same active-mode gate, so it cannot bypass categorical admission.
+
+Image eligibility uses stored attachment bytes and deletion state rather than
+the public view's missing-asset fallback. Titles are escaped, with category IDs
+shown for empty labels; oversized form output fails rather than dropping options.
+Rule and illegal submission work without JavaScript. The optional script toggles
+the rule selector without changing the server's category decision.
+
+Categorical rows retain the exact title and selected revision, ID, kind and base
+weight. Staff views distinguish categories from historical free-text reasons;
+existing authorization, queue ordering and moderation operations are unchanged.
+Base weight is configuration metadata, not a computed reporter priority.
+
+Both public and staff services require the new schema and restricted APIs in
+readiness checks. Stop old writers before migration and start matching binaries;
+a binary-only rollback is not compatible with an active categorical catalog.
 
 Sanitized original category rows are still needed for labels, scopes, base
 weights and filtering thresholds. Queue weighting also depends on missing
 `report_settings` board coefficients and unresolved source query details.
 Personal records, credentials, accounts and report histories are not needed to
-supply this configuration. CAPTCHA, Pass, trust-adjusted weights, legacy report
-POST integration and weighted/grouped staff queues remain outside this slice.
+supply this configuration. CAPTCHA, Pass, trust-adjusted weights and
+weighted/grouped staff queues remain outside this slice.

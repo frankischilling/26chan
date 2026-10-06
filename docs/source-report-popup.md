@@ -88,7 +88,8 @@ and opener hiding.
 ## Deployment and verification scope
 
 Migration 0093 introduced this target policy. Matching services now also require
-migration 0097 and its [identity admission and retirement rules](source-report-admission.md).
+migration 0099, the [identity admission and retirement rules](source-report-admission.md),
+and the [explicit category-mode rollout](source-report-categories.md).
 Follow that rollout sequence before starting a paired release.
 Migration 0093 preserves existing report rows and changes no categories or
 grants; no new bootstrap role

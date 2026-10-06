@@ -285,6 +285,8 @@ jobs:
         run: sudo bash scripts/test-session-report-migration.sh
       - name: Qualify private report catalog imports without changing runtime reporting
         run: sudo bash scripts/test-report-catalog-migration.sh
+      - name: Qualify opt-in categorical reporting and current administrator dump restore
+        run: sudo bash scripts/test-categorical-report-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

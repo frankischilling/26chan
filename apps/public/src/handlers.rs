@@ -1081,9 +1081,29 @@ async fn delete_authorized(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReportForm {
+    #[serde(deserialize_with = "canonical_report_id")]
     no: i64,
     reason: String,
 }
+
+fn canonical_report_id<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<i64, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    crate::legacy_report::positive_id(&value)
+        .ok_or_else(|| serde::de::Error::custom("Invalid report target."))
+}
+
+pub(crate) enum ReportSubmission {
+    FreeText {
+        no: i64,
+        reason: String,
+    },
+    Categorical {
+        no: i64,
+        category_id: i64,
+        expected_revision: i64,
+    },
+}
+
 pub async fn report(
     State(state): State<AppState>,
     Path(board): Path<String>,
@@ -1107,40 +1127,83 @@ pub async fn report(
             ));
         }
     };
-    if form.no <= 0 {
-        return Ok(fail(
-            None,
-            AppError(StatusCode::UNPROCESSABLE_ENTITY, "Invalid report target."),
+    submit_report(
+        &state,
+        &board,
+        peer,
+        &headers,
+        ReportSubmission::FreeText {
+            no: form.no,
+            reason: form.reason,
+        },
+    )
+    .await
+}
+
+pub(crate) async fn submit_report(
+    state: &AppState,
+    board: &str,
+    peer: crate::security::RequestPeer,
+    headers: &HeaderMap,
+    form: ReportSubmission,
+) -> Result<Response, AppError> {
+    let no = match &form {
+        ReportSubmission::FreeText { no, .. } | ReportSubmission::Categorical { no, .. } => *no,
+    };
+    let fail = |error| crate::legacy_report::error(state, board, Some(no), error);
+    if !crate::legacy_report::safe_board(board) || no <= 0 {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "Invalid reporting request.",
         ));
     }
-    let identity = match report_rate_identity(&state, peer) {
+    let identity = match report_rate_identity(state, peer) {
         Ok(identity) => identity,
-        Err(error) => return Ok(fail(Some(form.no), error)),
+        Err(error) => return Ok(fail(error)),
     };
-    // Target policy precedes cookie parsing and session resolution. This read
-    // is advisory; admission rechecks the target under its database locks.
-    if let Err(error) = board_store::report_target(&state.pool, &board, form.no).await {
-        return Ok(fail(Some(form.no), error.into()));
+    // Target policy precedes cookie resolution; admission rechecks under locks.
+    if let Err(error) = board_store::report_target(&state.pool, board, no).await {
+        return Ok(fail(error.into()));
     }
-    let session = match crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await {
+    let session = match crate::anonymous_session::Session::resolve(state, headers, peer.0).await {
         Ok(session) => session,
-        Err(error) => return Ok(fail(Some(form.no), error)),
+        Err(error) => return Ok(fail(error)),
     };
     // Reserve and render the bounded response before committing. An exhausted
     // output budget must never make a saved report appear to have failed.
-    let mut response = crate::legacy_report::success(&state, &board, form.no)?;
-    if let Err(error) = board_store::report_with_anonymous_session(
-        &state.pool,
-        &board,
-        form.no,
-        &form.reason,
-        &identity,
-        session.posting,
-    )
-    .await
-    {
+    let mut response = crate::legacy_report::success(state, board, no)?;
+    let result = match form {
+        ReportSubmission::FreeText { reason, .. } => {
+            board_store::report_with_anonymous_session(
+                &state.pool,
+                board,
+                no,
+                &reason,
+                &identity,
+                session.posting,
+            )
+            .await
+        }
+        ReportSubmission::Categorical {
+            category_id,
+            expected_revision,
+            ..
+        } => {
+            board_store::report_categorical_with_anonymous_session(
+                &state.pool,
+                board,
+                no,
+                category_id,
+                expected_revision,
+                &identity,
+                session.posting,
+            )
+            .await
+        }
+    };
+    if let Err(error) = result {
         drop(response);
-        return Ok(fail(Some(form.no), error.into()));
+        return Ok(fail(error.into()));
     }
     session.append(response.headers_mut(), state.production);
     // Session cookie handling supplies its generic no-store policy; this

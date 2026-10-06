@@ -1,7 +1,7 @@
 use crate::{AppState, handlers::AppError};
 use askama::Template;
 use axum::{
-    extract::{Path, Query, State, rejection::QueryRejection},
+    extract::{OriginalUri, Path, Query, State, rejection::QueryRejection},
     http::{HeaderMap, StatusCode},
     response::Response,
 };
@@ -19,6 +19,24 @@ pub(crate) struct ReportQuery {
     #[serde(rename = "mode")]
     _mode: Mode,
     no: String,
+}
+
+pub(crate) fn positive_id(value: &str) -> Option<i64> {
+    value
+        .parse::<i64>()
+        .ok()
+        .filter(|id| *id > 0 && id.to_string() == value)
+}
+
+#[derive(Template)]
+#[template(path = "report_categorical_form.html")]
+struct CategoricalReportPage<'a> {
+    board: &'a str,
+    no: i64,
+    thread: i64,
+    revision: i64,
+    rules: Vec<&'a board_store::report_categories::CategoryChoice>,
+    illegal: Option<&'a board_store::report_categories::CategoryChoice>,
 }
 
 // Only this renderer can opt a response into the report popup script policy.
@@ -97,10 +115,16 @@ pub(crate) async fn get(
     Path(board): Path<String>,
     axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
+    OriginalUri(uri): OriginalUri,
     query: Result<Query<ReportQuery>, QueryRejection>,
 ) -> Result<Response, AppError> {
     let invalid = || AppError(StatusCode::BAD_REQUEST, "Invalid reporting request.");
     if !safe_board(&board) {
+        return Err(invalid());
+    }
+    let reporting = url::form_urlencoded::parse(uri.query().unwrap_or("").as_bytes())
+        .any(|(name, value)| name == "mode" && value == "report");
+    if !reporting {
         return Err(invalid());
     }
     let Query(query) = match query {
@@ -137,6 +161,33 @@ pub(crate) async fn get(
     .await
     {
         return Ok(error(&state, &board, Some(no), cause.into()));
+    }
+    let categories =
+        match board_store::report_categories::category_form(&state.pool, &board, no).await {
+            Ok(categories) => categories,
+            Err(cause) => return Ok(error(&state, &board, Some(no), cause.into())),
+        };
+    if let Some(revision) = categories.revision {
+        use board_store::report_categories::CategoryKind;
+        return crate::output::html(
+            &state,
+            &CategoricalReportPage {
+                board: &target.board,
+                no: target.post_id,
+                thread: target.thread_id,
+                revision,
+                rules: categories
+                    .categories
+                    .iter()
+                    .filter(|category| category.kind == CategoryKind::Rule)
+                    .collect(),
+                illegal: categories
+                    .categories
+                    .iter()
+                    .find(|category| category.kind == CategoryKind::Illegal),
+            },
+        )
+        .map(|response| shell(response, StatusCode::OK));
     }
     crate::output::html(
         &state,
@@ -185,6 +236,52 @@ mod tests {
             assert_eq!(directive(name), format!("{name} 'none'"));
         }
         assert_eq!(directive("form-action"), "form-action 'self'");
+    }
+
+    #[test]
+    fn categorical_template_escapes_and_preserves_all_options_without_javascript() {
+        use board_store::report_categories::{CategoryChoice, CategoryKind};
+        let choices = [
+            CategoryChoice {
+                id: 17,
+                title: "<script>\"&".into(),
+                kind: CategoryKind::Rule,
+            },
+            CategoryChoice {
+                id: 18,
+                title: String::new(),
+                kind: CategoryKind::Rule,
+            },
+            CategoryChoice {
+                id: 19,
+                title: "x".repeat(4096),
+                kind: CategoryKind::Rule,
+            },
+            CategoryChoice {
+                id: 31,
+                title: "Illegal".into(),
+                kind: CategoryKind::Illegal,
+            },
+        ];
+        let html = super::CategoricalReportPage {
+            board: "test",
+            no: 20,
+            thread: 10,
+            revision: 2,
+            rules: choices[..3].iter().collect(),
+            illegal: Some(&choices[3]),
+        }
+        .render()
+        .unwrap();
+        assert!(!html.contains("<script>\"&"));
+        assert!(html.contains("Category 18</option>"));
+        assert!(html.contains(&"x".repeat(4096)));
+        assert_eq!(html.matches("<option ").count(), 3);
+        assert!(html.contains("/test/imgboard.php?mode=report&amp;no=20"));
+        assert!(html.contains("name=\"revision\" value=\"2\""));
+        assert!(html.contains("name=\"cat\" value=\"\" checked"));
+        assert!(html.contains("name=\"cat\" value=\"31\""));
+        assert!(!html.contains(" disabled"));
     }
 
     #[test]
@@ -370,10 +467,20 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{query}");
-            assert_report_policy(&response);
+            let reporting = query.contains("mode=report");
+            if reporting {
+                assert_report_policy(&response);
+            } else {
+                assert!(
+                    response.headers()["content-security-policy"]
+                        .to_str()
+                        .unwrap()
+                        .contains("script-src 'none'")
+                );
+            }
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             let html = std::str::from_utf8(&bytes).unwrap();
-            assert!(html.contains("data-result=\"error\""));
+            assert_eq!(html.contains("data-result=\"error\""), reporting);
             assert!(!html.contains("Report received"));
         }
     }

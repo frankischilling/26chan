@@ -1432,6 +1432,36 @@ pub async fn report_with_anonymous_session(
     Ok(())
 }
 
+/// Opt-in category admission with the same mandatory trusted actor and
+/// anonymous-session boundary as the public free-text path. No caller-provided
+/// title, kind, weight, filtering state, or effective priority is accepted.
+pub async fn report_categorical_with_anonymous_session(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    category_id: i64,
+    expected_revision: i64,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    session: anonymous_session::PostingSession,
+) -> Result<(), StoreError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::report_admission::admit_categorical_with_session_on(
+        &mut tx,
+        slug,
+        id,
+        category_id,
+        expected_revision,
+        identity,
+        session,
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
 fn validate_report_reason(reason: &str) -> Result<(), StoreError> {
     if reason.trim().is_empty() || reason.len() > 1000 || reason.contains('\0') {
         return Err(StoreError::Invalid(
