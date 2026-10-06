@@ -716,10 +716,31 @@ mod tests {
     async fn production_posting_without_transport_peer_rejects_forged_hints_before_database_access()
     {
         use http_body_util::BodyExt;
+        use rand_core::{OsRng, RngCore};
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
             .unwrap();
-        let app = crate::router(pool, "https://boards.example.com".into(), true);
+        pool.close().await;
+        let mut key_bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut key_bytes);
+        let key_text: String = key_bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        // Configure the key so only the missing trusted transport peer can
+        // trigger the identity guard, before the closed pool is consulted.
+        let (app, _) = crate::routers_with_options(
+            pool,
+            crate::PublicRouterOptions {
+                origin: "https://boards.example.com".into(),
+                production: true,
+                media: None,
+                limits: board_config::PublicRequestLimits::default(),
+                proxy_uid: None,
+                poster_id_key: Some(Arc::new(
+                    board_domain::poster_id::PosterIdKey::parse(&key_text).unwrap(),
+                )),
+                tripcode_key: None,
+                country_database: None,
+            },
+        );
         let request = Request::post("/test/imgboard.php")
             .extension(RequestPeer(Some("192.0.2.1".parse().unwrap())))
             .header("origin", "https://boards.example.com")
@@ -734,7 +755,7 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&body).unwrap()["error"],
-            "Posting transport identity is unavailable."
+            "Posting identity is unavailable."
         );
     }
 

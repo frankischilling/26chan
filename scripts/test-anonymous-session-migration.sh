@@ -125,14 +125,21 @@ SET ROLE board_migrator;
 UPDATE post_secrets.anonymous_policy SET session_limit=1;
 RESET ROLE;
 SET ROLE board_public;
-BEGIN;
+-- Runtime fixtures use the same actor gates and transaction-local context as
+-- ordinary posting; only the historical migrator fixture above is actorless.
+BEGIN ISOLATION LEVEL READ COMMITTED;
+SELECT content.lock_posting_actor(decode(repeat('01',32),'hex'),true);
+SELECT set_config('board.posting_actor',repeat('01',32),true);
 INSERT INTO content.threads(id,board) VALUES(8800102,'anonold');
 INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(8800102,'anonold',8800102,'Anonymous','','Owned successful activity');
 INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES(8800102,'owned-current-hash');
 SELECT content.register_anonymous_post(decode(repeat('01',32),'hex'),decode(repeat('02',32),'hex'),decode(repeat('03',32),'hex'),decode(repeat('04',32),'hex'),true,'anonold',8800102,extract(epoch FROM clock_timestamp())::bigint);
 COMMIT;
+BEGIN ISOLATION LEVEL READ COMMITTED;
 DO $$ BEGIN
     BEGIN
+        PERFORM content.lock_posting_actor(decode(repeat('05',32),'hex'),true);
+        PERFORM set_config('board.posting_actor',repeat('05',32),true);
         INSERT INTO content.threads(id,board) VALUES(8800103,'anonold');
         INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(8800103,'anonold',8800103,'Anonymous','','Owned capacity failure');
         INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES(8800103,'owned-current-hash');
@@ -143,13 +150,23 @@ DO $$ BEGIN
         RAISE EXCEPTION 'Capacity failure partially committed content';
     END IF;
 END $$;
+COMMIT;
 RESET ROLE;
 SET ROLE board_migrator;
+DO $$ BEGIN
+    IF EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE post_id=8800103 OR actor_hash=decode(repeat('05',32),'hex'))
+        OR EXISTS(SELECT 1 FROM post_secrets.posting_thread_actions WHERE actor_hash=decode(repeat('05',32),'hex')) THEN
+        RAISE EXCEPTION 'Anonymous capacity failure leaked posting history or actions';
+    END IF;
+END $$;
 DELETE FROM post_secrets.anonymous_policy;
 RESET ROLE;
 SET ROLE board_public;
+BEGIN ISOLATION LEVEL READ COMMITTED;
 DO $$ BEGIN
     BEGIN
+        PERFORM content.lock_posting_actor(decode(repeat('05',32),'hex'),true);
+        PERFORM set_config('board.posting_actor',repeat('05',32),true);
         INSERT INTO content.threads(id,board) VALUES(8800103,'anonold');
         INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(8800103,'anonold',8800103,'Anonymous','','Owned unavailable policy');
         INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES(8800103,'owned-current-hash');
@@ -158,14 +175,23 @@ DO $$ BEGIN
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
     IF EXISTS(SELECT 1 FROM content.posts WHERE id=8800103) THEN RAISE EXCEPTION 'Missing policy partially committed content'; END IF;
 END $$;
+COMMIT;
 RESET ROLE;
 SET ROLE board_migrator;
+DO $$ BEGIN
+    IF EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE post_id=8800103 OR actor_hash=decode(repeat('05',32),'hex'))
+        OR EXISTS(SELECT 1 FROM post_secrets.posting_thread_actions WHERE actor_hash=decode(repeat('05',32),'hex')) THEN
+        RAISE EXCEPTION 'Missing anonymous policy leaked posting history or actions';
+    END IF;
+END $$;
 INSERT INTO post_secrets.anonymous_policy VALUES(true,100000);
 INSERT INTO post_secrets.anonymous_sessions(token_hash,network_hash,address_hash,environment_hash,created_at,network_at,address_at,environment_at,expires_at)
 SELECT sha256(convert_to(n::text,'UTF8')),sha256(convert_to(n::text,'UTF8')),sha256(convert_to(n::text,'UTF8')),sha256(convert_to(n::text,'UTF8')),1,1,1,1,1 FROM generate_series(1,65) n;
 RESET ROLE;
 SET ROLE board_public;
-BEGIN;
+BEGIN ISOLATION LEVEL READ COMMITTED;
+SELECT content.lock_posting_actor(decode(repeat('05',32),'hex'),true);
+SELECT set_config('board.posting_actor',repeat('05',32),true);
 INSERT INTO content.threads(id,board) VALUES(8800103,'anonold');
 INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(8800103,'anonold',8800103,'Anonymous','','Owned bounded cleanup');
 INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES(8800103,'owned-current-hash');

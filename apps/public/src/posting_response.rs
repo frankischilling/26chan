@@ -169,7 +169,9 @@ mod tests {
 
     #[tokio::test]
     async fn actual_router_preserves_parser_origin_and_unavailable_statuses() {
-        use axum::{body::Body, http::Request};
+        use axum::{body::Body, extract::ConnectInfo, http::Request};
+        use rand_core::{OsRng, RngCore};
+        use std::{net::SocketAddr, sync::Arc};
         use tower::ServiceExt;
         // Closed lazy pool performs no I/O. Malformed forms and origin checks
         // must reject before storage; valid forms report unavailable storage.
@@ -177,9 +179,29 @@ mod tests {
             .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
             .unwrap();
         pool.close().await;
-        let (app, api) = crate::routers(pool, "http://127.0.0.1:3000".into(), false);
+        let mut key_bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut key_bytes);
+        let key_text: String = key_bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let (app, api) = crate::routers_with_options(
+            pool,
+            crate::PublicRouterOptions {
+                origin: "http://127.0.0.1:3000".into(),
+                production: false,
+                media: None,
+                limits: board_config::PublicRequestLimits::default(),
+                proxy_uid: None,
+                poster_id_key: Some(Arc::new(
+                    board_domain::poster_id::PosterIdKey::parse(&key_text).unwrap(),
+                )),
+                tripcode_key: None,
+                country_database: None,
+            },
+        );
         let request = |body: String, content_type: &str, origin: &str| {
             Request::post("/test/post")
+                // Model the listener's trusted transport metadata so valid
+                // forms reach storage instead of the identity guard.
+                .extension(ConnectInfo("192.0.2.1:1234".parse::<SocketAddr>().unwrap()))
                 .header("accept", "application/json")
                 .header("origin", origin)
                 .header("content-type", content_type)
