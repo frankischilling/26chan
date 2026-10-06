@@ -813,8 +813,54 @@ async fn exercise_waits(f: &Fixture) {
     }
     f.role("manager", &["all".into()], &[]).await;
     let count = f.audit_count().await;
+    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp(),expires_at=clock_timestamp()+interval '1 hour',last_activity_at=clock_timestamp() WHERE token_hash=$1")
+        .bind(auth::hash(&f.token)).execute(&f.owner).await.unwrap();
+    let before = f.state().await;
+    let mut lock = f.owner.begin().await.unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *lock)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM staff_identity.accounts WHERE id=$1 FOR UPDATE")
+        .bind(f.account)
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    let pending = tokio::spawn({
+        let f = f.clone();
+        async move { f.options("sticky=1").await }
+    });
+    wait_for_blocker(&f.owner, blocker, "board_auth").await;
+    sqlx::query("UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1")
+        .bind(f.account)
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    lock.commit().await.unwrap();
+    assert_eq!(pending.await.unwrap(), StatusCode::UNAUTHORIZED);
+    assert_eq!(f.state().await, before);
+    assert_eq!(f.audit_count().await, count);
+}
+
+#[tokio::test]
+async fn grouped_waits_hold_authority_and_use_post_lock_values_and_unsticky_clock() {
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move { exercise_waits(&f).await }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+async fn exercise_post_lock_expiry(f: &Fixture) {
+    auth::check_identity(&f.staff, "board_staff").await.unwrap();
+    f.role("manager", &["all".into()], &[]).await;
+    let count = f.audit_count().await;
     // Let real wall-clock authority expire while a content row lock is held.
     for recent in [true, false] {
+        f.seed(31, 59).await;
         sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=CASE WHEN $2 THEN clock_timestamp()-interval '10 minutes'+interval '3 seconds' ELSE clock_timestamp() END,expires_at=CASE WHEN $2 THEN clock_timestamp()+interval '1 hour' ELSE clock_timestamp()+interval '3 seconds' END,last_activity_at=clock_timestamp() WHERE token_hash=$1")
             .bind(auth::hash(&f.token)).bind(recent).execute(&f.owner).await.unwrap();
         let before = f.state().await;
@@ -857,41 +903,100 @@ async fn exercise_waits(f: &Fixture) {
         );
         assert_eq!(f.audit_count().await, count);
     }
-    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp(),expires_at=clock_timestamp()+interval '1 hour',last_activity_at=clock_timestamp() WHERE token_hash=$1")
-        .bind(auth::hash(&f.token)).execute(&f.owner).await.unwrap();
-    let before = f.state().await;
-    let mut lock = f.owner.begin().await.unwrap();
-    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
-        .fetch_one(&mut *lock)
-        .await
-        .unwrap();
-    sqlx::query("SELECT id FROM staff_identity.accounts WHERE id=$1 FOR UPDATE")
-        .bind(f.account)
-        .execute(&mut *lock)
-        .await
-        .unwrap();
-    let pending = tokio::spawn({
-        let f = f.clone();
-        async move { f.options("sticky=1").await }
-    });
-    wait_for_blocker(&f.owner, blocker, "board_auth").await;
-    sqlx::query("UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1")
-        .bind(f.account)
-        .execute(&mut *lock)
-        .await
-        .unwrap();
-    lock.commit().await.unwrap();
-    assert_eq!(pending.await.unwrap(), StatusCode::UNAUTHORIZED);
-    assert_eq!(f.state().await, before);
-    assert_eq!(f.audit_count().await, count);
 }
 
 #[tokio::test]
-async fn grouped_waits_recheck_live_recent_authority_and_use_post_lock_unsticky_clock() {
-    let f = Fixture::new().await;
+async fn grouped_post_lock_expiry_rechecks_live_recent_and_session_authority() {
+    // This fixture deliberately holds a content lock across a three-second
+    // authority expiry. The production/CI two-second lock timeout would win
+    // first, testing a database failure instead of the final authority check.
+    // Override only this fixture's staff connections, with both waits bounded;
+    // leave role defaults and the initial/final authority checks unchanged.
+    let staff = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(|connection, _| {
+            Box::pin(async move {
+                sqlx::query("SET lock_timeout='5s'")
+                    .execute(&mut *connection)
+                    .await?;
+                sqlx::query("SET statement_timeout='10s'")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let f = Fixture::with_staff_pool(Some(staff)).await;
     let result = tokio::spawn({
         let f = f.clone();
-        async move { exercise_waits(&f).await }
+        async move { exercise_post_lock_expiry(&f).await }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn grouped_default_lock_timeout_rolls_back_flags_rank_clocks_and_audit() {
+    // Match scripts/dev-staff-db.sh explicitly so this proof also runs against
+    // local test databases whose role defaults have not been configured.
+    let staff = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(|connection, _| {
+            Box::pin(async move {
+                sqlx::query("SET lock_timeout='2s'")
+                    .execute(&mut *connection)
+                    .await?;
+                sqlx::query("SET statement_timeout='5s'")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let f = Fixture::with_staff_pool(Some(staff)).await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            auth::check_identity(&f.staff, "board_staff").await.unwrap();
+            f.role("manager", &["all".into()], &[]).await;
+            f.seed(31, 60).await;
+            let before = f.state().await;
+            let count = f.audit_count().await;
+            let mut lock = f.owner.begin().await.unwrap();
+            let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *lock)
+                .await
+                .unwrap();
+            sqlx::query("SELECT id FROM content.threads WHERE id=$1 FOR UPDATE")
+                .bind(f.posts[0])
+                .execute(&mut *lock)
+                .await
+                .unwrap();
+            let pending = tokio::spawn({
+                let f = f.clone();
+                async move { f.options("").await }
+            });
+            wait_for_blocker(&f.owner, blocker, "board_staff").await;
+            // Keep the blocker held until the request actually times out.
+            assert_eq!(
+                tokio::time::timeout(Duration::from_secs(10), pending)
+                    .await
+                    .expect("staff lock timeout did not finish the request")
+                    .unwrap(),
+                StatusCode::SERVICE_UNAVAILABLE
+            );
+            assert_eq!(f.state().await, before);
+            assert_eq!(f.audit_count().await, count);
+            lock.rollback().await.unwrap();
+            assert_eq!(f.options("").await, StatusCode::SEE_OTHER);
+            assert_transition(&before, &f.state().await, 0, 0);
+            assert_eq!(f.audit_count().await, count + 1);
+        }
     })
     .await;
     f.cleanup().await;

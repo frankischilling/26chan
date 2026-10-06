@@ -140,6 +140,15 @@ without changing production cooldown rules. Browser syntax checks passed, but
 the browser-backed preference-lock test could not launch Chromium locally.
 No local browser or visual pass is claimed; exact-head CI remains required.
 
+A later hosted run exposed a fixture timing mismatch: its deliberate three-second
+expiry wait exceeded the development/CI staff role's two-second lock timeout.
+The expiry scenario now uses a separate fixture-owned pool with bounded five-second
+lock and ten-second statement limits. Ordinary scenarios retain normal limits.
+A separate test proves that the default two-second lock timeout returns 503,
+rolls back all state/audit changes, and permits recovery after release. All seven
+grouped tests and eight snapshot tests passed both serially and with eight test
+threads under the actual CI role settings. Production timeout settings are unchanged.
+
 Coverage includes:
 
 - [Handler tests](../apps/staff/tests/grouped_thread_options.rs): grouped masks,
