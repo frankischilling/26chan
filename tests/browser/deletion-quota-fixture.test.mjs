@@ -226,3 +226,22 @@ test('callback and check failures both survive and the serial queue is released'
   `);
   assert.deepEqual(commands, ['init', 'reset', 'check', 'reset', 'check', 'finish']);
 });
+
+test('an uncertain init retains its proof, refuses blind re-init, and permits exact retirement', () => {
+  const { commands } = fixture(`
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-init';
+    writeFileSync(fail, 'simulate committed init with lost acknowledgement');
+    assert.throws(() => initializeDeletionQuotaRun(), /init failed/);
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    assert.ok(filename);
+    const proof = readFileSync(filename, 'utf8');
+    assert.throws(() => initializeDeletionQuotaRun(), /initialization outcome is uncertain/);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, filename);
+    assert.equal(readFileSync(filename, 'utf8'), proof);
+    rmSync(fail);
+    teardownDeletionQuotaRun();
+    assert.equal(existsSync(filename), false);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+  `);
+  assert.deepEqual(commands, ['init', 'finish']);
+});

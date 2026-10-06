@@ -38,7 +38,10 @@ three successful deletion requests. Requests, browser interactions, status check
 and persistence assertions still run normally. There are no intercepted requests,
 mutating retries, changed production thresholds or whole-table resets. Separate
 runs have distinct actors. Teardown removes only the owned actor and lease; a
-failed retirement preserves its manifest for exact cleanup retry.
+failed retirement preserves its manifest for exact cleanup retry. An uncertain
+initialization also retains its proof and blocks a blind second initialization.
+The staff browser run shares one fresh key across its public and staff servers;
+its public deletion checks use the same isolated groups.
 
 The standalone Rust upload and privileged media fixtures generate their own
 keys and isolate only their own actors between independent workflows. They still

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { withDeletionQuota } from './helpers/deletion-quota-fixture.js';
 import { spawn, spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -148,9 +149,11 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
       await expect(publicPage.locator(`#p${flagged}`)).toHaveClass(/post-hidden/);
       await expect(publicPage.locator(`#p${added}`)).toHaveClass(/post-hidden/);
       await expect(publicPage.locator(`#p${sage}`)).not.toHaveClass(/post-hidden/);
-      const deleted = await page.request.post(`${publicOrigin}/${board}/delete`, { headers: { Origin: publicOrigin }, maxRedirects: 0, form: { no: flagged, password } });
-      expect(deleted.status()).toBe(303);
-      expect((await (await page.request.get(endpoint)).json()).posts.some(post => String(post.no) === flagged)).toBe(false);
+      await withDeletionQuota(async () => {
+        const deleted = await page.request.post(`${publicOrigin}/${board}/delete`, { headers: { Origin: publicOrigin }, maxRedirects: 0, form: { no: flagged, password } });
+        expect(deleted.status()).toBe(303);
+        expect((await (await page.request.get(endpoint)).json()).posts.some(post => String(post.no) === flagged)).toBe(false);
+      });
     }
     expect(fixture('ordinary-inspect', board)).toEqual({ posts: 18, deleted: 4, deletion: 16, contexts: 12, op_peers: 4, op_replies: 8, proofs: 0, audit: 12 });
     expect(errors).toEqual([]);

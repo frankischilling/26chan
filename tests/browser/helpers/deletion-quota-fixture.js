@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -10,7 +10,7 @@ const context = new AsyncLocalStorage();
 let queue = Promise.resolve();
 // Config modules can be evaluated more than once in the runner. Keep the secret
 // only in process memory, never in serialized config metadata or reports.
-const state = globalThis[Symbol.for('paperboard.ownedDeletionQuotaRun')] ||= { run: undefined, initialized: false };
+const state = globalThis[Symbol.for('paperboard.ownedDeletionQuotaRun')] ||= { run: undefined, initialized: false, pendingInitialization: false };
 
 function readManifest(filename) {
   const stat = lstatSync(filename);
@@ -31,9 +31,17 @@ function readManifest(filename) {
   return manifest;
 }
 
-function invoke(command) {
-  const executable = path.resolve(process.env.CARGO_TARGET_DIR || 'target',
+function executablePath() {
+  return path.resolve(process.env.CARGO_TARGET_DIR || 'target',
     `debug/examples/deletion-quota-fixture${process.platform === 'win32' ? '.exe' : ''}`);
+}
+
+function missingExecutable() {
+  return new Error('Owned deletion quota fixture is not built; run cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked');
+}
+
+function invoke(command) {
+  const executable = executablePath();
   const result = spawnSync(executable, [command], {
     encoding: 'utf8', timeout: 15_000,
     // Never pass inherited actor selectors or identity keys to this authority.
@@ -45,7 +53,7 @@ function invoke(command) {
     },
   });
   if (result.error?.code === 'ENOENT') {
-    throw new Error('Owned deletion quota fixture is not built; run cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked');
+    throw missingExecutable();
   }
   if (result.error || result.status !== 0) {
     // Do not echo command environments, credentials, manifest keys or SQL errors.
@@ -89,21 +97,24 @@ export function prepareDeletionQuotaRun() {
 // Until then no test may mutate the server; init rejects any pre-existing actor.
 export function initializeDeletionQuotaRun() {
   const manifest = prepareDeletionQuotaRun();
+  if (state.pendingInitialization) {
+    throw new Error('Owned deletion quota initialization outcome is uncertain; retire the exact pending run before initializing again');
+  }
   if (state.initialized || process.env.TEST_WORKER_INDEX !== undefined) return manifest;
+  // A known missing binary must leave no ownership file or database lease.
+  try { accessSync(executablePath(), constants.X_OK); } catch { throw missingExecutable(); }
   const directory = mkdtempSync(path.join(tmpdir(), 'owned-browser-deletion-'));
   chmodSync(directory, 0o700);
   const filename = path.join(directory, 'run.json');
   writeFileSync(filename, JSON.stringify(manifest), { flag: 'wx', mode: 0o600 });
   process.env[manifestVariable] = filename;
-  try {
-    invoke('init');
-    state.initialized = true;
-    return manifest;
-  } catch (error) {
-    rmSync(directory, { recursive: true });
-    delete process.env[manifestVariable];
-    throw error;
-  }
+  // Once init is launched, failure can follow a committed lease but precede its
+  // acknowledgement. Keep the exact proof and refuse a blind second init.
+  state.pendingInitialization = true;
+  invoke('init');
+  state.pendingInitialization = false;
+  state.initialized = true;
+  return manifest;
 }
 
 export function teardownDeletionQuotaRun() {
@@ -119,6 +130,7 @@ export function teardownDeletionQuotaRun() {
   delete process.env[manifestVariable];
   state.run = undefined;
   state.initialized = false;
+  state.pendingInitialization = false;
 }
 
 // One callback may perform at most three successful deletion requests. Failures
