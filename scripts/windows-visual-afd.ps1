@@ -137,7 +137,9 @@ try {
 } finally {
     # Inspection failures must never replace the saved theme result.
     try {
-        if ($testExit -ne 0) {
+        # Retain the bounded sanitized inventory on one successful shard too.
+        # Missing metadata stays optional; the unavailable fallback is for failures.
+        if ($testExit -ne 0 -or ($env:THEME_SHARD -eq '1' -and $diagnostic)) {
             if (-not $diagnostic) {
                 $diagnostic = '{"schema":1,"provider":"Microsoft-Windows-Winsock-AFD","capture":"unavailable","reason":"provider-metadata-unavailable","events":[],"events_lost":null,"buffers_lost":null,"circular_overwrite":null,"complete":false}'
             }

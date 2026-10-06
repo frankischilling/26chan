@@ -52,6 +52,30 @@ test('CI retains only summary JSON; wrapper preserves command and cleanup hook',
   assert.ok(!ci.includes('*.etl'));
 });
 
+test('one theme shard retains only sanitized provider inventory regardless of test outcome', () => {
+  const script = readFileSync(new URL('../../scripts/windows-visual-afd.ps1', import.meta.url), 'utf8');
+  const ci = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.match(script, /if \(\$testExit -ne 0 -or \(\$env:THEME_SHARD -eq '1' -and \$diagnostic\)\) \{/);
+  assert.match(script, /\(Get-Item -LiteralPath \$resultPath\)\.Length -gt 65536/);
+  assert.match(script, /\$destination = Join-Path \(Get-Location\) 'test-results\/windows-afd'/);
+  assert.match(script, /WriteAllText\(\(Join-Path \$destination 'summary\.json'\), \$diagnostic\)/);
+  const themeJob = ci.split('  visual-windows-themes:\n')[1];
+  const steps = themeJob.split('      - name: ');
+  const inventory = steps.filter(step => step.startsWith('Retain sanitized Windows AFD provider inventory\n'));
+  assert.equal(inventory.length, 1);
+  assert.match(inventory[0], /\n        if: always\(\) && matrix\.shard == 1\n/);
+  assert.match(inventory[0], /\n        uses: actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a /);
+  assert.match(inventory[0], /\n          path: test-results\/windows-afd\/summary\.json\n/);
+  assert.match(inventory[0], /\n          if-no-files-found: ignore\n/);
+  assert.match(inventory[0], /\n          retention-days: 3\n/);
+  assert.match(inventory[0], /\n          include-hidden-files: false\n/);
+  assert.ok(!/netlogs|\.etl|\.xml|metadata\.private|windows-visual-resources|\*\*/i.test(inventory[0]));
+  const failure = steps.find(step => step.startsWith('Retain synthetic Windows theme shard failure diagnostics\n'));
+  assert.match(failure, /\n        if: failure\(\)\n/);
+  assert.match(failure, /\n            test-results\/\*\*\/netlogs\/\*\.json\n/);
+  assert.match(failure, /\n            test-results\/windows-afd\/summary\.json\n/);
+});
+
 test('partial manifest keeps valid descriptors when another template or level is unavailable', () => {
   const input = metadata();
   input.events.push({ id: 2, version: 0, level: null, fields: [], unsupported: true });
