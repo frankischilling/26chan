@@ -725,10 +725,14 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await expect(page.getByRole('heading', { name: '/demo/ - Paper craft' })).toBeVisible();
   await page.locator('#t1000001').getByRole('link', { name: 'Reply', exact: true }).click();
   await expect(page.locator('#postForm')).toBeVisible();
-  await page.goto('http://127.0.0.1:3000/test/');
+  await page.goto('http://127.0.0.1:3000/fixture/');
   const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
-  const limit = listing.boards.find(board => board.board === 'test').max_comment_chars;
-  expect(limit).toBe(boardReference.boards.find(board => board.slug === 'test').max_comment_chars);
+  expect(listing.boards.find(board => board.board === 'test').max_comment_chars)
+    .toBe(boardReference.boards.find(board => board.slug === 'test').max_comment_chars);
+  // Exercise the advertised boundary on the owned board, whose immediate
+  // cleanup is independent of imported source filters and deletion-age policy.
+  const limit = listing.boards.find(board => board.board === 'fixture').max_comment_chars;
+  expect(limit).toBe(4000);
   const comment = '𠮷'.repeat(limit);
   const wrapped = count => `${'𠮷'.repeat(35)}<wbr>`.repeat(Math.floor(count / 35)) + '𠮷'.repeat(count % 35);
   await expect(page.locator('#postHelp')).toContainText(`${limit} characters`);
@@ -736,10 +740,10 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await page.locator('#com').fill(comment);
   await expect(page.locator('#postPassword')).toHaveValue('');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
-  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const op = /#p(\d+)$/.exec(page.url())[1];
   const threadUrl = page.url();
-  const jsonUrl = `http://127.0.0.1:3000/test/thread/${op}.json`;
+  const jsonUrl = `http://127.0.0.1:3000/fixture/thread/${op}.json`;
   await page.reload();
   await expect(page.locator(`#m${op}`)).toHaveText(comment);
   const before = await page.request.get(jsonUrl);
@@ -749,7 +753,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(beforeJson.posts[0].replies).toBe(0);
   await page.locator('#com').fill(`${comment}a`);
   await expect(page.locator('#postPassword')).toHaveValue('');
-  const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+  const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
   expect((await denied).status()).toBe(422);
   const after = await page.request.get(jsonUrl);
@@ -761,7 +765,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
     await page.goto(threadUrl);
     await page.locator('#com').fill(raw);
     await expect(page.locator('#postPassword')).toHaveValue('');
-    const rejected = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
+    const rejected = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     expect((await rejected).status()).toBe(422);
     const unchanged = await page.request.get(jsonUrl);
@@ -772,7 +776,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   const multiline = `${'𠮷'.repeat(limit - 2)}\nX`;
   await page.locator('#com').fill(multiline);
   await expect(page.locator('#postPassword')).toHaveValue('');
-  const submitted = page.waitForRequest(request => request.url().endsWith('/test/imgboard.php') && request.method() === 'POST');
+  const submitted = page.waitForRequest(request => request.url().endsWith('/fixture/imgboard.php') && request.method() === 'POST');
   await page.getByRole('button', { name: 'Post', exact: true }).click();
   const submission = await submitted;
   expect(submission.headers()['content-type']).toMatch(/^multipart\/form-data; boundary=/);
@@ -782,7 +786,7 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   expect(fields.get('mode')).toBe('regist');
   expect(fields.get('pwd')).toBe('');
   expect(fields.get('com')).toBe(multiline.replace('\n', '\r\n'));
-  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const reply = /#p(\d+)$/.exec(page.url())[1];
   expect(reply).not.toBe(op);
   await expect(page.locator(`#m${reply} br`)).toHaveCount(1);
@@ -792,8 +796,8 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await expect(page.locator(`#delete${op}`)).toHaveValue('');
   await withDeletionQuota(async () => {
     await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-    await expect(page).toHaveURL(/\/test\/$/);
-    expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
+    await expect(page).toHaveURL(/\/fixture\/$/);
+    expect((await page.request.get(`/fixture/thread/${op}.json`)).status()).toBe(404);
   });
   await context.close();
 });
