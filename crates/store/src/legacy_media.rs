@@ -80,9 +80,8 @@ impl LegacyMediaStore {
         variants: &OutputVariants,
     ) -> Result<(), StoreError> {
         validate_hex(&expected.id, 32)?;
-        // A public upload can become attached while processing runs. Its link
-        // is one-use and durable, so at most one restart is needed to discover
-        // the board and retain board -> thread -> job -> asset lock ordering.
+        // Retry a changed owner with board -> thread -> job -> asset lock order.
+        // Repeated ownership changes exhaust this bounded retry.
         for _ in 0..2 {
             if self.commit_once(expected, variants).await? {
                 return Ok(());
@@ -107,9 +106,9 @@ impl LegacyMediaStore {
             .await?;
         // Match public/staff lock order. Metadata changes invalidate HTTP date
         // validators as well as body ETags, without changing the post or media ID.
-        let attached: Option<(String,i64)> = sqlx::query_as("SELECT p.board,p.thread_id FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE m.asset_id=$1")
+        let attached: Option<(i64,String,i64)> = sqlx::query_as("SELECT m.post_id,p.board,p.thread_id FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE m.asset_id=$1")
             .bind(&expected.id).fetch_optional(&mut *tx).await?;
-        if let Some((board, thread)) = &attached {
+        if let Some((_, board, thread)) = &attached {
             sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
                 .bind(board)
                 .fetch_one(&mut *tx)
@@ -122,19 +121,17 @@ impl LegacyMediaStore {
         }
         sqlx::query("SELECT j.id FROM media.jobs j JOIN media.assets a ON a.job_id=j.id WHERE a.id=$1 FOR UPDATE OF j")
             .bind(&expected.id).fetch_optional(&mut *tx).await?;
-        if attached.is_none() {
-            let now_attached: bool = sqlx::query_scalar(
-                "SELECT EXISTS (SELECT 1 FROM content.post_media WHERE asset_id=$1)",
-            )
+        // The job may have been retired; the asset remains the durable lock.
+        sqlx::query("SELECT id FROM media.assets WHERE id=$1 FOR UPDATE")
             .bind(&expected.id)
-            .fetch_one(&mut *tx)
+            .fetch_optional(&mut *tx)
             .await?;
-            if now_attached {
-                // Never wait for a board while holding the job lock: a posting
-                // transaction may hold that board and be waiting for this job.
-                tx.rollback().await?;
-                return Ok(false);
-            }
+        let current_owner: Option<(i64,String,i64)> = sqlx::query_as("SELECT m.post_id,p.board,p.thread_id FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE m.asset_id=$1")
+            .bind(&expected.id).fetch_optional(&mut *tx).await?;
+        if current_owner != attached {
+            // Discover new board/thread locks only after releasing job/asset locks.
+            tx.rollback().await?;
+            return Ok(false);
         }
         let changed = sqlx::query("UPDATE media.assets SET md5=$6,thumbnail_sha256=$7,thumbnail_bytes=$8,thumbnail_width=$9,thumbnail_height=$10,updated_at=clock_timestamp() WHERE id=$1 AND sha256=$2 AND bytes=$3 AND width=$4 AND height=$5 AND state='approved' AND md5 IS NULL AND EXISTS (SELECT 1 FROM media.approved_assets v WHERE v.id=$1)")
             .bind(&expected.id).bind(&expected.sha256).bind(expected.bytes).bind(expected.width).bind(expected.height)
@@ -145,7 +142,7 @@ impl LegacyMediaStore {
                 "Legacy approval changed or is unavailable.",
             ));
         }
-        if let Some((board, thread)) = attached {
+        if let Some((_, board, thread)) = current_owner {
             sqlx::query(
                 "UPDATE content.threads SET modified_at=clock_timestamp() WHERE board=$1 AND id=$2",
             )
