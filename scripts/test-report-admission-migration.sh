@@ -29,8 +29,10 @@ trap 'printf "Report-admission qualification failed at line %s (private diagnost
 # Model an existing cluster explicitly: deploy/roles.sql is CREATE ROLE based,
 # so do not rerun it against an existing deployment. Bootstrap only the new
 # NOLOGIN owner/membership immediately before the upgrade below.
+# Root owns these mode-0600 files. Open them before dropping privileges;
+# PostgreSQL receives only stdin, without broadening file permissions.
 sed '/board_report_admission_owner/d' deploy/roles.sql > "$cluster/legacy-roles.sql"
-runuser -u postgres -- "${psql[@]}" -d postgres -f "$cluster/legacy-roles.sql"
+runuser -u postgres -- "${psql[@]}" -d postgres -f - < "$cluster/legacy-roles.sql"
 runuser -u postgres -- "${psql[@]}" -d postgres <<'SQL'
 ALTER ROLE board_staff LOGIN;
 ALTER ROLE board_media LOGIN;
@@ -492,7 +494,7 @@ DO $$ BEGIN
 END $$;
 ROLLBACK;
 SQL
-  "${admin[@]}" -f "$cluster/readiness.sql"
+  "${admin[@]}" -f - < "$cluster/readiness.sql"
   "${admin[@]}" -At > "$cluster/$mode-$phase.fingerprint" <<'SQL'
 SELECT relation,md5(value::text) FROM public.capture_report_rows() ORDER BY relation,value::text;
 SELECT kind,object,md5(value::text) FROM public.report_authority ORDER BY kind,object,value::text;
