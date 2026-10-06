@@ -72,7 +72,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         "ordinary-policy" => {
-            let changed=sqlx::query("UPDATE content.boards SET text_only=true,user_ids=true,country_flags=true,board_flags=ARRAY['AC'],op_markup=true,dice_roll=true,fortune_trip=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+            let changed=sqlx::query("UPDATE content.boards SET text_only=true,user_ids=true,country_flags=true,board_flags=ARRAY['AC'],op_markup=true,dice_roll=true,fortune_trip=true,deletion_known_min_seconds=0,deletion_unknown_min_seconds=0 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
                 .bind(board).execute(&pool).await?.rows_affected();
             if changed != 1 {
                 return Err("Owned ordinary fixture board is missing".into());

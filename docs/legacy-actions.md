@@ -18,8 +18,9 @@ in a successful deletion response. No live external write or report was sent.
 The reference does not establish the server's authorization, report categories,
 captcha policy or complete success-page appearance. This implementation retains
 the project's explicit deletion password and free-text report reason. Same-origin
-routes replace the original separate posting domain. Archived deletion and bulk
-deletion are outside this adapter's supported contract.
+routes replace the original separate posting domain. Public archived deletion is
+rejected by the [source eligibility gates](source-public-deletion.md). Bulk
+deletion remains outside this adapter's supported contract.
 
 ## Request and authorization rules
 

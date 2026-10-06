@@ -1,8 +1,9 @@
+import { ownedDeletionMarker, deletionFixture, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted hover headers follow reply deletion and safely render literal user text', async ({ page, request }) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-preview-password';
-  const marker = `OwnedPreview${Date.now()}`, created = [];
+  const marker = ownedDeletionMarker(), created = [];
   const errors = [], violations = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
@@ -15,6 +16,7 @@ test('persisted hover headers follow reply deletion and safely render literal us
     return /#p(\d+)$/.exec(response.headers().location)[1];
   };
   const remove = async (board, id) => {
+    if (board === 'news') deletionFixture('age', board, id, marker);
     const response = await request.post(`/${board}/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
     expect(response.status()).toBe(303);
   };
@@ -53,6 +55,10 @@ test('persisted hover headers follow reply deletion and safely render literal us
     expect(errors).toEqual([]);
     expect(violations).toEqual([]);
   } finally {
-    for (const { board, op } of created) await remove(board, op);
+    try {
+      for (const { board, op } of created.filter(({ board }) => board === 'demo')) await remove(board, op);
+    } finally {
+      cleanupDeletionFixtures(created.filter(({ board }) => board === 'news').map(({ board, op }) => ({ board, id: op, marker })));
+    }
   }
 });

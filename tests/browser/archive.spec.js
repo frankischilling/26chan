@@ -13,10 +13,9 @@ function fixture(command, slug) {
   expect(result.status, 'Owned archive fixture helper must succeed').toBe(0);
 }
 
-test('archive navigation, read-only threads, reports and deletion work without JavaScript', async ({ browser }) => {
+test('archive navigation and reports work without JavaScript while public deletion stays forbidden', async ({ browser }) => {
   const slug = `z${randomBytes(5).toString('hex').slice(0, 9)}`;
   const origin = 'http://127.0.0.1:3000';
-  const password = 'archive-browser-password';
   fixture('setup', slug);
   let context;
   try {
@@ -56,9 +55,15 @@ test('archive navigation, read-only threads, reports and deletion work without J
     await page.goto(`${origin}/${slug}/thread/${archived}`);
     await page.locator(`#p${archived} summary`).click();
     await expect(page.locator(`#delete${archived}`)).toHaveValue('');
+    const before = await (await context.request.get(`${origin}/${slug}/thread/${archived}.json`)).json();
+    const denied = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/${slug}/delete`));
     await page.getByRole('button', { name: 'Delete post', exact: true }).click();
-    await expect(page).toHaveURL(`${origin}/${slug}/`);
-    await page.getByRole('link', { name: 'Archive', exact: true }).click();
+    expect((await denied).status()).toBe(403);
+    await expect(page.locator('body')).toContainText('Error: Password incorrect.');
+    expect(await (await context.request.get(`${origin}/${slug}/thread/${archived}.json`)).json()).toEqual(before);
+    expect(await (await context.request.get(`${origin}/${slug}/archive.json`)).json()).toEqual([Number(archived)]);
+    fixture('expire', slug);
+    await page.goto(`${origin}/${slug}/archive`);
     await expect(page.getByText('No archived threads.', { exact: true })).toBeVisible();
     expect((await context.request.get(`${origin}/${slug}/thread/${archived}.json`)).status()).toBe(404);
   } finally {

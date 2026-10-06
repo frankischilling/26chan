@@ -1,3 +1,4 @@
+import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -7,8 +8,9 @@ const encoding = JSON.parse(readFileSync(new URL('../../crates/domain/tests/fixt
 test('source boards suppress both trip types in native and Quick Reply posts', async ({ browser, request }) => {
   for (const board of ['b', 's4s']) {
     for (const width of [1280, 390]) {
+      const marker = ownedDeletionMarker();
       const created = await request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
-        form: { name: '#password', com: 'Owned source suppression thread', password } });
+        form: { name: '#password', sub: marker, com: 'Owned source suppression thread', password } });
       expect(created.status()).toBe(303);
       const thread = /#p(\d+)$/.exec(created.headers().location)[1];
       const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width === 390,
@@ -43,9 +45,7 @@ test('source boards suppress both trip types in native and Quick Reply posts', a
         await expect(page.locator(`#pi${data.posts[1].no} .name`)).toHaveText('Named');
         await expect(page.locator('.postertrip')).toHaveCount(0);
       } finally {
-        await context.close();
-        expect((await request.post(`/${board}/delete`, { headers: { Origin: origin }, maxRedirects: 0,
-          form: { no: thread, password } })).status()).toBe(303);
+        try { await context.close(); } finally { deletionFixture('cleanup', board, thread, marker); }
       }
     }
   }

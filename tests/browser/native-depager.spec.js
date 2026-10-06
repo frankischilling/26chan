@@ -151,13 +151,7 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
     await expect(page.locator('#depage')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#depage')).toBeDisabled();
   } finally {
-    try { for (const thread of threads.reverse()) {
-      const response = await request.post(`/${board}/delete`, {
-        headers: { Origin: origin }, maxRedirects: 0,
-        form: { no: thread, password },
-      });
-      expect([303, 404]).toContain(response.status());
-    } } finally { fixture('cleanup', board); }
+    fixture('cleanup', board);
   }
 });
 
@@ -186,12 +180,6 @@ test('no-next and script-free board indexes keep ordinary pagination as the fall
       await expect(noScript.locator('nav.pages a[rel="next"]')).toHaveAttribute('href', `/${board}/1`);
     } finally { await context.close(); }
   } finally {
-    try { for (const thread of threads.reverse()) {
-      const response = await request.post(`/${board}/delete`, {
-        headers: { Origin: origin }, maxRedirects: 0,
-        form: { no: thread, password },
-      });
-      expect([303, 404]).toContain(response.status());
-    } } finally { fixture('cleanup', board); }
+    fixture('cleanup', board);
   }
 });

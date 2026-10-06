@@ -116,7 +116,7 @@ async fn fixture() -> (PgPool, PgPool, String) {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup) VALUES($1,'Owned anonymous HTTP','Synthetic',2000,100,100,100,10,true)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES($1,'Owned anonymous HTTP','Synthetic',2000,100,100,100,10,true,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     (owner, public, board)
 }
@@ -350,4 +350,68 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
     }).await;
     cleanup(&owner, &board).await;
     outcome.unwrap();
+}
+
+#[tokio::test]
+async fn public_deletion_resumes_the_cookie_with_the_current_transport_peer() {
+    let (owner, public, board) = fixture().await;
+    sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
+        .bind(&board).execute(&owner).await.unwrap();
+    let app = board_public::router(public.clone(), ORIGIN.into(), false);
+    for route in 0..3 {
+        let (post, cookie, _) = posted(
+            &app,
+            &format!("/{board}/post"),
+            &[("com", "Owned current peer deletion test")],
+            None,
+            false,
+        )
+        .await;
+        let capability = Capability::parse(cookie.strip_prefix("board-anon=").unwrap()).unwrap();
+        let token = capability.storage_hash();
+        sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-interval '61 seconds' WHERE id=$1").bind(post).execute(&owner).await.unwrap();
+        sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=extract(epoch FROM clock_timestamp())::bigint-1000,network_at=extract(epoch FROM clock_timestamp())::bigint-901,activity_at=extract(epoch FROM clock_timestamp())::bigint,verified_level=3,change_score=12 WHERE token_hash=$1")
+            .bind(token.as_slice()).execute(&owner).await.unwrap();
+        let id = post.to_string();
+        let path = format!(
+            "/{board}/{}",
+            if route == 0 { "delete" } else { "imgboard.php" }
+        );
+        let fields = if route == 0 {
+            vec![("no", id.as_str())]
+        } else {
+            vec![("mode", "usrdel"), (id.as_str(), "delete"), ("pwd", "")]
+        };
+        let mut changed = form(&path, &fields, Some(&cookie), route == 2);
+        changed.extensions_mut().insert(axum::extract::ConnectInfo(
+            "203.0.113.7:12345".parse::<std::net::SocketAddr>().unwrap(),
+        ));
+        let response = app.clone().oneshot(changed).await.unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = to_bytes(response.into_body(), 65536).await.unwrap();
+        assert!(
+            String::from_utf8_lossy(&body)
+                .contains("Error: You must wait longer before deleting this post.")
+        );
+        assert!(board_store::find_post(&public, &board, post).await.is_ok());
+        let mut unchanged = form(&path, &fields, Some(&cookie), route == 2);
+        // Untrusted forwarding hints cannot change the server's peer identity.
+        unchanged
+            .headers_mut()
+            .insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
+        let response = app.clone().oneshot(unchanged).await.unwrap();
+        assert_eq!(
+            response.status(),
+            if route == 0 {
+                StatusCode::SEE_OTHER
+            } else {
+                StatusCode::OK
+            }
+        );
+        assert!(matches!(
+            board_store::find_post(&public, &board, post).await,
+            Err(board_store::StoreError::NotFound)
+        ));
+    }
+    cleanup(&owner, &board).await;
 }

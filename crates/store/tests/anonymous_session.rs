@@ -30,7 +30,7 @@ impl Fixture {
                 .fetch_one(&owner)
                 .await
                 .unwrap();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup) VALUES($1,'Owned anonymous session','Synthetic',2000,100,100,100,10,true)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES($1,'Owned anonymous session','Synthetic',2000,100,100,100,10,true,0,0)")
             .bind(&board).execute(&owner).await.unwrap();
         Self {
             owner,
@@ -731,4 +731,421 @@ async fn same_session_replies_on_different_boards_do_not_upgrade_shared_locks() 
     second.cleanup(&[]).await;
     first.cleanup(&[token]).await;
     outcome.unwrap();
+}
+
+async fn deletion_state(f: &Fixture) -> String {
+    sqlx::query_scalar("SELECT jsonb_build_object('posts',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM content.posts p WHERE board=$1),'threads',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t WHERE board=$1),'media',(SELECT jsonb_agg(to_jsonb(m) ORDER BY post_id) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board=$1))::text")
+        .bind(&f.board).fetch_one(&f.owner).await.unwrap()
+}
+
+#[tokio::test]
+async fn public_deletion_gates_preserve_state_and_apply_to_both_authorities_and_modes() {
+    use sha2::{Digest, Sha256};
+    let f = Fixture::new().await;
+    sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600,archive_retention_seconds=86400 WHERE slug=$1")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    let capability = Capability::generate().unwrap();
+    let token = capability.storage_hash();
+    let post = f.create(0, session(&capability, true)).await.unwrap();
+    let proof = post_proof(&f.public, &token, &f.board, post)
+        .await
+        .unwrap()
+        .unwrap();
+    let password_proof = Sha256::digest(b"owned-private-deletion-hash").into();
+    for case in ["young", "old", "no_op", "sticky", "staff_reply", "archived"] {
+        sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-interval '601 seconds' WHERE id=$1")
+            .bind(post).execute(&f.owner).await.unwrap();
+        let mut child = None;
+        let expected = match case {
+            "young" => {
+                sqlx::query("UPDATE content.posts SET created_at=clock_timestamp() WHERE id=$1")
+                    .bind(post)
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+                "Error: You must wait longer before deleting this post."
+            }
+            "old" => {
+                sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-interval '1801 seconds' WHERE id=$1").bind(post).execute(&f.owner).await.unwrap();
+                "Error: You cannot delete a post this old."
+            }
+            "no_op" => {
+                sqlx::query("UPDATE content.boards SET deletion_no_op=true WHERE slug=$1")
+                    .bind(&f.board)
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+                "Error: You cannot delete this post."
+            }
+            "sticky" => {
+                sqlx::query("UPDATE content.threads SET sticky=true WHERE id=$1")
+                    .bind(post)
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+                "Error: You cannot delete this post."
+            }
+            "staff_reply" => {
+                let id = f.create(post, session(&capability, false)).await.unwrap();
+                sqlx::query("UPDATE content.posts SET capcode='mod' WHERE id=$1")
+                    .bind(id)
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+                child = Some(id);
+                "Error: You cannot delete this post."
+            }
+            "archived" => {
+                sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1").bind(post).execute(&f.owner).await.unwrap();
+                "Error: Password incorrect."
+            }
+            _ => unreachable!(),
+        };
+        let before = deletion_state(&f).await;
+        for file_only in [false, true] {
+            for anonymous in [false, true] {
+                let result = if anonymous {
+                    board_store::delete_with_anonymous_proof(
+                        &f.public, &f.board, post, token, proof, file_only,
+                    )
+                    .await
+                } else {
+                    board_store::delete_with_password_proof(
+                        &f.public,
+                        &f.board,
+                        post,
+                        password_proof,
+                        file_only,
+                    )
+                    .await
+                };
+                assert!(
+                    matches!(result,Err(StoreError::PublicDeletionRejected(message)) if message==expected),
+                    "{case}: {result:?}"
+                );
+                assert_eq!(deletion_state(&f).await, before, "{case}");
+            }
+        }
+        sqlx::query("UPDATE content.boards SET deletion_no_op=false WHERE slug=$1")
+            .bind(&f.board)
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.threads SET sticky=false,archived_at=NULL,archive_expires_at=NULL WHERE id=$1").bind(post).execute(&f.owner).await.unwrap();
+        if let Some(child) = child {
+            board_store::delete_post(&f.public, &f.board, child)
+                .await
+                .unwrap();
+        }
+    }
+    let reply = f.create(post, session(&capability, false)).await.unwrap();
+    let reply_proof = post_proof(&f.public, &token, &f.board, reply)
+        .await
+        .unwrap()
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET deletion_no_reply=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let before = deletion_state(&f).await;
+    assert!(matches!(
+        board_store::delete_with_anonymous_proof(
+            &f.public,
+            &f.board,
+            reply,
+            token,
+            reply_proof,
+            false
+        )
+        .await,
+        Err(StoreError::PublicDeletionRejected(
+            "Error: You cannot delete this post."
+        ))
+    ));
+    assert_eq!(deletion_state(&f).await, before);
+    // Trusted staff/fixture authority is intentionally outside public gates.
+    board_store::delete_post(&f.public, &f.board, post)
+        .await
+        .unwrap();
+    assert!(matches!(
+        board_store::find_post(&f.public, &f.board, reply).await,
+        Err(StoreError::NotFound)
+    ));
+    f.cleanup(&[token]).await;
+}
+
+#[tokio::test]
+async fn deletion_known_age_uses_resumed_network_lifetime_and_never_verified_level() {
+    use board_store::PublicDeletionContext;
+    use sha2::{Digest, Sha256};
+    let f = Fixture::new().await;
+    sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    let capability = Capability::generate().unwrap();
+    let token = capability.storage_hash();
+    let mut minted = true;
+    for (network_age, idle_age, changed_network, changed_environment, expected) in [
+        (899, 0, false, false, false),
+        (900, 0, false, false, true),
+        (901, 0, true, false, false),
+        (901, 0, false, true, true),
+        (901, 604801, false, false, false),
+    ] {
+        for anonymous in [false, true] {
+            let post = f.create(0, session(&capability, minted)).await.unwrap();
+            minted = false;
+            let proof = post_proof(&f.public, &token, &f.board, post)
+                .await
+                .unwrap()
+                .unwrap();
+            let request_start = Utc::now().with_nanosecond(0).unwrap();
+            sqlx::query("UPDATE content.posts SET created_at=$2-interval '61 seconds' WHERE id=$1")
+                .bind(post)
+                .bind(request_start)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=$2-1000,network_at=$2-$3,address_at=$2-1000,environment_at=$2-1000,activity_at=$2-$4,verified_level=3,change_score=12 WHERE token_hash=$1")
+                .bind(token.as_slice()).bind(request_start.timestamp()).bind(network_age as i64).bind(idle_age as i64).execute(&f.owner).await.unwrap();
+            let mut current = session(&capability, false);
+            current.now = request_start;
+            current.fingerprints = capability.fingerprints(
+                Some(
+                    if changed_network {
+                        "203.0.113.7"
+                    } else {
+                        "198.51.100.7"
+                    }
+                    .parse()
+                    .unwrap(),
+                ),
+                if changed_environment { *b"GB" } else { *b"US" },
+            );
+            let context = PublicDeletionContext {
+                request_start,
+                session: Some(current),
+            };
+            let before = deletion_state(&f).await;
+            let result = if anonymous {
+                board_store::delete_with_anonymous_proof_context(
+                    &f.public, &f.board, post, token, proof, false, context,
+                )
+                .await
+            } else {
+                board_store::delete_with_password_proof_context(
+                    &f.public,
+                    &f.board,
+                    post,
+                    Sha256::digest(b"owned-private-deletion-hash").into(),
+                    false,
+                    context,
+                )
+                .await
+            };
+            assert_eq!(
+                result.is_ok(),
+                expected,
+                "network={network_age},idle={idle_age},network_change={changed_network},environment_change={changed_environment}: {result:?}"
+            );
+            if !expected {
+                assert_eq!(deletion_state(&f).await, before);
+            }
+        }
+    }
+    f.cleanup(&[token]).await;
+}
+
+#[tokio::test]
+async fn deletion_rechecks_policy_after_waiting_for_the_board_lock() {
+    let f = Fixture::new().await;
+    let capability = Capability::generate().unwrap();
+    let token = capability.storage_hash();
+    let post = f.create(0, session(&capability, true)).await.unwrap();
+    let proof = post_proof(&f.public, &token, &f.board, post)
+        .await
+        .unwrap()
+        .unwrap();
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let mut change = f.owner.begin().await.unwrap();
+    sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1").bind(&f.board).execute(&mut *change).await.unwrap();
+    let before = deletion_state(&f).await;
+    let board = f.board.clone();
+    let deletion = tokio::spawn(async move {
+        board_store::delete_with_anonymous_proof(&pool, &board, post, token, proof, false).await
+    });
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if sqlx::query_scalar::<_, bool>("SELECT cardinality(pg_blocking_pids($1))>0")
+                .bind(pid)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap()
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("Deletion reaches the held board lock");
+    change.commit().await.unwrap();
+    assert!(matches!(
+        deletion.await.unwrap(),
+        Err(StoreError::PublicDeletionRejected(
+            "Error: You must wait longer before deleting this post."
+        ))
+    ));
+    assert_eq!(deletion_state(&f).await, before);
+    f.cleanup(&[token]).await;
+}
+
+#[tokio::test]
+async fn imported_deletion_policy_is_bounded_and_runtime_read_only() {
+    let f = Fixture::new().await;
+    let denied: Vec<String> =
+        sqlx::query_scalar("SELECT slug FROM content.boards WHERE deletion_no_op ORDER BY slug")
+            .fetch_all(&f.owner)
+            .await
+            .unwrap();
+    for board in [
+        "a", "bant", "his", "int", "jp", "pol", "pw", "qa", "qst", "sp", "tv", "v", "vip", "vm",
+        "vmg", "vrpg", "vst", "vt",
+    ] {
+        assert!(
+            denied.iter().any(|slug| slug == board),
+            "Missing imported OP deletion policy for {board}"
+        );
+    }
+    let qa: bool =
+        sqlx::query_scalar("SELECT deletion_no_reply FROM content.boards WHERE slug='qa'")
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert!(!qa, "qa's reply gate is commented out in the source");
+    for statement in [
+        "UPDATE content.boards SET deletion_no_op=true WHERE slug=$1",
+        "UPDATE content.boards SET deletion_no_reply=true WHERE slug=$1",
+        "UPDATE content.boards SET deletion_known_min_seconds=0 WHERE slug=$1",
+        "UPDATE content.boards SET deletion_unknown_min_seconds=0 WHERE slug=$1",
+        "UPDATE content.boards SET deletion_max_seconds=86400 WHERE slug=$1",
+    ] {
+        let error = sqlx::query(statement)
+            .bind(&f.board)
+            .execute(&f.public)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501")
+        );
+    }
+    for statement in [
+        "UPDATE content.boards SET deletion_known_min_seconds=-1 WHERE slug=$1",
+        "UPDATE content.boards SET deletion_unknown_min_seconds=1800 WHERE slug=$1",
+        "UPDATE content.boards SET deletion_max_seconds=0 WHERE slug=$1",
+        "UPDATE content.boards SET deletion_max_seconds=86401 WHERE slug=$1",
+    ] {
+        let error = sqlx::query(statement)
+            .bind(&f.board)
+            .execute(&f.owner)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("23514")
+        );
+    }
+    f.cleanup(&[]).await;
+}
+
+#[tokio::test]
+async fn deletion_rechecks_network_lifetime_after_waiting_for_the_board_lock() {
+    let f = Fixture::new().await;
+    let capability = Capability::generate().unwrap();
+    let token = capability.storage_hash();
+    let post = f.create(0, session(&capability, true)).await.unwrap();
+    let proof = post_proof(&f.public, &token, &f.board, post)
+        .await
+        .unwrap()
+        .unwrap();
+    let start = Utc::now().with_nanosecond(0).unwrap();
+    sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1").bind(&f.board).execute(&f.owner).await.unwrap();
+    sqlx::query("UPDATE content.posts SET created_at=$2-interval '61 seconds' WHERE id=$1")
+        .bind(post)
+        .bind(start)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE post_secrets.anonymous_sessions SET network_at=$2-901 WHERE token_hash=$1")
+        .bind(token.as_slice())
+        .bind(start.timestamp())
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let context = board_store::PublicDeletionContext {
+        request_start: start,
+        session: Some(session(&capability, false)),
+    };
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let mut change = f.owner.begin().await.unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(&f.board)
+        .execute(&mut *change)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE post_secrets.anonymous_sessions SET network_at=$2 WHERE token_hash=$1")
+        .bind(token.as_slice())
+        .bind(start.timestamp())
+        .execute(&mut *change)
+        .await
+        .unwrap();
+    let before = deletion_state(&f).await;
+    let board = f.board.clone();
+    let deletion = tokio::spawn(async move {
+        board_store::delete_with_anonymous_proof_context(
+            &pool, &board, post, token, proof, false, context,
+        )
+        .await
+    });
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if sqlx::query_scalar::<_, bool>("SELECT cardinality(pg_blocking_pids($1))>0")
+                .bind(pid)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap()
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("Deletion reaches the held board lock");
+    change.commit().await.unwrap();
+    assert!(matches!(
+        deletion.await.unwrap(),
+        Err(StoreError::PublicDeletionRejected(
+            "Error: You must wait longer before deleting this post."
+        ))
+    ));
+    assert_eq!(deletion_state(&f).await, before);
+    f.cleanup(&[token]).await;
 }

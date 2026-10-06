@@ -59,8 +59,9 @@ impl From<StoreError> for AppError {
             }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
+            StoreError::PublicDeletionRejected(message) => Self(StatusCode::FORBIDDEN, message),
             StoreError::AuthorizationChanged => {
-                Self(StatusCode::FORBIDDEN, "Deletion password is invalid.")
+                Self(StatusCode::FORBIDDEN, "Error: Password incorrect.")
             }
             _ => {
                 tracing::warn!(
@@ -100,7 +101,7 @@ pub async fn css() -> impl IntoResponse {
     )
 }
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
-    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
@@ -689,21 +690,30 @@ pub struct DeleteForm {
 pub async fn delete(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    axum::Extension(start): axum::Extension<crate::security::RequestStart>,
     headers: HeaderMap,
     Form(form): Form<DeleteForm>,
 ) -> Result<Redirect, AppError> {
-    if let Some(capability) = crate::anonymous_session::Session::existing(&state, &headers).await? {
-        let token = capability.storage_hash();
+    board_store::public_deletion_precheck(&state.pool, &board, form.no, start.0).await?;
+    let session = crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await?;
+    let context = board_store::PublicDeletionContext {
+        request_start: start.0,
+        session: (!session.posting.minted).then_some(session.posting),
+    };
+    if !session.posting.minted {
+        let token = session.posting.fingerprints.token;
         if let Some(proof) =
             board_store::anonymous_session::post_proof(&state.pool, &token, &board, form.no).await?
         {
-            board_store::delete_with_anonymous_proof(
+            board_store::delete_with_anonymous_proof_context(
                 &state.pool,
                 &board,
                 form.no,
                 token,
                 proof,
                 form.file_only,
+                context,
             )
             .await?;
             return Ok(Redirect::to(&format!("/{board}/")));
@@ -712,7 +722,7 @@ pub async fn delete(
     if !(8..=128).contains(&form.password.len()) {
         return Err(AppError(
             StatusCode::FORBIDDEN,
-            "Deletion password is invalid.",
+            "Error: Password incorrect.",
         ));
     }
     let hash = board_store::deletion_hash(&state.pool, &board, form.no).await?;
@@ -737,11 +747,18 @@ pub async fn delete(
     let Some(proof) = proof else {
         return Err(AppError(
             StatusCode::FORBIDDEN,
-            "Deletion password is invalid.",
+            "Error: Password incorrect.",
         ));
     };
-    board_store::delete_with_password_proof(&state.pool, &board, form.no, proof, form.file_only)
-        .await?;
+    board_store::delete_with_password_proof_context(
+        &state.pool,
+        &board,
+        form.no,
+        proof,
+        form.file_only,
+        context,
+    )
+    .await?;
     Ok(Redirect::to(&format!("/{board}/")))
 }
 

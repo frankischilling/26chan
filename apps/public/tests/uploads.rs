@@ -521,6 +521,14 @@ async fn exercise(
         StatusCode::FORBIDDEN
     );
     reader.get(&asset.id).await.unwrap();
+    // Age only this owned upload; preserve the board's public deletion policy.
+    sqlx::query(
+        "UPDATE content.posts SET created_at=clock_timestamp()-interval '601 seconds' WHERE id=$1",
+    )
+    .bind(thread)
+    .execute(admin)
+    .await
+    .unwrap();
     let deleted = app
         .clone()
         .oneshot(multipart_post_request(

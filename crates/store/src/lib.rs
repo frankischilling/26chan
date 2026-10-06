@@ -11,6 +11,8 @@ pub mod media_assets;
 pub mod media_intake;
 pub mod monitoring;
 pub mod post_media;
+mod public_deletion;
+pub use public_deletion::{PublicDeletionContext, public_deletion_precheck};
 mod read;
 mod robot9000;
 mod rss;
@@ -35,6 +37,8 @@ pub enum StoreError {
     Invalid(&'static str),
     #[error("{0}")]
     Conflict(&'static str),
+    #[error("{0}")]
+    PublicDeletionRejected(&'static str),
     #[error("Authorization is no longer valid.")]
     AuthorizationChanged,
     #[error("{0}")]

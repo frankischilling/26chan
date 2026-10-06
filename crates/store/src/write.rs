@@ -1107,8 +1107,29 @@ pub async fn delete_with_password_proof(
     proof: [u8; 32],
     file_only: bool,
 ) -> Result<(), StoreError> {
+    delete_with_password_proof_context(
+        pool,
+        slug,
+        id,
+        proof,
+        file_only,
+        PublicDeletionContext::default(),
+    )
+    .await
+}
+
+pub async fn delete_with_password_proof_context(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    proof: [u8; 32],
+    file_only: bool,
+    context: PublicDeletionContext,
+) -> Result<(), StoreError> {
     let mut tx = pool.begin().await?;
     lock_deletion_board(&mut tx, slug).await?;
+    let eligibility = public_deletion::eligibility(&mut tx, slug, id).await?;
+    eligibility.before_authority(context.request_start)?;
     let current: Option<String> = sqlx::query_scalar(crate::read::DELETION_HASH)
         .bind(slug)
         .bind(id)
@@ -1117,6 +1138,7 @@ pub async fn delete_with_password_proof(
     if current.is_none_or(|hash| <[u8; 32]>::from(Sha256::digest(hash.as_bytes())) != proof) {
         return Err(StoreError::AuthorizationChanged);
     }
+    eligibility.after_authority(&mut tx, context).await?;
     if file_only {
         post_media::delete_attachment(&mut *tx, slug, id).await?;
     } else {
@@ -1136,11 +1158,41 @@ pub async fn delete_with_anonymous_proof(
     proof: [u8; 32],
     file_only: bool,
 ) -> Result<(), StoreError> {
+    delete_with_anonymous_proof_context(
+        pool,
+        slug,
+        id,
+        token,
+        proof,
+        file_only,
+        PublicDeletionContext::default(),
+    )
+    .await
+}
+
+pub async fn delete_with_anonymous_proof_context(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    token: [u8; 32],
+    proof: [u8; 32],
+    file_only: bool,
+    context: PublicDeletionContext,
+) -> Result<(), StoreError> {
+    if context
+        .session
+        .is_some_and(|session| session.fingerprints.token != token)
+    {
+        return Err(StoreError::AuthorizationChanged);
+    }
     let mut tx = pool.begin().await?;
     lock_deletion_board(&mut tx, slug).await?;
+    let eligibility = public_deletion::eligibility(&mut tx, slug, id).await?;
+    eligibility.before_authority(context.request_start)?;
     if anonymous_session::locked_post_proof(&mut tx, &token, slug, id).await? != Some(proof) {
         return Err(StoreError::AuthorizationChanged);
     }
+    eligibility.after_authority(&mut tx, context).await?;
     if file_only {
         post_media::delete_attachment(&mut *tx, slug, id).await?;
     } else {

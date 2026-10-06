@@ -1,9 +1,10 @@
+import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted text catalogs restore GET-excluded rows and sort live without navigation', async ({ browser, request }) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-text-catalog-password';
-  const marker = `TextCatalog${Date.now()}`;
+  const marker = ownedDeletionMarker();
   const created = [];
   const noScript = await browser.newContext({ javaScriptEnabled: false });
   const liveContext = await browser.newContext();
@@ -62,7 +63,7 @@ test('persisted text catalogs restore GET-excluded rows and sort live without na
     }
   } finally {
     try {
-      for (const id of created) expect((await request.post('/news/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+      cleanupDeletionFixtures(created.map((id, index) => ({ board: 'news', id, marker: `${marker} ${['Alpha <script> & literal', 'Bravo', 'Crane'][index]}` })));
     } finally { await noScript.close(); await liveContext.close(); }
   }
 });

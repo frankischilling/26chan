@@ -21,14 +21,24 @@ const ORIGIN: &str = "http://127.0.0.1:3000";
 const PASSWORD: &str = "owned-deletion-authorization-password";
 
 fn request(board: &str, id: i64, route: u8, file_only: bool) -> Request<Body> {
+    request_with_password(board, id, route, file_only, PASSWORD)
+}
+
+fn request_with_password(
+    board: &str,
+    id: i64,
+    route: u8,
+    file_only: bool,
+    password: &str,
+) -> Request<Body> {
     let id = id.to_string();
     let mut fields = if route == 0 {
-        vec![("no", id.as_str()), ("password", PASSWORD)]
+        vec![("no", id.as_str()), ("password", password)]
     } else {
         vec![
             ("mode", "usrdel"),
             (id.as_str(), "delete"),
-            ("pwd", PASSWORD),
+            ("pwd", password),
         ]
     };
     if file_only {
@@ -134,6 +144,140 @@ impl Fixture {
         )
         .await
         .unwrap()
+    }
+
+    async fn eligibility(&self) {
+        use axum::body::to_bytes;
+        sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600,archive_retention_seconds=86400 WHERE slug=$1")
+            .bind(&self.board).execute(&self.owner).await.unwrap();
+        let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+            "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+            _ => None,
+        })
+        .unwrap();
+        let app = board_public::routers_with_limits(
+            self.public.clone(),
+            ORIGIN.into(),
+            false,
+            None,
+            limits,
+        )
+        .0;
+        for route in 0..3 {
+            for file_only in [false, true] {
+                let post = self.post(0, file_only).await;
+                for (age, deny_op, password, message) in [
+                    (
+                        0,
+                        false,
+                        PASSWORD,
+                        "Error: You must wait longer before deleting this post.",
+                    ),
+                    (0, false, "wrong-password", "Error: Password incorrect."),
+                    (
+                        1801,
+                        true,
+                        "wrong-password",
+                        "Error: You cannot delete a post this old.",
+                    ),
+                    (
+                        601,
+                        true,
+                        "wrong-password",
+                        "Error: You cannot delete this post.",
+                    ),
+                ] {
+                    sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-make_interval(secs=>$2) WHERE id=$1").bind(post).bind(age as f64).execute(&self.owner).await.unwrap();
+                    sqlx::query("UPDATE content.boards SET deletion_no_op=$2 WHERE slug=$1")
+                        .bind(&self.board)
+                        .bind(deny_op)
+                        .execute(&self.owner)
+                        .await
+                        .unwrap();
+                    let before: (bool, chrono::DateTime<chrono::Utc>) = sqlx::query_as(
+                        "SELECT deleted,modified_at FROM content.threads WHERE id=$1",
+                    )
+                    .bind(post)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+                    let response = app
+                        .clone()
+                        .oneshot(request_with_password(
+                            &self.board,
+                            post,
+                            route,
+                            file_only,
+                            password,
+                        ))
+                        .await
+                        .unwrap();
+                    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+                    let body = String::from_utf8(
+                        to_bytes(response.into_body(), 65536)
+                            .await
+                            .unwrap()
+                            .to_vec(),
+                    )
+                    .unwrap();
+                    assert!(body.contains(message), "{body}");
+                    let after: (bool, chrono::DateTime<chrono::Utc>) = sqlx::query_as(
+                        "SELECT deleted,modified_at FROM content.threads WHERE id=$1",
+                    )
+                    .bind(post)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+                    assert_eq!(before, after);
+                    if file_only {
+                        assert!(
+                            !board_store::post_media::attachment(&self.public, post)
+                                .await
+                                .unwrap()
+                                .unwrap()
+                                .file_deleted
+                        );
+                    }
+                }
+                sqlx::query("UPDATE content.boards SET deletion_no_op=false WHERE slug=$1")
+                    .bind(&self.board)
+                    .execute(&self.owner)
+                    .await
+                    .unwrap();
+                let response = app
+                    .clone()
+                    .oneshot(request(&self.board, post, route, file_only))
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    response.status(),
+                    if route == 0 {
+                        StatusCode::SEE_OTHER
+                    } else {
+                        StatusCode::OK
+                    }
+                );
+                if file_only {
+                    assert!(
+                        board_store::find_post(&self.public, &self.board, post)
+                            .await
+                            .is_ok()
+                    );
+                    assert!(
+                        board_store::post_media::attachment(&self.public, post)
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .file_deleted
+                    );
+                } else {
+                    assert!(matches!(
+                        board_store::find_post(&self.public, &self.board, post).await,
+                        Err(StoreError::NotFound)
+                    ));
+                }
+            }
+        }
     }
 
     async fn exercise(&self) {
@@ -485,7 +629,13 @@ async fn credential_reassignment_waits_for_source_and_target_board_mutations() {
     run(Scenario::Reassignment).await;
 }
 
+#[tokio::test]
+async fn source_eligibility_and_error_order_match_on_every_public_deletion_form() {
+    run(Scenario::Eligibility).await;
+}
+
 enum Scenario {
+    Eligibility,
     QueuedDeletion,
     CredentialMutation,
     Reassignment,
@@ -510,7 +660,7 @@ async fn run(scenario: Scenario) {
         .await
         .unwrap();
     let board = format!("da{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES($1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES($1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let boards = Arc::new(Mutex::new(vec![board.clone()]));
@@ -533,6 +683,7 @@ async fn run(scenario: Scenario) {
     };
     let outcome = tokio::spawn(async move {
         match scenario {
+            Scenario::Eligibility => fixture.eligibility().await,
             Scenario::QueuedDeletion => fixture.exercise().await,
             Scenario::CredentialMutation => fixture.credential_changes_wait_for_mutations().await,
             Scenario::Reassignment => fixture.credential_reassignment_locks_both_boards().await,

@@ -159,6 +159,8 @@ pub(crate) async fn submit(
             match handlers::delete(
                 State(state.clone()),
                 Path(board.clone()),
+                Extension(peer),
+                Extension(start),
                 headers,
                 Form(form),
             )

@@ -1,9 +1,10 @@
+import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted catalog teasers use board policy in HTML, GET filtering and live search', async ({ browser }, info) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-catalog-teaser-password';
-  const title = `Teaser${Date.now()}`;
+  const title = ownedDeletionMarker();
   const cases = [
     { board: 'b', comment: 'x'.repeat(301), teaser: `${'x'.repeat(300)}…`, query: 'x…$' },
     { board: 'b', comment: 'y'.repeat(40), teaser: `${'y'.repeat(35)}<wbr>${'y'.repeat(5)}`, query: '<wbr>yyyyy$' },
@@ -65,9 +66,13 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
     }
   } finally {
     try {
-      for (const { board, id } of created) {
-        const response = await noScript.request.post(`${origin}/${board}/delete`, { headers: { origin }, form: { no: id, password }, maxRedirects: 0 });
-        expect(response.status()).toBe(303);
+      try {
+        cleanupDeletionFixtures(created.filter(({ board }) => board !== 'fixture').map(entry => ({ ...entry, marker: title })));
+      } finally {
+        for (const { board, id } of created.filter(({ board }) => board === 'fixture')) {
+          const response = await noScript.request.post(`${origin}/${board}/delete`, { headers: { origin }, form: { no: id, password }, maxRedirects: 0 });
+          expect(response.status()).toBe(303);
+        }
       }
     } finally { await noScript.close(); await liveContext.close(); }
   }

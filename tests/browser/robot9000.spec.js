@@ -1,10 +1,11 @@
+import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
 const origin = 'http://127.0.0.1:3000';
 
 test('desktop and mobile posting retain robot errors and Quick Reply drafts without creating rejected posts', async ({ browser, request }) => {
-  const marker = `OwnedRobot${randomUUID().replaceAll('-', '')}`;
+  const marker = ownedDeletionMarker();
   const password = `owned-${randomUUID()}`;
   const created = await request.post('/r9k/post', {
     headers: { Origin: origin }, maxRedirects: 0, form: { sub: marker, com: marker, password },
@@ -59,7 +60,6 @@ test('desktop and mobile posting retain robot errors and Quick Reply drafts with
     expect(saved.posts).toHaveLength(3);
     expect(errors).toEqual([]);
   } finally {
-    expect((await request.post('/r9k/delete', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { no: id, password } })).status()).toBe(303);
+    deletionFixture('cleanup', 'r9k', id, marker);
   }
 });

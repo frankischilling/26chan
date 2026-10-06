@@ -403,6 +403,9 @@ async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_de
             use argon2::PasswordVerifier;
             assert!(argon2::Argon2::default().verify_password(b"owned-ordinary-password",&argon2::PasswordHash::new(&hash).unwrap()).is_ok());
             use sha2::Digest;
+            // This test owns the post; keep the source board's public deletion policy.
+            sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-interval '601 seconds' WHERE id=$1")
+                .bind(flagged).execute(&case.owner).await.unwrap();
             board_store::delete_with_password_proof(&case.public_pool().await,&case.board,flagged,sha2::Sha256::digest(hash.as_bytes()).into(),false).await.unwrap();
             let counts:(i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$1),(SELECT count(*) FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$2 AND thread_id=$3)),(SELECT count(*) FROM content.moderation_audit WHERE account_id=$1 AND board=$2 AND action='staff-post' AND target_id IN(SELECT id FROM content.posts WHERE thread_id=$3))")
                 .bind(case.account).bind(&case.board).bind(op).fetch_one(&case.owner).await.unwrap();

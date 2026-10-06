@@ -75,6 +75,7 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::ReadLimit => AppError::Capacity,
         StoreError::Robot9000Rejected(_)
         | StoreError::ContentRejected(_)
+        | StoreError::PublicDeletionRejected(_)
         | StoreError::ContentQuiet { .. } => AppError::Internal,
     }
 }

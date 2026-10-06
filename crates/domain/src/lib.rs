@@ -8,6 +8,7 @@ pub mod country;
 pub mod identity;
 pub mod name_trip_admission;
 pub mod poster_id;
+pub mod public_deletion;
 pub mod word_break;
 
 pub mod bump;

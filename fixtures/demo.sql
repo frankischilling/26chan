@@ -20,12 +20,14 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- General tests need stable unfiltered bodies. /test/ retains its active
 -- source random filter; synthetic posting fixtures use this separate board.
-INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup,op_markup)
-VALUES ('fixture','Test fixtures','Owned unfiltered posting fixtures.',4000,100,75,100,10,true,100,true,true)
+-- Zero deletion delays apply only to this synthetic board, never imported policy.
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds)
+VALUES ('fixture','Test fixtures','Owned unfiltered posting fixtures.',4000,100,75,100,10,true,100,true,true,0,0)
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
-VALUES ('demo','Paper craft','Discuss paper models, folding, and works in progress.',4000,100,75,100,10)
+-- /demo/ is also synthetic; fresh test cleanup uses explicit zero delays.
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds)
+VALUES ('demo','Paper craft','Discuss paper models, folding, and works in progress.',4000,100,75,100,10,0,0)
 ON CONFLICT (slug) DO NOTHING;
 -- Deliberately separate HTTP and source clocks in this immutable demo row.
 INSERT INTO content.threads(id,board,created_at,bumped_at,modified_at,http_modified_at,reply_count)

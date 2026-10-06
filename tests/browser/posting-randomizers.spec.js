@@ -1,3 +1,4 @@
+import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
@@ -10,7 +11,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
     } : {}) });
     const page = await context.newPage();
-    const marker = `OwnedRandom${randomUUID().replaceAll('-', '')}`;
+    const marker = ownedDeletionMarker();
     const password = `delete-${randomUUID()}`;
     const threads = [];
     const violations = [];
@@ -91,10 +92,14 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       expect(violations).toEqual([]);
     } finally {
       try {
-        for (const { board, id } of threads) {
-          expect((await context.request.post(`${origin}/${board}/delete`, {
-            headers: { Origin: origin }, form: { no: id, password }, maxRedirects: 0,
-          })).status()).toBe(303);
+        try {
+          cleanupDeletionFixtures(threads.filter(({ board }) => board !== 'fixture').map(entry => ({ ...entry, marker })));
+        } finally {
+          for (const { board, id } of threads.filter(({ board }) => board === 'fixture')) {
+            expect((await context.request.post(`${origin}/${board}/delete`, {
+              headers: { Origin: origin }, form: { no: id, password }, maxRedirects: 0,
+            })).status()).toBe(303);
+          }
         }
       } finally { await context.close(); }
     }
