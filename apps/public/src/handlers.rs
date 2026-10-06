@@ -241,12 +241,17 @@ pub async fn page(
                 snapshot,
                 navigation_boards,
             } = board_store::archive_page_snapshot(&state.pool, &board).await?;
+            let entries = snapshot
+                .entries
+                .into_iter()
+                .map(|entry| crate::archive::row(entry, &snapshot.board))
+                .collect::<Result<Vec<_>, _>>()?;
             crate::output::html(
                 &state,
                 &ArchivePage {
                     navigation_boards,
                     board: snapshot.board,
-                    entries: snapshot.entries,
+                    entries,
                 },
             )
         }

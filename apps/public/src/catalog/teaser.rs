@@ -157,7 +157,7 @@ fn closes_span(token: &Token) -> bool {
     ) || matches!(token, Token::FilteredDelimiter(delimiter) if delimiter.closes_span())
 }
 
-fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
+pub(crate) fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
     // The source regex ends at the first closing span, even across other tag
     // kinds, and its dot does not cross a literal LF. Precompute those stops.
     let mut endings = vec![None; tokens.len()];
@@ -190,7 +190,7 @@ fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
     result
 }
 
-fn strip(tokens: Vec<Token>) -> Vec<Token> {
+pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
     let mut result = Vec::new();
     for token in tokens {
         match token {
@@ -308,7 +308,7 @@ fn markup(tag: Tag, open: bool) -> &'static str {
     }
 }
 
-fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
+pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
     let mut result = String::new();
     for token in tokens {
         match token {

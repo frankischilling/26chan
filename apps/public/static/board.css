@@ -169,7 +169,15 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .is_search .pagelist .next, .is_search .mPagelist .next { text-align: right; }
 .is_search .searchThread { padding-top: 4px; }
 .empty { padding: 35px 12px; text-align: center; }
-.archiveEntries { overflow-wrap: anywhere; }
+/* Source archive listing: imgboard.php and the six public theme tables. */
+h4.center:has(+ #arc-list) { text-align: center; }
+#arc-list { max-width: 80%; margin: 10px auto 0; border-spacing: 2px; }
+#arc-list td { padding: 2px; text-align: center; font-size: var(--archive-cell-size, 9pt); }
+#arc-list td.postblock { padding: 5px; background: var(--label, #eeaa88); color: var(--label-ink, #880000); font-weight: bold; border: var(--archive-header-border, var(--post-label-border, 1px)) solid var(--label-edge, #880000); }
+#arc-list .teaser-col { text-align: left; word-break: break-all; }
+#arc-list tr:nth-of-type(odd) { background-color: var(--archive-stripe, #ede2d4); }
+#arc-list .quotelink { color: #34345c !important; }
+#arc-list .quotelink:hover { color: #d00 !important; }
 .pages { margin: 20px 0; word-spacing: 12px; }
 footer { text-align: center; font-size: 11px; margin-top: 30px; }
 @media (max-width: 600px) {

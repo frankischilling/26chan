@@ -60,7 +60,7 @@ threads remain at their existing HTML and JSON URLs. The OP JSON includes
 integer `archived: 1`, `archived_on` and `closed: 1`; active OPs omit archive
 fields. Boards JSON includes `is_archived: 1` only when enabled.
 
-`/{board}/archive` provides escaped HTML summaries and thread links. Thread pages
+`/{board}/archive` provides a source-shaped excerpt table and thread links. Thread pages
 use the native Return link to reach the board and its Archive link. Navigation
 appears on enabled boards. Archived threads show read-only status and no reply
 form. Public deletion is forbidden by the source deletion policy; reporting
@@ -86,8 +86,48 @@ clock for this three-day window. It is independent of storage expiry and does
 not shorten the JSON archive list. HTML reads use the source 3,000-entry ceiling
 from line 9264 without raising response or shared-buffer budgets. Normal stored
 retention is still independently capped at 1,000; restoring the read ceiling
-does not complete lifecycle parity. Summary truncation and complete archive-page
-layout remain unfinished.
+does not complete lifecycle parity or establish full archive-page visual parity.
+
+### Archive rows and excerpts
+
+The HTML page uses the source `#arc-list.flashListing` table with No., Excerpt
+and View columns. Its heading gives the comma-grouped count and the three-day
+window, including the source's singular and empty-list wording. View links add
+the source semantic context only when it fits the supported URL grammar;
+otherwise they keep the bare thread URL.
+
+Excerpts follow `imgboard.php:9289-9327` and `truncate_comment` at line 272.
+When a comment exists, a nonempty subject precedes it in bold with a colon.
+A subject alone has no generated bold wrapper. The string `0` counts as empty
+under the source's PHP rule. The internal `SPOILER<>` subject
+prefix is removed. A submitted literal prefix stays escaped text. The projection
+changes `&quot;` to an apostrophe and consecutive `<br>` tags to one space.
+It counts the resulting serialized Unicode scalars before stripping tags. At
+100 or fewer it keeps the safe typed markup. Longer excerpts strip every tag,
+including spoilers, take 100 serialized scalars, remove an incomplete trailing
+entity and append an ellipsis. The original pre-strip length check still adds
+that ellipsis when removing tags leaves fewer than 100 characters.
+
+Saved formatter stamps, filter payloads and stored dice/fortune results provide
+the comment; current posting rules do not rerun those transformations. The
+archive's SJIS replacement is a separate preview rule: as in the source, the
+current `SJIS_TAGS` setting controls whether saved SJIS spans become `[SJIS]`
+before the length check.
+
+The source returns raw formatted HTML for short excerpts. Here, Askama renders
+only typed nodes. URLs keep validated attributes rather than accepting quote
+replacement inside an attribute; malformed filtered delimiters keep their
+existing escaped-text fallback; fortunes use the existing safe CSS class.
+These safety differences do not authorize rendering stored comments as HTML.
+
+Before loading comment bodies, the same repeatable-read transaction totals the
+selected rows' subject, comment, filter payload and dice/fortune bytes. A total
+over 8 MiB fails closed. This is separate from the 3,000-row ceiling and the
+final shared response budget, which still rejects oversized output without
+partial HTML. Archive JSON keeps its metadata-only query and existing contract.
+
+Four changed archive-list/empty-list baseline images still need actual CI
+review. These changes do not close the broader source-parity work.
 
 The archive-capacity database test bulk-loads an owned synthetic set beyond
 normal retention to verify 1,200 entries and the exact 3,000-entry ceiling. It

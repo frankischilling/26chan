@@ -18,12 +18,61 @@ pub async fn archive_snapshot(pool: &PgPool, slug: &str) -> Result<ArchiveSnapsh
     Ok(read_archive_snapshot(pool, slug, false).await?.snapshot)
 }
 
-/// Include navigation in the same transaction as the HTML archive listing.
+/// HTML includes saved formatting inputs; JSON deliberately remains metadata-only.
+#[derive(sqlx::FromRow)]
+pub struct ArchivePageEntry {
+    pub id: i64,
+    pub subject: String,
+    pub archived_at: DateTime<Utc>,
+    pub comment: String,
+    pub comment_format: i16,
+    pub staff_authorized_limits: bool,
+    pub wordfilter_payload: Option<Vec<u8>>,
+    pub dice_result: Option<String>,
+    pub fortune_text: Option<String>,
+    pub fortune_color: Option<String>,
+}
+
+pub struct ArchivePageSnapshot {
+    pub board: Board,
+    pub entries: Vec<ArchivePageEntry>,
+}
+
+/// Fail closed before loading potentially large saved comments/filter payloads.
+pub const MAX_ARCHIVE_PAGE_READ_BYTES: usize = 8 * 1024 * 1024;
+
+/// Include navigation and the comment-byte preflight in the same transaction.
 pub async fn archive_page_snapshot(
     pool: &PgPool,
     slug: &str,
-) -> Result<PageSnapshot<ArchiveSnapshot>, StoreError> {
-    read_archive_snapshot(pool, slug, true).await
+) -> Result<PageSnapshot<ArchivePageSnapshot>, StoreError> {
+    board_domain::BoardSlug::parse(slug).map_err(|_| StoreError::NotFound)?;
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        .execute(&mut *tx)
+        .await?;
+    let board: Board = sqlx::query_as(
+        "SELECT * FROM content.boards WHERE slug=$1 AND archive_retention_seconds>0",
+    )
+    .bind(slug)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(StoreError::NotFound)?;
+    // Same 72-hour transaction clock, 3,000-row ceiling and deterministic
+    // bump-clock/ID ordering as the metadata listing, before fetching bodies.
+    let bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint+octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.dice_result),0)+coalesce(octet_length(p.fortune_text),0)+coalesce(octet_length(p.fortune_color),0) AS body_bytes FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000) selected")
+        .bind(slug).fetch_one(&mut *tx).await?;
+    if bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
+        return Err(StoreError::ReadLimit);
+    }
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
+        .bind(slug).fetch_all(&mut *tx).await?;
+    let navigation_boards = crate::read::snapshot_navigation(&mut tx, true).await?;
+    tx.commit().await?;
+    Ok(PageSnapshot {
+        snapshot: ArchivePageSnapshot { board, entries },
+        navigation_boards,
+    })
 }
 
 async fn read_archive_snapshot(
@@ -43,16 +92,8 @@ async fn read_archive_snapshot(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(StoreError::NotFound)?;
-    // Source HTML includes up to 3,000 root clocks from the last 72 hours, newest first.
-    // The transaction clock keeps that window consistent with this read snapshot.
-    // archive.json lists all retained entries by ID.
-    // Equal bump clocks use descending IDs as a deterministic local tie-break.
-    let query = if include_navigation {
-        "SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000"
-    } else {
-        "SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT 1000"
-    };
-    let entries = sqlx::query_as(query).bind(slug).fetch_all(&mut *tx).await?;
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT 1000")
+        .bind(slug).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;
     Ok(PageSnapshot {

@@ -302,14 +302,22 @@ async fn ordering_contract(owner: PgPool, public: PgPool, slug: String) {
         let response = request(&web, &path, "GET", None).await;
         assert_eq!(response.status(), StatusCode::OK);
         let html = body(response).await;
-        let positions: Vec<_> = expected
-            .iter()
-            .map(|id| html.find(&format!("href=\"/{slug}/thread/{id}\"")).unwrap())
+        let rendered: Vec<i64> = html
+            .split("<a class=\"quotelink\" href=\"")
+            .skip(1)
+            .map(|link| {
+                let (href, label) = link.split_once("\">").unwrap();
+                assert!(label.starts_with("View</a>"));
+                let tail = href.strip_prefix(&format!("/{slug}/thread/")).unwrap();
+                let (id, context) = tail.split_once('/').unwrap();
+                assert_eq!(context, "scriptarchive-orderingscript");
+                id.parse().unwrap()
+            })
             .collect();
-        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+        assert_eq!(rendered, expected);
         assert!(html.contains("&#60;script&#62;archive ordering&#60;/script&#62;"));
         for id in &ids[3..] {
-            assert!(!html.contains(&format!("/{slug}/thread/{id}\"")));
+            assert!(!rendered.contains(id));
         }
         for app in [&web, &api] {
             let response = request(app, &format!("{path}.json"), "GET", None).await;

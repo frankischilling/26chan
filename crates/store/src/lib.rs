@@ -4,7 +4,10 @@ pub mod anonymous_session;
 mod archives;
 mod board_snapshot;
 mod content_admission;
-pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_page_snapshot, archive_snapshot};
+pub use archives::{
+    ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot,
+    MAX_ARCHIVE_PAGE_READ_BYTES, archive_page_snapshot, archive_snapshot,
+};
 pub mod legacy_media;
 pub mod media;
 pub mod media_assets;

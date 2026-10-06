@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 // Test-only renderer for screenshot CI. It compiles the actual production view
 // module/templates. Persistence and real HTTP mutations have separate tests.
-use board_public::catalog;
+use board_public::{archive, catalog};
 #[path = "visual/catalog_controls.rs"]
 mod catalog_controls;
 #[path = "visual/catalog_filters.rs"]
@@ -319,24 +319,35 @@ fn archive_page(empty: bool) -> String {
     let entries = if empty {
         vec![]
     } else {
-        vec![
-            board_store::ArchiveEntry {
-                id: 1000101,
-                subject: "<b>A paper lighthouse</b>".into(),
-                archived_at: time("2026-09-08T13:00:00Z"),
-            },
-            board_store::ArchiveEntry {
-                id: 1000102,
-                subject: String::new(),
-                archived_at: time("2026-09-08T13:05:00Z"),
-            },
-            board_store::ArchiveEntry {
-                id: 1000103,
-                // The maximum-length unbroken subject exercises mobile wrapping.
-                subject: "Fold".repeat(30),
-                archived_at: time("2026-09-08T13:10:00Z"),
-            },
+        [
+            (
+                1000101,
+                "<b>A paper lighthouse</b>".to_owned(),
+                "Folded paper lights.",
+            ),
+            (1000102, String::new(), "[spoiler]A hidden fold[/spoiler]"),
+            (1000103, "Fold".repeat(30), ""),
         ]
+        .into_iter()
+        .map(|(id, subject, comment)| {
+            let lines = board_domain::parse_post_comment(comment, 9);
+            let subject = board_domain::source_html_entities(&subject);
+            let prepared = archive::prepare(archive::Input {
+                subject: &subject,
+                lines: &lines,
+                board: "arc",
+                format: 9,
+                sjis: false,
+                dice: None,
+                fortune: None,
+            });
+            archive::Row {
+                id,
+                href: format!("/arc/thread/{id}"),
+                lines: prepared.lines,
+            }
+        })
+        .collect()
     };
     views::ArchivePage {
         navigation_boards: crate::navigation_boards(),

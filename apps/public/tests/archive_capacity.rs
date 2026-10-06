@@ -89,7 +89,12 @@ async fn capacity_contract(owner: PgPool, public: PgPool, slug: String) {
         let rendered: Vec<i64> = html
             .split(&prefix)
             .skip(1)
-            .map(|entry| entry.split_once('"').unwrap().0.parse().unwrap())
+            .map(|entry| {
+                let href_tail = entry.split_once('"').unwrap().0;
+                let (id, context) = href_tail.split_once('/').unwrap();
+                assert_eq!(context, "owned-archive-capacity-fixture");
+                id.parse().unwrap()
+            })
             .collect();
         assert_eq!(rendered, expected);
         assert!(html.contains("&#60;"));

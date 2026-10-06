@@ -81,10 +81,18 @@ impl BoardPage {
 pub struct ArchivePage {
     pub navigation_boards: Vec<Board>,
     pub board: Board,
-    pub entries: Vec<board_store::ArchiveEntry>,
+    pub entries: Vec<crate::archive::Row>,
 }
 
 impl ArchivePage {
+    pub fn count_label(&self) -> String {
+        let count = self.entries.len();
+        if count >= 1000 {
+            format!("{},{:03}", count / 1000, count % 1000)
+        } else {
+            count.to_string()
+        }
+    }
     pub fn navigation(&self) -> Vec<&Board> {
         board_navigation(&self.navigation_boards, &self.board)
     }

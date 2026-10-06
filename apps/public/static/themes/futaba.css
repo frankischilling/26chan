@@ -136,3 +136,5 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(255, 
   body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #footer-links { color: rgb(128, 0, 0); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(128, 0, 0); border-bottom-style: none; border-bottom-width: 0px; }
   body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #absbot { color: rgb(128, 0, 0); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(128, 0, 0); border-bottom-style: none; border-bottom-width: 0px; }
 }
+
+:root { --archive-cell-size: 12pt; }

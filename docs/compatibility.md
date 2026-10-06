@@ -710,6 +710,11 @@ The HTML archive list (`imgboard.php:9253`) selects only the past
 three days, orders root descending, limits 3,000 entries and truncates
 summaries at 100. Public archive JSON instead lists archived IDs ascending.
 The 72-hour HTML window is not the full 276-hour global storage lifetime.
+The rewrite's HTML table now follows the source count/columns and 100-scalar
+excerpt branches, including the current SJIS preview switch. It renders typed
+nodes instead of raw short-comment HTML and preflights selected comment data
+against an 8 MiB read budget; see [archive rows and excerpts](thread-archives.md#archive-rows-and-excerpts)
+for the precise safety differences and pending visual review.
 The rewrite now excludes sticky and Undead threads from ordinary capacity and
 uses the source rollover-order policy, including the `/f/` override. Its fixed
 per-thread expiry, bounded archive-count policy, soft retention and private-board

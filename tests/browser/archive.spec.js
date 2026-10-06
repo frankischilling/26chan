@@ -24,7 +24,9 @@ test('archive navigation and reports work without JavaScript while public deleti
     const page = await context.newPage();
     await page.goto(`${origin}/${slug}/`);
     await page.getByRole('link', { name: 'Archive', exact: true }).click();
-    await expect(page.getByText('No archived threads.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Displaying 0 expired threads from the past 3 days', exact: true })).toBeVisible();
+    await expect(page.locator('#arc-list tbody tr')).toHaveCount(0);
+    await expect(page.locator('#arc-list thead td')).toHaveText(['No.', 'Excerpt', '']);
     await page.getByRole('link', { name: 'Index', exact: true }).click();
     await page.locator('#sub').fill('<b>Synthetic archive subject</b>');
     await page.locator('#com').fill('Owned first thread displaced by a second thread.');
@@ -41,10 +43,19 @@ test('archive navigation and reports work without JavaScript while public deleti
     await page.getByRole('link', { name: 'Return', exact: true }).first().click();
     await expect(page).toHaveURL(`${origin}/${slug}/`);
     await page.getByRole('link', { name: 'Archive', exact: true }).click();
-    const summary = page.getByRole('link', { name: `No.${archived} — <b>Synthetic archive subject</b>`, exact: true });
+    await expect(page.getByRole('heading', { name: 'Displaying 1 expired thread from the past 3 days', exact: true })).toBeVisible();
+    const row = page.locator('#arc-list tbody tr');
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('td').first()).toHaveText(archived);
+    await expect(row.locator('.teaser-col')).toContainText('<b>Synthetic archive subject</b>');
+    // Serialized subject markup pushes this fixture past the source's 100-character
+    // cutoff, so the excerpt strips generated bold as well as preserving literal tags.
+    await expect(row.locator('.teaser-col b')).toHaveCount(0);
+    await expect(row.locator('.teaser-col')).toContainText('Owned first thread displaced');
+    const summary = row.getByRole('link', { name: 'View', exact: true });
     await expect(summary).toBeVisible();
-    await expect(summary.locator('b')).toHaveCount(0);
-    await expect(page.locator('.archiveEntries time')).toBeVisible();
+    await expect(summary).toHaveAttribute('href', new RegExp(`^/${slug}/thread/${archived}(?:/[a-z0-9-]+)?$`));
+    await expect(page.locator('#arc-list time')).toHaveCount(0);
     expect(await (await context.request.get(`${origin}/${slug}/archive.json`)).json()).toEqual([Number(archived)]);
     await summary.click();
     await expect(page.getByText('This thread is archived and read-only.', { exact: true })).toBeVisible();
@@ -65,7 +76,9 @@ test('archive navigation and reports work without JavaScript while public deleti
     expect(await (await context.request.get(`${origin}/${slug}/archive.json`)).json()).toEqual([Number(archived)]);
     fixture('expire', slug);
     await page.goto(`${origin}/${slug}/archive`);
-    await expect(page.getByText('No archived threads.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Displaying 0 expired threads from the past 3 days', exact: true })).toBeVisible();
+    await expect(page.locator('#arc-list tbody tr')).toHaveCount(0);
+    await expect(page.locator('#arc-list thead td')).toHaveText(['No.', 'Excerpt', '']);
     expect((await context.request.get(`${origin}/${slug}/thread/${archived}.json`)).status()).toBe(404);
   } finally {
     try { if (context) await context.close(); }

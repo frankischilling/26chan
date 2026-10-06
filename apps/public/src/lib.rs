@@ -3,6 +3,7 @@
 mod anonymous_session;
 mod api;
 mod api_http;
+pub mod archive;
 pub mod catalog;
 mod derefer;
 mod handlers;
