@@ -36,6 +36,7 @@ pub use post_content::{
 };
 pub mod posting_options;
 pub mod posting_randomizers;
+pub mod report_category;
 pub mod robot9000;
 mod subject;
 mod trip_cp932;
