@@ -327,6 +327,13 @@ table.postForm button { padding: 1px 6px; }
 .catalogControl[hidden] { display: none; }
 #post-preview { box-sizing: content-box; position: absolute; background: var(--catalog-preview-paper, #181f24); border-radius: 3px; padding: 5px 8px 4px; z-index: 100000; overflow-wrap: break-word; white-space: pre-line; max-width: 500px; color: #dedede; font: 10pt Arial, Helvetica, sans-serif; }
 #post-preview .post-author { color: var(--catalog-preview-author, #00a550); font-weight: bold; }
+#post-preview .post-tripcode { color: #00a550; font-weight: normal; }
+#post-preview .admin-capcode { color: #ff0000; }
+#post-preview .founder-capcode { color: #117743; }
+#post-preview .mod-capcode { color: #800080; }
+#post-preview .developer-capcode { color: #0000f0; }
+#post-preview .manager-capcode { color: #ff0080; }
+#post-preview .verified-capcode { color: #007fff; }
 #post-preview .post-subject { color: var(--catalog-preview-subject, #cc1105); font-weight: bold; }
 #post-preview .post-teaser { margin: 3px 0 0; padding: 0; }
 #post-preview .post-page { font-size: 90%; color: #7d807e; display: inline-block; white-space: nowrap; overflow-wrap: normal; max-width: 100px; overflow: hidden; text-overflow: ellipsis; vertical-align: text-top; margin-left: 3px; }

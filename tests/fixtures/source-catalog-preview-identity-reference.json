@@ -1,0 +1,498 @@
+{
+  "scope": "Executed only original catalog.js capcode map and identity assembly on synthetic inputs. Ages stubbed as AGE; no surrounding tooltip setup, DOM parsing, layout, browser, application, network, database or PHP execution. PHP source contracts are hash-pinned inspection evidence only. Raw HTML includes the original unclosed post-last div; browser repair is not tested.",
+  "files": {
+    "4chan-old/js/catalog.js": "12f59335953bd013ce892a24186218a31f2e8ad7fe3dbaa54af82f40ca182e5e",
+    "4chan-old/catalog.php": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946"
+  },
+  "sections": [
+    {
+      "path": "4chan-old/js/catalog.js",
+      "first": 145,
+      "last": 152,
+      "bytes": 181,
+      "sha256": "07e014274204ab40d20040130bb209dbfba50b6dd7cf6aa6eb72415021f29e26"
+    },
+    {
+      "path": "4chan-old/js/catalog.js",
+      "first": 2204,
+      "last": 2254,
+      "bytes": 1536,
+      "sha256": "5e38592c2e0d2cd576c8e1786a455f74ecd28d9b0d7e4cd8e656e31ce4494f37"
+    },
+    {
+      "path": "4chan-old/catalog.php",
+      "first": 90,
+      "last": 102,
+      "bytes": 613,
+      "sha256": "63392d98554eae4406c017ba40429727fdcc16bf6100ba33ed4cbfb337dd89e3"
+    },
+    {
+      "path": "4chan-old/catalog.php",
+      "first": 118,
+      "last": 122,
+      "bytes": 187,
+      "sha256": "5835b075ed9a261c222e991f323e389234b561cb058d6beb6e29c7d36e95be28"
+    },
+    {
+      "path": "4chan-old/catalog.php",
+      "first": 157,
+      "last": 169,
+      "bytes": 589,
+      "sha256": "41b6880786a7ce4db1f6bc507203a747331576013d45888ac3cf9b2d075db59c"
+    }
+  ],
+  "php_contracts": [
+    {
+      "purpose": "Last reply capcode, forced/meta anonymity exceptions and name/trip split; inspected, not executed.",
+      "source": "    if( $lr_data['capcode'] != 'none' ) $last_reply['capcode'] = $lr_data['capcode'];\r\n    \r\n    $force_anon = ( ( FORCED_ANON || META_BOARD ) && $lr_data['capcode'] != 'admin' && $lr_data['capcode'] != 'admin_highlight' );\r\n    \r\n    if( !$force_anon ) {\r\n      if( strpos( $lr_data['name'], '</span> <span class=\"postertrip\">' ) !== false ) {\r\n        list( $last_reply['author'], $last_reply['trip'] ) = explode( '</span> <span class=\"postertrip\">', $lr_data['name'] );\r\n      } else {\r\n        $last_reply['author'] = $lr_data['name'];\r\n      }\r\n    } else {\r\n      $last_reply['author'] = S_ANONAME;\r\n    }\r\n"
+    },
+    {
+      "purpose": "Country projected only for capcode none, enabled country flags, and no selected enabled board flag; inspected, not executed.",
+      "source": "  if ($res['capcode'] == 'none') {\r\n    if (SHOW_COUNTRY_FLAGS && (!ENABLE_BOARD_FLAGS || $res['board_flag'] == '')) {\r\n      $json[$res['no']]['country'] = $res['country'];\r\n    }\r\n  }\r\n"
+    },
+    {
+      "purpose": "OP capcode, forced/meta anonymity exceptions and name/trip split; inspected, not executed.",
+      "source": "  if( $res['capcode'] != 'none' ) $json[$res['no']]['capcode'] = $res['capcode'];\r\n  \r\n  $force_anon = ( ( FORCED_ANON || META_BOARD ) && $res['capcode'] != 'admin' && $res['capcode'] != 'admin_highlight' );\r\n  \r\n  if( !$force_anon ) {\r\n    if( strpos( $res['name'], '</span> <span class=\"postertrip\">' ) !== false ) {\r\n      list( $json[$res['no']]['author'], $json[$res['no']]['trip'] ) = explode( '</span> <span class=\"postertrip\">', $res['name'] );\r\n    } else {\r\n      $json[$res['no']]['author'] = $res['name'];\r\n    }\r\n  } else {\r\n    $json[$res['no']]['author'] = S_ANONAME;\r\n  }\r\n"
+    }
+  ],
+  "cases": [
+    {
+      "name": "badge-admin",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "admin",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "admin",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"admin-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## Administrator</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"admin-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Admin</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-mod",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "mod",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "mod",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"mod-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## Moderator</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"mod-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Mod</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-developer",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "developer",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "developer",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"developer-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## Developer</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"developer-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Developer</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-manager",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "manager",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "manager",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"manager-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## Manager</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"manager-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Manager</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-founder",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "founder",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "founder",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"founder-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## Founder</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"founder-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Founder</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-verified",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "verified",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "verified",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"verified-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## Verified</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"verified-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Verified</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-admin_highlight",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "admin_highlight",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "admin_highlight",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"admin_highlight-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## undefined</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"admin_highlight-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Admin_highlight</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "badge-unknown",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "capcode": "unknown",
+            "trip": "!!OwnedSecureTrip"
+          },
+          "capcode": "unknown",
+          "trip": "!OwnedTrip"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"unknown-capcode post-author\">Owned OP <span class=\"post-tripcode\">!OwnedTrip</span> ## undefined</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"unknown-capcode post-author\">Owned reply <span class=\"post-tripcode\">!!OwnedSecureTrip</span> ## Unknown</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "ordinary-no-trip-or-badge",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "ordinary-trip",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "trip": "!!Reply"
+          },
+          "trip": "!OP"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP <span class=\"post-tripcode\">!OP</span></span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply <span class=\"post-tripcode\">!!Reply</span></span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "empty-trip-and-badge",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "trip": "",
+            "capcode": ""
+          },
+          "trip": "",
+          "capcode": ""
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "missing-op-author-falls-back",
+      "input": {
+        "thread": {
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Anonymous</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "empty-op-author-falls-back",
+      "input": {
+        "thread": {
+          "author": "",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Anonymous</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "missing-reply-author-does-not-fall-back",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "date": 2
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">undefined</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "missing-reply-date",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Hidden reply",
+            "capcode": "admin"
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "zero-reply-date",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 0
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "country-enabled",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          },
+          "country": "US"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <div class=\"flag flag-us\"></div> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "country-disabled",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          },
+          "country": "US"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": false
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "country-empty",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          },
+          "country": ""
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "country-missing",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "reply-country-not-rendered",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2,
+            "country": "CA"
+          }
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"post-author\">Owned OP</span> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    },
+    {
+      "name": "synthetic-capcode-plus-country",
+      "input": {
+        "thread": {
+          "author": "Owned OP",
+          "date": 1,
+          "lr": {
+            "author": "Owned reply",
+            "date": 2
+          },
+          "capcode": "admin",
+          "country": "US"
+        },
+        "catalog": {
+          "anon": "Anonymous",
+          "flags": true
+        }
+      },
+      "html": "Posted by <span class=\"admin-capcode post-author\">Owned OP ## Administrator</span> <div class=\"flag flag-us\"></div> <span class=\"post-ago\">AGE ago</span><div class=\"post-last\">Last reply by <span class=\"post-author\">Owned reply</span> <span class=\"post-ago\">AGE ago</span>"
+    }
+  ]
+}

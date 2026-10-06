@@ -379,3 +379,214 @@ async fn catalog_options_use_visible_persisted_data_and_escape_literal_filters()
     owner.close().await;
     result.unwrap();
 }
+
+// These are saved public-header fixtures, not a substitute for posting-authority
+// tests. Requests below run through the actual board_public database role.
+async fn exercise_preview_identities(owner: PgPool, public: PgPool, slug: String) {
+    let app = board_public::router(public, "http://127.0.0.1:3000".into(), false);
+    // Source catalog.js deliberately uses a different OP label map and reply
+    // capitalization. admin_highlight is absent from that OP map (undefined).
+    // Verified exists in the source map but is not an allowed persisted capcode.
+    let cases = [
+        (None, "", ""),
+        (Some("admin"), "Administrator", "Admin"),
+        (Some("mod"), "Moderator", "Mod"),
+        (Some("developer"), "Developer", "Developer"),
+        (Some("manager"), "Manager", "Manager"),
+        (Some("founder"), "Founder", "Founder"),
+        (Some("admin_highlight"), "undefined", "Admin_highlight"),
+    ];
+    let mut saved = Vec::new();
+    for (badge, op_label, reply_label) in cases {
+        let thread: i64 =
+            sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+                .bind(&slug)
+                .fetch_one(&owner)
+                .await
+                .unwrap();
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Initial','Preview identity','Owned preview body')")
+            .bind(thread).bind(&slug).execute(&owner).await.unwrap();
+        let reply: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Initial','','Owned latest body') RETURNING id")
+            .bind(&slug).bind(thread).fetch_one(&owner).await.unwrap();
+        for id in [thread, reply] {
+            sqlx::query("UPDATE content.posts SET name='<b>Owned & author</b>',trip='!ozOtJW9BFA',capcode=$2,country='US',country_name='United States' WHERE id=$1")
+                .bind(id).bind(badge).execute(&owner).await.unwrap();
+        }
+        saved.push((thread, reply, badge, op_label, reply_label));
+    }
+    // Historical storage permits an empty name without a trip. The source OP
+    // falls back to Anonymous, but its latest-reply author is appended verbatim.
+    let empty_thread: i64 =
+        sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+            .bind(&slug)
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Initial','Empty saved author','Owned empty author body')")
+        .bind(empty_thread).bind(&slug).execute(&owner).await.unwrap();
+    let empty_reply: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Initial','','Owned empty reply body') RETURNING id")
+        .bind(&slug).bind(empty_thread).fetch_one(&owner).await.unwrap();
+    sqlx::query("UPDATE content.posts SET name='',trip=NULL WHERE id=$1 OR id=$2")
+        .bind(empty_thread)
+        .bind(empty_reply)
+        .execute(&owner)
+        .await
+        .unwrap();
+    // Finish inserts while the fixture board has its default flag policy.
+    // Enabling geography below correctly makes later inserts require verified
+    // country context, which these saved-header fixtures do not supply.
+    let deleted: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Deleted identity','','Deleted body') RETURNING id")
+        .bind(&slug).bind(saved[0].0).fetch_one(&owner).await.unwrap();
+    sqlx::query("UPDATE content.posts SET capcode='admin',deleted=true WHERE id=$1")
+        .bind(deleted)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for text_only in [false, true] {
+        for (forced, meta) in [(false, false), (true, false), (false, true), (true, true)] {
+            sqlx::query("UPDATE content.boards SET text_only=$2,forced_anon=$3,meta_board=$4,country_flags=true WHERE slug=$1")
+                .bind(&slug).bind(text_only).bind(forced).bind(meta).execute(&owner).await.unwrap();
+            let (status, page) = read(&app, &format!("/{slug}/catalog")).await;
+            assert_eq!(status, 200);
+            let (empty_op, empty_last) = preview(&page, empty_thread)
+                .split_once("<div class=\"post-last\"")
+                .unwrap();
+            assert!(empty_op.contains("<span class=\"post-author\">Anonymous</span>"));
+            let empty_author = if forced || meta { "Anonymous" } else { "" };
+            assert!(empty_last.contains(&format!(
+                "data-reply-id=\"{empty_reply}\">Last reply by <span class=\"post-author\">{empty_author}</span>"
+            )));
+            assert!(!empty_last.contains("post-tripcode"));
+            for &(thread, reply, badge, op_label, reply_label) in &saved {
+                let rendered = preview(&page, thread);
+                let (op, last) = rendered.split_once("<div class=\"post-last\"").unwrap();
+                let visible =
+                    !(forced || meta) || matches!(badge, Some("admin" | "admin_highlight"));
+                let name = if visible {
+                    "&#60;b&#62;Owned &#38; author&#60;/b&#62; <span class=\"post-tripcode\">!ozOtJW9BFA</span>"
+                } else {
+                    "Anonymous"
+                };
+                let class = badge
+                    .map(|badge| format!("{badge}-capcode "))
+                    .unwrap_or_default();
+                for (part, label) in [(op, op_label), (last, reply_label)] {
+                    let label = if badge.is_some() {
+                        format!(" ## {label}")
+                    } else {
+                        String::new()
+                    };
+                    assert!(
+                        part.contains(&format!(
+                            "<span class=\"{class}post-author\">{name}{label}</span>"
+                        )),
+                        "badge={badge:?}, text={text_only}, forced={forced}, meta={meta}: {part}"
+                    );
+                    assert!(!part.contains("<b>Owned & author</b>"));
+                    assert!(!part.contains("postertrip"));
+                    assert_eq!(part.contains("!ozOtJW9BFA"), visible);
+                }
+                assert!(last.contains(&format!("data-reply-id=\"{reply}\"")));
+                assert_eq!(
+                    op.contains("<div class=\"flag flag-us\"></div>"),
+                    badge.is_none()
+                );
+                assert!(
+                    !last.contains("flag-"),
+                    "latest replies never display geographic flags"
+                );
+            }
+        }
+    }
+    let (ordinary, ordinary_reply, ..) = saved[0];
+    // A board with flag choices must still show geography when no board flag
+    // was selected. A selected board flag is never rendered in catalog hover.
+    for text_only in [false, true] {
+        for country in [false, true] {
+            for choices in [Vec::<String>::new(), vec!["AC".into()]] {
+                sqlx::query("UPDATE content.boards SET text_only=$2,forced_anon=false,meta_board=false,country_flags=$3,board_flags=$4 WHERE slug=$1")
+                    .bind(&slug).bind(text_only).bind(country).bind(&choices).execute(&owner).await.unwrap();
+                let (status, page) = read(&app, &format!("/{slug}/catalog")).await;
+                assert_eq!(status, 200);
+                assert_eq!(preview(&page, ordinary).contains("flag-us"), country);
+                sqlx::query("UPDATE content.posts SET country=NULL,country_name=NULL,board_flag='AC',flag_name='Anarcho-Capitalist' WHERE id=$1")
+                    .bind(ordinary).execute(&owner).await.unwrap();
+                let (status, page) = read(&app, &format!("/{slug}/catalog")).await;
+                assert_eq!(status, 200);
+                let rendered = preview(&page, ordinary);
+                assert!(!rendered.contains("flag-us"));
+                assert!(!rendered.contains("bfl"));
+                assert!(!rendered.contains("Anarcho-Capitalist"));
+                sqlx::query("UPDATE content.posts SET country='US',country_name='United States',board_flag=NULL,flag_name=NULL WHERE id=$1")
+                    .bind(ordinary).execute(&owner).await.unwrap();
+            }
+        }
+    }
+    // A deleted newer badge must neither replace the last visible identity nor
+    // leave a phantom identity after the last visible reply is deleted too.
+    for text_only in [false, true] {
+        sqlx::query("UPDATE content.boards SET text_only=$2 WHERE slug=$1")
+            .bind(&slug)
+            .bind(text_only)
+            .execute(&owner)
+            .await
+            .unwrap();
+        let (status, page) = read(&app, &format!("/{slug}/catalog")).await;
+        assert_eq!(status, 200);
+        assert_eq!(latest_reply(&page, ordinary), Some(ordinary_reply));
+        assert!(!preview(&page, ordinary).contains("Deleted identity"));
+        assert!(!preview(&page, ordinary).contains("admin-capcode"));
+    }
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+        .bind(ordinary_reply)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for text_only in [false, true] {
+        sqlx::query("UPDATE content.boards SET text_only=$2 WHERE slug=$1")
+            .bind(&slug)
+            .bind(text_only)
+            .execute(&owner)
+            .await
+            .unwrap();
+        let (status, page) = read(&app, &format!("/{slug}/catalog")).await;
+        assert_eq!(status, 200);
+        assert_eq!(latest_reply(&page, ordinary), None);
+        assert!(!preview(&page, ordinary).contains("post-last"));
+    }
+}
+
+#[tokio::test]
+async fn catalog_preview_saved_identities_follow_source_badges_suppression_and_flags() {
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mut random = [0_u8; 5];
+    OsRng.fill_bytes(&mut random);
+    let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Catalog identities','Owned saved public headers',1000,100,100,100,10)")
+        .bind(&slug).execute(&owner).await.unwrap();
+    let result = tokio::spawn(exercise_preview_identities(
+        owner.clone(),
+        public.clone(),
+        slug.clone(),
+    ))
+    .await;
+    public.close().await;
+    for query in [
+        "DELETE FROM content.posts WHERE board=$1",
+        "DELETE FROM content.threads WHERE board=$1",
+        "DELETE FROM content.boards WHERE slug=$1",
+    ] {
+        sqlx::query(query)
+            .bind(&slug)
+            .execute(&owner)
+            .await
+            .unwrap();
+    }
+    owner.close().await;
+    result.unwrap();
+}

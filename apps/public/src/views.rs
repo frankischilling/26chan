@@ -3,6 +3,8 @@ use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
 use board_domain::{Line, Token};
 use board_store::{Board, Post, Thread};
+#[path = "views/catalog_identity.rs"]
+mod catalog_identity;
 #[path = "views/file_label.rs"]
 mod file_label;
 #[path = "views/mobile_label.rs"]
@@ -120,6 +122,10 @@ pub struct ThreadView {
     pub image_replies: i64,
 }
 impl ThreadView {
+    pub fn catalog_reply_badge(&self) -> Option<catalog_identity::Badge<'_>> {
+        catalog_identity::badge(self.catalog_last_reply.as_ref()?.capcode.as_deref(), true)
+    }
+
     pub fn catalog_reply_identity_visible(&self, board: &Board) -> bool {
         board_domain::capcode::catalog_identity_visible(
             self.catalog_last_reply
@@ -188,6 +194,20 @@ impl PostView {
             self.post.capcode.as_deref(),
             board.forced_anon,
             board.meta_board,
+        )
+    }
+
+    pub fn catalog_badge(&self) -> Option<catalog_identity::Badge<'_>> {
+        catalog_identity::badge(self.post.capcode.as_deref(), false)
+    }
+
+    pub fn catalog_country_class(&self, board: &Board) -> Option<String> {
+        catalog_identity::country_class(
+            self.post.capcode.as_deref(),
+            self.post.country.as_deref(),
+            board.country_flags,
+            !board.board_flags.is_empty(),
+            self.post.board_flag.as_deref(),
         )
     }
 

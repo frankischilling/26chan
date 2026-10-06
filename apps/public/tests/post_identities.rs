@@ -387,7 +387,14 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
     ] {
         let html = get(&app, &path).await;
         assert!(
-            html.contains("class=\"postertrip\">!ozOtJW9BFA</span>"),
+            html.contains(&format!(
+                "class=\"{}\">!ozOtJW9BFA</span>",
+                if path.ends_with("/catalog") {
+                    "post-tripcode"
+                } else {
+                    "postertrip"
+                }
+            )),
             "{path}"
         );
         assert!(!html.contains("owned-private-identity-secret"));
@@ -652,7 +659,7 @@ async fn source_names_reach_saved_posts_and_every_json_projection() {
         let last_id = last["pid"].as_i64().unwrap();
         let catalog_html = get(&app, &format!("/{board}/catalog")).await;
         assert!(catalog_html.contains(&format!(
-            "data-reply-id=\"{last_id}\">Last reply by <span class=\"post-author\"></span> <span class=\"postertrip\">!ozOtJW9BFA</span>"
+            "data-reply-id=\"{last_id}\">Last reply by <span class=\"post-author\"> <span class=\"post-tripcode\">!ozOtJW9BFA</span></span>"
         )));
         let before = board_store::thread(&public, &board, thread).await.unwrap();
         let rejected = post(&app, &board, thread, &"\"".repeat(43), 0).await;

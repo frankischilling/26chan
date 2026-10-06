@@ -570,8 +570,9 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     fixture('force-anon', board);
     await publicStaffPage.goto(`http://127.0.0.1:3000/${board}/catalog`);
     await publicStaffPage.locator(`#thread-${data.thread} .thumb`).hover();
-    await expect(publicStaffPage.locator('#post-preview .post-last .post-author')).toHaveText('Owned administrator');
-    await expect(publicStaffPage.locator('#post-preview .post-last .postertrip')).toHaveText(administratorTrip);
+    await expect(publicStaffPage.locator('#post-preview .post-last .post-author')).toHaveText(`Owned administrator ${administratorTrip} ## Admin_highlight`);
+    await expect(publicStaffPage.locator('#post-preview .post-last .post-author')).toHaveClass('admin_highlight-capcode post-author');
+    await expect(publicStaffPage.locator('#post-preview .post-last .post-author > .post-tripcode')).toHaveText(administratorTrip);
     for (const badge of ['admin_highlight', 'founder']) {
       await page.goto(`/post?board=${board}&thread=0`);
       await page.getByLabel('Staff badge', { exact: true }).selectOption(badge);
@@ -591,8 +592,10 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       await expect(card).toHaveAttribute('data-filter-name', visible ? `Owned catalog ${badge}` : 'Anonymous');
       await expect(card).toHaveAttribute('data-filter-trip', visible ? administratorTrip : '');
       await card.locator('.thumb').hover();
-      await expect(publicStaffPage.locator('#post-preview > .post-author')).toHaveText(visible ? `Owned catalog ${badge}` : 'Anonymous');
-      await expect(publicStaffPage.locator('#post-preview .postertrip')).toHaveCount(visible ? 1 : 0);
+      await expect(publicStaffPage.locator('#post-preview > .post-author')).toHaveText(visible ? `Owned catalog ${badge} ${administratorTrip} ## undefined` : 'Anonymous ## Founder');
+      await expect(publicStaffPage.locator('#post-preview > .post-author')).toHaveClass(`${badge}-capcode post-author`);
+      await expect(publicStaffPage.locator('#post-preview > .post-author > .post-tripcode')).toHaveCount(visible ? 1 : 0);
+      if (visible) await expect(publicStaffPage.locator('#post-preview > .post-author > .post-tripcode')).toHaveText(administratorTrip);
     }
     expect(publicStaffErrors).toEqual([]);
     await publicStaffPage.close();
