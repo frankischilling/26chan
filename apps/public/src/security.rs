@@ -197,14 +197,26 @@ fn headers(
     page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
-    let interactive = page.is_some()
+    let report_shell = response
+        .extensions()
+        .get::<crate::legacy_report::ReportShell>()
+        .is_some()
+        && response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("text/html"));
+    let interactive = !report_shell
+        && page.is_some()
         && response.status().is_success()
         && response
             .headers()
             .get("content-type")
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.starts_with("text/html"));
-    let script = if interactive {
+    let script = if report_shell {
+        format!("{}{}", state.origin, crate::ui_assets::REPORT_POPUP_PATH)
+    } else if interactive {
         let watcher = format!(
             "{}{} {}{}",
             state.origin,
@@ -389,6 +401,70 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn only_renderer_marked_report_html_gets_the_exact_popup_script_even_on_errors() {
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: true,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for status in [
+            StatusCode::BAD_REQUEST,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let response = headers(
+                crate::legacy_report::error(
+                    &state,
+                    "test",
+                    Some(17),
+                    crate::handlers::AppError(status, "Report failed."),
+                ),
+                &state,
+                // Even mistaken route classification must not broaden a marked shell.
+                Some(InteractivePage::Board),
+                Some("https://board.example/test/imgboard.php"),
+            );
+            assert_eq!(response.status(), status);
+            assert_eq!(response.headers()["cache-control"], "private, no-store");
+            assert_eq!(response.headers()["x-frame-options"], "DENY");
+            let csp = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert!(csp.contains("script-src https://board.example/static/report-popup.v1.js;"));
+            assert!(!csp.contains("native-"));
+            for directive in [
+                "script-src-attr",
+                "connect-src",
+                "worker-src",
+                "frame-src",
+                "frame-ancestors",
+            ] {
+                assert!(csp.contains(&format!("{directive} 'none';")));
+            }
+            assert!(csp.contains("form-action 'self';"));
+            let generic = headers(
+                crate::handlers::AppError(status, "Generic error.").into_response(),
+                &state,
+                None,
+                None,
+            );
+            let csp = generic.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert!(csp.contains("script-src 'none';"));
+            assert!(!csp.contains("report-popup"));
+        }
+    }
 
     #[tokio::test]
     async fn backlink_page_code_has_no_worker_or_additional_network_authority() {

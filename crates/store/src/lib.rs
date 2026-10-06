@@ -23,6 +23,8 @@ pub use public_deletion::{
     public_deletion_quota_precheck, public_deletion_target_exists,
 };
 mod read;
+mod report_target;
+pub use report_target::{ReportTarget, report_target};
 mod robot9000;
 mod rss;
 mod thread_quota;

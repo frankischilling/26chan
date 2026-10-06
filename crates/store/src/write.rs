@@ -1404,7 +1404,7 @@ pub async fn report_with_anonymous_session(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::NotFound)?;
-    sqlx::query("SELECT p.id FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted").bind(slug).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
+    crate::report_target::report_target_on(&mut tx, slug, id).await?;
     sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,$3)")
         .bind(slug)
         .bind(id)

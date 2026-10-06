@@ -71,10 +71,13 @@ Successful legacy deletion returns bounded, escaped, script-free HTML with the
 public client's success marker and a return link. The existing `/delete` route
 keeps its redirect response. Neither route reflects the password.
 
-The GET report route validates its query and visible board/post before rendering
-an accessible form. Submission uses the existing `/report` transaction and staff
-queue. Missing or removed posts return 404. The form requires no JavaScript and
-inherits the normal CSP, framing and response-size policies.
+The GET report route validates its query and applies the shared
+[source report eligibility gates](source-report-popup.md) before rendering an
+accessible form. Submission uses the modern `/report` transaction and staff
+queue; legacy POST report dispatch remains outside that slice. Missing or removed
+posts return 404. The form requires no JavaScript and uses the dedicated exact-path
+report-script CSP, denied framing and shared response-size budget. The linked
+contract records popup completion, cancellation and normal-tab behavior.
 
 ## Multiple selections
 

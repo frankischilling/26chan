@@ -51,6 +51,10 @@ fn form(
 }
 
 fn anonymous_cookie(headers: &HeaderMap) -> Option<String> {
+    anonymous_cookie_with_cache_policy(headers, "no-store")
+}
+
+fn anonymous_cookie_with_cache_policy(headers: &HeaderMap, cache_policy: &str) -> Option<String> {
     headers
         .get_all(header::SET_COOKIE)
         .iter()
@@ -61,7 +65,7 @@ fn anonymous_cookie(headers: &HeaderMap) -> Option<String> {
             }
             assert!(value.contains("Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict"));
             assert!(!value.contains("Domain=") && !value.contains("Secure"));
-            assert_eq!(headers[header::CACHE_CONTROL], "no-store");
+            assert_eq!(headers[header::CACHE_CONTROL], cache_policy);
             Some(value.split(';').next().unwrap().to_owned())
         })
         .next()
@@ -355,7 +359,7 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
         let (op, _, _) = posted(&app, &format!("/{b}/post"), &[("com", "Owned report target")], None, false).await;
         let response = app.clone().oneshot(form(&format!("/{b}/report"), &[("no", &op.to_string()), ("reason", "Owned anonymous report")], None, false)).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        let cookie = anonymous_cookie(response.headers()).unwrap();
+        let cookie = anonymous_cookie_with_cache_policy(response.headers(), "private, no-store").unwrap();
         let token = Capability::parse(cookie.strip_prefix("board-anon=").unwrap()).unwrap().storage_hash();
         let stored: (i16, i64, i64) = sqlx::query_as("SELECT s.pending,(SELECT count(*) FROM post_secrets.anonymous_reports r WHERE r.token_hash=s.token_hash),(SELECT count(*) FROM post_secrets.anonymous_posts p WHERE p.token_hash=s.token_hash) FROM post_secrets.anonymous_sessions s WHERE s.token_hash=$1")
             .bind(token.as_slice()).fetch_one(&a).await.unwrap();
@@ -364,6 +368,7 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
         for fields in [vec![("no", "0"), ("reason", "Owned missing target")], vec![("no", op_text.as_str()), ("reason", "")]] {
             let response = app.clone().oneshot(form(&format!("/{b}/report"), &fields, Some(&cookie), false)).await.unwrap();
             assert!(response.status().is_client_error());
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "private, no-store");
             assert!(!response.headers().contains_key(header::SET_COOKIE));
         }
         let reports: i64 = sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1").bind(&b).fetch_one(&a).await.unwrap();

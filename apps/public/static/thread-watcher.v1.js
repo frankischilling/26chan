@@ -1,4 +1,4 @@
-import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
+import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
@@ -794,6 +794,31 @@ function start(context) {
     });
     item.append(toggle, submenu); menu.list.append(item);
   }
+  const reportRegistry = createReportRegistry({ origin: location.origin,
+    current: ({ board: expectedBoard, id, target }) => !catalog && mutationLock.active
+      && configuration().disableAll !== true && expectedBoard === board
+      && target.isConnected && document.getElementById(`p${id}`) === target
+      && target.closest('.board') === document.querySelector('.board')
+      && sections().includes(target.closest('.thread')),
+    complete: ({ id, target }) => {
+      if (target.classList.contains('op')) {
+        if (!threadId && nativeThreads?.enabled()) void nativeThreads.hide?.(id);
+      } else if (target.classList.contains('reply')) void nativeReplies?.hide?.(id);
+    },
+  });
+  const receiveReport = event => { reportRegistry.receive(event); };
+  window.addEventListener('message', receiveReport);
+  function openReport(post) {
+    const id = post.id.slice(1), url = reportURL(location.origin, board, id);
+    if (!url || !post.isConnected || configuration().disableAll === true) return;
+    let popup = null;
+    try {
+      popup = window.open(url, `report-popup-${board}-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        'popup,toolbar=0,scrollbars=1,location=0,status=1,menubar=0,resizable=1,width=380,height=510');
+    } catch { /* Popup blocking falls back to the same canonical native GET. */ }
+    if (popup) reportRegistry.register(popup, board, id, post);
+    else location.assign(url);
+  }
   function openPostAction(post, action, fileOnly = false) {
     const form = post.querySelector(`.postActions form[action="/${board}/${action}"]`);
     if (!form) return;
@@ -858,7 +883,7 @@ function start(context) {
     root.append(list);
     const menu = { root, list, trigger, post, section, watch: null, filter: null,
       selection: nativeFilters?.selection() };
-    postMenuItem(menu, 'report', 'Report post', () => openPostAction(post, 'report'));
+    postMenuItem(menu, 'report', 'Report post', () => openReport(post));
     if (!catalog && !threadId && post.classList.contains('op') && nativeThreads?.enabled()) {
       menu.hideThread = postMenuItem(menu, 'hide', '', () => { void nativeThreads.toggle(post.id.slice(1)); });
     }
@@ -1152,8 +1177,8 @@ function start(context) {
     }
   });
   window.addEventListener('resize', () => closePostMenu());
-  window.addEventListener('pagehide', () => { mutationLock.suspend(); closePostMenu(); refresh.cancel(); });
-  window.addEventListener('pageshow', event => { if (event.persisted) mutationLock.resume(); });
+  window.addEventListener('pagehide', () => { mutationLock.suspend(); closePostMenu(); refresh.cancel(); reportRegistry.clear(); window.removeEventListener('message', receiveReport); });
+  window.addEventListener('pageshow', event => { if (event.persisted) { mutationLock.resume(); window.addEventListener('message', receiveReport); } });
   mobile.addEventListener('change', () => { closePostMenu(); collapsed = mobile.matches; render(); });
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });

@@ -1,6 +1,7 @@
 //! Release-owned public UI bytes, never upload storage or a filesystem server.
 use axum::{Router, http::header, routing::get};
 
+pub(crate) const REPORT_POPUP_PATH: &str = "/static/report-popup.v1.js";
 pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
 pub(crate) const CATALOG_FILTER_PATH: &str = "/static/catalog-filters.v1.js";
 pub(crate) const CATALOG_FILTER_CORE_PATH: &str = "/static/catalog-filter-core.v1.js";
@@ -852,6 +853,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            REPORT_POPUP_PATH,
+            include_bytes!("../static/report-popup.v1.js").as_slice(),
+        ),
         (
             CATALOG_FILTER_PATH,
             include_bytes!("../static/catalog-filters.v1.js").as_slice(),

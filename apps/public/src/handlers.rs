@@ -251,7 +251,7 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public posting and deletion are unavailable: POSTER_ID_KEY is required.",
         ));
     }
-    sqlx::query("SELECT slug,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,can_report_posts,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
@@ -1048,32 +1048,65 @@ pub async fn report(
     Path(board): Path<String>,
     axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
-    Form(form): Form<ReportForm>,
+    form: Result<Form<ReportForm>, axum::extract::rejection::FormRejection>,
 ) -> Result<Response, AppError> {
-    if state.production && peer.0.is_none() {
+    let fail = |no, error| crate::legacy_report::error(&state, &board, no, error);
+    if !crate::legacy_report::safe_board(&board) {
         return Err(AppError(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Posting transport identity is unavailable.",
+            StatusCode::BAD_REQUEST,
+            "Invalid reporting request.",
         ));
     }
-    let session = crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await?;
-    board_store::report_with_anonymous_session(
+    let Form(form) = match form {
+        Ok(form) => form,
+        Err(error) => {
+            return Ok(fail(
+                None,
+                AppError(error.status(), "Invalid reporting form."),
+            ));
+        }
+    };
+    if form.no <= 0 {
+        return Ok(fail(
+            None,
+            AppError(StatusCode::UNPROCESSABLE_ENTITY, "Invalid report target."),
+        ));
+    }
+    if state.production && peer.0.is_none() {
+        return Ok(fail(
+            Some(form.no),
+            AppError(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Posting transport identity is unavailable.",
+            ),
+        ));
+    }
+    let session = match crate::anonymous_session::Session::resolve(&state, &headers, peer.0).await {
+        Ok(session) => session,
+        Err(error) => return Ok(fail(Some(form.no), error)),
+    };
+    // Reserve and render the bounded response before committing. An exhausted
+    // output budget must never make a saved report appear to have failed.
+    let mut response = crate::legacy_report::success(&state, &board, form.no)?;
+    if let Err(error) = board_store::report_with_anonymous_session(
         &state.pool,
         &board,
         form.no,
         &form.reason,
         Some(session.posting),
     )
-    .await?;
-    let mut response = Html(
-        Message {
-            title: "Report received",
-            message: "Your report was saved.",
-        }
-        .render()?,
-    )
-    .into_response();
+    .await
+    {
+        drop(response);
+        return Ok(fail(Some(form.no), error.into()));
+    }
     session.append(response.headers_mut(), state.production);
+    // Session cookie handling supplies its generic no-store policy; this
+    // dedicated report shell also remains explicitly private.
+    response.headers_mut().insert(
+        "cache-control",
+        axum::http::HeaderValue::from_static("private, no-store"),
+    );
     Ok(response)
 }
 

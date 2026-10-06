@@ -112,6 +112,13 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             .unwrap();
         assert_eq!(popup.status(), StatusCode::OK);
         assert_eq!(popup.headers()["x-frame-options"], "DENY");
+        assert_eq!(popup.headers()["cache-control"], "private, no-store");
+        assert!(
+            popup.headers()["content-security-policy"]
+                .to_str()
+                .unwrap()
+                .contains("script-src http://127.0.0.1:3000/static/report-popup.v1.js;")
+        );
         let popup = popup.into_body().collect().await.unwrap().to_bytes();
         let popup = std::str::from_utf8(&popup).unwrap();
         assert!(popup.contains("action=\"/fixture/report\""));
@@ -131,6 +138,13 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
             .await
             .unwrap();
         assert_eq!(report.status(), StatusCode::OK);
+        assert_eq!(report.headers()["cache-control"], "private, no-store");
+        assert!(report.headers().get("set-cookie").is_some());
+        let result = report.into_body().collect().await.unwrap().to_bytes();
+        let result = std::str::from_utf8(&result).unwrap();
+        assert!(result.contains("<h1>Report received</h1>"));
+        assert!(result.contains("data-result=\"success\""));
+        assert!(result.contains(&format!("data-post=\"{id}\"")));
         let reason: String = sqlx::query_scalar(
             "SELECT reason FROM content.reports WHERE board='fixture' AND post_id=$1",
         )
@@ -139,6 +153,160 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         .await
         .unwrap();
         assert_eq!(reason, "Owned legacy report <literal>");
+        for (disable, restore, message) in [
+            (
+                "UPDATE content.boards SET can_report_posts=false WHERE slug=(SELECT board FROM content.posts WHERE id=$1)",
+                "UPDATE content.boards SET can_report_posts=true WHERE slug=(SELECT board FROM content.posts WHERE id=$1)",
+                "You cannot report posts on this board.",
+            ),
+            (
+                "UPDATE content.threads SET sticky=true WHERE id=$1",
+                "UPDATE content.threads SET sticky=false WHERE id=$1",
+                "Error: You cannot report a sticky.",
+            ),
+            (
+                "UPDATE content.posts SET capcode='mod' WHERE id=$1",
+                "UPDATE content.posts SET capcode=NULL WHERE id=$1",
+                "Error: You cannot report this post.",
+            ),
+        ] {
+            let post_id = id.parse::<i64>().unwrap();
+            let private_activity = "SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a.report_id),'[]'::jsonb) FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board='fixture' AND r.post_id=$1";
+            let before: serde_json::Value = sqlx::query_scalar(private_activity)
+                .bind(post_id)
+                .fetch_one(&admin)
+                .await
+                .unwrap();
+            sqlx::query(disable)
+                .bind(post_id)
+                .execute(&admin)
+                .await
+                .unwrap();
+            let get = app
+                .clone()
+                .oneshot(
+                    Request::get(format!("/fixture/imgboard.php?mode=report&no={id}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let post = app
+                .clone()
+                .oneshot(form(
+                    "/fixture/report",
+                    &[("no", &id), ("reason", "Rejected HTTP report")],
+                    Some(ORIGIN),
+                    false,
+                ))
+                .await
+                .unwrap();
+            sqlx::query(restore)
+                .bind(post_id)
+                .execute(&admin)
+                .await
+                .unwrap();
+            for response in [get, post] {
+                assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+                assert_eq!(response.headers()["cache-control"], "private, no-store");
+                assert_eq!(response.headers()["x-frame-options"], "DENY");
+                assert!(response.headers().get("set-cookie").is_none());
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                assert!(
+                    csp.contains("script-src http://127.0.0.1:3000/static/report-popup.v1.js;")
+                );
+                assert!(csp.contains("connect-src 'none';"));
+                let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                let html = std::str::from_utf8(&bytes).unwrap();
+                assert!(html.contains(message));
+                assert!(html.contains("data-result=\"error\""));
+                assert!(!html.contains("Report received"));
+                assert!(!html.contains("data-result=\"success\""));
+            }
+            let reports: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM content.reports WHERE board='fixture' AND post_id=$1",
+            )
+            .bind(post_id)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+            assert_eq!(reports, 1);
+            let after: serde_json::Value = sqlx::query_scalar(private_activity)
+                .bind(post_id)
+                .fetch_one(&admin)
+                .await
+                .unwrap();
+            assert_eq!(after, before);
+        }
+        let reply = posting::create_post(
+            &pool,
+            "fixture",
+            id.parse().unwrap(),
+            &board_store::NewPost {
+                name: "Anonymous".into(),
+                subject: String::new(),
+                comment: "Owned reportable reply in sticky thread".into(),
+                deletion_hash: "owned-report-reply".into(),
+                sage: false,
+            },
+        )
+        .await
+        .unwrap();
+        sqlx::query("UPDATE content.threads SET sticky=true WHERE id=$1")
+            .bind(id.parse::<i64>().unwrap())
+            .execute(&admin)
+            .await
+            .unwrap();
+        let reply_form = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/fixture/imgboard.php?mode=report&no={reply}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let reply_report = app
+            .clone()
+            .oneshot(form(
+                "/fixture/report",
+                &[
+                    ("no", &reply.to_string()),
+                    ("reason", "Owned sticky reply report"),
+                ],
+                Some(ORIGIN),
+                false,
+            ))
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.threads SET sticky=false WHERE id=$1")
+            .bind(id.parse::<i64>().unwrap())
+            .execute(&admin)
+            .await
+            .unwrap();
+        assert_eq!(reply_form.status(), StatusCode::OK);
+        assert_eq!(reply_report.status(), StatusCode::OK);
+        let result = reply_report.into_body().collect().await.unwrap().to_bytes();
+        assert!(
+            std::str::from_utf8(&result)
+                .unwrap()
+                .contains("data-result=\"success\"")
+        );
+        let reply_reports: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM content.reports WHERE board='fixture' AND post_id=$1",
+        )
+        .bind(reply)
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+        assert_eq!(reply_reports, 1);
+        sqlx::query("DELETE FROM content.reports WHERE board='fixture' AND post_id=$1")
+            .bind(reply)
+            .execute(&admin)
+            .await
+            .unwrap();
         let wrong_popup = app
             .clone()
             .oneshot(

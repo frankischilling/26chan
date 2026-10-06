@@ -275,6 +275,8 @@ jobs:
         run: sudo bash scripts/test-archive-deletion-secret-migration.sh
       - name: Qualify IP thread quotas on fresh and populated upgrades
         run: sudo bash scripts/test-user-thread-quota-migration.sh
+      - name: Qualify additive report policy without rewriting history
+        run: sudo bash scripts/test-report-target-policy-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

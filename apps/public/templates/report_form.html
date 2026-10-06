@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report post</title><link rel="stylesheet" href="/static/board.css"></head>
-<body><main><h1>Report post No.{{ no }}</h1>
-<form method="post" action="/{{ board }}/report"><input type="hidden" name="no" value="{{ no }}"><label for="reason">Report reason</label> <input id="reason" name="reason" maxlength="1000" required> <button>Report post</button></form>
-<p><a href="/{{ board }}/thread/{{ thread }}#p{{ no }}">Return to post</a></p></main></body></html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report post</title><link rel="stylesheet" href="/static/board.css"><script type="module" src="/static/report-popup.v1.js"></script></head>
+<body id="report-popup-context" data-board="{{ board }}" data-post="{{ no }}" data-result="form"><main><h1>Report post No.{{ no }}</h1>
+<form id="report-form" method="post" action="/{{ board }}/report"><input type="hidden" name="no" value="{{ no }}"><label for="reason">Report reason</label> <input id="reason" name="reason" maxlength="1000" required> <button id="report-submit" type="submit">Report post</button></form>
+<p><a id="report-popup-return" href="/{{ board }}/thread/{{ thread }}#p{{ no }}">Return to post</a> <button id="report-popup-close" type="button" hidden>Close window</button></p></main></body></html>

@@ -74,6 +74,13 @@ to public posting before final blank-content admission, while raw/line and
 required-subject checks remain earlier. Complete caller ordering and staff exceptions, private-list
 interfaces and classifiers remain open in #212.
 
+[Report eligibility and popup completion](source-report-popup.md) now share the
+source board, sticky-OP and capcode gates across form display and submission.
+The same-origin popup receiver binds completion to its opened window and target,
+with settings-aware hiding and a no-JavaScript fallback. Free-text reasons remain;
+source categories, weights, CAPTCHA, Pass, illegal-report authority and legacy
+POST report dispatch are still outside this slice.
+
 ## Earlier public-reference checkpoints
 
 The [public page navigation, titles and footer](public-page-chrome.md) use

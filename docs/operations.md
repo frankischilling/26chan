@@ -156,9 +156,17 @@ Retention policy affects public visibility and does not physically erase retaine
 base tables or backups. The actual upgrade exercise is recorded in
 [archive verification](verification-thread-archives.md).
 
-Current public and staff binaries and readiness require migrations through
-0092. Stop writers and follow [posting deployment](source-posting-cooldowns.md#deployment)
-before starting matching binaries. Migrations 0091 and 0092 need no new bootstrap
+Apply migration 0093 before deploying the matching
+[report eligibility and popup handlers](source-report-popup.md). It adds the
+board report switch with the source default enabled and `/j/` disabled, preserves
+existing report rows and needs no new bootstrap role. It grants no category or
+report-read authority. Older report handlers can bypass the new target policy;
+a binary-only rollback is not policy-equivalent.
+
+Public readiness requires migrations through 0093; staff readiness remains at
+0092. For a paired rollout, stop writers, apply through 0093 and follow
+[posting deployment](source-posting-cooldowns.md#deployment) before starting
+matching services. Migrations 0091 and 0092 need no new bootstrap
 role. The [active OP quota](source-user-thread-quotas.md) has an independent
 per-IP maximum and period; its password/Pass identity branches remain unfinished.
 Operator archive transitions require Read Committed isolation. Lock affected
