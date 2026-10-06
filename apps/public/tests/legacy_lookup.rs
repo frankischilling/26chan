@@ -20,7 +20,17 @@ async fn response(
     referer: Option<&str>,
     cookie: Option<&str>,
 ) -> (StatusCode, HeaderMap, String) {
-    let mut builder = Request::get(path);
+    response_method(app, "GET", path, referer, cookie).await
+}
+
+async fn response_method(
+    app: &Router,
+    method: &str,
+    path: &str,
+    referer: Option<&str>,
+    cookie: Option<&str>,
+) -> (StatusCode, HeaderMap, String) {
+    let mut builder = Request::builder().method(method).uri(path);
     if let Some(referer) = referer {
         builder = builder.header(header::REFERER, referer);
     }
@@ -92,6 +102,168 @@ async fn seed_thread(
     sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous','','Owned lookup reply')")
         .bind(reply).bind(board).bind(op).execute(c).await.unwrap();
     (op, reply)
+}
+
+fn lookup_output_limits(response_bytes: usize) -> board_config::PublicRequestLimits {
+    board_config::PublicRequestLimits::from_lookup(|name| match name {
+        "PUBLIC_MAX_RESPONSE_BYTES" => Some(response_bytes.to_string()),
+        "PUBLIC_MAX_RESPONSE_BUFFER_BYTES" => Some("4096".into()),
+        _ => None,
+    })
+    .unwrap()
+}
+
+async fn bare_index_navigation(
+    app: &Router,
+    public: &PgPool,
+    board: &str,
+    private: &str,
+    missing: &str,
+) {
+    let mut reference = None;
+    for suffix in ["", "?"] {
+        let path = format!("/{board}/imgboard.php{suffix}");
+        for referer in [
+            None,
+            Some("http://evil.invalid/downgrade?url=https://evil.invalid/"),
+            Some("https://elsewhere.invalid/path"),
+        ] {
+            let (status, headers, body) = response(app, &path, referer, None).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            assert_eq!(headers[header::CACHE_CONTROL], "private, no-store");
+            assert_eq!(headers[header::CONTENT_TYPE], "text/html; charset=utf-8");
+            assert!(!headers.contains_key(header::LOCATION));
+            assert!(body.contains("<title>Updating index...</title>"));
+            assert!(body.contains("<strong>Updating index...</strong>"));
+            assert!(body.contains(&format!(
+                "<meta http-equiv=\"refresh\" content=\"2;URL=/{board}/\">"
+            )));
+            assert!(!body.contains("<script") && !body.contains("javascript:"));
+            assert!(!body.contains("evil.invalid") && !body.contains("elsewhere.invalid"));
+            assert!(
+                headers[header::CONTENT_SECURITY_POLICY]
+                    .to_str()
+                    .unwrap()
+                    .contains("script-src 'none';")
+            );
+            no_lookup_popup(&headers, &body);
+            if let Some(previous) = &reference {
+                assert_eq!(&body, previous);
+            } else {
+                reference = Some(body.clone());
+            }
+            let (status, head_headers, head_body) =
+                response_method(app, "HEAD", &path, referer, None).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(
+                head_headers, headers,
+                "HEAD must retain the GET navigation/security headers"
+            );
+            assert!(head_body.is_empty());
+        }
+    }
+    for (slug, expected) in [
+        (private, StatusCode::NOT_FOUND),
+        (missing, StatusCode::NOT_FOUND),
+        ("UPPER", StatusCode::BAD_REQUEST),
+        ("a-b", StatusCode::BAD_REQUEST),
+        ("abcdefghijk", StatusCode::BAD_REQUEST),
+    ] {
+        for suffix in ["", "?"] {
+            let (status, headers, body) =
+                response(app, &format!("/{slug}/imgboard.php{suffix}"), None, None).await;
+            assert_eq!(status, expected, "{slug}: {body}");
+            assert!(!headers.contains_key(header::LOCATION));
+            assert!(
+                !body.contains("http-equiv=\"refresh\"") && !body.contains("Updating index...")
+            );
+            no_lookup_popup(&headers, &body);
+        }
+    }
+    for query in [
+        "&",
+        "&&",
+        "mode=",
+        "mode=usrdel",
+        "mode=report",
+        "res=",
+        "no=1",
+        "unknown=1",
+    ] {
+        let (status, headers, body) =
+            response(app, &format!("/{board}/imgboard.php?{query}"), None, None).await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "nonempty query cannot fall through to the index page: {query}"
+        );
+        assert!(!headers.contains_key(header::LOCATION));
+        assert!(!headers.contains_key(header::SET_COOKIE));
+        assert!(!body.contains("Updating index..."));
+        if query != "mode=report" {
+            no_lookup_popup(&headers, &body);
+        }
+    }
+    let reference = reference.unwrap();
+    let path = format!("/{board}/imgboard.php");
+    for (maximum, expected) in [
+        (reference.len(), StatusCode::OK),
+        (reference.len() - 1, StatusCode::SERVICE_UNAVAILABLE),
+    ] {
+        let limited = posting::routers_with_limits(
+            public.clone(),
+            board,
+            ORIGIN.into(),
+            false,
+            None,
+            lookup_output_limits(maximum),
+        )
+        .0;
+        let (status, headers, body) = response(&limited, &path, None, None).await;
+        assert_eq!(status, expected);
+        assert!(!headers.contains_key(header::LOCATION));
+        no_lookup_popup(&headers, &body);
+        if status == StatusCode::OK {
+            assert_eq!(body, reference);
+        } else {
+            assert!(body.contains("Response exceeds the available output budget."));
+            assert!(
+                !body.contains("Updating index...") && !body.contains("http-equiv=\"refresh\"")
+            );
+            assert!(
+                headers[header::CACHE_CONTROL]
+                    .to_str()
+                    .unwrap()
+                    .contains("no-store")
+            );
+        }
+    }
+    // The real generated body retains one shared output block until consumed
+    // or dropped; capacity exhaustion must not leak a partial navigation page.
+    assert!(reference.len() < 4096);
+    let bounded = posting::routers_with_limits(
+        public.clone(),
+        board,
+        ORIGIN.into(),
+        false,
+        None,
+        lookup_output_limits(65_536),
+    )
+    .0;
+    let held = bounded
+        .clone()
+        .oneshot(Request::get(&path).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(held.status(), StatusCode::OK);
+    let (status, _, body) = response(&bounded, &path, None, None).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(body.contains("output budget"));
+    assert!(!body.contains("Updating index..."));
+    drop(held);
+    let (status, _, body) = response(&bounded, &path, None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, reference);
 }
 
 async fn snapshot(owner: &PgPool, boards: &[String]) -> Value {
@@ -184,6 +356,13 @@ async fn legacy_res_lookup_is_exact_public_read_only_and_keeps_report_get_separa
             let board = &boards[0];
             let app = posting::router(public.clone(), board, ORIGIN.into(), false);
             let baseline = snapshot(&owner, &boards).await;
+            let bare_missing = format!("lb{seed:x}");
+            bare_index_navigation(&app, &public, board, &boards[1], &bare_missing).await;
+            assert_eq!(
+                snapshot(&owner, &boards).await,
+                baseline,
+                "bare navigation and output failures are read-only"
+            );
             for (post, parent) in [
                 (ordinary.0, ordinary.0),
                 (ordinary.1, ordinary.0),

@@ -154,3 +154,58 @@ for (const javaScriptEnabled of [false, true]) {
     }
   });
 }
+
+for (const javaScriptEnabled of [false, true]) {
+  test(`bare legacy index GET uses its native two-second refresh with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({ browser }) => {
+    const slug = `z${randomBytes(5).toString('hex').slice(0, 9)}`;
+    const origin = 'http://127.0.0.1:3000';
+    let context;
+    fixture('setup', slug);
+    try {
+      context = await browser.newContext({ javaScriptEnabled });
+      const page = await context.newPage();
+      const writes = [], popups = [], completionMessages = [];
+      context.on('request', request => { if (request.method() === 'POST') writes.push(request.url()); });
+      context.on('page', popup => popups.push(popup));
+      await context.exposeBinding('observeIndexCompletion', (_, message) => completionMessages.push(message));
+      await context.addInitScript(() => window.addEventListener('message', event => {
+        if (typeof event.data === 'string' && event.data.startsWith('done-report')) {
+          window.observeIndexCompletion(event.data);
+        }
+      }));
+      expect(await context.cookies()).toEqual([]);
+      const bare = `${origin}/${slug}/imgboard.php`, index = `${origin}/${slug}/`;
+      const refreshed = page.waitForResponse(response => response.url() === index
+        && response.request().isNavigationRequest() && response.request().method() === 'GET');
+      // Inspect the actual initial response, not a transient DOM that may
+      // already have refreshed on a slow runner. Native refresh is not a JS timer.
+      const initial = await page.goto(bare, { waitUntil: 'commit' });
+      expect(initial.status()).toBe(200);
+      expect(initial.url()).toBe(bare);
+      expect(initial.request().redirectedFrom()).toBe(null);
+      expect(await initial.headerValue('location')).toBe(null);
+      expect(await initial.headerValue('set-cookie')).toBe(null);
+      const html = await initial.text();
+      expect(html).toContain('<strong>Updating index...</strong>');
+      const refresh = /<meta\b(?=[^>]*\bhttp-equiv=["']refresh["'])[^>]*\bcontent=["']([^"']+)["'][^>]*>/i.exec(html);
+      expect(refresh, 'Initial response must contain a native meta refresh').not.toBe(null);
+      expect(refresh[1]).toMatch(new RegExp(`^2;\\s*URL=/${slug}/$`, 'i'));
+      expect(html).not.toContain('report-popup-context');
+      expect(html).not.toContain('/static/report-popup.v1.js');
+      const loaded = await refreshed;
+      expect(loaded.status()).toBe(200);
+      // Meta refresh starts a distinct navigation, not an HTTP redirect chain.
+      expect(loaded.request().redirectedFrom()).toBe(null);
+      expect(await loaded.headerValue('set-cookie')).toBe(null);
+      await expect(page).toHaveURL(index);
+      await expect(page.getByRole('heading', { name: `/${slug}/ - Synthetic archive browser test`, exact: true })).toBeVisible();
+      expect(await context.cookies()).toEqual([]);
+      expect(writes).toEqual([]);
+      expect(popups).toEqual([]);
+      expect(completionMessages).toEqual([]);
+    } finally {
+      try { if (context) await context.close(); }
+      finally { fixture('cleanup', slug); }
+    }
+  });
+}

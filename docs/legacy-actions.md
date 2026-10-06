@@ -4,7 +4,8 @@
 report form for a visible post. Posting through this route continues to use the
 existing transaction, field validation and HTML/JSON response selection.
 [Legacy `res` post lookups](legacy-post-lookups.md) resolve OPs and replies to
-local canonical thread anchors without report or session side effects.
+local canonical thread anchors without report or session side effects. Bare GET
+shows the source two-second index-navigation notice, without rebuilding data.
 
 ## Public reference
 

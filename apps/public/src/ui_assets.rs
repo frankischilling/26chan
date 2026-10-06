@@ -399,6 +399,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("../static/derefer.css"),
     ),
     (
+        "/static/updating-index.v1.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/updating-index.v1.css"),
+    ),
+    (
         "/static/catalog/filedeleted-res.gif",
         "image/gif",
         include_bytes!("../static/catalog/filedeleted-res.gif"),

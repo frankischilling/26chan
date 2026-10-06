@@ -541,7 +541,6 @@ mod tests {
             .unwrap();
         let app = crate::router(pool, "http://127.0.0.1:3000".into(), false);
         for query in [
-            "",
             "mode=report",
             "no=17",
             "mode=usrdel&no=17",

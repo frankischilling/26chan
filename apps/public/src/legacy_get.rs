@@ -1,6 +1,7 @@
 //! Finite legacy GET dispatcher. Reporting keeps its existing popup contract;
 //! res redirects expose only public post/thread identity, never post bodies.
 use crate::{AppState, handlers::AppError, legacy_report};
+use askama::Template;
 use axum::{
     Extension,
     extract::{OriginalUri, Path, Query, State, rejection::QueryRejection},
@@ -15,6 +16,12 @@ struct ResQuery {
     res: String,
 }
 
+#[derive(Template)]
+#[template(path = "updating_index.html")]
+struct UpdatingIndex<'a> {
+    board: &'a str,
+}
+
 pub(crate) async fn get(
     State(state): State<AppState>,
     Path(board): Path<String>,
@@ -24,6 +31,23 @@ pub(crate) async fn get(
     report_query: Result<Query<legacy_report::ReportQuery>, QueryRejection>,
 ) -> Result<Response, AppError> {
     let raw = uri.query().unwrap_or("");
+    if raw.is_empty() {
+        if !legacy_report::safe_board(&board) {
+            return Err(AppError(StatusCode::BAD_REQUEST, "Invalid board."));
+        }
+        let visible_board = board_store::board(&state.pool, &board).await?;
+        if visible_board.staff_only {
+            return Err(AppError(StatusCode::NOT_FOUND, "Board not found."));
+        }
+        // Source updating_index is navigation only, not a rebuild or mutation.
+        // A local destination cannot inherit a foreign or downgraded Referer.
+        let mut response = crate::output::html(&state, &UpdatingIndex { board: &board })?;
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-store"),
+        );
+        return Ok(response);
+    }
     let mut reporting = false;
     let mut res = false;
     for (name, value) in url::form_urlencoded::parse(raw.as_bytes()) {
