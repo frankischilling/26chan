@@ -15,6 +15,84 @@ function run(name, args, input, expected = 0) {
   return result.stdout.trim();
 }
 function fixture(command, board, input) { const value = run('examples/browser-fixture', [command, board], input); return value ? JSON.parse(value) : null; }
+async function verifyUnstickyOrdering(page, context, publicMediaRequests) {
+  // Keep ordering fixtures separate from the primary flow's exact audit/state assertions.
+  const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
+  const publicOrigin = 'http://127.0.0.1:3000';
+  const mediaRoot = path.resolve(`.local/staff-media-${board}`);
+  let publicPage;
+  const data = fixture('setup', board);
+  try {
+    expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+    publicPage = await context.newPage();
+    publicPage.on('request', request => { if (request.url().startsWith('http://127.0.0.2:3002/')) publicMediaRequests.add(request); });
+    const create = async subject => {
+      const response = await withPostingHistory(() => page.request.post(`${publicOrigin}/${board}/post`, {
+        headers: { Origin: publicOrigin }, maxRedirects: 0,
+        form: { resto: '0', sub: subject, com: 'Owned unsticky ordering fixture', password: 'owned-unsticky-password' },
+      }));
+      expect(response.status()).toBe(303);
+      return response.headers().location.match(/thread\/(\d+)/)[1];
+    };
+    const remainingSticky = await create('Owned remaining sticky');
+    const newer = await create('Owned newer ordinary thread');
+    const old = String(data.thread);
+    const expectOrder = async ids => {
+      await publicPage.goto(`${publicOrigin}/${board}/`);
+      expect(await publicPage.locator('.board > .thread').evaluateAll(nodes => nodes.map(node => node.id.slice(1)))).toEqual(ids);
+      await publicPage.goto(`${publicOrigin}/${board}/catalog?order=alt`);
+      await expect(publicPage.locator('#order-ctrl')).toHaveValue('alt');
+      expect(await publicPage.locator('#threads > .thread').evaluateAll(nodes => nodes.map(node => node.dataset.threadId))).toEqual(ids);
+    };
+    await expectOrder([newer, remainingSticky, old]);
+    await page.goto('/reports');
+    const report = page.locator(`#report-${data.report}`);
+    const moderate = async (target, action) => page.request.post('/moderate', {
+      maxRedirects: 0, headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' },
+      form: { csrf: await report.locator('input[name=csrf]').first().inputValue(), board, target, action },
+    });
+    const clicked = async name => {
+      const response = page.waitForResponse(response => response.url() === 'http://localhost:3001/moderate' && response.request().method() === 'POST');
+      await report.getByRole('button', { name, exact: true }).click();
+      expect((await response).status()).toBe(303);
+    };
+    await clicked('Sticky thread');
+    await expect(report).toContainText('sticky: true');
+    expect((await moderate(remainingSticky, 'sticky')).status()).toBe(303);
+    const before = fixture('inspect', board);
+    expect(before.states.map(row => row[1])).toEqual([true, true, false]);
+    await clicked('Unsticky thread');
+    await expect(report).toContainText('sticky: false');
+    const changed = fixture('inspect', board);
+    expect(changed.states.map(row => row[1])).toEqual([false, true, false]);
+    expect(changed.threadOptions[0][2]).not.toBe(before.threadOptions[0][2]);
+    await expectOrder([remainingSticky, old, newer]);
+    await expect(publicPage.locator(`#thread-${old}`)).toHaveAttribute('data-sticky', 'false');
+    await expect(publicPage.locator(`#thread-${remainingSticky}`)).toHaveAttribute('data-sticky', 'true');
+    const newest = await create('Owned ordinary thread after unsticky');
+    await expectOrder([remainingSticky, newest, old, newer]);
+    expect((await moderate(old, 'unsticky')).status()).toBe(303);
+    const repeated = fixture('inspect', board);
+    expect(repeated.threadOptions[0][2]).toBe(changed.threadOptions[0][2]);
+    expect(repeated.audit).toEqual(changed.audit);
+    await expectOrder([remainingSticky, newest, old, newer]);
+  } finally {
+    try {
+      await publicPage?.close();
+    } finally {
+      try {
+        fixture('cleanup', board);
+      } finally {
+        const privateRoot = path.resolve('.local');
+        if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
+            || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid unsticky media cleanup path');
+        rmSync(mediaRoot, { recursive: true });
+      }
+    }
+  }
+  await page.goto('/reports');
+}
+
 test('public spoiler policy controls Quick Reply and forged text choices on desktop and mobile', async ({ page }) => {
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const data = fixture('setup', board), publicOrigin = 'http://127.0.0.1:3000';
@@ -375,6 +453,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('button', { name: 'Reopen thread', exact: true }).click();
     await report.getByRole('button', { name: 'Sticky thread', exact: true }).click();
     await report.getByRole('button', { name: 'Unsticky thread', exact: true }).click();
+    await verifyUnstickyOrdering(page, context, publicMediaRequests);
     fixture('bump-limit', board);
     expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
     await expect(report.getByRole('button', { name: 'Enable permaage', exact: true })).toHaveCount(0);

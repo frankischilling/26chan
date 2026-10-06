@@ -27,12 +27,19 @@ struct Fixture {
 
 impl Fixture {
     async fn new() -> Self {
+        Self::with_staff_pool(None).await
+    }
+
+    async fn with_staff_pool(staff_override: Option<PgPool>) -> Self {
         async fn pool(key: &str) -> PgPool {
             PgPool::connect(&std::env::var(key).unwrap()).await.unwrap()
         }
         let owner = pool("MIGRATION_DATABASE_URL").await;
         let auth_pool = pool("AUTH_DATABASE_URL").await;
-        let staff = pool("STAFF_DATABASE_URL").await;
+        let staff = match staff_override {
+            Some(staff) => staff,
+            None => pool("STAFF_DATABASE_URL").await,
+        };
         let state = Arc::new(AppState {
             config: Config {
                 proxy: None,
@@ -169,6 +176,8 @@ impl Fixture {
         for statement in [
             "DELETE FROM content.moderation_audit WHERE board=ANY($1)",
             "DELETE FROM content.reports WHERE board=ANY($1)",
+            "DELETE FROM post_secrets.posting_thread_actions WHERE board=ANY($1)",
+            "DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=ANY($1))",
             "DELETE FROM content.posts WHERE board=ANY($1)",
             "DELETE FROM content.threads WHERE board=ANY($1)",
             "DELETE FROM content.boards WHERE slug=ANY($1)",
@@ -671,6 +680,351 @@ async fn permaage_and_undead_match_original_permission_state_and_audit_cases() {
     let result = tokio::spawn({
         let fixture = fixture.clone();
         async move { thread_options_source_cases(&fixture).await }
+    })
+    .await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+async fn unsticky_state(f: &Fixture, id: i64) -> serde_json::Value {
+    let raw: String = sqlx::query_scalar("SELECT jsonb_build_object('thread',to_jsonb(t),'posts',(SELECT jsonb_agg(to_jsonb(p) ORDER BY p.id) FROM content.posts p WHERE p.thread_id=t.id))::text FROM content.threads t WHERE t.id=$1")
+        .bind(id).fetch_one(&f.owner).await.unwrap();
+    serde_json::from_str(&raw).unwrap()
+}
+fn unsticky_invariants(mut state: serde_json::Value) -> serde_json::Value {
+    let thread = state["thread"].as_object_mut().unwrap();
+    for field in ["sticky", "bumped_at", "modified_at", "http_modified_at"] {
+        thread.remove(field);
+    }
+    state
+}
+fn unsticky_time(state: &serde_json::Value, field: &str) -> chrono::DateTime<chrono::FixedOffset> {
+    chrono::DateTime::parse_from_rfc3339(state["thread"][field].as_str().unwrap()).unwrap()
+}
+async fn unsticky_extra_thread(f: &Fixture, board: usize, sticky: bool) -> i64 {
+    let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board,sticky,bumped_at) VALUES($1,$2,'2000-01-01Z') RETURNING id")
+        .bind(&f.boards[board]).bind(sticky).fetch_one(&f.owner).await.unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Synthetic unsticky order','Owned ordering fixture')")
+        .bind(id).bind(&f.boards[board]).execute(&f.owner).await.unwrap();
+    id
+}
+async fn unsticky_wait_for_blocker(owner: &PgPool, blocker: i32) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let observed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE usename='board_staff' AND $1=ANY(pg_blocking_pids(pid)))")
+                .bind(blocker).fetch_one(owner).await.unwrap();
+            if observed { break; }
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("actual staff lock dependency was not observed");
+}
+
+async fn exercise_unsticky_order(f: &Fixture) {
+    auth::check_identity(&f.auth, "board_auth").await.unwrap();
+    auth::check_identity(&f.staff, "board_staff").await.unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    f.role("moderator", &["all".into()], &[]).await;
+    let target = f.posts[0];
+    sqlx::query("UPDATE content.threads SET sticky=true,closed=true,permasage=true,permaage=true,undead=true,bumped_at='1999-01-01Z',modified_at='1999-01-01Z' WHERE id=$1")
+        .bind(target).execute(&f.owner).await.unwrap();
+    let ordinary = unsticky_extra_thread(f, 0, false).await;
+    let remaining_sticky = unsticky_extra_thread(f, 0, true).await;
+    let before = unsticky_state(f, target).await;
+    let audit = f.audit_count().await;
+    // Real HTTP guards still reject the mutation without touching its clock.
+    assert_eq!(
+        f.request(
+            "/moderate",
+            Some(format!(
+                "csrf=invalid&board={}&target={target}&action=unsticky",
+                f.boards[0]
+            ))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    f.role("janitor", &["all".into()], &[]).await;
+    assert_eq!(f.action(0, target, "unsticky").await, StatusCode::FORBIDDEN);
+    f.role("moderator", &["all".into()], &f.boards[..1]).await;
+    assert_eq!(f.action(0, target, "unsticky").await, StatusCode::FORBIDDEN);
+    f.role("moderator", &["all".into()], &[]).await;
+    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE token_hash=$1")
+        .bind(auth::hash(&f.token)).execute(&f.owner).await.unwrap();
+    assert_eq!(f.action(0, target, "unsticky").await, StatusCode::FORBIDDEN);
+    sqlx::query(
+        "UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp() WHERE token_hash=$1",
+    )
+    .bind(auth::hash(&f.token))
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let rejected = unsticky_state(f, target).await;
+    assert_eq!(
+        rejected["thread"]["http_modified_at"],
+        before["thread"]["http_modified_at"]
+    );
+    assert_eq!(rejected, before);
+    assert_eq!(f.audit_count().await, audit);
+
+    // Hold the board lock before the real HTTP mutation starts. The new bump
+    // must use database time after this wait, not transaction/request start.
+    let mut lock = f.owner.begin().await.unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(&f.boards[0])
+        .fetch_one(&mut *lock)
+        .await
+        .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *lock)
+        .await
+        .unwrap();
+    let pending = tokio::spawn({
+        let f = f.clone();
+        async move { f.action(0, target, "unsticky").await }
+    });
+    unsticky_wait_for_blocker(&f.owner, blocker).await;
+    let release_time: chrono::DateTime<chrono::Utc> =
+        sqlx::query_scalar("SELECT clock_timestamp()")
+            .fetch_one(&mut *lock)
+            .await
+            .unwrap();
+    lock.commit().await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(5), pending)
+            .await
+            .unwrap()
+            .unwrap(),
+        StatusCode::SEE_OTHER
+    );
+    let upper: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    let after = unsticky_state(f, target).await;
+    assert_eq!(after["thread"]["sticky"], false);
+    assert!(
+        unsticky_time(&after, "bumped_at") >= release_time
+            && unsticky_time(&after, "bumped_at") <= upper
+    );
+    assert!(unsticky_time(&after, "modified_at") > unsticky_time(&before, "modified_at"));
+    assert!(unsticky_time(&after, "http_modified_at") > unsticky_time(&before, "http_modified_at"));
+    assert_eq!(
+        unsticky_invariants(after.clone()),
+        unsticky_invariants(before)
+    );
+    let rows:Vec<(i64,i64,String)>=sqlx::query_as("SELECT account_id,target_id,action FROM content.moderation_audit WHERE board=$1 ORDER BY id")
+        .bind(&f.boards[0]).fetch_all(&f.owner).await.unwrap();
+    assert_eq!(rows, vec![(f.account, target, "unsticky".into())]);
+    // Both production read paths must put the released thread above older
+    // ordinary threads, while every remaining sticky keeps priority.
+    for selection in [
+        board_store::BoardSelection::Page(1),
+        board_store::BoardSelection::All,
+    ] {
+        let snapshot = board_store::board_snapshot(&public, &f.boards[0], selection, Some(0))
+            .await
+            .unwrap();
+        let ids: Vec<i64> = snapshot
+            .threads
+            .iter()
+            .map(|preview| preview.thread.id)
+            .collect();
+        assert_eq!(ids, vec![remaining_sticky, target, ordinary]);
+    }
+    assert_eq!(f.action(0, target, "unsticky").await, StatusCode::SEE_OTHER);
+    let repeat = unsticky_state(f, target).await;
+    assert_eq!(repeat["thread"]["bumped_at"], after["thread"]["bumped_at"]);
+    assert!(unsticky_time(&repeat, "modified_at") > unsticky_time(&after, "modified_at"));
+    assert!(unsticky_time(&repeat, "http_modified_at") > unsticky_time(&after, "http_modified_at"));
+    assert_eq!(unsticky_invariants(repeat), unsticky_invariants(after));
+    assert_eq!(f.audit_count().await, audit + 1);
+    // Separate owned target, two genuine simultaneous HTTP submissions.
+    sqlx::query("UPDATE content.threads SET sticky=true,bumped_at='1999-01-01Z' WHERE id=$1")
+        .bind(f.posts[1])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let before = unsticky_state(f, f.posts[1]).await;
+    let (left, right) = tokio::join!(
+        f.action(1, f.posts[1], "unsticky"),
+        f.action(1, f.posts[1], "unsticky")
+    );
+    assert_eq!(
+        (left, right),
+        (StatusCode::SEE_OTHER, StatusCode::SEE_OTHER)
+    );
+    let after = unsticky_state(f, f.posts[1]).await;
+    assert_eq!(after["thread"]["sticky"], false);
+    assert!(unsticky_time(&after, "bumped_at") > unsticky_time(&before, "bumped_at"));
+    assert!(unsticky_time(&after, "http_modified_at") > unsticky_time(&before, "http_modified_at"));
+    assert_eq!(unsticky_invariants(after), unsticky_invariants(before));
+    assert_eq!(f.audit_count().await, audit + 2);
+    // Archived sticky rows are forbidden by thread_archive_times. Exercise
+    // the representable archived row and a forged Unsticky request instead.
+    sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+        .bind(f.posts[1]).execute(&f.owner).await.unwrap();
+    let archived = unsticky_state(f, f.posts[1]).await;
+    assert_eq!(
+        f.action(1, f.posts[1], "unsticky").await,
+        StatusCode::BAD_REQUEST
+    );
+    let rejected = unsticky_state(f, f.posts[1]).await;
+    assert_eq!(
+        rejected["thread"]["http_modified_at"],
+        archived["thread"]["http_modified_at"]
+    );
+    assert_eq!(rejected, archived);
+    assert_eq!(f.audit_count().await, audit + 2);
+    public.close().await;
+}
+
+#[tokio::test]
+async fn unsticky_http_transition_uses_post_lock_time_and_orders_board_and_catalog_once() {
+    let fixture = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = fixture.clone();
+        async move { exercise_unsticky_order(&f).await }
+    })
+    .await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn unsticky_audit_statement_failure_rolls_back_the_flag_bump_and_modified_clock() {
+    let staff = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(|connection, _| {
+            Box::pin(async move {
+                sqlx::query("SET statement_timeout='2s'")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let fixture = Fixture::with_staff_pool(Some(staff)).await;
+    let result=tokio::spawn({let f=fixture.clone();async move {
+        auth::check_identity(&f.staff,"board_staff").await.unwrap();
+        f.role("moderator",&["all".into()],&[]).await;
+        sqlx::query("UPDATE content.threads SET sticky=true,bumped_at='1999-01-01Z',modified_at='1999-01-01Z' WHERE id=$1")
+            .bind(f.posts[0]).execute(&f.owner).await.unwrap();
+        let before=unsticky_state(&f,f.posts[0]).await;
+        let audit=f.audit_count().await;
+        let mut lock=f.owner.begin().await.unwrap();
+        sqlx::query("LOCK TABLE content.moderation_audit IN ACCESS EXCLUSIVE MODE").execute(&mut *lock).await.unwrap();
+        let blocker:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *lock).await.unwrap();
+        let pending=tokio::spawn({let f=f.clone();async move {f.action(0,f.posts[0],"unsticky").await}});
+        unsticky_wait_for_blocker(&f.owner,blocker).await;
+        // Keep the lock until the actual audit INSERT times out. This is a SQL
+        // error after the thread UPDATE, not a fabricated failed response.
+        let outcome=tokio::time::timeout(Duration::from_secs(5),pending).await.unwrap().unwrap();
+        lock.rollback().await.unwrap();
+        assert_eq!(outcome,StatusCode::SERVICE_UNAVAILABLE);
+        let rolled_back=unsticky_state(&f,f.posts[0]).await;
+        assert_eq!(rolled_back["thread"]["http_modified_at"],before["thread"]["http_modified_at"]);
+        assert_eq!(rolled_back,before);
+        assert_eq!(f.audit_count().await,audit);
+        assert_eq!(f.action(0,f.posts[0],"unsticky").await,StatusCode::SEE_OTHER);
+        assert_eq!(f.audit_count().await,audit+1);
+    }}).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+async fn exercise_unsticky_rollover(f: &Fixture) {
+    f.role("moderator", &["all".into()], &[]).await;
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for (index, expire_neglected) in [(0, true), (1, false)] {
+        sqlx::query("UPDATE content.boards SET thread_limit=2,expire_neglected=$2,archive_retention_seconds=0,posting_reply_seconds=0,posting_image_seconds=0,posting_thread_seconds=0 WHERE slug=$1")
+            .bind(&f.boards[index]).bind(expire_neglected).execute(&f.owner).await.unwrap();
+        sqlx::query("UPDATE content.threads SET sticky=true,bumped_at='1999-01-01Z' WHERE id=$1")
+            .bind(f.posts[index])
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        let ordinary = unsticky_extra_thread(f, index, false).await;
+        assert_eq!(
+            f.action(index, f.posts[index], "unsticky").await,
+            StatusCode::SEE_OTHER
+        );
+        let key_bytes = board_domain::anonymous_session::Capability::generate()
+            .unwrap()
+            .storage_hash();
+        let key = board_domain::poster_id::PosterIdKey::parse(
+            &key_bytes
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+        )
+        .unwrap();
+        let fresh = board_store::create_post_with_identity_keys(
+            &public,
+            &f.boards[index],
+            0,
+            &board_store::NewPost {
+                name: "Anonymous".into(),
+                subject: "Synthetic unsticky rollover".into(),
+                comment: "Owned overflow thread".into(),
+                deletion_hash: "owned-unsticky-rollover".into(),
+                sage: false,
+            },
+            None,
+            board_store::PostingContext {
+                request_start: chrono::Utc::now(),
+                peer: Some("192.0.2.222".parse().unwrap()),
+                op_password_proof: None,
+            },
+            board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&key),
+            },
+        )
+        .await
+        .unwrap();
+        let active: Vec<i64> = board_store::threads(&public, &f.boards[index], 0, 10)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|thread| thread.id)
+            .collect();
+        let victim = if expire_neglected {
+            ordinary
+        } else {
+            f.posts[index]
+        };
+        let survivor = if expire_neglected {
+            f.posts[index]
+        } else {
+            ordinary
+        };
+        assert_eq!(active, vec![fresh, survivor]);
+        let deleted: bool = sqlx::query_scalar("SELECT deleted FROM content.threads WHERE id=$1")
+            .bind(victim)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+        assert!(
+            deleted,
+            "oldest activity retires the older ordinary thread; post-number policy still retires the oldest ID"
+        );
+    }
+    public.close().await;
+}
+
+#[tokio::test]
+async fn unsticky_refresh_changes_oldest_activity_rollover_but_not_post_number_rollover() {
+    let fixture = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = fixture.clone();
+        async move { exercise_unsticky_rollover(&f).await }
     })
     .await;
     fixture.cleanup().await;

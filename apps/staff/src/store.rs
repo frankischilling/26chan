@@ -192,8 +192,8 @@ pub(crate) async fn prepare_moderation(
         } else {
             target
         };
-        let (archived, permaage, undead): (bool, bool, bool) = sqlx::query_as(
-            "SELECT archived_at IS NOT NULL,permaage,undead FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        let (archived, sticky, permaage, undead): (bool, bool, bool, bool) = sqlx::query_as(
+            "SELECT archived_at IS NOT NULL,sticky,permaage,undead FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
         )
         .bind(board)
         .bind(thread)
@@ -205,6 +205,7 @@ pub(crate) async fn prepare_moderation(
                 action,
                 "reopen"
                     | "sticky"
+                    | "unsticky"
                     | "permasage"
                     | "unpermasage"
                     | "permaage"
@@ -220,7 +221,17 @@ pub(crate) async fn prepare_moderation(
                 sqlx::query("UPDATE content.threads SET closed=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="close").execute(&mut *tx).await?;
             }
             "sticky" | "unsticky" => {
-                sqlx::query("UPDATE content.threads SET sticky=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="sticky").execute(&mut *tx).await?;
+                let requested_sticky = action == "sticky";
+                audit_changed = sticky != requested_sticky;
+                // Source thread options refresh root only on actual unsticky.
+                // Use mutation time after the locks, not transaction start.
+                sqlx::query("UPDATE content.threads SET sticky=$3,bumped_at=CASE WHEN $4 THEN clock_timestamp() ELSE bumped_at END,modified_at=clock_timestamp() WHERE board=$1 AND id=$2")
+                    .bind(board)
+                    .bind(thread)
+                    .bind(requested_sticky)
+                    .bind(sticky && !requested_sticky)
+                    .execute(&mut *tx)
+                    .await?;
             }
             "permasage" | "unpermasage" => {
                 sqlx::query("UPDATE content.threads SET permasage=$3,modified_at=clock_timestamp() WHERE board=$1 AND id=$2").bind(board).bind(thread).bind(action=="permasage").execute(&mut *tx).await?;

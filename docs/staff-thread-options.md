@@ -40,9 +40,32 @@ option returns 403 rather than being silently ignored as part of a larger
 source options submission. Current allow/deny scope applies to every rank.
 These request and authority replacements use the existing staff security
 boundary in [staff operations](staff.md). Full source Thread Options and action
-log presentation remain unfinished, including grouped submissions and sticky
-ordering. The account/board/target audit is not the complete source action-log
+log presentation remain unfinished, including grouped submissions and numeric sticky
+ranks. The account/board/target audit is not the complete source action-log
 record or interface.
+
+## Releasing a sticky thread
+
+The source's `adminopt` sets `root=now()` when a sticky thread becomes ordinary;
+submitting an already ordinary thread preserves its root. The rewrite applies
+that transition to `bumped_at`, using database mutation time after its existing
+board/thread locks. Remaining sticky threads still sort ahead of the released
+thread. Repeating the action preserves its bump time and adds no unchanged audit,
+while the valid submission still refreshes modification and HTTP freshness times.
+
+Archived targets reject Unsticky, matching the source's active-thread selection.
+The schema already forbids archived sticky rows; tests keep that constraint and
+exercise a representable archived ordinary target. The commented source code
+that would clear Undead is not active and is not applied here.
+
+A separate [bounded extractor](../scripts/extract-staff-unsticky-reference.py)
+records [32 synthetic cases](../apps/staff/tests/fixtures/staff-unsticky.json):
+16 actual releases use `root=now()` and append the changed mask; 16 no-op cases
+use `root=root` without an audit. All combinations keep the other four flags.
+It executes only the selected assignment branch and audit helper with a recorder,
+not the endpoint, database, rank calculation, rebuilds or actual clock operation.
+Database tests qualify the corresponding mutation clock and transactional state.
+Numeric sticky ranks remain separate work.
 
 ## Database and operation
 

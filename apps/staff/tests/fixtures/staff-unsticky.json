@@ -1,0 +1,452 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "admin.php": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb"
+  },
+  "selected_sha256": {
+    "unsticky_branch": "1802c122a66cd3f1b4e0fd2512dfe54409ab05fdfeca04554cf4c7dbd3b14d9f",
+    "audit_helper": "08e17fbdcbab63049e2ac503d23c704c52f00099174cfab461fe4471ec9ccf3a"
+  },
+  "extractor_php": "8.4.26",
+  "scope": "requested sticky=false only; original unsticky root expression and audit masks with all other flags unchanged; permissions, whole endpoint, sticky ranks, database time evaluation, SQL execution and rebuilds excluded",
+  "boundary_stubs": [
+    "synthetic saved flags and fixed requested sticky=false",
+    "bounded discarded source feedback",
+    "synthetic post metadata and audit SQL recorder without database access"
+  ],
+  "cases": [
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": false,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": false,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": false,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": false,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": true,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": true,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": true,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": false,
+      "closed": true,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": false,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": false,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": false,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": false,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": true,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": true,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": true,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": false,
+      "permasage": true,
+      "closed": true,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=root,",
+      "root_expression": "root",
+      "logged": false,
+      "audit": null
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": false,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 1,
+        "new_mask": 0
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": false,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 17,
+        "new_mask": 16
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": false,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 9,
+        "new_mask": 8
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": false,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 25,
+        "new_mask": 24
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": true,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 5,
+        "new_mask": 4
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": true,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 21,
+        "new_mask": 20
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": true,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 13,
+        "new_mask": 12
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": false,
+      "closed": true,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 29,
+        "new_mask": 28
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": false,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 3,
+        "new_mask": 2
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": false,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 19,
+        "new_mask": 18
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": false,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 11,
+        "new_mask": 10
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": false,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 27,
+        "new_mask": 26
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": true,
+      "permaage": false,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 7,
+        "new_mask": 6
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": true,
+      "permaage": false,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 23,
+        "new_mask": 22
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": true,
+      "permaage": true,
+      "undead": false,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 15,
+        "new_mask": 14
+      }
+    },
+    {
+      "sticky": true,
+      "permasage": true,
+      "closed": true,
+      "permaage": true,
+      "undead": true,
+      "requested_sticky": false,
+      "assignments": "sticky=0,root=now(),",
+      "root_expression": "now()",
+      "logged": true,
+      "audit": {
+        "old_mask": 31,
+        "new_mask": 30
+      }
+    }
+  ]
+}
