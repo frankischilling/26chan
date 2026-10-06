@@ -19,7 +19,15 @@ anonymous at every rank.
 
 Migrations 0060 and 0061 install the author mapping and grant the staff-content role access to the existing bounded poster-count function used by shared snapshots. They do not grant access to poster fingerprints or addresses. Private page rendering retains the authorization connection while reading authorship, so a page also works with a one-connection authentication pool. Serialized response bodies share a 64 MiB process budget, retained until response data is released.
 
-The current implementation covers text discussion. Private attachment upload and delivery are still pending, as is integration of the source's non-expiring history policy. Keep issue #221 open until those remaining board behaviors and their validation are complete.
+The current implementation covers text discussion. Private boards now skip
+[active-thread rollover](thread-archives.md#board-policy), following the source
+`JANITOR_BOARD` exemption through `Board.staff_only`. New OPs no longer displace
+old active threads when `/j/` exceeds `thread_limit`; separate archive cleanup
+still runs. The [numbered index stays bounded](thread-archives.md#complete-board-listings),
+and older retained threads remain accessible through authorized thread URLs.
+This does not restore previously deleted content or complete source archive
+lifecycle or visual parity. Private attachment upload and delivery are still
+pending. Keep issue #221 open for the remaining board behaviors and validation.
 
 With the owned database roles configured:
 

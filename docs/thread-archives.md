@@ -1,8 +1,9 @@
 # Thread rollover and archives
 
-New threads displace the oldest ordinary active threads once a board reaches
-its configured `thread_limit`. Sticky and Undead threads neither consume ordinary
-capacity nor qualify as victims, matching `imgboard.php:2851–2869`. A successful
+On boards without `staff_only`, new threads displace the oldest ordinary active
+threads once the board reaches its configured `thread_limit`. Sticky and Undead
+threads neither consume ordinary capacity nor qualify as victims, matching
+`imgboard.php:2851–2869`. A successful
 reply can bump an ordinary thread ahead of another candidate; sage replies do
 not. The board lock serializes replies, rollover, deletion, reports and staff
 mutations, so queued posts see protection changes committed before they resume.
@@ -41,8 +42,20 @@ IDs; the independent HTML read ceiling is 3,000 summaries. These retention/count
 policies are project choices and do not reproduce the complete source archive
 lifecycle. Rollover ordering follows `EXPIRE_NEGLECTED`, including the active
 `/f/` override. Equal bump clocks use OP number as a deterministic local tie-break.
-The source private `/j/` board bypasses trimming entirely; that exemption is not
-implemented by this ordering change.
+
+Private boards skip active-thread rollover, matching the early return for
+`JANITOR_BOARD == 1` in `imgboard.php:2819-2823`. The board extractor maps that
+flag to `Board.staff_only` (`scripts/extract-board-reference.py:74`), so the
+exemption follows board policy, not the `/j/` slug or the posting actor. It skips
+the active count, victim selection and archival or soft deletion of active
+threads. `/j/` therefore keeps old active threads beyond `thread_limit`.
+
+Archive cleanup still runs after a successful new OP, including on private
+boards. The source's separate `trim_archive` function (`imgboard.php:2788-2814`)
+has no private-board exemption; the posting and rebuild callers invoke both
+functions (`imgboard.php:6709-6717,7743-7744`). The rewrite keeps its existing
+archive expiry and count cleanup. This change does not restore deleted content,
+change imported board settings or add a new retention policy.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
 This is public visibility policy, not physical erasure. Base-table text and
@@ -137,24 +150,36 @@ response budget without returning partial HTML.
 ## Complete board listings
 
 Catalog and thread-list snapshots include protected threads above the ordinary
-capacity. Their independent resource ceiling is 1,000 active threads. A query
-reads at most 1,001 metadata rows and fails closed if the complete list would
-exceed that ceiling, before loading bodies or media. It never presents a silent
-truncated catalog. Numbered pages retain their configured page policy; existing
-body, badge-ID and response budgets remain in force.
+capacity. Complete-list reads retain their independent resource ceiling of
+1,000 active threads. The shared snapshot reader's `BoardSelection::All` query
+reads at most 1,001 metadata rows and returns `StoreError::ReadLimit` if the
+complete list exceeds that ceiling, before loading bodies or media. This also
+applies when a staff-role caller requests a complete private-board snapshot.
+It never presents a silent truncated catalog.
+
+The `/j/` UI uses numbered pages, not complete-list reads:
+`apps/staff/src/discussion.rs:145` calls the shared snapshot reader with the
+staff pool and `BoardSelection::Page(page)`. Its index stays bounded by
+`threads_per_page` and at most `ceil(thread_limit / threads_per_page)` pages.
+Retained older threads beyond that index window remain accessible through their
+authorized thread URLs. Public readers still cannot access private boards;
+`migrations/0044_board_visibility.sql` allows private rows in the shared view
+only for `board_staff` and `board_migrator`. Existing body, badge-ID and response
+budgets remain in force.
 
 Store regressions cover sticky, Undead and combined protection, archive and
 soft-delete rollover, complete listings above ordinary capacity, bounded-read
 failures and queued OPs that resume after protection changes. They do not prove
-full original-page visual parity or the remaining private-board trim exemption.
+full original-page visual parity.
 
 ## Migration and verification
 
-Current binaries require migrations through 0086. For an existing pre-0085
-database, apply `deploy/public-deletion-role.sql` as the bootstrap administrator
-before migration 0085. Fresh databases use `deploy/roles.sql`. Stop serving, back
-up the database, apply pending migrations as the operator, then start the matching
-binaries. Readiness rejects a schema missing the rollover policy column.
+The archive rollover policy requires migration 0086; current binaries and
+readiness require migrations through 0090. Follow the current
+[posting deployment instructions](source-posting-cooldowns.md#deployment) for
+writer shutdown, bootstrap prerequisites and matching binaries. For an existing
+pre-0085 database, apply `deploy/public-deletion-role.sql` as the bootstrap
+administrator before migration 0085. Fresh databases use `deploy/roles.sql`.
 
 Migration 0009 originally introduced archives. Existing settings, text, staff flags
 and deletion state are preserved, and archives start disabled. Rollover is a

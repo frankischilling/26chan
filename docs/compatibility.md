@@ -716,10 +716,17 @@ nodes instead of raw short-comment HTML and preflights selected comment data
 against an 8 MiB read budget; see [archive rows and excerpts](thread-archives.md#archive-rows-and-excerpts)
 for the precise safety differences and pending visual review.
 The rewrite now excludes sticky and Undead threads from ordinary capacity and
-uses the source rollover-order policy, including the `/f/` override. Its fixed
-per-thread expiry, bounded archive-count policy, soft retention and private-board
-trim behavior remain separate documented behavior. Complete active listings have
-an independent 1,000-thread resource ceiling and fail closed beyond it.
+uses the source rollover-order policy, including the `/f/` override. Active
+rollover now skips `staff_only` boards, matching the `JANITOR_BOARD` early return
+in `imgboard.php:2819-2823`; the separate archive cleanup still runs. The private
+`/j/` board can therefore retain active threads past `thread_limit`. Fixed
+per-thread expiry, bounded archive-count policy and soft retention remain
+project choices; see [thread rollover and archives](thread-archives.md).
+Complete active snapshots retain their independent 1,000-thread resource
+ceiling and fail with `StoreError::ReadLimit` beyond it. The `/j/` UI instead
+uses staff-authorized numbered snapshots, bounded by `threads_per_page` and the
+configured page count; older retained threads remain available by authorized
+thread URL. Public readers still cannot access private boards.
 
 ### Media
 
