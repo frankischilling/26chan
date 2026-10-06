@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 pub mod access;
+mod audit_snapshot;
 pub mod auth;
 pub mod config;
 mod discussion;

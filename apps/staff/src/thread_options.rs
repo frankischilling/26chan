@@ -1,5 +1,5 @@
 //! Grouped source Thread Options, kept separate from isolated moderation actions.
-use crate::{AppError, AppState, auth, auth::Session};
+use crate::{AppError, AppState, audit_snapshot, auth, auth::Session};
 use askama::Template;
 use axum::{
     body::Bytes,
@@ -277,14 +277,32 @@ pub(crate) async fn submit(
         return Err(AppError::Invalid);
     }
     let new = input.effective(&old, session.permissions.can_set_permaage(&session.role));
+    let snapshot = if old.mask() != new.mask() {
+        Some(
+            audit_snapshot::capture(&mut tx, &input.board, input.target, input.target)
+                .await?
+                .ok_or(AppError::NotFound)?,
+        )
+    } else {
+        None
+    };
     sqlx::query("UPDATE content.threads SET sticky=$3,sticky_rank=$4,closed=$5,permasage=$6,permaage=$7,undead=$8,bumped_at=CASE WHEN $9 THEN clock_timestamp() ELSE bumped_at END,modified_at=clock_timestamp() WHERE board=$1 AND id=$2")
         .bind(&input.board).bind(input.target).bind(new.sticky).bind(new.sticky_rank)
         .bind(new.closed).bind(new.permasage).bind(new.permaage).bind(new.undead)
         .bind(old.sticky && !new.sticky).execute(&mut *tx).await?;
-    if old.mask() != new.mask() {
-        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask) VALUES ($1,$2,$3,'thread-options',$4,$5)")
-            .bind(session.account_id).bind(&input.board).bind(input.target)
-            .bind(old.mask()).bind(new.mask()).execute(&mut *tx).await?;
+    if let Some(snapshot) = snapshot {
+        audit_snapshot::append(
+            &mut tx,
+            session.account_id,
+            &input.board,
+            input.target,
+            audit_snapshot::SnapshotAction::ThreadOptions {
+                before: old.mask(),
+                after: new.mask(),
+            },
+            &snapshot,
+        )
+        .await?;
     }
     authority.ensure_current(true).await?;
     tx.commit().await?;

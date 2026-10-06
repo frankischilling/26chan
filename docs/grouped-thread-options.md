@@ -25,8 +25,11 @@ The grouped audit records the actor, board, target and effective before/after
 masks in the same transaction as the update. Mask bits are Sticky 1,
 Perma-sage 2, Closed 4, Perma-age 8 and Undead 16. An audit is written if and
 only if those effective masks differ. A rank-only change or flag no-op has no
-audit, but every accepted save refreshes modification time. Board and thread
-locks serialize changes; live authority is checked again before commit.
+audit, but every accepted save refreshes modification time. The
+0104 continuation also captures the OP's saved-content preimage on mask changes
+under board, thread and post locks; live authority is checked again before
+commit. See [moderation target snapshots](moderation-target-snapshots.md) for
+the evidence fields, rollback behavior and current qualification status.
 
 ## Parsing boundary
 
@@ -118,7 +121,7 @@ reader/writer rollout. On binary rollback, retain the additive schema, saved
 ranks and grouped audit evidence; do not drop them to imitate an older schema.
 No destructive down migration is provided.
 
-## Qualification status
+## 0103 qualification status
 
 Local Linux qualification passed 211 store cases, followed by a final rerun of
 127 selected public cases and all 107 runnable staff cases on fresh migrated
@@ -150,7 +153,8 @@ Coverage includes:
 - [Staff browser workflow](../tests/browser/staff.spec.js): grouped form and
   public ordering checks alongside existing workflows.
 
-Full action-log presentation and the source's name, subject, comment and
-filename snapshots are still absent from the rewrite audit. This grouped form
-does not establish complete source UI, extension or whole-endpoint parity, or
-close the other remaining work in issue #222.
+The [0104 snapshot continuation](moderation-target-snapshots.md)
+adds structured saved name, subject, comment and filename evidence to new
+changed-mask audits. Full action-log presentation remains absent. This grouped
+form does not establish complete source UI, extension or whole-endpoint parity,
+or close the other remaining work in issue #222.

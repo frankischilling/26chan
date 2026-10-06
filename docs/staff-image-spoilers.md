@@ -30,6 +30,12 @@ subject as display text. Changed actions append `spoiler` or `unspoiler` to
 the existing account/board/target audit and advance thread modification time.
 Repeated requests succeed without either side effect.
 
+The [0104 snapshot continuation](moderation-target-snapshots.md)
+adds the target's logical saved-content preimage to changed-action audits,
+including its prior spoiler state and retained filename metadata. The existing
+0078 setter and no-op behavior are unchanged. The linked record covers capture
+eligibility, lock order, representation limits and qualification limits.
+
 The extractor invokes the exact source endpoint in separate bounded PHP
 processes, including its terminal responses. Synthetic boundaries stand in
 for authentication, database rows/writes and thread rebuilding. It produces
@@ -76,7 +82,7 @@ privacy policies, and exercises distinct public and staff connections. The
 fresh bootstrap guard checks new columns, execution grants, owner identity,
 security-definer settings and the historical false default.
 
-## Qualification and remaining work
+## 0078 qualification and remaining work
 
 The persisted staff attachment suite compares the 144 scoped source cases
 against real handlers and saved state. It also tests direct runtime denials,

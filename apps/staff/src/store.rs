@@ -1,4 +1,4 @@
-use crate::{AppError, auth::Session};
+use crate::{AppError, audit_snapshot, auth::Session};
 use sqlx::PgPool;
 
 #[derive(sqlx::FromRow)]
@@ -132,12 +132,60 @@ pub(crate) async fn prepare_moderation(
         .execute(&mut *tx)
         .await?;
     let mut audit_changed = true;
-    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
-        .bind(board)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(AppError::NotFound)?;
+    let (spoilers_enabled, staff_only): (bool, bool) = sqlx::query_as(
+        "SELECT comment_spoiler_cleanup,staff_only FROM content.boards WHERE slug=$1 FOR UPDATE",
+    )
+    .bind(board)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(AppError::NotFound)?;
     if matches!(action, "spoiler" | "unspoiler") {
+        // Capture under board -> thread -> post locks, but leave all rejection
+        // and no-op decisions to the unchanged security-definer setter below.
+        // In particular a missing preimage must not bypass its board checks.
+        // Skip snapshot work on policies the setter rejects before locking the
+        // target, preserving prompt denials even when another writer holds it.
+        // This gates capture only; the setter still decides the actual error.
+        let candidate_thread: Option<i64> = if spoilers_enabled && !staff_only {
+            sqlx::query_scalar(
+                "SELECT thread_id FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted",
+            )
+            .bind(board)
+            .bind(target)
+            .fetch_optional(&mut *tx)
+            .await?
+        } else {
+            None
+        };
+        let snapshot = if let Some(thread) = candidate_thread {
+            let locked_thread: Option<i64> = sqlx::query_scalar(
+                "SELECT t.id FROM content.threads t JOIN content.visible_threads v ON v.id=t.id AND v.board=t.board WHERE t.board=$1 AND t.id=$2 FOR UPDATE OF t",
+            )
+            .bind(board)
+            .bind(thread)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if locked_thread.is_some() {
+                // Match the setter's wall-clock visibility recheck after the
+                // thread lock, before waiting for or reading the post itself.
+                let visible: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM content.visible_threads v WHERE v.board=$1 AND v.id=$2 AND (v.archived_at IS NULL OR v.archive_expires_at>clock_timestamp()))",
+                )
+                .bind(board)
+                .bind(thread)
+                .fetch_one(&mut *tx)
+                .await?;
+                if visible {
+                    audit_snapshot::capture(&mut tx, board, target, thread).await?
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let changed: bool = sqlx::query_scalar("SELECT content.set_post_image_spoiler($1,$2,$3)")
             .bind(board)
             .bind(target)
@@ -154,6 +202,21 @@ pub(crate) async fn prepare_moderation(
         if !changed {
             return Ok(tx);
         }
+        let snapshot = snapshot.ok_or(AppError::Internal)?;
+        audit_snapshot::append(
+            &mut tx,
+            session.account_id,
+            board,
+            target,
+            if action == "spoiler" {
+                audit_snapshot::SnapshotAction::Spoiler
+            } else {
+                audit_snapshot::SnapshotAction::Unspoiler
+            },
+            &snapshot,
+        )
+        .await?;
+        return Ok(tx);
     } else if action == "remove-file" {
         sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
             .bind(board)

@@ -1,0 +1,2182 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "admin.php": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb"
+  },
+  "selected_snippet_sha256": {
+    "adminToggleSpoiler": "698b0c5fc2664227be9539993e49cae8a6b3179e2d4b4578a87b557994f430c0",
+    "log_thread_opts_action": "08e17fbdcbab63049e2ac503d23c704c52f00099174cfab461fe4471ec9ccf3a"
+  },
+  "extractor_php": "8.4.26",
+  "scope": "Complete SQL query and every positional mysql_global_call argument from adminToggleSpoiler and log_thread_opts_action; OP/reply saved-row target snapshots, changed masks, spoiler actions 129/130, pre-mutation spoiler subject, and no-op absence.",
+  "representation_boundary": "Source name/sub/com are already-stored HTML strings and are forwarded unchanged. filename is filename + ext. These source bytes are not a claim of byte-identical representation in the structured rewrite.",
+  "excluded": [
+    "application initialization",
+    "real SQL/database/network",
+    "authentication and permissions",
+    "whole grouped-options handler and persistence",
+    "rebuilds",
+    "rewrite representation equivalence"
+  ],
+  "boundary_stubs": [
+    "synthetic saved post rows and actor cookie",
+    "constant board g",
+    "successful bounded board/global SQL recorders; no connection or query execution"
+  ],
+  "snapshot_mapping": "audit_snapshot names the captured SQL values; spoiler oldmask 0 comes from the literal in the captured query, all other fields from captured positional arguments.",
+  "cases": [
+    {
+      "profile": "named",
+      "target": "op",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_op_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              420,
+              "g",
+              "Alice Example",
+              "Named subject",
+              "First line<br>Second line",
+              "holiday.photo.jpg",
+              "fixture-moderator"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 420,
+          "board": "g",
+          "name": "Alice Example",
+          "sub": "Named subject",
+          "com": "First line<br>Second line",
+          "filename": "holiday.photo.jpg",
+          "admin": "fixture-moderator"
+        }
+      }
+    },
+    {
+      "profile": "named",
+      "target": "op",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_op_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "named",
+      "target": "op",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_op_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>Named subject",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              420,
+              "g",
+              "Alice Example",
+              "Named subject",
+              "First line<br>Second line",
+              "holiday.photo.jpg",
+              "fixture-moderator"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 420,
+          "board": "g",
+          "name": "Alice Example",
+          "sub": "Named subject",
+          "com": "First line<br>Second line",
+          "filename": "holiday.photo.jpg",
+          "admin": "fixture-moderator"
+        }
+      }
+    },
+    {
+      "profile": "named",
+      "target": "op",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_op_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "SPOILER<>Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "Named subject",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              420,
+              "g",
+              "Alice Example",
+              "SPOILER<>Named subject",
+              "First line<br>Second line",
+              "holiday.photo.jpg",
+              "fixture-moderator"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 420,
+          "board": "g",
+          "name": "Alice Example",
+          "sub": "SPOILER<>Named subject",
+          "com": "First line<br>Second line",
+          "filename": "holiday.photo.jpg",
+          "admin": "fixture-moderator"
+        }
+      }
+    },
+    {
+      "profile": "named",
+      "target": "op",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_op_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "named",
+      "target": "op",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_op_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "SPOILER<>Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "named",
+      "target": "reply",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_reply_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              421,
+              "g",
+              "Alice Example",
+              "Named subject",
+              "First line<br>Second line",
+              "holiday.photo.jpg",
+              "fixture-moderator"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 421,
+          "board": "g",
+          "name": "Alice Example",
+          "sub": "Named subject",
+          "com": "First line<br>Second line",
+          "filename": "holiday.photo.jpg",
+          "admin": "fixture-moderator"
+        }
+      }
+    },
+    {
+      "profile": "named",
+      "target": "reply",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_reply_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "named",
+      "target": "reply",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_reply_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>Named subject",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              421,
+              "g",
+              "Alice Example",
+              "Named subject",
+              "First line<br>Second line",
+              "holiday.photo.jpg",
+              "fixture-moderator"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 421,
+          "board": "g",
+          "name": "Alice Example",
+          "sub": "Named subject",
+          "com": "First line<br>Second line",
+          "filename": "holiday.photo.jpg",
+          "admin": "fixture-moderator"
+        }
+      }
+    },
+    {
+      "profile": "named",
+      "target": "reply",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_reply_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "SPOILER<>Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "Named subject",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              421,
+              "g",
+              "Alice Example",
+              "SPOILER<>Named subject",
+              "First line<br>Second line",
+              "holiday.photo.jpg",
+              "fixture-moderator"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 421,
+          "board": "g",
+          "name": "Alice Example",
+          "sub": "SPOILER<>Named subject",
+          "com": "First line<br>Second line",
+          "filename": "holiday.photo.jpg",
+          "admin": "fixture-moderator"
+        }
+      }
+    },
+    {
+      "profile": "named",
+      "target": "reply",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_reply_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "named",
+      "target": "reply",
+      "actor": "fixture-moderator",
+      "board": "g",
+      "id": "named_reply_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice Example",
+        "sub": "SPOILER<>Named subject",
+        "com": "First line<br>Second line",
+        "filename": "holiday.photo",
+        "ext": ".jpg",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "op",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_op_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              420,
+              "g",
+              "Alice <span class=\"postertrip\">!AbC123</span>",
+              "Trip-like stored name",
+              "<span class=\"quote\">&gt;quoted</span>",
+              "archive.tar.png",
+              "Fixture Staff !ActorTrip"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 420,
+          "board": "g",
+          "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+          "sub": "Trip-like stored name",
+          "com": "<span class=\"quote\">&gt;quoted</span>",
+          "filename": "archive.tar.png",
+          "admin": "Fixture Staff !ActorTrip"
+        }
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "op",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_op_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "op",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_op_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>Trip-like stored name",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              420,
+              "g",
+              "Alice <span class=\"postertrip\">!AbC123</span>",
+              "Trip-like stored name",
+              "<span class=\"quote\">&gt;quoted</span>",
+              "archive.tar.png",
+              "Fixture Staff !ActorTrip"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 420,
+          "board": "g",
+          "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+          "sub": "Trip-like stored name",
+          "com": "<span class=\"quote\">&gt;quoted</span>",
+          "filename": "archive.tar.png",
+          "admin": "Fixture Staff !ActorTrip"
+        }
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "op",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_op_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "SPOILER<>Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "Trip-like stored name",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              420,
+              "g",
+              "Alice <span class=\"postertrip\">!AbC123</span>",
+              "SPOILER<>Trip-like stored name",
+              "<span class=\"quote\">&gt;quoted</span>",
+              "archive.tar.png",
+              "Fixture Staff !ActorTrip"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 420,
+          "board": "g",
+          "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+          "sub": "SPOILER<>Trip-like stored name",
+          "com": "<span class=\"quote\">&gt;quoted</span>",
+          "filename": "archive.tar.png",
+          "admin": "Fixture Staff !ActorTrip"
+        }
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "op",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_op_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "op",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_op_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "SPOILER<>Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "reply",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_reply_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              421,
+              "g",
+              "Alice <span class=\"postertrip\">!AbC123</span>",
+              "Trip-like stored name",
+              "<span class=\"quote\">&gt;quoted</span>",
+              "archive.tar.png",
+              "Fixture Staff !ActorTrip"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 421,
+          "board": "g",
+          "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+          "sub": "Trip-like stored name",
+          "com": "<span class=\"quote\">&gt;quoted</span>",
+          "filename": "archive.tar.png",
+          "admin": "Fixture Staff !ActorTrip"
+        }
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "reply",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_reply_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "reply",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_reply_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>Trip-like stored name",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              421,
+              "g",
+              "Alice <span class=\"postertrip\">!AbC123</span>",
+              "Trip-like stored name",
+              "<span class=\"quote\">&gt;quoted</span>",
+              "archive.tar.png",
+              "Fixture Staff !ActorTrip"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 421,
+          "board": "g",
+          "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+          "sub": "Trip-like stored name",
+          "com": "<span class=\"quote\">&gt;quoted</span>",
+          "filename": "archive.tar.png",
+          "admin": "Fixture Staff !ActorTrip"
+        }
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "reply",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_reply_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "SPOILER<>Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "Trip-like stored name",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              421,
+              "g",
+              "Alice <span class=\"postertrip\">!AbC123</span>",
+              "SPOILER<>Trip-like stored name",
+              "<span class=\"quote\">&gt;quoted</span>",
+              "archive.tar.png",
+              "Fixture Staff !ActorTrip"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 421,
+          "board": "g",
+          "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+          "sub": "SPOILER<>Trip-like stored name",
+          "com": "<span class=\"quote\">&gt;quoted</span>",
+          "filename": "archive.tar.png",
+          "admin": "Fixture Staff !ActorTrip"
+        }
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "reply",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_reply_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "trip_like",
+      "target": "reply",
+      "actor": "Fixture Staff !ActorTrip",
+      "board": "g",
+      "id": "trip_like_reply_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "Alice <span class=\"postertrip\">!AbC123</span>",
+        "sub": "SPOILER<>Trip-like stored name",
+        "com": "<span class=\"quote\">&gt;quoted</span>",
+        "filename": "archive.tar",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "op",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_op_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              420,
+              "g",
+              "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+              "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+              "&lt;image&gt;.backup.webm",
+              "fixture<&\"'actor>"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 420,
+          "board": "g",
+          "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+          "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+          "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+          "filename": "&lt;image&gt;.backup.webm",
+          "admin": "fixture<&\"'actor>"
+        }
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "op",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_op_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "op",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_op_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              420,
+              "g",
+              "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+              "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+              "&lt;image&gt;.backup.webm",
+              "fixture<&\"'actor>"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 420,
+          "board": "g",
+          "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+          "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+          "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+          "filename": "&lt;image&gt;.backup.webm",
+          "admin": "fixture<&\"'actor>"
+        }
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "op",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_op_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              420,
+              "g",
+              "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+              "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+              "&lt;image&gt;.backup.webm",
+              "fixture<&\"'actor>"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 420,
+          "board": "g",
+          "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+          "sub": "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+          "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+          "filename": "&lt;image&gt;.backup.webm",
+          "admin": "fixture<&\"'actor>"
+        }
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "op",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_op_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "op",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_op_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "reply",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_reply_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              421,
+              "g",
+              "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+              "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+              "&lt;image&gt;.backup.webm",
+              "fixture<&\"'actor>"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 421,
+          "board": "g",
+          "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+          "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+          "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+          "filename": "&lt;image&gt;.backup.webm",
+          "admin": "fixture<&\"'actor>"
+        }
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "reply",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_reply_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "reply",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_reply_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              421,
+              "g",
+              "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+              "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+              "&lt;image&gt;.backup.webm",
+              "fixture<&\"'actor>"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 421,
+          "board": "g",
+          "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+          "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+          "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+          "filename": "&lt;image&gt;.backup.webm",
+          "admin": "fixture<&\"'actor>"
+        }
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "reply",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_reply_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              421,
+              "g",
+              "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+              "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+              "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+              "&lt;image&gt;.backup.webm",
+              "fixture<&\"'actor>"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 421,
+          "board": "g",
+          "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+          "sub": "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+          "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+          "filename": "&lt;image&gt;.backup.webm",
+          "admin": "fixture<&\"'actor>"
+        }
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "reply",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_reply_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "hostile_markup",
+      "target": "reply",
+      "actor": "fixture<&\"'actor>",
+      "board": "g",
+      "id": "hostile_markup_reply_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "&lt;script&gt;alert(&quot;name&quot;)&lt;/script&gt;",
+        "sub": "SPOILER<>&lt;img src=x onerror=alert(1)&gt; &amp; \"subject\"",
+        "com": "<a href=\"javascript:alert(1)\">synthetic hostile markup</a>\n'quoted'",
+        "filename": "&lt;image&gt;.backup",
+        "ext": ".webm",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "op",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_op_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              420,
+              "g",
+              "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+              "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+              "\u753b\u50cf.\u7248\u672c.png",
+              "\u62c5\u5f53\u8005-\u00e9"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 420,
+          "board": "g",
+          "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+          "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+          "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+          "filename": "\u753b\u50cf.\u7248\u672c.png",
+          "admin": "\u62c5\u5f53\u8005-\u00e9"
+        }
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "op",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_op_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "op",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_op_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              420,
+              "g",
+              "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+              "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+              "\u753b\u50cf.\u7248\u672c.png",
+              "\u62c5\u5f53\u8005-\u00e9"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 420,
+          "board": "g",
+          "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+          "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+          "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+          "filename": "\u753b\u50cf.\u7248\u672c.png",
+          "admin": "\u62c5\u5f53\u8005-\u00e9"
+        }
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "op",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_op_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              420
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              420,
+              "g",
+              "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+              "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+              "\u753b\u50cf.\u7248\u672c.png",
+              "\u62c5\u5f53\u8005-\u00e9"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 420,
+          "board": "g",
+          "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+          "sub": "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+          "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+          "filename": "\u753b\u50cf.\u7248\u672c.png",
+          "admin": "\u62c5\u5f53\u8005-\u00e9"
+        }
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "op",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_op_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "op",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_op_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 420,
+        "resto": 0,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "reply",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_reply_options_10",
+      "operation": "thread_options",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 10,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask,newmask,postno,board,name,sub,com,filename,admin)\nVALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              21,
+              10,
+              421,
+              "g",
+              "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+              "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+              "\u753b\u50cf.\u7248\u672c.png",
+              "\u62c5\u5f53\u8005-\u00e9"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 21,
+          "newmask": 10,
+          "postno": 421,
+          "board": "g",
+          "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+          "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+          "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+          "filename": "\u753b\u50cf.\u7248\u672c.png",
+          "admin": "\u62c5\u5f53\u8005-\u00e9"
+        }
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "reply",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_reply_options_21",
+      "operation": "thread_options",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_mask": 21,
+      "requested_mask": 21,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "reply",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_reply_spoiler_0_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": true,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              129,
+              421,
+              "g",
+              "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+              "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+              "\u753b\u50cf.\u7248\u672c.png",
+              "\u62c5\u5f53\u8005-\u00e9"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 129,
+          "postno": 421,
+          "board": "g",
+          "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+          "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+          "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+          "filename": "\u753b\u50cf.\u7248\u672c.png",
+          "admin": "\u62c5\u5f53\u8005-\u00e9"
+        }
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "reply",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_reply_spoiler_1_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": false,
+      "source": {
+        "returned": true,
+        "mysql_board_calls": [
+          {
+            "query": "UPDATE g SET sub = '%s' WHERE no = %d LIMIT 1",
+            "arguments": [
+              "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              421
+            ]
+          }
+        ],
+        "mysql_global_calls": [
+          {
+            "query": "INSERT INTO actions_log (oldmask, newmask, postno, board, name, sub, com, filename, admin)\nVALUES (0, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+            "arguments": [
+              130,
+              421,
+              "g",
+              "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+              "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+              "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+              "\u753b\u50cf.\u7248\u672c.png",
+              "\u62c5\u5f53\u8005-\u00e9"
+            ]
+          }
+        ],
+        "audit_snapshot": {
+          "oldmask": 0,
+          "newmask": 130,
+          "postno": 421,
+          "board": "g",
+          "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+          "sub": "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+          "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+          "filename": "\u753b\u50cf.\u7248\u672c.png",
+          "admin": "\u62c5\u5f53\u8005-\u00e9"
+        }
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "reply",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_reply_spoiler_0_0",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": false,
+      "requested_spoiler": false,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    },
+    {
+      "profile": "unicode",
+      "target": "reply",
+      "actor": "\u62c5\u5f53\u8005-\u00e9",
+      "board": "g",
+      "id": "unicode_reply_spoiler_1_1",
+      "operation": "spoiler",
+      "post": {
+        "name": "\u96ea\u3060\u308b\u307e \ud83e\uddea",
+        "sub": "SPOILER<>R\u00e9sum\u00e9 \u00b7 \u6771\u4eac \u00b7 \u0645\u0631\u062d\u0628\u0627",
+        "com": "\u4f60\u597d<br>caf\u00e9 e\u0301 \ud83e\uddf5",
+        "filename": "\u753b\u50cf.\u7248\u672c",
+        "ext": ".png",
+        "no": 421,
+        "resto": 420,
+        "sticky": 1,
+        "permasage": 0,
+        "closed": 1,
+        "permaage": 0,
+        "undead": 1
+      },
+      "old_spoiler": true,
+      "requested_spoiler": true,
+      "source": {
+        "returned": false,
+        "mysql_board_calls": [],
+        "mysql_global_calls": [],
+        "audit_snapshot": null
+      }
+    }
+  ]
+}
