@@ -1,6 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
@@ -69,8 +69,8 @@ test('linkification preserves filtering when generated markup would exceed its p
   try {
     await settingsPage.goto(owned.url);
     const dialog = await openWatcherSettings(settingsPage);
-    const navigation = dialog.getByRole('button', { name: 'Navigation', exact: true });
-    if (await navigation.getAttribute('aria-expanded') === 'false') await navigation.click();
+    await openNativeSettingsCategory(dialog, 'Miscellaneous');
+
     await dialog.getByLabel('Linkify URLs', { exact: true }).check();
     await Promise.all([
       settingsPage.waitForEvent('load'),
@@ -95,6 +95,7 @@ test('desktop starts with source linkification off and the real setting enables 
   await expect(message.locator('a')).toHaveCount(0);
 
   const dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
   await saveWatcherSettings(page, { linkify: true });
@@ -114,6 +115,7 @@ test('mobile default, never-mobile exact value, disableAll and viewport changes 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(message.locator(generated)).toHaveCount(1);
   let dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
 
@@ -123,6 +125,7 @@ test('mobile default, never-mobile exact value, disableAll and viewport changes 
   });
   await expect(message.locator(generated)).toHaveCount(0);
   dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
 
@@ -300,6 +303,7 @@ test('mobile default remains usable when settings storage reads are unavailable'
   await page.goto(owned.url);
   await expect(page.locator(`#m${owned.id} ${generated}`)).toHaveCount(1);
   const dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).toBeChecked();
 });
 

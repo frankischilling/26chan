@@ -116,9 +116,25 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       if (tip) parent.append(node('li', tip, `settings-tip ${className || ''}`));
       return input;
     }
-    let category;
-    let expand;
-    let filterCategory, filterExpand, navigationCategory, navigationExpand, imageCategory, imageExpand;
+    const categories = [];
+    function addCategory(id, label) {
+      const heading = node('h3', undefined, 'settings-cat-lbl');
+      const list = node('ul', undefined, 'settings-cat');
+      list.id = `settings-${id}`;
+      list.hidden = Object.keys(initial).length !== 0;
+      const expand = button(label, () => setExpanded(list.hidden), 'settings-expand');
+      function setExpanded(expanded) {
+        list.hidden = !expanded;
+        expand.setAttribute('aria-expanded', String(expanded));
+      }
+      expand.setAttribute('aria-controls', list.id);
+      expand.setAttribute('aria-label', label);
+      setExpanded(!list.hidden);
+      heading.append(expand);
+      form.append(heading, list);
+      categories.push({ list, expand, setExpanded });
+      return list;
+    }
     if (catalog) {
       form.append(node('h4', 'Options'));
       const options = node('ul', undefined, 'clickset');
@@ -128,110 +144,65 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       const all = node('p', undefined, 'settingsExpandAll');
       all.id = 'settings-exp-all';
       all.append('[', link('settings-expand-all', 'Expand All Settings', () => {
-        category.hidden = false; expand.setAttribute('aria-expanded', 'true');
-        filterCategory.hidden = false; filterExpand.setAttribute('aria-expanded', 'true');
-        navigationCategory.hidden = false; navigationExpand.setAttribute('aria-expanded', 'true');
-        imageCategory.hidden = false; imageExpand.setAttribute('aria-expanded', 'true');
+        for (const category of categories) category.setExpanded(true);
       }), ']');
       form.append(all);
-      const heading = node('h3', undefined, 'settings-cat-lbl');
-      category = node('ul', undefined, 'settings-cat');
-      category.id = 'settings-monitoring';
-      category.hidden = Object.keys(initial).length !== 0;
-      expand = button('Monitoring', () => {
-        category.hidden = !category.hidden;
-        expand.setAttribute('aria-expanded', String(!category.hidden));
-      }, 'settings-expand');
-      expand.setAttribute('aria-controls', category.id);
-      expand.setAttribute('aria-label', 'Monitoring');
-      expand.setAttribute('aria-expanded', String(!category.hidden));
-      heading.append(expand);
-      option(category, 'threadUpdater', 'Thread updater', 'Append new posts to bottom of thread without refreshing the page');
-      option(category, 'alwaysAutoUpdate', 'Auto-update by default', 'Always auto-update threads', 'settings-sub');
-      option(category, 'threadWatcher', 'Thread Watcher', "Keep track of threads you're watching and see when they receive new posts");
-      option(category, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
-      option(category, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', undefined, true);
-      option(category, 'autoScroll', 'Auto-scroll with auto-updated posts', 'Automatically scroll the page as new posts are added');
-      option(category, 'updaterSound', 'Sound notification', 'Play a sound when somebody replies to your post(s)');
-      const filterHeading = node('h3', undefined, 'settings-cat-lbl');
-      filterCategory = node('ul', undefined, 'settings-cat');
-      filterCategory.id = 'settings-filters';
-      filterCategory.hidden = Object.keys(initial).length !== 0;
-      filterExpand = button('Filters & Post Hiding', () => {
-        filterCategory.hidden = !filterCategory.hidden;
-        filterExpand.setAttribute('aria-expanded', String(!filterCategory.hidden));
-      }, 'settings-expand');
-      filterExpand.setAttribute('aria-controls', filterCategory.id);
-      filterExpand.setAttribute('aria-label', 'Filters & Post Hiding');
-      filterExpand.setAttribute('aria-expanded', String(!filterCategory.hidden));
-      filterHeading.append(filterExpand);
-      const filter = option(filterCategory, 'filter', 'Filter and highlight specific threads/posts', 'Enable pattern-based filters');
+      const quotesCategory = addCategory('quotes', 'Quotes & Replying');
+      option(quotesCategory, 'quotePreview', 'Quote preview', 'Show post when mousing over post links');
+      option(quotesCategory, 'backlinks', 'Backlinks', 'Show who has replied to a post');
+      option(quotesCategory, 'inlineQuotes', 'Inline quote links', 'Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining', undefined, true);
+      option(quotesCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
+      option(quotesCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
+      const monitoringCategory = addCategory('monitoring', 'Monitoring');
+      option(monitoringCategory, 'threadUpdater', 'Thread updater', 'Append new posts to bottom of thread without refreshing the page');
+      option(monitoringCategory, 'alwaysAutoUpdate', 'Auto-update by default', 'Always auto-update threads', 'settings-sub');
+      option(monitoringCategory, 'threadWatcher', 'Thread Watcher', "Keep track of threads you're watching and see when they receive new posts");
+      option(monitoringCategory, 'threadAutoWatcher', 'Automatically watch threads you create', '', 'settings-sub');
+      option(monitoringCategory, 'autoScroll', 'Auto-scroll with auto-updated posts', 'Automatically scroll the page as new posts are added');
+      option(monitoringCategory, 'updaterSound', 'Sound notification', 'Play a sound when somebody replies to your post(s)');
+      option(monitoringCategory, 'fixedThreadWatcher', 'Pin Thread Watcher to the page', 'Thread Watcher will scroll with you', undefined, true);
+      option(monitoringCategory, 'threadStats', 'Thread statistics', 'Display reply and image counts; italics indicate a reached bump or image limit');
+      const filtersCategory = addCategory('filters', 'Filters & Post Hiding');
+      const filter = option(filtersCategory, 'filter', 'Filter and highlight specific threads/posts', 'Enable pattern-based filters');
       filter.parentElement.parentElement.append(' [', link('filters-edit', 'Edit', source => openFilters?.(source)), ']');
-      const hiding = option(filterCategory, 'threadHiding', 'Thread hiding', 'Hide entire threads by clicking the minus button');
+      const hiding = option(filtersCategory, 'threadHiding', 'Thread hiding', 'Hide entire threads by clicking the minus button');
       hiding.parentElement.parentElement.append(' [', link('thread-hiding-clear', 'Clear History', () => clearThreads?.()), ']');
-      option(filterCategory, 'hideStubs', 'Hide thread stubs', "Don't display stubs of hidden threads");
-      const navigationHeading = node('h3', undefined, 'settings-cat-lbl');
-      navigationCategory = node('ul', undefined, 'settings-cat');
-      navigationCategory.id = 'settings-navigation';
-      navigationCategory.hidden = Object.keys(initial).length !== 0;
-      navigationExpand = button('Navigation', () => {
-        navigationCategory.hidden = !navigationCategory.hidden;
-        navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
-      }, 'settings-expand');
-      navigationExpand.setAttribute('aria-controls', navigationCategory.id);
-      navigationExpand.setAttribute('aria-label', 'Navigation');
-      navigationExpand.setAttribute('aria-expanded', String(!navigationCategory.hidden));
-      navigationHeading.append(navigationExpand);
+      option(filtersCategory, 'hideStubs', 'Hide thread stubs', "Don't display stubs of hidden threads");
+      const navigationCategory = addCategory('navigation', 'Navigation');
+      option(navigationCategory, 'threadExpansion', 'Thread expansion', 'Expand omitted replies on board indexes');
       option(navigationCategory, 'dropDownNav', 'Use persistent drop-down navigation bar', 'Keep board navigation at the top of the window');
       option(navigationCategory, 'classicNav', 'Use traditional board list', 'Show board links instead of the selection menu', 'settings-sub');
       option(navigationCategory, 'autoHideNav', 'Auto-hide on scroll', 'Hide persistent navigation while scrolling down', 'settings-sub');
-      option(navigationCategory, 'topPageNav', 'Page navigation at top of page', 'Hold Shift and drag to move the page switcher');
-      option(navigationCategory, 'stickyNav', 'Navigation arrows', 'Show Top and Bottom arrows; hold Shift and drag to move');
-      option(navigationCategory, 'alwaysDepage', 'Always use infinite scroll', 'Load later index pages as you approach the bottom');
       const customMenu = option(navigationCategory, 'customMenu', 'Custom board list', 'Only show selected boards in the board navigation');
       customMenu.parentElement.parentElement.append(' [', link('custom-menu-edit', 'Edit', source => openCustomMenu?.(source)), ']');
-      option(navigationCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
-      option(navigationCategory, 'threadExpansion', 'Thread expansion', 'Expand omitted replies on board indexes');
-      option(category, 'threadStats', 'Thread statistics', 'Display reply and image counts; italics indicate a reached bump or image limit');
-      option(navigationCategory, 'quickReply', 'Quick Reply', 'Quickly respond to a post by clicking its post number');
-      option(navigationCategory, 'persistentQR', 'Persistent Quick Reply', 'Keep Quick Reply window open after posting', 'settings-sub');
-      option(navigationCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
-      option(navigationCategory, 'quotePreview', 'Quote preview', 'Show post when mousing over post links');
-      option(navigationCategory, 'backlinks', 'Backlinks', 'Show who has replied to a post');
-      option(navigationCategory, 'inlineQuotes', 'Inline quote links', 'Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining', undefined, true);
+      option(navigationCategory, 'alwaysDepage', 'Always use infinite scroll', 'Load later index pages as you approach the bottom');
+      option(navigationCategory, 'topPageNav', 'Page navigation at top of page', 'Hold Shift and drag to move the page switcher');
+      option(navigationCategory, 'stickyNav', 'Navigation arrows', 'Show Top and Bottom arrows; hold Shift and drag to move');
       const keys = option(navigationCategory, 'keyBinds', 'Use keyboard shortcuts', 'Enable handy keyboard shortcuts for common actions');
       keys.parentElement.parentElement.append(' [', link('keybinds-open', 'Show', source => openKeybinds?.(source)), ']');
-      const imageHeading = node('h3', undefined, 'settings-cat-lbl');
-      imageCategory = node('ul', undefined, 'settings-cat');
-      imageCategory.id = 'settings-images';
-      imageCategory.hidden = Object.keys(initial).length !== 0;
-      imageExpand = button('Images & Media', () => {
-        imageCategory.hidden = !imageCategory.hidden;
-        imageExpand.setAttribute('aria-expanded', String(!imageCategory.hidden));
-      }, 'settings-expand');
-      imageExpand.setAttribute('aria-controls', imageCategory.id);
-      imageExpand.setAttribute('aria-label', 'Images & Media');
-      imageExpand.setAttribute('aria-expanded', String(!imageCategory.hidden));
-      imageHeading.append(imageExpand);
-      option(imageCategory, 'imageExpansion', 'Image expansion', 'Enable inline image expansion, limited to browser width');
-      option(imageCategory, 'fitToScreenExpansion', 'Fit expanded images to screen', 'Limit expanded images to both browser width and height', undefined, true);
-      option(imageCategory, 'imageHover', 'Image hover', 'Mouse over images to view full size, limited to browser size', undefined, true);
-      option(imageCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
-      option(imageCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
-      option(imageCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
-      option(imageCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed', undefined, true);
-      option(imageCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed', undefined, true);
-      option(imageCategory, 'darkTheme', 'Use a dark theme', 'Use the Tomorrow theme while browsing');
-      const customCSS = option(imageCategory, 'customCSS', 'Custom CSS', 'Use saved colors, typography and spacing for posts');
+      const imagesCategory = addCategory('images', 'Images & Media');
+      option(imagesCategory, 'imageExpansion', 'Image expansion', 'Enable inline image expansion, limited to browser width');
+      option(imagesCategory, 'fitToScreenExpansion', 'Fit expanded images to screen', 'Limit expanded images to both browser width and height', undefined, true);
+      option(imagesCategory, 'imageHover', 'Image hover', 'Mouse over images to view full size, limited to browser size', undefined, true);
+      option(imagesCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub', true);
+      option(imagesCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
+      option(imagesCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
+      option(imagesCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed', undefined, true);
+      option(imagesCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed', undefined, true);
+      const miscellaneousCategory = addCategory('miscellaneous', 'Miscellaneous');
+      option(miscellaneousCategory, 'linkify', 'Linkify URLs', 'Make user-posted links clickable');
+      option(miscellaneousCategory, 'darkTheme', 'Use a dark theme', 'Use the Tomorrow theme while browsing');
+      const customCSS = option(miscellaneousCategory, 'customCSS', 'Custom CSS', 'Use saved colors, typography and spacing for posts');
       if (typeof openCustomCSS === 'function') {
         customCSS.parentElement.parentElement.append(' [', link('custom-css-edit', 'Edit', source => openCustomCSS(source)), ']');
       }
-      option(imageCategory, 'IDColor', 'Color user IDs', 'Assign colors to user IDs on boards that use them');
-      option(imageCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
-      option(imageCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
+      option(miscellaneousCategory, 'IDColor', 'Color user IDs', 'Assign colors to user IDs on boards that use them');
+      option(miscellaneousCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
+      option(miscellaneousCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
+      option(miscellaneousCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
-      form.append(filterHeading, filterCategory, navigationHeading, navigationCategory, heading, category, imageHeading, imageCategory, global);
+      form.append(global);
     }
     const message = node('p', '', 'settingsMessage');
     message.setAttribute('role', 'status');
@@ -291,8 +262,9 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     if (catalog) dialog.style.top = `${window.scrollY + 60}px`;
     active = dialog;
     dialog.showModal();
-    if (catalog || !category.hidden) fields.get('threadWatcher').input.focus();
-    else expand.focus();
+    if (catalog) fields.get('threadWatcher').input.focus();
+    else if (categories[0].list.hidden) categories[0].expand.focus();
+    else fields.values().next().value.input.focus();
   }
   let watcher;
   const publicLinks = ['#boardNavDesktop #settingsWindowLink', '#boardNavDesktopFoot #settingsWindowLinkBot', '#boardNavMobile #settingsWindowLinkMobile']

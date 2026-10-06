@@ -499,6 +499,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:custom-css-core
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:settings-categories
           npm run test:settings-transfer-core
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:catalog-preference-locks-core

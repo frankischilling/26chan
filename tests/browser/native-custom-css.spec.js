@@ -1,5 +1,5 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -34,8 +34,7 @@ async function openSettings(page) {
   await watcherSettingsOpener(page).click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
   await expect(dialog).toBeVisible();
-  const expand = dialog.locator('#settings-expand-all');
-  if (await expand.count()) await expand.click();
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   return dialog;
 }
 

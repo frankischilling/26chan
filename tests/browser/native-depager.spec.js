@@ -1,5 +1,5 @@
 import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -60,6 +60,7 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
     await expect(cancel).toBeHidden();
 
     await watcherSettingsOpener(page).first().click();
+    await openNativeSettingsCategory(page.getByRole('dialog', { name: 'Settings', exact: true }), 'Navigation');
     await expect(page.getByLabel('Always use infinite scroll', { exact: true })).not.toBeChecked();
     await page.getByRole('button', { name: 'Close settings', exact: true }).click();
 

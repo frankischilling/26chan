@@ -1,6 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openSettingControl, openNativeSettingsCategory, openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 // API contexts share Playwright's keep-alive agent. Complete each fixture
@@ -116,8 +116,8 @@ async function update(page, count = 1) {
 
 async function saveSettings(page, values) {
   const dialog = await openWatcherSettings(page);
-  await dialog.locator('#settings-expand-all').click();
-  for (const [key, value] of Object.entries(values)) await dialog.locator(`.menuOption[data-option="${key}"]`).setChecked(value);
+  await openNativeSettingsCategory(dialog, 'Quotes & Replying');
+  for (const [key, value] of Object.entries(values)) await (await openSettingControl(dialog, key)).setChecked(value);
   await Promise.all([page.waitForEvent('load'), dialog.getByRole('button', { name: 'Save Settings', exact: true }).click()]);
 }
 
@@ -137,7 +137,7 @@ test.describe('unmodified persisted backlink graph', () => {
     await page.goto(owned.url);
     await expectRows(page, owned.id, [reply], owned.id);
     const dialog = await openWatcherSettings(page);
-    await dialog.locator('#settings-expand-all').click();
+    await openNativeSettingsCategory(dialog, 'Quotes & Replying');
     await expect(dialog.getByLabel('Backlinks', { exact: true })).toBeChecked();
     await expect(dialog).toContainText('Show who has replied to a post');
     await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();

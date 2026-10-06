@@ -18,6 +18,7 @@ if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium
 fi
 npm run check:generated
+npm run test:settings-categories
 node --test tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings

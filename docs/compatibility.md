@@ -924,8 +924,9 @@ Deletion reconciliation, if added locally, should be labeled an enhancement,
 not a missing original updater feature.
 
 Config/defaults (`8795-8848`) and Settings (`8968`) expose more than
-the implemented watcher subset, including Quotes, Monitoring, Filters/Post
-Hiding, Navigation, Images/Media and Miscellaneous categories. The native default table below
+the implemented control set. The [six source-ordered Settings categories](native-settings-categories.md)
+cover Quotes, Monitoring, Filters/Post Hiding, Navigation, Images/Media and
+Miscellaneous. Mobile option visibility and first-run persistence still differ. The native default table below
 records native boolean defaults and mobile overrides. Quick Reply, quote
 preview/backlinks, updater and thread hiding default true; watcher, shortcuts,
 sound and many optional features default false. Full settings and feature

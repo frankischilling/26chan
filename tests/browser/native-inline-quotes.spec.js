@@ -1,6 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings } from './helpers/watcher-settings.js';
+import { openSettingControl, openNativeSettingsCategory, openWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 // API contexts share Playwright's keep-alive agent. Finish fixture exchanges on
@@ -84,8 +84,8 @@ async function initialize(page, url, settings = enabled, rules) {
 
 async function saveSettings(page, values) {
   const dialog = await openWatcherSettings(page);
-  await dialog.locator('#settings-expand-all').click();
-  for (const [key, value] of Object.entries(values)) await dialog.locator(`.menuOption[data-option="${key}"]`).setChecked(value);
+  await openNativeSettingsCategory(dialog, 'Quotes & Replying');
+  for (const [key, value] of Object.entries(values)) await (await openSettingControl(dialog, key)).setChecked(value);
   await Promise.all([page.waitForEvent('load'), dialog.getByRole('button', { name: 'Save Settings', exact: true }).click()]);
 }
 
@@ -119,7 +119,7 @@ test.describe('unmodified persisted inline quotes', () => {
     const target = post(owned), source = await owned.reply(`>>${owned.id}\nDefault inline source`);
     await initialize(page, owned.url, { quotePreview: false });
     const dialog = await openWatcherSettings(page);
-    await dialog.locator('#settings-expand-all').click();
+    await openNativeSettingsCategory(dialog, 'Quotes & Replying');
     await expect(dialog.getByLabel('Inline quote links', { exact: true })).not.toBeChecked();
     await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
     await originalQuote(page, source, target).click();
@@ -405,7 +405,7 @@ test.describe('unmodified persisted inline quotes', () => {
       const page = await context.newPage(), other = await context.newPage();
       await initialize(page, owned.url, { inlineQuotes: true, quotePreview: true });
       const dialog = await openWatcherSettings(page);
-      await dialog.locator('#settings-expand-all').click();
+      await openNativeSettingsCategory(dialog, 'Quotes & Replying');
       await expect(dialog.getByLabel('Inline quote links', { exact: true })).toHaveCount(0);
       await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
       const link = originalQuote(page, source, remote), requests = network(page);

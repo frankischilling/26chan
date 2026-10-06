@@ -1,6 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openSettingControl, openNativeSettingsCategory, openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const escaped = '<script>window.quotePreviewInjected = true</script>\n<img src="/__quote-preview-escaped.png" onerror="window.quotePreviewInjected = true">';
@@ -106,10 +106,9 @@ async function expectPreview(page, target, text) {
 
 async function savePreviewSettings(page, values) {
   const dialog = await openWatcherSettings(page);
-  const navigation = dialog.getByRole('button', { name: 'Navigation', exact: true });
-  if (await navigation.getAttribute('aria-expanded') === 'false') await navigation.click();
+  await openNativeSettingsCategory(dialog, 'Quotes & Replying');
   for (const [key, value] of Object.entries(values)) {
-    await dialog.locator(`.menuOption[data-option="${key}"]`).setChecked(value);
+    await (await openSettingControl(dialog, key)).setChecked(value);
   }
   await Promise.all([
     page.waitForEvent('load'),
@@ -123,8 +122,7 @@ test.describe('unmodified persisted quote previews', () => {
     await page.setViewportSize({ width: 1280, height: 400 });
     await page.goto(owned.url);
     const dialog = await openWatcherSettings(page);
-    const navigation = dialog.getByRole('button', { name: 'Navigation', exact: true });
-    if (await navigation.getAttribute('aria-expanded') === 'false') await navigation.click();
+    await openNativeSettingsCategory(dialog, 'Quotes & Replying');
     await expect(dialog.getByLabel('Quote preview', { exact: true })).toBeChecked();
     await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
 

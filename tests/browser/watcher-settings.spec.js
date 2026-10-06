@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
+import { openSettingControl, openWatcherSettings, saveWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 test('catalog settings discard cancelled edits and save the native watcher flag without navigation', async ({ page }) => {
   await page.goto('/fixture/catalog');
@@ -117,4 +117,40 @@ test('no-JavaScript pages retain their working style preference link without ine
     await expect(page.getByRole('heading', { name: 'Style preference', exact: true })).toBeVisible();
     await expect(page.locator('#theme-choice')).toBeVisible();
   } finally { await context.close(); }
+});
+
+
+test('native categories keep independent drafts, cancel restores focus, and cross-category saves persist', async ({ page }) => {
+  const initial = {
+    quotePreview: false, threadWatcher: false, hideStubs: false,
+    topPageNav: false, noPictures: false, linkify: false, unrelated: 'keep',
+  };
+  const changes = Object.fromEntries(Object.keys(initial).filter(key => key !== 'unrelated').map(key => [key, true]));
+  await page.goto('/fixture/');
+  await page.evaluate(initial => localStorage.setItem('4chan-settings', JSON.stringify(initial)), initial);
+  await page.reload();
+  await watcherSettingsOpener(page).click();
+  let dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+  const quotes = dialog.getByRole('button', { name: 'Quotes & Replying', exact: true });
+  await expect(quotes).toBeFocused();
+  await expect(dialog.locator('.settings-expand[aria-expanded="true"]')).toHaveCount(0);
+  await (await openSettingControl(dialog, 'quotePreview')).check();
+  await expect(dialog.locator('.settings-expand[aria-expanded="true"]')).toHaveCount(1);
+  await expect(quotes).toHaveAttribute('aria-expanded', 'true');
+  for (const key of Object.keys(changes).slice(1)) await (await openSettingControl(dialog, key)).check();
+  await quotes.click();
+  await expect(dialog.locator('#setting-quotePreview')).toBeHidden();
+  await quotes.click();
+  await expect(dialog.locator('#setting-quotePreview')).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(watcherSettingsOpener(page)).toBeFocused();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')))).toEqual(initial);
+
+  await saveWatcherSettings(page, changes);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')))).toEqual({ ...initial, ...changes });
+  dialog = await openWatcherSettings(page);
+  for (const key of Object.keys(changes)) await expect(await openSettingControl(dialog, key)).toBeChecked();
+  await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
+  await expect(watcherSettingsOpener(page)).toBeFocused();
 });

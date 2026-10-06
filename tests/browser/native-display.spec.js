@@ -1,13 +1,13 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 
-async function openSettings(page) {
+async function openSettings(page, category = 'Navigation') {
   await watcherSettingsOpener(page).click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
-  await dialog.locator('#settings-expand-all').click();
+  await openNativeSettingsCategory(dialog, category);
   return dialog;
 }
 
@@ -86,7 +86,7 @@ test('local time uses the real timestamp while settings and script-free pages pr
         + `(${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]})${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`;
     });
     await expect(clock).toHaveText(expected);
-    const settings = await openSettings(page);
+    const settings = await openSettings(page, 'Miscellaneous');
     await expect(settings.getByLabel('Convert dates to local time', { exact: true })).toBeChecked();
     await settings.getByLabel('Convert dates to local time', { exact: true }).uncheck();
     await Promise.all([page.waitForEvent('load'), settings.getByRole('button', { name: 'Save Settings', exact: true }).click()]);

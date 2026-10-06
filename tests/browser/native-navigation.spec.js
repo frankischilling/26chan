@@ -1,4 +1,4 @@
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 
 const settingsKey = '4chan-settings';
@@ -33,7 +33,7 @@ test('persistent board navigation saves settings, uses the actual directory and 
   await page.goto('/fixture/0');
   await watcherSettingsOpener(page).click();
   const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
-  await settings.locator('#settings-expand-all').click();
+  await openNativeSettingsCategory(settings, 'Navigation');
   for (const name of ['Use persistent drop-down navigation bar', 'Page navigation at top of page', 'Navigation arrows']) {
     await settings.getByLabel(name, { exact: true }).check();
   }
