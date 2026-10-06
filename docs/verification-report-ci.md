@@ -69,3 +69,15 @@ extraction, native decoder or additional system privilege is enabled. Existing
 input/output caps, cleanup and original test exit-code handling remain. The 25
 focused Node cases pass locally; PowerShell and hosted Windows behavior require
 the next exact-head CI run.
+
+## Anonymous upgrade ordering
+
+The legacy anonymous-session exercise also applied every later migration before
+0065. Replaying that script from 4fe5003 reproduced a missing
+`post_secrets.anonymous_sessions` error at migration 0095. The corrected exercise
+first verifies the populated 0064-to-0065 transition, then applies later
+migrations in order and checks current runtime behavior. Its report fixture uses
+the restricted admission API, and its complete dump uses the owned-cluster
+administrator rather than expanding the migrator's private-table grants.
+The adapted local exercise passes history, role-denial, rollback, capacity,
+bounded-cleanup and restored-ownership checks.

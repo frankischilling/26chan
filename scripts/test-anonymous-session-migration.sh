@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 cd "$(dirname "$0")/.."
 [[ $(id -u) = 0 ]] || { echo 'Run as root on an owned disposable host.' >&2; exit 1; }
 pg_bin=/usr/lib/postgresql/16/bin
@@ -22,15 +23,17 @@ runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.l
     -o "-c listen_addresses='' -c unix_socket_directories='$cluster'" -w start >/dev/null
 started=1
 db=(runuser -u postgres -- "$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h "$cluster")
-"${db[@]}" -d postgres -f deploy/roles.sql
+"${db[@]}" -d postgres -f - < deploy/roles.sql
 "${db[@]}" -d postgres <<'SQL'
 CREATE DATABASE anonymous_upgrade OWNER board_migrator;
 REVOKE ALL ON DATABASE anonymous_upgrade FROM PUBLIC;
 GRANT CONNECT ON DATABASE anonymous_upgrade TO board_migrator,board_public;
 SQL
+# Phase 1: exercise the actual 0064 -> 0065 upgrade against historical rows.
+# Later migrations depend on anonymous tables and must not run before 0065.
 for migration in migrations/*.sql; do
-    [[ $migration != migrations/0065_anonymous_sessions.sql ]] || continue
-    "${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
+    [[ $migration < migrations/0065_anonymous_sessions.sql ]] || break
+    "${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f - < "$migration"
 done
 "${db[@]}" -d anonymous_upgrade <<'SQL'
 SET ROLE board_migrator;
@@ -45,7 +48,7 @@ CREATE TABLE public.owned_anonymous_posts_before AS SELECT * FROM content.posts;
 CREATE TABLE public.owned_anonymous_threads_before AS SELECT * FROM content.threads;
 CREATE TABLE public.owned_anonymous_deletion_before AS SELECT * FROM post_secrets.deletion;
 SQL
-"${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f migrations/0065_anonymous_sessions.sql
+"${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f - < migrations/0065_anonymous_sessions.sql
 "${db[@]}" -d anonymous_upgrade <<'SQL'
 SET ROLE board_migrator;
 DO $$ BEGIN
@@ -61,7 +64,25 @@ DO $$ BEGIN
         RAISE EXCEPTION 'Anonymous upgrade changed history or invented ownership';
     END IF;
 END $$;
-RESET ROLE;
+SQL
+
+# Phase 2: qualify current runtime behavior only after every later migration
+# has been applied in order. Keep the historical row comparison above at the
+# 0065 boundary: later migrations legitimately extend the content row shape.
+for migration in migrations/*.sql; do
+    [[ $migration > migrations/0065_anonymous_sessions.sql ]] || continue
+    "${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f - < "$migration"
+done
+"${db[@]}" -d anonymous_upgrade <<'SQL'
+DO $$ BEGIN
+    IF EXISTS(SELECT 1 FROM post_secrets.anonymous_sessions)
+        OR EXISTS(SELECT 1 FROM post_secrets.anonymous_posts)
+        OR EXISTS(SELECT 1 FROM post_secrets.anonymous_reports)
+        OR EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE post_id=8800101)
+        OR EXISTS(SELECT 1 FROM post_secrets.report_membership) THEN
+        RAISE EXCEPTION 'Later migrations invented historical activity or ownership';
+    END IF;
+END $$;
 DO $$ DECLARE runtime text; relation text; BEGIN
     IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='board_anonymous_owner'
         AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
@@ -209,14 +230,19 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 SET ROLE board_public;
-BEGIN;
-INSERT INTO content.reports(board,post_id,reason) VALUES('anonold',8800102,'Owned restored report');
-SELECT content.register_anonymous_report(decode(repeat('01',32),'hex'),decode(repeat('02',32),'hex'),decode(repeat('03',32),'hex'),decode(repeat('04',32),'hex'),false,'anonold',currval('content.reports_id_seq')::bigint,extract(epoch FROM clock_timestamp())::bigint);
+BEGIN ISOLATION LEVEL READ COMMITTED;
+-- Use the restricted IP-actor admission API, then register its returned ID
+-- in the same transaction so 0095 can verify fresh report provenance.
+SELECT content.admit_report('anonold',8800102,'Owned restored report',decode(repeat('06',32),'hex')) AS report_id \gset
+SELECT content.register_anonymous_report(decode(repeat('01',32),'hex'),decode(repeat('02',32),'hex'),decode(repeat('03',32),'hex'),decode(repeat('04',32),'hex'),false,'anonold',:report_id::bigint,extract(epoch FROM clock_timestamp())::bigint);
 COMMIT;
 SQL
-runuser -u postgres -- "$pg_bin/pg_dump" -h "$cluster" -U board_migrator -d anonymous_upgrade --format=custom --file="$cluster/anonymous.dump"
+# The complete dump needs this owned cluster's administrator: the migrator
+# deliberately does not inherit the private report-membership owner's reads.
+runuser -u postgres -- "$pg_bin/pg_dump" -h "$cluster" -U postgres -d anonymous_upgrade --format=custom > "$cluster/anonymous.dump"
 "${db[@]}" -d postgres -c 'CREATE DATABASE anonymous_restore OWNER board_migrator'
-runuser -u postgres -- "$pg_bin/pg_restore" -h "$cluster" -d anonymous_restore --exit-on-error "$cluster/anonymous.dump"
+# Let the shell open the private dump; do not relax its permissions for postgres.
+runuser -u postgres -- "$pg_bin/pg_restore" -h "$cluster" -d anonymous_restore --exit-on-error < "$cluster/anonymous.dump"
 fingerprint="SELECT md5((SELECT coalesce(string_agg(to_jsonb(s)::text,E'\\n' ORDER BY encode(s.token_hash,'hex')),'') FROM post_secrets.anonymous_sessions s)||(SELECT coalesce(string_agg(to_jsonb(p)::text,E'\\n' ORDER BY p.post_id),'') FROM post_secrets.anonymous_posts p)||(SELECT coalesce(string_agg(to_jsonb(r)::text,E'\\n' ORDER BY r.report_id),'') FROM post_secrets.anonymous_reports r)||(SELECT to_jsonb(p)::text FROM post_secrets.anonymous_policy p))"
 before=$("${db[@]}" -d anonymous_upgrade -At -c "$fingerprint")
 after=$("${db[@]}" -d anonymous_restore -At -c "$fingerprint")
@@ -235,4 +261,4 @@ END $$;
 SQL
 cleanup
 trap - EXIT
-echo 'Anonymous upgrade passed: history preserved, actual role denials, atomic capacity/policy failures, bounded cleanup and restored private activity/ownership.'
+echo 'Anonymous 0065 upgrade and current runtime passed: history preserved, actual role denials, atomic capacity/policy failures, bounded cleanup and restored private activity/ownership.'
