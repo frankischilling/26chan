@@ -279,6 +279,8 @@ jobs:
         run: sudo bash scripts/test-report-target-policy-migration.sh
       - name: Upgrade private report admission without rewriting retained history
         run: sudo bash scripts/test-report-admission-migration.sh
+      - name: Upgrade forward automatic identity and active-thread equality
+        run: sudo bash scripts/test-automatic-identity-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

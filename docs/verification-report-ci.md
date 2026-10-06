@@ -15,7 +15,7 @@ Both calls now use `-f - < file`: the parent shell opens its private file before
 switching the child user. File permissions are unchanged. The adapted local
 exercise passes populated/fresh upgrades, historical preservation and current
 dump/restore. That local environment does not reproduce the hosted user switch;
-the original privileged Windows/Linux harness still needs exact-head CI.
+the original privileged CI harness still needs exact-head qualification.
 
 ## Attachment authority inventory
 

@@ -173,6 +173,11 @@ public binaries cannot continue reporting after the upgrade. Its private
 membership cap does not bound the retained report history. Migrations 0091 and
 0092 need no new bootstrap role. The [active OP quota](source-user-thread-quotas.md) has an independent
 per-IP maximum and period; its password/Pass identity branches remain unfinished.
+Matching services now also require migrations 0095 and 0096 for
+[forward automatic-session identity](automatic-admission-identity.md). Stop
+writers before applying them; no additional role bootstrap is needed. Existing
+history stays unassigned and direct registration cannot adopt old rows.
+
 Operator archive transitions require Read Committed isolation. Lock affected
 boards in slug order before secret updates/deletions or archive writes; an
 out-of-order operation can fail with `55P03` and require a transaction retry.

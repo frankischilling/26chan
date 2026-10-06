@@ -2,6 +2,7 @@
 
 pub mod anonymous_session;
 mod archives;
+pub mod automatic_admission;
 mod board_snapshot;
 mod content_admission;
 pub use archives::{

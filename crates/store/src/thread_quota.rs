@@ -1,5 +1,5 @@
-//! IP-only active OP quota. Private actor evidence never leaves the SQL API.
-use crate::StoreError;
+//! Active OP quota. Private actor evidence never leaves the SQL API.
+use crate::{StoreError, anonymous_session::PostingSession};
 use board_domain::poster_id::PublicPostingRateIdentity;
 use sqlx::{Postgres, Transaction};
 
@@ -12,22 +12,38 @@ struct Decision {
 
 /// Call for every OP, including badged staff on private boards, after trusted
 /// authorization and actor/global OP/board locks, and before any rollover.
-/// The supplied actor is transport-derived; neither passwords nor Pass values
-/// are accepted by this bounded slice. Replies must not call this function.
+/// The supplied actor is transport-derived. A genuine public posting session
+/// adds forward automatic identity evidence; staff/internal callers without
+/// one retain the IP-only path. Replies must not call this function.
 pub(crate) async fn check(
     tx: &mut Transaction<'_, Postgres>,
     actor: &PublicPostingRateIdentity,
     board: &str,
     request_epoch: i64,
+    session: Option<PostingSession>,
 ) -> Result<(), StoreError> {
-    let rows: Vec<Decision> = sqlx::query_as(
-        "SELECT rejected,user_thread_limit,user_thread_period_hours FROM content.check_user_thread_quota($1,$2,$3) LIMIT 2",
-    )
-    .bind(actor.as_bytes().as_slice())
-    .bind(board)
-    .bind(request_epoch)
-    .fetch_all(&mut **tx)
-    .await?;
+    let rows: Vec<Decision> = if let Some(session) = session {
+        sqlx::query_as(
+            "SELECT rejected,user_thread_limit,user_thread_period_hours FROM content.check_user_thread_quota($1,$2,$3,$4,$5,$6) LIMIT 2",
+        )
+        .bind(actor.as_bytes().as_slice())
+        .bind(board)
+        .bind(request_epoch)
+        .bind(session.fingerprints.token.as_slice())
+        .bind(session.minted)
+        .bind(session.now.timestamp())
+        .fetch_all(&mut **tx)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT rejected,user_thread_limit,user_thread_period_hours FROM content.check_user_thread_quota($1,$2,$3) LIMIT 2",
+        )
+        .bind(actor.as_bytes().as_slice())
+        .bind(board)
+        .bind(request_epoch)
+        .fetch_all(&mut **tx)
+        .await?
+    };
     decode_result(&rows)
 }
 

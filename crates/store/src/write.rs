@@ -708,7 +708,14 @@ async fn create_post_in_context(
     // duplicate admission and cooldowns. Staff must first obtain the bound
     // authority below; a cosmetic identity must never authorize this check.
     if parent == 0 && staff.is_none() {
-        crate::thread_quota::check(&mut tx, &posting_actor, slug, posted_at.timestamp()).await?;
+        crate::thread_quota::check(
+            &mut tx,
+            &posting_actor,
+            slug,
+            posted_at.timestamp(),
+            anonymous,
+        )
+        .await?;
     }
     let mut autosage_proof = None;
     if let Some(admission) = admission {
@@ -1042,8 +1049,14 @@ async fn create_post_in_context(
         // All staff OPs share the IP quota, including badged and private-board
         // posts. Check before timers and rollover can remove counted rows.
         if parent == 0 {
-            crate::thread_quota::check(&mut tx, &posting_actor, slug, posted_at.timestamp())
-                .await?;
+            crate::thread_quota::check(
+                &mut tx,
+                &posting_actor,
+                slug,
+                posted_at.timestamp(),
+                anonymous,
+            )
+            .await?;
         }
         if ordinary_timers {
             crate::posting_cooldown::check_janitor(

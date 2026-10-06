@@ -127,3 +127,12 @@ The migration and implementation are not evidence of a passing test run or
 production qualification. This document makes no new test-pass or CI claim.
 Password/Pass matching, unknown historical identity, key-disconnected IP
 history and staff filter/quota ordering remain explicit gaps.
+
+## Forward automatic-session equality
+
+Migrations 0095 and 0096 add the registered public-session branch described in
+[automatic admission identity](automatic-admission-identity.md). Existing unknown
+history remains unknown. Staff without a public session, verified-email
+replacement and Pass matching are still outside that branch. The IP-only
+checkpoint above describes migration 0092; matching services now require the
+new private helpers and six-argument API as well.

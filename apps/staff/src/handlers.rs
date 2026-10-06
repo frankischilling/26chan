@@ -348,6 +348,13 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !shared_report_admission {
         return Err(AppError::Internal);
     }
+    let automatic_admission: bool =
+        sqlx::query_scalar(board_store::automatic_admission::READINESS_SQL)
+            .fetch_one(&state.staff)
+            .await?;
+    if !automatic_admission {
+        return Err(AppError::Internal);
+    }
     let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
         .fetch_one(&state.staff)
         .await?;
@@ -1085,6 +1092,45 @@ pub async fn logout(
 
 #[cfg(test)]
 mod readiness_tests {
+
+    #[test]
+    fn automatic_admission_readiness_uses_shared_catalog_contract() {
+        let sql = board_store::automatic_admission::READINESS_SQL;
+        for required in [
+            "resolve_automatic_identity",
+            "lookup_automatic_identity",
+            "17 16 20 16",
+            "17 20",
+            "17 25 20 17 16 20",
+            "TABLE(automatic_identity uuid, source_new boolean)",
+            "TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)",
+            "registration_xid",
+            "pg_current_xact_id()",
+            "i.indisunique",
+            "NOT a.attnotnull",
+            "p.prosecdef",
+            "search_path=pg_catalog,pg_temp",
+            "pg_has_role(runtime.oid,owners.oid,'MEMBER')",
+            "has_column_privilege",
+            "pg_catalog.aclexplode",
+        ] {
+            assert!(sql.contains(required), "{required}");
+        }
+        for forbidden in [
+            "FROM post_secrets.",
+            "JOIN post_secrets.",
+            "FROM content.",
+            "JOIN content.",
+            "to_regprocedure('post_secrets.",
+            "INSERT INTO",
+            "UPDATE post_secrets.",
+            "DELETE FROM",
+            "SELECT content.check_user_thread_quota",
+            "has_sequence_privilege",
+        ] {
+            assert!(!sql.contains(forbidden), "{forbidden}");
+        }
+    }
     use super::{
         ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, REPORT_ADMISSION_READY_SQL,
         USER_THREAD_QUOTA_READY_SQL,

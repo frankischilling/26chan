@@ -89,3 +89,7 @@ edges, concurrency, rollback, session cleanup and retirement. HTTP tests cover
 trusted identity, duplicate rejection and response-budget failure. Exact run
 outcomes belong to the pull-request checkpoint; listed checks are not evidence
 that every platform or browser has passed.
+
+Migration 0095 subsequently captures [forward automatic-session equality](automatic-admission-identity.md)
+on new report memberships. Report admission in this checkpoint remains IP-only;
+capturing that evidence does not itself enable another quota branch.
