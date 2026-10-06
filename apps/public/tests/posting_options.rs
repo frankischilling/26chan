@@ -312,7 +312,9 @@ async fn documented_options_preserve_posts_redirects_and_bump_rules() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Posting options','Owned posting fixture',1000,100,50,100,10,0,0,0)")
+    // Retain all option/route OP controls on this owned board while testing
+    // redirects and bump rules independently of the actor thread quota.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Posting options','Owned posting fixture',1000,100,50,100,10,0,0,0,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

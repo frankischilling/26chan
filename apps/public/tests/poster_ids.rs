@@ -89,7 +89,9 @@ async fn source_sage_ids_follow_locked_heaven_policy_and_preserve_saved_fields()
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned source sage IDs','Synthetic fixture',1000,100,100,100,10,2,0,0,0)")
+    // Keep the saved OP identity-policy matrix on this owned board without
+    // letting the unrelated actor quota preempt its field assertions.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Owned source sage IDs','Synthetic fixture',1000,100,100,100,10,2,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     let key = fixture_key();
     let (app, api) = board_public::routers_with_options(public.clone(), options(Some(key.clone())));

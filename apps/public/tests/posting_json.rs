@@ -77,7 +77,9 @@ async fn exercise(multipart: bool) {
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     );
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    // Retain accepted OPs across both route and content-negotiation matrices
+    // on this owned board without exhausting the unrelated actor quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10,100)").bind(&board).execute(&owner).await.unwrap();
     let (app, api) = posting_fixture::routers(
         public.clone(),
         &board,

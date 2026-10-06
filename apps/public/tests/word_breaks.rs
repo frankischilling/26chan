@@ -220,7 +220,9 @@ async fn source_word_breaks_survive_posting_api_updater_and_policy_changes() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,comment_spoiler_cleanup,comment_code_spacing,comment_sjis_spacing,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Word breaks','Owned fixture',4000,100,100,100,10,true,true,true,true,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
+    // Retain all eight route/form OP controls on this owned board without
+    // letting the unrelated actor quota preempt word-break rendering checks.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,comment_spoiler_cleanup,comment_code_spacing,comment_sjis_spacing,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Word breaks','Owned fixture',4000,100,100,100,10,true,true,true,true,0,0,0,100)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

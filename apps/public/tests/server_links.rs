@@ -211,7 +211,9 @@ async fn persisted_links_use_source_normalization_in_both_forms_routes_and_respo
     let mut nonce = [0u8; 4];
     OsRng.fill_bytes(&mut nonce);
     let board = format!("sl{:08x}", u32::from_be_bytes(nonce));
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned server links','',1000,100,100,100,10,0,0,0)")
+    // Retain all eight route/form OP controls on this owned board without
+    // letting the unrelated actor quota preempt link-normalization checks.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Owned server links','',1000,100,100,100,10,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     let result = tokio::spawn({
         let owner = owner.clone();

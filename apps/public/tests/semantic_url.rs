@@ -267,7 +267,9 @@ async fn source_context_is_consistent_across_json_projections_and_omits_empty_or
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,json_tail_size) VALUES(0,0,0,$1,'Semantic context','Owned fixture',2000,100,100,100,20,true,1)")
+    // Keep every semantic-context OP for projection comparisons on this owned
+    // board without exhausting the unrelated actor thread quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,json_tail_size,user_thread_limit) VALUES(0,0,0,$1,'Semantic context','Owned fixture',2000,100,100,100,20,true,1,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

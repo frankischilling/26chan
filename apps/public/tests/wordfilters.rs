@@ -55,6 +55,13 @@ async fn cleanup(owner: &PgPool, slug: &str) {
 #[tokio::test]
 async fn caller_cleanup_precedes_filters_and_markup_without_repeating_the_early_pass() {
     let (owner, public, slug) = fixture().await;
+    // This cleanup-order matrix retains twenty same-actor OPs. Increase only
+    // its owned board's capacity, preserving history and all filter assertions.
+    sqlx::query("UPDATE content.boards SET user_thread_limit=100 WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
     let (a, p, b) = (owner.clone(), public.clone(), slug.clone());
     let outcome = tokio::spawn(async move {
         let reference: serde_json::Value = serde_json::from_str(include_str!(
@@ -95,6 +102,7 @@ async fn caller_cleanup_precedes_filters_and_markup_without_repeating_the_early_
                 let posted: serde_json::Value =
                     serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
                         .unwrap();
+                assert!(posted.get("error").is_none(), "{source}: {input}: {posted}");
                 let saved = board_store::find_post(&p, &b, posted["pid"].as_i64().unwrap())
                     .await
                     .unwrap();
