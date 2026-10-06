@@ -111,6 +111,29 @@ pub(crate) async fn check(
     decode_result(&rows, CheckContext::Ordinary { parent, has_image })
 }
 
+/// Only a current, bound janitor authority can select the ordinary timer path.
+/// SQL exposes the ceil-half reply discount to the staff runtime only.
+pub(crate) async fn check_janitor(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &PublicPostingRateIdentity,
+    board: &str,
+    parent: i64,
+    has_image: bool,
+    request_epoch: i64,
+) -> Result<(), StoreError> {
+    let rows: Vec<ResultRow> = sqlx::query_as(
+        "SELECT kind,remaining_seconds FROM content.check_janitor_posting_cooldown($1,$2,$3,$4,$5)",
+    )
+    .bind(actor.as_bytes().as_slice())
+    .bind(board)
+    .bind(parent)
+    .bind(has_image)
+    .bind(request_epoch)
+    .fetch_all(&mut **tx)
+    .await?;
+    decode_result(&rows, CheckContext::Ordinary { parent, has_image })
+}
+
 /// Only called after the server-owned staff authority issuer succeeds.
 pub(crate) async fn check_staff(
     tx: &mut Transaction<'_, Postgres>,

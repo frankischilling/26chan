@@ -32,16 +32,19 @@ fn fixture_actor(case: &Fixture, peer: std::net::IpAddr) -> [u8; 32] {
         .as_bytes()
 }
 // These semantic fixtures deliberately reuse the same actor. Age only their
-// owned posting history to admit the next case without changing OP membership,
+// owned actor history by the selected board policy (including cross-board OPs)
+// to admit the next case without changing OP membership,
 // post timestamps, thread clocks, board policy, or request identity. Timer tests
 // below do not use this helper for their rejection assertions.
 async fn elapse_staff_timer(case: &Fixture, board: &str, peer: std::net::IpAddr) {
-    sqlx::query("UPDATE post_secrets.posting_history SET request_at=least(request_at,floor(extract(epoch FROM clock_timestamp()))::bigint-5) WHERE board=$1 AND actor_hash=$2")
+    sqlx::query("UPDATE post_secrets.posting_history SET request_at=least(request_at,floor(extract(epoch FROM clock_timestamp()))::bigint-greatest(301,(SELECT greatest(posting_reply_seconds,posting_image_seconds,posting_thread_seconds) FROM content.boards WHERE slug=$1))) WHERE actor_hash=$2")
         .bind(board)
         .bind(fixture_actor(case, peer).as_slice())
         .execute(&case.owner)
         .await
         .unwrap();
+    sqlx::query("UPDATE post_secrets.posting_thread_actions SET request_at=least(request_at,floor(extract(epoch FROM clock_timestamp()))::bigint-301) WHERE actor_hash=$1")
+        .bind(fixture_actor(case, peer).as_slice()).execute(&case.owner).await.unwrap();
 }
 
 async fn prepare_posting_actor(
@@ -181,10 +184,10 @@ impl OrdinaryProof {
             "dice_result":"","fortune_text":"","fortune_color":"","peer":"81.2.69.142","deletion_hash":"owned-derived-hash","op_password_proof":""});
         let ticket = auth::hash(&auth::token());
         let limit:i32=sqlx::query_scalar("SELECT CASE WHEN $2 THEN max_authorized_comment_chars ELSE max_comment_chars END FROM content.boards WHERE slug=$1").bind(&case.board).bind(authorized).fetch_one(&case.owner).await.unwrap();
-        sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)")
+        sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)")
             .bind(&ticket).bind(auth::hash(&case.token)).bind(auth::hash(&case.csrf)).bind(900i32).bind(id).bind(&case.board).bind(id)
             .bind("Named ordinary staff").bind("Owned subject").bind("Owned ordinary proof body").bind(stamp).bind(authorized).bind(limit)
-            .bind(None::<Vec<u8>>).bind(None::<String>).bind("bypass_r9k").bind(None::<String>).bind(true).bind(&context)
+            .bind(None::<Vec<u8>>).bind(None::<String>).bind("bypass_r9k").bind(None::<String>).bind(true).bind(&context).bind(true)
             .execute(&case.state.auth).await.unwrap();
         Self {
             actor: fixture_actor(case, peer),
@@ -205,7 +208,7 @@ impl OrdinaryProof {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true),set_config('board.staff_post_options','bypass_r9k',true),set_config('board.post_trip','',true),set_config('board.wordfilter_payload','',true),set_config('board.wordfilter_search','',true)")
+        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true),set_config('board.staff_raw_name_nonempty','true',true),set_config('board.staff_post_options','bypass_r9k',true),set_config('board.post_trip','',true),set_config('board.wordfilter_payload','',true),set_config('board.wordfilter_search','',true)")
             .bind(ticket).execute(&mut **tx).await.unwrap();
         for (key, value) in context.as_object().unwrap() {
             sqlx::query("SELECT set_config($1,$2,true)")
@@ -838,7 +841,7 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
         let direct=board_store::create_staff_post_with_context_and_keys(&case.state.staff,&case.board,0,
             &board_store::NewPost { name:"Owned direct staff#private-trip-suffix".into(),subject:"Owned".into(),comment:"Synthetic direct authority".into(),deletion_hash:String::new(),sage:false },board_store::PostingContext { request_start:chrono::Utc::now(),peer:Some(posting_fixture::peer()),op_password_proof:None },
             board_store::PostIdentityKeys { tripcode:None,poster_id:case.state.config.poster_id_key.as_deref() },
-            board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,identity:None }).await.expect("actual staff posting transaction must succeed");
+            board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,raw_name_nonempty:true,identity:None }).await.expect("actual staff posting transaction must succeed");
         assert!(direct>0);
         assert_eq!(sqlx::query_scalar::<_,String>("SELECT name FROM content.posts WHERE id=$1").bind(direct).fetch_one(&case.owner).await.unwrap(),"Owned direct staff");
         elapse_staff_timer(&case, &case.board, posting_fixture::peer()).await;
@@ -1082,24 +1085,14 @@ impl BoundPost {
         }
     }
     async fn issue(&self, case: &Fixture) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "SELECT staff_identity.issue_wordfiltered_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-        )
-        .bind(&self.ticket)
-        .bind(auth::hash(&case.token))
-        .bind(auth::hash(&case.csrf))
-        .bind(self.id)
-        .bind(&self.board)
-        .bind(self.thread)
-        .bind(&self.name)
-        .bind(&self.subject)
-        .bind(&self.comment)
-        .bind(self.time)
-        .bind(self.wordfilter_payload.as_deref())
-        .bind(self.wordfilter_search.as_deref())
-        .execute(&case.state.auth)
-        .await?;
-        Ok(())
+        // This fixture retains ordinary WF01 payloads and public bounds even
+        // for a moderator. Authorized WF02 cases call issue_limited explicitly.
+        let limit: i32 =
+            sqlx::query_scalar("SELECT max_comment_chars FROM content.boards WHERE slug=$1")
+                .bind(&self.board)
+                .fetch_one(&case.owner)
+                .await?;
+        self.issue_limited(case, Some(false), Some(limit)).await
     }
     async fn issue_limited(
         &self,
@@ -1108,7 +1101,7 @@ impl BoundPost {
         limit: Option<i32>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",
         )
         .bind(&self.ticket)
         .bind(auth::hash(&case.token))
@@ -1124,6 +1117,7 @@ impl BoundPost {
         .bind(limit)
         .bind(self.wordfilter_payload.as_deref())
         .bind(self.wordfilter_search.as_deref())
+        .bind(!self.name.is_empty())
         .execute(&case.state.auth)
         .await?;
         Ok(())
@@ -1134,12 +1128,12 @@ impl BoundPost {
         options: &str,
         name_allowed: Option<bool>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query("SELECT staff_identity.issue_source_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,true,10000,$11,$12,$13,$14,$15)")
+        sqlx::query("SELECT staff_identity.issue_source_post_authority($1,$2,$3,900,false,$4,$5,$6,$7,$8,$9,$10,true,10000,$11,$12,$13,$14,$15,$16)")
             .bind(&self.ticket).bind(auth::hash(&case.token)).bind(auth::hash(&case.csrf))
             .bind(self.id).bind(&self.board).bind(self.thread).bind(&self.name).bind(&self.subject)
             .bind(&self.comment).bind(self.time).bind(self.wordfilter_payload.as_deref())
             .bind(self.wordfilter_search.as_deref()).bind(options).bind(self.prepared_trip.as_deref())
-            .bind(name_allowed).execute(&case.state.auth).await?;
+            .bind(name_allowed).bind(!self.name.is_empty()).execute(&case.state.auth).await?;
         Ok(())
     }
     async fn insert(&self, case: &Fixture) -> Result<String, sqlx::Error> {
@@ -1155,8 +1149,9 @@ impl BoundPost {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true)")
+        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true),set_config('board.staff_raw_name_nonempty',$2,true)")
             .bind(ticket)
+            .bind(if self.name.is_empty() { "false" } else { "true" })
             .execute(&mut *tx)
             .await?;
         sqlx::query("SELECT set_config('board.post_trip',$1,true)")
@@ -1210,7 +1205,7 @@ async fn staff_wordfilters_bind_the_exact_saved_body_without_granting_html_autho
             name:"soy fam CUCK#private suffix".into(),subject:"soy fam CUCK".into(),comment:"soy fam CUCK <script>literal</script>".into(),deletion_hash:String::new(),sage:false,
         },board_store::PostingContext { request_start:chrono::Utc::now(),peer:Some(posting_fixture::peer()),op_password_proof:None },
         board_store::PostIdentityKeys { tripcode:None,poster_id:case.state.config.poster_id_key.as_deref() },
-        board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,identity:None }).await.unwrap();
+        board_store::StaffPostAuthority { auth_pool:&case.state.auth,session_hash:&session_hash,csrf_hash:&csrf_hash,ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,raw_name_nonempty:true,identity:None }).await.unwrap();
         let public=pool("TEST_PUBLIC_DATABASE_URL").await;
         let saved=board_store::find_post(&public,&case.board,id).await.unwrap();
         assert_eq!(saved.name,"soy fam CUCK"); assert_eq!(saved.subject,"soy fam CUCK"); assert_eq!(saved.capcode.as_deref(),Some("mod"));
@@ -2041,11 +2036,9 @@ async fn authorized_proofs_require_current_rank_policy_and_non_null_bound_inputs
         assert!(sqlx::query_scalar::<_,bool>("SELECT staff_authorized_limits FROM content.posts WHERE id=$1")
             .bind(post.id).fetch_one(&case.owner).await.unwrap());
         assert_eq!(sql_code(&post.insert(&case).await.unwrap_err()).as_deref(),Some("28000"));
-        // The old issuer retains an ordinary proof, even for a current moderator.
-        let legacy=BoundPost::new(&case,thread).await; legacy.issue(&case).await.unwrap();
-        assert_eq!(legacy.insert(&case).await.unwrap(),"mod");
-        assert!(!sqlx::query_scalar::<_,bool>("SELECT staff_authorized_limits FROM content.posts WHERE id=$1")
-            .bind(legacy.id).fetch_one(&case.owner).await.unwrap());
+        // Legacy issuers cannot bypass raw-name evidence, even for current moderators.
+        denied(&case.state.auth,"SELECT staff_identity.issue_wordfiltered_post_authority(NULL,NULL,NULL,900,false,1,'x',1,'x','','x',clock_timestamp(),NULL,NULL)").await;
+        denied(&case.state.auth,"SELECT staff_identity.issue_limited_post_authority(NULL,NULL,NULL,900,false,1,'x',1,'x','','x',clock_timestamp(),true,10000,NULL,NULL)").await;
         let public=pool("TEST_PUBLIC_DATABASE_URL").await;
         denied(&public,"SELECT staff_identity.issue_limited_post_authority(NULL,NULL,NULL,900,false,1,'x',1,'x','','x',clock_timestamp(),true,10000,NULL,NULL)").await;
         denied(&case.state.staff,"SELECT staff_identity.issue_limited_post_authority(NULL,NULL,NULL,900,false,1,'x',1,'x','','x',clock_timestamp(),true,10000,NULL,NULL)").await;
@@ -2222,7 +2215,7 @@ async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public
         let forged=board_store::create_staff_post_with_context_and_keys(&case.state.staff,"j",thread,
             &board_store::NewPost{name:"Forged identity".into(),subject:"Owned".into(),comment:"Must fail".into(),deletion_hash:String::new(),sage:false},board_store::PostingContext { request_start:chrono::Utc::now(),peer:Some(posting_fixture::peer()),op_password_proof:None },
             board_store::PostIdentityKeys { tripcode:None,poster_id:case.state.config.poster_id_key.as_deref() },
-            board_store::StaffPostAuthority{auth_pool:&case.state.auth,session_hash:&auth::hash(&case.token),csrf_hash:&auth::hash(&case.csrf),ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,identity:None}).await;
+            board_store::StaffPostAuthority{auth_pool:&case.state.auth,session_hash:&auth::hash(&case.token),csrf_hash:&auth::hash(&case.csrf),ticket_hash:&auth::hash(&auth::token()).try_into().unwrap(),idle_seconds:900,highlight:false,authorized_limits:true,raw_name_nonempty:true,identity:None}).await;
         assert!(matches!(forged,Err(board_store::StoreError::AuthorizationChanged)));
         sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY['j'] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
         let queue=private_html(&case,"/reports").await;
@@ -2257,7 +2250,7 @@ async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool)
     };
     let form = |parent, comment: &str| {
         if discussion {
-            private_form(case, parent, comment)
+            replace_form_field(&private_form(case, parent, comment), "name", "")
         } else if ordinary {
             ordinary_form(case, parent, "", "", comment)
         } else {
@@ -2381,4 +2374,195 @@ async fn private_discussion_five_second_timer_preserves_escaped_draft_and_accept
         fixture.cleanup().await;
         result.unwrap();
     }
+}
+
+fn replace_form_field(form: &str, key: &str, replacement: &str) -> String {
+    let mut output = url::form_urlencoded::Serializer::new(String::new());
+    for (name, value) in url::form_urlencoded::parse(form.as_bytes()) {
+        output.append_pair(&name, if name == key { replacement } else { &value });
+    }
+    output.finish()
+}
+
+async fn age_owned_history(case: &Fixture, board: &str, seconds: i64) {
+    sqlx::query("UPDATE post_secrets.posting_history SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-$3 WHERE board=$1 AND actor_hash=$2")
+        .bind(board).bind(fixture_actor(case, posting_fixture::peer()).as_slice()).bind(seconds)
+        .execute(&case.owner).await.unwrap();
+}
+
+async fn response_text(response: axum::response::Response) -> String {
+    String::from_utf8(
+        to_bytes(response.into_body(), 4_194_304)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn janitor_http_raw_name_meta_and_role_select_ordinary_reply_timer() {
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET posting_reply_seconds=61,posting_image_seconds=91,posting_thread_seconds=101 WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        let seed=private_request(&case,"/post",Some(ordinary_form(&case,0,"","","Owned timer OP"))).await;
+        let status=seed.status();
+        assert_eq!(status,StatusCode::SEE_OTHER,"Initial timer OP: {}",response_text(seed).await);
+        let (thread,_,_) = case.latest().await;
+        // Text-only OPs require subjects, while forced anonymity clears them.
+        // Seed the valid thread first, then exercise forced-anonymous replies.
+        sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        for (role,meta,name) in [
+            ("janitor",false,""),("janitor",false," "),("janitor",false,"#trip"),
+            ("janitor",false,"Named"),("janitor",true,""),("janitor",true," "),
+            ("moderator",false,"Named"),("moderator",true,"#trip"),
+            ("manager",true,"Named"),("admin",true,"Named"),
+        ] {
+            // Seed with moderator authority, then test the current trusted rank.
+            sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+            sqlx::query("UPDATE content.boards SET meta_board=$2 WHERE slug=$1").bind(&case.board).bind(meta).execute(&case.owner).await.unwrap();
+            elapse_staff_timer(&case,&case.board,posting_fixture::peer()).await;
+            let seed=private_request(&case,"/post",Some(ordinary_form(&case,thread,"","","Owned reply seed"))).await;
+            let status=seed.status();
+            assert_eq!(status,StatusCode::SEE_OTHER,"Reply seed for {role}/{meta}/{name:?}: {}",response_text(seed).await);
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1").bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let form = || replace_form_field(&ordinary_form(&case,thread,"","","Owned selected timer reply"),"name",name);
+            let ordinary = role == "janitor" && (meta || !name.is_empty());
+            let before = posting_snapshot(&case,&case.board,thread).await;
+            let denied = private_request(&case,"/post",Some(form())).await;
+            assert_eq!(denied.status(),StatusCode::BAD_REQUEST,"{role}/{meta}/{name:?}");
+            let text = response_text(denied).await;
+            let remaining:i64 = text.split_once("Error: You must wait  ").unwrap().1.split_whitespace().next().unwrap().parse().unwrap();
+            assert!(if ordinary { (25..=31).contains(&remaining) } else { (1..=5).contains(&remaining) },"{role}/{meta}/{name:?}: {text}");
+            assert_eq!(posting_snapshot(&case,&case.board,thread).await,before);
+            age_owned_history(&case,&case.board,5).await;
+            let response=private_request(&case,"/post",Some(form())).await;
+            assert_eq!(response.status(),if ordinary {StatusCode::BAD_REQUEST} else {StatusCode::SEE_OTHER},"{role}/{meta}/{name:?}");
+            if ordinary {
+                // ceil(61/2)=31. The full public delay is not applied.
+                age_owned_history(&case,&case.board,31).await;
+                let response=private_request(&case,"/post",Some(form())).await;
+                let status=response.status();
+                assert_eq!(status,StatusCode::SEE_OTHER,"Elapsed timer for {role}/{meta}/{name:?}: {}",response_text(response).await);
+            }
+        }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn janitor_http_op_ordinary_error_precedes_staff_five_second_error() {
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET posting_thread_seconds=101 WHERE slug=$1")
+            .bind(&case.board)
+            .execute(&case.owner)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE staff_identity.accounts SET role='janitor' WHERE id=$1")
+            .bind(case.account)
+            .execute(&case.owner)
+            .await
+            .unwrap();
+        let form = ordinary_form(&case, 0, "", "", "Owned named janitor OP");
+        assert_eq!(
+            private_request(&case, "/post", Some(form.clone()))
+                .await
+                .status(),
+            StatusCode::SEE_OTHER
+        );
+        let (thread, _, _) = case.latest().await;
+        let before = posting_snapshot(&case, &case.board, thread).await;
+        for seconds in [0, 51, 90] {
+            age_owned_history(&case, &case.board, seconds).await;
+            let response = private_request(&case, "/post", Some(form.clone())).await;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            let text = response_text(response).await;
+            assert!(
+                text.contains("Error: You must wait longer before posting a new thread."),
+                "{text}"
+            );
+            assert!(!text.contains("before posting a reply."));
+            assert_eq!(posting_snapshot(&case, &case.board, thread).await, before);
+        }
+        age_owned_history(&case, &case.board, 101).await;
+        assert_eq!(
+            private_request(&case, "/post", Some(form)).await.status(),
+            StatusCode::SEE_OTHER
+        );
+    })
+    .await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn private_janitor_timer_uses_original_name_and_preserves_denied_draft() {
+    let fixture = Fixture::new().await;
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        let (meta,reply):(bool,i32)=sqlx::query_as("SELECT meta_board,posting_reply_seconds FROM content.boards WHERE slug='j'").fetch_one(&case.owner).await.unwrap();
+        assert!(!meta,"JANITOR_BOARD must not imply META_BOARD");
+        assert!((reply+1)/2>5,"Imported /j/ policy distinguishes ordinary and staff timers");
+        assert_eq!(private_request(&case,"/j/imgboard.php",Some(private_form(&case,0,"Owned private timer OP"))).await.status(),StatusCode::SEE_OTHER);
+        let thread:i64=sqlx::query_scalar("SELECT post_id FROM staff_identity.discussion_posts WHERE account_id=$1 ORDER BY post_id DESC LIMIT 1").bind(case.account).fetch_one(&case.owner).await.unwrap();
+        for name in [""," ","#trip","Forged Admin"] {
+            sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+            elapse_staff_timer(&case,"j",posting_fixture::peer()).await;
+            assert_eq!(private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,"Owned private reply seed"))).await.status(),StatusCode::SEE_OTHER);
+            sqlx::query("UPDATE staff_identity.accounts SET role='janitor',allow_boards=ARRAY['janitor'] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+            age_owned_history(&case,"j",5).await;
+            let form=replace_form_field(&private_form(&case,thread,"Keep <script>draft</script>"),"name",name);
+            let before=posting_snapshot(&case,"j",thread).await;
+            let response=private_request(&case,"/j/imgboard.php",Some(form.clone())).await;
+            assert_eq!(response.status(),if name.is_empty() {StatusCode::SEE_OTHER} else {StatusCode::BAD_REQUEST});
+            if !name.is_empty() {
+                let text=response_text(response).await;
+                assert!(text.contains("before posting a reply."));
+                assert!(text.contains("value=\"Owned &#60;script&#62; subject\""));
+                assert!(text.contains(">Keep &#60;script&#62;draft&#60;/script&#62;</textarea>"));
+                assert!(text.contains(&format!("name=\"resto\" value=\"{thread}\"")));
+                assert_eq!(posting_snapshot(&case,"j",thread).await,before);
+                age_owned_history(&case,"j",i64::from((reply+1)/2)).await;
+                assert_eq!(private_request(&case,"/j/imgboard.php",Some(form)).await.status(),StatusCode::SEE_OTHER);
+            }
+            let saved:(String,Option<String>,Option<String>)=sqlx::query_as("SELECT name,trip,capcode FROM content.posts WHERE thread_id=$1 ORDER BY id DESC LIMIT 1").bind(thread).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(saved,("Anonymous".into(),None,None));
+        }
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn named_janitor_http_cross_board_op_keeps_full_delay() {
+    let fixture = ordinary_fixture().await;
+    let target_fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let target = target_fixture.clone();
+    let result=tokio::spawn(async move {
+        sqlx::query("UPDATE staff_identity.accounts SET role='janitor' WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
+        assert_eq!(private_request(&case,"/post",Some(ordinary_form(&case,0,"","","Owned cross-board OP"))).await.status(),StatusCode::SEE_OTHER);
+        let form=replace_form_field(&ordinary_form(&case,0,"","","Owned other-board OP"),"board",&target.board);
+        for seconds in [0,151,290] {
+            sqlx::query("UPDATE post_secrets.posting_thread_actions SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-$2 WHERE actor_hash=$1")
+                .bind(fixture_actor(&case,posting_fixture::peer()).as_slice()).bind(i64::from(seconds)).execute(&case.owner).await.unwrap();
+            let response=private_request(&case,"/post",Some(form.clone())).await;
+            assert_eq!(response.status(),StatusCode::BAD_REQUEST);
+            assert!(response_text(response).await.contains("Error: You must wait longer before posting a new thread."));
+            let rows:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&target.board).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(rows,0);
+        }
+        sqlx::query("UPDATE post_secrets.posting_thread_actions SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-301 WHERE actor_hash=$1")
+            .bind(fixture_actor(&case,posting_fixture::peer()).as_slice()).execute(&case.owner).await.unwrap();
+        assert_eq!(private_request(&case,"/post",Some(form)).await.status(),StatusCode::SEE_OTHER);
+    }).await;
+    target_fixture.cleanup().await;
+    fixture.cleanup().await;
+    result.unwrap();
 }

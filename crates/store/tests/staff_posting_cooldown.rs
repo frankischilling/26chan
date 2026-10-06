@@ -127,6 +127,7 @@ impl Fixture {
             idle_seconds: 900,
             highlight: false,
             authorized_limits: true,
+            raw_name_nonempty: true,
             identity: ordinary.then_some(StaffPostIdentity {
                 capcode: None,
                 name_allowed: true,
@@ -655,14 +656,20 @@ async fn issue_unused_proof(f: &Fixture, ordinary: bool) -> Vec<u8> {
             "dice_result": "", "fortune_text": "", "fortune_color": "",
             "peer": ip.to_string(), "deletion_hash": "synthetic-not-a-password", "op_password_proof": ""
         });
-        sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)")
+        sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)")
             .bind(&ticket).bind(&f.session).bind(&f.csrf).bind(900_i32).bind(id).bind(&f.boards[0]).bind(id)
             .bind("Anonymous").bind("Owned unused authority").bind("Owned authority cleanup fixture").bind(stamp)
-            .bind(true).bind(limit).bind(None::<Vec<u8>>).bind(None::<String>).bind("").bind(None::<String>).bind(true).bind(bound)
+            .bind(true).bind(limit).bind(None::<Vec<u8>>).bind(None::<String>).bind("").bind(None::<String>).bind(true).bind(bound).bind(true)
             .execute(&f.auth).await.unwrap();
     } else {
+        let limit: i32 =
+            sqlx::query_scalar("SELECT max_comment_chars FROM content.boards WHERE slug=$1")
+                .bind(&f.boards[0])
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
         sqlx::query(
-            "SELECT staff_identity.issue_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+            "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)",
         )
         .bind(&ticket)
         .bind(&f.session)
@@ -676,6 +683,11 @@ async fn issue_unused_proof(f: &Fixture, ordinary: bool) -> Vec<u8> {
         .bind("Owned unused authority")
         .bind("Owned authority cleanup fixture")
         .bind(stamp)
+        .bind(false)
+        .bind(limit)
+        .bind(None::<Vec<u8>>)
+        .bind(None::<String>)
+        .bind(true)
         .execute(&f.auth)
         .await
         .unwrap();

@@ -150,9 +150,9 @@ BEGIN
             'board_media_read','board_media_intake','board_monitor']) runtime(name)
          WHERE has_column_privilege(name,'content.posts','wordfilter_payload','INSERT,UPDATE')
             OR has_column_privilege(name,'content.posts','wordfilter_search','INSERT,UPDATE')
-            OR (name<>'board_auth' AND has_function_privilege(name,
+            OR (has_function_privilege(name,
                 'staff_identity.issue_wordfiltered_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,bytea,text)','EXECUTE')))
-     OR NOT has_function_privilege('board_auth',
+     OR has_function_privilege('board_auth',
          'staff_identity.issue_wordfiltered_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,bytea,text)','EXECUTE') THEN
     RAISE EXCEPTION 'Wordfilter policy or authority grants differ';
   END IF;
@@ -258,7 +258,8 @@ BEGIN
      OR has_column_privilege('board_staff_post_owner','staff_identity.sessions','expires_at','UPDATE')
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='post_secrets' AND c.table_name='staff_post_intents'
           AND c.column_name NOT IN ('token_hash','authorized_limits','comment_limit','comment','wordfilter_payload','wordfilter_search',
-              'name','capcode','source_options','prepared_trip','source_name_allowed','ordinary','ordinary_context','ordinary_policy')
+              'name','capcode','source_options','prepared_trip','source_name_allowed','ordinary','ordinary_context','ordinary_policy',
+              'raw_name_nonempty','is_janitor','meta_board')
           AND has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents',c.column_name,'UPDATE'))
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
           AND c.column_name NOT IN ('slug','max_comment_chars','max_authorized_comment_chars','forced_anon','strip_tripcode',
@@ -277,11 +278,11 @@ BEGIN
        'board_media_read','board_media_intake','board_monitor']) runtime(name)
        WHERE has_any_column_privilege(name,'post_secrets.staff_post_intents','SELECT,INSERT,UPDATE')
           OR has_table_privilege(name,'post_secrets.staff_post_intents','DELETE,TRUNCATE,TRIGGER')
-          OR (name<>'board_auth' AND has_function_privilege(name,
+          OR (has_function_privilege(name,
               'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE'))
           OR (name<>'board_staff' AND has_function_privilege(name,
               'content.consume_staff_post_authority(bytea,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE')))
-     OR NOT has_function_privilege('board_auth',
+     OR has_function_privilege('board_auth',
           'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE')
      OR NOT has_function_privilege('board_staff',
           'content.consume_staff_post_authority(bytea,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE')
@@ -296,9 +297,9 @@ BEGIN
          WHERE has_column_privilege(name,'content.posts','staff_authorized_limits','INSERT,UPDATE')
             OR has_column_privilege(name,'content.boards','max_authorized_comment_chars','UPDATE')
             OR (name<>'board_auth' AND has_function_privilege(name,
-              'staff_identity.issue_limited_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text)','EXECUTE')))
+              'staff_identity.issue_limited_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,boolean)','EXECUTE')))
      OR NOT has_function_privilege('board_auth',
-         'staff_identity.issue_limited_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text)','EXECUTE') THEN
+         'staff_identity.issue_limited_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,boolean)','EXECUTE') THEN
     RAISE EXCEPTION 'Authorized-post policy or proof grants differ';
   END IF;
   IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
@@ -308,9 +309,9 @@ BEGIN
         ('content.staff_display_name_size(text,text)')) helper(signature)
       WHERE has_function_privilege(runtime.name,helper.signature,'EXECUTE')
         OR (runtime.name<>'board_auth' AND has_function_privilege(runtime.name,
-            'staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean)','EXECUTE')))
+            'staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean,boolean)','EXECUTE')))
       OR NOT has_function_privilege('board_auth',
-        'staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean)','EXECUTE') THEN
+        'staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean,boolean)','EXECUTE') THEN
     RAISE EXCEPTION 'Source identity helpers or issuer exceed runtime authority';
   END IF;
   IF EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
@@ -323,7 +324,7 @@ BEGIN
       WHERE has_function_privilege(name,signature,'EXECUTE'))
      OR EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
           'board_media_read','board_media_intake','board_monitor']) runtime(name)
-          CROSS JOIN (VALUES('staff_identity.issue_ordinary_post_authority(bytea,bytea,bytea,integer,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean,jsonb)','board_auth'),
+          CROSS JOIN (VALUES('staff_identity.issue_ordinary_post_authority(bytea,bytea,bytea,integer,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean,jsonb,boolean)','board_auth'),
               ('staff_identity.discard_ordinary_post_authority(bytea,bytea)','board_auth'),
               ('content.staff_ordinary_context()','board_staff'),
               ('content.staff_op_context(text,bigint,text)','board_staff'),

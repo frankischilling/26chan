@@ -145,12 +145,15 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
             sqlx::query("SELECT public_capcode,allow_boards,deny_boards,flags FROM staff_identity.accounts LIMIT 0")
                 .execute(pool)
                 .await?;
-            let source:bool=sqlx::query_scalar("SELECT coalesce(has_function_privilege(current_user,to_regprocedure('staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean)'),'EXECUTE'),false)")
+            let source:bool=sqlx::query_scalar("SELECT bool_and(coalesce(has_function_privilege(current_user,to_regprocedure(signature),'EXECUTE'),false) AND coalesce((SELECT prorettype='boolean'::regtype FROM pg_proc WHERE oid=to_regprocedure(signature)),false)) FROM (VALUES
+                ('staff_identity.issue_source_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean,boolean)'),
+                ('staff_identity.issue_limited_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,boolean)'),
+                ('staff_identity.issue_ordinary_post_authority(bytea,bytea,bytea,integer,bigint,text,bigint,text,text,text,timestamptz,boolean,integer,bytea,text,text,text,boolean,jsonb,boolean)')) AS required(signature)")
                 .fetch_one(pool).await?;
             if !source {
                 return Err(AppError::Forbidden);
             }
-            sqlx::query_scalar("SELECT has_function_privilege(current_user,'staff_identity.issue_post_authority(bytea,bytea,bytea,integer,boolean,bigint,text,bigint,text,text,text,timestamptz)','EXECUTE') AND coalesce(has_function_privilege(current_user,to_regprocedure('staff_identity.lock_session(bytea,integer)'),'EXECUTE'),false) AND NOT has_column_privilege(current_user,'staff_identity.accounts','allow_boards','UPDATE') AND NOT has_column_privilege(current_user,'staff_identity.accounts','deny_boards','UPDATE') AND NOT has_column_privilege(current_user,'staff_identity.accounts','flags','UPDATE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content' AND p.proname='consume_staff_post_authority' AND has_function_privilege(current_user,p.oid,'EXECUTE'))").fetch_one(pool).await?
+            sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='staff_identity' AND ((p.proname IN ('issue_post_authority','issue_wordfiltered_post_authority')) OR (p.proname='issue_limited_post_authority' AND p.pronargs=16) OR (p.proname IN ('issue_source_post_authority','issue_ordinary_post_authority') AND p.pronargs=19)) AND has_function_privilege(current_user,p.oid,'EXECUTE')) AND coalesce(has_function_privilege(current_user,to_regprocedure('staff_identity.lock_session(bytea,integer)'),'EXECUTE'),false) AND NOT has_column_privilege(current_user,'staff_identity.accounts','allow_boards','UPDATE') AND NOT has_column_privilege(current_user,'staff_identity.accounts','deny_boards','UPDATE') AND NOT has_column_privilege(current_user,'staff_identity.accounts','flags','UPDATE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content' AND p.proname='consume_staff_post_authority' AND has_function_privilege(current_user,p.oid,'EXECUTE'))").fetch_one(pool).await?
         }
         "board_staff" => {
             sqlx::query("SELECT capcode FROM content.posts LIMIT 0")
@@ -159,7 +162,7 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
             sqlx::query("SELECT id FROM content.visible_threads LIMIT 0")
                 .execute(pool)
                 .await?;
-            let source:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='staff_identity' AND p.proname='issue_source_post_authority' AND p.pronargs=19) AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='staff_identity' AND p.proname IN ('issue_post_authority','issue_limited_post_authority','issue_source_post_authority','issue_wordfiltered_post_authority') AND has_function_privilege(current_user,p.oid,'EXECUTE'))")
+            let source:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='staff_identity' AND p.proname='issue_source_post_authority' AND p.pronargs=20 AND p.prorettype='boolean'::regtype) AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='staff_identity' AND p.proname IN ('issue_post_authority','issue_limited_post_authority','issue_source_post_authority','issue_wordfiltered_post_authority','issue_ordinary_post_authority') AND has_function_privilege(current_user,p.oid,'EXECUTE'))")
                 .fetch_one(pool).await?;
             if !source {
                 return Err(AppError::Forbidden);

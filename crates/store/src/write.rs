@@ -219,6 +219,8 @@ pub struct StaffPostAuthority<'a> {
     pub idle_seconds: i32,
     pub highlight: bool,
     pub authorized_limits: bool,
+    /// Whether the parsed POST name was nonempty, before any normalization.
+    pub raw_name_nonempty: bool,
     pub identity: Option<StaffPostIdentity<'a>>,
 }
 
@@ -837,9 +839,9 @@ async fn create_post_in_context(
         .bind(wordfilter_search.as_deref().unwrap_or_default())
         .execute(&mut *tx)
         .await?;
-    // Staff use their separate five-second check after the independent proof
-    // issuer validates their session and minimum janitor rank below. The
-    // named/meta janitor ordinary-timer exceptions remain a separate concern.
+    // Staff admission waits for the independent proof issuer below. It
+    // authoritatively selects named/meta janitor ordinary timers before the
+    // separate five-second staff check.
     if staff.is_none() {
         crate::posting_cooldown::check(
             &mut tx,
@@ -989,7 +991,7 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     if let Some(authority) = &staff {
-        if ordinary_staff {
+        let ordinary_timers: bool = if ordinary_staff {
             let proof = context
                 .op_password_proof
                 .map(|proof| {
@@ -1006,21 +1008,22 @@ async fn create_post_in_context(
                 sqlx::query_scalar("SELECT content.staff_ordinary_context()")
                     .fetch_one(&mut *tx)
                     .await?;
-            sqlx::query("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)")
+            sqlx::query_scalar("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)")
                 .bind(authority.ticket_hash.as_slice()).bind(authority.session_hash).bind(authority.csrf_hash)
                 .bind(authority.idle_seconds).bind(id).bind(slug).bind(thread_id).bind(name)
                 .bind(&subject).bind(comment.as_str()).bind(posted_at).bind(authority.authorized_limits)
                 .bind(post_limits.comment_chars() as i32).bind(wordfilter_payload.as_deref())
                 .bind(wordfilter_search.as_deref()).bind(&prepared_options).bind(identity.trip.as_deref())
                 .bind(authority.identity.expect("ordinary identity").name_allowed).bind(bound_context)
-                .execute(authority.auth_pool).await.map_err(staff_post_error)?;
+                .bind(authority.raw_name_nonempty)
+                .fetch_one(authority.auth_pool).await.map_err(staff_post_error)?
         } else {
             let issuer = if authority.identity.is_some() {
-                "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)"
+                "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)"
             } else {
-                "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)"
+                "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)"
             };
-            let mut proof = sqlx::query(issuer)
+            let mut proof = sqlx::query_scalar(issuer)
                 .bind(authority.ticket_hash.as_slice())
                 .bind(authority.session_hash)
                 .bind(authority.csrf_hash)
@@ -1049,21 +1052,34 @@ async fn create_post_in_context(
                     .bind(source.name_allowed);
             }
             proof
-                .execute(authority.auth_pool)
+                .bind(authority.raw_name_nonempty)
+                .fetch_one(authority.auth_pool)
                 .await
-                .map_err(staff_post_error)?;
-        }
+                .map_err(staff_post_error)?
+        };
         let ticket = authority
             .ticket_hash
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true)")
+        sqlx::query("SELECT set_config('board.staff_post_ticket',$1,true),set_config('board.staff_raw_name_nonempty',$2,true)")
             .bind(ticket)
+            .bind(authority.raw_name_nonempty.to_string())
             .execute(&mut *tx)
             .await?;
         // Actor/board locks and READ COMMITTED are already held. A validated
         // authority, not capcode or client fields, selects this admission path.
+        if ordinary_timers {
+            crate::posting_cooldown::check_janitor(
+                &mut tx,
+                &posting_actor,
+                slug,
+                parent,
+                attachment.is_some(),
+                posted_at.timestamp(),
+            )
+            .await?;
+        }
         crate::posting_cooldown::check_staff(&mut tx, &posting_actor, slug, posted_at.timestamp())
             .await?;
         if parent == 0 {

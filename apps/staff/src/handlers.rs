@@ -129,6 +129,7 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     let posting_history: bool = sqlx::query_scalar(
         "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
          AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_staff_posting_cooldown(bytea,text,bigint)'), 'EXECUTE'), false)
+         AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_janitor_posting_cooldown(bytea,text,bigint,boolean,bigint)'), 'EXECUTE'), false)
          AND to_regprocedure('content.record_posting_history(bytea,bigint)') IS NULL
          AND EXISTS (
              SELECT 1 FROM pg_catalog.pg_trigger t
@@ -693,6 +694,7 @@ pub async fn post_message(
         idle_seconds: state.config.idle_timeout.as_secs() as i32,
         highlight: false,
         authorized_limits: level >= crate::access::Level::Moderator,
+        raw_name_nonempty: !input.name.is_empty(),
         identity: Some(board_store::StaffPostIdentity {
             capcode: badge,
             name_allowed: if selected == "none" {

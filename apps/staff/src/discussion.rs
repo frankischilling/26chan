@@ -429,6 +429,7 @@ pub(crate) async fn submit(
             idle_seconds: state.config.idle_timeout.as_secs() as i32,
             highlight: false,
             authorized_limits,
+            raw_name_nonempty: !input.name.is_empty(),
             identity: None,
         },
     )
