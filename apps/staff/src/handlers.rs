@@ -108,6 +108,29 @@ pub async fn post_limits_javascript() -> impl IntoResponse {
         include_str!("../static/post-limits.js"),
     )
 }
+// Validate the restricted evidence APIs without invoking them or reading history.
+const OP_BUMP_CONTEXT_READY_SQL: &str = "SELECT NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content.posting_op_bump_context(bytea,text,bigint)', 'board_posting_cooldown_owner', false),
+        ('content.staff_op_bump_context(text,bigint,text)', 'board_staff_post_owner', true)
+    ) AS required(signature, owner_name, staff_only)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+        WHERE p.oid=to_regprocedure(required.signature)
+          AND has_function_privilege(current_user,p.oid,'EXECUTE')
+          AND (NOT required.staff_only OR NOT has_function_privilege('board_public',p.oid,'EXECUTE'))
+          AND p.prosecdef AND p.provolatile='s'
+          AND r.rolname=required.owner_name
+          AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+          AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+              WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+          AND pg_catalog.pg_get_function_result(p.oid)='TABLE(own_reply boolean, latest_post_id bigint, latest_created_at timestamp with time zone)'
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+    )
+)";
+
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if state.config.poster_id_key.is_none() {
         return Err(AppError::Internal);
@@ -150,6 +173,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     .fetch_one(&state.staff)
     .await?;
     if !posting_history {
+        return Err(AppError::Internal);
+    }
+    let op_bump_context: bool = sqlx::query_scalar(OP_BUMP_CONTEXT_READY_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !op_bump_context {
         return Err(AppError::Internal);
     }
     Ok("ready")
@@ -861,4 +890,34 @@ pub async fn logout(
     set_cookie(&mut response, &state, state.config.cookie_name(), "", 0)?;
     set_cookie(&mut response, &state, &csrf_cookie(&state), "", 0)?;
     Ok(response)
+}
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::OP_BUMP_CONTEXT_READY_SQL;
+
+    #[test]
+    fn op_bump_readiness_requires_both_exact_restricted_apis() {
+        for contract in [
+            "('content.posting_op_bump_context(bytea,text,bigint)', 'board_posting_cooldown_owner', false)",
+            "('content.staff_op_bump_context(text,bigint,text)', 'board_staff_post_owner', true)",
+            "p.oid=to_regprocedure(required.signature)",
+            "has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "NOT required.staff_only OR NOT has_function_privilege('board_public',p.oid,'EXECUTE')",
+            "p.prosecdef AND p.provolatile='s'",
+            "r.rolname=required.owner_name",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "TABLE(own_reply boolean, latest_post_id bigint, latest_created_at timestamp with time zone)",
+            "coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))",
+            "a.grantee=0 AND a.privilege_type='EXECUTE'",
+        ] {
+            assert!(OP_BUMP_CONTEXT_READY_SQL.contains(contract), "{contract}");
+        }
+        // Missing or drifted rows fail closed instead of being omitted by a join.
+        assert!(OP_BUMP_CONTEXT_READY_SQL.starts_with("SELECT NOT EXISTS ("));
+        assert!(OP_BUMP_CONTEXT_READY_SQL.contains("WHERE NOT EXISTS ("));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("post_secrets"));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("FROM content."));
+    }
 }

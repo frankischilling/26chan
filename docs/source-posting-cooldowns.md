@@ -2,7 +2,8 @@
 
 Migration 0087 adds server-side ordinary posting timers from the supplied
 source. Migration 0088 adds the five-second authenticated staff gate; migration
-0089 adds proof-bound named/meta janitor timers. This is one part of
+0089 adds proof-bound named/meta janitor timers. Migration 0090 reuses the
+private history for [OP self-bump evidence](source-op-bumps.md#bump-only-posting-history). This is one part of
 [issue #213](https://github.com/frankischilling/26chan/issues/213),
 not complete posting-admission or source parity. The source references below
 were read as text; the original PHP was not executed.
@@ -184,9 +185,9 @@ as a routine way to restore capacity, since that changes admission behavior.
 For an existing installation, a bootstrap administrator must apply
 `deploy/posting-cooldown-role.sql` before migration 0087. Fresh
 `deploy/roles.sql` already creates the owner. Stop public and staff writers,
-apply migrations through 0089 with the migration identity, and deploy matching
-binaries. Migrations 0088 and 0089 reuse the existing posting and staff proof owners and
-require no additional bootstrap role. Existing 15-second in-flight proofs must
+apply migrations through 0090 with the migration identity, and deploy matching
+binaries. Migrations 0088 through 0090 reuse existing owners and require no
+additional bootstrap role. Existing 15-second in-flight proofs must
 be retried through the new issuer; migration 0089 leaves their new context
 fields null and fails closed rather than guessing raw-name or role facts.
 The new insert trigger requires actor context from those binaries; an older
@@ -251,8 +252,8 @@ intervals do not alter database policy or qualify authoritative cooldown
 behavior. See [Quick Reply verification](native-quick-reply.md#verification-and-remaining-work).
 
 Duplicate-comment and duplicate-image flood rules, trusted Pass discounts,
-new-thread client timing, staff
-OP bump timing, and complete source-formatting equivalence remain unfinished. The ordinary native Quick
+new-thread client timing, missing historical or key-disconnected OP bump
+evidence, and complete source-formatting equivalence remain unfinished. The ordinary native Quick
 Reply countdown/one-shot implementation still needs its new browser scenarios
 executed. This slice does not close #213 or establish complete
 posting-admission parity.

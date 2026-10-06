@@ -10,6 +10,7 @@ pub mod media;
 pub mod media_assets;
 pub mod media_intake;
 pub mod monitoring;
+mod op_bump;
 pub mod post_media;
 mod posting_cooldown;
 pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};

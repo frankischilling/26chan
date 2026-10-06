@@ -1072,15 +1072,19 @@ async fn create_post_in_context(
         let mut self_sage = false;
         // Public posts and issuer-authenticated named/meta janitors use the
         // source OP self-bump timers; OP membership is independent of this gate.
-        if ordinary_timers && own_reply && board.op_bump_limit {
-            let latest: Option<DateTime<Utc>> = if ordinary_staff {
-                staff_op.as_ref().and_then(|(_, time)| *time)
-            } else {
-                sqlx::query_scalar("SELECT p.created_at FROM post_secrets.op_replies r JOIN content.posts p ON p.id=r.post_id WHERE r.thread_id=$1 AND p.board=$2 AND p.thread_id=$1 AND NOT p.deleted ORDER BY p.id DESC LIMIT 1")
-                    .bind(parent).bind(slug).fetch_optional(&mut *tx).await?
-            };
+        if ordinary_timers && board.op_bump_limit {
+            let (bump_own_reply, latest) = crate::op_bump::context(
+                &mut tx,
+                &posting_actor,
+                slug,
+                parent,
+                staff.is_some(),
+                context.peer,
+                own_reply,
+            )
+            .await?;
             self_sage = board_domain::op_bump::limited(
-                true,
+                bump_own_reply,
                 context.request_start.timestamp(),
                 op_created.timestamp(),
                 latest.map(|time| time.timestamp()),

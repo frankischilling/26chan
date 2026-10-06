@@ -100,6 +100,22 @@ pub async fn css() -> impl IntoResponse {
         ),
     )
 }
+// Read only catalog metadata: readiness must never probe private posting evidence.
+const OP_BUMP_CONTEXT_READY_SQL: &str = "SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+    WHERE p.oid=to_regprocedure('content.posting_op_bump_context(bytea,text,bigint)')
+      AND has_function_privilege(current_user,p.oid,'EXECUTE')
+      AND p.prosecdef AND p.provolatile='s'
+      AND r.rolname='board_posting_cooldown_owner'
+      AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+      AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+          WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+      AND pg_catalog.pg_get_function_result(p.oid)='TABLE(own_reply boolean, latest_post_id bigint, latest_created_at timestamp with time zone)'
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+          WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+)";
+
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
     if state.poster_id_key.is_none() {
         return Err(AppError(
@@ -161,6 +177,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
     .await
     .map_err(StoreError::from)?;
     if !posting_cooldowns {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public posting is unavailable.",
+        ));
+    }
+    let op_bump_context: bool = sqlx::query_scalar(OP_BUMP_CONTEXT_READY_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !op_bump_context {
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Public posting is unavailable.",
@@ -896,6 +922,32 @@ pub async fn report(
     .into_response();
     session.append(response.headers_mut(), state.production);
     Ok(response)
+}
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::OP_BUMP_CONTEXT_READY_SQL;
+
+    #[test]
+    fn op_bump_readiness_requires_the_exact_restricted_api() {
+        for contract in [
+            "to_regprocedure('content.posting_op_bump_context(bytea,text,bigint)')",
+            "has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "p.prosecdef AND p.provolatile='s'",
+            "r.rolname='board_posting_cooldown_owner'",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "TABLE(own_reply boolean, latest_post_id bigint, latest_created_at timestamp with time zone)",
+            "coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))",
+            "a.grantee=0 AND a.privilege_type='EXECUTE'",
+        ] {
+            assert!(OP_BUMP_CONTEXT_READY_SQL.contains(contract), "{contract}");
+        }
+        assert!(OP_BUMP_CONTEXT_READY_SQL.starts_with("SELECT EXISTS ("));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("post_secrets"));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("FROM content."));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("content.staff_op_bump_context"));
+    }
 }
 
 #[cfg(test)]

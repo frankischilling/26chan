@@ -58,21 +58,31 @@ accounts use the staff gate regardless of the displayed badge or name. This
 is an authenticated-role decision, including ordinary unbadged and private
 `/j/` posting; public posting cannot request the janitor discount.
 
-## Unbadged OP self-bumps
+## OP self-bumps
 
 The writer also uses the migration 0089 issuer's authenticated `ordinary_timers`
 result to gate [OP self-bump suppression](source-op-bumps.md). Public posts and
-unbadged janitor posts with a nonempty raw name or on a meta board use the full
-initial and repeat OP intervals. These intervals are not halved. Unbadged
-moderator-or-higher posts and empty-name janitor posts on non-meta boards skip
+janitor posts with a nonempty raw name or on a meta board use the full initial
+and repeat OP intervals, including private posting. These intervals are not
+halved.
+Moderator-or-higher posts and empty-name janitor posts on non-meta boards skip
 self-bump suppression; their separate five-second staff gate still applies.
 
-Exempt matching-address replies still record OP membership. Later eligible
-replies can therefore use an exempt reply as their latest surviving own reply.
-Explicit sage, permaage, sticky/permasage precedence, the request-start clock
-and post-number ordering are unchanged. This change keeps the existing
-public/private membership boundaries; it does not establish full private
-`/j/` or historical badged-host bump parity.
+Migration 0090 reads the private posting HMAC history for bump-only ownership
+and latest-reply evidence, extending same-host continuity to recorded private
+and badged posts. Exempt replies remain usable by later eligible replies.
+Legacy OP ownership is an independent fallback, including when no reply exists;
+reply candidates from both sources are merged by highest post ID using the
+selected content row's timestamp. Current-key reply evidence can therefore
+combine with legacy ownership after key rotation.
+
+Public OP markup, poster counts and their narrower membership rules stay
+unchanged. So do explicit sage, permaage, sticky/permasage precedence, the
+request-start clock and the authenticated `ordinary_timers` eligibility gate.
+The [OP self-bump documentation](source-op-bumps.md#bump-only-posting-history)
+describes the access boundary and missing-history limits. There is no backfill:
+unknown historical private/badged identity and key-disconnected ownership
+without a legacy fallback still prevent full host parity.
 
 ## Proof authority
 
@@ -103,10 +113,11 @@ an honest HTTP request against a compromised application database role.
 
 ## Upgrade and qualification
 
-Stop public and staff writers, apply migrations through 0089, and deploy
-matching binaries before restoring posting. Migration 0089 needs no new
-bootstrap role. It does not rewrite historical content, recover old posting
-identity or invent context for existing proofs. The three added fields remain
+Stop public and staff writers, apply migrations through 0090, and deploy
+matching binaries before restoring posting. Migrations 0089 and 0090 need no
+new bootstrap role. Migration 0090 leaves existing content and history intact.
+Migration 0089 does not recover old posting identity or invent context for
+existing proofs. Its three added fields remain
 null on pre-upgrade proofs. Those proofs fail closed even if their original
 15-second lifetime has not elapsed. Drain in-flight work and retry affected
 requests through the new issuer; never backfill context from display names.
@@ -121,8 +132,10 @@ unchanged OP/cross-board edges. The separate integration tests cover posting
 transactions and changes to live authority. The presence of these tests is
 not a test-pass or production qualification claim.
 
-Tests for the unbadged OP self-bump gate are in progress; no new pass or
-CI-completion claim is made here. Trusted Pass discounts, duplicate-comment
-and duplicate-image flood checks, full private `/j/` and historical badged-host
-bump parity, and complete posting-admission parity remain unfinished.
+`crates/store/tests/staff_op_bumps.rs` covers the authenticated OP self-bump
+gate; `crates/store/src/op_bump.rs` has unit coverage for merging HMAC and legacy
+evidence. These sources make no new pass or CI-completion claim. Trusted Pass
+discounts and duplicate-comment/image flood checks remain unfinished. Missing
+historical private/badged identity and key-disconnected bump history still
+limit parity; complete posting-admission parity remains unfinished.
 This slice does not close [issue #213](https://github.com/frankischilling/26chan/issues/213).
