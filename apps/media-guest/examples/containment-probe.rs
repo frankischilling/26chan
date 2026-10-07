@@ -1,5 +1,15 @@
 #![forbid(unsafe_code)]
 
+fn probe_text(bytes: &[u8]) -> Result<&str, std::str::Utf8Error> {
+    // Only the disposable qualification guest recognizes this exact envelope.
+    // It reaches live-VM cancellation through the coordinator's format gate.
+    if bytes == b"GIF89a26chan-test-probe:sleep" {
+        Ok("sleep")
+    } else {
+        std::str::from_utf8(bytes)
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn probe() -> std::io::Result<()> {
     use std::{
@@ -23,7 +33,7 @@ fn probe() -> std::io::Result<()> {
     }
     let mut bytes = vec![0; length as usize];
     input.read_exact(&mut bytes)?;
-    let text = std::str::from_utf8(&bytes).map_err(std::io::Error::other)?;
+    let text = probe_text(&bytes).map_err(std::io::Error::other)?;
     let mut lines = text.lines();
     let mut checks = Vec::new();
     match lines.next() {
@@ -188,4 +198,19 @@ fn main() {
         return;
     }
     std::process::exit(1);
+}
+
+#[test]
+fn cancellation_envelope_is_exact_and_keeps_plain_probe_commands() {
+    assert_eq!(
+        probe_text(b"GIF89a26chan-test-probe:sleep").unwrap(),
+        "sleep"
+    );
+    assert_eq!(probe_text(b"sleep").unwrap(), "sleep");
+    assert_eq!(probe_text(b"inspect").unwrap(), "inspect");
+    assert_eq!(
+        probe_text(b"GIF89a26chan-test-probe:sleep-extra").unwrap(),
+        "GIF89a26chan-test-probe:sleep-extra"
+    );
+    assert!(probe_text(&[0xff]).is_err());
 }

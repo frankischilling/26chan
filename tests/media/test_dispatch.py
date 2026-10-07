@@ -273,6 +273,21 @@ class Exercise:
         print('PASS revoked authorization creates no staging, VM or approval', flush=True)
 
         job = self.intake(b'not an image')
+        before = (self.broker_dir / 'requests').stat().st_mtime_ns
+        jobs_before = pathlib.Path('/run/26chan-media-jobs').stat().st_mtime_ns
+        self.finish(self.dispatch(), False)
+        self.no_approval(job)
+        self.clean_vm()
+        assert sql(f"SELECT failure FROM media.jobs WHERE id='{job}'") == 'processing'
+        assert (self.broker_dir / 'requests').stat().st_mtime_ns == before
+        assert pathlib.Path('/run/26chan-media-jobs').stat().st_mtime_ns == jobs_before
+        print('PASS unknown input framing reaches no staging, VM or approval', flush=True)
+
+        # Retain valid PNG framing so this exercises the actual decoder rather
+        # than the coordinator's earlier source-provenance framing check.
+        bad_crc = bytearray(red_png())
+        bad_crc[29] ^= 1  # IHDR CRC; lengths, chunk types and payload stay intact.
+        job = self.intake(bytes(bad_crc))
         self.finish(self.dispatch(), False)
         self.no_approval(job)
         self.clean_vm()
@@ -302,7 +317,10 @@ class Exercise:
 
         self.stop(self.broker)
         self.broker = self.start_broker(self.probe)
-        job = self.intake(b'sleep')
+        # The test-only probe recognizes this exact command envelope. The GIF
+        # signature keeps source provenance explicitly unavailable; it does
+        # not claim a valid image or alter the production decoder.
+        job = self.intake(b'GIF89a26chan-test-probe:sleep')
         process = self.dispatch()
         live = []
         def live_vmm():
