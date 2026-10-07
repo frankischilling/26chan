@@ -22,7 +22,9 @@ const enabledByDefault = new Set('threadHiding threadUpdater threadExpansion thr
 const sources = new Map(await Promise.all(['native-settings.v1.js', 'native-custom-css.v1.js'].map(async name =>
   [`/static/${name}`, await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8')])));
 
-async function fixture(page, { settings = {}, mobile = false, override = {} } = {}) {
+async function fixture(page, { settings, mobile = false, override = {},
+  raw = settings === undefined ? null : JSON.stringify(settings), unavailable = false, integratedDefaults = false } = {}) {
+  settings ??= {};
   await page.setViewportSize({ width: mobile ? 390 : 1000, height: 800 });
   const context = page.context();
   await context.route('**/*', route => {
@@ -33,8 +35,9 @@ async function fixture(page, { settings = {}, mobile = false, override = {} } = 
     return route.abort();
   });
   await page.goto('https://settings.example/demo/');
-  await page.evaluate(async ({ settings, override }) => {
-    localStorage.setItem('4chan-settings', JSON.stringify(settings));
+  await page.evaluate(async ({ settings, override, raw, unavailable, integratedDefaults }) => {
+    if (raw === null) localStorage.removeItem('4chan-settings');
+    else localStorage.setItem('4chan-settings', raw);
     window.storageWrites = [];
     for (const method of ['setItem', 'removeItem', 'clear']) {
       const original = Storage.prototype[method];
@@ -50,12 +53,15 @@ async function fixture(page, { settings = {}, mobile = false, override = {} } = 
     window.savedEvents = 0;
     document.addEventListener('4chanSettingsSaved', () => savedEvents++);
     const callback = name => source => callbacks.push([name, source?.id]);
-    const { installSettings } = await import('/static/native-settings.v1.js');
+    const { installSettings, captureSettingsPresentation, settingsOptionChecked } = await import('/static/native-settings.v1.js');
+    const presentation = captureSettingsPresentation(unavailable ? { status: 'unavailable' }
+      : { status: 'ok', raw: localStorage.getItem('4chan-settings') }, matchMedia('(max-width: 480px)').matches);
     window.settingsAPI = installSettings({
       catalog: false,
       read: () => ({ ...settingsState }),
-      hasMobileLayout: () => matchMedia('(max-width: 480px)').matches,
-      optionChecked: key => override[key],
+      presentation,
+      optionChecked: (key, initial, startup) => override[key]
+        ?? (integratedDefaults ? settingsOptionChecked(key, initial, startup) : undefined),
       toggleWatcher: callback('watcher'), openFilters: callback('filters'),
       clearThreads: callback('clear'), openKeybinds: callback('keys'),
       openCustomMenu: callback('menu'), openCustomCSS: callback('css'), openExport: callback('export'),
@@ -71,7 +77,7 @@ async function fixture(page, { settings = {}, mobile = false, override = {} } = 
         return { persisted: false };
       },
     });
-  }, { settings, override });
+  }, { settings, override, raw, unavailable, integratedDefaults });
   await page.locator('#settingsWindowLink').click();
   return page;
 }
@@ -111,7 +117,7 @@ for (const mobile of [false, true]) {
   });
 }
 
-test('independent disclosure and idempotent Expand All do not persist; reopening rebuilds initial state', async ({ page }) => {
+test('independent disclosure and Expand All do not persist; reopening retains startup disclosure', async ({ page }) => {
   await fixture(page, { settings: { darkTheme: true } });
   assert.ok((await categoryState(page)).every(group => group.hidden && group.expanded === 'false'));
   assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Quotes & Replying');
@@ -131,9 +137,9 @@ test('independent disclosure and idempotent Expand All do not persist; reopening
   await page.locator('#settingsWindowLink').click();
   assert.ok((await categoryState(page)).every(group => group.hidden));
   await page.keyboard.press('Escape');
-  await page.evaluate(() => { settingsState = {}; });
+  await page.evaluate(() => { settingsState = {}; localStorage.removeItem('4chan-settings'); storageWrites.length = 0; });
   await page.locator('#settingsWindowLink').click();
-  assert.ok((await categoryState(page)).every(group => !group.hidden));
+  assert.ok((await categoryState(page)).every(group => group.hidden));
   assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls })), { writes: [], saves: [] });
 });
 
@@ -151,10 +157,10 @@ test('cancel discards edits across all groups and resizing does not replace the 
   assert.equal(await page.locator('#settingsMenu').count(), 0);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'settingsWindowLink');
   await page.locator('#settingsWindowLink').click();
-  assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(true));
-  assert.equal(await page.locator('#setting-inlineQuotes').count(), 0);
-  assert.equal(await page.locator('#setting-darkTheme').isChecked(), false);
-  for (const group of expectedGroups(true)) assert.equal(await page.locator(`#setting-${group.keys[0]}`).isChecked(), enabledByDefault.has(group.keys[0]));
+  assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(false));
+  assert.equal(await page.locator('#setting-inlineQuotes').isChecked(), false);
+  assert.equal(await page.locator('#setting-darkTheme').count(), 0);
+  for (const group of expectedGroups(false)) assert.equal(await page.locator(`#setting-${group.keys[0]}`).isChecked(), enabledByDefault.has(group.keys[0]));
   assert.ok((await categoryState(page)).every(group => !group.hidden));
   assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls, settings: settingsState })),
     { writes: [], saves: [], settings: {} });
@@ -232,14 +238,61 @@ for (const mobile of [false, true]) {
     await page.locator('#settings-expand-all').click();
     assert.equal(await page.locator('#setting-linkify').isChecked(), true);
     await page.setViewportSize({ width: mobile ? 1000 : 390, height: 800 });
-    // Availability is sampled at open; resizing must leave this draft intact.
+    // Availability is captured at startup; resizing must leave this draft intact.
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
     await page.keyboard.press('Escape');
     await page.locator('#settingsWindowLink').click();
+    assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
+    for (const key of hiddenKeys) assert.equal(await page.locator(`#setting-${key}`).count(), 0, key);
+    // A new document captures the new layout, with saved hidden values intact.
+    await fixture(page, { mobile: !mobile, settings: { ...hidden, ...concurrent, linkify: true } });
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(!mobile));
     await page.locator('#settings-expand-all').click();
     for (const key of hiddenKeys) {
       assert.equal(await page.locator(`#setting-${key}`).isChecked(), { ...hidden, ...concurrent }[key], key);
     }
+  });
+}
+
+for (const [name, raw, firstRun, unavailable] of [
+  ['absent', null, true, false], ['empty string', '', true, false],
+  ['stored empty object', '{}', false, false], ['malformed', '{', false, false],
+  ['unavailable', null, false, true],
+]) {
+  test(`${name} raw storage captures first-run disclosure without writes`, async ({ page }) => {
+    await fixture(page, { raw, unavailable });
+    assert.ok((await categoryState(page)).every(group => group.hidden === !firstRun));
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { settingsState = { quotePreview: false }; });
+    await page.locator('#settingsWindowLink').click();
+    assert.ok((await categoryState(page)).every(group => group.hidden === !firstRun));
+    await page.locator('#settings-expand-all').click();
+    assert.equal(await page.locator('#setting-quotePreview').isChecked(), false);
+    assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls })), { writes: [], saves: [] });
+  });
+}
+
+for (const mobile of [false, true]) {
+  test(`${mobile ? 'mobile' : 'desktop'} checkbox overrides retain startup layout with fresh values`, async ({ page }) => {
+    await fixture(page, { mobile, integratedDefaults: true });
+    assert.equal(await page.locator('#setting-linkify').isChecked(), mobile);
+    if (!mobile) assert.equal(await page.locator('#setting-embedYouTube').isChecked(), true);
+    await page.locator('#setting-linkify').setChecked(!mobile);
+    await page.setViewportSize({ width: mobile ? 1000 : 390, height: 800 });
+    assert.equal(await page.locator('#setting-linkify').isChecked(), !mobile);
+    await page.keyboard.press('Escape');
+    await page.locator('#settingsWindowLink').click();
+    assert.equal(await page.locator('#setting-linkify').isChecked(), mobile);
+    if (!mobile) assert.equal(await page.locator('#setting-embedYouTube').isChecked(), true);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { settingsState = { disableAll: true, linkify: false, embedYouTube: false }; });
+    await page.locator('#settingsWindowLink').click();
+    assert.equal(await page.locator('#setting-linkify').isChecked(), false);
+    if (!mobile) assert.equal(await page.locator('#setting-embedYouTube').isChecked(), false);
+    assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls })), { writes: [], saves: [] });
+    await fixture(page, { mobile: !mobile, settings: {}, integratedDefaults: true });
+    assert.ok((await categoryState(page)).every(group => group.hidden));
+    await page.locator('#settings-expand-all').click();
+    assert.equal(await page.locator('#setting-linkify').isChecked(), !mobile);
   });
 }

@@ -82,18 +82,37 @@ test('native layout settings preserve source precedence across desktop, mobile a
 
   await page.setViewportSize({ width: 390, height: 800 });
   await expect.poll(() => layout(page)).toBe('centered');
+  // Runtime layout responds immediately, but this page retains its desktop Settings matrix.
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toHaveCount(0);
+  await expect(reopened.getByLabel('Force long posts to wrap')).toBeChecked();
+  await expect(reopened.getByLabel('Center threads')).toBeChecked();
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
+  await expect.poll(() => page.locator('.sideArrows').first().evaluate(node => getComputedStyle(node).display)).toBe('none');
+
+  await page.reload();
   reopened = await openSettings(page);
   await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
   await expect(reopened.getByLabel('Force long posts to wrap')).toHaveCount(0);
   await expect(reopened.getByLabel('Center threads')).toHaveCount(0);
   await reopened.getByRole('button', { name: 'Close settings' }).click();
-  await expect.poll(() => page.locator('.sideArrows').first().evaluate(node => getComputedStyle(node).display)).toBe('none');
 
   await page.evaluate(() => {
     localStorage.setItem('4chan_never_show_mobile', 'true');
     window.dispatchEvent(new StorageEvent('storage', { key: '4chan_never_show_mobile' }));
   });
   await expect.poll(() => layout(page)).toBe('compact');
+  // A same-page never-mobile change also leaves the captured mobile Settings intact.
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
+  await expect(reopened.getByLabel('Force long posts to wrap')).toHaveCount(0);
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
+  await page.reload();
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toHaveCount(0);
+  await expect(reopened.getByLabel('Force long posts to wrap')).toBeChecked();
+  await expect(reopened.getByLabel('Center threads')).toBeChecked();
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
 
   const other = await context.newPage();
   await other.goto(owned.url);

@@ -116,7 +116,8 @@ test('mobile default, never-mobile exact value, disableAll and viewport changes 
   await expect(message.locator(generated)).toHaveCount(1);
   let dialog = await openWatcherSettings(page);
   await openNativeSettingsCategory(dialog, 'Miscellaneous');
-  await expect(dialog.getByLabel('Linkify URLs', { exact: true })).toBeChecked();
+  // Link rendering remains responsive; Settings uses the page's startup desktop layout.
+  await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
 
   await page.evaluate(() => {

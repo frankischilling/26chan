@@ -154,3 +154,67 @@ test('native categories keep independent drafts, cancel restores focus, and cros
   await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
   await expect(watcherSettingsOpener(page)).toBeFocused();
 });
+
+for (const { name, raw, firstRun } of [
+  { name: 'absent', raw: null, firstRun: true },
+  { name: 'empty string', raw: '', firstRun: true },
+  { name: 'stored empty object', raw: '{}', firstRun: false },
+]) {
+  test(`native Settings captures ${name} startup disclosure while reopening reads fresh preferences`, async ({ page, context }) => {
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.addInitScript(raw => {
+      if (sessionStorage.getItem('settings-startup-seeded')) return;
+      sessionStorage.setItem('settings-startup-seeded', 'true');
+      if (raw === null) localStorage.removeItem('4chan-settings');
+      else localStorage.setItem('4chan-settings', raw);
+    }, raw);
+    await page.goto('/fixture/');
+    await watcherSettingsOpener(page).click();
+    let dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+    const expanded = () => dialog.locator('.settings-expand[aria-expanded="true"]');
+    await expect(expanded()).toHaveCount(firstRun ? 6 : 0);
+    // Opening Settings must not materialize defaults or normalize the raw value.
+    expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(raw);
+    await (await openSettingControl(dialog, 'linkify')).uncheck();
+
+    const other = await context.newPage();
+    try {
+      await other.goto('/fixture/');
+      await page.evaluate(() => {
+        window.settingsStorageChange = new Promise(resolve => window.addEventListener('storage', resolve, { once: true }));
+      });
+      await other.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: true })));
+      await page.evaluate(() => window.settingsStorageChange);
+      // A live draft stays intact; close/reopen picks up current preference values.
+      await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
+      await dialog.getByRole('button', { name: 'Miscellaneous', exact: true }).click();
+      await expect(dialog.getByRole('button', { name: 'Miscellaneous', exact: true })).toHaveAttribute('aria-expanded', 'false');
+      await page.keyboard.press('Escape');
+      await watcherSettingsOpener(page).click();
+      dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+      await expect(expanded()).toHaveCount(firstRun ? 6 : 0);
+      await expect(await openSettingControl(dialog, 'linkify')).toBeChecked();
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe('{"linkify":true}');
+      await page.keyboard.press('Escape');
+
+      await page.evaluate(() => {
+        window.settingsStorageChange = new Promise(resolve => window.addEventListener('storage', resolve, { once: true }));
+      });
+      await other.evaluate(() => localStorage.removeItem('4chan-settings'));
+      await page.evaluate(() => window.settingsStorageChange);
+      await watcherSettingsOpener(page).click();
+      dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+      await expect(expanded()).toHaveCount(firstRun ? 6 : 0);
+      await expect(await openSettingControl(dialog, 'linkify')).not.toBeChecked();
+      await page.keyboard.press('Escape');
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+
+      // A new document recaptures absence even if this page began with '{}'.
+      await page.reload();
+      await watcherSettingsOpener(page).click();
+      dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+      await expect(expanded()).toHaveCount(6);
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+    } finally { await other.close(); }
+  });
+}

@@ -2,7 +2,7 @@ import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitW
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
-import { installSettings, catalogDropDownEnabled } from './native-settings.v1.js';
+import { installSettings, catalogDropDownEnabled, captureSettingsPresentation, settingsOptionChecked } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
@@ -55,6 +55,7 @@ function start(context) {
     } : null,
     warn: text => { notice.textContent = text; },
   });
+  let settingsStartupRead;
   let settingsCache = {};
   let settingsRawCache = null;
   let volatileSettings = false;
@@ -63,14 +64,18 @@ function start(context) {
   let volatileCSS = false;
   let cssCache = null;
   let timestampCache = null;
+  const mobile = matchMedia('(max-width: 480px)');
+  const settingsStartupLayout = sourceMobileLayout(mobile.matches, readNeverMobile());
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
   let blacklistCache = new Set();
   let invalidBlacklist = false;
   let activePostMenu = null;
-  const mobile = matchMedia('(max-width: 480px)');
   let collapsed = mobile.matches;
+  const settingsPresentation = captureSettingsPresentation(settingsStartupRead, settingsStartupLayout);
+  // Do not retain raw storage as presentation state or reuse it for initialization.
+  settingsStartupRead = { status: 'captured' };
 
   function readNeverMobile() {
     try { return localStorage.getItem('4chan_never_show_mobile'); }
@@ -92,7 +97,11 @@ function start(context) {
     if (volatileSettings) return { ...settingsCache };
     let raw;
     try { raw = localStorage.getItem(settingsKey); }
-    catch { persistent = false; volatileSettings = true; return { ...settingsCache }; }
+    catch {
+      settingsStartupRead ??= { status: 'unavailable' };
+      persistent = false; volatileSettings = true; return { ...settingsCache };
+    }
+    settingsStartupRead ??= { status: 'ok', raw };
     settingsRawCache = raw;
     settingsCache = {};
     if (raw && raw.length <= 4096) {
@@ -345,18 +354,14 @@ function start(context) {
     openCatalogSettings: catalog ? opener => { void catalogTheme.then(controller => {
       if (controller) controller.open(opener); else notice.textContent = 'Catalog settings could not be opened.';
     }); } : undefined,
-    hasMobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
+    presentation: settingsPresentation,
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
     openCustomMenu: opener => nativeDisplay?.openEditor(opener),
     openCustomCSS: document.querySelector('.board') ? opener => nativeCustomCSS?.open(opener) : undefined,
     openExport: opener => settingsTransfer?.openExport(opener),
-    optionChecked: (key, initial) => key === 'linkify'
-      ? (initial.disableAll === true ? initial.linkify === true
-        : (mobile.matches && readNeverMobile() !== 'true') || initial.linkify === true)
-      : key === 'embedYouTube' ? (typeof initial.embedYouTube === 'boolean' ? initial.embedYouTube
-        : !sourceMobileLayout(mobile.matches, readNeverMobile())) : undefined,
+    optionChecked: settingsOptionChecked,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const nativePosterIds = catalog ? null : mountNativePosterIds({ root: document.body, settings: configuration });

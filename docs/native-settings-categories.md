@@ -25,11 +25,19 @@ The separate catalog editor is unaffected.
 
 ## Preserved behavior and remaining differences
 
-The rewrite opens all categories when its current settings object is empty;
-otherwise it starts with them collapsed. Opening the dialog does not save
-settings. The source instead captures first-run state at page initialization
-and saves defaults on first opening. That first-run persistence difference
-remains.
+Disclosure is captured once at page startup. A successful raw storage read of
+missing settings or an empty string selects the source first-run presentation;
+stored `{}` and other nonempty values start collapsed. Failed reads do not prove
+absence. Reopening uses that same disclosure flag while reading current checkbox
+values. Changes from another tab do not replace an open draft or recapture the
+page's presentation flags.
+
+These flags carry no permission to initialize, repair or overwrite preferences.
+Opening still makes no implicit storage write. The source saves Config on each
+opening during its first-run page; that persistence behavior and its first-run
+mobile-device navigation defaults remain unimplemented. In particular, reloading
+while storage stays absent remains first-run here. Explicit reviewed imports,
+bounded parsing, volatile fallback and dirty-key merging stay intact.
 
 Supported mobile controls follow the source category matrix:
 
@@ -55,10 +63,11 @@ The integrated application supplies the source YouTube default through its
 option callback. An isolated dialog fixture's fallback defaults are not proof
 of the complete application defaults.
 
-The rewrite selects layout when the dialog opens and keeps an open draft intact
-across resizing. The source captures its layout flag once during page startup.
-Reopening after a layout change can therefore differ. These visibility and
-lifecycle differences remain separate work.
+Settings availability and its layout-dependent checkbox overrides use the same
+startup layout snapshot. Resize and never-mobile preference changes do not alter
+that page's Settings matrix; fresh navigation recaptures it. Other responsive
+page features keep their existing live behavior. This is a Settings presentation
+contract, not complete parity with every use of the source's global layout flag.
 
 Category buttons retain `aria-controls` and `aria-expanded`. Initial focus must
 be visible even when categories are collapsed. Escape, cancellation and opener
@@ -67,7 +76,8 @@ focus restoration retain their existing contracts.
 ## Evidence
 
 The focused browser suite checks exact category and option order, disclosure
-state, cancellation, source desktop/mobile visibility, retained hidden preferences and save behavior.
+state, cancellation, source desktop/mobile visibility, startup disclosure and layout snapshots,
+retained hidden preferences and save behavior.
 Existing watcher/settings and theme workflows exercise the integrated dialog.
 Browser results belong to the exact tested commit; local static or unit checks
 alone do not establish a rendered browser pass.

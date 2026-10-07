@@ -15,6 +15,24 @@ export function settingAvailable(key, mobileLayout) {
     : key !== 'darkTheme' && (mobileSettings.has(key) || desktopOnlySettings.has(key));
 }
 
+// Presentation only: firstRun is the source's raw-storage truthiness check,
+// not permission to initialize, repair, import, or overwrite stored preferences.
+// Capture once per page; checkbox values are still read afresh on every open.
+export function captureSettingsPresentation(storageRead, mobileLayout) {
+  return Object.freeze({
+    firstRun: storageRead?.status === 'ok' && (storageRead.raw === null || storageRead.raw === ''),
+    mobileLayout: mobileLayout === true,
+  });
+}
+
+export function settingsOptionChecked(key, initial, presentation) {
+  if (key === 'linkify') return initial.disableAll === true ? initial.linkify === true
+    : presentation.mobileLayout || initial.linkify === true;
+  if (key === 'embedYouTube') return typeof initial.embedYouTube === 'boolean' ? initial.embedYouTube
+    : !presentation.mobileLayout;
+  return undefined;
+}
+
 export const CATALOG_THEME_LIMITS = Object.freeze({ storage: 24576, css: 16384 });
 
 export function catalogDropDownEnabled(raw, mobileLayout) {
@@ -57,7 +75,10 @@ export function writeCatalogTheme(value) {
   return { ...checked, raw };
 }
 
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false }) {
+export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false, presentation }) {
+  // Copy only immutable presentation flags; do not hold a mutable caller object.
+  const startup = Object.freeze({ firstRun: presentation?.firstRun === true,
+    mobileLayout: presentation ? presentation.mobileLayout === true : hasMobileLayout() === true });
   const navigation = document.querySelector('.boardList');
   let active = null;
   let pendingSave = null;
@@ -95,7 +116,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     if (active) { close(); return; }
     opener = source;
     const initial = read();
-    const mobileLayout = hasMobileLayout() === true;
+    const mobileLayout = startup.mobileLayout;
     const dialog = node('dialog', undefined, `nativeSettings ${catalog ? 'catalogSettings panel' : 'extensionSettings UIPanel'}`);
     dialog.id = catalog ? 'theme' : 'settingsMenu';
     dialog.setAttribute('aria-labelledby', 'native-settings-title');
@@ -119,7 +140,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       input.type = 'checkbox';
       input.dataset.option = key;
       input.id = catalog && key === 'threadWatcher' ? 'theme-tw' : `setting-${key}`;
-      const checked = optionChecked?.(key, initial);
+      const checked = optionChecked?.(key, initial, startup);
       input.checked = (typeof checked === 'boolean' ? checked
         : (['threadHiding', 'threadUpdater', 'threadExpansion', 'threadStats', 'quickReply', 'quotePreview', 'backlinks', 'imageExpansion', 'localTime', 'IDColor'].includes(key) ? initial[key] !== false : initial[key] === true))
         && (!catalog || initial.disableAll !== true);
@@ -135,7 +156,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
       const heading = node('h3', undefined, 'settings-cat-lbl');
       const list = node('ul', undefined, 'settings-cat');
       list.id = `settings-${id}`;
-      list.hidden = Object.keys(initial).length !== 0;
+      list.hidden = !startup.firstRun;
       const expand = button(label, () => setExpanded(list.hidden), 'settings-expand');
       function setExpanded(expanded) {
         list.hidden = !expanded;
