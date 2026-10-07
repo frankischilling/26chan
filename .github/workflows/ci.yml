@@ -298,6 +298,8 @@ jobs:
         run: sudo bash scripts/test-grouped-options-migration.sh
       - name: Qualify additive staff digest visibility and administrator dump restore
         run: sudo bash scripts/test-staff-file-digest-migration.sh
+      - name: Qualify private PNG provenance without changing retained output or read authority
+        run: sudo bash scripts/test-media-source-provenance-migration.sh
       - name: Qualify nullable moderation snapshots without historical backfill or expanded authority
         run: sudo bash scripts/test-audit-snapshot-migration.sh
       - name: Qualify force archive audit upgrade without rewriting history or expanding authority

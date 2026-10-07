@@ -133,6 +133,12 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         .await
         .unwrap();
     assert_ne!(approved.id, pending.id);
+    let unknown_source: bool = sqlx::query_scalar("SELECT source_input_sha256 IS NULL AND source_input_bytes IS NULL AND source_profile IS NULL AND source_retained_bytes IS NULL AND source_md5 IS NULL FROM media.assets WHERE id=$1")
+        .bind(&approved.id).fetch_one(&admin).await.unwrap();
+    assert!(
+        unknown_source,
+        "manual publication has no trusted source snapshot"
+    );
     assert_eq!(
         publish(&queue, &store, &job.id, retry_token, &pixels)
             .await

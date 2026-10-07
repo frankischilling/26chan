@@ -20,9 +20,17 @@ controller and voting contract, so voting remains explicitly unavailable.
 The [staff attachment boundary](staff-post-attachments.md) has a published 0110
 backend for proof-bound ordinary and badged posts. Its 0111 continuation adds
 development-only upload, status and cancellation routes with native receipt
-forms and a separate intake credential. All 18 local HTTP cases pass; the
-script-disabled browser case and exact-head hosted checks are still pending.
+forms and a separate intake credential. All 18 local HTTP cases pass.
+[Build 37660811577](https://github.com/frankischilling/26chan/actions/runs/37660811577)
+passed for commit `28cdc0a`, including the script-disabled browser invocation.
 Production media remains disabled, and source presentation parity is unproven.
+
+[Private PNG source provenance](source-media-digests.md) binds async receipts
+to an immutable dispatched input snapshot while leaving output digests and
+public/staff reads unchanged. It adds no duplicate-image admission and no
+JPEG/GIF source digest. The runtime and 0112 migration passed local
+qualification, including populated upgrades, rollback and restricted-role checks.
+Exact-head hosted checks remain pending.
 
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme

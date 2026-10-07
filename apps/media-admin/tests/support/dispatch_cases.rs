@@ -13,6 +13,15 @@ use std::{
 use tokio::{io::AsyncWriteExt, net::TcpListener, sync::oneshot};
 use tokio_rustls::TlsAcceptor;
 
+#[derive(Debug, Default, PartialEq, Eq, sqlx::FromRow)]
+struct SourceProvenanceRow {
+    source_input_sha256: Option<String>,
+    source_input_bytes: Option<i64>,
+    source_profile: Option<String>,
+    source_retained_bytes: Option<i64>,
+    source_md5: Option<Vec<u8>>,
+}
+
 fn private(path: &Path, bytes: impl AsRef<[u8]>) {
     std::fs::write(path, bytes).unwrap();
     #[cfg(unix)]
@@ -20,6 +29,28 @@ fn private(path: &Path, bytes: impl AsRef<[u8]>) {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
     }
+}
+
+// Independent valid 1x1 RGBA PNG, a dropped tEXt chunk, and trailer.
+// Golden digests are from Python hashlib over explicit fixture bytes.
+fn source_png() -> Vec<u8> {
+    let red = hex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c48900000010494441547801010500faff00ff0000ff050001fffa5c88d10000000049454e44ae426082",
+    );
+    [
+        red[..33].to_vec(),
+        hex("00000003744558746e0076cdcf317b"),
+        red[33..].to_vec(),
+        b"ignored trailer".to_vec(),
+    ]
+    .concat()
+}
+
+fn hex(value: &str) -> Vec<u8> {
+    (0..value.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&value[index..index + 2], 16).unwrap())
+        .collect()
 }
 
 pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<String>>) {
@@ -46,6 +77,13 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
     let quarantine = board_media::Quarantine::new(path("quarantine")).unwrap();
     for case in [
         "valid",
+        "snapshot-mutation",
+        "jpeg",
+        "gif",
+        "malformed-png",
+        "truncated-png",
+        "excess-chunk",
+        "unknown-format",
         "production",
         "DATABASE_URL",
         "MIGRATION_DATABASE_URL",
@@ -58,6 +96,7 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         "roots",
         "transport",
         "invalid",
+        "decoder-rejection",
         "expired",
         "replaced",
         "changed-input",
@@ -88,11 +127,27 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             .await
             .unwrap();
         ids.lock().unwrap().push(job.id.clone());
-        quarantine
-            .receive(job.id.parse().unwrap(), b"exact-input".as_slice())
+        let input = match case {
+            "jpeg" => b"\xff\xd8synthetic decoder fixture".to_vec(),
+            "gif" => b"GIF89asynthetic decoder fixture".to_vec(),
+            "malformed-png" => b"\x89PNG\r\n\x1a\n".to_vec(),
+            "truncated-png" => source_png()[..43].to_vec(),
+            "excess-chunk" => b"\x89PNG\r\n\x1a\n\xff\xff\xff\xffIDAT".to_vec(),
+            "unknown-format" => b"unknown".to_vec(),
+            "decoder-rejection" => {
+                // Framing is scanner-compatible but not decoder-admissible:
+                // corrupt IHDR CRC, then simulate guest output rejection.
+                let mut bytes = source_png();
+                bytes[29] ^= 1;
+                bytes
+            }
+            _ => source_png(),
+        };
+        let length = quarantine
+            .receive(job.id.parse().unwrap(), input.as_slice())
             .await
             .unwrap();
-        queue.queue(&job.id, 11).await.unwrap();
+        queue.queue(&job.id, length).await.unwrap();
         if case == "configuration" {
             private(&path("client.json"), b"{}");
         }
@@ -113,8 +168,8 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             let (socket, _) = server_listener.accept().await.unwrap();
             server_accepted.store(true, Ordering::SeqCst);
             let mut stream = acceptor.accept(socket).await.unwrap();
-            let input = read_request(&mut stream).await.unwrap();
-            assert_eq!(input, b"exact-input");
+            let received_input = read_request(&mut stream).await.unwrap();
+            assert_eq!(received_input, input);
             received.send(()).unwrap();
             // The environment cases must have a working full response if a
             // guard regresses, rather than fail on a test barrier or timeout.
@@ -125,7 +180,7 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 return;
             }
             let mut disk = vec![0; 4_194_816];
-            if case != "invalid" {
+            if !["invalid", "decoder-rejection"].contains(&case) {
                 disk[..20].copy_from_slice(b"IBRGBA01\0\0\0\x01\0\0\0\x01\xff\0\0\xff");
             }
             stream.write_all(b"IBOUT001").await.unwrap();
@@ -175,13 +230,23 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
                 "case {case} left a pending transport connection"
             );
-        } else if ["configuration", "roots", "changed-input"].contains(&case) {
+        } else if [
+            "configuration",
+            "roots",
+            "changed-input",
+            "malformed-png",
+            "truncated-png",
+            "excess-chunk",
+            "unknown-format",
+        ]
+        .contains(&case)
+        {
             let result = task.await.unwrap();
             assert!(!result.status.success());
             assert!(result.stdout.is_empty());
             assert_eq!(
                 queue.get(&job.id).await.unwrap().state,
-                if case == "changed-input" {
+                if !["configuration", "roots"].contains(&case) {
                     "failed"
                 } else {
                     "queued"
@@ -189,11 +254,28 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             );
             server.abort();
             let _ = server.await;
+            assert!(
+                !accepted.load(Ordering::SeqCst),
+                "case {case} reached transport"
+            );
+            let count: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM media.assets WHERE job_id=$1")
+                    .bind(&job.id)
+                    .fetch_one(admin)
+                    .await
+                    .unwrap();
+            assert_eq!(count, 0, "case {case}");
         } else {
             tokio::time::timeout(std::time::Duration::from_secs(5), arrival)
                 .await
                 .expect("dispatch command must reach authenticated transport")
                 .unwrap();
+            if case == "snapshot-mutation" {
+                let input_path = path("quarantine").join(format!("{}.input", job.id));
+                std::fs::write(&input_path, b"mutation after snapshot").unwrap();
+                std::fs::rename(&input_path, path("replaced-input")).unwrap();
+                std::fs::write(&input_path, b"new pathname contents").unwrap();
+            }
             let expired_at = if case == "expired" {
                 Some(super::expire(admin, &job.id).await)
             } else {
@@ -213,15 +295,35 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                     .unwrap();
             assert_eq!(
                 result.status.success(),
-                case == "valid",
+                ["valid", "snapshot-mutation", "jpeg", "gif"].contains(&case),
                 "case {case}: {}; expired_at={expired_at:?}; observed_database_clock={observed_at}",
                 String::from_utf8_lossy(&result.stderr)
             );
-            if case == "valid" {
+            if ["valid", "snapshot-mutation", "jpeg", "gif"].contains(&case) {
                 let id = String::from_utf8(result.stdout).unwrap();
                 let id = id.trim();
                 assert!(id.parse::<board_media::ObjectId>().is_ok());
                 assert_ne!(id, job.id);
+                let source: SourceProvenanceRow =
+                    sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
+                        .bind(id).fetch_one(admin).await.unwrap();
+                if ["jpeg", "gif"].contains(&case) {
+                    assert_eq!(source, SourceProvenanceRow::default());
+                } else {
+                    assert_eq!(
+                        source,
+                        SourceProvenanceRow {
+                            source_input_sha256: Some(
+                                "f482035298dcdf31dca1ce576adea047626ddb9deff6c5bfce3cf1ea68b15357"
+                                    .into()
+                            ),
+                            source_input_bytes: Some(103),
+                            source_profile: Some("png-v1".into()),
+                            source_retained_bytes: Some(73),
+                            source_md5: Some(hex("b4e7464f29bcc44451c570504d61030b")),
+                        }
+                    );
+                }
                 let reader = board_store::media_assets::MediaReader::connect(
                     &std::env::var("MEDIA_READ_DATABASE_URL").unwrap(),
                 )
@@ -250,7 +352,9 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 assert_eq!(count, 0, "case {case}");
                 let job = queue.get(&job.id).await.unwrap();
                 match case {
-                    "invalid" => assert_eq!(job.failure.as_deref(), Some("invalid_output")),
+                    "invalid" | "decoder-rejection" => {
+                        assert_eq!(job.failure.as_deref(), Some("invalid_output"))
+                    }
                     "transport" => assert_eq!(job.failure.as_deref(), Some("processing_failed")),
                     _ => {
                         assert_eq!(job.state, "processing");

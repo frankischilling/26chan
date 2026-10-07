@@ -17,7 +17,7 @@ pub use id::ObjectId;
 pub use output::{EncodedOutput, ValidatedOutput};
 pub use promotion::{Promoter, Promotion};
 pub use publication::{ApprovedFiles, PublicationGuard, PublicationStore};
-pub use quarantine::Quarantine;
+pub use quarantine::{InputSnapshot, Quarantine};
 
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 pub const MAX_DIMENSION: u32 = 1024;
