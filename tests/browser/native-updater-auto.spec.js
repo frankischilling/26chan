@@ -1,5 +1,5 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openWatcherSettings } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -91,7 +91,7 @@ test('Auto persists for the current tab and thread, stops explicitly, and always
   await page.reload(); await expect(auto(page)).toBeChecked();
   await auto(page).uncheck(); await page.reload(); await expect(auto(page)).not.toBeChecked();
   expect(await page.evaluate(id => sessionStorage.getItem(`4chan-auto-${id}`), owned.id)).toBeNull();
-  await watcherSettingsOpener(other).click();
+  await openWatcherSettings(other);
   await expect(other.locator('#setting-threadUpdater')).toBeChecked();
   await expect(other.locator('#setting-alwaysAutoUpdate')).not.toBeChecked();
   await other.locator('#setting-alwaysAutoUpdate').check();

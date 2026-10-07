@@ -124,3 +124,11 @@ executor returned `EPERM`; it remains enabled in CI. Browser-dependent local
 checks could not launch the configured browser, so their registered bodies are
 unverified until hosted execution. Test discovery lists 32 isolated Settings
 cases and 48 integrated watcher, navigation and transfer cases.
+
+At `3940ad4`, the corrected filter suite passed all 16 cases. Linux then reached
+an updater test that opened returning-user Settings and tried to check
+`alwaysAutoUpdate` without expanding Monitoring. The retained trace shows the
+expected collapsed categories. The fixture now uses the shared Settings opener
+that explicitly expands Monitoring; updater assertions and timeouts are
+unchanged. Windows, all four theme shards and media/operations passed on that
+revision, but this Linux failure means the overall run did not pass.
