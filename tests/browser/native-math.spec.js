@@ -84,12 +84,16 @@ test('core math remains enabled independently of disableAll, but disabled board 
 });
 
 test('the real QR TeX control owns a separate debounced input and discards closed preview work', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-09-08T12:00:00Z') });
   await page.goto(pagePath);
+  await expect(page.locator('#m1000001 .nativeMath > svg')).toHaveCount(2);
+  // install() alone keeps time flowing. Pause before asserting exact 50 ms
+  // boundaries so slower host interactions cannot advance the debounce.
+  await page.clock.pauseAt(new Date('2026-09-08T12:05:00Z'));
   await page.locator('#pi1000001 a[title="Reply to this post"]').click();
   await page.locator('#qrCom').fill('Untouched posting draft [math]z[/math]');
   await page.getByRole('button', { name: 'Preview TeX equations' }).click();
   await expect(page.locator('#input-tex-preview')).toHaveValue('');
-  await page.clock.install();
   await page.locator('#input-tex-preview').fill('[math]a^2[/math]');
   await page.clock.runFor(30);
   await expect(page.locator('#output-tex-preview svg')).toHaveCount(0);
