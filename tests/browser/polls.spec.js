@@ -54,7 +54,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           const allowed = url.origin === origin && !url.search && request.method() === 'GET'
             && ((request.resourceType() === 'document' && pages.has(url.pathname))
               || (request.resourceType() === 'stylesheet' && stylesheets.has(url.pathname))
-              || (request.resourceType() === 'image' && url.pathname === '/static/notifications/favicon.ico'));
+              || (request.resourceType() === 'image' && ['/static/notifications/favicon.ico', '/static/themes/fade.png'].includes(url.pathname)));
           if (!allowed) unexpected.push(`${request.method()} ${request.resourceType()} ${request.url()}`);
         });
         context.on('requestfailed', request => failed.push(request.url()));

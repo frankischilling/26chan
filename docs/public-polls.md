@@ -132,3 +132,10 @@ rendering or navigation behavior. Hosted CI must qualify both cases against the
 published commit. The aggregate verification script includes the new checks. The Linux CI job allows 75 minutes because its previous successful run
 took 59m45s before these additions; per-test timeouts and assertions are unchanged
 for the existing suites.
+
+The first hosted run on `2de4676` reached both poll browser cases and passed their
+rendering, navigation, visibility, overflow and inertness checks. Their final
+network assertion rejected the normal local `fade.png` background requested by
+the default theme. The request allowlist now admits that exact same-origin image
+alongside the favicon; methods, query strings, resource types, unexpected requests
+and HTTP failures remain checked. Both complete cases still need a passing rerun.
