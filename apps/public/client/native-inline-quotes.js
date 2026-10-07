@@ -16,7 +16,7 @@ export function mountNativeInlineQuotes({ root, board, thread = null, mediaOrigi
   origin = globalThis.location?.origin, mobileDevice = false, archive = false,
   projection, quoteTarget, localQuoteTree, prepareQuotePost, checkedQuotePreview, transport,
   companion: externalCompanion, backlinkOwner, prepareBacklinks,
-  navigate, limits = {} } = {}) {
+  navigate, registerMath, limits = {} } = {}) {
   if (!root?.matches('.board') || typeof settings !== 'function' || !projection
     || [quoteTarget, localQuoteTree, prepareQuotePost, checkedQuotePreview].some(fn => typeof fn !== 'function')
     || typeof transport?.load !== 'function' || !/^[a-z0-9]{1,10}$/.test(board ?? '')
@@ -191,6 +191,7 @@ export function mountNativeInlineQuotes({ root, board, thread = null, mediaOrigi
     const copy = prepared.plan.build(document);
     copy.classList.add('preview', 'inlined'); copy.setAttribute('data-inline-state', 'ready');
     projection.claim(copy, entry);
+    registerMath?.(copy, prepared.context);
     if (mobileDevice) for (const link of copy.querySelectorAll('a.quotelink')) {
       if (!quoteTarget(link.getAttribute('href'), prepared.context)) continue;
       const node = document.createElement('a'); node.className = 'quoteLink';

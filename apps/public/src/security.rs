@@ -50,6 +50,17 @@ pub(crate) struct RequestStart(pub chrono::DateTime<chrono::Utc>);
 #[derive(Clone, Copy)]
 pub(crate) struct RequestPeer(pub Option<IpAddr>);
 
+// Only a successfully rendered, enabled board page may grant math resources.
+#[derive(Clone, Copy)]
+struct MathPage;
+
+pub(crate) fn math_page(mut response: Response, enabled: bool) -> Response {
+    if enabled && response.status().is_success() {
+        response.extensions_mut().insert(MathPage);
+    }
+    response
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InteractivePage {
     Board,
@@ -218,6 +229,9 @@ fn headers(
             .get("content-type")
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.starts_with("text/html"));
+    let math = interactive
+        && page == Some(InteractivePage::Board)
+        && response.extensions().get::<MathPage>().is_some();
     let script = if report_shell {
         format!("{}{}", state.origin, crate::ui_assets::REPORT_POPUP_PATH)
     } else if interactive {
@@ -302,6 +316,15 @@ fn headers(
     } else {
         script
     };
+    let script = if math {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_MATH_PATH
+        )
+    } else {
+        script
+    };
     let connect = if interactive && page == Some(InteractivePage::Search) {
         format!("{}/search/api", state.origin)
     } else if full_board_page {
@@ -331,6 +354,15 @@ fn headers(
         )
     } else {
         "'none'".into()
+    };
+    let worker = if math {
+        format!(
+            "{worker} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_MATH_WORKER_PATH
+        )
+    } else {
+        worker
     };
     let sound = if full_board_page {
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
@@ -396,6 +428,45 @@ fn headers(
     response
 }
 
+// Explicitly opt-in synthetic renderer for browser qualification. Production
+// routers never expose a fixture endpoint or accept client-supplied authority.
+#[cfg(feature = "browser-tests")]
+pub(crate) fn math_fixture_response(
+    page: &crate::views::BoardPage,
+    origin: &str,
+) -> Result<Response, String> {
+    let url = url::Url::parse(origin).map_err(|error| error.to_string())?;
+    if !matches!(url.scheme(), "http" | "https") || url.origin().ascii_serialization() != origin {
+        return Err("An exact HTTP origin is required.".into());
+    }
+    let state = AppState {
+        pool: sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+            .map_err(|error| error.to_string())?,
+        origin: origin.into(),
+        production: false,
+        limits: std::sync::Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+        media: None,
+        proxy_uid: None,
+        poster_id_key: None,
+        tripcode_key: None,
+        country_database: None,
+    };
+    let response = crate::output::html(&state, page)
+        .map_err(|_| "Fixture rendering exceeded its budget.".to_owned())?;
+    let response = math_page(response, page.board.math_tags && !page.catalog);
+    Ok(headers(
+        response,
+        &state,
+        Some(if page.catalog {
+            InteractivePage::Catalog
+        } else {
+            InteractivePage::Board
+        }),
+        None,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,6 +476,95 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn math_authority_requires_enabled_successful_board_html() {
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: true,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for marked in [false, true] {
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+                Some(InteractivePage::Search),
+                Some(InteractivePage::Archive),
+            ] {
+                for status in [
+                    StatusCode::OK,
+                    StatusCode::NOT_FOUND,
+                    StatusCode::BAD_REQUEST,
+                    StatusCode::NOT_MODIFIED,
+                    StatusCode::TEMPORARY_REDIRECT,
+                ] {
+                    for content_type in [
+                        "text/html; charset=utf-8",
+                        "application/json",
+                        "text/javascript; charset=utf-8",
+                    ] {
+                        let response = math_page(
+                            (status, [("content-type", content_type)], "owned fixture")
+                                .into_response(),
+                            marked,
+                        );
+                        let response = headers(response, &state, page, None);
+                        let policy = response.headers()["content-security-policy"]
+                            .to_str()
+                            .unwrap();
+                        let expected = marked
+                            && page == Some(InteractivePage::Board)
+                            && status == StatusCode::OK
+                            && content_type.starts_with("text/html");
+                        assert_eq!(
+                            policy.contains("https://board.example/static/native-math.v1.js"),
+                            expected
+                        );
+                        assert_eq!(
+                            policy
+                                .contains("https://board.example/static/native-math-worker.v1.js"),
+                            expected
+                        );
+                        assert!(
+                            !policy.contains("unsafe-inline") && !policy.contains("unsafe-eval")
+                        );
+                        assert!(!policy.contains("font-src") && !policy.contains("cdn."));
+                        if expected {
+                            let directive = |name: &str| {
+                                policy
+                                    .split(';')
+                                    .map(str::trim)
+                                    .find(|part| part.starts_with(&format!("{name} ")))
+                                    .unwrap()
+                            };
+                            assert!(
+                                directive("script-src")
+                                    .split_whitespace()
+                                    .any(|s| s == "https://board.example/static/native-math.v1.js")
+                            );
+                            assert!(!directive("script-src").contains("native-math-worker"));
+                            assert!(
+                                directive("worker-src").split_whitespace().any(|s| s
+                                    == "https://board.example/static/native-math-worker.v1.js")
+                            );
+                            assert!(!directive("connect-src").contains("native-math"));
+                            assert_eq!(directive("style-src"), "style-src 'self'");
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[tokio::test]
     async fn only_renderer_marked_report_html_gets_the_exact_popup_script_even_on_errors() {

@@ -463,6 +463,10 @@ jobs:
         run: |
           ./scripts/windows-visual-resources.ps1 -Phase before-browser
           npm run test:linkification-core
+      - name: Verify bounded local math and source projections
+        timeout-minutes: 5
+        shell: pwsh
+        run: npm run test:math
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core

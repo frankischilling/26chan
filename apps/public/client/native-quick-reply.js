@@ -7,7 +7,7 @@ import { restorePostPreferences, mountBoardFlagPreference } from './native-post-
 import { postNumberReply } from './native-post-numbers.js';
 import { createQuickReplyCooldown } from './native-quick-reply-cooldown.js';
 
-export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
+export function mountNativeQuickReply({ board, thread, settings, savePosition, committed, math }) {
   const source = document.querySelector('form.postEditor');
   if (!/^[a-z0-9]{1,10}$/.test(board)) return null;
   restorePostPreferences(source);
@@ -121,7 +121,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     uploadPhase = 'empty'; uploadCanCheck = false; removeInlineCapability(); renderUpload();
   }
   function close() {
-    cancelAuto(); cooldown.stop();
+    cancelAuto(); cooldown.stop(); math?.closePreview();
     if (!dialog) return;
     if (postingAttachment) retireAmbiguousAttachment(); else bestEffortCancel();
     epoch++; controller?.abort(); controller = null; busy = false;
@@ -170,6 +170,11 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.dataset.trackpos = 'QR-position';
     dialog.setAttribute('aria-labelledby', 'qrHeader');
     const header = node('div', undefined, 'drag postblock'); header.id = 'qrHeader';
+    if (math) {
+      const tex = node('button', 'TeX', 'desktop pointer left tex-logo'); tex.type = 'button';
+      tex.setAttribute('aria-label', 'Preview TeX equations'); tex.dataset.cmd = 'open-tex-preview';
+      tex.addEventListener('click', () => math.openPreview()); header.append(tex);
+    }
     const title = node('span', 'Reply to Thread No.'); const number = node('span', id); number.id = 'qrTid'; title.append(number);
     const dismiss = node('button', '\u00d7', 'extButton'); dismiss.id = 'qrClose'; dismiss.type = 'button';
     dismiss.setAttribute('aria-label', 'Close Quick Reply'); dismiss.addEventListener('click', close); header.append(title, dismiss);

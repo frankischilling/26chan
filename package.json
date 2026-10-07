@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply",
+    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math",
     "build:global-search": "node scripts/build-global-search.mjs",
     "check:global-search": "node scripts/build-global-search.mjs --check",
     "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs && playwright test tests/browser/global-search.spec.js",
@@ -74,9 +74,15 @@
     "test:states": "playwright test --config playwright.states.config.js",
     "test:staff": "playwright test --config playwright.staff.config.js",
     "test:catalog-filters-core": "node --test tests/browser/catalog-filters.test.mjs",
-    "test:catalog-theme-core": "node --test tests/browser/catalog-theme.test.mjs"
+    "test:catalog-theme-core": "node --test tests/browser/catalog-theme.test.mjs",
+    "build:math": "node scripts/build-native-math.mjs",
+    "check:math": "node scripts/build-native-math.mjs --check",
+    "test:math-core": "npm run check:math && node --max-old-space-size=256 --test tests/browser/native-math-renderer.test.mjs tests/browser/native-math-source.test.mjs tests/browser/native-math-projection.test.mjs tests/browser/native-math-controls.test.mjs",
+    "test:math": "npm run test:math-core && playwright test --config playwright.math.config.js"
   },
   "devDependencies": {
+    "@mathjax/mathjax-tex-font": "4.1.3",
+    "@mathjax/src": "4.1.3",
     "@playwright/test": "1.62.0",
     "esbuild": "0.28.2",
     "parse5": "8.0.1"

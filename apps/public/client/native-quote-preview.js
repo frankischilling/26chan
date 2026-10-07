@@ -169,8 +169,9 @@ function messageBudget(message, projection) {
       if (projection?.has(child)) continue;
       if (++nodes > PREVIEW_LIMITS.nodes) throw new RangeError('quote-nodes');
       if (child.nodeType === 3) {
-        if (child.data.length > FILTER_LIMITS.html) throw new RangeError('quote-text');
-        html += escapedSize(child.data); text += child.data.length;
+        const value = projection?.sourceText(child) ?? child.data;
+        if (value.length > FILTER_LIMITS.html) throw new RangeError('quote-text');
+        html += escapedSize(value); text += value.length;
       } else if (child.nodeType === 1 && isCommentElement(child, projection?.attributes(child) ?? child.attributes)) {
         const leaf = child.tagName === 'BR' || child.tagName === 'WBR';
         html += leaf ? child.localName.length + 2 : child.localName.length * 2 + 5;
@@ -191,7 +192,7 @@ function messageBudget(message, projection) {
 export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigin = '', settings,
   origin = globalThis.location?.origin, userAgent = globalThis.navigator?.userAgent,
   transport = new NativeQuotePreviewTransport({ origin, mediaOrigin }), decorate, companion, decoratePreview,
-  projection, arbitrateClick, inlineHoverEligible, quoteContext } = {}) {
+  projection, arbitrateClick, inlineHoverEligible, quoteContext, registerMath } = {}) {
   if (!root || typeof settings !== 'function') return null;
   previewContext({ origin, mediaOrigin, board, post: thread ?? '1', thread });
   const document = root.ownerDocument, window = document.defaultView;
@@ -261,6 +262,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     popup.style.pointerEvents = mobile ? 'auto' : 'none';
     if (value.target) decoratePreview?.(popup, value.target, value.link,
       { nodes: PREVIEW_LIMITS.nodes - budget.nodes, characters: PREVIEW_LIMITS.bytes - budget.chars });
+    registerMath?.(popup, context);
     value.popup = popup; document.body.append(popup);
     decorate?.(); position();
     popup.addEventListener('load', position, true);

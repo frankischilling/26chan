@@ -24,11 +24,16 @@ import { CatalogFilterMatcher, readCatalogFilters } from './catalog-filter-core.
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
 
-function start(context) {
+async function start(context) {
   const board = context.dataset.board;
   const threadId = postId(context.dataset.thread);
   const catalog = context.dataset.catalog === 'true';
-  const projection = createCommentProjection();
+  let mathPage = null;
+  if (!catalog && document.body.dataset.mathTags === '1') {
+    try { mathPage = (await import('./native-math.v1.js')).pageNativeMath(); } catch { /* Literal tags remain usable. */ }
+  }
+  const projection = mathPage?.projection ?? createCommentProjection();
+  const nativeMath = mathPage?.controller;
   const storeKey = '4chan-watch';
   const settingsKey = '4chan-settings';
   const timestampKey = '4chan-tw-timestamp';
@@ -311,6 +316,7 @@ function start(context) {
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
   const nativeLinkification = catalog ? null : mountNativeLinkification({
     root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile, projection,
+    beforeTransform: message => nativeMath?.restoreMessage(message),
   });
   nativeInlineQuotes = catalog ? null : mountNativeInlineQuotes({
     root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
@@ -320,6 +326,7 @@ function start(context) {
     companion: link => nativeQuotePreview?.companion(link) ?? nativeBacklinks?.companion(link),
     backlinkOwner: link => nativeBacklinks?.backlinkOwner(link),
     prepareBacklinks: (...args) => nativeBacklinks?.prepareInlineCopy(...args),
+    registerMath: (...args) => nativeMath?.registerQuote(...args),
   });
   nativeQuotePreview = catalog ? null : mountNativeQuotePreview({
     root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
@@ -329,6 +336,7 @@ function start(context) {
     quoteContext: link => nativeInlineQuotes?.quoteContext(link),
     companion: link => nativeBacklinks?.companion(link) ?? nativeInlineQuotes?.companion(link),
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
+    registerMath: (...args) => nativeMath?.registerQuote(...args),
   });
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
     mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
@@ -359,7 +367,7 @@ function start(context) {
       } finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); acknowledgement.abort(); }
     },
   });
-  const nativeQuickReply = catalog ? null : mountNativeQuickReply({ board, thread: threadId, settings: configuration,
+  const nativeQuickReply = catalog ? null : mountNativeQuickReply({ board, thread: threadId, settings: configuration, math: nativeMath,
     savePosition: position => saveSettings({ 'QR-position': position }),
     committed: (id, post) => {
       const saved = tracking.committed(id, post).catch(() => false);

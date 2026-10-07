@@ -565,6 +565,7 @@ mod tests {
             max_authorized_comment_chars: 10000,
             comment_code_spacing: true,
             comment_sjis_spacing: false,
+            math_tags: false,
             comment_max_lines: 100,
             comment_spoiler_cleanup: true,
             custom_spoiler_count: 0,

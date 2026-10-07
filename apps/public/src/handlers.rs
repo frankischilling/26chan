@@ -602,7 +602,8 @@ async fn board_page(
             hidden_views.push(view);
         }
     }
-    crate::output::html(
+    let math_tags = board.math_tags && !catalog;
+    let response = crate::output::html(
         state,
         &BoardPage {
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -630,7 +631,8 @@ async fn board_page(
                 .map(|m| m.settings.origin.as_string())
                 .unwrap_or_default(),
         },
-    )
+    )?;
+    Ok(crate::security::math_page(response, math_tags))
 }
 pub async fn thread(
     State(state): State<AppState>,
@@ -694,7 +696,8 @@ pub async fn thread(
         }
     };
     let posts = posts.into_iter().map(PostView::new).collect();
-    crate::output::html(
+    let math_tags = board.math_tags;
+    let response = crate::output::html(
         &state,
         &BoardPage {
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -723,7 +726,8 @@ pub async fn thread(
                 .map(|m| m.settings.origin.as_string())
                 .unwrap_or_default(),
         },
-    )
+    )?;
+    Ok(crate::security::math_page(response, math_tags))
 }
 pub async fn quote(
     State(state): State<AppState>,

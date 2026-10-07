@@ -132,6 +132,7 @@ pub async fn boards(
             value["require_subject"] = json!(1);
         }
         if board.user_ids { value["user_ids"] = json!(1); }
+        if board.math_tags { value["math_tags"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
         let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
         if board.forced_anon {

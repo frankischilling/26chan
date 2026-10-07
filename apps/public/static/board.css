@@ -776,3 +776,16 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .pollResults tbody th { font-weight: normal; }
 .pollTotal { font-weight: bold; }
 .pollNavigation { display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0; }
+
+/* Owned, inert local TeX output and its independent Quick Reply scratch input. */
+.nativeMath { max-width: 100%; }
+.nativeMath.displayMath { display: block; margin: .5em 0; text-align: left; }
+.nativeMath > svg { overflow: hidden; max-width: 100%; vertical-align: middle; }
+#tex-preview-cnt { position: fixed; inset: 0; z-index: 10020; display: flex; align-items: center; justify-content: center; background: #0005; }
+#tex-preview-cnt > .extPanel { width: min(640px, 90vw); max-height: 85vh; overflow: auto; padding: 8px; }
+#tex-preview-cnt .panelHeader { font-weight: bold; }
+#tex-preview-cnt .panelHeader button { float: right; }
+#tex-protip { margin: 8px 0; }
+#input-tex-preview { display: block; box-sizing: border-box; width: 100%; min-height: 100px; }
+#output-tex-preview { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 3em; margin-top: 8px; }
+#qrHeader .tex-logo { float: left; font-size: inherit; line-height: 16px; padding: 0 3px; }

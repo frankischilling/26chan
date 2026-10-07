@@ -96,6 +96,7 @@ pub struct Board {
     pub max_authorized_comment_chars: i32,
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
+    pub math_tags: bool,
     pub comment_max_lines: i32,
     pub comment_spoiler_cleanup: bool,
     pub custom_spoiler_count: i32,

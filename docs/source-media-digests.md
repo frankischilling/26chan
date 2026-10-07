@@ -96,8 +96,11 @@ and the parser dependency guard passed.
 
 Populated 0111-to-0112 upgrade, rollback and fresh role bootstrap checks passed
 on PostgreSQL 16.15 using an owned loopback TCP cluster. Hosted CI runs the
-privileged Unix-socket scripts. Exact-head hosted checks remain pending; these
-local results do not establish source-wide media parity.
+privileged Unix-socket scripts. The `fd519c8` checkpoint passed
+[hosted build/test](https://github.com/frankischilling/26chan/actions/runs/37684199590),
+[monitoring](https://github.com/frankischilling/26chan/actions/runs/37684198949)
+and [advisories](https://github.com/frankischilling/26chan/actions/runs/37684199195).
+These results do not establish source-wide media parity.
 
 The async tests cover short/excess reads, pathname replacement, mutation after
 snapshotting, cancellation, malformed framing, invalid guest output, expired

@@ -59,6 +59,7 @@ function planMessage(message, projection) {
     for (const [index, node] of Array.from(parent.childNodes).entries()) {
       if (projection?.has(node)) { run = null; continue; }
       if (++nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
+      if (projection?.isTrackedText(node)) { characters += projection.sourceText(node).length; if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters'); run = null; continue; }
       if (node.nodeType === 1) attributes(node);
       if (node.nodeType === 3 || (node.nodeType === 1 && node.tagName === 'WBR')) {
         if (!run) {
@@ -99,7 +100,7 @@ function planMessage(message, projection) {
     for (const node of parent.childNodes) {
       if (projection?.has(node)) continue;
       if (++nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
-      if (node.nodeType === 3) characters += node.data.length * 5;
+      if (node.nodeType === 3) characters += (projection?.sourceText(node) ?? node.data).length * 5;
       else if (node.nodeType === 1 && isCommentElement(node, projection?.attributes(node) ?? node.attributes)) { attributes(node); charge(node, depth + 1); }
       else throw new TypeError('link-node');
       if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
@@ -132,7 +133,7 @@ function decorateMessage(message, planned, projection) {
   // existing anchor labels. Attributes remain untouched for browser safety.
   const walker = document.createTreeWalker(message, 4), replacements = [];
   while (walker.nextNode()) if (!projection?.within(walker.currentNode)
-    && walker.currentNode.data.includes('\u200b')) replacements.push(walker.currentNode);
+    && !projection?.isTrackedText(walker.currentNode) && walker.currentNode.data.includes('\u200b')) replacements.push(walker.currentNode);
   for (const node of replacements) {
     const fragment = document.createDocumentFragment();
     node.data.split('\u200b').forEach((part, index) => {
@@ -173,6 +174,7 @@ function unlinkMessage(message, projection) {
 // the board or a quote preview; each message still passes the finite DOM checks
 // in linkifyMessage before any mutation occurs.
 export function mountNativeLinkification({ root, settings, mobile, projection,
+  beforeTransform = () => {},
   readNeverMobile = () => {
     try { return localStorage.getItem('4chan_never_show_mobile'); }
     catch { return null; }
@@ -191,6 +193,7 @@ export function mountNativeLinkification({ root, settings, mobile, projection,
   }
   function apply(message, active) {
     if (!eligible(message)) return;
+    beforeTransform(message);
     if (active) linkifyMessage(message, projection);
     else unlinkMessage(message, projection);
   }

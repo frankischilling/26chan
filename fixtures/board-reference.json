@@ -102,6 +102,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -176,6 +177,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/a/ - Anime &amp; Manga&quot; is 4chan's imageboard dedicated to the discussion of Japanese animation and manga.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -190,6 +192,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -264,6 +267,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/aco/ - Adult Cartoons&quot; is 4chan's imageboard for posting western-styled adult cartoon artwork.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -278,6 +282,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -352,6 +357,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/c/ - Anime/Cute&quot; is 4chan's imageboard for cute and moe anime images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -366,6 +372,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -440,6 +447,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/d/ - Hentai/Alternative&quot; is 4chan's imageboard for alternative hentai images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -454,6 +462,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -528,6 +537,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/e/ - Ecchi&quot; is 4chan's imageboard for suggestive (ecchi) hentai images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -542,6 +552,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -616,6 +627,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/f/ - Flash&quot; is 4chan's upload board for sharing Adobe Flash files (SWFs).",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -630,6 +642,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": true,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -704,6 +717,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/g/ - Technology&quot; is 4chan's imageboard for discussing computer hardware and software, programming, and general technology.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -718,6 +732,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -792,6 +807,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/gif/ - Adult GIF&quot; is 4chan's imageboard dedicated to animated adult GIFs and WEBMs.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -806,6 +822,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -880,6 +897,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/h/ - Hentai&quot; is 4chan's imageboard for adult Japanese anime hentai images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -894,6 +912,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -968,6 +987,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/his/ - History &amp; Humanities&quot; is 4chan's board for discussing and debating history.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -982,6 +1002,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1056,6 +1077,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/hr/ - High Resolution&quot; is 4chan's imageboard for the sharing of high resolution images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1070,6 +1092,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1144,6 +1167,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/k/ - Weapons&quot; is 4chan's imageboard for discussing all types of weaponry, from military tanks to guns and knives.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1158,6 +1182,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -1232,6 +1257,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/m/ - Mecha&quot; is 4chan's imageboard for discussing Japanese mecha robots and anime, like Gundam and Macross.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1246,6 +1272,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1320,6 +1347,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/n/ - Transportation&quot; is 4chan's imageboard for discussing modes of transportation like trains and bicycles.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1334,6 +1362,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1408,6 +1437,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/o/ - Auto&quot; is 4chan's imageboard for discussing cars and motorcycles.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1422,6 +1452,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1496,6 +1527,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/p/ - Photography&quot; is 4chan's imageboard for sharing and critiquing photos.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1510,6 +1542,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1584,6 +1617,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/r/ - Request&quot; is 4chan's imageboard dedicated to fulfilling all types of user requests.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1598,6 +1632,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1672,6 +1707,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/s/ - Sexy Beautiful Women&quot; is 4chan's imageboard dedicated to sharing images of softcore pornography.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1686,6 +1722,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -1760,6 +1797,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/t/ - Torrents&quot; is 4chan's imageboard for posting links and descriptions to torrents.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1774,6 +1812,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -1848,6 +1887,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/u/ - Yuri&quot; is 4chan's imageboard for yuri hentai images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1862,6 +1902,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -1936,6 +1977,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/v/ - Video Games&quot; is 4chan's imageboard dedicated to the discussion of PC and console video games.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -1950,6 +1992,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2024,6 +2067,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/w/ - Anime/Wallpapers&quot; is 4chan's imageboard for posting Japanese anime wallpapers.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2038,6 +2082,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2112,6 +2157,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/wg/ - Wallpapers/General&quot; is 4chan's imageboard for posting general wallpapers.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2126,6 +2172,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2200,6 +2247,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/i/ - Oekaki&quot; is 4chan's oekaki board for drawing and sharing art.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2214,6 +2262,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2288,6 +2337,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/ic/ - Artwork/Critique&quot; is 4chan's imageboard for the discussion and critique of art.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2302,6 +2352,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2376,6 +2427,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/cm/ - Cute/Male&quot; is 4chan's imageboard for posting pictures of cute anime males.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2390,6 +2442,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2464,6 +2517,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/y/ - Yaoi&quot; is 4chan's imageboard for posting adult yaoi hentai images.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2478,6 +2532,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2552,6 +2607,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/an/ - Animals &amp; Nature&quot; is 4chan's imageboard for posting pictures of animals, pets, and nature.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2566,6 +2622,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2640,6 +2697,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/cgl/ - Cosplay &amp; EGL&quot; is 4chan's imageboard for the discussion of cosplay, elegant gothic lolita (EGL), and anime conventions.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2654,6 +2712,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2728,6 +2787,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/ck/ - Food &amp; Cooking&quot; is 4chan's imageboard for food pictures and cooking recipes.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2742,6 +2802,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -2816,6 +2877,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/co/ - Comics &amp; Cartoons&quot; is 4chan's imageboard dedicated to the discussion of Western cartoons and comics.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2830,6 +2892,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2904,6 +2967,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/fa/ - Fashion&quot; is 4chan's imageboard for images and discussion relating to fashion and apparel.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -2918,6 +2982,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -2992,6 +3057,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/fit/ - Fitness&quot; is 4chan's imageboard for weightlifting, health, and fitness.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3006,6 +3072,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": true,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -3080,6 +3147,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/jp/ - Otaku Culture&quot; is 4chan's board for discussing Japanese otaku culture.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3094,6 +3162,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -3168,6 +3237,7 @@
         "ENABLE_BOARD_FLAGS": "yes",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/mlp/ - Pony&quot; is 4chan's imageboard dedicated to the discussion of My Little Pony: Friendship is Magic.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3182,6 +3252,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3256,6 +3327,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/mu/ - Music&quot; is 4chan's imageboard for discussing all types of music.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3270,6 +3342,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3344,6 +3417,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/po/ - Papercraft &amp; Origami&quot; is 4chan's imageboard for posting papercraft and origami templates and instructions.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3358,6 +3432,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3432,6 +3507,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/sp/ - Sports&quot; is 4chan's imageboard for sports discussion.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3446,6 +3522,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -3520,6 +3597,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/tg/ - Traditional Games&quot; is 4chan's imageboard for discussing traditional gaming, such as board games and tabletop RPGs.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3534,6 +3612,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3608,6 +3687,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/toy/ - Toys&quot; is 4chan's imageboard for talking about all kinds of toys!",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3622,6 +3702,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3696,6 +3777,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/trv/ - Travel&quot; is 4chan's imageboard dedicated to travel and the countries of the world.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3710,6 +3792,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -3784,6 +3867,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/tv/ - Television &amp; Film&quot; is 4chan's imageboard dedicated to the discussion of television and film.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3798,6 +3882,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3872,6 +3957,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/x/ - Paranormal&quot; is 4chan's imageboard for the discussion of paranormal, spooky pictures and conspiracy theories.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3886,6 +3972,7 @@
       "comment_max_lines": 50,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -3960,6 +4047,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/b/ - Random&quot; is the birthplace of Anonymous, and where people go to discuss random topics and create memes on 4chan.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -3974,6 +4062,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4048,6 +4137,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/soc/ - Cams &amp; Meetups&quot; is 4chan's board for camwhores and meetups.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4062,6 +4152,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -4136,6 +4227,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/r9k/ - ROBOT9001&quot; is a board for hanging out and posting greentext stories.",
+        "JSMATH": "no",
         "OP_MARKUP": "no",
         "ROBOT9000": "yes"
       }
@@ -4151,6 +4243,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": true,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": true,
@@ -4225,6 +4318,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "/test/ - Testing",
+        "JSMATH": "no",
         "OP_MARKUP": "yes"
       }
     },
@@ -4239,6 +4333,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4313,6 +4408,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/adv/ - Advice&quot; is 4chan's board for giving and receiving advice.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4327,6 +4423,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -4401,6 +4498,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/lit/ - Literature&quot; is 4chan's board for the discussion of books, authors, and literature.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4415,6 +4513,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4489,6 +4588,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/int/ - International&quot; is 4chan's international board, for the exchange of foreign language and culture.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4503,6 +4603,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": true,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4577,6 +4678,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/sci/ - Science &amp; Math&quot; is 4chan's board for the discussion of science and math.",
+        "JSMATH": "yes",
         "OP_MARKUP": "no"
       }
     },
@@ -4591,6 +4693,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4665,6 +4768,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/3/ - 3DCG&quot; is 4chan's board for 3D modeling and imagery.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4679,6 +4783,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -4753,6 +4858,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4767,6 +4873,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4841,6 +4948,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/diy/ - Do It Yourself&quot; is 4chan's imageboard for DIY/do it yourself projects, home improvement, and makers.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4855,6 +4963,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -4929,6 +5038,7 @@
         "ENABLE_BOARD_FLAGS": "yes",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/pol/ - Politically Incorrect&quot; is 4chan's board for discussing and debating politics and current events.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -4943,6 +5053,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5017,6 +5128,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/hc/ - Hardcore&quot; is 4chan's imageboard for the posting of adult hardcore pornography.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5031,6 +5143,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": true,
       "op_markup": false,
@@ -5105,6 +5218,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vg/ - Video Game Generals&quot; is 4chan's imageboard dedicated to the discussion of PC and console video games.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5119,6 +5233,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5193,6 +5308,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/hm/ - Handsome Men&quot; is 4chan's imageboard dedicated to sharing adult images of handsome men.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5207,6 +5323,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": true,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5281,6 +5398,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "yes",
         "META_DESCRIPTION": "",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5295,6 +5413,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5369,6 +5488,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/wsg/ - Worksafe GIF&quot; is 4chan's imageboard dedicated to sharing worksafe animated GIFs and WEBMs.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5383,6 +5503,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5457,6 +5578,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/out/ - Outdoors&quot; is 4chan's imageboard for discussing survivalist skills and outdoor activities such as hiking.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5471,6 +5593,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5545,6 +5668,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/lgbt/ - LGBT&quot; is 4chan's imageboard for Lesbian-Gay-Bisexual-Transgender-Queer and sexuality discussion.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5559,6 +5683,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -5633,6 +5758,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vr/ - Retro Games&quot; is 4chan's imageboard for discussing retro console video games and classic arcade games.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5647,6 +5773,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5721,6 +5848,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/gd/ - Graphic Design&quot; is 4chan's imageboard for graphic design.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5735,6 +5863,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -5809,6 +5938,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;[s4s] - Shit 4chan Says&quot; is 4chan's imageboard for posting dank memes :^)",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5823,6 +5953,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5897,6 +6028,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/biz/ - Business &amp; Finance&quot; is 4chan's imageboard for the discussion of business and finance, and cryptocurrencies such as Bitcoin and Dogecoin.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5911,6 +6043,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -5985,6 +6118,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/qa/ - Question &amp; Answer&quot; is 4chan's imageboard for question and answer threads.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -5999,6 +6133,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -6073,6 +6208,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/trash/ - Off-topic&quot; is 4chan's imageboard jail for off-topic threads.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6087,6 +6223,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6161,6 +6298,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/news/ - Current News; is 4chan's board for current news.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6175,6 +6313,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -6249,6 +6388,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/wsr/ - Worksafe Requests&quot; is 4chan's imageboard dedicated to fulfilling non-NSFW requests.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6263,6 +6403,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": true,
       "op_markup": true,
@@ -6337,6 +6478,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/qst/ - Quests&quot; is 4chan's imageboard for grinding XP.",
+        "JSMATH": "no",
         "OP_MARKUP": "yes"
       }
     },
@@ -6351,6 +6493,7 @@
       "comment_max_lines": 50,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -6425,6 +6568,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/bant/ - International/Random&quot; is 4chan's international hanging out board, where you can have fun with Anonymous all over the world.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6439,6 +6583,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": true,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6513,6 +6658,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vip/ - Very Important Posts&quot; is 4chan's imageboard for Pass users.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6527,6 +6673,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6601,6 +6748,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vrpg/ - Video Games/RPG&quot; is 4chan's imageboard dedicated to the discussion of role-playing video games.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6615,6 +6763,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6689,6 +6838,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vmg/ - Video Games/Mobile&quot; is 4chan's imageboard dedicated to the discussion of video games on mobile devices.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6703,6 +6853,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6777,6 +6928,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vst/ - Video Games/Strategy&quot; is 4chan's imageboard dedicated to the discussion of strategy video games.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6791,6 +6943,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6865,6 +7018,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vt/ - Virtual YouTubers&quot; is 4chan's board for discussing virtual YouTubers (&quot;VTubers&quot;).",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6879,6 +7033,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": true,
       "require_subject": false,
       "op_markup": false,
@@ -6953,6 +7108,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/vmg/ - Video Games/Multiplayer&quot; is 4chan's imageboard dedicated to the discussion of multiplayer video games.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -6967,6 +7123,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -7041,6 +7198,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/pw/ - Professional Wrestling&quot; is 4chan's imageboard for the discussion of professional wrestling.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -7055,6 +7213,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -7129,6 +7288,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/xs/ - Extreme Sports&quot; is 4chan's imageboard imageboard dedicated to the discussion of extreme sports.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -7143,6 +7303,7 @@
       "comment_max_lines": 100,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -7217,6 +7378,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/asp/ - Alternative Sports &amp; Wrestling&quot; is 4chan's imageboard for the discussion of alternative and extreme sports such as wrestling and paintball.",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     },
@@ -7231,6 +7393,7 @@
       "comment_max_lines": 70,
       "comment_code_spacing": false,
       "comment_sjis_spacing": false,
+      "math_tags": false,
       "comment_spoiler_cleanup": false,
       "require_subject": false,
       "op_markup": false,
@@ -7305,6 +7468,7 @@
         "ENABLE_BOARD_FLAGS": "no",
         "JANITOR_BOARD": "no",
         "META_DESCRIPTION": "&quot;/qb/ - Quebec&quot;",
+        "JSMATH": "no",
         "OP_MARKUP": "no"
       }
     }

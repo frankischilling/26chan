@@ -30,7 +30,16 @@ to an immutable dispatched input snapshot while leaving output digests and
 public/staff reads unchanged. It adds no duplicate-image admission and no
 JPEG/GIF source digest. The runtime and 0112 migration passed local
 qualification, including populated upgrades, rollback and restricted-role checks.
-Exact-head hosted checks remain pending.
+The completed PNG checkpoint `fd519c8` passed
+[hosted build/test](https://github.com/frankischilling/26chan/actions/runs/37684199590),
+monitoring and advisory checks. This includes the corrected native dispatch
+failure and live-VM cancellation fixtures.
+
+[Board math display](native-math.md) adds source-enabled inline/block equations
+and a separate Quick Reply preview using a bounded local renderer. Stored and
+API comments retain literal tags. Source, engine, policy and header checks are
+local evidence; actual browser qualification and historical visual parity
+remain unproven.
 
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme

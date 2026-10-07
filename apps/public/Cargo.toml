@@ -55,3 +55,7 @@ workspace = true
 [[example]]
 name = "deletion-quota-fixture"
 required-features = ["browser-tests"]
+
+[[example]]
+name = "math-browser-fixture"
+required-features = ["browser-tests"]

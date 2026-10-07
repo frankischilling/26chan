@@ -30,6 +30,16 @@ mod ui_assets;
 mod uploads;
 // The screenshot fixture imports the production renderer and its projections.
 pub mod views;
+
+/// Opt-in browser fixture using the actual renderer and response policy.
+#[cfg(feature = "browser-tests")]
+pub fn math_fixture_response(
+    page: &views::BoardPage,
+    origin: &str,
+) -> Result<axum::response::Response, String> {
+    security::math_fixture_response(page, origin)
+}
+
 use axum::{
     Router,
     extract::DefaultBodyLimit,

@@ -72,7 +72,7 @@ export function mountNativeBacklinks({ root, board, thread = null,
     function visit(node, depth) {
       if (ownedSuffix(node) || projection?.has(node)) return;
       if (++nodes > BACKLINK_LIMITS.nodes || depth > BACKLINK_LIMITS.depth) throw new RangeError('backlink-nodes');
-      if (node.nodeType === 3) { text(node.data); return; }
+      if (node.nodeType === 3) { text(projection?.sourceText(node) ?? node.data); return; }
       if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml'
         || !isCommentElement(node, projection?.attributes(node) ?? node.attributes)
         || node.attributes.length > 64) throw new TypeError('backlink-node');

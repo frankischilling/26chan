@@ -56,6 +56,7 @@ fn board() -> Board {
         max_authorized_comment_chars: 10000,
         comment_code_spacing: false,
         comment_sjis_spacing: false,
+        math_tags: false,
         comment_max_lines: 70,
         comment_spoiler_cleanup: false,
         custom_spoiler_count: 0,
