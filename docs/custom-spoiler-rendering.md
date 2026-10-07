@@ -93,3 +93,26 @@ npm run test:custom-spoilers
 Issue #217 remains open for the two unavailable spoiler images, unavailable test
 flag artwork and complete historical visual qualification. [The flag inventory](source-board-flags.md)
 records the 165 source definitions and available rendering evidence.
+
+## Browser evaluation ownership
+
+At `66fcdfd`, the Linux custom-spoiler suite passed 11 cases and failed the mobile
+DPR-2 preview case with `Resulting promise was garbage collected`. The retained
+trace shows the same page/frame and rendered board before and after the failed
+evaluation. All 175 recorded network entries returned HTTP 200, both imported
+modules had loaded, and no navigation or runtime exception was recorded during
+the roughly 22-millisecond call.
+
+Playwright maps Chromium's `Promise was collected` response to that message.
+The artifact does not identify the underlying collection cause or establish a
+spoiler-rendering defect. The fixture now keeps each async result in an ordinary
+object owned by a JSHandle until the result is read, then disposes that handle.
+Its module imports, preview construction, reveal/conceal steps and assertions
+are unchanged. Manager and temporary DOM cleanup run in `finally` blocks.
+
+A separate control keeps a result pending behind a release barrier while
+requesting browser garbage collection, then releases it and checks the result.
+This verifies the explicit ownership path without adding retries, browser flags
+or longer timeouts. Syntax and discovery pass locally with 13 cases; actual
+browser execution requires the next hosted run. This is fixture ownership
+hardening, not a proven explanation of the original Chromium failure.

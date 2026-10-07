@@ -1,6 +1,40 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+// Keep the result promise reachable through a remote object until evaluation settles.
+// This hardens fixture ownership; it does not identify the original Chromium GC cause.
+async function readOwnedResult(handle) {
+  try { return await handle.evaluate(state => state.result); }
+  finally { await handle.dispose(); }
+}
+
+test('fixture result remains owned across a garbage collection request', async ({ page }) => {
+  const handle = await page.evaluateHandle(() => {
+    const state = { released: false };
+    const barrier = new Promise(resolve => { state.release = resolve; });
+    state.result = (async () => {
+      await barrier;
+      state.released = true;
+      return 'owned result';
+    })();
+    return state;
+  });
+  try {
+    const [result] = await Promise.all([
+      readOwnedResult(handle),
+      (async () => {
+        expect(await handle.evaluate(state => state.released)).toBe(false);
+        await page.requestGC();
+        expect(await handle.evaluate(state => state.released)).toBe(false);
+        await handle.evaluate(state => { state.release(); });
+      })(),
+    ]);
+    expect(result).toBe('owned result');
+  } finally {
+    await handle.dispose();
+  }
+});
+
 const reference = JSON.parse(await readFile(new URL('../../apps/public/tests/fixtures/custom-spoilers.json', import.meta.url)));
 for (const device of [
   { name: 'desktop', viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 },
@@ -44,43 +78,50 @@ for (const device of [
       const trees = [];
       for (const slug of ['news', 'vm', 'vst', 's4s']) {
         await remote.goto(`/${slug}/`);
-        trees.push(await remote.evaluate(async slug => {
+        const treeHandle = await remote.evaluateHandle(slug => ({ result: (async () => {
           const native = await import('/static/native-filter.v1.js');
           const context = { origin: location.origin, board: slug, thread: '1000201', mediaOrigin: 'http://localhost:3004' };
           return { slug, tree: native.localQuoteTree(document.getElementById('pc1000205'), context, '1000205') };
-        }, slug));
+        })() }), slug);
+        trees.push(await readOwnedResult(treeHandle));
       }
       await remote.close();
       await page.goto('/m/');
       await expect(page.locator('.postMenuBtn').first()).toBeAttached();
       const primary = await page.locator('.imgspoiler img').first().getAttribute('src');
-      const result = await page.evaluate(async trees => {
+      const resultHandle = await page.evaluateHandle(trees => ({ result: (async () => {
         const native = await import('/static/native-filter.v1.js');
         const images = await import('/static/native-images.v1.js');
         const context = board => ({ origin: location.origin, board, thread: '1000201', mediaOrigin: 'http://localhost:3004' });
         const holder = document.createElement('div'); document.body.append(holder);
-        const recipe = native.localQuoteTree(document.getElementById('pc1000205'), context('m'), '1000205');
-        const create = (tree, board) => {
-          const post = native.prepareQuotePost(tree, context(board), '1000205').build(document);
-          holder.append(post); return post;
-        };
-        const local = create(recipe, 'm');
-        const choices = trees.map(({ tree, slug }) => {
-          const first = create(tree, slug).querySelector('.imgspoiler img').getAttribute('src');
-          const changed = structuredClone(tree); delete changed.attrs['data-custom-spoiler'];
-          const second = create(changed, slug).querySelector('.imgspoiler img').getAttribute('src');
-          return { slug, first, second };
-        });
-        let config = { revealSpoilers: false };
-        const manager = images.mountNativeImages({ root: holder, mediaOrigin: 'http://localhost:3004', settings: () => config });
-        const hidden = local.querySelector('.imgspoiler img').getAttribute('src');
-        config.revealSpoilers = true; manager.refresh();
-        const revealed = local.querySelector('.fileThumb:not(.imgspoiler) img')?.getAttribute('src');
-        config.revealSpoilers = false; manager.refresh();
-        const concealed = local.querySelector('.imgspoiler img').getAttribute('src');
-        manager.dispose(); holder.remove();
-        return { hidden, revealed, concealed, choices };
-      }, trees);
+        let manager;
+        try {
+          const recipe = native.localQuoteTree(document.getElementById('pc1000205'), context('m'), '1000205');
+          const create = (tree, board) => {
+            const post = native.prepareQuotePost(tree, context(board), '1000205').build(document);
+            holder.append(post); return post;
+          };
+          const local = create(recipe, 'm');
+          const choices = trees.map(({ tree, slug }) => {
+            const first = create(tree, slug).querySelector('.imgspoiler img').getAttribute('src');
+            const changed = structuredClone(tree); delete changed.attrs['data-custom-spoiler'];
+            const second = create(changed, slug).querySelector('.imgspoiler img').getAttribute('src');
+            return { slug, first, second };
+          });
+          let config = { revealSpoilers: false };
+          manager = images.mountNativeImages({ root: holder, mediaOrigin: 'http://localhost:3004', settings: () => config });
+          const hidden = local.querySelector('.imgspoiler img').getAttribute('src');
+          config.revealSpoilers = true; manager.refresh();
+          const revealed = local.querySelector('.fileThumb:not(.imgspoiler) img')?.getAttribute('src');
+          config.revealSpoilers = false; manager.refresh();
+          const concealed = local.querySelector('.imgspoiler img').getAttribute('src');
+          return { hidden, revealed, concealed, choices };
+        } finally {
+          try { manager?.dispose(); }
+          finally { holder.remove(); }
+        }
+      })() }), trees);
+      const result = await readOwnedResult(resultHandle);
       expect(result.hidden).toBe(primary); expect(result.concealed).toBe(primary);
       expect(result.revealed).toBe('http://localhost:3004/m/1000205s.jpg');
       for (const choice of result.choices) {
