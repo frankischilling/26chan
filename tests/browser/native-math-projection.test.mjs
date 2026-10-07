@@ -34,7 +34,8 @@ test('initial pageshow cannot replenish exhausted worker retries', async () => {
     const result = await page.evaluate(async ({ projection, math }) => {
       const { createCommentProjection } = await import(projection);
       const { mountNativeMath } = await import(math);
-      document.body.innerHTML = '<div class="board"><blockquote class="postMessage">[math]x[/math]</blockquote></div>';
+      document.body.innerHTML = '<div class="board"><blockquote class="postMessage"></blockquote></div>';
+      document.querySelector('.postMessage').textContent = '[math]x[/math] '.repeat(4);
       document.body.dataset.mathTags = '1'; window.IntersectionObserver = undefined;
       const workers = [];
       window.Worker = class {
