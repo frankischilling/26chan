@@ -86,9 +86,18 @@ the exercise independently requires absent write privileges and accepts that
 code only for that view. Other denied operations still require 42501.
 
 The local script adaptation uses loopback TCP; hosted qualification runs its
-original isolated Unix-socket setup. Exact-commit CI and rendered browser
-qualification remain pending. No real poll or voter data is used.
+original isolated Unix-socket setup. On `6e31833`, the full Linux job and
+media/operations job passed. Poll-specific rendered-page comparisons remain
+unqualified, and the revised directory baselines need exact-commit CI. No real
+poll or voter data is used.
 
-The home page's new Polls link intentionally changes the two Windows empty
-directory screenshots. Their next hosted captures need review before updating
-those baselines; the existing pixel comparisons remain enforced.
+On `6e31833`, Windows passed its preceding checks and eight of ten public-state
+cases. The two empty-directory comparisons changed exactly where expected: the
+new Polls link and the resulting downward movement of the directory/footer.
+The retained desktop (1280 by 900) and mobile (390 by 844) captures were inspected
+beside their original baselines; neither shows overflow or unexpected content
+or layout changes. Pixel comparison also finds ten changed glyph-edge pixels
+in unchanged top text in each viewport; their cause is not established by this
+capture. The next exact-pixel run must verify the captured rendering repeats.
+Only those two baselines were updated from the actual hosted PNGs. Exact pixel
+comparisons remain enforced, and the revised baselines still require a new run.
