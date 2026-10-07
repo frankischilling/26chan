@@ -13,6 +13,12 @@ use std::{future::Future, sync::Arc};
 const DUPLICATE: &str = "You have already reported this post.";
 const FLOOD: &str = "You have to wait a while before reporting another post.";
 
+// Unique boards and actors cannot isolate the database-wide admission gate.
+// Some cases deliberately hold it while observing other lock dependencies;
+// unrelated fixtures must not consume their ordinary production lock timeout
+// waiting behind those probes. Concurrency inside each case remains unchanged.
+static FIXTURE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[derive(Clone)]
 struct Fixture {
     owner: PgPool,
@@ -149,6 +155,7 @@ where
     F: FnOnce(Fixture) -> Fut,
     Fut: Future<Output = ()> + Send + 'static,
 {
+    let _fixture_guard = FIXTURE_LOCK.lock().await;
     let fixture = Fixture::new().await;
     let result = tokio::spawn(test(fixture.clone())).await;
     fixture.cleanup().await;
@@ -483,6 +490,68 @@ async fn rollback_releases_admission_and_repeatable_read_and_serializable_fail_c
         assert_eq!(f.counts().await, (0, 0));
         f.admit(1, 0, &identity).await.unwrap();
         assert_eq!(f.counts().await, (1, 1));
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn default_lock_timeout_fails_closed_without_report_or_session_reservation() {
+    run(|f| async move {
+        let identity = actor();
+        let capability = Capability::generate().unwrap();
+        let mut connection = f.public.acquire().await.unwrap();
+        let lock_timeout: String = sqlx::query_scalar("SHOW lock_timeout")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+        assert_eq!(lock_timeout, "2s", "Use the unchanged board_public default");
+
+        let mut gate = f.owner.begin().await.unwrap();
+        private_role(&mut gate).await;
+        sqlx::query(
+            "SELECT singleton FROM post_secrets.report_admission_gate WHERE singleton FOR UPDATE",
+        )
+        .fetch_one(&mut *gate)
+        .await
+        .unwrap();
+        // Hold only the global gate until the real public admission times out.
+        // Fixture isolation must not hide or relax production fail-closed behavior.
+        let result = admit_session(
+            &mut connection,
+            &f.boards[0],
+            f.posts[0][0],
+            Some("Blocked by the admission gate"),
+            Some(identity.as_bytes()),
+            session(&capability, true, Utc::now()),
+        )
+        .await;
+        gate.rollback().await.unwrap();
+        assert_eq!(code(&result.unwrap_err()), "55P03");
+        assert_eq!(f.counts().await, (0, 0));
+        assert!(
+            board_store::anonymous_session::snapshot(&f.public, &capability.storage_hash())
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        admit_session(
+            &mut connection,
+            &f.boards[0],
+            f.posts[0][0],
+            Some("Admission after releasing the gate"),
+            Some(identity.as_bytes()),
+            session(&capability, true, Utc::now()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(f.counts().await, (1, 1));
+        assert!(
+            board_store::anonymous_session::snapshot(&f.public, &capability.storage_hash())
+                .await
+                .unwrap()
+                .is_some()
+        );
     })
     .await;
 }
