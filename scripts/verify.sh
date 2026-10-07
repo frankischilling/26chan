@@ -30,6 +30,8 @@ cargo test --workspace --all-features --locked
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
 npx playwright test tests/browser/anonymous-session.spec.js
+node --test tests/browser/polls-fixture.test.mjs
+npm run test:polls
 npm run test:global-search
 npm run test:posting-randomizers
 npm run test:robot9000

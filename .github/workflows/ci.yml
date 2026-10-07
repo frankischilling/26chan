@@ -20,8 +20,9 @@ jobs:
   rust-and-browser:
     runs-on: ubuntu-24.04
     # Privileged qualification runs independently below, with its own database.
-    # The complete source-parity browser suite exceeded the former 40m job cap.
-    timeout-minutes: 60
+    # The last green full suite took 59m45s before poll browser coverage.
+    # Leave startup/cache variance headroom; individual test deadlines stay bounded.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -88,8 +88,7 @@ code only for that view. Other denied operations still require 42501.
 The local script adaptation uses loopback TCP; hosted qualification runs its
 original isolated Unix-socket setup. On `6e31833`, the full Linux job and
 media/operations job passed. Poll-specific rendered-page comparisons remain
-unqualified, and the revised directory baselines need exact-commit CI. No real
-poll or voter data is used.
+unqualified. No real poll or voter data is used.
 
 On `6e31833`, Windows passed its preceding checks and eight of ten public-state
 cases. The two empty-directory comparisons changed exactly where expected: the
@@ -98,6 +97,38 @@ The retained desktop (1280 by 900) and mobile (390 by 844) captures were inspect
 beside their original baselines; neither shows overflow or unexpected content
 or layout changes. Pixel comparison also finds ten changed glyph-edge pixels
 in unchanged top text in each viewport; their cause is not established by this
-capture. The next exact-pixel run must verify the captured rendering repeats.
+capture. The subsequent exact-pixel run on `1d80a98` passed both captures.
 Only those two baselines were updated from the actual hosted PNGs. Exact pixel
-comparisons remain enforced, and the revised baselines still require a new run.
+comparisons remain enforced. All ten public-state cases passed in the
+[Windows job](https://github.com/frankischilling/26chan/actions/runs/37589648036/job/112690920590).
+The full build, monitoring and dependency checks also passed on that head;
+this does not explain the earlier glyph-edge change or establish poll-page parity.
+
+## Browser regression coverage
+
+`npm run test:polls` exercises the real public server and a disposable migrated
+PostgreSQL database at desktop and mobile widths. The fixture uses explicit
+operator-owned rows; it does not activate voting or populate production polls.
+The checks cover catalogue and option order, escaped hostile text, options and
+results navigation, visible content, overflow, inert controls, restricted
+requests and unchanged stored results. These are functional browser checks,
+not comparisons against original-page screenshots.
+
+The fixture requires explicit development mode, a loopback `board_migrator`
+connection and the normal browser harness prerequisites. Setup commits its rows
+atomically; cleanup matches this run's random ownership markers and IDs, including
+after an uncertain setup result. Test and cleanup failures are both retained.
+
+Local validation passes all eight fixture-unit cases, JavaScript and shell syntax
+checks, Rust formatting and Playwright discovery of both browser cases. The
+existing generated-asset checks and 22 deletion-quota fixture cases also pass.
+On a fresh PostgreSQL 16.15 database with all migrations applied, the real poll
+fixture passes its success and callback-failure paths. Both retire their owned
+polls/options while preserving an unrelated poll and its result count.
+
+The browser cases have not run locally; the qualified browser environment is
+unavailable. Test discovery and the real SQL fixture check do not establish
+rendering or navigation behavior. Hosted CI must qualify both cases against the
+published commit. The aggregate verification script includes the new checks. The Linux CI job allows 75 minutes because its previous successful run
+took 59m45s before these additions; per-test timeouts and assertions are unchanged
+for the existing suites.
