@@ -6,6 +6,12 @@ launch requirement and does not block local rewrite completion. Local parity
 remains incomplete where the compatibility inventory below records missing
 features or reference comparisons.
 
+The consolidated work adds [guarded first-run Settings behavior](native-settings-categories.md)
+and [bounded ordinary report-group clearing](report-group-clear.md). Their local
+checks, exact-head hosted results and remaining source gaps are recorded separately;
+neither establishes overall completion. Group clearing requires captured effective
+weights and does not work for the default unknown-weight free-text path.
+
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme
 palettes and cross-board quotes. `scripts/check-launch-readiness.sh` checks

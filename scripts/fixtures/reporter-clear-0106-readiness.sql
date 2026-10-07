@@ -1,174 +1,5 @@
-//! Private, report-bound IP and anonymous-session admission. GET is advisory;
-//! POST atomically inserts the report, membership, and anonymous activity.
-use crate::{StoreError, anonymous_session::PostingSession};
-use board_domain::poster_id::PublicReportRateIdentity;
-use sqlx::{PgConnection, PgPool};
-
-/// Does not reserve capacity, mutate anonymous activity, or acquire row locks.
-pub async fn check(
-    pool: &PgPool,
-    slug: &str,
-    id: i64,
-    identity: &PublicReportRateIdentity,
-) -> Result<(), StoreError> {
-    sqlx::query("SELECT content.check_report_admission($1,$2,$3)")
-        .bind(slug)
-        .bind(id)
-        .bind(identity.as_bytes().as_slice())
-        .execute(pool)
-        .await
-        .map_err(admission_error)?;
-    Ok(())
-}
-
-/// Read-only admission context from an already verified capability. An absent
-/// token checks only the transport identity and never creates session state.
-pub async fn check_with_session(
-    pool: &PgPool,
-    slug: &str,
-    id: i64,
-    identity: &PublicReportRateIdentity,
-    token: Option<&[u8; 32]>,
-    request_at: i64,
-) -> Result<(), StoreError> {
-    sqlx::query("SELECT content.check_report_admission($1,$2,$3,$4,$5)")
-        .bind(slug)
-        .bind(id)
-        .bind(identity.as_bytes().as_slice())
-        .bind(token.map(|token| token.as_slice()))
-        .bind(request_at)
-        .execute(pool)
-        .await
-        .map_err(admission_error)?;
-    Ok(())
-}
-
-/// Caller starts READ COMMITTED before its first query. The SQL function
-/// reenters the board lock, takes the global gate, and captures database time
-/// after contention. This legacy IP-only path is executable only by staff.
-pub(crate) async fn admit_on(
-    connection: &mut PgConnection,
-    slug: &str,
-    id: i64,
-    reason: &str,
-    identity: &PublicReportRateIdentity,
-) -> Result<i64, StoreError> {
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4)")
-        .bind(slug)
-        .bind(id)
-        .bind(reason)
-        .bind(identity.as_bytes().as_slice())
-        .fetch_one(connection)
-        .await
-        .map_err(admission_error)
-}
-
-/// Session resolution, quotas, report insertion, and activity registration all
-/// run inside the single SQL admission boundary, including for new sessions.
-pub(crate) async fn admit_with_session_on(
-    connection: &mut PgConnection,
-    slug: &str,
-    id: i64,
-    reason: &str,
-    identity: &PublicReportRateIdentity,
-    session: PostingSession,
-) -> Result<i64, StoreError> {
-    let fingerprints = session.fingerprints;
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
-        .bind(slug)
-        .bind(id)
-        .bind(reason)
-        .bind(identity.as_bytes().as_slice())
-        .bind(fingerprints.token.as_slice())
-        .bind(fingerprints.network.as_slice())
-        .bind(fingerprints.address.as_slice())
-        .bind(fingerprints.environment.as_slice())
-        .bind(session.minted)
-        .bind(session.now.timestamp())
-        .fetch_one(connection)
-        .await
-        .map_err(admission_error)
-}
-
-/// Category resolution and captured metadata are owned by the SQL boundary.
-/// The caller supplies only an ID and the advisory form's expected revision.
-pub(crate) async fn admit_categorical_with_session_on(
-    connection: &mut PgConnection,
-    slug: &str,
-    id: i64,
-    category_id: i64,
-    expected_revision: i64,
-    identity: &PublicReportRateIdentity,
-    session: PostingSession,
-) -> Result<i64, StoreError> {
-    let fingerprints = session.fingerprints;
-    sqlx::query_scalar(
-        "SELECT content.admit_categorical_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
-    )
-    .bind(slug)
-    .bind(id)
-    .bind(category_id)
-    .bind(expected_revision)
-    .bind(identity.as_bytes().as_slice())
-    .bind(fingerprints.token.as_slice())
-    .bind(fingerprints.network.as_slice())
-    .bind(fingerprints.address.as_slice())
-    .bind(fingerprints.environment.as_slice())
-    .bind(session.minted)
-    .bind(session.now.timestamp())
-    .fetch_one(connection)
-    .await
-    .map_err(admission_error)
-}
-
-pub(crate) fn admission_error(error: sqlx::Error) -> StoreError {
-    if let Some(database) = error.as_database_error() {
-        match database.code().as_deref() {
-            Some("P0002") => return StoreError::NotFound,
-            Some("28000") => return StoreError::AuthorizationChanged,
-            Some("P0094") => {
-                return StoreError::Database(sqlx::Error::Protocol(
-                    "Report admission capacity is unavailable.".into(),
-                ));
-            }
-            Some("P0001") => {
-                let message = match database.message() {
-                    "You cannot report posts on this board." => {
-                        "You cannot report posts on this board."
-                    }
-                    "Error: You cannot report a sticky." => "Error: You cannot report a sticky.",
-                    "Error: You cannot report this post." => "Error: You cannot report this post.",
-                    "You have already reported this post." => {
-                        "You have already reported this post."
-                    }
-                    "You have to wait a while before reporting another post." => {
-                        "You have to wait a while before reporting another post."
-                    }
-                    "Free-text reporting is not active." => "Free-text reporting is not active.",
-                    "Categorical reporting is not active." => {
-                        "Categorical reporting is not active."
-                    }
-                    "Report categories changed. Please reload the report form." => {
-                        "Report categories changed. Please reload the report form."
-                    }
-                    "Invalid category selected." => "Invalid category selected.",
-                    _ => return StoreError::Database(error),
-                };
-                return StoreError::Invalid(message);
-            }
-            Some("22023")
-                if database.message() == "Report reason must contain 1 to 1000 bytes." =>
-            {
-                return StoreError::Invalid("Report reason must contain 1 to 1000 bytes.");
-            }
-            _ => {}
-        }
-    }
-    StoreError::Database(error)
-}
-
-/// Catalog-only readiness contract shared by public and staff services.
-pub const READINESS_SQL: &str = r#"WITH owner_role AS (
+-- Frozen report readiness at the 0106 boundary; later schema uses current readiness.
+WITH owner_role AS (
     SELECT r.oid FROM pg_catalog.pg_roles r
     WHERE r.rolname='board_report_admission_owner'
       AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
@@ -193,8 +24,7 @@ AND NOT EXISTS (
         ('content.report_category_form(text,bigint)','jsonb',true,true,true),
         ('content.admit_categorical_report(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,true),
         ('content.set_report_catalog_active(bigint)','void',false,false,true),
-        ('content.clear_reporter(text,bigint)','bigint',false,true,false),
-        ('content.clear_report_group(text,bigint,bigint)','bigint',false,true,false)
+        ('content.clear_reporter(text,bigint)','bigint',false,true,false)
     ) AS required(signature,result_type,public_allowed,staff_allowed,migrator_allowed)
     WHERE NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_proc p JOIN owner_role r ON r.oid=p.proowner
@@ -308,20 +138,17 @@ AND EXISTS (
     WHERE c.nspname='post_secrets' AND c.relname='report_group' AND c.relowner=r.oid
       AND storage.relkind='r' AND storage.relpersistence='p'
       AND NOT storage.relrowsecurity AND NOT storage.relforcerowsecurity
-      AND (SELECT count(*)=6 FROM pg_catalog.pg_attribute a
+      AND (SELECT count(*)=4 FROM pg_catalog.pg_attribute a
           WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)
       AND NOT EXISTS (
-          SELECT 1 FROM (VALUES ('board','text',true),('post_id','int8',true),
-              ('illegal_count','int8',true),('incomplete','bool',true),
-              ('cleared_at','timestamptz',false),('cleared_by','int8',false))
-              AS required(column_name,type_name,not_null)
+          SELECT 1 FROM (VALUES ('board','text'),('post_id','int8'),
+              ('illegal_count','int8'),('incomplete','bool')) AS required(column_name,type_name)
           WHERE NOT EXISTS (
               SELECT 1 FROM pg_catalog.pg_attribute a
               WHERE a.attrelid=c.oid AND a.attname=required.column_name
                 AND a.attnum>0 AND NOT a.attisdropped
                 AND a.atttypid=to_regtype('pg_catalog.'||required.type_name)
-                AND a.atttypmod=-1 AND a.attnotnull=required.not_null
-                AND NOT a.atthasdef AND NOT a.atthasmissing
+                AND a.atttypmod=-1 AND a.attnotnull AND NOT a.atthasdef
                 AND a.attgenerated='' AND a.attidentity=''))
       AND EXISTS (
           SELECT 1 FROM pg_catalog.pg_constraint k
@@ -344,17 +171,6 @@ AND EXISTS (
             AND NOT k.condeferrable AND NOT k.condeferred
             AND k.conkey=ARRAY[a.attnum]::smallint[]
             AND lower(translate(pg_catalog.pg_get_expr(k.conbin,k.conrelid),' ()',''))='illegal_count>=0')
-      AND EXISTS (
-          SELECT 1 FROM pg_catalog.pg_constraint k
-          WHERE k.conrelid=c.oid AND k.conname='report_group_clear_complete'
-            AND k.contype='c' AND k.convalidated AND NOT k.connoinherit
-            AND NOT k.condeferrable AND NOT k.condeferred
-            AND k.conkey=ARRAY(SELECT a.attnum
-                FROM unnest(ARRAY['cleared_at','cleared_by']) WITH ORDINALITY AS names(name,ordinal)
-                JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attname=names.name
-                    AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
-            AND lower(translate(pg_catalog.pg_get_expr(k.conbin,k.conrelid),' ()',''))
-                ='cleared_atisnull=cleared_byisnull')
       AND NOT EXISTS (
           SELECT 1 FROM pg_catalog.aclexplode(coalesce(storage.relacl,
               pg_catalog.acldefault('r',storage.relowner))) a
@@ -461,10 +277,6 @@ AND NOT EXISTS (
         ('reports','category_kind','INSERT'),('reports','category_base_weight','INSERT'),
         ('reports','category_kind','SELECT'),
         ('reports','reporter_cleared_at','SELECT'),('reports','reporter_cleared_at','UPDATE'),
-        ('reports','board','SELECT'),('reports','post_id','SELECT'),
-        ('reports','group_cleared_at','SELECT'),('reports','group_cleared_at','UPDATE'),
-        ('reports','group_cleared_by','SELECT'),('reports','group_cleared_by','UPDATE'),
-        ('reports','group_clear_inherited','SELECT'),('reports','group_clear_inherited','UPDATE'),
         ('boards','worksafe','SELECT'),('post_media','post_id','SELECT'),
         ('post_media','bytes','SELECT'),('post_media','file_deleted','SELECT')
     ) AS required(table_name,column_name,privilege_name)
@@ -514,8 +326,6 @@ AND NOT EXISTS (
 )
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES
-        ('reports_group_clear_complete',ARRAY['group_cleared_at','group_cleared_by','group_clear_inherited'],
-         '(num_nonnulls(group_cleared_at,group_cleared_by,group_clear_inherited)=any(array[0,3]))'),
         ('reports_category_complete',ARRAY['category_revision','category_id','category_kind','category_base_weight'],
          '(num_nonnulls(category_revision,category_id,category_kind,category_base_weight)=any(array[0,4]))'),
         ('reports_category_kind_check',ARRAY['category_kind','category_id'],
@@ -696,44 +506,9 @@ AND EXISTS (
       AND p.proargnames=ARRAY['p_board','p_report']::text[]
       AND l.lanname='plpgsql' AND NOT p.proisstrict AND NOT p.proleakproof AND p.proparallel='u'
 )
--- Ordinary group clearing has its own target and trusted authenticated actor.
--- The function returns only a bounded count; the group itself remains private.
-AND EXISTS (
-    SELECT 1 FROM pg_catalog.pg_proc p JOIN owner_role r ON r.oid=p.proowner
-    JOIN pg_catalog.pg_language l ON l.oid=p.prolang
-    WHERE p.oid=to_regprocedure('content.clear_report_group(text,bigint,bigint)')
-      AND p.proargtypes='25 20 20'::oidvector AND p.pronargs=3
-      AND p.proallargtypes IS NULL AND p.proargmodes IS NULL
-      AND p.proargnames=ARRAY['p_board','p_post','p_account']::text[]
-      AND l.lanname='plpgsql' AND NOT p.proisstrict AND NOT p.proleakproof AND p.proparallel='u'
-)
-AND EXISTS (
-    SELECT 1 FROM relations c
-    JOIN pg_catalog.pg_index i ON i.indrelid=c.oid
-    JOIN pg_catalog.pg_class index_relation ON index_relation.oid=i.indexrelid
-    JOIN pg_catalog.pg_am method ON method.oid=index_relation.relam
-    WHERE c.nspname='content' AND c.relname='reports'
-      AND index_relation.relname='reports_group_clear_history'
-      AND index_relation.relnamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='content')
-      AND index_relation.relkind='i' AND index_relation.relpersistence='p'
-      AND index_relation.relowner=c.relowner AND method.amname='btree'
-      AND NOT i.indisprimary AND NOT i.indisunique AND NOT i.indisexclusion
-      AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate
-      AND i.indnkeyatts=2 AND i.indnatts=2 AND i.indexprs IS NULL
-      AND i.indkey[0]=(SELECT a.attnum FROM pg_catalog.pg_attribute a
-          WHERE a.attrelid=c.oid AND a.attname='board' AND a.attnum>0 AND NOT a.attisdropped)
-      AND i.indkey[1]=(SELECT a.attnum FROM pg_catalog.pg_attribute a
-          WHERE a.attrelid=c.oid AND a.attname='id' AND a.attnum>0 AND NOT a.attisdropped)
-      AND i.indoption::text='0 3'
-      AND lower(translate(pg_catalog.pg_get_expr(i.indpred,i.indrelid),' ()',''))
-          ='group_cleared_atisnotnullandreporter_cleared_atisnull'
-)
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES ('reports','reporter_cleared_at','timestamptz'),
-        ('reports','group_cleared_at','timestamptz'),
-        ('reports','group_cleared_by','int8'),('reports','group_clear_inherited','bool'),
-        ('moderation_audit','reporter_clear_count','int8'),
-        ('moderation_audit','group_clear_count','int8')) AS required(table_name,column_name,type_name)
+        ('moderation_audit','reporter_clear_count','int8')) AS required(table_name,column_name,type_name)
     WHERE NOT EXISTS (
         SELECT 1 FROM relations c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid
         WHERE c.nspname='content' AND c.relname=required.table_name
@@ -758,22 +533,18 @@ AND EXISTS (
       AND NOT has_table_privilege(r.oid,c.oid,'UPDATE,DELETE,TRUNCATE')
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
           WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname NOT IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
-            AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
+            AND a.attname<>'reporter_cleared_at' AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute column_acl
           CROSS JOIN LATERAL pg_catalog.aclexplode(column_acl.attacl) a
-          WHERE column_acl.attrelid=c.oid
-            AND column_acl.attname IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
+          WHERE column_acl.attrelid=c.oid AND column_acl.attname='reporter_cleared_at'
             AND (a.is_grantable OR a.grantee<>r.oid OR a.privilege_type NOT IN ('SELECT','UPDATE')))
 )
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES
         ('moderation_audit_reporter_clear_count',ARRAY['action','reporter_clear_count'],
          'action=''reporter-clear''andreporter_clear_countisnotnullandreporter_clear_count>=1andreporter_clear_count<=10000oraction<>''reporter-clear''andreporter_clear_countisnull'),
-        ('moderation_audit_group_clear_count',ARRAY['action','group_clear_count'],
-         'action=''report-group-clear''andgroup_clear_countisnotnullandgroup_clear_count>=1andgroup_clear_count<=10000oraction<>''report-group-clear''andgroup_clear_countisnull'),
         ('moderation_audit_action_check',ARRAY['action'],
-         'action=anyarray[''close'',''reopen'',''sticky'',''unsticky'',''permasage'',''unpermasage'',''permaage'',''unpermaage'',''remove-post'',''remove-file'',''remove-thread'',''resolve'',''dismiss'',''staff-post'',''spoiler'',''unspoiler'',''undead'',''unundead'',''thread-options'',''force-archive'',''reporter-clear'',''report-group-clear'']')
+         'action=anyarray[''close'',''reopen'',''sticky'',''unsticky'',''permasage'',''unpermasage'',''permaage'',''unpermaage'',''remove-post'',''remove-file'',''remove-thread'',''resolve'',''dismiss'',''staff-post'',''spoiler'',''unspoiler'',''undead'',''unundead'',''thread-options'',''force-archive'',''reporter-clear'']')
     ) AS required(constraint_name,columns,expression)
     WHERE NOT EXISTS (
         SELECT 1 FROM relations c JOIN pg_catalog.pg_constraint k ON k.conrelid=c.oid
@@ -827,4 +598,4 @@ AND NOT EXISTS (
         WHERE n.nspname=required.schema_name AND has_schema_privilege(r.oid,n.oid,'USAGE')
           AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
     )
-)"#;
+);

@@ -80,7 +80,7 @@ pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, Ap
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(b.archive_retention_seconds>0) AS archives_enabled,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) AND r.reporter_cleared_at IS NULL ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(b.archive_retention_seconds>0) AS archives_enabled,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
         .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
         .fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
@@ -292,8 +292,8 @@ pub(crate) async fn prepare_moderation(
                 }
             })?;
     } else if matches!(action, "resolve" | "dismiss") {
-        let thread: i64 = sqlx::query_scalar("SELECT p.thread_id FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board WHERE r.board=$1 AND r.id=$2 AND r.reporter_cleared_at IS NULL FOR UPDATE OF r").bind(board).bind(target).fetch_optional(&mut *tx).await?.ok_or(AppError::NotFound)?;
-        sqlx::query("UPDATE content.reports SET state=$3 WHERE board=$1 AND id=$2 AND reporter_cleared_at IS NULL")
+        let thread: i64 = sqlx::query_scalar("SELECT p.thread_id FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board WHERE r.board=$1 AND r.id=$2 AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL FOR UPDATE OF r").bind(board).bind(target).fetch_optional(&mut *tx).await?.ok_or(AppError::NotFound)?;
+        sqlx::query("UPDATE content.reports SET state=$3 WHERE board=$1 AND id=$2 AND reporter_cleared_at IS NULL AND group_cleared_at IS NULL")
             .bind(board)
             .bind(target)
             .bind(if action == "resolve" {
@@ -399,4 +399,30 @@ pub async fn moderate(
         .commit()
         .await?;
     Ok(())
+}
+
+/// Clear history contains report evidence only, never a live post preview presented
+/// as an historical snapshot. Original disposition is independent of group clear.
+#[derive(sqlx::FromRow)]
+pub struct ClearedReport {
+    pub id: i64,
+    pub post_id: i64,
+    pub reason: String,
+    pub category_id: Option<i64>,
+    pub state: String,
+    pub group_cleared_at: chrono::DateTime<chrono::Utc>,
+    pub group_cleared_by: i64,
+    pub group_clear_inherited: bool,
+}
+
+pub async fn cleared_reports(
+    pool: &PgPool,
+    session: &Session,
+    board: &str,
+) -> Result<Vec<ClearedReport>, AppError> {
+    if !session.at_least(crate::access::Level::Janitor) || !session.permissions.allows(board) {
+        return Err(AppError::Forbidden);
+    }
+    Ok(sqlx::query_as("SELECT id,post_id,reason,category_id,state,group_cleared_at,group_cleared_by,group_clear_inherited FROM content.reports WHERE board=$1 AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL ORDER BY id DESC LIMIT 100")
+        .bind(board).fetch_all(pool).await?)
 }

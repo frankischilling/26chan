@@ -943,6 +943,12 @@ geometry and the complete Quick Reply lifecycle are unfinished.
 
 ### Reports and staff
 
+[Ordinary report-group clearing](report-group-clear.md) implements a bounded,
+board-authorized transition and inherited clear state only where every active
+member has proven effective weight. Default free-text groups remain unqualified;
+complete weighting, cross-board unlock, orphan purge and abuse workflows are
+still open. The dedicated contract records those limits separately.
+
 `modes/report.php:307, 517-666` loads category definitions/scopes from
 database rows, validates post/category and stores a post snapshot, reporter
 identity and category weight. Unknown/threat/filtered conditions can reduce

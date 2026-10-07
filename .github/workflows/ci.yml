@@ -303,6 +303,8 @@ jobs:
         run: sudo bash scripts/test-force-archive-migration.sh
       - name: Qualify reporter clear migration and restore with retained evidence and scoped authority
         run: sudo bash scripts/test-reporter-clear-migration.sh
+      - name: Qualify bounded report group clearing, inherited state and administrator restore
+        run: sudo bash scripts/test-report-group-clear-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering

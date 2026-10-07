@@ -7,6 +7,7 @@ mod discussion;
 mod handlers;
 mod latest;
 mod posting_password;
+mod report_group_clear;
 mod reporter_clear;
 pub mod store;
 mod thread_options;
@@ -59,6 +60,10 @@ pub enum AppError {
     Invalid,
     #[error("{0}")]
     Posting(String),
+    #[error("Report group cannot be cleared because report weights are unavailable.")]
+    ReportGroupWeights,
+    #[error("Report group is already cleared.")]
+    ReportGroupAlreadyCleared,
     #[error("Object unavailable")]
     NotFound,
     #[error("Service unavailable")]
@@ -74,6 +79,7 @@ impl IntoResponse for AppError {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,
             Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
+            Self::ReportGroupWeights | Self::ReportGroupAlreadyCleared => StatusCode::CONFLICT,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::SERVICE_UNAVAILABLE,
@@ -138,6 +144,11 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
+        .route("/reports/cleared", get(report_group_clear::history))
+        .route(
+            "/report-group-clear",
+            post(report_group_clear::submit).layer(DefaultBodyLimit::max(4096)),
+        )
         .route("/latest.php", get(latest::latest))
         .route("/j", get(discussion::index))
         .route("/j/", get(discussion::index))

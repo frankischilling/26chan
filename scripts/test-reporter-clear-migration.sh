@@ -40,15 +40,13 @@ REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO board_migrator,board_public,board_staff,board_auth;
 SQL
 }
-# Execute the application readiness query using both supported runtime roles.
+# Keep the 0106 readiness boundary fixed; the new upgrade qualifier checks current readiness.
 python3 - "$cluster" <<'PYREADINESS'
-import pathlib, re, sys
+import pathlib, sys
 root = pathlib.Path(sys.argv[1])
-source = pathlib.Path('crates/store/src/report_admission.rs').read_text()
-match = re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;', source, re.S)
-if not match or 'content.clear_reporter(text,bigint)' not in match.group(1):
-    raise SystemExit('Cannot extract 0106 report readiness')
-query = match.group(1).strip().rstrip(';')
+query = pathlib.Path('scripts/fixtures/reporter-clear-0106-readiness.sql').read_text().strip().rstrip(';')
+if 'content.clear_reporter(text,bigint)' not in query:
+    raise SystemExit('Missing frozen 0106 report readiness')
 (root / 'readiness.sql').write_text("DO $check$ BEGIN IF (" + query + ") IS DISTINCT FROM true THEN RAISE EXCEPTION '0106 readiness failed'; END IF; END $check$;")
 changes = [
     'ALTER FUNCTION content.clear_reporter(text,bigint) SECURITY INVOKER',
