@@ -1,6 +1,55 @@
 // Release-owned settings controls. Stored strings never become HTML.
 import { parseCatalogCSS } from './native-custom-css.v1.js';
 
+// Config/ConfigMobile and Main.run in the supplied extension.js:8795–8847,
+// 9444–9451, 9483–9486. This snapshot is only for proven first-run pages.
+const startupDefaults = Object.freeze({
+  quotePreview: true, backlinks: true, quickReply: true, threadUpdater: true, threadHiding: true,
+  alwaysAutoUpdate: false, topPageNav: false, threadWatcher: false, threadAutoWatcher: false,
+  imageExpansion: true, fitToScreenExpansion: false, threadExpansion: true, alwaysDepage: false,
+  localTime: true, stickyNav: false, keyBinds: false, inlineQuotes: false, filter: false,
+  revealSpoilers: false, imageHover: false, threadStats: true, IDColor: true, noPictures: false,
+  embedYouTube: true, embedSoundCloud: false, updaterSound: false, customCSS: false,
+  autoScroll: false, hideStubs: false, compactThreads: false, centeredThreads: false,
+  dropDownNav: false, autoHideNav: false, classicNav: false, fixedThreadWatcher: false,
+  persistentQR: false, forceHTTPS: false, darkTheme: false, linkify: false, unmuteWebm: false,
+  disableAll: false,
+});
+
+export function settingsStartupDefaults({ mobileLayout = false, mobileDevice = false, disabled = false } = {}) {
+  const settings = { ...startupDefaults };
+  if (!disabled) {
+    if (mobileLayout === true) Object.assign(settings, { embedYouTube: false, compactThreads: false, linkify: true });
+    if (mobileDevice === true) Object.assign(settings, { topPageNav: false, dropDownNav: true });
+  }
+  return settings;
+}
+
+// Validate only for implicit first-open persistence. Unknown safe preferences
+// are retained, never normalized or dropped. Failed reads must not call this as
+// though they were a successful absent read.
+export function readSettingsStartup(raw) {
+  if (raw === null || raw === '') return { status: 'ok', settings: {} };
+  if (typeof raw !== 'string' || raw.length > 4096) return { status: 'invalid' };
+  try {
+    const settings = JSON.parse(raw);
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return { status: 'invalid' };
+    const pending = [settings];
+    while (pending.length) {
+      const value = pending.pop();
+      for (const key of Object.keys(value)) {
+        if (['__proto__', 'prototype', 'constructor'].includes(key)) return { status: 'invalid' };
+        if (typeof value[key] === 'number' && !Number.isFinite(value[key])) return { status: 'invalid' };
+        if (value[key] && typeof value[key] === 'object') pending.push(value[key]);
+      }
+    }
+    for (const key of [...Object.keys(startupDefaults), 'customMenu', 'imageHoverBg']) {
+      if (Object.hasOwn(settings, key) && typeof settings[key] !== 'boolean') return { status: 'invalid' };
+    }
+    return { status: 'ok', settings };
+  } catch { return { status: 'invalid' }; }
+}
+
 // Source SettingsMenu.options at 545b781: presentation availability only.
 // Hidden preferences remain stored and are still honored by their runtimes.
 const mobileSettings = new Set(`quotePreview backlinks quickReply threadUpdater alwaysAutoUpdate
@@ -75,13 +124,14 @@ export function writeCatalogTheme(value) {
   return { ...checked, raw };
 }
 
-export function installSettings({ catalog, read, save, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false, presentation }) {
+export function installSettings({ catalog, read, save, initializeOnOpen, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false, presentation }) {
   // Copy only immutable presentation flags; do not hold a mutable caller object.
   const startup = Object.freeze({ firstRun: presentation?.firstRun === true,
     mobileLayout: presentation ? presentation.mobileLayout === true : hasMobileLayout() === true });
   const navigation = document.querySelector('.boardList');
   let active = null;
   let pendingSave = null;
+  let pendingInitialization = null;
   let opener = null;
   function node(tag, text, className) {
     const element = document.createElement(tag);
@@ -103,6 +153,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     return element;
   }
   function close() {
+    pendingInitialization?.abort();
+    pendingInitialization = null;
     pendingSave?.abort();
     pendingSave = null;
     if (!active) return;
@@ -244,7 +296,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     const actions = node('div', undefined, 'center');
     let exportButton;
     if (typeof openExport === 'function') {
-      exportButton = button('Export Settings', event => { if (!pendingSave) openExport(event.currentTarget); });
+      exportButton = button('Export Settings', event => { if (!pendingSave && !pendingInitialization) openExport(event.currentTarget); });
       exportButton.id = 'settings-export';
       actions.append(exportButton);
     }
@@ -256,6 +308,8 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if (submit.disabled) return;
+      pendingInitialization?.abort();
+      pendingInitialization = null;
       submit.disabled = true;
       if (exportButton) exportButton.disabled = true;
       const controller = new AbortController();
@@ -297,6 +351,22 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     if (catalog) dialog.style.top = `${window.scrollY + 60}px`;
     active = dialog;
     dialog.showModal();
+    if (!catalog && startup.firstRun && typeof initializeOnOpen === 'function') {
+      const controller = new AbortController();
+      pendingInitialization = controller;
+      if (exportButton) exportButton.disabled = true;
+      Promise.resolve().then(() => controller.signal.aborted ? false : initializeOnOpen(controller.signal)).then(result => {
+        if (controller.signal.aborted || active !== dialog) return;
+        if (result === false) message.textContent = 'Initial settings could not be saved. You can still edit settings.';
+        else if (result?.status === 'ok' && result.persisted === false) message.textContent = 'Settings are available only in this tab because browser storage is unavailable.';
+      }).catch(() => {
+        if (!controller.signal.aborted && active === dialog) message.textContent = 'Initial settings could not be saved. You can still edit settings.';
+      }).finally(() => {
+        if (pendingInitialization !== controller) return;
+        pendingInitialization = null;
+        if (active === dialog && exportButton && !pendingSave) exportButton.disabled = false;
+      });
+    }
     if (catalog) fields.get('threadWatcher').input.focus();
     else if (categories[0].list.hidden) categories[0].expand.focus();
     else fields.values().next().value.input.focus();
@@ -331,6 +401,7 @@ export function installSettings({ catalog, read, save, toggleWatcher, openFilter
     desktopLink.setAttribute('data-native-settings-ready', ''); mobileLink.setAttribute('data-native-settings-ready', '');
   }
   window.addEventListener('pagehide', close);
+  document.addEventListener('4chanPreferencesRestored', close);
   return {
     open,
     setWatcherEnabled(enabled, visible) {

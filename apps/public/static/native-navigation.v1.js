@@ -346,7 +346,9 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
     if (next !== signature) {
       clear(); signature = next;
       if (!disabled()) {
-        if (config.dropDownNav === true) persistent(config);
+        // Source Main.run only installs persistent navigation outside mobile
+        // layout. Keep its stored preference for a later desktop layout.
+        if (config.dropDownNav === true && (catalog || !mobileLayout())) persistent(config);
         if (config.topPageNav === true) pagination();
         if (config.stickyNav === true) navigationArrows();
       }

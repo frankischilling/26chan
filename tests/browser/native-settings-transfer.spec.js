@@ -374,3 +374,53 @@ test('restore stays unavailable if browser storage becomes unreadable after revi
   }
   expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(current);
 });
+
+for (const confirmBeforeRelease of [false, true]) {
+  test(`first-run initialization cannot invalidate a sparse restore ${confirmBeforeRelease ? 'queued behind its lock' : 'awaiting review'}`, async ({ page, context }) => {
+    await page.goto('/fixture/');
+    expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+    const other = await context.newPage();
+    await other.goto('/');
+    await other.evaluate(() => new Promise(resolve => {
+      window.restoreRaceLockDone = navigator.locks.request('paperboard-thread-watcher', async () => {
+        resolve();
+        await new Promise(release => { window.releaseRestoreRaceLock = release; });
+      });
+    }));
+    try {
+      await openSettings(page);
+      await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending
+        .filter(lock => lock.name === 'paperboard-thread-watcher').length)).toBe(1);
+      const incoming = JSON.stringify({ quotePreview: false });
+      await page.evaluate(hash => { location.hash = hash; }, cfg({ settings: incoming }));
+      const review = page.getByRole('dialog', { name: 'Restore Settings', exact: true });
+      await expect(review).toBeVisible();
+      await expect(page).toHaveURL(`${origin}/fixture/`);
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+      if (confirmBeforeRelease) {
+        await review.getByRole('button', { name: 'Restore Settings', exact: true }).click();
+        await expect(review.getByRole('status')).toHaveText('Restoring settings...');
+      }
+      await other.evaluate(async () => { window.releaseRestoreRaceLock(); await window.restoreRaceLockDone; });
+      // A barrier behind initialization proves the pending review cannot cause a
+      // default write, rather than checking storage before a queued job runs.
+      await page.evaluate(() => navigator.locks.request('paperboard-thread-watcher', () => {}));
+      if (!confirmBeforeRelease) {
+        expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+        await review.getByRole('button', { name: 'Restore Settings', exact: true }).click();
+      }
+      await expect(review.getByRole('status')).toHaveText('Settings restored.');
+      await expect(page.locator('#settingsMenu')).toHaveCount(0);
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(incoming);
+      await review.getByRole('button', { name: 'Close', exact: true }).click();
+      const reopened = await openSettings(page);
+      await expect(reopened.getByRole('button', { name: 'Export Settings', exact: true })).toBeEnabled();
+      await page.evaluate(() => navigator.locks.request('paperboard-thread-watcher', () => {}));
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(incoming);
+      await reopened.getByRole('button', { name: 'Export Settings', exact: true }).click();
+      const exported = await page.getByRole('dialog', { name: 'Export Settings', exact: true })
+        .getByLabel('Settings export URL', { exact: true }).inputValue();
+      expect(JSON.parse(decodeURIComponent(new URL(exported).hash.slice(5))).settings).toBe(incoming);
+    } finally { await other.close(); }
+  });
+}

@@ -23,7 +23,8 @@ const sources = new Map(await Promise.all(['native-settings.v1.js', 'native-cust
   [`/static/${name}`, await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8')])));
 
 async function fixture(page, { settings, mobile = false, override = {},
-  raw = settings === undefined ? null : JSON.stringify(settings), unavailable = false, integratedDefaults = false } = {}) {
+  raw = settings === undefined ? null : JSON.stringify(settings), unavailable = false, integratedDefaults = false, autoOpen = true,
+  initialization = null, catalog = false } = {}) {
   settings ??= {};
   await page.setViewportSize({ width: mobile ? 390 : 1000, height: 800 });
   const context = page.context();
@@ -35,7 +36,7 @@ async function fixture(page, { settings, mobile = false, override = {},
     return route.abort();
   });
   await page.goto('https://settings.example/demo/');
-  await page.evaluate(async ({ settings, override, raw, unavailable, integratedDefaults }) => {
+  await page.evaluate(async ({ settings, override, raw, unavailable, integratedDefaults, initialization, catalog }) => {
     if (raw === null) localStorage.removeItem('4chan-settings');
     else localStorage.setItem('4chan-settings', raw);
     window.storageWrites = [];
@@ -50,14 +51,44 @@ async function fixture(page, { settings, mobile = false, override = {},
     window.saveCalls = [];
     window.callbacks = [];
     window.saveMode = 'success';
+    window.initializationCalls = [];
+    window.initializationMode = initialization;
+    window.lifecycle = [];
+    window.settleInitialization = (index, reject = false) => {
+      const call = initializationCalls[index];
+      if (reject) call.reject(new Error('fixture initialization rejection'));
+      else call.resolve();
+    };
     window.savedEvents = 0;
     document.addEventListener('4chanSettingsSaved', () => savedEvents++);
-    const callback = name => source => callbacks.push([name, source?.id]);
+    const callback = name => source => {
+      lifecycle.push(name);
+      callbacks.push([name, source?.id]);
+    };
     const { installSettings, captureSettingsPresentation, settingsOptionChecked } = await import('/static/native-settings.v1.js');
     const presentation = captureSettingsPresentation(unavailable ? { status: 'unavailable' }
       : { status: 'ok', raw: localStorage.getItem('4chan-settings') }, matchMedia('(max-width: 480px)').matches);
     window.settingsAPI = installSettings({
-      catalog: false,
+      catalog,
+      ...(initialization === null ? {} : { initializeOnOpen: async signal => {
+        const call = { aborted: signal.aborted, connected: !!document.getElementById('settingsMenu') };
+        initializationCalls.push(call);
+        lifecycle.push('initialize:start');
+        signal.addEventListener('abort', () => {
+          call.aborted = true;
+          lifecycle.push('initialize:abort');
+        }, { once: true });
+        if (initializationMode === 'throw') throw new Error('fixture initialization failure');
+        if (initializationMode === 'failure') return false;
+        if (initializationMode === 'delayed') await new Promise((resolve, reject) => {
+          call.resolve = resolve;
+          call.reject = reject;
+        });
+        if (signal.aborted) return false;
+        localStorage.setItem('4chan-settings', JSON.stringify(settingsState));
+        lifecycle.push('initialize:commit');
+        return { status: 'ok', persisted: true };
+      } }),
       read: () => ({ ...settingsState }),
       presentation,
       optionChecked: (key, initial, startup) => override[key]
@@ -68,6 +99,7 @@ async function fixture(page, { settings, mobile = false, override = {},
       save: async (changes, signal) => {
         const call = { changes, aborted: false };
         saveCalls.push(call);
+        lifecycle.push('save:start');
         signal.addEventListener('abort', () => { call.aborted = true; }, { once: true });
         if (saveMode === 'failure') return false;
         if (saveMode === 'throw') throw new Error('fixture failure');
@@ -77,8 +109,8 @@ async function fixture(page, { settings, mobile = false, override = {},
         return { persisted: false };
       },
     });
-  }, { settings, override, raw, unavailable, integratedDefaults });
-  await page.locator('#settingsWindowLink').click();
+  }, { settings, override, raw, unavailable, integratedDefaults, initialization, catalog });
+  if (autoOpen) await page.locator('#settingsWindowLink').click();
   return page;
 }
 
@@ -297,5 +329,155 @@ for (const mobile of [false, true]) {
     assert.ok((await categoryState(page)).every(group => group.hidden));
     await page.locator('#settings-expand-all').click();
     assert.equal(await page.locator('#setting-linkify').isChecked(), !mobile);
+  });
+}
+
+
+test('optional first-run hook has no install-time writes and runs after each actual opening', async ({ page }) => {
+  await fixture(page, { autoOpen: false, initialization: 'success' });
+  assert.deepEqual(await page.evaluate(() => ({ calls: initializationCalls.length, writes: storageWrites })),
+    { calls: 0, writes: [] });
+  await page.locator('#settingsWindowLink').click();
+  await page.waitForFunction(() => lifecycle.includes('initialize:commit'));
+  assert.equal(await page.evaluate(() => initializationCalls[0].connected), true);
+  assert.ok((await categoryState(page)).every(group => !group.hidden));
+  assert.equal(await page.locator('#settings-export').isEnabled(), true);
+  await page.locator('#settings-close').click();
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.locator('#settingsWindowLink').click();
+  await page.waitForFunction(() => initializationCalls.length === 2 && storageWrites.length === 2);
+  // The first save created nonempty storage, but this page's firstRun/layout stay fixed.
+  assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(false));
+  assert.ok((await categoryState(page)).every(group => !group.hidden));
+  assert.deepEqual(await page.evaluate(() => ({ events: savedEvents, saves: saveCalls.length, raw: localStorage.getItem('4chan-settings') })),
+    { events: 0, saves: 0, raw: '{}' });
+  await page.evaluate(() => settingsAPI.open(document.getElementById('settingsWindowLink')));
+  assert.equal(await page.locator('#settingsMenu').count(), 0);
+  assert.equal(await page.evaluate(() => initializationCalls.length), 2);
+});
+
+for (const options of [{ raw: '{}' }, { raw: '{' }, { unavailable: true }, { catalog: true }]) {
+  test(`first-run hook does not run for ${JSON.stringify(options)}`, async ({ page }) => {
+    await fixture(page, { ...options, initialization: 'success' });
+    assert.deepEqual(await page.evaluate(() => ({ calls: initializationCalls.length, writes: storageWrites, events: savedEvents })),
+      { calls: 0, writes: [], events: 0 });
+  });
+}
+
+test('pending initialization gates Export only and successful settlement releases it', async ({ page }) => {
+  await fixture(page, { initialization: 'delayed' });
+  assert.equal(await page.locator('#settings-export').isDisabled(), true);
+  assert.equal(await page.locator('#settings-save').isEnabled(), true);
+  await page.locator('#setting-linkify').check();
+  await page.locator('#settings-export').dispatchEvent('click');
+  assert.deepEqual(await page.evaluate(() => callbacks), []);
+  await page.evaluate(() => settleInitialization(0));
+  await page.waitForFunction(() => !document.getElementById('settings-export').disabled);
+  assert.equal(await page.locator('#setting-linkify').isChecked(), true);
+  await page.locator('#settings-export').click();
+  assert.deepEqual(await page.evaluate(() => lifecycle), ['initialize:start', 'initialize:commit', 'export']);
+  assert.deepEqual(await page.evaluate(() => ({ saves: saveCalls.length, events: savedEvents, writes: storageWrites.length })),
+    { saves: 0, events: 0, writes: 1 });
+});
+
+test('Save aborts initialization before saving and stale settlement cannot release pending Save Export gate', async ({ page }) => {
+  await fixture(page, { initialization: 'delayed' });
+  await page.locator('#setting-linkify').check();
+  await page.evaluate(() => { saveMode = 'delayed'; });
+  await page.locator('#settings-save').click();
+  assert.deepEqual(await page.evaluate(() => lifecycle), ['initialize:start', 'initialize:abort', 'save:start']);
+  assert.equal(await page.locator('#settings-save').isDisabled(), true);
+  assert.equal(await page.locator('#settings-export').isDisabled(), true);
+  await page.evaluate(async () => { settleInitialization(0); await new Promise(resolve => setTimeout(resolve, 0)); });
+  assert.equal(await page.locator('#settings-export').isDisabled(), true);
+  await page.locator('#settings-export').dispatchEvent('click');
+  assert.deepEqual(await page.evaluate(() => callbacks), []);
+  await page.evaluate(() => releaseSave());
+  await page.waitForFunction(() => !document.getElementById('settingsMenu'));
+  assert.deepEqual(await page.evaluate(() => ({ settings: settingsState, events: savedEvents, writes: storageWrites, changes: saveCalls[0].changes })),
+    { settings: { linkify: true }, events: 1, writes: [], changes: { linkify: true } });
+});
+
+for (const cancel of ['close', 'escape', 'pagehide', 'restore']) {
+  test(`${cancel} cancels pending initialization; late completion cannot affect reopened settings`, async ({ page }) => {
+    await fixture(page, { initialization: 'delayed' });
+    await page.locator('#setting-linkify').check();
+    if (cancel === 'close') await page.locator('#settings-close').click();
+    else if (cancel === 'escape') await page.keyboard.press('Escape');
+    else await page.evaluate(name => {
+      if (name === 'pagehide') window.dispatchEvent(new Event('pagehide'));
+      else document.dispatchEvent(new CustomEvent('4chanPreferencesRestored'));
+    }, cancel);
+    assert.equal(await page.evaluate(() => initializationCalls[0].aborted), true);
+    // Restore may leave the old form mounted; closing it is still safe.
+    if (await page.locator('#settingsMenu').count()) await page.locator('#settings-close').click();
+    await page.locator('#settingsWindowLink').click();
+    assert.equal(await page.evaluate(() => initializationCalls.length), 2);
+    assert.equal(await page.locator('#setting-linkify').isChecked(), false);
+    await page.evaluate(async () => { settleInitialization(0); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(await page.locator('#settingsMenu').count(), 1);
+    assert.equal(await page.locator('#settings-export').isDisabled(), true);
+    assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, callbacks, events: savedEvents })),
+      { writes: [], callbacks: [], events: 0 });
+    await page.evaluate(() => settleInitialization(1));
+    await page.waitForFunction(() => !document.getElementById('settings-export').disabled);
+    assert.equal(await page.evaluate(() => storageWrites.length), 1);
+  });
+}
+
+for (const mode of ['failure', 'throw', 'delayed']) {
+  test(`initialization ${mode} rejection is contained and Save and Export remain usable`, async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await fixture(page, { initialization: mode });
+    if (mode === 'delayed') await page.evaluate(() => settleInitialization(0, true));
+    await page.waitForFunction(() => !document.getElementById('settings-export').disabled);
+    assert.equal(await page.locator('#settings-save').isEnabled(), true);
+    assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, events: savedEvents })), { writes: [], events: 0 });
+    await page.locator('#settings-export').click();
+    assert.deepEqual(await page.evaluate(() => callbacks), [['export', 'settings-export']]);
+    await page.locator('#settings-save').click();
+    await page.waitForFunction(() => !document.getElementById('settingsMenu'));
+    assert.equal(await page.evaluate(() => savedEvents), 1);
+    assert.deepEqual(errors, []);
+  });
+}
+
+test('a rejected stale initialization cannot ungate or report into a newer dialog', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await fixture(page, { initialization: 'delayed' });
+  await page.keyboard.press('Escape');
+  await page.locator('#settingsWindowLink').click();
+  await page.evaluate(async () => { settleInitialization(0, true); await new Promise(resolve => setTimeout(resolve, 0)); });
+  assert.equal(await page.locator('#settings-export').isDisabled(), true);
+  assert.equal(await page.locator('.settingsMessage').textContent(), '');
+  assert.equal(await page.locator('#settings-save').isEnabled(), true);
+  assert.deepEqual(errors, []);
+  await page.evaluate(() => settleInitialization(1));
+  await page.waitForFunction(() => !document.getElementById('settings-export').disabled);
+  assert.equal(await page.evaluate(() => storageWrites.length), 1);
+});
+
+for (const mode of ['failure', 'throw']) {
+  test(`Save ${mode} after cancelling initialization restores both actions and preserves the draft`, async ({ page }) => {
+    await fixture(page, { initialization: 'delayed' });
+    await page.locator('#setting-linkify').check();
+    await page.evaluate(value => { saveMode = value; }, mode);
+    await page.locator('#settings-save').click();
+    await page.waitForFunction(() => document.querySelector('.settingsMessage').textContent.includes('could not be saved'));
+    assert.equal(await page.evaluate(() => initializationCalls[0].aborted), true);
+    assert.equal(await page.locator('#settings-save').isEnabled(), true);
+    assert.equal(await page.locator('#settings-export').isEnabled(), true);
+    assert.equal(await page.locator('#setting-linkify').isChecked(), true);
+    const error = await page.locator('.settingsMessage').textContent();
+    await page.evaluate(async () => { settleInitialization(0, true); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(await page.locator('.settingsMessage').textContent(), error);
+    assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, events: savedEvents, settings: settingsState })),
+      { writes: [], events: 0, settings: {} });
+    await page.evaluate(() => { saveMode = 'success'; });
+    await page.locator('#settings-save').click();
+    await page.waitForFunction(() => !document.getElementById('settingsMenu'));
+    assert.deepEqual(await page.evaluate(() => settingsState), { linkify: true });
   });
 }

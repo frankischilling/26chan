@@ -32,12 +32,32 @@ absence. Reopening uses that same disclosure flag while reading current checkbox
 values. Changes from another tab do not replace an open draft or recapture the
 page's presentation flags.
 
-These flags carry no permission to initialize, repair or overwrite preferences.
-Opening still makes no implicit storage write. The source saves Config on each
-opening during its first-run page; that persistence behavior and its first-run
-mobile-device navigation defaults remain unimplemented. In particular, reloading
-while storage stays absent remains first-run here. Explicit reviewed imports,
-bounded parsing, volatile fallback and dirty-key merging stay intact.
+Presentation flags remain separate from initialization. On a page that proved
+settings were absent or empty at startup, opening Settings saves the finite
+source Config defaults through the shared preference lock. Page loading alone
+does not write them. Reopening that same document keeps first-run disclosure;
+a later navigation sees the saved preferences and starts collapsed.
+
+Before each opening write, the application reads current storage again. Explicit
+values from another tab, hidden preferences and safe unknown keys survive the
+merge. Malformed, oversized or unavailable data is left untouched. This avoids
+the source's stale full-Config overwrite. Unsupported compatibility flags remain
+inactive. Storage or locking failures retain the existing same-tab fallback and
+do not claim a successful persistent write.
+
+First-run mobile-device navigation defaults use the source user-agent test,
+independently of viewport layout: dropdown navigation is enabled and top-page
+navigation is disabled. Mobile layout applies its source defaults for YouTube,
+compact threads and linkification. Persistent navigation is suppressed while a
+non-catalog page has mobile layout, without clearing its saved preference.
+
+Opening persistence has its own cancellation signal. Closing Settings, saving,
+leaving the page or completing a reviewed restore cancels a queued opening write.
+Export waits for its settlement. Initialization does not acknowledge watcher
+reads, emit an explicit Save event or reload the page. A pending restore review
+blocks initialization, and a successful restore invalidates startup defaults
+before releasing the lock so a sparse reviewed result stays sparse. Incoming
+restore links still require explicit review and confirmation.
 
 Supported mobile controls follow the source category matrix:
 
@@ -94,3 +114,13 @@ focus checks. Its mobile branch checks the source control matrix and verifies
 that a saved filter remains effective despite its editor being absent. This
 fixture correction requires a new hosted browser run; the preceding 15 passing
 filter cases do not qualify the changed case.
+
+The first-open persistence slice adds pure default/parser checks and isolated
+cancellation/Save/Export cases, plus integrated cross-tab, storage-failure,
+mobile-device/layout and sparse-restore tests. Local qualification passed 23 pure
+Settings/layout cases, generated-asset checks, two public binary tests and 121
+public library tests. One Unix-socket library case is excluded locally after the
+executor returned `EPERM`; it remains enabled in CI. Browser-dependent local
+checks could not launch the configured browser, so their registered bodies are
+unverified until hosted execution. Test discovery lists 32 isolated Settings
+cases and 48 integrated watcher, navigation and transfer cases.

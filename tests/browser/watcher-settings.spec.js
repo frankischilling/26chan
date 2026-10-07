@@ -45,6 +45,7 @@ test('Monitoring saves auto-watch and fixed placement; Disable overrides checked
 test('saving a draft merges only edited options with newer settings from another tab', async ({ page, context }) => {
   await page.goto('/fixture/');
   await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: false, unrelated: 'keep' })));
+  await page.reload();
   const first = await openWatcherSettings(page);
   await first.getByLabel('Thread Watcher', { exact: true }).check();
   const other = await context.newPage();
@@ -155,6 +156,21 @@ test('native categories keep independent drafts, cancel restores focus, and cros
   await expect(watcherSettingsOpener(page)).toBeFocused();
 });
 
+// Independent source Config defaults: extension.js:8795–8847. Keep this exact
+// finite record assertion so opening cannot persist internal implementation state.
+const firstRunDefaults = {
+  quotePreview: true, backlinks: true, quickReply: true, threadUpdater: true, threadHiding: true,
+  alwaysAutoUpdate: false, topPageNav: false, threadWatcher: false, threadAutoWatcher: false,
+  imageExpansion: true, fitToScreenExpansion: false, threadExpansion: true, alwaysDepage: false,
+  localTime: true, stickyNav: false, keyBinds: false, inlineQuotes: false, filter: false,
+  revealSpoilers: false, imageHover: false, threadStats: true, IDColor: true, noPictures: false,
+  embedYouTube: true, embedSoundCloud: false, updaterSound: false, customCSS: false,
+  autoScroll: false, hideStubs: false, compactThreads: false, centeredThreads: false,
+  dropDownNav: false, autoHideNav: false, classicNav: false, fixedThreadWatcher: false,
+  persistentQR: false, forceHTTPS: false, darkTheme: false, linkify: false, unmuteWebm: false,
+  disableAll: false,
+};
+
 for (const { name, raw, firstRun } of [
   { name: 'absent', raw: null, firstRun: true },
   { name: 'empty string', raw: '', firstRun: true },
@@ -169,12 +185,16 @@ for (const { name, raw, firstRun } of [
       else localStorage.setItem('4chan-settings', raw);
     }, raw);
     await page.goto('/fixture/');
+    expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(raw);
     await watcherSettingsOpener(page).click();
     let dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
     const expanded = () => dialog.locator('.settings-expand[aria-expanded="true"]');
     await expect(expanded()).toHaveCount(firstRun ? 6 : 0);
-    // Opening Settings must not materialize defaults or normalize the raw value.
-    expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(raw);
+    if (firstRun) {
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings') || 'null'))).toEqual(firstRunDefaults);
+    } else {
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(raw);
+    }
     await (await openSettingControl(dialog, 'linkify')).uncheck();
 
     const other = await context.newPage();
@@ -194,7 +214,8 @@ for (const { name, raw, firstRun } of [
       dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
       await expect(expanded()).toHaveCount(firstRun ? 6 : 0);
       await expect(await openSettingControl(dialog, 'linkify')).toBeChecked();
-      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe('{"linkify":true}');
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings'))))
+        .toEqual(firstRun ? { ...firstRunDefaults, linkify: true } : { linkify: true });
       await page.keyboard.press('Escape');
 
       await page.evaluate(() => {
@@ -206,15 +227,177 @@ for (const { name, raw, firstRun } of [
       dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
       await expect(expanded()).toHaveCount(firstRun ? 6 : 0);
       await expect(await openSettingControl(dialog, 'linkify')).not.toBeChecked();
+      if (firstRun) {
+        await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings') || 'null'))).toEqual(firstRunDefaults);
+      } else {
+        expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+      }
       await page.keyboard.press('Escape');
-      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
 
-      // A new document recaptures absence even if this page began with '{}'.
+      // A new document recaptures persisted initialization or remaining absence.
       await page.reload();
+      expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings'))))
+        .toEqual(firstRun ? firstRunDefaults : null);
       await watcherSettingsOpener(page).click();
       dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
-      await expect(expanded()).toHaveCount(6);
-      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+      await expect(expanded()).toHaveCount(firstRun ? 0 : 6);
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings') || 'null'))).toEqual(firstRunDefaults);
     } finally { await other.close(); }
+  });
+}
+
+for (const action of ['close', 'save', 'newer-storage']) {
+  test(`first-open initialization under the shared lock respects ${action}`, async ({ page, context }) => {
+    await page.goto('/fixture/');
+    const other = await context.newPage();
+    await other.goto('/');
+    await other.evaluate(() => new Promise(resolve => {
+      window.initializationLockDone = navigator.locks.request('paperboard-thread-watcher', async () => {
+        resolve();
+        await new Promise(release => { window.releaseInitializationLock = release; });
+      });
+    }));
+    try {
+      await page.evaluate(() => {
+        const setItem = Storage.prototype.setItem;
+        sessionStorage.setItem('settings-initialization-writes', '[]');
+        Storage.prototype.setItem = function (key, value) {
+          if (this === localStorage && key === '4chan-settings') {
+            const writes = JSON.parse(sessionStorage.getItem('settings-initialization-writes'));
+            writes.push(JSON.parse(value));
+            setItem.call(sessionStorage, 'settings-initialization-writes', JSON.stringify(writes));
+          }
+          return setItem.call(this, key, value);
+        };
+      });
+      await watcherSettingsOpener(page).click();
+      const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+      await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending
+        .filter(lock => lock.name === 'paperboard-thread-watcher').length)).toBe(1);
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+      await expect(dialog.getByRole('button', { name: 'Export Settings', exact: true })).toBeDisabled();
+      const newer = { quotePreview: false, linkify: true, customMenuList: 'fixture demo',
+        'SN-position': 'top: 24px; left: 8px;', unrelated: { retained: true } };
+      let loaded;
+      if (action === 'close') {
+        await page.keyboard.press('Escape');
+        await expect(dialog).toHaveCount(0);
+      } else if (action === 'save') {
+        await (await openSettingControl(dialog, 'linkify')).check();
+        loaded = page.waitForEvent('load');
+        await dialog.getByRole('button', { name: 'Save Settings', exact: true }).click();
+        await expect(dialog.getByRole('button', { name: 'Save Settings', exact: true })).toBeDisabled();
+      } else {
+        await other.evaluate(newer => localStorage.setItem('4chan-settings', JSON.stringify(newer)), newer);
+      }
+      await other.evaluate(async () => { window.releaseInitializationLock(); await window.initializationLockDone; });
+      if (loaded) await loaded;
+      else await page.evaluate(() => navigator.locks.request('paperboard-thread-watcher', () => {}));
+      const expected = action === 'close' ? null : { ...firstRunDefaults, ...(action === 'save' ? { linkify: true } : newer) };
+      expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')))).toEqual(expected);
+      expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('settings-initialization-writes'))))
+        .toEqual(action === 'close' ? [] : [expected]);
+      if (action === 'newer-storage') {
+        await expect(dialog.getByRole('button', { name: 'Export Settings', exact: true })).toBeEnabled();
+        // A cross-tab change is persisted but never replaces the user's open draft.
+        await expect(await openSettingControl(dialog, 'quotePreview')).toBeChecked();
+      }
+    } finally { await other.close(); }
+  });
+}
+
+for (const failure of ['malformed', 'oversized', 'unavailable']) {
+  test(`first-open initialization leaves ${failure} fresh storage untouched after waiting for the lock`, async ({ page, context }) => {
+    await page.goto('/fixture/');
+    const other = await context.newPage();
+    await other.goto('/');
+    await other.evaluate(() => new Promise(resolve => {
+      window.invalidStartupLockDone = navigator.locks.request('paperboard-thread-watcher', async () => {
+        resolve();
+        await new Promise(release => { window.releaseInvalidStartupLock = release; });
+      });
+    }));
+    try {
+      const dialog = await openWatcherSettings(page);
+      await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending
+        .filter(lock => lock.name === 'paperboard-thread-watcher').length)).toBe(1);
+      const raw = failure === 'malformed' ? '{' : failure === 'oversized'
+        ? JSON.stringify({ unrelated: 'x'.repeat(4096) }) : null;
+      if (raw !== null) await other.evaluate(raw => localStorage.setItem('4chan-settings', raw), raw);
+      else await page.evaluate(() => {
+        const getItem = Storage.prototype.getItem;
+        window.restoreStartupStorageRead = () => { Storage.prototype.getItem = getItem; };
+        Storage.prototype.getItem = function (key) {
+          if (this === localStorage && key === '4chan-settings') throw new DOMException('Owned storage denial', 'SecurityError');
+          return getItem.call(this, key);
+        };
+      });
+      await other.evaluate(async () => { window.releaseInvalidStartupLock(); await window.invalidStartupLockDone; });
+      await page.evaluate(() => navigator.locks.request('paperboard-thread-watcher', () => {}));
+      await expect(dialog.getByRole('button', { name: 'Export Settings', exact: true })).toBeEnabled();
+      if (failure === 'unavailable') await page.evaluate(() => window.restoreStartupStorageRead());
+      expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(raw);
+      await page.keyboard.press('Escape');
+    } finally { await other.close(); }
+  });
+}
+
+for (const failure of ['quota', 'missing-locks', 'denied-locks']) {
+  test(`first-open ${failure} failure keeps defaults usable without claiming persistence`, async ({ page }) => {
+    await page.addInitScript(failure => {
+      window.startupSettingsWrites = 0;
+      window.startupSettingsSaved = 0;
+      document.addEventListener('4chanSettingsSaved', () => { window.startupSettingsSaved++; });
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (this === localStorage && key === '4chan-settings') {
+          window.startupSettingsWrites++;
+          if (failure === 'quota') throw new DOMException('Owned quota failure', 'QuotaExceededError');
+        }
+        return setItem.call(this, key, value);
+      };
+      if (failure === 'missing-locks') Object.defineProperty(navigator, 'locks', { value: undefined });
+      else if (failure === 'denied-locks') Object.defineProperty(navigator.locks, 'request', {
+        configurable: true,
+        value: async () => { throw new DOMException('Owned lock denial', 'SecurityError'); },
+      });
+    }, failure);
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto('/fixture/');
+    let navigations = 0, loads = 0;
+    page.on('request', request => { if (request.isNavigationRequest()) navigations++; });
+    page.on('load', () => { loads++; });
+    expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBeNull();
+    expect(await page.evaluate(() => window.startupSettingsWrites)).toBe(0);
+
+    let dialog = await openWatcherSettings(page);
+    const tabOnly = 'Settings are available only in this tab because browser storage is unavailable.';
+    await expect(dialog.getByRole('status')).toHaveText(tabOnly);
+    await expect(dialog.getByRole('button', { name: 'Export Settings', exact: true })).toBeEnabled();
+    await expect(await openSettingControl(dialog, 'quotePreview')).toBeChecked();
+    await expect(await openSettingControl(dialog, 'threadWatcher')).not.toBeChecked();
+    await (await openSettingControl(dialog, 'quotePreview')).uncheck();
+    await expect(await openSettingControl(dialog, 'quotePreview')).not.toBeChecked();
+    await dialog.getByRole('button', { name: 'Export Settings', exact: true }).click();
+    const exported = page.getByRole('dialog', { name: 'Export Settings', exact: true });
+    const url = await exported.getByLabel('Settings export URL', { exact: true }).inputValue();
+    const payload = JSON.parse(decodeURIComponent(new URL(url).hash.slice(5)));
+    // Export remains useful with volatile defaults and excludes unsaved edits.
+    expect(JSON.parse(payload.settings)).toEqual(firstRunDefaults);
+    await exported.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.keyboard.press('Escape');
+    dialog = await openWatcherSettings(page);
+    await expect(dialog.getByRole('status')).toHaveText(tabOnly);
+    await expect(dialog.getByRole('button', { name: 'Export Settings', exact: true })).toBeEnabled();
+    await expect(await openSettingControl(dialog, 'quotePreview')).toBeChecked();
+    expect(await page.evaluate(() => ({
+      raw: localStorage.getItem('4chan-settings'),
+      writes: window.startupSettingsWrites,
+      saved: window.startupSettingsSaved,
+    }))).toEqual({ raw: null, writes: failure === 'quota' ? 1 : 0, saved: 0 });
+    expect(navigations).toBe(0);
+    expect(loads).toBe(0);
+    expect(errors).toEqual([]);
   });
 }

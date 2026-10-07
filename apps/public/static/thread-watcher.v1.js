@@ -2,7 +2,7 @@ import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitW
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
-import { installSettings, catalogDropDownEnabled, captureSettingsPresentation, settingsOptionChecked } from './native-settings.v1.js';
+import { installSettings, catalogDropDownEnabled, captureSettingsPresentation, settingsOptionChecked, settingsStartupDefaults, readSettingsStartup } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
@@ -56,6 +56,7 @@ function start(context) {
     warn: text => { notice.textContent = text; },
   });
   let settingsStartupRead;
+  let settingsStartupState = null;
   let settingsCache = {};
   let settingsRawCache = null;
   let volatileSettings = false;
@@ -74,7 +75,12 @@ function start(context) {
   let activePostMenu = null;
   let collapsed = mobile.matches;
   const settingsPresentation = captureSettingsPresentation(settingsStartupRead, settingsStartupLayout);
-  // Do not retain raw storage as presentation state or reuse it for initialization.
+  // Runtime defaults and guarded persistence are independent of presentation.
+  // Only a successful absent/empty startup read establishes this state.
+  if (!catalog && settingsPresentation.firstRun) settingsStartupState = {
+    active: true, mobileLayout: settingsStartupLayout, mobileDevice: mobileQuoteDevice(navigator.userAgent),
+  };
+  // Raw storage is always read afresh before any first-open persistence.
   settingsStartupRead = { status: 'captured' };
 
   function readNeverMobile() {
@@ -94,12 +100,12 @@ function start(context) {
     catch { persistent = false; return key === timestampKey ? timestampCache : null; }
   }
   function configuration() {
-    if (volatileSettings) return { ...settingsCache };
+    if (volatileSettings) return effectiveSettings(settingsCache);
     let raw;
     try { raw = localStorage.getItem(settingsKey); }
     catch {
       settingsStartupRead ??= { status: 'unavailable' };
-      persistent = false; volatileSettings = true; return { ...settingsCache };
+      persistent = false; volatileSettings = true; return effectiveSettings(settingsCache);
     }
     settingsStartupRead ??= { status: 'ok', raw };
     settingsRawCache = raw;
@@ -110,7 +116,30 @@ function start(context) {
         if (value && typeof value === 'object' && !Array.isArray(value)) settingsCache = value;
       } catch { /* Malformed preferences use finite defaults. */ }
     }
-    return { ...settingsCache };
+    return effectiveSettings(settingsCache);
+  }
+  function effectiveSettings(settings) {
+    if (!settingsStartupState?.active) return { ...settings };
+    return { ...settingsStartupDefaults({ ...settingsStartupState, disabled: settings.disableAll === true }), ...settings };
+  }
+  function initializeSettingsOnOpen(signal) {
+    const startup = settingsStartupState;
+    if (!startup?.active || signal?.aborted) return Promise.resolve({ status: 'skipped' });
+    return locked(() => {
+      if (signal?.aborted || !startup.active || location.hash.startsWith('#cfg=')
+        || settingsTransfer?.hasPendingReview()) return { status: 'skipped' };
+      // A captured firstRun flag is never authority to repair unknown raw data
+      // or replace a newer preference snapshot from another tab.
+      let raw;
+      try { raw = localStorage.getItem(settingsKey); }
+      catch { return { status: 'skipped' }; }
+      const current = readSettingsStartup(raw);
+      if (current.status !== 'ok') return { status: 'skipped' };
+      const settings = effectiveSettings(volatileSettings ? { ...current.settings, ...settingsCache } : current.settings);
+      if (JSON.stringify(settings).length > 4096) return { status: 'skipped' };
+      if (!writeSettings(settings)) return false;
+      return { status: 'ok', persisted: persistent && !volatileSettings };
+    }, signal);
   }
   function load() { if (persistent) entries = readWatches(read(storeKey)); }
   function loadBlacklist() {
@@ -351,6 +380,7 @@ function start(context) {
     mobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
   })).catch(() => { notice.textContent = 'Catalog settings could not be loaded.'; return null; }) : null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    initializeOnOpen: initializeSettingsOnOpen,
     openCatalogSettings: catalog ? opener => { void catalogTheme.then(controller => {
       if (controller) controller.open(opener); else notice.textContent = 'Catalog settings could not be opened.';
     }); } : undefined,
@@ -602,6 +632,9 @@ function start(context) {
         try { partial = keys.some(key => localStorage.getItem(key) !== previous[key]); } catch { /* Storage is unavailable. */ }
         return { status: 'storage-error', partial };
       }
+      // Invalidate before releasing the shared lock. A queued first-open save
+      // must not add defaults to a deliberately sparse reviewed restore.
+      if (settingsStartupState) settingsStartupState.active = false;
       return { status: 'ok', persisted: true };
     }, signal);
   }
