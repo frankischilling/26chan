@@ -17,6 +17,11 @@ weights and does not work for the default unknown-weight free-text path.
 options and results with no runtime write access. The archive lacks the poll
 controller and voting contract, so voting remains explicitly unavailable.
 
+The [staff attachment store boundary](staff-post-attachments.md) adds proof-bound
+receipt consumption for ordinary and badged staff posts. Its HTTP upload routes,
+form and browser workflow remain unfinished; the database slice does not make
+staff attachment posting available through the application yet.
+
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme
 palettes and cross-board quotes. `scripts/check-launch-readiness.sh` checks

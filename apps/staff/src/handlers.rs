@@ -1098,6 +1098,49 @@ pub async fn logout(
 mod readiness_tests {
 
     #[test]
+    fn staff_attachment_readiness_checks_catalogs_without_consuming_proofs() {
+        let sql = crate::auth::STAFF_ATTACHMENT_READY_SQL;
+        for required in [
+            "issue_source_attachment_post_authority",
+            "issue_ordinary_attachment_post_authority",
+            "consume_staff_post_authority_without_attachment",
+            "consume_staff_attachment_receipt",
+            "lock_staff_attachment_receipt(text,bigint,text,bytea)",
+            "staff_attachment_handoffs",
+            "reject_orphan_staff_attachment",
+            "attach_staff_post_receipt",
+            "t.tgtype=5",
+            "t.tgdeferrable=required.deferred",
+            "t.tginitdeferred=required.deferred",
+            "t.tgqual IS NULL",
+            "t.tgnargs=0",
+            "t.tgenabled='O'",
+            "NOT t.tgisinternal",
+            "search_path=pg_catalog, pg_temp",
+            "pg_catalog.aclexplode",
+            "a.is_grantable",
+            "has_any_column_privilege",
+            "board_staff_post_owner",
+            "board_attachment_owner",
+            "attachment_capability_hash",
+            "NOT a.attnotnull",
+        ] {
+            assert!(sql.contains(required), "{required}");
+        }
+        for forbidden in [
+            "FROM post_secrets.",
+            "JOIN post_secrets.",
+            "FROM staff_identity.",
+            "JOIN staff_identity.",
+            "INSERT INTO",
+            "DELETE FROM",
+            "SELECT content.consume_",
+        ] {
+            assert!(!sql.contains(forbidden), "{forbidden}");
+        }
+    }
+
+    #[test]
     fn automatic_admission_readiness_uses_shared_catalog_contract() {
         let sql = board_store::automatic_admission::READINESS_SQL;
         for required in [

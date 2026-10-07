@@ -266,7 +266,9 @@ async fn exercise(f: &Fixture) {
             'content.require_attachment_for_empty_post()'::regprocedure,
             'content.attachment_upload_filename(text,text)'::regprocedure,
             'content.sync_image_spoiler()'::regprocedure,
-            'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure
+            'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
+            'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
+            'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure
         ] AS functions)
         SELECT count(*)=cardinality(required.functions)
             AND bool_and(p.oid=ANY(required.functions) AND p.prosecdef
@@ -279,6 +281,58 @@ async fn exercise(f: &Fixture) {
         functions_safe,
         "Attachment owner must have exactly the reviewed function set"
     );
+    // These two exact entry points bridge consumed staff proof to media.
+    // Only the proof owner may call them; runtimes cannot forge that handoff
+    // or select the moderator image-limit exemption themselves.
+    let staff_receipt_grants_safe: bool = sqlx::query_scalar(
+        "SELECT count(*)=2 AND bool_and(
+            has_function_privilege('board_staff_post_owner',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_staff',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_auth',p.oid,'EXECUTE')
+            AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
+                WHERE a.privilege_type='EXECUTE' AND a.grantee<>p.proowner
+                    AND (a.grantee<>(SELECT oid FROM pg_roles WHERE rolname='board_staff_post_owner')
+                        OR a.is_grantable)))
+        FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+            'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
+            'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure])",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        staff_receipt_grants_safe,
+        "Only the staff proof owner may execute the reviewed receipt functions, without grant option"
+    );
+    let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let auth = PgPool::connect(&std::env::var("AUTH_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for (connection, expected) in [
+        (&f.public, "board_public"),
+        (&staff, "board_staff"),
+        (&auth, "board_auth"),
+    ] {
+        let actual: String = sqlx::query_scalar("SELECT current_user::text")
+            .fetch_one(connection)
+            .await
+            .unwrap();
+        assert_eq!(actual, expected);
+        for sql in [
+            "SELECT content.lock_staff_attachment_receipt('',0,repeat('0',32),decode(repeat('0',64),'hex'))",
+            "SELECT content.consume_staff_attachment_receipt(0,'',0,repeat('0',32),decode(repeat('0',64),'hex'),false,true)",
+        ] {
+            let error = sqlx::query(sql).execute(connection).await.unwrap_err();
+            assert_eq!(
+                error.as_database_error().unwrap().code().as_deref(),
+                Some("42501"),
+                "{expected} must be denied the owner-only receipt function: {sql}"
+            );
+        }
+    }
+    staff.close().await;
+    auth.close().await;
+
     // The report-retiring variant is a staff action, never another public
     // file-deletion entry point. Existing public deletion keeps report history.
     let staff_wrapper_safe: bool = sqlx::query_scalar(

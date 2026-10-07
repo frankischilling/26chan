@@ -66,3 +66,22 @@ anonymous-session cases and 31 neighboring identity/report cases pass locally.
 All 226 store checks pass with eight test threads. The ordinary 14-case session
 suite also passes three additional eight-thread runs. Formatting and strict
 workspace Clippy pass. Exact-head hosted qualification remains pending.
+
+## Expired-state observations during parallel mints
+
+The automatic-admission rollback test deliberately expires its owned session,
+then compares complete before/after snapshots around a rejected returning post.
+A successful mint in another parallel case can legitimately retire that expired
+session and its memberships between snapshots. The observed failure removed
+only those private rows; content, threads and captured posting history were
+unchanged. It did not establish a failed-post rollback bug.
+
+The integration binary now uses a test-only read/write lock. Every mint intent
+takes shared access before any database or actor lock; mints remain concurrent.
+Only the short expiry mutation and rollback observation take exclusive access.
+The guard is released before assertions and cleanup. Exact snapshot equality
+and the expired-authorization rejection remain required. No database policy
+lock, runtime expiry change or whole-test serialization is introduced.
+
+The complete store suite and three additional eight-thread runs of all eight
+automatic-admission cases passed locally with this coordination.

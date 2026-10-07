@@ -263,7 +263,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='post_secrets' AND c.table_name='staff_post_intents'
           AND c.column_name NOT IN ('token_hash','authorized_limits','comment_limit','comment','wordfilter_payload','wordfilter_search',
               'name','capcode','source_options','prepared_trip','source_name_allowed','ordinary','ordinary_context','ordinary_policy',
-              'raw_name_nonempty','is_janitor','meta_board')
+              'raw_name_nonempty','is_janitor','meta_board','attachment_job','attachment_capability_hash','attachment_spoiler')
           AND has_column_privilege('board_staff_post_owner','post_secrets.staff_post_intents',c.column_name,'UPDATE'))
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
           AND c.column_name NOT IN ('slug','max_comment_chars','max_authorized_comment_chars','forced_anon','strip_tripcode',
@@ -507,6 +507,19 @@ RESET ROLE;
 SET ROLE board_monitor;
 SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
+# Exercise the same catalog-only contract used by staff startup.
+attachment_ready_sql=$(python3 - <<'PYREADY'
+from pathlib import Path
+s = Path('apps/staff/src/auth.rs').read_text()
+print(s.split('pub(crate) const STAFF_ATTACHMENT_READY_SQL: &str = r#"', 1)[1].split('"#;', 1)[0])
+PYREADY
+)
+for role in board_auth board_staff; do
+    [[ $("${db[@]}" -At -d bootstrap_test -c "SET ROLE $role; $attachment_ready_sql") = t ]] || {
+        echo "Staff attachment catalog authority differs for $role" >&2; exit 1;
+    }
+done
+
 cleanup
 trap - EXIT
 printf 'Fresh role bootstrap passed: all migrations applied as owner; historical content preserved; content admission, staff-post, poster-count and Robot9000 owners, reader, observer and intake remain NOLOGIN with restricted grants. Private cluster removed.\n'

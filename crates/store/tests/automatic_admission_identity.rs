@@ -14,6 +14,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+// Successful mints collect expired sessions across boards (0065). Keep mints
+// concurrent, excluding them only during the expired-state atomicity check.
+// Acquire these guards before database locks to avoid reversing lock order.
+static SESSION_MINTS: tokio::sync::RwLock<()> = tokio::sync::RwLock::const_new(());
+
 // These fixtures own their boards, tokens, policy and clock interventions.
 // All counted posts use the actual public writer and server-resolved capability
 // context. No function replacement, guard weakening or fabricated history.
@@ -75,6 +80,11 @@ impl Fixture {
         now: i64,
         parent: i64,
     ) -> Result<i64, StoreError> {
+        let _mint_guard = if minted {
+            Some(SESSION_MINTS.read().await)
+        } else {
+            None
+        };
         support::create_post_with_anonymous_session(
             &self.public,
             &self.board,
@@ -351,11 +361,15 @@ async fn rejected_content_and_invalid_registration_leave_no_identity_activity_or
             assert_eq!(f.snapshot().await, before);
         }
         sqlx::query("DELETE FROM admission.rules WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let expiry_guard = SESSION_MINTS.write().await;
         sqlx::query("UPDATE post_secrets.anonymous_sessions SET expires_at=1 WHERE token_hash=$1")
             .bind(cap.storage_hash().as_slice()).execute(&f.owner).await.unwrap();
         let before = f.snapshot().await;
-        assert!(matches!(f.post(&cap, false, peer(43), now + 1, op).await, Err(StoreError::AuthorizationChanged)));
-        assert_eq!(f.snapshot().await, before);
+        let rejected = f.post(&cap, false, peer(43), now + 1, op).await;
+        let after = f.snapshot().await;
+        drop(expiry_guard);
+        assert!(matches!(rejected, Err(StoreError::AuthorizationChanged)));
+        assert_eq!(after, before);
         assert!(f.identity(&missing).await.is_none());
     }).await;
 }
@@ -418,7 +432,8 @@ async fn runtime_cannot_read_choose_or_retroactively_stamp_private_identity() {
         }
         let fingerprints = cap.fingerprints(Some(peer(60)), *b"US");
         let before = f.snapshot().await;
-        let error =
+        let mint_guard = SESSION_MINTS.read().await;
+        let registration =
             sqlx::query("SELECT content.register_anonymous_post($1,$2,$3,$4,true,$5,$6,$7)")
                 .bind(fingerprints.token.as_slice())
                 .bind(fingerprints.network.as_slice())
@@ -428,8 +443,9 @@ async fn runtime_cannot_read_choose_or_retroactively_stamp_private_identity() {
                 .bind(old)
                 .bind(now)
                 .execute(&f.public)
-                .await
-                .unwrap_err();
+                .await;
+        drop(mint_guard);
+        let error = registration.unwrap_err();
         assert_eq!(
             error.as_database_error().unwrap().code().as_deref(),
             Some("23514")
@@ -455,7 +471,8 @@ async fn reports_capture_private_identity_and_reject_cross_ip_duplicate_and_floo
         let reply = f.post(&author, false, peer(70), now, op).await.unwrap();
         let key = support::key(&f.board);
         let rate = key.public_report_rate_identity(peer(71));
-        board_store::report_with_anonymous_session(
+        let mint_guard = SESSION_MINTS.read().await;
+        let reported = board_store::report_with_anonymous_session(
             &f.public,
             &f.board,
             op,
@@ -463,8 +480,9 @@ async fn reports_capture_private_identity_and_reject_cross_ip_duplicate_and_floo
             &rate,
             session(&reporter, true, peer(71), now),
         )
-        .await
-        .unwrap();
+        .await;
+        drop(mint_guard);
+        reported.unwrap();
         let identity = f
             .identity(&reporter)
             .await

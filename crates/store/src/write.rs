@@ -256,6 +256,12 @@ pub async fn create_staff_post(
     .await
 }
 
+/// Post input and its optional upload, separate from trusted staff authority.
+pub struct StaffPostContent<'a> {
+    pub post: &'a NewPost,
+    pub attachment: Option<&'a post_media::NewAttachment>,
+}
+
 /// Trusted staff still contribute private posting history. Both peer and key
 /// must come from server-owned state, independent of badge or request fields.
 pub async fn create_staff_post_with_context_and_keys(
@@ -267,6 +273,35 @@ pub async fn create_staff_post_with_context_and_keys(
     keys: PostIdentityKeys<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    create_staff_post_with_attachment_and_context_and_keys(
+        pool,
+        slug,
+        parent,
+        StaffPostContent {
+            post,
+            attachment: None,
+        },
+        context,
+        keys,
+        authority,
+    )
+    .await
+}
+
+/// Attachment authority is bound to the staff proof before the direct insert.
+pub async fn create_staff_post_with_attachment_and_context_and_keys(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    content: StaffPostContent<'_>,
+    context: PostingContext,
+    keys: PostIdentityKeys<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let StaffPostContent { post, attachment } = content;
+    if attachment.is_some() && authority.identity.is_none() {
+        return Err(StoreError::Invalid("Source staff identity is required."));
+    }
     if authority
         .identity
         .is_some_and(|identity| identity.capcode.is_none())
@@ -283,7 +318,7 @@ pub async fn create_staff_post_with_context_and_keys(
         slug,
         parent,
         post,
-        None,
+        attachment,
         context,
         PostWriteOptions {
             metadata: PostMetadata {
@@ -323,6 +358,32 @@ pub async fn create_ordinary_staff_post(
     metadata: PostMetadata<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    create_ordinary_staff_post_with_attachment(
+        pool,
+        slug,
+        parent,
+        StaffPostContent {
+            post,
+            attachment: None,
+        },
+        context,
+        metadata,
+        authority,
+    )
+    .await
+}
+
+/// Ordinary attachments retain public identity, password and content admission.
+pub async fn create_ordinary_staff_post_with_attachment(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    content: StaffPostContent<'_>,
+    context: PostingContext,
+    metadata: PostMetadata<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let StaffPostContent { post, attachment } = content;
     if authority
         .identity
         .is_none_or(|identity| identity.capcode.is_some())
@@ -344,7 +405,7 @@ pub async fn create_ordinary_staff_post(
         slug,
         parent,
         post,
-        None,
+        attachment,
         context,
         PostWriteOptions {
             metadata,
@@ -399,7 +460,7 @@ async fn create_post_in_context(
         staff,
         anonymous,
     } = options;
-    if staff.is_some() && metadata.spoiler {
+    if staff.is_some() && attachment.is_none() && metadata.spoiler {
         return Err(StoreError::Invalid("Invalid staff posting metadata."));
     }
     let keys = metadata.keys;
@@ -447,6 +508,10 @@ async fn create_post_in_context(
     // The decision must see the preceding actor's commit after waiting on its
     // gate, regardless of the connection's default transaction isolation.
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    // Clear attachment intent even when a pooled session previously set it.
+    sqlx::query("SELECT set_config('board.staff_attachment_job','',true),set_config('board.staff_attachment_capability','',true),set_config('board.staff_attachment_spoiler','',true),set_config('board.post_image_spoiler','false',true)")
         .execute(&mut *tx)
         .await?;
     crate::posting_cooldown::lock(&mut tx, &posting_actor, parent == 0).await?;
@@ -967,6 +1032,20 @@ async fn create_post_in_context(
         .bind(if op_markup { "true" } else { "false" })
         .execute(&mut *tx)
         .await?;
+    let spoiler = board.comment_spoiler_cleanup
+        && (metadata.spoiler || attachment.is_some_and(|file| file.spoiler));
+    if staff.is_some() {
+        sqlx::query("SELECT set_config('board.staff_attachment_job',$1,true),set_config('board.staff_attachment_capability',$2,true),set_config('board.staff_attachment_spoiler',$3,true)")
+            .bind(attachment.map_or("", |file| file.upload.id.as_str()))
+            .bind(attachment.map_or("", |file| file.upload.capability.as_str()))
+            .bind(match attachment {
+                Some(_) if spoiler => "true",
+                Some(_) => "false",
+                None => "",
+            })
+            .execute(&mut *tx)
+            .await?;
+    }
     let ordinary_timers = if let Some(authority) = &staff {
         let ordinary_timers: bool = if ordinary_staff {
             let proof = context
@@ -985,17 +1064,46 @@ async fn create_post_in_context(
                 sqlx::query_scalar("SELECT content.staff_ordinary_context()")
                     .fetch_one(&mut *tx)
                     .await?;
-            sqlx::query_scalar("SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)")
-                .bind(authority.ticket_hash.as_slice()).bind(authority.session_hash).bind(authority.csrf_hash)
-                .bind(authority.idle_seconds).bind(id).bind(slug).bind(thread_id).bind(name)
-                .bind(&subject).bind(comment.as_str()).bind(posted_at).bind(authority.authorized_limits)
-                .bind(post_limits.comment_chars() as i32).bind(wordfilter_payload.as_deref())
-                .bind(wordfilter_search.as_deref()).bind(&prepared_options).bind(identity.trip.as_deref())
-                .bind(authority.identity.expect("ordinary identity").name_allowed).bind(bound_context)
-                .bind(authority.raw_name_nonempty)
-                .fetch_one(authority.auth_pool).await.map_err(staff_post_error)?
+            let issuer = if attachment.is_some() {
+                "SELECT staff_identity.issue_ordinary_attachment_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)"
+            } else {
+                "SELECT staff_identity.issue_ordinary_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)"
+            };
+            let mut proof = sqlx::query_scalar(issuer)
+                .bind(authority.ticket_hash.as_slice())
+                .bind(authority.session_hash)
+                .bind(authority.csrf_hash)
+                .bind(authority.idle_seconds)
+                .bind(id)
+                .bind(slug)
+                .bind(thread_id)
+                .bind(name)
+                .bind(&subject)
+                .bind(comment.as_str())
+                .bind(posted_at)
+                .bind(authority.authorized_limits)
+                .bind(post_limits.comment_chars() as i32)
+                .bind(wordfilter_payload.as_deref())
+                .bind(wordfilter_search.as_deref())
+                .bind(&prepared_options)
+                .bind(identity.trip.as_deref())
+                .bind(authority.identity.expect("ordinary identity").name_allowed)
+                .bind(bound_context)
+                .bind(authority.raw_name_nonempty);
+            if let Some(attachment) = attachment {
+                proof = proof
+                    .bind(&attachment.upload.id)
+                    .bind(&attachment.upload.capability)
+                    .bind(spoiler);
+            }
+            proof
+                .fetch_one(authority.auth_pool)
+                .await
+                .map_err(staff_post_error)?
         } else {
-            let issuer = if authority.identity.is_some() {
+            let issuer = if attachment.is_some() {
+                "SELECT staff_identity.issue_source_attachment_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)"
+            } else if authority.identity.is_some() {
                 "SELECT staff_identity.issue_source_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)"
             } else {
                 "SELECT staff_identity.issue_limited_post_authority($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)"
@@ -1028,8 +1136,14 @@ async fn create_post_in_context(
                     .bind(identity.trip.as_deref())
                     .bind(source.name_allowed);
             }
+            proof = proof.bind(authority.raw_name_nonempty);
+            if let Some(attachment) = attachment {
+                proof = proof
+                    .bind(&attachment.upload.id)
+                    .bind(&attachment.upload.capability)
+                    .bind(spoiler);
+            }
             proof
-                .bind(authority.raw_name_nonempty)
                 .fetch_one(authority.auth_pool)
                 .await
                 .map_err(staff_post_error)?
@@ -1132,8 +1246,6 @@ async fn create_post_in_context(
         );
         sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
     }
-    let spoiler = board.comment_spoiler_cleanup
-        && (metadata.spoiler || attachment.is_some_and(|file| file.spoiler));
     sqlx::query("SELECT set_config('board.post_image_spoiler',$1,true)")
         .bind(if staff.is_none() && spoiler {
             "true"
@@ -1145,7 +1257,7 @@ async fn create_post_in_context(
     // The insert-only trigger registers history inside the post savepoint.
     // A Robot9000 rejection rolls it back together with the post and actions.
     crate::posting_cooldown::set_insert_actor(&mut tx, &posting_actor).await?;
-    if let Some(attachment) = attachment {
+    if let Some(attachment) = attachment.filter(|_| staff.is_none()) {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)
             .bind(slug)
@@ -1161,7 +1273,28 @@ async fn create_post_in_context(
             .await
             .map_err(post_media::scoped_error)?;
     } else {
-        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)").bind(id).bind(slug).bind(thread_id).bind(name).bind(&subject).bind(comment.as_str()).bind(posted_at).execute(&mut *tx).await.map_err(staff_post_error)?;
+        // Staff inserts run as board_staff so the proof trigger checks them.
+        // The private AFTER trigger attaches media using the consumed proof.
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)")
+            .bind(id)
+            .bind(slug)
+            .bind(thread_id)
+            .bind(name)
+            .bind(&subject)
+            .bind(comment.as_str())
+            .bind(posted_at)
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| {
+                if attachment.is_some() {
+                    match staff_post_error(error) {
+                        StoreError::Database(error) => post_media::scoped_error(error),
+                        error => error,
+                    }
+                } else {
+                    staff_post_error(error)
+                }
+            })?;
     }
     if staff.is_none() {
         sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES ($1,$2)")
