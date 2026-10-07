@@ -19,7 +19,9 @@ pub(crate) const STAFF_ATTACHMENT_READY_SQL: &str = r#"WITH function_specs(signa
     ('content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)', 'board_attachment_owner', 'void', true, ARRAY['board_staff_post_owner']::text[]),
     ('content.attach_staff_post_receipt()', 'board_staff_post_owner', 'trigger', true, ARRAY[]::text[]),
     ('content.reject_orphan_staff_attachment()', 'board_staff_post_owner', 'trigger', true, ARRAY[]::text[]),
-    ('content.attachment_upload_filename(text,text)', 'board_attachment_owner', 'text', true, ARRAY['board_public','board_staff']::text[])
+    ('content.attachment_upload_filename(text,text)', 'board_attachment_owner', 'text', true, ARRAY['board_public','board_staff']::text[]),
+    ('content.check_attachment_upload(text,text)', 'board_attachment_owner', 'void', true, ARRAY['board_public','board_staff']::text[]),
+    ('content.cancel_attachment_upload(text,text)', 'board_attachment_owner', 'void', true, ARRAY['board_public','board_staff']::text[])
 ), required_functions AS (
     SELECT spec.*,p.oid FROM function_specs spec
     LEFT JOIN (pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace)
@@ -128,6 +130,15 @@ AND NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN restricted_roles r
     WHERE n.nspname='staff_identity' AND r.rolname IN ('board_attachment_owner','board_media_intake_owner','board_media_retention_owner')
       AND has_schema_privilege(r.oid,n.oid,'USAGE')
+)
+AND NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    CROSS JOIN restricted_roles r
+    WHERE r.rolname IN ('board_public','board_staff','board_auth')
+      AND (n.nspname IN ('media','media_intake') OR (n.nspname='content' AND c.relname='post_media'))
+      AND c.relkind IN ('r','v','m','p')
+      AND (has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+        OR has_table_privilege(r.oid,c.oid,'DELETE,TRUNCATE,TRIGGER'))
 )
 AND NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN pg_catalog.pg_roles r

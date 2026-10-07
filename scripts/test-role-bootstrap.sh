@@ -399,6 +399,25 @@ BEGIN
        'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean)','EXECUTE') THEN
     RAISE EXCEPTION 'Public attachment grants differ';
   END IF;
+  IF NOT (SELECT count(*)=2 AND bool_and(p.prosecdef
+       AND p.proowner=(SELECT oid FROM pg_roles WHERE rolname='board_attachment_owner')
+       AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+       AND has_function_privilege('board_public',p.oid,'EXECUTE')
+       AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+       AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a
+           WHERE a.grantee<>p.proowner AND (a.is_grantable OR NOT EXISTS(
+               SELECT 1 FROM pg_roles r WHERE r.oid=a.grantee AND r.rolname IN ('board_public','board_staff')))))
+       FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+           'content.check_attachment_upload(text,text)'::regprocedure,
+           'content.cancel_attachment_upload(text,text)'::regprocedure]))
+     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+       WHERE (n.nspname IN ('media','media_intake') OR (n.nspname='content' AND c.relname='post_media'))
+         AND c.relkind IN ('r','v','m','p')
+         AND (has_any_column_privilege('board_staff',c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+           OR has_table_privilege('board_staff',c.oid,'DELETE,TRUNCATE,TRIGGER')))
+     OR has_function_privilege('board_staff','content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean)','EXECUTE') THEN
+    RAISE EXCEPTION 'Staff upload controls exceed the two scoped grants';
+  END IF;
   IF (SELECT rolcanlogin FROM pg_roles WHERE rolname='board_media_read') THEN
     RAISE EXCEPTION 'Unqualified staging reader is login-enabled';
   END IF;

@@ -60,7 +60,20 @@ async fn request_limits_inner(state: Arc<AppState>, request: Request, next: Next
         }
         rate.1 += 1;
     }
-    match tokio::time::timeout(std::time::Duration::from_secs(10), next.run(request)).await {
+    // Uploads have a bounded inner transfer deadline and cleanup allowance.
+    // Keep the ordinary staff deadline unchanged.
+    let seconds = if state.config.media.is_some()
+        && !state.config.production
+        && request.method() == axum::http::Method::POST
+        && matches!(
+            request.uri().path(),
+            "/post/upload" | "/post/upload/status" | "/post/upload/cancel"
+        ) {
+        40
+    } else {
+        10
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(seconds), next.run(request)).await {
         Ok(response) => response,
         Err(_) => AppError::Internal.into_response(),
     }
@@ -415,7 +428,7 @@ fn set_cookie(
 fn ceremony_cookie(state: &AppState) -> String {
     format!("{}-ceremony", state.config.cookie_name())
 }
-fn csrf_cookie(state: &AppState) -> String {
+pub(crate) fn csrf_cookie(state: &AppState) -> String {
     format!("{}-csrf", state.config.cookie_name())
 }
 #[derive(sqlx::FromRow)]
@@ -696,14 +709,25 @@ pub async fn posting(
     Query(query): Query<PostingQuery>,
 ) -> Result<Html<String>, AppError> {
     let session = auth::session(&state, &headers).await?;
+    let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
+    auth::csrf(&session, &csrf)?;
+    let view = posting_view(&state, &session, query, csrf, None).await?;
+    Ok(Html(view.render().map_err(|_| AppError::Internal)?))
+}
+
+pub(crate) async fn posting_view(
+    state: &AppState,
+    session: &auth::Session,
+    query: PostingQuery,
+    csrf: String,
+    receipt: Option<crate::uploads::Receipt>,
+) -> Result<views::Posting, AppError> {
     if !session.at_least(crate::access::Level::Janitor)
         || query.board == "j"
         || (!query.board.is_empty() && !session.permissions.allows(&query.board))
     {
         return Err(AppError::Forbidden);
     }
-    let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
-    auth::csrf(&session, &csrf)?;
     if query.thread < 0
         || query.posted.is_some_and(|id| id <= 0)
         || (!query.board.is_empty() && board_domain::BoardSlug::parse(&query.board).is_err())
@@ -797,24 +821,22 @@ pub async fn posting(
                 })
         })
         .collect();
-    Ok(Html(
-        views::Posting {
-            public_origin: state.config.public_origin.clone(),
-            boards,
-            comment_max_units,
-            query,
-            csrf,
-            recent: session.recent,
-            admin: level == crate::access::Level::Admin && selected_badge == "admin",
-            badges,
-            selected_badge,
-            ordinary_ready,
-            flags,
-            flag_catalog,
-        }
-        .render()
-        .map_err(|_| AppError::Internal)?,
-    ))
+    Ok(views::Posting {
+        upload_enabled: state.config.media.is_some() && !state.config.production,
+        receipt,
+        public_origin: state.config.public_origin.clone(),
+        boards,
+        comment_max_units,
+        query,
+        csrf,
+        recent: session.recent,
+        admin: level == crate::access::Level::Admin && selected_badge == "admin",
+        badges,
+        selected_badge,
+        ordinary_ready,
+        flags,
+        flag_catalog,
+    })
 }
 
 #[derive(Deserialize)]
@@ -842,6 +864,10 @@ pub struct StaffMessage {
     pub flag: String,
     #[serde(default)]
     pub password: String,
+    pub upload_id: Option<String>,
+    pub upload_capability: Option<String>,
+    #[serde(default)]
+    pub spoiler: bool,
 }
 
 pub async fn post_message(
@@ -849,8 +875,9 @@ pub async fn post_message(
     headers: HeaderMap,
     Extension(start): Extension<StaffRequestStart>,
     Extension(peer): Extension<StaffRequestPeer>,
-    Form(input): Form<StaffMessage>,
+    input: Result<Form<StaffMessage>, axum::extract::rejection::FormRejection>,
 ) -> Result<Redirect, AppError> {
+    let Form(input) = input.map_err(|error| AppError::Form(error.status()))?;
     let request_start = start.0;
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
@@ -867,6 +894,7 @@ pub async fn post_message(
     if input.thread < 0 || board_domain::BoardSlug::parse(&input.board).is_err() {
         return Err(AppError::Invalid);
     }
+    let attachment = crate::uploads::attachment(&state, &session, &input).await?;
     use board_domain::capcode::Capcode;
     let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
     let default_badge;
@@ -962,18 +990,21 @@ pub async fn post_message(
         };
         let (hash, proof) = crate::posting_password::prepare(input.password, op_hash).await?;
         post.deletion_hash = hash;
-        board_store::create_ordinary_staff_post(
+        board_store::create_ordinary_staff_post_with_attachment(
             &state.staff,
             &input.board,
             input.thread,
-            &post,
+            board_store::StaffPostContent {
+                post: &post,
+                attachment: attachment.as_ref(),
+            },
             board_store::PostingContext {
                 request_start,
                 peer: peer.ip(),
                 op_password_proof: proof,
             },
             board_store::PostMetadata {
-                spoiler: false,
+                spoiler: input.spoiler,
                 keys: board_store::PostIdentityKeys {
                     tripcode: state.config.tripcode_key.as_deref(),
                     poster_id: Some(key),
@@ -986,11 +1017,14 @@ pub async fn post_message(
         )
         .await
     } else {
-        board_store::create_staff_post_with_context_and_keys(
+        board_store::create_staff_post_with_attachment_and_context_and_keys(
             &state.staff,
             &input.board,
             input.thread,
-            &post,
+            board_store::StaffPostContent {
+                post: &post,
+                attachment: attachment.as_ref(),
+            },
             board_store::PostingContext {
                 request_start,
                 peer: peer.ip(),
@@ -1101,6 +1135,8 @@ mod readiness_tests {
     fn staff_attachment_readiness_checks_catalogs_without_consuming_proofs() {
         let sql = crate::auth::STAFF_ATTACHMENT_READY_SQL;
         for required in [
+            "content.check_attachment_upload(text,text)",
+            "content.cancel_attachment_upload(text,text)",
             "issue_source_attachment_post_authority",
             "issue_ordinary_attachment_post_authority",
             "consume_staff_post_authority_without_attachment",

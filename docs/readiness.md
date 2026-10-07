@@ -17,10 +17,12 @@ weights and does not work for the default unknown-weight free-text path.
 options and results with no runtime write access. The archive lacks the poll
 controller and voting contract, so voting remains explicitly unavailable.
 
-The [staff attachment store boundary](staff-post-attachments.md) adds proof-bound
-receipt consumption for ordinary and badged staff posts. Its HTTP upload routes,
-form and browser workflow remain unfinished; the database slice does not make
-staff attachment posting available through the application yet.
+The [staff attachment boundary](staff-post-attachments.md) has a published 0110
+backend for proof-bound ordinary and badged posts. Its 0111 continuation adds
+development-only upload, status and cancellation routes with native receipt
+forms and a separate intake credential. All 18 local HTTP cases pass; the
+script-disabled browser case and exact-head hosted checks are still pending.
+Production media remains disabled, and source presentation parity is unproven.
 
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme

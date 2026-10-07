@@ -5,6 +5,7 @@ use url::Url;
 
 #[derive(Clone)]
 pub struct Config {
+    pub media: Option<board_intake_client::IntakeClient>,
     pub origin: String,
     pub public_origin: String,
     pub media_origin: String,
@@ -17,6 +18,29 @@ pub struct Config {
     pub poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     pub country_database: Option<Arc<board_domain::country::CountryDatabase>>,
     pub proxy: Option<board_config::PublicProxy>,
+}
+
+/// Staff media is deliberately unavailable unless all isolated development settings agree.
+pub fn parse_staff_media(
+    profile: Option<&str>,
+    addr: Option<&str>,
+    token: Option<&str>,
+    production: bool,
+) -> Result<Option<board_intake_client::IntakeClient>, &'static str> {
+    if profile.is_none() && addr.is_none() && token.is_none() {
+        return Ok(None);
+    }
+    let invalid = "Invalid isolated staff media configuration";
+    if production || profile != Some("isolated-development") {
+        return Err(invalid);
+    }
+    let addr: SocketAddr = addr.ok_or(invalid)?.parse().map_err(|_| invalid)?;
+    if !addr.ip().is_loopback() || addr.port() == 0 {
+        return Err(invalid);
+    }
+    board_intake_client::IntakeClient::new(addr, token.ok_or(invalid)?.to_owned())
+        .map(Some)
+        .map_err(|_| invalid)
 }
 
 pub fn parse_staff_poster_id_key(
@@ -125,6 +149,10 @@ impl Config {
             "MONITOR_DATABASE_URL",
             "INTAKE_DATABASE_URL",
             "PUBLIC_INTAKE_TOKEN",
+            "PUBLIC_INTAKE_ADDR",
+            "PUBLIC_MEDIA_PROFILE",
+            "MEDIA_INTAKE_TOKEN",
+            "MEDIA_INTAKE_STAFF_TOKEN",
             "TRIPCODE_KEY",
             "POSTER_ID_KEY",
             "COUNTRY_DATABASE",
@@ -221,7 +249,17 @@ impl Config {
                 "Staff databases require their dedicated PostgreSQL login and unambiguous verified TLS in production",
             );
         }
+        let media_profile = proxy_value("STAFF_MEDIA_PROFILE")?;
+        let intake_addr = proxy_value("STAFF_INTAKE_ADDR")?;
+        let intake_token = proxy_value("STAFF_INTAKE_TOKEN")?;
+        let media = parse_staff_media(
+            media_profile.as_deref(),
+            intake_addr.as_deref(),
+            intake_token.as_deref(),
+            production,
+        )?;
         Ok(Self {
+            media,
             origin,
             public_origin: origins[0].as_string(),
             media_origin: origins[2].as_string(),

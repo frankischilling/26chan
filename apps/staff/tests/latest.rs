@@ -45,6 +45,7 @@ async fn latest_reports_private_post_numbers_only_to_live_staff_sessions() {
     let origin = Url::parse("http://localhost:3001").unwrap();
     let state = Arc::new(AppState {
         config: Config {
+            media: None,
             proxy: None,
             poster_id_key: None,
             country_database: None,

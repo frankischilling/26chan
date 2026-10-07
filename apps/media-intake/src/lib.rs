@@ -23,6 +23,7 @@ pub struct AppState {
 #[derive(Clone)]
 struct Access {
     token: String,
+    staff_token: Option<String>,
     requests: Arc<Semaphore>,
 }
 
@@ -32,7 +33,18 @@ impl AppState {
         quarantine: Quarantine,
         token: String,
     ) -> Result<Self, config::ConfigError> {
-        if !config::valid_token(&token) {
+        Self::with_staff_token(store, quarantine, token, None)
+    }
+
+    /// Allow a distinct staff service credential for the same intake operations.
+    /// This credential does not carry staff identity or grant staff authority.
+    pub fn with_staff_token(
+        store: IntakeStore,
+        quarantine: Quarantine,
+        token: String,
+        staff_token: Option<String>,
+    ) -> Result<Self, config::ConfigError> {
+        if !config::valid_credentials(&token, staff_token.as_deref()) {
             return Err(config::ConfigError);
         }
         Ok(Self {
@@ -40,6 +52,7 @@ impl AppState {
             quarantine: Arc::new(quarantine),
             access: Access {
                 token,
+                staff_token,
                 requests: Arc::new(Semaphore::new(8)),
             },
             uploads: Arc::new(Semaphore::new(4)),

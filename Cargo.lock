@@ -395,6 +395,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-intake-client"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "hyper",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "board-maintenance-monitor"
 version = "0.1.0"
 dependencies = [
@@ -553,6 +566,7 @@ dependencies = [
  "board-config",
  "board-domain",
  "board-http",
+ "board-intake-client",
  "board-media",
  "board-media-admin",
  "board-media-http",
@@ -565,8 +579,6 @@ dependencies = [
  "futures-util",
  "http-body-util",
  "httpdate",
- "hyper",
- "hyper-util",
  "proptest",
  "rand_core 0.6.4",
  "roxmltree",
@@ -609,12 +621,16 @@ dependencies = [
  "board-config",
  "board-domain",
  "board-http",
+ "board-intake-client",
  "board-media",
+ "board-media-intake",
  "board-observe",
  "board-public",
  "board-store",
+ "bytes",
  "chrono",
  "chrono-tz",
+ "futures-util",
  "http-body-util",
  "openssl",
  "rand 0.8.8",

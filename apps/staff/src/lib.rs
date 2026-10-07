@@ -11,6 +11,7 @@ mod report_group_clear;
 mod reporter_clear;
 pub mod store;
 mod thread_options;
+mod uploads;
 mod views;
 use axum::{
     Router,
@@ -58,6 +59,8 @@ pub enum AppError {
     Recent,
     #[error("Invalid request")]
     Invalid,
+    #[error("Invalid request")]
+    Form(StatusCode),
     #[error("{0}")]
     Posting(String),
     #[error("Report group cannot be cleared because report weights are unavailable.")]
@@ -79,6 +82,7 @@ impl IntoResponse for AppError {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,
             Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
+            Self::Form(status) => status,
             Self::ReportGroupWeights | Self::ReportGroupAlreadyCleared => StatusCode::CONFLICT,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
@@ -172,6 +176,18 @@ pub fn router(state: Arc<AppState>) -> Router {
                 .post(handlers::post_message)
                 .layer(DefaultBodyLimit::max(1_048_576)),
         )
+        .route(
+            "/post/upload",
+            post(uploads::upload).layer(DefaultBodyLimit::max(uploads::MAX_MULTIPART_BYTES)),
+        )
+        .route(
+            "/post/upload/status",
+            post(uploads::status).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route(
+            "/post/upload/cancel",
+            post(uploads::cancel).layer(DefaultBodyLimit::max(4096)),
+        )
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))
         .route("/login/start", post(handlers::login_start))
@@ -242,5 +258,54 @@ mod tests {
         };
         assert!(auth::csrf(&s, &t).is_ok());
         assert!(auth::csrf(&s, &auth::token()).is_err());
+    }
+    #[tokio::test]
+    async fn form_rejection_preserves_status_without_echoing_decoder_input() {
+        use axum::{
+            Form,
+            body::{Body, to_bytes},
+            extract::FromRequest,
+            http::{Method, Request},
+        };
+        for (method, uri, content_type, expected) in [
+            (
+                Method::POST,
+                "/post",
+                "application/x-www-form-urlencoded",
+                StatusCode::UNPROCESSABLE_ENTITY,
+            ),
+            (
+                Method::POST,
+                "/post",
+                "text/plain",
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            ),
+            (
+                Method::GET,
+                "/post?csrf=private-receipt&board=test&spoiler=private-decoder-value",
+                "application/x-www-form-urlencoded",
+                StatusCode::BAD_REQUEST,
+            ),
+        ] {
+            let request = Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("content-type", content_type)
+                .body(Body::from(
+                    "csrf=private-receipt&board=test&spoiler=private-decoder-value",
+                ))
+                .unwrap();
+            let rejection = Form::<handlers::StaffMessage>::from_request(request, &())
+                .await
+                .err()
+                .expect("invalid form");
+            assert_eq!(rejection.status(), expected);
+            let response = AppError::Form(rejection.status()).into_response();
+            assert_eq!(response.status(), expected);
+            assert_eq!(
+                to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
+                b"Invalid request"
+            );
+        }
     }
 }

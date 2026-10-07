@@ -224,10 +224,78 @@ DO $$ BEGIN
 END $$;
 COMMIT;
 SQL
-# Historical compatibility is checked at 0110 above. Bring the upgraded database
-# to the current schema before evaluating the current application's contract.
+# 0111 must change only two capability-scoped EXECUTE grants. Snapshot the
+# entire retained function definitions, ACL entries, tables, columns and rows.
+"${migrator[@]}" <<'SQL'
+CREATE TABLE public.owned_upload_functions_before AS
+    SELECT p.oid,to_jsonb(p)-'proacl' AS definition FROM pg_proc p
+    JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname IN ('content','media','media_intake','post_secrets','staff_identity');
+CREATE TABLE public.owned_upload_acl_before AS
+    SELECT p.oid,a.* FROM pg_proc p JOIN public.owned_upload_functions_before old ON old.oid=p.oid
+    CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a;
+CREATE TABLE public.owned_upload_tables_before AS
+    SELECT c.oid,to_jsonb(c) AS definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname IN ('content','media','media_intake','post_secrets','staff_identity');
+CREATE TABLE public.owned_upload_columns_before AS
+    SELECT a.attrelid,a.attnum,to_jsonb(a) AS definition FROM pg_attribute a
+    JOIN public.owned_upload_tables_before old ON old.oid=a.attrelid;
+CREATE TABLE public.owned_upload_rows_before AS TABLE public.owned_attachment_rows;
+BEGIN;
+\i migrations/0111_staff_upload_controls.sql
+ROLLBACK;
+DO $$ BEGIN
+    IF EXISTS(SELECT p.oid,a.* FROM pg_proc p JOIN public.owned_upload_functions_before old ON old.oid=p.oid
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        EXCEPT TABLE public.owned_upload_acl_before)
+       OR EXISTS(TABLE public.owned_upload_acl_before EXCEPT
+        SELECT p.oid,a.* FROM pg_proc p JOIN public.owned_upload_functions_before old ON old.oid=p.oid
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a) THEN
+        RAISE EXCEPTION 'Rolled-back upload controls changed grants';
+    END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0111_staff_upload_controls.sql
+"${migrator[@]}" <<'SQL'
+DO $$ BEGIN
+    IF EXISTS(SELECT p.oid,to_jsonb(p)-'proacl' FROM pg_proc p
+        JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname IN ('content','media','media_intake','post_secrets','staff_identity')
+        EXCEPT TABLE public.owned_upload_functions_before)
+       OR EXISTS(TABLE public.owned_upload_functions_before EXCEPT
+        SELECT p.oid,to_jsonb(p)-'proacl' FROM pg_proc p)
+       OR EXISTS(SELECT c.oid,to_jsonb(c) FROM pg_class c JOIN public.owned_upload_tables_before old ON old.oid=c.oid
+        EXCEPT TABLE public.owned_upload_tables_before)
+       OR EXISTS(SELECT a.attrelid,a.attnum,to_jsonb(a) FROM pg_attribute a
+        JOIN public.owned_upload_tables_before old ON old.oid=a.attrelid EXCEPT TABLE public.owned_upload_columns_before)
+       OR EXISTS(TABLE public.owned_upload_rows_before EXCEPT TABLE public.owned_attachment_rows)
+       OR EXISTS(TABLE public.owned_attachment_rows EXCEPT TABLE public.owned_upload_rows_before)
+       OR EXISTS(TABLE public.owned_upload_acl_before EXCEPT
+        SELECT p.oid,a.* FROM pg_proc p JOIN public.owned_upload_functions_before old ON old.oid=p.oid
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a) THEN
+        RAISE EXCEPTION 'Upload controls changed retained definitions, tables, rows or grants';
+    END IF;
+    IF (SELECT count(*) FROM (
+        SELECT p.oid,a.* FROM pg_proc p JOIN public.owned_upload_functions_before old ON old.oid=p.oid
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        EXCEPT TABLE public.owned_upload_acl_before) added)<>2
+       OR EXISTS(SELECT 1 FROM (
+        SELECT p.oid,a.* FROM pg_proc p JOIN public.owned_upload_functions_before old ON old.oid=p.oid
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        EXCEPT TABLE public.owned_upload_acl_before) added
+        WHERE oid NOT IN ('content.check_attachment_upload(text,text)'::regprocedure,
+            'content.cancel_attachment_upload(text,text)'::regprocedure)
+          OR grantor<>(SELECT oid FROM pg_roles WHERE rolname='board_attachment_owner')
+          OR grantee<>(SELECT oid FROM pg_roles WHERE rolname='board_staff')
+          OR privilege_type<>'EXECUTE' OR is_grantable) THEN
+        RAISE EXCEPTION 'Upload controls added more than the two reviewed staff grants';
+    END IF;
+END $$;
+SQL
+# Historical compatibility is checked at 0110 and 0111 above. Bring the upgraded
+# database to the current schema before evaluating the application's contract.
 for migration in migrations/*.sql; do
-    [[ $migration > migrations/0110_staff_post_attachments.sql ]] || continue
+    [[ $migration > migrations/0111_staff_upload_controls.sql ]] || continue
     "${migrator[@]}" --single-transaction -f "$migration"
 done
 # Run the exact runtime readiness query under both restricted pools.
@@ -245,6 +313,14 @@ done
 # Readiness must notice broken permissions and a disabled deferred safeguard.
 for alteration in \
     'GRANT SELECT ON post_secrets.staff_attachment_handoffs TO board_public;' \
+    'REVOKE EXECUTE ON FUNCTION content.check_attachment_upload(text,text) FROM board_staff;' \
+    'REVOKE EXECUTE ON FUNCTION content.cancel_attachment_upload(text,text) FROM board_staff;' \
+    'REVOKE EXECUTE ON FUNCTION content.check_attachment_upload(text,text) FROM board_public;' \
+    'GRANT EXECUTE ON FUNCTION content.cancel_attachment_upload(text,text) TO board_auth;' \
+    'GRANT EXECUTE ON FUNCTION content.check_attachment_upload(text,text) TO PUBLIC;' \
+    'GRANT EXECUTE ON FUNCTION content.cancel_attachment_upload(text,text) TO board_staff WITH GRANT OPTION;' \
+    'ALTER FUNCTION content.check_attachment_upload(text,text) SET search_path=public;' \
+    'GRANT SELECT ON media_intake.handles TO board_staff;' \
     'ALTER TABLE post_secrets.staff_attachment_handoffs DISABLE TRIGGER reject_orphan_staff_attachment;'; do
     runuser -u postgres -- "${psql[@]}" -d staff_attachment_upgrade <<SQL
 BEGIN;

@@ -8,13 +8,16 @@ publish.workspace = true
 database-tests = []
 
 [dependencies]
+board-intake-client = { path = "../../crates/intake-client" }
+bytes.workspace = true
+futures-util.workspace = true
 board-domain = { path = "../../crates/domain" }
 board-store = { path = "../../crates/store" }
 board-config = { path = "../../crates/config" }
 board-http = { path = "../../crates/http" }
 board-observe = { path = "../../crates/observe" }
 askama.workspace = true
-axum.workspace = true
+axum = { workspace = true, features = ["multipart"] }
 sqlx.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -32,6 +35,8 @@ argon2 = "0.5"
 openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["process"] }
+board-media-intake = { path = "../media-intake" }
 tempfile = "3.27"
 board-public = { path = "../public" }
 board-media = { path = "../../crates/media" }

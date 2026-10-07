@@ -330,6 +330,7 @@ async fn exercise(f: &Fixture) {
             );
         }
     }
+    staff_upload_controls(f, &staff, &auth).await;
     staff.close().await;
     auth.close().await;
 
@@ -2235,4 +2236,236 @@ async fn cancellation(f: &Fixture) {
         cancel_upload(&f.public, &expired.upload.id, &expired.upload.capability).await,
         Err(StoreError::NotFound)
     ));
+}
+
+// Exercise the actual restricted logins, not SET ROLE on the migration pool.
+async fn staff_upload_controls(f: &Fixture, staff: &PgPool, auth: &PgPool) {
+    use board_store::post_media::{cancel_upload, check_upload};
+    // The surrounding suite intentionally starts with the migration default
+    // image_limit=0 and tests that opt-in later. Enable only this fixture while
+    // exercising an actually consumed receipt, then restore its prior policy.
+    let old_image_limit: i32 =
+        sqlx::query_scalar("SELECT image_limit FROM content.boards WHERE slug=$1")
+            .bind(&f.board)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let exact_grants: bool = sqlx::query_scalar(
+        "SELECT count(*)=2 AND bool_and(p.prosecdef
+            AND p.proowner=(SELECT oid FROM pg_roles WHERE rolname='board_attachment_owner')
+            AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+            AND has_function_privilege('board_public',p.oid,'EXECUTE')
+            AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+            AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a
+                WHERE a.grantee<>p.proowner AND (a.is_grantable OR NOT EXISTS(
+                    SELECT 1 FROM pg_roles r WHERE r.oid=a.grantee AND r.rolname IN ('board_public','board_staff')))))
+         FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+            'content.check_attachment_upload(text,text)'::regprocedure,
+            'content.cancel_attachment_upload(text,text)'::regprocedure])",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        exact_grants,
+        "Upload controls grant only public and staff EXECUTE"
+    );
+    for sql in [
+        "SELECT * FROM media.jobs",
+        "SELECT * FROM media.assets",
+        "SELECT * FROM media_intake.handles",
+        "SELECT * FROM content.post_media",
+        "UPDATE media.jobs SET state=state WHERE false",
+        "DELETE FROM media_intake.handles WHERE false",
+        "INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) SELECT 0,'','','',1,1,1,false WHERE false",
+        "SET ROLE board_attachment_owner",
+        "SET ROLE board_media_intake_owner",
+        "SET ROLE board_staff_post_owner",
+        "SELECT content.insert_post_attachment(0,'',0,'','','',repeat('0',32),repeat('0',64),false)",
+    ] {
+        let error = sqlx::query(sql).execute(staff).await.unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501"),
+            "{sql}"
+        );
+    }
+    let a = f.reserve().await;
+    let asset = f.approve(&a).await;
+    for sql in [
+        "SELECT content.check_attachment_upload($1,$2)",
+        "SELECT content.cancel_attachment_upload($1,$2)",
+    ] {
+        let error = sqlx::query(sql)
+            .bind(&a.upload.id)
+            .bind(&a.upload.capability)
+            .execute(auth)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501")
+        );
+        for (job, capability) in [
+            (a.upload.id.as_str(), "0".repeat(64)),
+            ("bad-job", a.upload.capability.clone()),
+            (a.upload.id.as_str(), "bad-capability".to_owned()),
+        ] {
+            let error = sqlx::query(sql)
+                .bind(job)
+                .bind(capability)
+                .execute(staff)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.as_database_error().unwrap().code().as_deref(),
+                Some("P0002")
+            );
+        }
+    }
+    check_upload(staff, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    check_upload(&f.public, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    for statement in [
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+        "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+    ] {
+        let mut tx = staff.begin().await.unwrap();
+        tx.execute(statement).await.unwrap();
+        let error = sqlx::query("SELECT content.cancel_attachment_upload($1,$2)")
+            .bind(&a.upload.id)
+            .bind(&a.upload.capability)
+            .execute(&mut *tx)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("22023")
+        );
+        tx.rollback().await.unwrap();
+    }
+    cancel_upload(staff, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    // Revocation deletes only the handle. Published output and worker state survive.
+    let preserved: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM media.jobs WHERE id=$1 AND state='published')
+            AND EXISTS(SELECT 1 FROM media.assets WHERE id=$2 AND state='approved')
+            AND NOT EXISTS(SELECT 1 FROM media_intake.handles WHERE job_id=$1)",
+    )
+    .bind(&a.upload.id)
+    .bind(&asset)
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert!(preserved);
+    for pool in [staff, &f.public] {
+        assert!(matches!(
+            check_upload(pool, &a.upload.id, &a.upload.capability).await,
+            Err(StoreError::NotFound)
+        ));
+        assert!(matches!(
+            cancel_upload(pool, &a.upload.id, &a.upload.capability).await,
+            Err(StoreError::NotFound)
+        ));
+    }
+    assert!(matches!(f.insert(0, &a).await, Err(StoreError::NotFound)));
+
+    // Cancellation never steals a live worker lease; its eventual output is
+    // still unusable as a receipt because only the bearer handle was revoked.
+    let processing = f.reserve().await;
+    f.intake
+        .begin_upload(&processing.upload.id, &processing.upload.capability)
+        .await
+        .unwrap();
+    f.intake
+        .finish_upload(&processing.upload.id, &processing.upload.capability, 100)
+        .await
+        .unwrap();
+    let claim = f.queue.claim().await.unwrap().unwrap();
+    assert_eq!(claim.id, processing.upload.id);
+    let lease = claim.lease_token.unwrap();
+    cancel_upload(staff, &processing.upload.id, &processing.upload.capability)
+        .await
+        .unwrap();
+    let lease_survives: bool = sqlx::query_scalar(
+        "SELECT state='processing' AND lease_token=$2 FROM media.jobs WHERE id=$1",
+    )
+    .bind(&processing.upload.id)
+    .bind(&lease)
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert!(lease_survives);
+    let output = f
+        .queue
+        .prepare_output(
+            &processing.upload.id,
+            &lease,
+            &OutputMetadata {
+                sha256: "b".repeat(64),
+                bytes: 123,
+                width: 10,
+                height: 20,
+            },
+        )
+        .await
+        .unwrap();
+    f.queue
+        .approve_output(&processing.upload.id, &lease, &output.id)
+        .await
+        .unwrap();
+    assert!(matches!(
+        check_upload(staff, &processing.upload.id, &processing.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        f.insert(0, &processing).await,
+        Err(StoreError::NotFound)
+    ));
+
+    let used = f.reserve().await;
+    f.approve(&used).await;
+    let used_post = f.insert(0, &used).await.unwrap();
+    assert!(matches!(
+        check_upload(staff, &used.upload.id, &used.upload.capability).await,
+        Err(StoreError::Conflict(_))
+    ));
+    assert!(matches!(
+        cancel_upload(staff, &used.upload.id, &used.upload.capability).await,
+        Err(StoreError::Conflict(_))
+    ));
+
+    board_store::delete_post(&f.public, &f.board, used_post)
+        .await
+        .unwrap();
+
+    let expired = f.reserve().await;
+    f.approve(&expired).await;
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
+    )
+    .bind(&expired.upload.id)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(matches!(
+        check_upload(staff, &expired.upload.id, &expired.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        cancel_upload(staff, &expired.upload.id, &expired.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    sqlx::query("UPDATE content.boards SET image_limit=$2 WHERE slug=$1")
+        .bind(&f.board)
+        .bind(old_image_limit)
+        .execute(&f.admin)
+        .await
+        .unwrap();
 }

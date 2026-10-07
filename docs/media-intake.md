@@ -13,6 +13,20 @@ random service/metrics tokens. `board-media-intake --check-config` validates the
 configuration without connecting to a database or opening listeners. Startup also
 checks the real database role/grants and quarantine write/sync/unlink access.
 
+`MEDIA_INTAKE_TOKEN` remains required for the public service client. An optional
+`MEDIA_INTAKE_STAFF_TOKEN` enables a separate staff service client; when absent,
+only the original credential is accepted. Both must be distinct 64-character
+lowercase hexadecimal tokens, independent of the metrics credential. Configure
+the staff application's `STAFF_INTAKE_TOKEN` to match the optional staff slot,
+never the public client's `PUBLIC_INTAKE_TOKEN`. Keep each application's client
+variables out of the intake process environment. Empty or malformed optional
+credentials fail configuration rather than silently disabling the slot.
+
+Both credentials authorize only the same existing intake operations and share
+the same request and upload limits. The staff credential conveys no staff
+identity, database privileges, or session-owned draft authority. Upload status
+and transfer still require the reservation capability.
+
 All routes require exactly one `Authorization: Bearer <token>` header. Requests
 with browser Origin or Fetch Metadata headers are rejected. Responses use private
 no-store headers and fixed JSON errors. Tokens must never appear in URLs or logs.

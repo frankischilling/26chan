@@ -9,6 +9,8 @@ pub struct Login;
 #[derive(Template)]
 #[template(path = "posting.html")]
 pub struct Posting {
+    pub upload_enabled: bool,
+    pub receipt: Option<crate::uploads::Receipt>,
     pub public_origin: String,
     pub boards: Vec<(String, String, i32, String, String)>,
     pub comment_max_units: usize,
@@ -21,6 +23,11 @@ pub struct Posting {
     pub ordinary_ready: bool,
     pub flags: Vec<(String, String)>,
     pub flag_catalog: Vec<(String, String, String)>,
+}
+impl Posting {
+    pub fn can_submit(&self) -> bool {
+        self.receipt.as_ref().is_none_or(|receipt| receipt.ready)
+    }
 }
 pub struct Preview {
     pub report: Report,

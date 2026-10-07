@@ -49,7 +49,12 @@ async fn run(
     let store = IntakeStore::connect(&settings.database_url).await?;
     let listener = tokio::net::TcpListener::bind(settings.bind).await?;
     let endpoint = board_observe::Endpoint::bind(metrics_config).await?;
-    let (metrics, app) = observed_router(AppState::new(store.clone(), quarantine, settings.token)?);
+    let (metrics, app) = observed_router(AppState::with_staff_token(
+        store.clone(),
+        quarantine,
+        settings.token,
+        settings.staff_token,
+    )?);
     tracing::info!("media intake ready");
     let serving = async {
         axum::serve(listener, app)
