@@ -280,7 +280,8 @@ export function mountNativeMath({ root, projection, board } = {}) {
     const record = records.get(message);
     if (!record) return;
     release(record);
-    if (active?.record === record) { active = null; stopWorker(); }
+    // Keep an already bounded job in flight; its record is now stale, so it
+    // cannot commit. Reuse that worker instead of refetching it for decoration.
     // Source decorators run synchronously, then math replans their new DOM.
     schedule();
   }
@@ -315,7 +316,7 @@ export function mountNativeMath({ root, projection, board } = {}) {
     active = null; queue = []; stopWorker();
     for (const record of [...records.values()]) release(record);
   }
-  function show() { if (!disposed) { suspended = false; failures = 0; observe(); refresh(); } }
+  function show() { if (!disposed && suspended) { suspended = false; failures = 0; observe(); refresh(); } }
   function disconnect() {
     hide(); disposed = true; cache.clear(); cacheBytes = 0;
     window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);

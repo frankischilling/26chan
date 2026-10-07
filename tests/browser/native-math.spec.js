@@ -235,7 +235,11 @@ test('typeset source still drives real quote previews, inline copies, backlinks 
   await expect(page.locator('#m1000001 svg')).toHaveCount(2);
   await expect(page.locator('#bl_1000001 a.quotelink[href="/sci/thread/1000001#p1000003"]')).toHaveCount(1);
   const link = page.locator('#m1000003 a.quotelink').first();
+  // A fully visible local target is highlighted instead of copied by design.
+  // Separate the reply spatially so this case exercises the actual popup path.
+  await page.locator('#pc1000003').evaluate(node => { node.style.marginTop = '1200px'; });
   await link.hover();
+  expect(await page.locator('#p1000001').evaluate(node => node.getBoundingClientRect().top)).toBeLessThan(0);
   await expect(page.locator('#quote-preview .postMessage svg')).toHaveCount(2);
   await page.mouse.move(0, 0);
   await expect(page.locator('#quote-preview')).toHaveCount(0);

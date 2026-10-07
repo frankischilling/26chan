@@ -27,6 +27,36 @@ async function sources() {
     .replace('./native-comment-projection.js', projection).replace('./math/schema.mjs', schema)) };
 }
 
+test('initial pageshow cannot replenish exhausted worker retries', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage(); await page.goto('about:blank');
+    const result = await page.evaluate(async ({ projection, math }) => {
+      const { createCommentProjection } = await import(projection);
+      const { mountNativeMath } = await import(math);
+      document.body.innerHTML = '<div class="board"><blockquote class="postMessage">[math]x[/math]</blockquote></div>';
+      document.body.dataset.mathTags = '1'; window.IntersectionObserver = undefined;
+      const workers = [];
+      window.Worker = class {
+        constructor() { workers.push(this); }
+        postMessage() { queueMicrotask(() => this.onerror?.()); }
+        terminate() { this.terminated = true; }
+      };
+      const root = document.querySelector('.board'), message = root.querySelector('.postMessage');
+      const controller = mountNativeMath({ root, projection: createCommentProjection(), board: 'sci' });
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const initial = workers.length;
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }));
+      message.textContent = '[math]y[/math]'; controller.refresh();
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const after = workers.length;
+      controller.disconnect();
+      return { initial, after, literal: message.textContent, allStopped: workers.every(worker => worker.terminated) };
+    }, await sources());
+    assert.deepEqual(result, { initial: 4, after: 4, literal: '[math]y[/math]', allStopped: true });
+  } finally { await browser.close(); }
+});
+
 test('math projection preserves literal Text identity and ignores only owned UI', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
