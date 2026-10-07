@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_domain::{capcode::Capcode, poster_id::PosterIdKey};
 use board_store::{
@@ -233,6 +234,7 @@ impl Fixture {
     }
 
     async fn cleanup(self) {
+        let mut tx = support::begin_cleanup(&self.owner, &self.boards).await;
         for query in [
             "DELETE FROM content.moderation_audit WHERE board=ANY($1)",
             "DELETE FROM post_secrets.staff_post_intents WHERE board=ANY($1)",
@@ -245,7 +247,7 @@ impl Fixture {
         ] {
             sqlx::query(query)
                 .bind(&self.boards[..])
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
@@ -256,7 +258,7 @@ impl Fixture {
         ] {
             sqlx::query(query)
                 .bind(&jobs)
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
@@ -267,10 +269,11 @@ impl Fixture {
         ] {
             sqlx::query(query)
                 .bind(self.account)
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
+        tx.commit().await.unwrap();
     }
 }
 
@@ -314,6 +317,98 @@ where
     let outcome = tokio::spawn(test(f.clone())).await;
     f.cleanup().await;
     outcome.unwrap();
+}
+
+#[tokio::test]
+async fn cleanup_waits_for_parent_locks_before_deleting_private_rows() {
+    let _serial = TEST.lock().await;
+    for parent in ["board", "thread"] {
+        let f = Fixture::new().await;
+        let now = f.now().await;
+        let op = f.public_write(0, 0, peer(91), now).await.unwrap();
+        let before = f.snapshot().await;
+        let mut blocker = f.owner.begin().await.unwrap();
+        let blocker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *blocker)
+            .await
+            .unwrap();
+        let expected_query = if parent == "board" {
+            sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+                .bind(&f.boards[0])
+                .fetch_one(&mut *blocker)
+                .await
+                .unwrap();
+            "SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE"
+        } else {
+            sqlx::query("SELECT id FROM content.threads WHERE id=$1 FOR UPDATE")
+                .bind(op)
+                .fetch_one(&mut *blocker)
+                .await
+                .unwrap();
+            "SELECT id FROM content.threads WHERE board=ANY($1) ORDER BY board,id FOR UPDATE"
+        };
+        // A dedicated connection makes the observed waiter unambiguous.
+        let cleanup_pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let cleanup_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&cleanup_pool)
+            .await
+            .unwrap();
+        let mut cleanup_fixture = f.clone();
+        cleanup_fixture.owner = cleanup_pool.clone();
+        let mut cleanup = tokio::spawn(cleanup_fixture.cleanup());
+        // Observe the actual dependency and statement, not elapsed time. The
+        // cleanup must wait at its parent SELECT, before any protected DELETE.
+        let waiting = tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let query: Option<String> = sqlx::query_scalar(
+                    "SELECT query FROM pg_stat_activity WHERE pid=$1 AND $2=ANY(pg_blocking_pids(pid))",
+                )
+                .bind(cleanup_pid)
+                .bind(blocker_pid)
+                .fetch_optional(&f.owner)
+                .await
+                .unwrap();
+                if query.is_some() || cleanup.is_finished() {
+                    break query;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let while_blocked = f.snapshot().await;
+        // Release the holder and drain teardown even if lock observation
+        // failed, so a regression cannot leave a waiting cleanup task behind.
+        blocker.rollback().await.unwrap();
+        let completed = tokio::time::timeout(Duration::from_secs(10), &mut cleanup).await;
+        if completed.is_err() {
+            cleanup.abort();
+            let _ = cleanup.await;
+        }
+        cleanup_pool.close().await;
+        assert_eq!(
+            waiting.expect("cleanup parent-lock wait must be observable"),
+            Some(expected_query.into()),
+            "cleanup must acquire the {parent} lock before deleting private rows"
+        );
+        assert_eq!(while_blocked, before);
+        completed
+            .expect("cleanup must finish after its parent lock is released")
+            .unwrap();
+        let remaining: (i64, i64, i64, i64) = sqlx::query_as(
+            "SELECT (SELECT count(*) FROM content.boards WHERE slug=ANY($1)),(SELECT count(*) FROM content.posts WHERE board=ANY($1)),(SELECT count(*) FROM post_secrets.deletion WHERE post_id=$2),(SELECT count(*) FROM staff_identity.accounts WHERE id=$3)",
+        )
+        .bind(&f.boards[..])
+        .bind(op)
+        .bind(f.account)
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+        assert_eq!(remaining, (0, 0, 0, 0));
+    }
 }
 
 #[tokio::test]

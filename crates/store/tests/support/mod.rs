@@ -1,10 +1,10 @@
-//! Identity-bearing fixture calls. These exercise the production admission path;
-//! no production policy or database state is changed by the posting helpers.
+//! Owned database fixtures. Posting calls use production admission; teardown
+//! is limited to fixture-owned rows and keeps production guards enabled.
 #![allow(dead_code)]
 use board_domain::{anonymous_session::Capability, poster_id::PosterIdKey};
 use board_store::{NewPost, PostIdentityKeys, PostMetadata, PostingContext, StoreError};
 use chrono::{DateTime, Utc};
-use sqlx::PgPool;
+use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use std::{
     collections::HashMap,
     net::IpAddr,
@@ -46,22 +46,44 @@ fn record_actor(board: &str, key: &PosterIdKey, peer: IpAddr) {
         entry.actors.push(actor);
     }
 }
+/// Begin teardown while retaining locks on only the fixture's owned parents.
+pub async fn begin_cleanup(owner: &PgPool, boards: &[String]) -> Transaction<'static, Postgres> {
+    let mut tx = owner.begin().await.unwrap();
+    // A rejected writer drops its transaction, queuing an asynchronous
+    // rollback. Wait for its parent locks before touching private rows:
+    // deletion guards deliberately reenter board locks with NOWAIT.
+    // Keep canonical board -> thread order and retain locks until the caller
+    // commits all cleanup deletes, rather than using separate autocommits.
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
+        .bind(boards)
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM content.threads WHERE board=ANY($1) ORDER BY board,id FOR UPDATE")
+        .bind(boards)
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
+    tx
+}
 /// Remove only this fixture's recorded posting actors from its owned board.
 /// Deletion quotas, Robot9000 history and anonymous sessions are untouched.
-pub async fn cleanup_posting(owner: &PgPool, board: &str) {
+/// Accept a pool or an existing cleanup transaction without committing it.
+pub async fn cleanup_posting<'a>(owner: impl Acquire<'a, Database = Postgres>, board: &str) {
     let actors = fixtures()
         .lock()
         .unwrap()
         .get(board)
         .map(|f| f.actors.clone())
         .unwrap_or_default();
+    let mut connection = owner.acquire().await.unwrap();
     for actor in actors {
         sqlx::query(
             "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1 AND actor_hash=$2",
         )
         .bind(board)
         .bind(actor.as_slice())
-        .execute(owner)
+        .execute(&mut *connection)
         .await
         .unwrap();
     }

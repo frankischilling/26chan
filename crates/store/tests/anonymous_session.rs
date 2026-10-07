@@ -106,6 +106,7 @@ impl Fixture {
     }
 
     async fn cleanup(&self, tokens: &[[u8; 32]]) {
+        let mut tx = support::begin_cleanup(&self.owner, std::slice::from_ref(&self.board)).await;
         for query in [
             "DELETE FROM content.reports WHERE board=$1",
             "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
@@ -116,17 +117,18 @@ impl Fixture {
         ] {
             sqlx::query(query)
                 .bind(&self.board)
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
         for token in tokens {
             sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
                 .bind(token.as_slice())
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
+        tx.commit().await.unwrap();
     }
 }
 

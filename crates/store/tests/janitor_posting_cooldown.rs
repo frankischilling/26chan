@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_domain::poster_id::PosterIdKey;
 use board_store::{
@@ -292,6 +293,7 @@ impl Fixture {
     }
 
     async fn cleanup(self) {
+        let mut tx = support::begin_cleanup(&self.owner, &self.boards).await;
         for query in [
             "DELETE FROM content.moderation_audit WHERE board=ANY($1)",
             "DELETE FROM post_secrets.staff_post_intents WHERE board=ANY($1)",
@@ -303,7 +305,7 @@ impl Fixture {
         ] {
             sqlx::query(query)
                 .bind(&self.boards[..])
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
@@ -314,10 +316,11 @@ impl Fixture {
         ] {
             sqlx::query(query)
                 .bind(self.account)
-                .execute(&self.owner)
+                .execute(&mut *tx)
                 .await
                 .unwrap();
         }
+        tx.commit().await.unwrap();
     }
 }
 
