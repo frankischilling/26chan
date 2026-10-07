@@ -63,9 +63,10 @@ impl From<StoreError> for AppError {
             StoreError::AuthorizationChanged => {
                 Self(StatusCode::FORBIDDEN, "Error: Password incorrect.")
             }
-            _ => {
+            error => {
                 tracing::warn!(
                     event = "database_operation_failed",
+                    error_class = storage_error_class(&error),
                     "database operation failed"
                 );
                 Self(
@@ -74,6 +75,68 @@ impl From<StoreError> for AppError {
                 )
             }
         }
+    }
+}
+
+// Private diagnostics have a closed vocabulary. Never record Display/Debug,
+// source errors, identifiers, or the raw SQLSTATE (which is driver-provided).
+// Classification does not change public responses or imply that retry is safe.
+fn storage_error_class(error: &StoreError) -> &'static str {
+    match error {
+        StoreError::Database(error) => match error {
+            sqlx::Error::Database(error) => database_error_class(error.code().as_deref()),
+            sqlx::Error::PoolTimedOut => "pool_timeout",
+            sqlx::Error::PoolClosed => "pool_closed",
+            sqlx::Error::Io(_) => "io",
+            sqlx::Error::Tls(_) => "tls",
+            sqlx::Error::Protocol(_) => "protocol",
+            sqlx::Error::RowNotFound => "row_not_found",
+            sqlx::Error::Configuration(_) | sqlx::Error::ConfigFile(_) => "configuration",
+            sqlx::Error::InvalidArgument(_) => "invalid_argument",
+            sqlx::Error::TypeNotFound { .. } => "type_not_found",
+            sqlx::Error::ColumnIndexOutOfBounds { .. } => "column_index",
+            sqlx::Error::ColumnNotFound(_) => "column_not_found",
+            sqlx::Error::ColumnDecode { .. } => "column_decode",
+            sqlx::Error::Encode(_) => "encode",
+            sqlx::Error::Decode(_) => "decode",
+            sqlx::Error::AnyDriverError(_) => "driver",
+            sqlx::Error::WorkerCrashed => "worker_crashed",
+            sqlx::Error::Migrate(_) => "migration",
+            sqlx::Error::InvalidSavePointStatement | sqlx::Error::BeginFailed => {
+                "transaction_state"
+            }
+            _ => "sqlx_other",
+        },
+        StoreError::UnsafeRole => "unsafe_role",
+        StoreError::RandomnessUnavailable => "randomness_unavailable",
+        StoreError::ReadLimit => "read_limit",
+        StoreError::ContentRejected(_) => "content_rejected",
+        StoreError::ContentQuiet { .. } => "content_quiet",
+        StoreError::Robot9000Rejected(_) => "robot9000_rejected",
+        StoreError::PostingCooldownRejected(_) => "posting_cooldown_rejected",
+        _ => "store_other",
+    }
+}
+
+fn database_error_class(code: Option<&str>) -> &'static str {
+    match code {
+        Some("40001") => "serialization",
+        Some("40P01") => "deadlock",
+        Some("55P03") => "lock_unavailable",
+        Some("57014") => "statement_cancelled",
+        Some("25000" | "25001" | "25006" | "25P01" | "25P02") => "transaction_state",
+        Some("25P03" | "57P05") => "idle_timeout",
+        Some("42501") => "permissions",
+        Some("23502") => "not_null_constraint",
+        Some("23503") => "foreign_key_constraint",
+        Some("23505") => "unique_constraint",
+        Some("23514") => "check_constraint",
+        Some("23P01") => "exclusion_constraint",
+        Some("08000" | "08001" | "08003" | "08004" | "08006" | "08007" | "08P01") => "connection",
+        Some("53300") => "connection_limit",
+        Some("57P01" | "57P02" | "57P03") => "server_unavailable",
+        Some("42P01" | "42703" | "42883") => "schema_contract",
+        _ => "database_other",
     }
 }
 impl From<askama::Error> for AppError {
@@ -1521,5 +1584,215 @@ mod op_password_tests {
             &hash.replace("argon2id", "argon2i")
         ));
         assert!(!verify_deletion_password("owned-op-password", "missing"));
+    }
+}
+
+#[cfg(test)]
+mod storage_diagnostic_tests {
+    use super::*;
+    use std::{
+        borrow::Cow,
+        error::Error,
+        fmt,
+        io::Write,
+        sync::{Arc, Mutex},
+    };
+
+    const HOSTILE: &str =
+        "secret-password request-id /private/path SELECT private_data\nforged_event=true";
+
+    #[derive(Debug)]
+    struct FakeDatabaseError {
+        code: Option<&'static str>,
+    }
+
+    impl fmt::Display for FakeDatabaseError {
+        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str(HOSTILE)
+        }
+    }
+    impl Error for FakeDatabaseError {}
+    impl sqlx::error::DatabaseError for FakeDatabaseError {
+        fn message(&self) -> &str {
+            HOSTILE
+        }
+        fn code(&self) -> Option<Cow<'_, str>> {
+            self.code.map(Cow::Borrowed)
+        }
+        fn as_error(&self) -> &(dyn Error + Send + Sync + 'static) {
+            self
+        }
+        fn as_error_mut(&mut self) -> &mut (dyn Error + Send + Sync + 'static) {
+            self
+        }
+        fn into_error(self: Box<Self>) -> Box<dyn Error + Send + Sync + 'static> {
+            self
+        }
+        fn kind(&self) -> sqlx::error::ErrorKind {
+            sqlx::error::ErrorKind::Other
+        }
+    }
+
+    #[derive(Clone)]
+    struct LogWriter(Arc<Mutex<Vec<u8>>>);
+    impl Write for LogWriter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn convert_with_log(error: StoreError) -> (AppError, String) {
+        let writer = LogWriter(Arc::new(Mutex::new(Vec::new())));
+        let captured = writer.0.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .json()
+            .without_time()
+            .with_ansi(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        let response = tracing::subscriber::with_default(subscriber, || AppError::from(error));
+        let log = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+        (response, log)
+    }
+
+    #[test]
+    fn storage_diagnostic_sqlstates_use_only_exact_allowlisted_classes() {
+        for (code, class) in [
+            ("40001", "serialization"),
+            ("40P01", "deadlock"),
+            ("55P03", "lock_unavailable"),
+            ("57014", "statement_cancelled"),
+            ("25000", "transaction_state"),
+            ("25001", "transaction_state"),
+            ("25006", "transaction_state"),
+            ("25P01", "transaction_state"),
+            ("25P02", "transaction_state"),
+            ("25P03", "idle_timeout"),
+            ("57P05", "idle_timeout"),
+            ("42501", "permissions"),
+            ("23502", "not_null_constraint"),
+            ("23503", "foreign_key_constraint"),
+            ("23505", "unique_constraint"),
+            ("23514", "check_constraint"),
+            ("23P01", "exclusion_constraint"),
+            ("08006", "connection"),
+            ("53300", "connection_limit"),
+            ("57P01", "server_unavailable"),
+            ("42P01", "schema_contract"),
+            ("42703", "schema_contract"),
+            ("42883", "schema_contract"),
+            ("99999", "database_other"),
+            ("40001-extra", "database_other"),
+            ("42501\nforged_event=true", "database_other"),
+            (HOSTILE, "database_other"),
+        ] {
+            let error = StoreError::Database(sqlx::Error::Database(Box::new(FakeDatabaseError {
+                code: Some(code),
+            })));
+            assert_eq!(storage_error_class(&error), class);
+        }
+        assert_eq!(database_error_class(None), "database_other");
+    }
+
+    #[test]
+    fn storage_diagnostic_sqlx_categories_discard_payloads() {
+        for (error, class) in [
+            (sqlx::Error::PoolTimedOut, "pool_timeout"),
+            (sqlx::Error::PoolClosed, "pool_closed"),
+            (sqlx::Error::Io(std::io::Error::other(HOSTILE)), "io"),
+            (sqlx::Error::Protocol(HOSTILE.into()), "protocol"),
+            (sqlx::Error::RowNotFound, "row_not_found"),
+            (
+                sqlx::Error::Decode(Box::new(std::io::Error::other(HOSTILE))),
+                "decode",
+            ),
+            (
+                sqlx::Error::ColumnDecode {
+                    index: HOSTILE.into(),
+                    source: Box::new(std::io::Error::other(HOSTILE)),
+                },
+                "column_decode",
+            ),
+            (
+                sqlx::Error::ColumnNotFound(HOSTILE.into()),
+                "column_not_found",
+            ),
+            (sqlx::Error::BeginFailed, "transaction_state"),
+        ] {
+            assert_eq!(storage_error_class(&StoreError::Database(error)), class);
+        }
+        assert_eq!(
+            storage_error_class(&StoreError::ContentRejected(HOSTILE.into())),
+            "content_rejected"
+        );
+        assert_eq!(storage_error_class(&StoreError::ReadLimit), "read_limit");
+    }
+
+    #[tokio::test]
+    async fn storage_diagnostic_logs_only_static_fields_and_preserves_503_body() {
+        for (code, class) in [
+            (Some(HOSTILE), "database_other"),
+            (Some("40P01"), "deadlock"),
+            (None, "database_other"),
+        ] {
+            let (error, log) = convert_with_log(StoreError::Database(sqlx::Error::Database(
+                Box::new(FakeDatabaseError { code }),
+            )));
+            assert_eq!(error.0, StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(error.1, "Storage is unavailable. Try again later.");
+            let event: serde_json::Value = serde_json::from_str(log.trim()).unwrap();
+            assert_eq!(
+                event["fields"],
+                serde_json::json!({
+                    "event": "database_operation_failed",
+                    "error_class": class,
+                    "message": "database operation failed"
+                })
+            );
+            for forbidden in [
+                HOSTILE,
+                "secret-password",
+                "request-id",
+                "/private/path",
+                "SELECT",
+                "forged_event",
+                "40P01",
+            ] {
+                assert!(!log.contains(forbidden));
+            }
+            let response = error.into_response();
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            let actual = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            let expected = axum::body::to_bytes(
+                message_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Storage is unavailable. Try again later.",
+                )
+                .into_body(),
+                usize::MAX,
+            )
+            .await
+            .unwrap();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn storage_diagnostic_not_found_remains_404_without_storage_warning() {
+        for (error, message) in [
+            (StoreError::NotFound, "Board, thread, or post not found."),
+            (StoreError::PageNotFound, "Page not found."),
+        ] {
+            let (response, log) = convert_with_log(error);
+            assert_eq!(response.0, StatusCode::NOT_FOUND);
+            assert_eq!(response.1, message);
+            assert!(log.is_empty());
+        }
     }
 }

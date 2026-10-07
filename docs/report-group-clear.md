@@ -89,6 +89,10 @@ checks. The broader runner was interrupted during its last staff posting target;
 that complete supported target was rerun successfully. Three Unix-socket cases
 are excluded only locally after executor permission failures and remain enabled
 in CI. Formatting and strict all-target, all-feature workspace Clippy pass.
-Hosted qualification remains pending. Local migration adaptation uses loopback
+At `2eb117f`, hosted media/operations, Windows, all four theme shards, monitoring
+and dependency checks passed. Linux passed the Rust and database checks but
+failed a later watcher fixture cleanup: a deleted thread's JSON GET returned 503
+instead of 404. Its exact storage error was not captured, so full hosted
+qualification remains incomplete. Local migration adaptation uses loopback
 TCP because this executor does not support the scripts' Unix-socket setup;
 hosted CI runs the original scripts.

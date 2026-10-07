@@ -799,7 +799,7 @@ function start(context) {
       ['Yandex', 'https://www.yandex.com/images/search'],
       ['SauceNAO', 'https://saucenao.com/search.php'],
     ].map(([name, endpoint]) => {
-      const url = new URL(endpoint); url.searchParams.set('url', file.href);
+      const url = new URL(endpoint); url.searchParams.set(name === 'Yandex' ? 'img_url' : 'url', file.href);
       if (name === 'Yandex') url.searchParams.set('rpt', 'imageview');
       return [name, url.href];
     });

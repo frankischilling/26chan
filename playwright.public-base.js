@@ -25,6 +25,9 @@ export function publicConfig({ visual = process.env.VISUAL_FIXTURE_SERVER === '1
       trace: 'retain-on-failure',
     },
     webServer: {
+      // Retain bounded server diagnostics when an HTTP assertion fails. The
+      // application emits error classes without database text or query data.
+      stdout: 'pipe',
       // Test runner needs migration credentials for DB checks; the spawned public
       // process receives neither those credentials nor future staff credentials.
       env: {

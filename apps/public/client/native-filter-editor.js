@@ -1,5 +1,6 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { readFilterRules, filterColor } from './native-filter-rules.js';
+import { appendFilterHelp } from './native-filter-help.js';
 
 const palette = ['#E0B0FF', '#F2F3F4', '#7DF9FF', '#FFFF00', '#FBCEB1', '#FFBF00',
   '#ADFF2F', '#0047AB', '#00A550', '#007FFF', '#AF0A0F', '#B5BD68'];
@@ -46,14 +47,7 @@ export function filterEditor({ board, read, save, match, changed }) {
       const detail = node('dialog', undefined, 'nativeSettings filterHelp');
       detail.id = 'filtersHelp';
       detail.setAttribute('aria-label', 'Filter help');
-      detail.append(node('h3', 'Filters & Highlights'));
-      for (const text of [
-        'Tripcode, Name and ID match exact text. Other types accept words, a quoted phrase, or /regular expression/i.',
-        'Separate boards with spaces or commas. Blank Boards applies a filter to posts on all boards; Auto requires explicit boards.',
-        'The first matching active filter wins. Hide replaces content with a View control; a selected color highlights matching content.',
-        'Auto adds matching threads when you manually refresh the enabled Thread Watcher. Subject filters apply on board indexes, not inside threads.',
-        'Patterns run in bounded workers. A failed or over-budget match leaves posts visible. Save Settings separately to enable filtering.',
-      ]) detail.append(node('p', text));
+      appendFilterHelp(detail);
       detail.append(button('Close help', () => { closePopup(); help.focus(); }));
       detail.addEventListener('cancel', event => { event.preventDefault(); closePopup(); help.focus(); });
       dialog.append(detail); popup = detail; detail.showModal();

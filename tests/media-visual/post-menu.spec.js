@@ -3,6 +3,17 @@ import { test, expect } from '../helpers/visual-diagnostics.js';
 test.use({ javaScriptEnabled: true });
 const id = '1000201';
 const trigger = page => page.getByRole('button', { name: `Post menu for post ${id}`, exact: true });
+const providerRequest = url => /https:\/\/(lens\.google\.com|www\.yandex\.com|saucenao\.com)\//.test(url);
+async function checkProviderLink(link, name, file) {
+  const endpoint = { Google: 'https://lens.google.com/uploadbyurl',
+    Yandex: 'https://www.yandex.com/images/search', SauceNAO: 'https://saucenao.com/search.php' }[name];
+  const url = new URL(await link.getAttribute('href'));
+  expect(url.origin + url.pathname).toBe(endpoint);
+  expect([...url.searchParams]).toEqual(name === 'Yandex'
+    ? [['img_url', file], ['rpt', 'imageview']] : [['url', file]]);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+}
 
 test('desktop image search uses the full normalized file and supports nested keyboard navigation', async ({ page }) => {
   const external = [];
@@ -17,14 +28,9 @@ test('desktop image search uses the full normalized file and supports nested key
   await trigger(page).press('ArrowDown');
   await toggle.focus(); await toggle.press('ArrowRight');
   await expect(page.getByRole('menuitem', { name: 'Google', exact: true })).toBeFocused();
-  for (const [name, endpoint] of [['Google', 'https://lens.google.com/uploadbyurl'], ['Yandex', 'https://www.yandex.com/images/search'], ['SauceNAO', 'https://saucenao.com/search.php']]) {
+  for (const name of ['Google', 'Yandex', 'SauceNAO']) {
     const link = page.getByRole('menuitem', { name, exact: true });
-    const url = new URL(await link.getAttribute('href'));
-    expect(url.origin + url.pathname).toBe(endpoint);
-    expect(url.searchParams.get('url')).toBe(file);
-    if (name === 'Yandex') expect(url.searchParams.get('rpt')).toBe('imageview');
-    await expect(link).toHaveAttribute('target', '_blank');
-    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    await checkProviderLink(link, name, file);
   }
   await page.keyboard.press('ArrowDown');
   await expect(page.getByRole('menuitem', { name: 'Yandex', exact: true })).toBeFocused();
@@ -35,11 +41,17 @@ test('desktop image search uses the full normalized file and supports nested key
 });
 
 test('mobile file actions select but never submit the actual deletion form', async ({ page }) => {
+  const external = [];
+  page.on('request', request => { if (providerRequest(request.url())) external.push(request.url()); });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/img/thread/1000201');
   await trigger(page).click();
   await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', 'http://localhost:3004/img/1000201.png');
-  for (const name of ['Google', 'Yandex', 'SauceNAO']) await expect(page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true })).toBeVisible();
+  for (const name of ['Google', 'Yandex', 'SauceNAO']) {
+    const link = page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true });
+    await expect(link).toBeVisible();
+    await checkProviderLink(link, name, 'http://localhost:3004/img/1000201.png');
+  }
   await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
   const form = page.locator(`#p${id} form[action="/img/delete"]`);
   await expect(form.locator('[name=file_only]')).toBeChecked();
@@ -52,6 +64,7 @@ test('mobile file actions select but never submit the actual deletion form', asy
   await page.getByRole('button', { name: 'Post menu for post 1000206', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveCount(0);
+  expect(external).toEqual([]);
 });
 
 test('spoiler file actions use metadata without revealing or fetching the hidden image', async ({ page }) => {
@@ -65,12 +78,13 @@ test('spoiler file actions use metadata without revealing or fetching the hidden
   await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', 'http://localhost:3004/img/1000205.png');
   await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
   for (const name of ['Google', 'Yandex', 'SauceNAO']) {
-    const url = new URL(await page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true }).getAttribute('href'));
-    expect(url.searchParams.get('url')).toBe('http://localhost:3004/img/1000205.png');
+    const link = page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true });
+    await checkProviderLink(link, name, 'http://localhost:3004/img/1000205.png');
   }
   await expect(post.locator('.imgspoiler')).toBeVisible();
   await expect(post.locator('.fileThumb:not(.imgspoiler)')).toHaveCount(0);
   expect(requests.some(url => /\/img\/1000205(?:s\.jpg|\.png)$/.test(url))).toBe(false);
+  expect(requests.some(providerRequest)).toBe(false);
 });
 
 test('noncanonical and credential-bearing file links cannot become menu navigation', async ({ page }) => {

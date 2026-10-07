@@ -230,18 +230,32 @@ try {
   }
   const deletion = page.locator(`#p${thread} form[action="/${board}/delete"]`);
   if (javascript) {
+    const checkImageSearchLinks = async mobile => {
+      for (const [name, host, pathname, imageKey] of [
+        ['Google', 'lens.google.com', '/uploadbyurl', 'url'],
+        ['Yandex', 'www.yandex.com', '/images/search', 'img_url'],
+        ['SauceNAO', 'saucenao.com', '/search.php', 'url'],
+      ]) {
+        const link = page.getByRole('menuitem', { name: mobile ? `Search image on ${name}` : name, exact: true });
+        const url = new URL(await link.getAttribute('href'));
+        assert.equal(url.protocol, 'https:');
+        assert.equal(url.hostname, host);
+        assert.equal(url.pathname, pathname);
+        assert.deepEqual([...url.searchParams], name === 'Yandex'
+          ? [['img_url', mediaUrl.href], ['rpt', 'imageview']]
+          : [[imageKey, mediaUrl.href]]);
+        await expect(link).toHaveAttribute('target', '_blank');
+        await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      }
+    };
     await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
     await page.getByRole('menuitem', { name: 'Image search', exact: true }).press('ArrowRight');
-    for (const [name, host] of [['Google', 'lens.google.com'], ['Yandex', 'www.yandex.com'], ['SauceNAO', 'saucenao.com']]) {
-      const link = page.getByRole('menuitem', { name, exact: true });
-      const url = new URL(await link.getAttribute('href'));
-      assert.equal(url.hostname, host); assert.equal(url.searchParams.get('url'), mediaUrl.href);
-      await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    }
+    await checkImageSearchLinks(false);
     await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', mediaUrl.href);
+    await checkImageSearchLinks(true);
     await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
     await expect(deletion.getByLabel('File only', { exact: true })).toBeChecked();
     await expect(deletion.getByRole('button', { name: 'Delete post', exact: true })).toBeFocused();

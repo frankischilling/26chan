@@ -16,14 +16,22 @@ const test = base.extend({
     });
     // Delete only IDs created by this test, through the ordinary password gate.
     // Teardown also runs after an assertion failure; other threads are untouched.
+    const cleanupFailures = [];
     for (const { board, id } of created) {
-      await withDeletionQuota(async () => {
-        const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
-          form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
-        expect(deleted.status()).toBe(303);
-        expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
-      });
+      try {
+        await withDeletionQuota(async () => {
+          const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
+            form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
+          expect(deleted.status()).toBe(303);
+          expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
+        });
+      } catch (error) {
+        // A failed cleanup must not leave the remaining owned threads behind.
+        cleanupFailures.push(error);
+      }
     }
+    if (cleanupFailures.length === 1) throw cleanupFailures[0];
+    if (cleanupFailures.length > 1) throw new AggregateError(cleanupFailures, 'Owned watcher thread cleanup failed');
   },
 });
 async function enable(page, path, options) {

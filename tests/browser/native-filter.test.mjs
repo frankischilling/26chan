@@ -121,6 +121,53 @@ test('missing comments are skipped but empty prepared text still matches, retain
     { status: 'ok', matches: [{ id: '1', filter: 0 }] });
 });
 
+// Literal source-grammar vectors are independent of the Help rendering and its text.
+// Each case owns an actual worker; no test compiles a replacement matcher.
+test('published native Help examples retain their exact matching grammar', async () => {
+  const cases = [
+    [0, '!Ep8pui8Vw2', 'trip', ['!Ep8pui8Vw2'], ['!ep8pui8vw2', 'prefix!Ep8pui8Vw2', '!Ep8pui8Vw2suffix']],
+    [1, 'Name', 'name', ['Name'], ['name', 'NAME', 'My Name', 'Names']],
+    [4, 'ID', 'id', ['ID'], ['id', 'Id', 'ID123', '/ID/i']],
+    [2, 'feel', 'comment', ['feel', 'I FEEL fine', 'feel!'], ['feeling', 'unfeeling', 'feels']],
+    [2, 'feel girlfriend', 'comment', ['feel girlfriend', 'GIRLFRIEND makes me FEEL', 'other line\nfeel girlfriend'],
+      ['feel\ngirlfriend', 'girlfriend\nfeel', 'feeling girlfriend', 'feel girlfriends', 'feel alone']],
+    [2, '"that feel when"', 'comment', ['that feel when', 'prefixthat feel whensuffix'],
+      ['That feel when', 'that FEEL when', 'that feel\nwhen']],
+    [2, '"feel|girlfriend"', 'comment', ['feel', 'girlfriend', 'unfeeling'], ['FEEL', 'GIRLFRIEND', 'other']],
+    [2, 'feel*', 'comment', ['feel', 'feeling', 'FEELINGS'], ['unfeeling', 'fee ling']],
+    [2, 'idolm*ster', 'comment', ['idolmaster', 'IDOLM@STER', 'idolmster'],
+      ['idol m@ster', 'idolm ster', 'idolm\tster', 'idolm\nster']],
+    [2, '/feel when no (girl|boy)friend/i', 'comment', ['feel when no girlfriend', 'FEEL WHEN NO BOYFRIEND'],
+      ['feel when no friend', 'feel when no girl\nfriend']],
+    [2, '/^(?!.*touhou).*$/i', 'comment', ['', 'other subject'],
+      ['touhou', 'Some TOUHOU here', 'other\nsubject', 'other\ntouhou']],
+    [2, '/^>/', 'comment', ['>quoted', '>>123', '>first\nsecond'], ['text >quoted', 'text\n>quoted', '']],
+  ];
+  for (const [type, pattern, field, yes, no] of cases) {
+    const posts = [...yes, ...no].map((value, index) => ({ no: String(index + 1), [field]: value }));
+    assert.deepEqual(await match([filter(type, pattern)], posts), {
+      status: 'ok', matches: yes.map((_, index) => ({ id: String(index + 1), filter: 0 })),
+    }, `Help example ${pattern} (${field})`);
+  }
+});
+
+test('Help empty-comment and Subject guidance distinguishes page, thread and catalog contexts', async () => {
+  const owned = matcher();
+  try {
+    const posts = [{ no: '1' }, { no: '2', com: '' }, { no: '3', com: '<span></span>' },
+      { no: '4', comment: '' }, { no: '5', com: 'text' }];
+    assert.deepEqual(await owned.instance.match([filter(2, '/^$/')], 'demo', posts, { mode: 'page' }),
+      { status: 'ok', matches: ['1', '2', '3', '4'].map(id => ({ id, filter: 0 })) });
+    assert.deepEqual(await owned.instance.match([filter(2, '/^$/')], 'demo', posts),
+      { status: 'ok', matches: ['3', '4'].map(id => ({ id, filter: 0 })) });
+    const subjects = [{ no: '1', sub: 'feel' }, { no: '2', sub: 'FEEL' }, { no: '3', sub: 'feeling' }];
+    assert.deepEqual(await owned.instance.match([filter(5, 'feel')], 'demo', subjects, { mode: 'page' }),
+      { status: 'ok', matches: [{ id: '1', filter: 0 }, { id: '2', filter: 0 }] });
+    assert.deepEqual(await owned.instance.match([filter(5, 'feel')], 'demo', subjects, { mode: 'page', thread: true }),
+      { status: 'ok', matches: [] });
+  } finally { await owned.stopped(); }
+});
+
 test('invalid regex compilation fails the whole batch instead of applying a partial filter list', async () => {
   assert.deepEqual(await match([filter(5, 'paper'), filter(2, '/[/')], [{ no: '1', sub: 'paper' }]),
     { status: 'invalid-filter', index: 1 });

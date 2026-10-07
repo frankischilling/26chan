@@ -334,16 +334,143 @@ test('desktop filter dialogs, colors and nested help and mobile saved filters fo
       await expect(page.locator('#filter-palette')).toHaveCount(0);
       await expect(page.locator('.fColor')).toHaveCSS('background-color', 'rgb(0, 71, 171)');
       await expect(page.locator('.fColor')).toBeFocused();
-      await page.getByRole('button', { name: 'Filter help', exact: true }).click();
-      await expect(page.locator('#filtersHelp')).toBeVisible();
+      const helpButton = page.getByRole('button', { name: 'Filter help', exact: true });
+      await helpButton.click();
+      const help = page.locator('#filtersHelp');
+      await expect(help).toBeVisible();
+      await expect(help.getByRole('heading', { name: 'Filters & Highlights Help', level: 2, exact: true })).toBeVisible();
+      await expect(help.getByRole('heading', { name: 'Regular expressions', level: 4, exact: true })).toBeVisible();
+      await expect(help.getByText('/^>/', { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');
-      await expect(page.locator('#filtersHelp')).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Filter help', exact: true })).toBeFocused();
+      await expect(help).toHaveCount(0);
+      await expect(helpButton).toBeFocused();
       await page.getByRole('button', { name: 'Close filters', exact: true }).click();
       await expect(page.locator('#filters-edit')).toBeFocused();
       await page.getByRole('button', { name: 'Close settings', exact: true }).click();
     }
   }
+});
+
+test('desktop filter Help preserves drafts and storage, documents native syntax, and remains keyboard accessible when short', async ({ page, fixture }) => {
+  const width = 1280;
+  await page.setViewportSize({ width, height: 900 });
+  await prepare(page, fixture, [rule('needle')]);
+  await editor(page);
+  await page.locator('.fColor').click();
+  await page.locator('#palette-custom-input').fill('#0047ab');
+  await page.locator('#palette-custom-ok').click();
+  await expect(page.locator('#filter-palette')).toHaveCount(0);
+  await expect(page.locator('.fColor')).toHaveCSS('background-color', 'rgb(0, 71, 171)');
+  await expect(page.locator('.fColor')).toBeFocused();
+  const draftPattern = page.getByLabel('Pattern for filter 1', { exact: true });
+  await draftPattern.fill('unsaved feel girlfriend');
+  await page.getByLabel('Boards for filter 1', { exact: true }).fill('demo, test');
+  await page.getByLabel('Automatically watch filter 1', { exact: true }).check();
+  // Start observation only after initial filtering and page requests have settled.
+  await expect(page.locator(`#p${fixture.reply}`)).toHaveClass(/post-hidden/);
+  await page.waitForLoadState('networkidle');
+  const helpRequests = [];
+  const recordHelpRequest = request => helpRequests.push(request.url());
+  page.on('request', recordHelpRequest);
+  await page.evaluate(() => {
+    window.filterHelpStorageWrites = [];
+    window.filterHelpStorageMethods = {};
+    for (const method of ['setItem', 'removeItem', 'clear']) {
+      const original = Storage.prototype[method];
+      window.filterHelpStorageMethods[method] = original;
+      Storage.prototype[method] = function (...args) {
+        if (this === localStorage && (method === 'clear' || ['4chan-filters', '4chan-settings'].includes(args[0]))) {
+          window.filterHelpStorageWrites.push({ method, key: args[0] ?? null });
+        }
+        return original.apply(this, args);
+      };
+    }
+  });
+  const helpButton = page.getByRole('button', { name: 'Filter help', exact: true });
+  const help = page.getByRole('dialog', { name: 'Filter help', exact: true });
+  const checkDraft = async () => {
+    await expect(page.locator('#filter-list tr')).toHaveCount(1);
+    await expect(draftPattern).toHaveValue('unsaved feel girlfriend');
+    await expect(page.getByLabel('Boards for filter 1', { exact: true })).toHaveValue('demo, test');
+    await expect(page.getByLabel('Type for filter 1', { exact: true })).toHaveValue('2');
+    await expect(page.getByLabel('Automatically watch filter 1', { exact: true })).toBeChecked();
+    await expect(page.getByLabel('Hide filter 1', { exact: true })).toBeChecked();
+    await expect(page.locator('.fColor')).toHaveCSS('background-color', 'rgb(0, 71, 171)');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-filters')))).toEqual([rule('needle')]);
+  };
+  try {
+    await helpButton.click();
+    await expect(page.locator('#filtersHelp')).toBeVisible();
+    const helpTitle = help.getByRole('heading', { name: 'Filters & Highlights Help', level: 2, exact: true });
+    await expect(helpTitle).toBeVisible();
+    await expect(helpTitle).toBeFocused();
+    await expect(helpTitle).toBeInViewport();
+    for (const name of ['Tripcode, Name and ID filters', 'Comment, Subject and Filename filters',
+      'Colors', 'Boards', 'Auto-watching', 'Shortcut', 'Applying filters']) {
+      await expect(help.getByRole('heading', { name, level: 3, exact: true })).toBeVisible();
+    }
+    for (const name of ['Matching whole words', 'AND operator', 'Quoted strings', 'Wildcards', 'Regular expressions']) {
+      await expect(help.getByRole('heading', { name, level: 4, exact: true })).toBeVisible();
+    }
+    // These examples are literals, not imported from the Help implementation.
+    for (const example of ['!Ep8pui8Vw2', 'feel', 'feel girlfriend', '"that feel when"', 'feel*',
+      'idolm*ster', '/feel when no (girl|boy)friend/i', '/^(?!.*touhou).*$/i', '/^>/', '/^$/',
+      'red', '#0f0', '#00ff00', 'rgba(34, 12, 64, 0.3)', 'a jp']) {
+      await expect(help.getByText(example, { exact: true }).first()).toBeVisible();
+    }
+    await expect(help.locator('kbd')).toHaveText('F');
+    await expect(help.locator('input, select, textarea, img, script, iframe')).toHaveCount(0);
+    await help.getByRole('button', { name: 'Close help', exact: true }).click();
+    await expect(page.locator('#filtersHelp')).toHaveCount(0);
+    await expect(helpButton).toBeFocused();
+    await checkDraft();
+
+    await page.keyboard.press('Enter');
+    await expect(help).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#filtersHelp')).toHaveCount(0);
+    await expect(helpButton).toBeFocused();
+    await checkDraft();
+
+    // Retain desktop width while forcing long Help content to scroll.
+    await page.setViewportSize({ width, height: 420 });
+    await helpButton.focus();
+    await page.keyboard.press('Enter');
+    await expect(help).toBeVisible();
+    await expect(helpTitle).toBeFocused();
+    await expect(helpTitle).toBeInViewport();
+    expect(await help.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const helpBounds = await help.boundingBox();
+    expect(helpBounds.y).toBeGreaterThanOrEqual(0);
+    expect(helpBounds.y + helpBounds.height).toBeLessThanOrEqual(420);
+    await help.evaluate(element => { element.scrollTop = 0; });
+    const closeHelp = help.getByRole('button', { name: 'Close help', exact: true });
+    // Keyboard navigation must bring the dismiss control into the short viewport.
+    // showModal may initially focus Close; Tab cycles through the modal controls.
+    for (let tab = 0; tab < 4; tab++) {
+      await page.keyboard.press('Tab');
+      if (await closeHelp.evaluate(element => element === document.activeElement)) break;
+    }
+    await expect(closeHelp).toBeFocused();
+    await expect(closeHelp).toBeInViewport();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#filtersHelp')).toHaveCount(0);
+    await expect(helpButton).toBeFocused();
+    await checkDraft();
+    expect(await page.evaluate(() => window.filterHelpStorageWrites)).toEqual([]);
+    expect(helpRequests).toEqual([]);
+  } finally {
+    page.off('request', recordHelpRequest);
+    await page.evaluate(() => {
+      Object.assign(Storage.prototype, window.filterHelpStorageMethods);
+      delete window.filterHelpStorageMethods;
+      delete window.filterHelpStorageWrites;
+    });
+    await page.setViewportSize({ width, height: 900 });
+  }
+  await page.getByRole('button', { name: 'Close filters', exact: true }).click();
+  await expect(page.locator('#filters-edit')).toBeFocused();
+  await page.getByRole('button', { name: 'Close settings', exact: true }).click();
 });
 
 async function selectText(page, selector) {

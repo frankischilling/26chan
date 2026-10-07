@@ -1,8 +1,9 @@
 # Report-weight evidence
 
 The domain modules `report_weight` and `report_threat` model a small part of the
-supplied report pipeline. Migration 0102 captures a narrow set of admission-time facts. Staff clearance
-and weighted queue ordering remain unchanged; old reports are not backfilled.
+supplied report pipeline. Migration 0102 captures a narrow set of admission-time
+facts. Migration 0108 uses those facts for bounded ordinary report-group clearing.
+Weighted queue ordering remains unchanged; old reports are not backfilled.
 
 ## Weight decisions
 
@@ -22,6 +23,28 @@ History evidence is conditional on a positive configured threshold. It is not an
 unconditional result from the source helper. Disabled or negative thresholds do
 not filter. The API does not serialize or accept request assertions as proof;
 callers must establish source-equivalent facts separately.
+
+## Source numeric precision boundary
+
+The branch decision and the exact persisted weight are separate claims. The
+supplied `README2.txt:1-3` describes a schema reconstructed from PHP analysis with
+inferred details. Its `FLOAT` declarations for report and category weights at
+lines 233 and 272 are not authoritative deployed DDL.
+
+`modes/report.php:634-642` inserts the selected weight through `%F`.
+`lib/db.php:209-221` formats the query with `vsprintf`, so this path includes a
+numeric formatting boundary before database storage. The optional adapter in
+`lib/db_pdo.php:209-231` instead prepares the query and binds arguments as integer
+or string parameters. The supplied adapters alone do not establish which path
+and runtime were deployed or the resulting storage precision. The queue sums
+stored report weights, as shown in `reports/ReportQueue.php:813-820` and
+`846-851`; it does not sum the evaluator's unpersisted branch results.
+
+A future source-equivalent staff proof could establish the category-base branch.
+It would not, by itself, prove the exact persisted value of an arbitrary base.
+That requires authoritative DDL and the deployed adapter/runtime contract,
+including formatting and storage conversion. This boundary does not change the
+current exact-0.5 proof or enable arbitrary-base evidence.
 
 ## One-sided threat proofs
 
@@ -59,9 +82,20 @@ after registration can change the answer. Public reporting currently carries no
 source-equivalent authenticated staff session, so database role or cookie absence
 cannot establish reporter staff status.
 
-No historical backfill, weighted queue ordering, group-clear eligibility or
-cross-board authorization is enabled. Unknown effective weights remain unknown
-at those later boundaries.
+Migration 0108 enables a bounded board-scoped group clear for a recently
+authenticated janitor or higher with access to that board. Every current member
+must have captured, non-NULL effective-weight evidence, and the sum must be
+finite and nonzero. Groups over 10,000 members are rejected without clearing a
+subset. The current proof supports only the opt-in categorical path with base
+0.5; default free-text reports and historical unknown weights cannot authorize
+a fresh clear.
+
+Later admissions inherit a surviving group's clear state even when their own
+weights are unknown. Inheritance records an existing clear; it does not prove
+their weights or authorize a new clear. No category catalog activation,
+historical backfill, weighted queue ordering or weighted cross-board unlock is
+enabled. See [ordinary report-group clearing](report-group-clear.md) for the
+full contract and remaining limits.
 
 ## Private pre-report observation
 
