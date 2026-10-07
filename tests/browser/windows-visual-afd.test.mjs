@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { encode, gateMetadata, LIMITS, unavailable } from '../../scripts/windows-visual-afd.mjs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { AFD_PROVIDER_GUID, encode, gateMetadata, LIMITS, unavailable } from '../../scripts/windows-visual-afd.mjs';
 const metadata = (fields = [{ name: 'Process', type: 'win:Pointer', scalar: true }]) => ({
   provider: 'Microsoft-Windows-Winsock-AFD', events: [{ id: 1, version: 0, level: 4,
     unsupported: false, fields }],
@@ -232,7 +236,7 @@ const descriptor = result => result.metadata_descriptors[result.metadata[0].desc
 
 test('public provider and event descriptors retain exact bounded values without inferring raw dimensions', () => {
   const result = gateMetadata(enrichedMetadata());
-  assert.equal(result.inventory_schema, 2);
+  assert.equal(result.inventory_schema, 3);
   assert.equal(result.provider_guid, '01234567-89ab-cdef-0123-456789abcdef');
   assert.equal(result.provider_guid_available, true);
   assert.equal(result.metadata_partial, false);
@@ -386,5 +390,245 @@ test('GUID validation rejects trailing control characters rather than accepting 
   for (const suffix of ['\n', '\r', '\r\n', '\0']) {
     const input = enrichedMetadata(); input.provider_guid += suffix;
     assert.equal(gateMetadata(input).provider_guid_available, false);
+  }
+});
+
+// Synthetic manifest metadata only: these values are not a reviewed Windows
+// profile, runtime events, addresses, or payloads.
+const rawMetadata = () => {
+  const input = enrichedMetadata();
+  input.provider_guid = AFD_PROVIDER_GUID;
+  input.tdh = { status: 'ok', provider_guid: AFD_PROVIDER_GUID.toUpperCase(), reason: null,
+    descriptors: [{ id: 1, version: 0, channel: 255, level: 4, opcode: 255, task: 65535,
+      keyword_mask: '0x8000000000000001' }] };
+  return input;
+};
+const assertRawUnavailable = result => {
+  assert.equal(result.raw_descriptor_complete, false);
+  for (const descriptor of result.metadata_descriptors) {
+    assert.equal(descriptor.raw_descriptor_complete, false);
+    assert.equal(descriptor.channel_id, null);
+    assert.equal(descriptor.keyword_mask, null);
+  }
+};
+
+test('TDH joins by GUID, ID and version regardless of array order or names', () => {
+  const input = rawMetadata();
+  input.events.push({ ...input.events[0], id: 6, version: 1 });
+  input.tdh.descriptors.unshift({ ...input.tdh.descriptors[0], id: 6, version: 1,
+    channel: 0, keyword_mask: '0x0000000000000000' });
+  input.tdh.descriptors.push({ ...input.tdh.descriptors[1], id: 1, version: 1,
+    channel: 12, keyword_mask: '0xffffffffffffffff' });
+  Object.assign(input.events[0], { channel_id: 9, keyword_mask: '0xffffffffffffffff',
+    raw_descriptor_complete: true, name: 'untrusted-name' });
+  const result = gateMetadata(input);
+  assert.equal(result.raw_descriptor_status, 'ok');
+  assert.deepEqual(result.raw_descriptor_issues, []);
+  assert.equal(result.raw_descriptor_complete, true);
+  assert.equal(result.metadata_partial, false);
+  assert.equal(descriptor(result).channel_id, 255);
+  assert.equal(descriptor(result).keyword_mask, '0x8000000000000001');
+  const second = result.metadata_descriptors[result.metadata[1].descriptor];
+  assert.equal(second.channel_id, 0);
+  assert.equal(second.keyword_mask, '0x0000000000000000');
+  assert.equal(second.raw_descriptor_complete, true);
+  assert.equal(result.capture, 'unavailable');
+  assert.equal(result.complete, false);
+  assert.deepEqual(result.events, []);
+  assert.deepEqual(result.counts, { scanned: 0, correlated: 0, failures: 0 });
+});
+
+test('absent, unavailable and malformed TDH cannot promote public metadata to raw descriptors', () => {
+  for (const tdh of [undefined, null, [], {}, { status: 'error', reason: 'PRIVATE_EXCEPTION' },
+    { status: 'unavailable', reason: 'PRIVATE_EXCEPTION', descriptors: rawMetadata().tdh.descriptors },
+    { status: 'ok', provider_guid: AFD_PROVIDER_GUID, reason: 'PRIVATE_EXCEPTION', descriptors: [] }]) {
+    const input = rawMetadata(); input.tdh = tdh;
+    const result = gateMetadata(input);
+    assertRawUnavailable(result);
+    assert.equal(result.metadata_partial, false);
+    assert.ok(!encode(result).includes('PRIVATE_EXCEPTION'));
+  }
+  const input = rawMetadata(); input.tdh.status = 'unavailable'; input.tdh.reason = 'tdh-api-unavailable';
+  assert.deepEqual(gateMetadata(input).raw_descriptor_issues, ['tdh-api-unavailable']);
+});
+
+test('both public and TDH GUIDs must identify the fixed AFD provider', () => {
+  for (const key of ['public', 'tdh']) {
+    for (const value of [null, enrichedMetadata().provider_guid, `${AFD_PROVIDER_GUID}\n`]) {
+      const input = rawMetadata();
+      if (key === 'public') input.provider_guid = value;
+      else input.tdh.provider_guid = value;
+      const result = gateMetadata(input);
+      assertRawUnavailable(result);
+      assert.deepEqual(result.raw_descriptor_issues, ['tdh-provider-mismatch']);
+    }
+  }
+});
+
+test('duplicate raw identities and duplicate public identities are ambiguous even when identical', () => {
+  for (const identical of [true, false]) {
+    const input = rawMetadata();
+    input.tdh.descriptors.push({ ...input.tdh.descriptors[0], channel: identical ? 255 : 0 });
+    const result = gateMetadata(input);
+    assertRawUnavailable(result);
+    assert.deepEqual(result.raw_descriptor_issues, ['tdh-descriptor-ambiguous']);
+  }
+  const input = rawMetadata(); input.events.push({ ...input.events[0] });
+  const result = gateMetadata(input);
+  assertRawUnavailable(result);
+  assert.deepEqual(result.raw_descriptor_issues, ['public-descriptor-ambiguous']);
+});
+
+test('missing rows and level, opcode or task disagreement fail the independent raw join', () => {
+  for (const key of ['id', 'version', 'level', 'opcode', 'task']) {
+    const input = rawMetadata(); input.tdh.descriptors[0][key] = 0;
+    if (key === 'version') input.tdh.descriptors[0][key] = 1;
+    const result = gateMetadata(input);
+    assertRawUnavailable(result);
+    assert.deepEqual(result.raw_descriptor_issues,
+      [key === 'id' || key === 'version' ? 'tdh-descriptor-missing' : 'tdh-descriptor-mismatch']);
+    assert.equal(result.metadata_partial, false);
+  }
+  for (const key of ['level', 'opcode', 'task']) {
+    const input = rawMetadata(); input.events[0][key] = null;
+    const result = gateMetadata(input);
+    assertRawUnavailable(result);
+    assert.deepEqual(result.raw_descriptor_issues, ['public-descriptor-unavailable']);
+  }
+});
+
+test('raw descriptor integer ranges and exact UInt64 strings are mandatory', () => {
+  for (const [key, max] of Object.entries({ id: 65535, version: 255, channel: 255, level: 255, opcode: 255, task: 65535 })) {
+    for (const value of [undefined, null, -1, max + 1, 0.5, NaN, Infinity, '0', true, [], {}]) {
+      const input = rawMetadata(); input.tdh.descriptors[0][key] = value;
+      const result = gateMetadata(input);
+      assertRawUnavailable(result);
+      assert.deepEqual(result.raw_descriptor_issues, ['tdh-descriptor-invalid']);
+    }
+  }
+  for (const value of [undefined, null, 0, 1, 9223372036854775808, -1, '0x0', '0x10000000000000000',
+    '18446744073709551615', '0x000000000000000g', '0x0000000000000000\n', true, [], {}]) {
+    const input = rawMetadata(); input.tdh.descriptors[0].keyword_mask = value;
+    assertRawUnavailable(gateMetadata(input));
+  }
+  for (const value of ['0x0000000000000000', '0x8000000000000000', '0xFFFFFFFFFFFFFFFF']) {
+    const input = rawMetadata(); input.tdh.descriptors[0].keyword_mask = value;
+    assert.equal(descriptor(gateMetadata(input)).keyword_mask, value.toLowerCase());
+  }
+});
+
+test('raw descriptor envelope rejects the whole malformed or oversized block without copying secrets', () => {
+  for (const rows of [null, {}, 'PRIVATE_PAYLOAD', [null], ['PRIVATE_PAYLOAD'], Array(513).fill(rawMetadata().tdh.descriptors[0])]) {
+    const input = rawMetadata(); input.tdh.descriptors = rows;
+    const result = gateMetadata(input);
+    assertRawUnavailable(result);
+    assert.ok(!encode(result).includes('PRIVATE_PAYLOAD'));
+  }
+  const input = rawMetadata();
+  input.tdh.descriptors = Array.from({ length: 512 }, (_, id) => ({ ...input.tdh.descriptors[0], id }));
+  Object.assign(input.tdh.descriptors[1], { pointer: 'PRIVATE_POINTER', message: 'PRIVATE_MESSAGE', data: 'PRIVATE_DATA' });
+  assert.equal(gateMetadata(input).raw_descriptor_complete, true);
+  assert.ok(!encode(gateMetadata(input)).includes('PRIVATE_'));
+});
+
+test('public template rejection and raw metadata completeness never approve a capture profile', () => {
+  const input = rawMetadata();
+  input.events[0].fields = [{ name: 'Payload', type: 'win:Binary', scalar: false, length: '16', attributes: ['length'] }];
+  const result = gateMetadata(input);
+  assert.equal(result.raw_descriptor_complete, true);
+  assert.equal(result.reason, 'provider-schema-rejected');
+  assert.ok(result.metadata_fields[0].rejections.includes('field-type-unreviewed'));
+  assert.ok(result.metadata_fields[0].rejections.includes('field-nonscalar'));
+  assert.equal(result.capture, 'unavailable');
+  assert.equal(result.complete, false);
+  assert.deepEqual(result.counts, { scanned: 0, correlated: 0, failures: 0 });
+});
+
+test('raw completeness reflects discovery omissions and retained-byte truncation independently', () => {
+  const input = rawMetadata(); input.events_total = 2; input.events_total_exact = false;
+  assert.equal(gateMetadata(input).raw_descriptor_complete, false);
+  delete input.events_total; delete input.events_total_exact;
+  input.events = Array.from({ length: 256 }, (_, id) => ({ ...input.events[0], id,
+    keyword_values: Array(64).fill('0xffffffffffffffff'), task: id }));
+  input.tdh.descriptors = input.events.map(event => ({ ...input.tdh.descriptors[0], id: event.id, task: event.task }));
+  const result = gateMetadata(input);
+  assert.equal(result.metadata_truncated, true);
+  assert.equal(result.raw_descriptor_complete, false);
+  assert.ok(result.metadata_descriptors.every(row => row.raw_descriptor_complete));
+  assert.ok(Buffer.byteLength(encode(result)) <= 65536);
+  assert.equal(JSON.parse(encode(result)).metadata.length, result.metadata.length);
+});
+
+
+test('CLI enforces the metadata input byte cap and preserves the complete bounded output envelope', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'afd-metadata-test-'));
+  try {
+    for (const extra of [0, 1]) {
+      const input = join(directory, `input-${extra}.json`);
+      const output = join(directory, `output-${extra}.json`);
+      const json = JSON.stringify(rawMetadata());
+      writeFileSync(input, json + ' '.repeat(LIMITS.metadataBytes - Buffer.byteLength(json) + extra));
+      const run = spawnSync(process.execPath,
+        [fileURLToPath(new URL('../../scripts/windows-visual-afd.mjs', import.meta.url)), input, output],
+        { encoding: 'utf8' });
+      assert.equal(run.status, 0, run.stderr);
+      const bytes = readFileSync(output);
+      assert.ok(bytes.length <= LIMITS.outputBytes);
+      const result = JSON.parse(bytes);
+      assert.equal(result.capture, 'unavailable');
+      assert.equal(result.complete, false);
+      assert.deepEqual(result.counts, { scanned: 0, correlated: 0, failures: 0 });
+      if (extra) assert.equal(result.reason, 'metadata-limit');
+      else assert.equal(result.raw_descriptor_complete, true);
+    }
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('only unavailable TDH probe/fetch failures retain a bounded native uint32 status', () => {
+  for (const reason of ['tdh-probe-unavailable', 'tdh-fetch-unavailable']) {
+    for (const value of [5, 122, 0xffffffff]) {
+      const input = rawMetadata();
+      input.tdh = { status: 'unavailable', reason, provider_guid: AFD_PROVIDER_GUID,
+        api_status: value, descriptors: [] };
+      const result = gateMetadata(input);
+      assert.equal(result.raw_descriptor_api_status, value);
+      assertRawUnavailable(result);
+      assert.equal(result.capture, 'unavailable');
+      assert.equal(result.complete, false);
+      assert.deepEqual(result.counts, { scanned: 0, correlated: 0, failures: 0 });
+    }
+    for (const value of [undefined, null, 0, -1, 0x100000000, 0.5, NaN, Infinity,
+      '0', '122', 'PRIVATE_STATUS_EXCEPTION', true, [], {}]) {
+      const input = rawMetadata();
+      input.tdh = { status: 'unavailable', reason, api_status: value, descriptors: [] };
+      const result = gateMetadata(input);
+      assert.equal(result.raw_descriptor_api_status, null);
+      assertRawUnavailable(result);
+      assert.ok(!encode(result).includes('PRIVATE_STATUS_EXCEPTION'));
+    }
+  }
+  for (const reason of ['tdh-api-unavailable', 'tdh-collection-unavailable', 'PRIVATE_REASON']) {
+    const input = rawMetadata();
+    input.tdh = { status: 'unavailable', reason, api_status: 5, descriptors: [] };
+    assert.equal(gateMetadata(input).raw_descriptor_api_status, null);
+    assert.ok(!encode(gateMetadata(input)).includes('PRIVATE_REASON'));
+  }
+  assert.equal(gateMetadata(enrichedMetadata()).raw_descriptor_api_status, null);
+});
+
+test('successful TDH metadata permits only absent or null API status', () => {
+  for (const value of [undefined, null]) {
+    const input = rawMetadata(); input.tdh.api_status = value;
+    const result = gateMetadata(input);
+    assert.equal(result.raw_descriptor_api_status, null);
+    assert.equal(result.raw_descriptor_complete, true);
+  }
+  for (const value of [0, 5, 0xffffffff, -1, 0x100000000, 'PRIVATE_STATUS_EXCEPTION', {}, []]) {
+    const input = rawMetadata(); input.tdh.api_status = value;
+    const result = gateMetadata(input);
+    assertRawUnavailable(result);
+    assert.equal(result.raw_descriptor_api_status, null);
+    assert.deepEqual(result.raw_descriptor_issues, ['tdh-shape-invalid']);
+    assert.ok(!encode(result).includes('PRIVATE_STATUS_EXCEPTION'));
   }
 });

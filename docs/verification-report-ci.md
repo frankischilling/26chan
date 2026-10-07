@@ -156,3 +156,9 @@ retains the updater's document, draft, focus, escaping and event assertions.
 An audit found no other post-menu tests that still assumed inline submission;
 explicit fallback-form and unsent-draft tests keep their separate contracts.
 This change has a local syntax check; real browser qualification is pending.
+
+The later connection-setup failure and bounded descriptor follow-up are recorded
+in [Windows socket diagnostics](windows-socket-diagnostics.md).
+
+The later quota-fixture teardown correction is recorded in
+[Fixture teardown and parent locks](fixture-teardown-locks.md).

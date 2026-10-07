@@ -8,7 +8,8 @@ $PSNativeCommandUseErrorActionPreference = $false
 # https://learn.microsoft.com/en-us/windows/win32/winsock/winsock-tracing-event-details
 # https://learn.microsoft.com/en-us/windows/win32/winsock/control-of-winsock-tracing
 # https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-trace
-# Public metadata APIs (no EventRecord access or raw descriptor reflection):
+# Public metadata APIs (no EventRecord access or private reflection):
+# https://learn.microsoft.com/en-us/windows/win32/api/tdh/nf-tdh-tdhenumeratemanifestproviderevents
 # https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.providermetadata.id
 # https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventmetadata
 # https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventkeyword.value
@@ -157,16 +158,56 @@ try {
                     rejections = @($rejections.ToArray()) })
             }
         } catch { $issues.Add('provider-metadata-unavailable'); $enumerationComplete = $false }
-        $metadata = @{ provider = 'Microsoft-Windows-Winsock-AFD'; provider_guid = $providerGuid;
+        $tdh = @{ status = 'unavailable'; provider_guid = 'e53c6823-7bb8-44bb-90dc-3f86090d48a6';
+            reason = 'tdh-provider-unverified'; api_status = $null; descriptors = @() }
+        # Bind raw descriptors only to the verified AFD provider and eligible .NET
+        # metadata identities. Display keyword names never supply a raw mask.
+        if ($providerGuid -eq $tdh.provider_guid) {
+            try {
+                Add-Type -Path (Join-Path $PSScriptRoot 'windows-visual-afd-tdh.cs') -ErrorAction Stop
+                $raw = [Paperboard.WindowsAfd.TdhMetadata]::Collect()
+                $tdh.status = $raw.status
+                $tdh.reason = $raw.reason
+                $tdh.api_status = $raw.api_status
+                if ($raw.status -eq 'ok') {
+                    $keys = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+                    foreach ($event in $events) {
+                        [void]$keys.Add(('{0}:{1}' -f $event.id, $event.version))
+                    }
+                    $filtered = [Collections.Generic.List[object]]::new()
+                    foreach ($descriptor in $raw.descriptors) {
+                        if (-not $keys.Contains(('{0}:{1}' -f $descriptor.id, $descriptor.version))) { continue }
+                        # Keep duplicates for the parser to reject ambiguous joins.
+                        if ($filtered.Count -ge 512) {
+                            $tdh.status = 'unavailable'; $tdh.reason = 'tdh-descriptor-limit'; $tdh.api_status = $null
+                            $filtered.Clear(); break
+                        }
+                        $filtered.Add($descriptor)
+                    }
+                    $tdh.descriptors = @($filtered.ToArray())
+                }
+            } catch {
+                $tdh.status = 'unavailable'; $tdh.reason = 'tdh-collection-unavailable'; $tdh.api_status = $null; $tdh.descriptors = @()
+            }
+        }
+        $metadata = @{ provider = 'Microsoft-Windows-Winsock-AFD'; provider_guid = $providerGuid; tdh = $tdh;
             events = @($events.ToArray()); issues = @($issues | Select-Object -Unique);
             events_total = $eligible; events_total_exact = $enumerationComplete }
         $metadataJson = $metadata | ConvertTo-Json -Depth 8 -Compress
         while ([Text.Encoding]::UTF8.GetByteCount($metadataJson) -gt 262144 -and $events.Count -gt 0) {
             $events.RemoveAt($events.Count - 1)
             $metadata.events = @($events.ToArray())
+            # Trim descriptors with their .NET events, never the other way around.
+            $remainingKeys = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+            foreach ($event in $events) { [void]$remainingKeys.Add(('{0}:{1}' -f $event.id, $event.version)) }
+            $tdh.descriptors = @($tdh.descriptors | Where-Object {
+                $remainingKeys.Contains(('{0}:{1}' -f $_.id, $_.version))
+            })
             $metadata.issues = @('metadata-limit') + @($issues | Select-Object -Unique)
             $metadataJson = $metadata | ConvertTo-Json -Depth 8 -Compress
         }
+        # Even an empty event list must never leave an oversized private envelope.
+        if ([Text.Encoding]::UTF8.GetByteCount($metadataJson) -gt 262144) { throw 'Metadata limit' }
         $inputPath = Join-Path $root 'metadata.private.json'
         $resultPath = Join-Path $root 'summary.json'
         [IO.File]::WriteAllText($inputPath, $metadataJson)

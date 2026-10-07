@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 // manifest or its address byte order. No live manifest has been verified here.
 // This phase inspects metadata only. Actual capture needs a reviewed profile
 // covering every level 0..4 template AND a verified raw-event decoder.
-export const LIMITS = Object.freeze({ metadataBytes: 262144, outputBytes: 65536, events: 256, fields: 16, attributes: 16, keywords: 64 });
+export const LIMITS = Object.freeze({ metadataBytes: 262144, outputBytes: 65536, events: 256, fields: 16, attributes: 16, keywords: 64, rawDescriptors: 512 });
+export const AFD_PROVIDER_GUID = 'e53c6823-7bb8-44bb-90dc-3f86090d48a6';
 const fields = new Set(['Process', 'Endpoint', 'SocketType', 'Protocol', 'UserModePid',
   'Address', 'Port', 'Status', 'Error', 'Reason']);
 const numeric = new Set(['win:UInt8', 'win:UInt16', 'win:UInt32', 'win:UInt64',
@@ -57,6 +58,49 @@ function descriptorMetadata(event) {
       keyword_values: keywordsComplete },
     channel_id: null, keyword_mask: null, raw_descriptor_complete: false };
 }
+// TDH supplies manifest EVENT_DESCRIPTOR rows, never runtime events. Treat the
+// whole block as untrusted and require a unique provider + ID + version join.
+const mask = value => typeof value === 'string' && value.length === 18 &&
+  /^0x[0-9a-f]{16}$/i.test(value);
+const tdhReasons = new Set(['tdh-provider-unverified', 'tdh-layout-unsupported',
+  'tdh-buffer-invalid', 'tdh-header-unsupported', 'tdh-descriptor-limit',
+  'tdh-platform-unsupported', 'tdh-probe-unavailable', 'tdh-fetch-unavailable',
+  'tdh-api-unavailable', 'tdh-collection-unavailable']);
+const eventKey = event => `${event.id}:${event.version}`;
+function rawDescriptors(metadata) {
+  const fail = (reason, status = 'rejected', apiStatus = null) => ({ status, reason, apiStatus, rows: new Map() });
+  const tdh = metadata.tdh;
+  if (tdh === undefined) return fail('tdh-unavailable', 'unavailable');
+  if (!tdh || typeof tdh !== 'object' || Array.isArray(tdh)) return fail('tdh-shape-invalid');
+  if (tdh.status === 'unavailable') {
+    const reason = tdhReasons.has(tdh.reason) ? tdh.reason : 'tdh-unavailable';
+    // Only these API failure paths expose a native uint32 return code. Never
+    // coerce strings, missing values or arbitrary diagnostic data into a code.
+    const apiStatus = ['tdh-probe-unavailable', 'tdh-fetch-unavailable'].includes(reason) &&
+      boundedCount(tdh.api_status, 0xffffffff) && tdh.api_status > 0 ? tdh.api_status : null;
+    return fail(reason, 'unavailable', apiStatus);
+  }
+  if (tdh.status !== 'ok' || tdh.reason !== null ||
+      (tdh.api_status !== undefined && tdh.api_status !== null) || !Array.isArray(tdh.descriptors)) {
+    return fail('tdh-shape-invalid');
+  }
+  if (guid(metadata.provider_guid) !== AFD_PROVIDER_GUID || guid(tdh.provider_guid) !== AFD_PROVIDER_GUID) {
+    return fail('tdh-provider-mismatch');
+  }
+  if (tdh.descriptors.length > LIMITS.rawDescriptors) return fail('tdh-descriptor-limit');
+  const rows = new Map();
+  for (const row of tdh.descriptors) {
+    if (!row || !boundedCount(row.id, 65535) || !boundedCount(row.version, 255) ||
+        !boundedCount(row.channel, 255) || !boundedCount(row.level, 255) ||
+        !boundedCount(row.opcode, 255) || !boundedCount(row.task, 65535) || !mask(row.keyword_mask)) {
+      return fail('tdh-descriptor-invalid');
+    }
+    const key = eventKey(row);
+    if (rows.has(key)) return fail('tdh-descriptor-ambiguous');
+    rows.set(key, row);
+  }
+  return { status: 'ok', reason: null, apiStatus: null, rows };
+}
 export function gateMetadata(metadata) {
   const result = unavailable('provider-schema-unverified');
   if (!metadata || metadata.provider !== result.provider || !Array.isArray(metadata.events)) {
@@ -65,7 +109,23 @@ export function gateMetadata(metadata) {
   if (metadata.events.length > LIMITS.events) return unavailable('metadata-limit');
   const issues = Array.isArray(metadata.issues) ? metadata.issues.slice(0, 16).filter(issue =>
     issueReasons.has(issue)) : [];
-  result.inventory_schema = 2;
+  result.inventory_schema = 3;
+  const raw = rawDescriptors(metadata);
+  result.raw_descriptor_status = raw.status;
+  result.raw_descriptor_api_status = raw.apiStatus;
+  result.raw_descriptor_issues = raw.reason ? [raw.reason] : [];
+  result.raw_descriptor_complete = false;
+  // Public metadata completeness stays independent of TDH availability.
+  const publicKeys = new Map();
+  for (const event of metadata.events) {
+    if (event && boundedCount(event.id, 65535) && boundedCount(event.version, 255)) {
+      const key = eventKey(event);
+      publicKeys.set(key, (publicKeys.get(key) ?? 0) + 1);
+    }
+  }
+  const rawIssue = reason => {
+    if (!result.raw_descriptor_issues.includes(reason)) result.raw_descriptor_issues.push(reason);
+  };
   result.provider_guid = guid(metadata.provider_guid);
   result.provider_guid_available = result.provider_guid !== null;
   result.metadata_descriptors = [];
@@ -107,6 +167,21 @@ export function gateMetadata(metadata) {
       }
     }
     const descriptor = descriptorMetadata(event);
+    if (raw.status === 'ok') {
+      const key = eventKey(event);
+      const row = raw.rows.get(key);
+      if (publicKeys.get(key) !== 1) rawIssue('public-descriptor-ambiguous');
+      else if (!row) rawIssue('tdh-descriptor-missing');
+      else if (event.level === null || descriptor.opcode === null || descriptor.task === null) {
+        rawIssue('public-descriptor-unavailable');
+      } else if (row.level !== event.level || row.opcode !== descriptor.opcode || row.task !== descriptor.task) {
+        rawIssue('tdh-descriptor-mismatch');
+      } else {
+        descriptor.channel_id = row.channel;
+        descriptor.keyword_mask = row.keyword_mask.toLowerCase();
+        descriptor.raw_descriptor_complete = true;
+      }
+    }
     if (!Object.values(descriptor.available).every(Boolean)) result.metadata_partial = true;
     const safeFields = [];
     for (const field of event.fields) {
@@ -184,6 +259,9 @@ export function gateMetadata(metadata) {
   }
   result.metadata_truncated ||= result.metadata.length !== metadata.events.length ||
     result.metadata_counts.events_total > metadata.events.length;
+  result.raw_descriptor_complete = raw.status === 'ok' && result.raw_descriptor_issues.length === 0 &&
+    result.metadata.length > 0 && !result.metadata_truncated && result.metadata_counts.events_total_exact &&
+    result.metadata_descriptors.every(descriptor => descriptor.raw_descriptor_complete);
   return result;
 }
 

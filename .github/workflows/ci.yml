@@ -420,6 +420,9 @@ jobs:
       - name: Build visual fixture before the server startup deadline
         shell: pwsh
         run: cargo build -p board-public --example visual-fixtures --locked
+      - name: Verify bounded AFD manifest descriptor decoding
+        shell: pwsh
+        run: ./scripts/windows-visual-afd-tdh.test.ps1
       - name: Verify public configuration budgets
         shell: pwsh
         run: cargo test -p board-config --locked
