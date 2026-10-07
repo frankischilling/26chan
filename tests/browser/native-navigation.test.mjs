@@ -122,8 +122,12 @@ test('navigation controls own only their layout, local links and finite saved po
         });
         assert.ok((await page.locator('.nativePersistentNavigation').boundingBox()).height <= 350);
         await page.setViewportSize({ width: 390, height: 700 });
-        await page.waitForFunction(() => document.querySelector('.nativePersistentNavigation select'));
+        await page.waitForFunction(() => !document.querySelector('.nativePersistentNavigation'));
         assert.equal(await page.locator('.nativeBoardLinks').count(), 0);
+        assert.equal(await page.evaluate(() => config.dropDownNav), true);
+        await page.evaluate(() => { config.neverMobile = 'true'; navigation.refresh(); });
+        await page.waitForFunction(() => document.querySelector('.nativePersistentNavigation .nativeBoardLinks'));
+        assert.equal(await page.evaluate(() => config.dropDownNav), true);
         await page.evaluate(() => { config.disableAll = true; navigation.refresh(); });
         assert.equal(await page.locator('.nativePersistentNavigation').count(), 0);
         assert.equal(await page.evaluate(() => original.isConnected && !document.body.classList.contains('hasDropDownNav') && draft.value === 'Owned draft'), true);

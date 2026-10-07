@@ -132,3 +132,9 @@ expected collapsed categories. The fixture now uses the shared Settings opener
 that explicitly expands Monitoring; updater assertions and timeouts are
 unchanged. Windows, all four theme shards and media/operations passed on that
 revision, but this Linux failure means the overall run did not pass.
+
+The navigation DOM fixture also retains the source mobile suppression contract:
+resizing a non-catalog page to mobile removes its persistent bar without clearing
+`dropDownNav`; selecting never-mobile restores the desktop-layout bar. Its former
+expectation of a mobile persistent dropdown was inconsistent with that contract.
+The separate catalog navigation checks remain unchanged.

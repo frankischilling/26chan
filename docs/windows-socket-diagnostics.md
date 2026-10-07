@@ -80,3 +80,16 @@ from the preceding inventory. No input or output truncation is reported.
 All four Windows theme shards passed on that revision. Runtime capture remains
 unavailable, and this successful run does not resolve the intermittent 10055
 cause. The overall run failed later in an unrelated Linux mobile Settings test.
+
+At `4e684b4`, Windows theme shard 3 passed 383 cases and failed one Tomorrow
+catalog viewport case. The stylesheet request for `theme.css?worksafe=false`
+failed before HTTP. NetLog request 45232, stream 45235, connection job 45236 and
+socket 45237 show TCP connect error 10055 and Chromium -176. The screenshot uses
+fallback Yotsuba colors across the whole page; this is not an isolated canvas
+paint discrepancy. The page had `disableAll: true` and no Settings interaction,
+so first-run native Settings initialization was inactive.
+
+The viewport fixture now checks its existing failed-stylesheet collection before
+pixel comparison, making transport failure explicit. Expected pixels, retries
+and timeouts are unchanged. This improves diagnosis and does not fix the
+unidentified Windows resource condition.
