@@ -1,5 +1,5 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -298,13 +298,32 @@ test('custom colors reject declarations and inherited values; stored patterns re
   expect(requests).toEqual([]);
 });
 
-test('filter dialogs, custom colors and nested help remain operable in six themes on desktop and mobile', async ({ page, context, fixture }) => {
+test('desktop filter dialogs, colors and nested help and mobile saved filters follow source Settings availability in six themes', async ({ page, context, fixture }) => {
   await prepare(page, fixture, [rule('needle')]);
   for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
     await context.addCookies([{ name: 'board-theme-ws', value: theme, url: origin, httpOnly: true, sameSite: 'Lax' }]);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await page.reload();
+      if (width === 390) {
+        // Source SettingsMenu.options omits filter and hideStubs on mobile,
+        // but this presentation rule does not disable saved filters.
+        await watcherSettingsOpener(page).click();
+        const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+        const category = await openNativeSettingsCategory(settings, 'Filters & Post Hiding');
+        await expect(category.locator('#setting-threadHiding')).toBeVisible();
+        await expect(category.locator('#thread-hiding-clear')).toBeVisible();
+        await expect(settings.locator('#setting-filter, #filters-edit, #setting-hideStubs')).toHaveCount(0);
+        await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+        await expect(watcherSettingsOpener(page)).toBeFocused();
+        expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-filters')))).toEqual([rule('needle')]);
+        await expect(page.locator(`#p${fixture.reply}`)).toHaveClass(/post-hidden/);
+        await expect(page.locator(`#m${fixture.reply}`)).toBeHidden();
+        await page.getByRole('button', { name: `View filtered post ${fixture.reply}` }).click();
+        await expect(page.locator(`#m${fixture.reply}`)).toBeVisible();
+        await expect(page.locator(`#m${fixture.thread}`)).toBeVisible();
+        continue;
+      }
       await editor(page);
       const bounds = await page.locator('#filtersMenu > .extPanel').boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0);

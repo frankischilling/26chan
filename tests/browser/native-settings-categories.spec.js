@@ -244,6 +244,9 @@ for (const mobile of [false, true]) {
     await page.locator('#settingsWindowLink').click();
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
     for (const key of hiddenKeys) assert.equal(await page.locator(`#setting-${key}`).count(), 0, key);
+    for (const selector of ['#filters-edit', '#custom-menu-edit', '#keybinds-open']) {
+      assert.equal(await page.locator(selector).count(), mobile ? 0 : 1, selector);
+    }
     // A new document captures the new layout, with saved hidden values intact.
     await fixture(page, { mobile: !mobile, settings: { ...hidden, ...concurrent, linkify: true } });
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(!mobile));

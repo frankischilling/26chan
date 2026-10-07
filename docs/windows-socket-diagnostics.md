@@ -66,3 +66,17 @@ Any later runtime design needs verified collection-side filtering, complete
 schema/version/length validation and safe correlation before collection. A
 filtered exported summary is not a substitute for that boundary. NTStatus and
 Winsock error numbers must not be treated as interchangeable.
+
+## Hosted descriptor verification
+
+At `2fd227b`, the Windows synthetic decoder checks passed. The
+[retained inventory](https://github.com/frankischilling/26chan/actions/runs/37554201269/artifacts/11454352751)
+contains all 72 eligible events, 417 field occurrences and 55 deduplicated
+descriptors. All 55 descriptors now have validated numeric channel 16 and exact
+64-bit keyword masks; the raw descriptor status is `ok`, with no API error or
+raw descriptor issues. Public metadata and schema rejection counts are unchanged
+from the preceding inventory. No input or output truncation is reported.
+
+All four Windows theme shards passed on that revision. Runtime capture remains
+unavailable, and this successful run does not resolve the intermittent 10055
+cause. The overall run failed later in an unrelated Linux mobile Settings test.

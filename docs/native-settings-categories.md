@@ -81,3 +81,16 @@ retained hidden preferences and save behavior.
 Existing watcher/settings and theme workflows exercise the integrated dialog.
 Browser results belong to the exact tested commit; local static or unit checks
 alone do not establish a rendered browser pass.
+
+At `2fd227b`, all four Windows theme shards and the main Windows job passed;
+the latter includes all 15 focused Settings browser cases. Linux passed its Rust
+and database checks, then failed the six-theme page-filter editor test. Its trace
+shows the desktop editor working, followed by a fresh 390px page whose Settings
+correctly exposes only thread hiding in the Filters category. The test still
+waited for the desktop-only editor link.
+
+The corrected fixture retains the desktop editor, palette, nested help and
+focus checks. Its mobile branch checks the source control matrix and verifies
+that a saved filter remains effective despite its editor being absent. This
+fixture correction requires a new hosted browser run; the preceding 15 passing
+filter cases do not qualify the changed case.
