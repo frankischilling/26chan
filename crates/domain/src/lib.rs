@@ -125,6 +125,11 @@ pub struct BoardSlug(String);
 
 impl BoardSlug {
     pub fn parse(value: &str) -> Result<Self, ValidationError> {
+        if value == "polls" {
+            return Err(ValidationError(
+                "This board name is reserved for public polls.",
+            ));
+        }
         if value.is_empty()
             || value.len() > 10
             || !value
@@ -206,6 +211,13 @@ mod tests {
         for value in ["", "../a", "a/b", "a'", "Admin", "abcdefghijk"] {
             assert!(BoardSlug::parse(value).is_err(), "{value}");
         }
+    }
+
+    #[test]
+    fn public_poll_namespace_cannot_be_a_board() {
+        assert!(BoardSlug::parse("polls").is_err());
+        assert_eq!(BoardSlug::parse("poll").unwrap().as_str(), "poll");
+        assert_eq!(BoardSlug::parse("polls2").unwrap().as_str(), "polls2");
     }
 
     #[test]

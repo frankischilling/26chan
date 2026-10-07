@@ -106,7 +106,12 @@ impl Fixture {
     }
 
     async fn cleanup(&self, tokens: &[[u8; 32]]) {
-        let mut tx = support::begin_cleanup(&self.owner, std::slice::from_ref(&self.board)).await;
+        let mut tx = support::begin_cleanup_with_sessions(
+            &self.owner,
+            std::slice::from_ref(&self.board),
+            tokens,
+        )
+        .await;
         for query in [
             "DELETE FROM content.reports WHERE board=$1",
             "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",

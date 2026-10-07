@@ -38,6 +38,7 @@ for (const [name, viewport] of [
     const response = await page.goto('/');
     expect(response.status()).toBe(200);
     await expect(page.getByText('No boards are available yet.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Polls', exact: true })).toHaveAttribute('href', '/polls');
     await expect(page.locator('.boardDirectory article')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
     await expect(page).toHaveScreenshot(`empty-directory-${name}.png`, { fullPage: true });

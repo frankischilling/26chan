@@ -373,6 +373,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public reporting is unavailable.",
         ));
     }
+    let poll_projection: bool = sqlx::query_scalar(board_store::POLL_READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !poll_projection {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public polls are unavailable.",
+        ));
+    }
     let posting_cooldowns: bool = sqlx::query_scalar(
         "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
          AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_posting_cooldown(bytea,text,bigint,boolean,bigint)'), 'EXECUTE'), false)

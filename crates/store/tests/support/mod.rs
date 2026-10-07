@@ -66,6 +66,25 @@ pub async fn begin_cleanup(owner: &PgPool, boards: &[String]) -> Transaction<'st
         .unwrap();
     tx
 }
+/// Lock owned session parents before teardown cascades delete their memberships.
+pub async fn begin_cleanup_with_sessions(
+    owner: &PgPool,
+    boards: &[String],
+    tokens: &[[u8; 32]],
+) -> Transaction<'static, Postgres> {
+    let mut tx = begin_cleanup(owner, boards).await;
+    // Expired-session collection locks session -> membership. Preserve that
+    // order before deleting posts/reports, whose FK cascades lock memberships.
+    // Only owned tokens are locked; concurrent mints can SKIP LOCKED sessions
+    // while this transaction retains its canonical board -> thread locks.
+    let tokens: Vec<&[u8]> = tokens.iter().map(|token| token.as_slice()).collect();
+    sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=ANY($1::bytea[]) ORDER BY token_hash FOR UPDATE")
+        .bind(tokens)
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
+    tx
+}
 /// Remove only this fixture's recorded posting actors from its owned board.
 /// Deletion quotas, Robot9000 history and anonymous sessions are untouched.
 /// Accept a pool or an existing cleanup transaction without committing it.

@@ -95,7 +95,10 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
         .split('/')
         .collect();
     let search_page = matches!(parts.as_slice(), ["globalsearch.php"]);
+    // Polls are read-only pages, never generic board pages with script authority.
+    let poll_path = parts.first() == Some(&"polls");
     let board_page = match parts.as_slice() {
+        ["polls", ..] => false,
         [board, ""] => !board.is_empty(),
         [board, page] => {
             !board.is_empty()
@@ -107,7 +110,8 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
         [_, "thread", _, _] => crate::semantic_thread::is_path(request.uri().path()),
         _ => false,
     };
-    let upload_page = *request.method() == Method::POST
+    let upload_page = !poll_path
+        && *request.method() == Method::POST
         && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
     let page = if search_page && matches!(*request.method(), Method::GET | Method::HEAD) {
         Some(InteractivePage::Search)

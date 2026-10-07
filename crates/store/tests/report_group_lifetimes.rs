@@ -715,8 +715,24 @@ async fn actual_runtime_lifecycle_and_archive_lock_inversion_retry() {
     let mut cleanup = owner.begin().await.unwrap();
     activate(&mut cleanup, None).await;
     let boards = vec![board, race_board, operator_board];
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
+        .bind(&boards)
+        .fetch_all(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM content.threads WHERE board=ANY($1) ORDER BY board,id FOR UPDATE")
+        .bind(&boards)
+        .fetch_all(&mut *cleanup)
+        .await
+        .unwrap();
     let tokens: Vec<Vec<u8>> = sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=ANY($1)")
         .bind(&boards).fetch_all(&mut *cleanup).await.unwrap();
+    // Match expired-session collection's session -> membership lock order.
+    sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=ANY($1::bytea[]) ORDER BY token_hash FOR UPDATE")
+        .bind(&tokens)
+        .fetch_all(&mut *cleanup)
+        .await
+        .unwrap();
     for query in [
         "DELETE FROM content.reports WHERE board=ANY($1)",
         "DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=ANY($1))",

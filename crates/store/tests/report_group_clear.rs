@@ -183,6 +183,12 @@ where
         .unwrap();
     activate(&mut tx, previous).await;
     let tokens:Vec<Vec<u8>>=sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=$1").bind(&board).fetch_all(&mut *tx).await.unwrap();
+    // Match expired-session collection's session -> membership lock order.
+    sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=ANY($1::bytea[]) ORDER BY token_hash FOR UPDATE")
+        .bind(&tokens)
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
     for statement in [
         "DELETE FROM content.moderation_audit WHERE board=$1",
         "DELETE FROM content.reports WHERE board=$1",

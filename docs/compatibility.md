@@ -10,6 +10,11 @@ desktop/mobile presentation and optional features. The
 lists the remaining work. Public release references below provide additional
 evidence; matching a newer public component alone does not establish snapshot parity.
 
+[Public poll browsing](public-polls.md) follows the supplied catalogue, options
+and results templates with bounded operator-published data. The missing voting
+controller and policy are not reconstructed from those templates; voting remains
+unavailable. This read-side foundation does not complete the polls workflow.
+
 [Board definitions](original-board-inventory.md) install the 80 listed boards
 and both additional configurations. Their existing supported policy fields,
 order and route availability are checked against the pinned fixture. `/j/`

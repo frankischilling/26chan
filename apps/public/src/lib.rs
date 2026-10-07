@@ -15,6 +15,7 @@ mod native_board_snapshot;
 mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
+mod polls;
 mod post_preferences;
 mod post_receipts;
 mod posting_form;
@@ -240,6 +241,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         ))
         .merge(ui_assets::routes())
         .merge(search::routes())
+        .merge(polls::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))

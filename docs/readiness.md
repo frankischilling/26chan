@@ -10,8 +10,12 @@ The consolidated work adds [guarded first-run Settings behavior](native-settings
 [native filter Help](native-filter-help.md), and
 [bounded ordinary report-group clearing](report-group-clear.md). Their local
 checks, exact-head hosted results and remaining source gaps are recorded separately;
-neither establishes overall completion. Group clearing requires captured effective
+they do not establish overall completion. Group clearing requires captured effective
 weights and does not work for the default unknown-weight free-text path.
+
+[Public poll browsing](public-polls.md) adds operator-published catalogues,
+options and results with no runtime write access. The archive lacks the poll
+controller and voting contract, so voting remains explicitly unavailable.
 
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme

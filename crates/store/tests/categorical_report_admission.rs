@@ -890,6 +890,23 @@ async fn committed_activation_after_gate_wait_uses_new_snapshot_and_archive_expi
     // or catalog history are rewritten during cleanup.
     let mut cleanup = owner.begin().await.unwrap();
     activate(&mut cleanup, None).await;
+    let boards = vec![board.clone(), other.clone()];
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
+        .bind(&boards)
+        .fetch_all(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM content.threads WHERE board=ANY($1) ORDER BY board,id FOR UPDATE")
+        .bind(&boards)
+        .fetch_all(&mut *cleanup)
+        .await
+        .unwrap();
+    // Lock the owned session before report/post cascades lock memberships.
+    sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=$1 ORDER BY token_hash FOR UPDATE")
+        .bind(token.as_slice())
+        .fetch_all(&mut *cleanup)
+        .await
+        .unwrap();
     for slug in [&board, &other] {
         sqlx::query("DELETE FROM content.reports WHERE board=$1")
             .bind(slug)

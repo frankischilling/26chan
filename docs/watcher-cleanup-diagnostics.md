@@ -27,6 +27,15 @@ that cannot appear in logs or the response. A fresh migrated database run passes
 126 public library and two binary tests; formatting and strict workspace Clippy
 also pass. These checks do not reproduce the hosted browser failure.
 
+The bounded `snapshot_cancellation` integration probe also passes locally. Its
+four sequential cases cover a healthy read, an owner-observed cancelled watcher
+read with one pooled connection, the same cancellation with the normal public
+pool, and a read-budget early return. Each uses a real password-protected delete
+and immediately requires 303 followed by the first missing-thread JSON 404, with
+no retry, health query or pool reset in between. Subsequent watcher and HTML
+reads must also be 404. This controls router-task cancellation; it does not prove
+what the hosted browser abort did to its server handler.
+
 The last fully passing checkpoint before this failure was `1b6a231`, build
 37570941094. A later successful run alone will not establish the cause or prove
 that this intermittent failure is fixed.
