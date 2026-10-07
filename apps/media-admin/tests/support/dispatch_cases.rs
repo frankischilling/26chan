@@ -252,6 +252,13 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                     "queued"
                 }
             );
+            if !["configuration", "roots"].contains(&case) {
+                assert_eq!(
+                    queue.get(&job.id).await.unwrap().failure.as_deref(),
+                    Some("processing_failed"),
+                    "case {case} must retain the durable processing failure class"
+                );
+            }
             server.abort();
             let _ = server.await;
             assert!(

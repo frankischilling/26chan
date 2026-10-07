@@ -278,7 +278,8 @@ class Exercise:
         self.finish(self.dispatch(), False)
         self.no_approval(job)
         self.clean_vm()
-        assert sql(f"SELECT failure FROM media.jobs WHERE id='{job}'") == 'processing'
+        failure = sql(f"SELECT failure FROM media.jobs WHERE id='{job}'")
+        assert failure == 'processing_failed', f'Unexpected bounded failure class: {failure}'
         assert (self.broker_dir / 'requests').stat().st_mtime_ns == before
         assert pathlib.Path('/run/26chan-media-jobs').stat().st_mtime_ns == jobs_before
         print('PASS unknown input framing reaches no staging, VM or approval', flush=True)
