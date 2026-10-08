@@ -469,14 +469,24 @@ dialog.catalogSettings#theme #theme-close { position: absolute; right: 5px; top:
 }
 dialog.extensionSettings { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; line-height: 14px; }
 .extensionSettings .nativeSettingsBody { box-sizing: border-box; position: relative; top: 25px; width: 400px; max-width: calc(100% - 20px); max-height: 85%; margin: 0 auto; overflow: auto; background: var(--panel); border: 1px solid var(--settings-frame, rgba(0, 0, 0, 0.2)); box-shadow: 0 0 5px rgba(0, 0, 0, 0.25); }
+/* Source UIPanel geometry is centered except for the Settings panel. Keep
+   these selectors narrow: export, CSS and filter dialogs own their layout. */
+#keybindsHelp > .nativeSettingsBody { top: 50%; transform: translateY(-50%); max-height: 100%; }
+#settingsMenu .nativePanelClose, #keybindsHelp .nativePanelClose { top: 0; width: 18px; height: 18px; font-size: 0; background: var(--watcher-cross) center / 18px 18px no-repeat; }
+#settingsMenu ul { border-bottom: var(--settings-list-border, 0); }
+@media (max-width: 480px) {
+  #settingsMenu > .nativeSettingsBody, #keybindsHelp > .nativeSettingsBody { width: 320px; }
+}
 .settingsExpandAll { text-align: center; margin: 0 0 10px; padding-left: 7px; }
 .nativeSettings .settings-cat-lbl { font-size: 14px; font-weight: bold; margin: 10px 0 5px; padding-left: 5px; }
 .nativeSettings .settings-expand { border: 0; padding: 0; font: inherit; color: inherit; background: transparent; cursor: pointer; }
-.settings-expand::before { content: '+'; display: inline-block; width: 18px; margin-right: 5px; }
-.settings-expand[aria-expanded=true]::before { content: '-'; }
+#settingsMenu .settings-expand::before { content: ''; display: inline-block; width: 18px; height: 18px; vertical-align: text-bottom; margin-right: 5px; background: var(--settings-plus) center / 18px 18px no-repeat; }
+#settingsMenu .settings-expand[aria-expanded=true]::before { background-image: var(--settings-minus); }
 .nativeSettings .settings-cat { margin-left: 3px; }
 .nativeSettings .settings-tip { font-size: 0.85em; margin: 2px 0 5px; padding-left: 23px; }
-.nativeSettings .settings-sub { padding-left: 23px; }
+#settingsMenu .settings-sub { margin-left: 25px; }
+#settingsMenu .settings-sub label::before { border-bottom: 1px solid; border-left: 1px solid; content: ' '; display: inline-block; height: 8px; margin-bottom: 5px; width: 8px; }
+#settingsMenu .settings-tip.settings-sub { padding-left: 32px; }
 .nativeSettings .settings-off { padding-left: 3px; }
 .nativeSettings [hidden], #watcher-open-mobile[hidden], #twClose[hidden] { display: none !important; }
 @media (max-width: 480px) {
@@ -530,6 +540,8 @@ dialog.filterHelp code, dialog.filterHelp kbd { font-size: 0.95em; }
   --watcher-refresh: url('/static/watcher/futaba/refresh.png');
   --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate.gif');
   --watcher-cross: url('/static/watcher/futaba/cross.png');
+  --settings-plus: url('/static/watcher/futaba/post_expand_plus.png');
+  --settings-minus: url('/static/watcher/futaba/post_expand_minus.png');
 }
 @media (min-resolution: 2dppx) {
   :root {
@@ -538,6 +550,8 @@ dialog.filterHelp code, dialog.filterHelp kbd { font-size: 0.95em; }
     --watcher-refresh: url('/static/watcher/futaba/refresh@2x.png');
     --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate@2x.gif');
     --watcher-cross: url('/static/watcher/futaba/cross@2x.png');
+  --settings-plus: url('/static/watcher/futaba/post_expand_plus@2x.png');
+  --settings-minus: url('/static/watcher/futaba/post_expand_minus@2x.png');
   }
 }
 

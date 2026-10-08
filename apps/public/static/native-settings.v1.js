@@ -177,7 +177,7 @@ export function installSettings({ catalog, read, save, initializeOnOpen, toggleW
     const title = node('span', 'Settings');
     title.id = 'native-settings-title';
     header.append(title);
-    const dismiss = button('\u00d7', close, 'panelCtrl');
+    const dismiss = button(catalog ? '\u00d7' : '', close, catalog ? 'panelCtrl' : 'panelCtrl nativePanelClose');
     dismiss.id = catalog ? 'theme-close' : 'settings-close';
     dismiss.setAttribute('aria-label', 'Close settings');
     header.append(dismiss);

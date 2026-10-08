@@ -138,3 +138,9 @@ resizing a non-catalog page to mobile removes its persistent bar without clearin
 `dropDownNav`; selecting never-mobile restores the desktop-layout bar. Its former
 expectation of a mobile persistent dropdown was inconsistent with that contract.
 The separate catalog navigation checks remain unchanged.
+
+## Panel presentation
+
+[Settings and keyboard-help panel restoration](native-settings-panels.md) records
+the scoped source geometry, existing theme icons, sub-option presentation and
+backdrop dismissal, together with browser qualification limits.
