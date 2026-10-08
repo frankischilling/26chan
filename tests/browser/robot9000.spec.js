@@ -2,6 +2,7 @@ import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { installPostingResponseObserver } from './helpers/posting-response.js';
 
 const origin = 'http://127.0.0.1:3000';
 
@@ -41,20 +42,33 @@ test('desktop and mobile posting retain robot errors and Quick Reply drafts with
         await expect(page.locator('#qrError')).toHaveText('Non-ASCII text is not allowed.');
         await expect(page.locator('#qrCom')).toHaveValue('café');
         const original = `${marker} unique reply at width ${width}`;
+        const qrUrl = page.url();
+        const navigations = [];
+        page.on('framenavigated', frame => { if (frame === page.mainFrame()) navigations.push(frame.url()); });
         await page.locator('#qrCom').fill(original);
         await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click());
         await expect(page.locator('.postMessage').filter({ hasText: original })).toHaveCount(1);
         await expect(page.locator('#qrCom')).toHaveValue('');
+        await expect(page.locator('#quickReply input[type=submit]')).not.toHaveValue('Sending');
+        expect(page.url()).toBe(qrUrl);
+        expect(navigations).toEqual([]);
         if (mobile) {
           await page.locator('#qrCom').fill(marker);
-          const response = page.waitForResponse(response => response.url() === `${origin}/r9k/imgboard.php` && response.request().method() === 'POST');
+          // Capture the real body before the transport aborts its completed fetch.
+          // CDP may discard it by the time a later Response.json() asks for it.
+          await page.evaluate(installPostingResponseObserver, { url: `${origin}/r9k/imgboard.php`, thread: id, comment: marker });
+          const response = page.evaluate(() => window.ownedPostingResponse);
           // Bypass the client advisory to exercise the server's duplicate-post rejection.
-          await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] }));
-          const rejected = await response;
-          expect(rejected.status()).toBe(200);
-          expect(await rejected.json()).toEqual({ error: 'You have been muted for 2 seconds, because your comment was not original.' });
+          const [, rejected] = await Promise.all([
+            withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] })), response,
+          ]);
+          expect(rejected.status).toBe(200);
+          expect(rejected.type).toBe('application/json');
+          expect(JSON.parse(rejected.text)).toEqual({ error: 'You have been muted for 2 seconds, because your comment was not original.' });
           await expect(page.locator('#qrError')).toHaveText('You have been muted for 2 seconds, because your comment was not original.');
           await expect(page.locator('#qrCom')).toHaveValue(marker);
+          expect(page.url()).toBe(qrUrl);
+          expect(navigations).toEqual([]);
         }
       } finally { await context.close(); }
     }

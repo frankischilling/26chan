@@ -1,0 +1,13 @@
+# Opt-in fixture assertion. Its own workspace prevents accidental discovery by
+# production cargo test/CI. No production configuration is modified.
+[package]
+name = "replay-worker-probe-core-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+board-media = { path = "../../../../crates/media" }
+sha2 = "=0.10.9"
