@@ -166,6 +166,7 @@ test('isolated Depager DOM and fixed worker transport behavior', async t => {
   const assets = {};
   for (const [path, file] of [
     ['/client/native-depager.js', '../../apps/public/client/native-depager.js'],
+    ['/client/native-source-events.js', '../../apps/public/client/native-source-events.js'],
     ['/client/native-depager-transport.js', '../../apps/public/client/native-depager-transport.js'],
     ['/client/native-post-tree.js', '../../apps/public/client/native-post-tree.js'],
     ['/client/native-spoiler-assets.js', '../../apps/public/client/native-spoiler-assets.js'],
