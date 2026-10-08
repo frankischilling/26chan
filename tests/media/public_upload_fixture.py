@@ -27,7 +27,7 @@ def finish_browser(process, script):
         location = ':' + ':'.join(value.decode('ascii') for value in locations[0]) if locations else ''
         responses = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other)\r?$', error, re.MULTILINE)
         response = (' (HTTP ' + responses[0][0].decode('ascii') + ', ' + responses[0][1].decode('ascii') + ')') if responses else ''
-        classified = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=(upload|post) failure=(http|json|body)\r?$', error, re.MULTILINE)
+        classified = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=(upload|post|owner-thread) failure=(http|json|body)\r?$', error, re.MULTILINE)
         if classified:
             status, category, stage, failure = (value.decode('ascii') for value in classified[-1])
             response = f' (HTTP {status}, {category}, {stage}, {failure})'
@@ -175,6 +175,10 @@ class PublicUpload:
         sql(f"UPDATE content.boards SET comment_spoiler_cleanup=false WHERE slug='{self.board}' AND title='Upload qualification';")
         self.upload_one('quick-reply-disabled.png', red_png(), True, quick_reply=True, spoilers=False)
         self.upload_one('quick-reply-inline-disabled.png', red_png(), True, quick_reply='inline', spoilers=False)
+        # Drawing shares this server's actor on a new owned board. Its own reset
+        # cannot remove this board's cross-board OP cooldown. End the completed
+        # host workflow with the same exact actor-and-owned-board scoped reset.
+        self.reset_posting_history()
         from public_drawing_fixture import PublicDrawingUpload
         self.drawing_upload = PublicDrawingUpload(self)
         self.drawing_upload.exercise()

@@ -178,6 +178,51 @@ class PublicUploadBoardTest(unittest.TestCase):
                 self.assertEqual(sql.call_count, 1)
                 self.assertTrue(sql.call_args.args[0].startswith('SELECT '))
 
+    def test_drawing_transition_clears_completed_host_actor_board_only(self):
+        # Inert SQL scope/order witness. Actual PostgreSQL admission and HTTP
+        # responses remain separate integration qualifications.
+        fixture = self.fixture()
+        fixture.created = True
+        own = bytes.fromhex(fixture._posting_actor_hex())
+        foreign = bytes.fromhex(self.fixture()._posting_actor_hex())
+        with sqlite3.connect(':memory:') as db:
+            db.execute("ATTACH DATABASE ':memory:' AS content")
+            db.execute("ATTACH DATABASE ':memory:' AS post_secrets")
+            db.create_function('decode', 2, lambda value, encoding: bytes.fromhex(value)
+                               if encoding == 'hex' else None)
+            db.execute('''CREATE TABLE content.boards (slug TEXT PRIMARY KEY, title TEXT,
+                comment_spoiler_cleanup BOOLEAN, posting_reply_seconds INTEGER,
+                posting_image_seconds INTEGER, posting_thread_seconds INTEGER)''')
+            db.execute("INSERT INTO content.boards VALUES (?,'Upload qualification',true,0,0,0)",
+                       (fixture.board,))
+            sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43)]
+            for table in ('posting_history', 'posting_thread_actions'):
+                db.execute(f'CREATE TABLE post_secrets.{table} (actor_hash BLOB, board TEXT, request_at INTEGER)')
+                db.executemany(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', sentinels)
+
+            def sql(statement):
+                cursor = db.execute(statement)
+                return '|'.join(map(str, cursor.fetchone())) if cursor.description else ''
+
+            def completed_upload(*args, **kwargs):
+                for table in ('posting_history', 'posting_thread_actions'):
+                    db.execute(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', (own, fixture.board, 41))
+
+            def start_drawing(host):
+                self.assertIs(host, fixture)
+                self.assertEqual(upload.call_count, 9)
+                for table in ('posting_history', 'posting_thread_actions'):
+                    self.assertEqual(db.execute(f'SELECT * FROM post_secrets.{table} ORDER BY request_at').fetchall(),
+                                     sentinels)
+                return mock.Mock()
+
+            with mock.patch('public_upload_fixture.sql', side_effect=sql), \
+                    mock.patch.object(fixture, 'upload_one', side_effect=completed_upload) as upload, \
+                    mock.patch('public_drawing_fixture.PublicDrawingUpload', side_effect=start_drawing) as drawing:
+                fixture.exercise()
+            drawing.assert_called_once_with(fixture)
+            fixture.drawing_upload.exercise.assert_called_once_with()
+
 
 if __name__ == '__main__':
     unittest.main()

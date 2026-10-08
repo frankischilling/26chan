@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 import { createInterface } from 'node:readline';
+import { assertOwnedThreadResponse } from './owned-upload-response.mjs';
 import { canvasProof, closePainter, decodedPngProof, drawingControls, pointerDrawing, tegakiModule, observeDrawingResponse, exportDrawingProof } from './helpers/drawing-browser.mjs';
 
 const [rawOrigin, board, marker, mode] = process.argv.slice(2), origin = new URL(rawOrigin);
@@ -35,7 +36,7 @@ try {
   {
     const created = await context.request.post(url(`/${board}/post`), { headers: { Origin: origin.origin }, maxRedirects: 0,
       form: { com: `Drawing ownership ${marker}`, password } });
-    assert.equal(created.status(), 303); ownerThread = /#p(\d+)$/.exec(created.headers().location)[1];
+    assertOwnedThreadResponse(created); ownerThread = /#p(\d+)$/.exec(created.headers().location)[1];
     target = mode === 'ordinary' ? '0' : ownerThread;
   }
   const location = url(target === '0' ? `/${board}/` : `/${board}/thread/${target}`);

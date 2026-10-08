@@ -1,4 +1,5 @@
 import { withDeletionQuota, withPostingHistory, withReportCatalog } from './helpers/deletion-quota-fixture.js';
+import { closeReportPopup } from './helpers/report-popup-close.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -89,7 +90,7 @@ test('native report popup commits, hides only its registered reply, and closes a
 test('Close and Escape cancel without success; validation errors do not hide or auto-close', async ({ page, owned }) => {
   await page.goto(owned.url);
   let popup = await openReport(page, owned.reply);
-  let closed = popup.waitForEvent('close'); await popup.locator('#report-popup-close').click(); await closed;
+  await closeReportPopup(popup, page);
   await expect(hidden(page, owned.reply)).toBeVisible();
   popup = await openReport(page, owned.reply);
   // Escape closes during keydown, so Chromium may destroy the input target
@@ -99,7 +100,7 @@ test('Close and Escape cancel without success; validation errors do not hide or 
   await popup.evaluate(() => document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && event.isTrusted) opener.__reportEscapeObserved = true;
   }, { capture: true, once: true }));
-  closed = popup.waitForEvent('close');
+  const closed = popup.waitForEvent('close');
   try {
     await popup.keyboard.press('Escape');
   } catch (error) {
@@ -295,9 +296,7 @@ test('synthetic categorical radios switch the select and Close cancels without a
     await expect(popup.locator('#report-category-illegal')).not.toBeChecked();
     await expect(popup.locator('#report-category-select')).toBeEnabled();
     await expect(popup.locator('#report-category-select')).toHaveValue(String(owned.catalog.ruleId));
-    const closed = popup.waitForEvent('close');
-    await popup.locator('#report-popup-close').click();
-    await closed;
+    await closeReportPopup(popup, page);
     await expect(hidden(page, owned.reply)).toBeVisible();
     expect(await inspectCategorical(owned)).toEqual({ reportCount: 0, categories: [] });
     expect(await context.cookies()).toEqual(cookies);

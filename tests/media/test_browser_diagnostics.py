@@ -78,6 +78,17 @@ class BrowserDiagnostics(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at drawing-upload\.mjs:72:11$'):
             finish_browser(self.process(error), 'drawing-upload.mjs')
 
+    def test_drawing_owner_thread_rejection_retains_status_type_and_stage_only(self):
+        for status, category in [(b'422', b'html'), (b'429', b'plain')]:
+            error = (b'private URL and capability ' + b'a' * 64
+                     + b'\nOWNED_UPLOAD_RESPONSE status=' + status + b' type=' + category
+                     + b' stage=owner-thread failure=http\n'
+                     + b' at file:///owned/tests/browser/drawing-upload.mjs:39:5\n')
+            with self.subTest(status=status), self.assertRaises(AssertionError) as result:
+                finish_browser(self.process(error), 'drawing-upload.mjs')
+            self.assertEqual(str(result.exception), 'owned upload browser rejected at drawing-upload.mjs:39:5'
+                             + f' (HTTP {status.decode()}, {category.decode()}, owner-thread, http)')
+
     def test_unknown_diagnostic_script_is_rejected_before_child_access(self):
         with self.assertRaises(AssertionError):
             finish_browser(None, 'private-script.mjs')

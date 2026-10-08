@@ -19,10 +19,9 @@ if [[ ${CI:-} == true ]]; then
 fi
 npm run check:generated
 timeout 300s npm run test:math
-timeout 300s npm run test:drawing
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
-node --test tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs
+node --test tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
@@ -32,6 +31,8 @@ cargo test --workspace --all-features --locked
 cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
+# Drawing uses the public browser setup, which requires the built quota fixture.
+timeout 300s npm run test:drawing
 npx playwright test tests/browser/anonymous-session.spec.js
 node --test tests/browser/polls-fixture.test.mjs
 npm run test:polls

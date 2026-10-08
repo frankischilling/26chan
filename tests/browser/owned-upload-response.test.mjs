@@ -3,9 +3,29 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { chromium } from '@playwright/test';
-import { observeOwnedUploadResponse, ownedUploadResponse } from './owned-upload-response.mjs';
+import { assertOwnedThreadResponse, observeOwnedUploadResponse, ownedUploadResponse } from './owned-upload-response.mjs';
 
 const response = (status, type, json) => ({ status: () => status, headers: () => ({ 'content-type': type }), json });
+
+test('owner-thread failures expose only bounded HTTP status, category and stage without reading a body', () => {
+  for (const [status, mime, type] of [[422, 'text/html; private=value', 'html'], [429, 'text/plain', 'plain'],
+    [403, 'application/json', 'json'], [500, 'private-content-type', 'other']]) {
+    const diagnostics = [];
+    assert.throws(() => assertOwnedThreadResponse(response(status, mime, () => { throw new Error('body must not be read'); }),
+      value => diagnostics.push(value)), /^Error: Owned thread response was not a creation redirect\.$/);
+    assert.deepEqual(diagnostics, [`OWNED_UPLOAD_RESPONSE status=${status} type=${type} stage=owner-thread failure=http`]);
+  }
+});
+
+test('owner-thread creation succeeds silently and invalid statuses never reach diagnostics', () => {
+  const diagnostics = [];
+  assertOwnedThreadResponse({ status: () => 303 }, value => diagnostics.push(value));
+  for (const status of [99, 600, 200.5, '422 private-value', NaN]) {
+    assert.throws(() => assertOwnedThreadResponse({ status: () => status }, value => diagnostics.push(value)),
+      /^Error: Invalid owned response status\.$/);
+  }
+  assert.deepEqual(diagnostics, []);
+});
 
 test('both successful workflows retain the exact parsed response', async () => {
   for (const stage of ['upload', 'post']) {
