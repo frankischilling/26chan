@@ -1,0 +1,831 @@
+/*! Contains fonts from Font Awesome (Copyright (C) 2016 by Dave Gandy), Entypo (Copyright (C) 2012 by Daniel Bruce) */
+@font-face {
+  font-family: 'tegaki';
+  src: url('./tegaki-icons.v1.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.tegaki-icon:before {
+  font-family: 'tegaki';
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+  display: inline-block;
+  text-align: center;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1em;
+}
+
+.tegaki-cancel:before { content: '\e800'; } /* '' */
+.tegaki-plus:before { content: '\e801'; } /* '' */
+.tegaki-minus:before { content: '\e802'; } /* '' */
+.tegaki-pen:before { content: '\e803'; } /* '' */
+.tegaki-down-open:before { content: '\e804'; } /* '' */
+.tegaki-up-open:before { content: '\e805'; } /* '' */
+.tegaki-level-down:before { content: '\e806'; } /* '' */
+.tegaki-pencil:before { content: '\e807'; } /* '' */
+.tegaki-play:before { content: '\e808'; } /* '' */
+.tegaki-bucket:before { content: '\e809'; } /* '' */
+.tegaki-pause:before { content: '\e80a'; } /* '' */
+.tegaki-blur:before { content: '\e80b'; } /* '' */
+.tegaki-to-start:before { content: '\e80c'; } /* '' */
+.tegaki-watercolor:before { content: '\e80d'; } /* '' */
+.tegaki-tone:before { content: '\e80e'; } /* '' */
+.tegaki-airbrush:before { content: '\e80f'; } /* '' */
+.tegaki-fast-fw:before { content: '\e810'; } /* '' */
+.tegaki-fast-bw:before { content: '\e811'; } /* '' */
+.tegaki-left-open:before { content: '\e812'; } /* '' */
+.tegaki-right-open:before { content: '\e813'; } /* '' */
+.tegaki-eraser:before { content: '\f12d'; } /* '' */
+.tegaki-pipette:before { content: '\f1fb'; } /* '' */
+
+.tegaki-disabled,
+.tegaki-disabled::after,
+.tegaki-disabled::before {
+  opacity: 0.45;
+}
+
+.tegaki-hidden {
+  display: none !important;
+}
+
+.tegaki-invis {
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.tegaki-replay-mode #tegaki-tools-cnt,
+.tegaki-replay-mode #tegaki-toolmode-bar,
+.tegaki-replay-mode .tegaki-ctrlgrp,
+.tegaki-replay-mode .tegaki-layers-cell,
+.tegaki-replay-mode #tegaki-layers-ctrl {
+  pointer-events: none;
+}
+
+.tegaki-replay-mode #tegaki-ctrlgrp-zoom,
+.tegaki-replay-mode #tegaki-ctrlgrp-layers {
+  pointer-events: auto;
+}
+
+#tegaki {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background-color: #a3b1bf;
+  color: #222;
+  font-family: arial, sans-serif;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  z-index: 9999;
+  display: grid;
+  grid-template-columns: 40px 1fr 160px;
+  grid-template-rows: 24px 1fr 18px;
+  grid-gap: 2px;
+}
+
+#tegaki input {
+  color: inherit;
+}
+
+#tegaki > div {
+  background-color: #8d99a6;
+}
+
+#tegaki-menu-cnt {
+  grid-area: 1 / 1 / 2 / 4;
+  white-space: nowrap;
+  overflow: hidden;
+  display: flex;
+}
+
+#tegaki-tools-cnt {
+  grid-area: 2 / 1 / 4 / 2;
+  padding: 4px;
+}
+
+#tegaki-canvas-cnt {
+  grid-area: 2 / 2 / 3 / 3;
+  overflow: auto;
+  display: flex;
+}
+
+#tegaki-ctrl-cnt {
+  grid-area: 2 / 3 / 4 / 4;
+  padding: 6px;
+  overflow: hidden auto;
+}
+
+#tegaki-status-cnt {
+  grid-area: 3 / 2 / 4 / 3;
+  line-height: 18px;
+  display: flex;
+}
+
+#tegaki-status-cnt > div {
+  padding: 0 4px;
+}
+
+#tegaki-status-replay {
+  color: #a61930;
+}
+
+#tegaki-status-output {
+  font-size: 11px;
+  font-weight: bold;
+}
+
+#tegaki-status-version {
+  color: #adbdcc;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+#tegaki-menu-bar {
+  font-size: 12px;
+  padding-left: 4px;
+  padding-right: 18px;
+  border-right: 2px solid #a3b1bf;
+}
+
+.tegaki-replay-mode #tegaki-menu-bar {
+  padding-right: 4px;
+}
+
+.tegaki-menu-lbl {
+  margin: 0 2px;
+  vertical-align: middle;
+}
+
+#tegaki-replay-controls {
+  padding-right: 10px;
+  padding-left: 10px;
+  border-right: 2px solid #a3b1bf;
+  font-size: 11px;
+}
+
+#tegaki-replay-timeline {
+  display: inline-block;
+  width: 100px;
+  height: 24px;
+  margin: 0 4px;
+  border-left: 1px solid #a3b1bf;
+  border-right: 1px solid #a3b1bf;
+  /*background-color: rgba(0, 0, 0, 0.25);*/
+}
+
+#tegaki-replay-timeline-fill {
+  display: inline-block;
+  width: 36px;
+  height: 100%;
+  background-color: #a3b1bf;
+}
+
+#tegaki-replay-controls > span {
+  vertical-align: middle;
+}
+
+#tegaki-replay-controls .tegaki-ui-cb-w {
+  margin-right: 4px;
+}
+
+#tegaki-replay-speed-lbl {
+  width: 28px;
+  display: inline-block;
+  text-align: center;
+}
+
+#tegaki-replay-speed-lbl::before {
+  content: '×';
+}
+
+#tegaki-replay-now-lbl,
+#tegaki-replay-end-lbl {
+  display: inline-block;
+  max-width: 50px;
+  min-width: 30px;
+  overflow: hidden;
+  text-align: center;
+  margin: 0 4px;
+}
+
+#tegaki-toolmode-bar {
+  font-size: 11px;
+  margin-left: 4px;
+  line-height: 24px;
+}
+
+.tegaki-toolmode-lbl {
+  margin-right: 6px;
+}
+
+.tegaki-toolmode-lbl::after {
+  content: ':';
+}
+
+.tegaki-toolmode-grp {
+  border-left: 1px solid #a3b1bf;
+  padding: 0 18px;
+}
+
+#tegaki canvas {
+  image-rendering: optimizeSpeed;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+.tegaki-tool-active {
+  color: #f2f3f4;
+}
+
+.tegaki-tool-btn {
+  width: 32px;
+  height: 32px;
+  display: block;
+  margin: auto;
+}
+
+.tegaki-tool-btn:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.tegaki-tool-btn:before {
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+}
+
+.tegaki-mb-btn {
+  cursor: default;
+  text-decoration: none;
+  display: inline-block;
+  padding: 0 6px;
+  word-spacing: -1px;
+  position: relative;
+  line-height: 24px;
+  height: 24px;
+}
+
+.tegaki-mb-btn:hover:not(.tegaki-disabled),
+.tegaki-ui-btn:hover:not(.tegaki-disabled) {
+  background-color: rgba(0, 0, 0, 0.10);
+}
+
+.tegaki-sw-btn {
+  display: inline;
+  padding: 2px 6px;
+  margin: 0 2px;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15), -1px -1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.tegaki-sw-btn:hover:not(.tegaki-sw-btn-a) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tegaki-sw-btn-a {
+  background-color: rgba(0, 0, 0, 0.1);
+  box-shadow: -1px -1px 0 rgba(0, 0, 0, 0.15), 1px 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+#tegaki-toolmode-bar .tegaki-mb-btn-a {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.10);
+}
+
+#tegaki-toolmode-bar .tegaki-mb-btn.tegaki-mb-btn-a:hover {
+  color: inherit;
+}
+
+#tegaki-debug {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+#tegaki-debug canvas {
+  width: 75px;
+  height: 75px;
+  display: block;
+  border: 1px solid black;
+}
+
+.tegaki-backdrop {
+  overflow: hidden;
+}
+
+.tegaki-hidden {
+  display: none !important;
+}
+
+.tegaki-strike {
+  text-decoration: line-through;
+}
+
+#tegaki-layers {
+  position: relative;
+  font-size: 0;
+  box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.25);
+  contain: content;
+}
+
+#tegaki-layers canvas {
+  width: 100%;
+  height: 100%;
+}
+
+#tegaki-layers:empty {
+  display: none;
+}
+
+#tegaki-layers-wrap {
+  margin: auto;
+  padding: 50px;
+  pointer-events: none;
+}
+
+#tegaki-layers canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+#tegaki-finish-btn {
+  font-weight: bold;
+}
+
+#tegaki-cursor-layer {
+  position: absolute;
+  mix-blend-mode: difference;
+  touch-action: none;
+}
+
+/* generic ui */
+.tegaki-alpha-bg,
+.tegaki-alpha-bg-xs {
+  background-color: #fefefe;
+  background-image:
+    linear-gradient(45deg, #cacaca 25%, transparent 25%, transparent 75%, #cacaca 75%, #cacaca),
+    linear-gradient(45deg, #cacaca 25%, transparent 25%, transparent 75%, #cacaca 75%, #cacaca);
+}
+
+.tegaki-alpha-bg {
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+
+.tegaki-alpha-bg-xs {
+  background-size: 6px 6px;
+  background-position: 0 0, 3px 3px;
+}
+
+.tegaki-ellipsis {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.tegaki-ui-cb {
+  display: inline-block;
+  vertical-align: middle;
+  width: 10px;
+  height: 10px;
+  border: 1px solid #222;
+  cursor: default;
+  margin-right: 4px;
+}
+
+.tegaki-ui-cb::after,
+.tegaki-ui-cb-a::after {
+  display: block;
+  content: ' ';
+  width: 6px;
+  height: 6px;
+  margin-top: 2px;
+  margin-left: 2px;
+}
+
+.tegaki-ui-cb-a::after {
+  background-color: #222;
+}
+
+.tegaki-ui-cb-w:hover .tegaki-ui-cb::after,
+.tegaki-ui-cb:hover::after {
+  background-color: #555;
+}
+
+.tegaki-ui-ellipsis::after {
+  content: '...';
+  letter-spacing: -1px;
+}
+
+.tegaki-ui-borderless {
+  border: none;
+}
+
+.tegaki-ui-btn {
+  display: inline-block;
+}
+
+.tegaki-ui-btn:before {
+  height: 24px;
+  width: 24px;
+  line-height: 24px;
+  font-size: 14px;
+}
+
+.tegaki-stealth-input {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
+.tegaki-stealth-input:hover:not(.tegaki-disabled) {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.tegaki-range-lbl,
+.tegaki-range-lbl-xs {
+  display: inline-block;
+  text-align: center;
+  vertical-align: top;
+}
+
+.tegaki-range-lbl {
+  width: 28px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.tegaki-range-lbl-xs {
+  width: 20px;
+  font-size: 10px;
+}
+
+.tegaki-label-xs {
+  font-size: 10px;
+  vertical-align: top;
+}
+
+.tegaki-lbl-c::after {
+  content: ':';
+}
+
+.tegaki-lbl-p::after {
+  content: '%';
+  margin-left: 1px;
+}
+
+.tegaki-drag-lbl:not(.tegaki-disabled) {
+  cursor: ew-resize;
+}
+
+.tegaki-disabled .tegaki-drag-lbl {
+  cursor: auto;
+}
+
+/* control groups */
+.tegaki-ctrlgrp {
+  margin-bottom: 10px;
+}
+
+.tegaki-ctrlgrp:last-child {
+  margin-bottom: 0;
+}
+
+.tegaki-ctrlgrp-title {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  background-color: #a3b1bf;
+  padding: 1px 4px;
+}
+
+.tegaki-ctrlrow {
+  font-size: 11px;
+}
+
+.tegaki-ctrlrow:not(:last-child) {
+  margin-bottom: 6px;
+}
+
+.tegaki-ctrl-range {
+  width: calc(100% - 34px);
+  padding: 0;
+  margin: 0;
+  height: 14px;
+}
+
+/* zoom ctrl group */
+#tegaki-zoom-lbl {
+  display: inline-block;
+  font-size: 12px;
+  float: right;
+  height: 24px;
+  line-height: 24px;
+}
+
+/* color ctrl group */
+#tegaki-color-ctrl {
+  display: flex;
+}
+
+#tegaki-palette-switcher {
+  align-self: center;
+  margin-left: auto;
+}
+
+.tegaki-color-grid {
+  display: grid;
+  grid-gap: 4px;
+  margin-top: 6px;
+}
+
+.tegaki-color-grid-20 {
+  grid-template-columns: repeat(auto-fill, 20px);
+  grid-auto-rows: 20px;
+}
+
+.tegaki-color-grid-15 {
+  grid-template-columns: repeat(auto-fill, 15px);
+  grid-auto-rows: 15px;
+}
+
+.tegaki-color-btn {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+#tegaki-color,
+#tegaki-colorpicker {
+  padding: 0;
+  border: 0;
+  display: block;
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+/* layers ctrl group */
+#tegaki-ctrlgrp-layers {
+  position: relative;
+}
+
+#tegaki-layers-opts {
+  height: 18px;
+  display: flex;
+}
+
+#tegaki-layer-alpha-cell {
+  margin-left: auto;
+}
+
+#tegaki-layers-ctrl {
+  margin-top: 4px;
+}
+
+#tegaki-layers-grid {
+  height: 84px;
+  min-height: 84px;
+  overflow: auto;
+  background-color: #8d99a6;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #a3b1bf;
+  resize: vertical;
+}
+
+.tegaki-layers-cell {
+  box-sizing: border-box;
+  box-shadow: 0 1px 0 0px #a3b1bf;
+  padding: 0;
+  height: 28px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.tegaki-layers-cell-s,
+.tegaki-layers-cell-a {
+  background-color: #a3b1bf7f;
+}
+
+.tegaki-layers-cell-a {
+  font-weight: bold;
+}
+
+.tegaki-layers-cell-v {
+  margin: 0 6px 0 4px;
+}
+
+.tegaki-layers-cell-v .tegaki-ui-cb {
+  vertical-align: unset;
+  margin: 0;
+}
+
+.tegaki-layers-cell-p {
+  margin-right: 6px;
+}
+
+.tegaki-layers-cell-p canvas {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  vertical-align: middle;
+}
+
+.tegaki-layers-cell-s .tegaki-layers-cell-p canvas {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 1.0);
+}
+
+.tegaki-layers-cell-n {
+  font-size: 11px;
+  margin-right: 1px;
+  min-width: 20px;
+}
+
+.tegaki-layers-cell-d {
+  box-shadow: inset 0 -2px 0 0 #000;
+  z-index: 2;
+}
+
+#tegaki-layers-grid.tegaki-layers-cell-d {
+  box-shadow: 0 -2px 0 0px #000;
+}
+
+#tegaki-layers-cell-dx {
+  position: absolute;
+  background: transparent;
+  width: 100%;
+  height: 32px;
+  margin-top: -32px;
+}
+
+
+/*!
+Font license info
+
+
+## Font Awesome
+
+   Copyright (C) 2016 by Dave Gandy
+
+   Author:    Dave Gandy
+   License:   SIL ()
+   Homepage:  http://fortawesome.github.com/Font-Awesome/
+
+
+## Entypo
+
+   Copyright (C) 2012 by Daniel Bruce
+
+   Author:    Daniel Bruce
+   License:   SIL (http://scripts.sil.org/OFL)
+   Homepage:  http://www.entypo.com
+
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+*/
+
+/*!
+Font Awesome Free icons used by the Tegaki icon font
+
+Tegaki 0.9.4 includes Font Awesome Free's spray-can and pen-fancy icons as
+custom Fontello glyphs named airbrush and pen. Their paths are rescaled from
+512 to 1,000 units and rounded by the upstream Tegaki font configuration.
+
+Copyright (c) Font Awesome
+
+Font Awesome Free by @fontawesome - https://fontawesome.com
+License: https://fontawesome.com/license/free
+SVG icon paths: CC BY 4.0 - https://creativecommons.org/licenses/by/4.0/
+Webfont glyphs: SIL OFL 1.1 - https://openfontlicense.org
+
+The upstream Tegaki configuration does not identify a Font Awesome release.
+The icons were checked against Font Awesome Free 5.7.2, commit
+1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5:
+https://github.com/FortAwesome/Font-Awesome/tree/1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5
+
+After rescaling, the spray-can and pen-fancy paths have the same SVG drawing
+operations, with maximum coordinate differences below 0.14 and 0.05 units,
+respectively. No glyph was changed by the 26chan asset extraction.
+
+Font Awesome Free License
+-------------------------
+
+Font Awesome Free is free, open source, and GPL friendly. You can use it for
+commercial projects, open source projects, or really almost whatever you want.
+Full Font Awesome Free license: https://fontawesome.com/license/free.
+
+# Icons: CC BY 4.0 License (https://creativecommons.org/licenses/by/4.0/)
+In the Font Awesome Free download, the CC BY 4.0 license applies to all icons
+packaged as SVG and JS file types.
+
+# Fonts: SIL OFL 1.1 License (https://scripts.sil.org/OFL)
+In the Font Awesome Free download, the SIL OFL license applies to all icons
+packaged as web and desktop font files.
+
+# Code: MIT License (https://opensource.org/licenses/MIT)
+In the Font Awesome Free download, the MIT license applies to all non-font and
+non-icon files.
+
+# Attribution
+Attribution is required by MIT, SIL OFL, and CC BY licenses. Downloaded Font
+Awesome Free files already contain embedded comments with sufficient
+attribution, so you shouldn't need to do anything additional when using these
+files normally.
+
+We've kept attribution comments terse, so we ask that you do not actively work
+to remove them from files, especially code. They're a great way for folks to
+learn about Font Awesome.
+
+# Brand Icons
+All brand icons are trademarks of their respective owners. The use of these
+trademarks does not indicate endorsement of the trademark holder by Font
+Awesome, nor vice versa. **Please do not use brand logos for any purpose except
+to represent the company, product, or service to which they refer.**
+*/
