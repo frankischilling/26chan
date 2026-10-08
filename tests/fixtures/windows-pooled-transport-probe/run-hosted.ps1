@@ -50,5 +50,6 @@ try {
     } catch { if ($null -eq $failure) { $failure=$_.Exception } }
   } else { $cleaned=$true }
   @{ schema=1; mode=$Mode; fixture_cleanup_complete=$cleaned; passed=($null -eq $failure -and $cleaned) } | ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $evidence 'hosted-status.json') -Encoding utf8NoBOM
+  [ordered]@{ type='pooled-hosted-cleanup'; schema=1; fixture_cleanup_complete=$cleaned; passed=($null -eq $failure -and $cleaned) } | ConvertTo-Json -Compress | Write-Output
 }
 if ($null -ne $failure) { throw $failure }

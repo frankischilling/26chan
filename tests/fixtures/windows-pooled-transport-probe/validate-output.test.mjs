@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { validateOutput, MAX_BYTES, MAX_OPERATIONS, REQUEST_BYTES } from './validate-output.mjs';
+import { validateOutput, MAX_BYTES, MAX_OPERATIONS, REQUEST_BYTES, summarizeDiagnostics, readDiagnostics, DIAGNOSTIC_LIMITS } from './validate-output.mjs';
 
 const encode = records => records.map(row => JSON.stringify(row)).join('\n') + '\n';
 function recount(records) {
@@ -400,7 +400,8 @@ function assertTimeoutCleanupContract(text) {
   assert.match(cleanup, /WaitForExit\(5000\)/);
   // Root exit must never restore a claim about descendant cleanup.
   assert.doesNotMatch(text, /\$status\.child_cleanup_complete\s*=\s*\$true/);
-  assert.match(cleanup, /-not \$status\.child_cleanup_complete\) \{ exit 1 \}/);
+  assert.match(cleanup, /-not \$status\.child_cleanup_complete\) \{ \$qualificationExit=1 \}/);
+  assert.match(cleanup, /exit \$finalExit/);
 }
 test('compiler timeout remains unverified even if the root exits before cleanup', () => {
   assertTimeoutCleanupContract(launcher);
@@ -418,4 +419,147 @@ test('cleanup contract rejects root-only kill and false descendant certification
 test('hosted wrapper rejects unverified launcher cleanup', () => {
   const hosted = fs.readFileSync(new URL('./run-hosted.ps1', import.meta.url), 'utf8');
   assert.match(hosted, /\$status\.child_cleanup_complete -ne \$true/);
+});
+
+function diagnosticStatus(overrides = {}) {
+  return { schema: 1, phase: 'finished', compiler_exit: 0, native_exit: 0, validator_exit: 0, compiler_timeout: false, native_timeout: false, validator_timeout: false, child_cleanup_complete: true, process_tree_kill_attempted: false, cleanup_unverified_reason: null, failure_class: null, complete: true, passed: true, ...overrides };
+}
+function diagnosticInputs(overrides = {}) {
+  return { status: JSON.stringify(diagnosticStatus()), native: encode(sample()), compiler_stdout: '', compiler_stderr: '', ...overrides };
+}
+test('diagnostic mode exposes allowlisted status and actual completion counts', () => {
+  const report = summarizeDiagnostics(diagnosticInputs({ native: encode(sample({ asynchronous: true })) }));
+  assert.equal(report.status_state, 'valid'); assert.equal(report.native_state, 'validated');
+  assert.equal(report.native_passed, true); assert.equal(report.native_summary.async_writes, 36);
+  assert.equal(report.native_summary.sync_writes, 0); assert.deepEqual(report.native_failures, []);
+  assert.equal(report.native_summary.pending_at_close, 0);
+  assert.ok(Buffer.byteLength(JSON.stringify(report)) < 8192);
+});
+test('absent or rejected launcher status cannot imply native success', () => {
+  for (const status of [null, '{}', '{"schema":1,"schema":1}', 'arbitrary-secret', false, 'x'.repeat(DIAGNOSTIC_LIMITS.status + 1)]) {
+    const report = summarizeDiagnostics(diagnosticInputs({ status }));
+    assert.notEqual(report.status_state, 'valid'); assert.equal(report.status, null);
+    assert.equal(report.native_passed, null); assert.equal(report.native_summary, null);
+    assert.equal(report.compiler_state, 'unavailable');
+  }
+});
+test('launcher status rejects unknown fields and untrusted scalar types', () => {
+  for (const override of [{ phase: 'secret-path' }, { compiler_exit: '0' }, { native_exit: 2147483648 }, { passed: 'true' }, { complete: 1 }, { cleanup_unverified_reason: 'secret' }, { failure_class: 'secret' }, { secret: 'never print' }]) {
+    const report = summarizeDiagnostics(diagnosticInputs({ status: JSON.stringify(diagnosticStatus(override)) }));
+    assert.equal(report.status_state, 'rejected'); assert.equal(report.status, null);
+    assert.doesNotMatch(JSON.stringify(report), /secret|never print/);
+  }
+});
+test('compiler errors export only fixed code and source line, never paths or messages', () => {
+  const report = summarizeDiagnostics(diagnosticInputs({
+    compiler_stdout: 'C:\\private\\secret\\winsock-probe.cpp(123,4): error C2065: sensitive contents\nLINK : fatal error LNK1120: sensitive symbol\nuntrusted arbitrary text\n',
+    compiler_stderr: 'C:\\private\\different.cpp(17): error C9999: not our source\n',
+  }));
+  assert.equal(report.compiler_state, 'scanned');
+  assert.deepEqual(report.compiler_errors, [{ code: 'C2065', line: 123 }, { code: 'LNK1120', line: null }]);
+  assert.doesNotMatch(JSON.stringify(report), /private|secret|sensitive|symbol|arbitrary|different/);
+});
+test('oversized or nontext compiler evidence is rejected and error counts are bounded', () => {
+  for (const text of ['x'.repeat(DIAGNOSTIC_LIMITS.compiler + 1), false, { message: 'secret' }]) {
+    const report = summarizeDiagnostics(diagnosticInputs({ compiler_stdout: text }));
+    assert.equal(report.compiler_state, 'rejected'); assert.deepEqual(report.compiler_errors, []);
+  }
+  const report = summarizeDiagnostics(diagnosticInputs({ compiler_stdout: 'winsock-probe.cpp(1): error C2065: secret\n'.repeat(30) }));
+  assert.equal(report.compiler_errors.length, 16); assert.equal(report.compiler_errors_truncated, true);
+});
+test('native diagnostics reject malformed, oversized or untrusted rows without echoing them', () => {
+  const good = sample();
+  const unknown = structuredClone(good); unknown[1].secret = 'do-not-print';
+  const stage = structuredClone(good); stage[1].stage = 'do-not-print';
+  const badHeader = structuredClone(good); badHeader[0].profile = 'do-not-print';
+  const badSummary = structuredClone(good); badSummary.at(-1).bytes_sent = 'do-not-print';
+  for (const native of ['bad json\n', 'x'.repeat(MAX_BYTES + 1), false, encode(unknown), encode(stage), encode(badHeader), encode(badSummary)]) {
+    const report = summarizeDiagnostics(diagnosticInputs({ native }));
+    assert.equal(report.native_state, 'rejected'); assert.equal(report.native_summary, null); assert.equal(report.native_passed, null);
+    assert.doesNotMatch(JSON.stringify(report), /do-not-print|bad json/);
+  }
+});
+test('native failures stay failures and expose only bounded ordinal stage error', () => {
+  const records = failedWrite();
+  const report = summarizeDiagnostics(diagnosticInputs({ native: encode(records), status: JSON.stringify(diagnosticStatus({ native_exit: 1, validator_exit: 1, passed: false })) }));
+  assert.equal(report.native_passed, false); assert.equal(report.status.passed, false);
+  assert.ok(report.native_failures.length > 0);
+  for (const failure of report.native_failures) assert.deepEqual(Object.keys(failure).sort(), ['error', 'id', 'stage']);
+  const many = structuredClone(records);
+  const failure = many.find(row => row.type === 'failure');
+  many.splice(-1, 0, ...Array.from({ length: 30 }, () => ({ ...failure })));
+  const bounded = summarizeDiagnostics(diagnosticInputs({ native: encode(many) }));
+  assert.equal(bounded.native_failures.length, 16); assert.equal(bounded.failures_truncated, true);
+  assert.equal(bounded.native_passed, null); assert.equal(bounded.native_state, 'shape-valid');
+});
+test('diagnostic validator explanations are fixed codes with bounded fields', () => {
+  const missing = sample(); missing.splice(index(missing, 'event-select-read-close'), 1); recount(missing);
+  const report = summarizeDiagnostics(diagnosticInputs({ native: encode(missing) }));
+  assert.equal(report.native_passed, null); assert.equal(report.native_state, 'shape-valid');
+  assert.deepEqual(report.validator_problem, { code: 'expected-stage', stage: 'event-select-read-close', id: 0 });
+  const counter = sample(); counter.at(-1).bytes_sent++;
+  assert.deepEqual(summarizeDiagnostics(diagnosticInputs({ native: encode(counter) })).validator_problem, { code: 'counter-mismatch', counter: 'bytes_sent' });
+});
+test('diagnostics reads only bounded regular evidence files', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pooled-diagnostics-'));
+  try {
+    assert.equal(readDiagnostics(directory).status_state, 'unavailable');
+    fs.writeFileSync(path.join(directory, 'status.json'), JSON.stringify(diagnosticStatus()));
+    fs.writeFileSync(path.join(directory, 'output.jsonl'), encode(sample()));
+    assert.equal(readDiagnostics(directory).native_passed, true);
+    fs.writeFileSync(path.join(directory, 'compiler.stdout.txt'), 'x'.repeat(DIAGNOSTIC_LIMITS.compiler + 1));
+    assert.equal(readDiagnostics(directory).compiler_state, 'rejected');
+    fs.writeFileSync(path.join(directory, 'status.json'), 'x'.repeat(DIAGNOSTIC_LIMITS.status + 1));
+    assert.equal(readDiagnostics(directory).status_state, 'rejected');
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+test('diagnostic CLI never weakens ordinary qualification mode or echoes missing paths', () => {
+  const script = fileURLToPath(new URL('./validate-output.mjs', import.meta.url));
+  const absent = path.join(os.tmpdir(), 'pooled-secret-missing-directory');
+  const report = spawnSync(process.execPath, [script, '--diagnostics', absent], { encoding: 'utf8' });
+  assert.equal(report.status, 0); assert.equal(report.stderr, ''); assert.doesNotMatch(report.stdout, /secret|missing-directory/);
+  assert.equal(JSON.parse(report.stdout).native_passed, null);
+  assert.equal(spawnSync(process.execPath, [script, absent], { encoding: 'utf8' }).status, 2);
+  const malformedArguments = spawnSync(process.execPath, [script, '--diagnostics'], { encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(malformedArguments.stdout), { type: 'pooled-diagnostics-unavailable', schema: 1, code: 'report-error' });
+});
+test('reporter is bounded and owned without changing the captured qualification exit', () => {
+  const report = launcher.slice(launcher.indexOf('# Reporting is separate'));
+  assert.match(report, /\$qualificationExit=0\s*if \(-not \$status\.complete -or -not \$status\.passed -or -not \$status\.child_cleanup_complete\) \{ \$qualificationExit=1 \}/);
+  assert.equal((report.match(/\$qualificationExit=/g) ?? []).length, 2);
+  assert.match(report, /\$reporter=Start-Process/); assert.match(report, /WaitForExit\(10000\)/);
+  assert.match(report, /\$reporter\.Kill\(\$true\)/); assert.match(report, /WaitForExit\(5000\)/);
+  assert.match(report, /\$reporter\.Dispose\(\)/); assert.match(report, /exit \$finalExit/);
+  assert.doesNotMatch(report, /Get-Content|Write-Output\s+\$_|throw \$_/);
+  assert.match(report, /RedirectStandardError/);
+});
+
+function assertReporterFailureGate(text) {
+  assert.match(text, /\$reporterHealthy=\(\$reporterLaunched -and -not \$reporterTimeout -and \$reporterCleanup -and \$reporterExit -eq 0\)/);
+  assert.match(text, /\$finalExit=\$qualificationExit\s*if \(-not \$reporterHealthy\) \{ \$finalExit=1 \}/);
+  assert.match(text, /qualification_exit=\$qualificationExit/);
+  assert.match(text, /final_exit=\$finalExit/);
+  assert.match(text, /exit \$finalExit\s*$/);
+}
+test('reporter failure adds failure without clearing the original native result', () => {
+  assertReporterFailureGate(launcher);
+  for (const altered of [
+    launcher.replace('exit $finalExit', 'exit $qualificationExit'),
+    launcher.replace('if (-not $reporterHealthy) { $finalExit=1 }', ''),
+    launcher.replace('-and -not $reporterTimeout ', ''),
+    launcher.replace('-and $reporterCleanup ', ''),
+    launcher.replace('$reporterLaunched -and ', ''),
+    launcher.replace('-and $reporterExit -eq 0', ''),
+  ]) assert.throws(() => assertReporterFailureGate(altered));
+});
+test('native pass cannot qualify with reporter timeout or unverified cleanup', () => {
+  assertReporterFailureGate(launcher);
+  const finalExit = (qualification, { launched = true, timeout = false, cleanup = true, exit = 0 } = {}) => {
+    const healthy = launched && !timeout && cleanup && exit === 0;
+    return healthy ? qualification : 1;
+  };
+  assert.equal(finalExit(0), 0); assert.equal(finalExit(1), 1);
+  for (const bad of [{ timeout: true }, { cleanup: false }, { launched: false }, { exit: null }, { exit: 1 }]) {
+    assert.equal(finalExit(0, bad), 1); assert.equal(finalExit(1, bad), 1);
+  }
 });

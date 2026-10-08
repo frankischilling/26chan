@@ -249,8 +249,116 @@ export function validateOutput(text) {
   return { header, summary, passed, error10055, reproduction: 'inconclusive' };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Diagnostic mode never participates in qualification. Only allowlisted scalar
+// evidence reaches the job log; original files and validator outcomes stay intact.
+export const DIAGNOSTIC_LIMITS = Object.freeze({ status: 8192, native: MAX_BYTES, compiler: 65536, failures: 16, compilerErrors: 16 });
+const phases = new Set(['initial', 'identity', 'toolchain', 'compile', 'listener-recheck', 'native', 'validate', 'finished']);
+const statusKeys = ['schema', 'phase', 'compiler_exit', 'native_exit', 'validator_exit', 'compiler_timeout', 'native_timeout', 'validator_timeout', 'child_cleanup_complete', 'process_tree_kill_attempted', 'cleanup_unverified_reason', 'failure_class', 'complete', 'passed'];
+const statusBooleans = ['compiler_timeout', 'native_timeout', 'validator_timeout', 'child_cleanup_complete', 'process_tree_kill_attempted', 'complete', 'passed'];
+const cleanupReasons = new Set(['compiler-timeout-descendants-unverified', 'forced-process-tree-cleanup-unverified']);
+export function summarizeDiagnostics(inputs) {
+  const report = { type: 'pooled-diagnostics', schema: 1, status_state: 'unavailable', status: null, native_state: 'unavailable', native_passed: null, native_summary: null, native_failures: [], failures_truncated: false, validator_problem: null, compiler_state: 'unavailable', compiler_errors: [], compiler_errors_truncated: false };
+  const bounded = (value, cap) => typeof value === 'string' && Buffer.byteLength(value) <= cap;
+  if (inputs.status !== null) {
+    try {
+      check(bounded(inputs.status, DIAGNOSTIC_LIMITS.status), 'status-size');
+      const value = parseLine(inputs.status.trim()); exact(value, statusKeys);
+      check(value.schema === 1 && phases.has(value.phase), 'status-phase');
+      for (const key of statusBooleans) check(typeof value[key] === 'boolean', 'status-boolean');
+      for (const key of ['compiler_exit', 'native_exit', 'validator_exit']) check(value[key] === null || (Number.isSafeInteger(value[key]) && value[key] >= -2147483648 && value[key] <= 2147483647), 'status-exit');
+      check(value.cleanup_unverified_reason === null || cleanupReasons.has(value.cleanup_unverified_reason), 'status-cleanup');
+      check(value.failure_class === null || [...phases].some(phase => value.failure_class === `${phase}-error`), 'status-failure');
+      report.status = Object.fromEntries(statusKeys.map(key => [key, value[key]])); report.status_state = 'valid';
+    } catch { report.status_state = 'rejected'; }
+  }
+  // Without a trustworthy launcher status, do not suggest any native outcome.
+  if (report.status_state !== 'valid') return report;
+  if (inputs.native !== null) {
+    try {
+      check(bounded(inputs.native, DIAGNOSTIC_LIMITS.native) && inputs.native.endsWith('\n'), 'native-size');
+      const lines = inputs.native.slice(0, -1).split('\n').map(line => line.endsWith('\r') ? line.slice(0, -1) : line);
+      check(lines.length >= 2 && lines.length <= 100000, 'native-lines');
+      const records = lines.map(parseLine); const header = records[0], summary = records.at(-1);
+      exact(header, ['type', 'schema', 'profile', 'exchanges', 'mode', 'batches', 'width', 'interval_ms', 'total_cap_ms', 'request']);
+      check(header.type === 'header' && header.schema === 2 && header.profile === 'pooled-event-overlapped' && ['plain', 'randomized'].includes(header.mode) && header.request === 'owned-readyz' && header.exchanges === 6 && header.width === 6 && header.interval_ms === 50 && header.total_cap_ms === 30000 && natural(header.batches, 128) && header.batches > 0, 'native-header');
+      exact(summary, summaryKeys); check(summary.type === 'summary' && typeof summary.complete === 'boolean', 'native-summary');
+      for (const key of summaryKeys.filter(key => !['type', 'complete'].includes(key))) check(natural(summary[key]), 'native-summary-number');
+      const failures = [];
+      for (const row of records.slice(1, -1)) {
+        exact(row, row?.type === 'operation' ? ['type', 'id', 'stage', 'result', 'error', 'ms'] : row?.type === 'option' ? ['type', 'id', 'value', 'length', 'ms'] : ['type', 'id', 'stage', 'error', 'ms']);
+        check(natural(row.id, 768) && natural(row.ms, 40000), 'native-row-range');
+        if (row.type === 'operation') check(stages.has(row.stage) && Number.isSafeInteger(row.result) && row.result >= -2147483648 && row.result <= 2147483647 && natural(row.error, 65535) && validResult(row), 'native-operation');
+        else if (row.type === 'failure') {
+          check(failureStages.has(row.stage) && natural(row.error, 65535) && row.error > 0, 'native-failure');
+          failures.push({ id: row.id, stage: row.stage, error: row.error });
+        } else if (row.type === 'option') check((row.value === null && row.length === null) || (typeof row.value === 'boolean' && Number.isInteger(row.length) && row.length >= -1 && row.length <= 65535), 'native-option');
+        else throw new Error('native-type');
+      }
+      report.native_summary = Object.fromEntries(summaryKeys.map(key => [key, summary[key]]));
+      report.native_failures = failures.slice(0, DIAGNOSTIC_LIMITS.failures);
+      report.failures_truncated = failures.length > DIAGNOSTIC_LIMITS.failures;
+      report.native_state = 'shape-valid';
+      try {
+        const validated = validateOutput(inputs.native);
+        report.native_state = 'validated'; report.native_passed = validated.passed;
+      } catch (error) {
+        const expected = /^Expected ([a-z-]+) for socket (\d{1,3})$/.exec(error.message);
+        const counter = /^Counter mismatch: ([a-z_]+)$/.exec(error.message);
+        if (expected && stages.has(expected[1]) && Number(expected[2]) <= 768) report.validator_problem = { code: 'expected-stage', stage: expected[1], id: Number(expected[2]) };
+        else if (counter && summaryKeys.includes(counter[1])) report.validator_problem = { code: 'counter-mismatch', counter: counter[1] };
+        else report.validator_problem = { code: 'evidence-rejected' };
+      }
+    } catch { report.native_state = 'rejected'; }
+  }
+  const compiler = [inputs.compiler_stdout, inputs.compiler_stderr];
+  if (compiler.some(value => value !== null)) {
+    if (compiler.some(value => value !== null && !bounded(value, DIAGNOSTIC_LIMITS.compiler))) report.compiler_state = 'rejected';
+    else {
+      const errors = [];
+      for (const text of compiler.filter(value => value !== null)) for (const line of text.split(/\r?\n/)) {
+        const source = /^(?:[^\r\n]*[\\/])?winsock-probe\.cpp\(([1-9]\d{0,5})(?:,\d{1,6})?\)\s*:\s*(?:fatal\s+)?error\s+(C\d{4})\s*:/.exec(line);
+        const linker = /^(?:LINK|[^\r\n]*\.(?:obj|exe))\s*:\s*(?:fatal\s+)?error\s+(LNK\d{4})\s*:/.exec(line);
+        if (source) errors.push({ code: source[2], line: Number(source[1]) });
+        else if (linker) errors.push({ code: linker[1], line: null });
+      }
+      report.compiler_state = 'scanned'; report.compiler_errors = errors.slice(0, DIAGNOSTIC_LIMITS.compilerErrors);
+      report.compiler_errors_truncated = errors.length > DIAGNOSTIC_LIMITS.compilerErrors;
+    }
+  }
+  return report;
+}
+function readDiagnosticFile(directory, name, limit) {
   try {
+    const file = new URL(name, directory);
+    const stat = fs.lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > limit) return false;
+    const descriptor = fs.openSync(file, 'r');
+    try {
+      const opened = fs.fstatSync(descriptor);
+      if (!opened.isFile() || opened.size > limit) return false;
+      const buffer = Buffer.alloc(limit + 1);
+      const length = fs.readSync(descriptor, buffer, 0, limit + 1, 0);
+      return length > limit ? false : buffer.subarray(0, length).toString('utf8');
+    } finally { fs.closeSync(descriptor); }
+  } catch { return null; }
+}
+export function readDiagnostics(directory) {
+  const base = pathToFileURL(`${directory.replace(/[\\/]$/, '')}/`);
+  return summarizeDiagnostics({
+    status: readDiagnosticFile(base, 'status.json', DIAGNOSTIC_LIMITS.status),
+    native: readDiagnosticFile(base, 'output.jsonl', DIAGNOSTIC_LIMITS.native),
+    compiler_stdout: readDiagnosticFile(base, 'compiler.stdout.txt', DIAGNOSTIC_LIMITS.compiler),
+    compiler_stderr: readDiagnosticFile(base, 'compiler.stderr.txt', DIAGNOSTIC_LIMITS.compiler),
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv[2] === '--diagnostics') {
+    try {
+      if (process.argv.length !== 4) throw new Error('diagnostic-arguments');
+      console.log(JSON.stringify(readDiagnostics(process.argv[3])));
+    } catch { console.log(JSON.stringify({ type: 'pooled-diagnostics-unavailable', schema: 1, code: 'report-error' })); }
+  } else try {
     if (process.argv.length !== 3) throw new Error('Usage: node validate-output.mjs output.jsonl');
     check(fs.statSync(process.argv[2]).size <= MAX_BYTES, 'Oversized output');
     const result = validateOutput(fs.readFileSync(process.argv[2], 'utf8'));

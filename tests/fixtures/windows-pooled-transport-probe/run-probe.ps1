@@ -94,6 +94,39 @@ try {
   }
   Save-EvidenceState
 }
-Write-Output ('Evidence directory: ' + $output)
-if (-not $status.complete -or -not $status.passed -or -not $status.child_cleanup_complete) { exit 1 }
-exit 0
+# Reporting is separate from qualification: preserve this original exit decision.
+$qualificationExit=0
+if (-not $status.complete -or -not $status.passed -or -not $status.child_cleanup_complete) { $qualificationExit=1 }
+$reporter=$null
+$reporterLaunched=$false
+$reporterExit=$null
+$reporterTimeout=$false
+$reporterCleanup=$true
+try {
+  $reportNode=Get-Command node.exe -ErrorAction Stop
+  $reportArgs=@(('"{0}"' -f (Join-Path $PSScriptRoot 'validate-output.mjs')),'--diagnostics',('"{0}"' -f $output))
+  # Only the fixed-schema reporter writes inherited stdout; arbitrary stderr is retained in the artifact.
+  $reporter=Start-Process -FilePath $reportNode.Source -ArgumentList $reportArgs -PassThru -NoNewWindow -RedirectStandardError (Join-Path $output 'diagnostic.stderr.txt')
+  $reporterLaunched=$true
+  if (-not $reporter.WaitForExit(10000)) { $reporterTimeout=$true; $reporterCleanup=$false }
+  else { $reporterExit=$reporter.ExitCode }
+} catch {
+  Write-Output '{"type":"pooled-diagnostics-unavailable","schema":1,"code":"reporter-launch-error"}'
+} finally {
+  if ($null -ne $reporter) {
+    try {
+      if (-not $reporter.HasExited) {
+        $reporterCleanup=$false
+        $reporter.Kill($true)
+        if (-not $reporter.WaitForExit(5000)) { throw 'Reporter root did not exit.' }
+      }
+      $reporterExit=$reporter.ExitCode
+      $reporter.Dispose()
+    } catch { $reporterCleanup=$false }
+  }
+  $reporterHealthy=($reporterLaunched -and -not $reporterTimeout -and $reporterCleanup -and $reporterExit -eq 0)
+  $finalExit=$qualificationExit
+  if (-not $reporterHealthy) { $finalExit=1 }
+  [ordered]@{ type='pooled-diagnostic-reporter'; schema=1; qualification_exit=$qualificationExit; exit=$reporterExit; launched=$reporterLaunched; timeout=$reporterTimeout; cleanup_complete=$reporterCleanup; final_exit=$finalExit } | ConvertTo-Json -Compress | Write-Output
+}
+exit $finalExit

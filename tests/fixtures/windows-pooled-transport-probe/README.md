@@ -117,6 +117,36 @@ records those paths separately. It accepts synchronous connect success, which
 the pinned Chromium implementation marks unexpected. One passing pair remains
 an inconclusive reproduction.
 
+## Bounded job-log diagnostics
+
+The launcher captures its original qualification exit code, then runs
+`node validate-output.mjs --diagnostics <evidence-directory>` as a separate owned
+reporter. Reporting cannot turn a failed run into a pass or change the captured
+qualification exit. The outer launcher also fails if the reporter cannot start,
+returns nonzero, times out, or has unverified cleanup. This can add a failure; it
+can never clear the original one. Both exit decisions appear in the fixed reporter
+record. The native 30-second work budget, 35-second cleanup window,
+40-second launcher deadline and all original checks remain unchanged. Reporting
+has its own 10-second deadline and a maximum 5-second root reap after a best-effort
+process-tree kill. Forced reporter cleanup is explicitly unverified.
+
+The reporter emits a fixed JSON record containing validated launcher booleans and
+exit codes, a bounded native summary, at most 16 native failure stage/error/socket
+ordinal records, and at most 16 MSVC error codes with source line numbers. Linker
+errors have a null source line. It strips paths, compiler messages and other
+arbitrary text. Launcher status is limited to 8 KiB, native evidence to 4 MiB,
+and each compiler stream to 64 KiB; reads are bounded and symlink files are
+rejected. Missing or rejected launcher status leaves every native outcome unknown.
+Malformed native evidence is never labeled a successful validation. A shape-valid
+but semantically rejected trace can expose safe counters and failure records,
+with a fixed validator-problem code, for diagnosis only.
+
+Raw reporter stderr remains in the evidence directory. A separate fixed record
+reports reporter exit, timeout and cleanup state; the hosted wrapper reports
+fixture cleanup. These records make a failing phase visible when artifact
+retrieval is unavailable. They do not reproduce the raw artifact, weaken normal
+validation, establish a cause for 10055, or replace retained failed evidence.
+
 ## Portable checks
 
 Run `node --test tests/fixtures/windows-pooled-transport-probe/validate-output.test.mjs`
