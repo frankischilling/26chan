@@ -1,3 +1,4 @@
+import { captureParsingRange } from './native-source-events.js';
 import { NativeUpdaterTransport } from '../static/native-filter.v1.js';
 import { NativeUpdaterSchedule } from './native-updater-schedule.js';
 import { useUpdaterTail } from './native-updater-tail.js';
@@ -5,17 +6,21 @@ import { notificationKind, notificationIcon } from './native-tracked-quotes.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { buildPostTree, checkPostTreeIds } from './native-post-tree.js';
 
-export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin, settings, applied, projection }) {
+export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin, settings, applied, projection, ready = () => true,
+  createTransport = context => new NativeUpdaterTransport(context) }) {
   const section = document.getElementById(`t${thread}`);
   if (!postId(thread) || !section || section.dataset.archived === 'true') return null;
-  const transport = new NativeUpdaterTransport({ board, thread, mediaOrigin });
+  const transport = createTransport({ board, thread, mediaOrigin });
   const controls = [], statuses = [], mobileLinks = [], autoInputs = [], soundControls = [];
   let busy = false, dead = false, stopped = false, generation = 0;
   let currentCycle = null;
   let lastQuickReply = null, postedTimer = null, postedPending = false;
   function requestPostedUpdate() {
     clearTimeout(postedTimer);
-    postedTimer = setTimeout(() => { if (!busy) { postedPending = false; void update(); } }, 500);
+    postedTimer = setTimeout(() => {
+      postedTimer = null;
+      if (!busy && ready() && !disabled() && !stopped) { postedPending = false; void update(); }
+    }, 500);
   }
   function posted(post, ready) {
     if (!postId(post)) return;
@@ -52,7 +57,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
     catch { /* Session preference is optional, never request authority. */ }
   }
   function toggleAuto() {
-    if (disabled() || stopped || dead || busy) { sync(); return; }
+    if (!ready() || disabled() || stopped || dead || busy) { sync(); return; }
     if (schedule.auto) { schedule.stop(); remember(false); status(''); setIcon(null); }
     else { hadAuto = true; schedule.start(); remember(true); }
     sync();
@@ -102,7 +107,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
   }
   function sync() {
     syncSound();
-    if (disabled() || stopped) {
+    if (!ready() || disabled() || stopped) {
       if (!wasDisabled) {
         generation++; currentCycle?.abort(); currentCycle = null; transport.cancel(); busy = false;
         schedule.suspend(); status('');
@@ -113,8 +118,9 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
       wasDisabled = false;
       if (wanted && !dead) { hadAuto = true; schedule.start(); remember(true); }
     }
+    if (ready() && !disabled() && !stopped && postedPending && postedTimer === null && !busy) requestPostedUpdate();
     for (const node of controls) { node.hidden = disabled(); node.setAttribute('aria-busy', String(busy)); }
-    for (const input of autoInputs) { input.checked = schedule.auto; input.disabled = busy || dead; }
+    for (const input of autoInputs) { input.checked = ready() ? schedule.auto : wanted; input.disabled = busy || dead || !ready(); }
     for (const { link, wrapper, anchor, group } of mobileLinks) {
       if (disabled() && wrapper.parentNode === group) anchor.after(wrapper);
       else if (!disabled() && wrapper.parentNode !== group) group.prepend(wrapper);
@@ -151,7 +157,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
     unread = 0; document.title = title; marker.classList.remove('newPostsMarker'); marker = null;
   }
   async function update(forced = true) {
-    if (disabled() || stopped || dead || busy) return;
+    if (!ready() || disabled() || stopped || dead || busy) return;
     const current = ++generation;
     const cycle = new AbortController(); currentCycle = cycle;
     let added = 0;
@@ -198,6 +204,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
         fragment.append(element);
       }
       section.append(fragment);
+      const parsing = captureParsingRange(section, -additions.length);
       let moved = 0;
       if (additions.length) {
         const offset = previous.offsetTop;
@@ -205,7 +212,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
         if (current !== generation || disabled() || stopped) return;
         moved = previous.offsetTop - offset;
       }
-      if (!section.isConnected || !document.getElementById(`pi${thread}`)) throw new Error('thread-removed');
+      if (!parsing.current() || !document.getElementById(`pi${thread}`)) throw new Error('thread-removed');
       // Feature integration needs live posts, but only its success commits
       // counts, policy and observable thread-state events. Cancellation removes
       // temporary posts immediately, even if a callback has not returned yet.
@@ -213,6 +220,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
       if (snapshot.tail_id === null) { tailSize = snapshot.tail_size; section.dataset.tailSize = String(tailSize); }
       added = additions.length; committed = true;
       if (fromQuickReply) lastQuickReply = null;
+      if (additions.length) parsing.emit();
       document.dispatchEvent(new Event('boardThreadStateChanged'));
       if (additions.length) {
         if (moved) window.scrollBy(0, moved);

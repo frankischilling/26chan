@@ -6,7 +6,7 @@
     "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki",
     "build:global-search": "node scripts/build-global-search.mjs",
     "check:global-search": "node scripts/build-global-search.mjs --check",
-    "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs && playwright test tests/browser/global-search.spec.js",
+    "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs tests/browser/global-search-response.test.mjs && playwright test tests/browser/global-search.spec.js",
     "test:posting-randomizers": "playwright test tests/browser/posting-randomizers.spec.js",
     "test:polls-core": "node --test tests/browser/polls-fixture.test.mjs",
     "test:polls": "npm run test:polls-core && playwright test tests/browser/polls.spec.js",
@@ -91,7 +91,9 @@
     "check:replay-worker-probe": "node tests/fixtures/replay-worker/build.mjs",
     "test:replay-worker-probe-core": "npm run check:replay-worker-probe && node --test tests/replay-worker/preparation.test.mjs",
     "test:replay-worker-probe": "npm run test:replay-worker-probe-core && npm run test:replay-worker-probe-state && playwright test --config playwright.replay-worker.config.js",
-    "test:replay-worker-probe-state": "node tests/fixtures/replay-worker/run-state.mjs"
+    "test:replay-worker-probe-state": "node tests/fixtures/replay-worker/run-state.mjs",
+    "test:source-parsing-core": "node --test tests/browser/native-source-events.test.mjs tests/browser/native-source-updater-readiness.test.mjs",
+    "test:source-parsing": "npm run check:native-thread-controls && npm run test:source-parsing-core && playwright test tests/browser/source-parsing-events.spec.js"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

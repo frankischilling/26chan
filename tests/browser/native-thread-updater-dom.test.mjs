@@ -29,11 +29,12 @@ test('updater application commits only a complete successful page integration', 
       await page.goto(`${origin}/test/thread/100`);
       await page.evaluate(async mode => {
         window.config = {}; window.events = []; window.mode = mode; window.integrations = 0;
-        for (const name of ['boardThreadStateChanged', '4chanThreadUpdated']) document.addEventListener(name, () => events.push(name));
+        for (const name of ['4chanParsingDone', 'boardThreadStateChanged', '4chanThreadUpdated']) document.addEventListener(name, () => events.push(name));
         const { mountNativeThreadUpdater } = await import('/static/native-thread-controls.v1.js');
         window.updater = mountNativeThreadUpdater({ board: 'test', thread: '100', worksafe: true, mediaOrigin: '', settings: () => config,
           applied: async (_snapshot, signal) => {
             integrations++;
+            if (window.mode === 'replace') document.getElementById('pc102').replaceWith(document.getElementById('pc102').cloneNode(true));
             if (window.mode === 'fail') throw new Error('owned filter rejection');
             if (window.mode === 'hold') await new Promise(resolve => { window.complete = resolve; window.heldSignal = signal; });
           },
@@ -70,12 +71,17 @@ test('updater application commits only a complete successful page integration', 
         assert.deepEqual(await state(), original);
       } finally { await context.close(); }
     });
+    await t.test('a callback replacing the inserted range cannot publish completion', async () => {
+      const { context, page } = await setup('replace');
+      try { await page.evaluate(() => updater.update()); assert.deepEqual(await page.evaluate(() => events), []); }
+      finally { await context.close(); }
+    });
     await t.test('a successful callback commits the new metadata and emits each public event once', async () => {
       const { context, page, state } = await setup('pass');
       try {
         await page.evaluate(() => updater.update());
         assert.deepEqual(await state(), { ...original, ids: ['pc100', 'pc101', 'pc102'], tail: '1', closed: 'true', sticky: 'true', disabled: true,
-          events: ['boardThreadStateChanged', '4chanThreadUpdated'] });
+          events: ['4chanParsingDone', 'boardThreadStateChanged', '4chanThreadUpdated'] });
         assert.equal(await page.evaluate(() => integrations), 1);
       } finally { await context.close(); }
     });
