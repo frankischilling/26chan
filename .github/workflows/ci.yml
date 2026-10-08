@@ -267,6 +267,8 @@ jobs:
         run: sudo bash scripts/test-ordinary-staff-post-migration.sh
       - name: Upgrade staff spoiler controls while preserving subjects, files and privacy
         run: sudo bash scripts/test-staff-spoiler-migration.sh
+      - name: Upgrade Robot9000 cleanup without rewriting originality history
+        run: sudo bash scripts/test-robot9000-cleanup-migration.sh
       - name: Upgrade existing thread options with scoped staff Undead control
         run: sudo bash scripts/test-staff-thread-options-migration.sh
       - name: Upgrade public spoiler selection without rewriting history or granting state mutation

@@ -238,6 +238,108 @@ test('public spoiler policy controls Quick Reply and forged text choices on desk
   }
 });
 
+test('Robot9000 cleanup is scoped, script-free, batched and preserves recent history and mutes', async ({ page, context }) => {
+  const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
+  const invitationDir = path.resolve(`.local/staff-cleanup-browser-${board}`);
+  const invitationFile = path.join(invitationDir, 'invitation.txt');
+  const data = fixture('setup', board);
+  const mediaRoot = path.resolve(`.local/staff-media-${board}`);
+  const cdp = await context.newCDPSession(page);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  try {
+    expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+    fixture('robot9000-seed', board);
+    const initial = fixture('robot9000-inspect', board);
+    expect(initial).toMatchObject({ texts: 1008, old: 1007, recent: 1, audit: [] });
+    expect(initial.mutes).toHaveLength(1);
+    run('staff-operator', ['provision', board, 'janitor', invitationFile]);
+    run('staff-operator', ['scope', board, board, '-']);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+    await page.goto('/');
+    await page.getByLabel('Invitation', { exact: true }).fill(readFileSync(invitationFile, 'utf8').trim());
+    await page.getByRole('button', { name: 'Enroll passkey' }).click();
+    await expect(page.getByRole('status')).toHaveText('Passkey enrolled. Sign in with your account.');
+    const login = async () => {
+      await page.goto('/');
+      await page.getByLabel('Account', { exact: true }).fill(board);
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await expect(page).toHaveURL(/\/reports$/);
+    };
+    const review = page.getByRole('button', { name: 'Review originality cleanup', exact: true });
+    const denyCleanup = async () => {
+      await expect(review).toHaveCount(0);
+      expect((await page.request.get(`/robot9000-cleanup?board=${board}`)).status()).toBe(403);
+      const csrf = await page.locator('input[name=csrf]').first().inputValue();
+      expect((await page.request.post('/robot9000-cleanup', {
+        headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' },
+        form: { csrf, board },
+      })).status()).toBe(403);
+      expect(fixture('robot9000-inspect', board)).toEqual(initial);
+    };
+    await login();
+    await denyCleanup();
+    run('staff-operator', ['role', board, 'moderator']);
+    await login();
+    await denyCleanup();
+    // A developer flag only grants cleanup when it is global, not board-scoped.
+    run('staff-operator', ['flags', board, 'developer']);
+    await login();
+    await denyCleanup();
+    run('staff-operator', ['scope', board, 'all', '-']);
+    await login();
+    await expect(review).toBeVisible();
+    expect((await page.request.get(`/robot9000-cleanup?board=${board}`)).status()).toBe(200);
+    expect(fixture('robot9000-inspect', board)).toEqual(initial);
+    run('staff-operator', ['scope', board, 'all', 'noboard']);
+    await login();
+    await denyCleanup();
+    // A scoped manager needs no developer flag and uses the real queue form.
+    run('staff-operator', ['role', board, 'manager']);
+    run('staff-operator', ['flags', board, '-']);
+    run('staff-operator', ['scope', board, board, '-']);
+    await login();
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await page.reload();
+    await page.getByLabel('Originality cleanup board', { exact: true }).fill(board);
+    await review.click();
+    await expect(page).toHaveURL(new RegExp(`/robot9000-cleanup\\?board=${board}$`));
+    await expect(page.getByRole('heading', { name: `Originality history cleanup: /${board}/`, exact: true })).toBeVisible();
+    await expect(page.locator('form')).toHaveAttribute('method', 'post');
+    await expect(page.locator('form')).toHaveAttribute('action', '/robot9000-cleanup');
+    await expect(page.locator('input[name=board]')).toHaveValue(board);
+    expect(fixture('robot9000-inspect', board)).toEqual(initial);
+    const batch = async (removed, remaining, audit) => {
+      const [response] = await Promise.all([
+        page.waitForResponse(response => response.url() === 'http://localhost:3001/robot9000-cleanup' && response.request().method() === 'POST'),
+        page.getByRole('button', { name: 'Remove expired originality history', exact: true }).click(),
+      ]);
+      expect(response.status()).toBe(200);
+      const submitted = new URLSearchParams(response.request().postData());
+      expect([...submitted.keys()].sort()).toEqual(['board', 'csrf']);
+      expect(submitted.get('board')).toBe(board);
+      expect(submitted.get('csrf')).toBeTruthy();
+      await expect(page.getByRole('status')).toContainText(`Removed ${removed} originality records before`);
+      await expect(page.getByText(remaining ? 'More eligible records remain. Submit another batch to continue.' : "No eligible records remain at this batch's cutoff.", { exact: true })).toBeVisible();
+      expect(fixture('robot9000-inspect', board)).toEqual({ texts: remaining + 1, old: remaining, recent: 1, mutes: initial.mutes, audit });
+    };
+    await batch(1000, 7, [1000]);
+    await batch(7, 0, [1000, 7]);
+    await batch(0, 0, [1000, 7, 0]);
+    expect(errors).toEqual([]);
+  } finally {
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+    fixture('cleanup', board);
+    const privateRoot = path.resolve('.local');
+    for (const [directory, leaf] of [[invitationDir, `staff-cleanup-browser-${board}`], [mediaRoot, `staff-media-${board}`]]) {
+      if (path.dirname(directory) !== privateRoot || lstatSync(directory).isSymbolicLink()
+          || realpathSync(directory) !== path.join(realpathSync(privateRoot), leaf)) throw new Error('Invalid Robot9000 cleanup fixture path');
+      rmSync(directory, { recursive: true });
+    }
+  }
+});
+
 test('ordinary staff posts keep public IDs, flags, live filtering and password deletion for every rank', async ({ page, context }) => {
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const invitationDir = path.resolve(`.local/staff-ordinary-browser-${board}`);

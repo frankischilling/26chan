@@ -167,6 +167,12 @@ impl Permissions {
             && self.deny_boards.is_empty()
     }
 
+    /// Source adminvalid('Board Cleanup'): board scope, moderator floor, then
+    /// manager rank or the global developer flag. Developer is not a rank.
+    pub fn can_cleanup_robot9000(&self, role: &str, board: &str) -> bool {
+        self.allows(board) && self.can_set_permaage(role)
+    }
+
     pub fn can_set_permaage(&self, role: &str) -> bool {
         Level::parse(role).is_some_and(|level| {
             level >= Level::Moderator
@@ -195,6 +201,40 @@ impl Permissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cleanup_matches_source_permission_matrix() {
+        #[derive(serde::Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Case {
+            role: String,
+            allow: Vec<String>,
+            deny: Vec<String>,
+            flags: Vec<String>,
+            allowed: bool,
+        }
+        let fixture: Fixture =
+            serde_json::from_str(include_str!("../tests/fixtures/robot9000-cleanup.json")).unwrap();
+        assert_eq!(fixture.cases.len(), 96);
+        for case in fixture.cases {
+            let permissions = Permissions {
+                allow_boards: case.allow,
+                deny_boards: case.deny,
+                flags: case.flags,
+            };
+            assert_eq!(
+                permissions.can_cleanup_robot9000(&case.role, "r9k"),
+                case.allowed,
+                "{} {:?}",
+                case.role,
+                permissions
+            );
+        }
+        assert!(!Permissions::all_boards().can_cleanup_robot9000("unknown", "r9k"));
+    }
 
     #[test]
     fn reporter_clear_requires_global_moderator_authority_without_denies() {

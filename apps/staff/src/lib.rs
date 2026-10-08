@@ -9,6 +9,7 @@ mod latest;
 mod posting_password;
 mod report_group_clear;
 mod reporter_clear;
+mod robot9000_cleanup;
 pub mod store;
 mod thread_options;
 mod uploads;
@@ -148,6 +149,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
+        .route(
+            "/robot9000-cleanup",
+            get(robot9000_cleanup::show)
+                .post(robot9000_cleanup::submit)
+                .layer(DefaultBodyLimit::max(4096)),
+        )
         .route("/reports/cleared", get(report_group_clear::history))
         .route(
             "/report-group-clear",
