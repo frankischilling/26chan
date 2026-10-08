@@ -1039,11 +1039,17 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     }
   };
   const bootstrap = catalogMainBootstrap(document.getElementById('watcher-context'));
-  if (bootstrap) bootstrap.preferences({
-    current: () => !preferenceDestroyed && form.isConnected && container?.isConnected
-      && document.getElementById('ctrl') === form && document.getElementById('threads') === container
-      && [order, size, teaser, reset].every(control => form.contains(control)), prepare: prepareCatalog, load: loadCatalog,
-  });
+  if (bootstrap) {
+    bootstrap.preferences({
+      current: () => !preferenceDestroyed && form.isConnected && container?.isConnected
+        && document.getElementById('ctrl') === form && document.getElementById('threads') === container
+        && [order, size, teaser, reset].every(control => form.contains(control)), prepare: prepareCatalog, load: loadCatalog,
+    });
+    // The module map shares the page's existing watcher load. Its actual
+    // rejection supplies the optional-UI failure continuation; public events
+    // cannot release this private gate. There is no transport retry.
+    void import('./thread-watcher.v1.js').catch(() => { void bootstrap.settings(() => null); });
+  }
   else if (prepareCatalog()) loadCatalog(); // Standalone controls have no page-init event.
 
 })();

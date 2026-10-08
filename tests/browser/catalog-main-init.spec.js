@@ -144,20 +144,26 @@ for (const interrupted of [false, true]) test(`synchronous MainInit control chan
   expect(errors).toEqual([]);
 });
 
-test('a failed watcher leaves GET Apply, Enter search and Reset available', async ({ page }) => {
-  await listen(page); await page.route('**/static/thread-watcher.v1.js', route => route.abort());
+test('a failed optional watcher leaves native catalog display, Enter search and Reset available', async ({ page }) => {
+  await listen(page, { noSession: true }); await page.route('**/static/thread-watcher.v1.js', route => route.abort());
   await page.goto('/fixture/catalog'); await page.waitForFunction(() => catalogControlsBound);
-  await expect(page.locator('.catalogApplyFallback')).toBeVisible();
+  await expect(page.locator('#ctrl')).toHaveClass(/nativeCatalogControls/);
+  await expect(page.locator('#qf-ctrl')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => catalogInitTrace.length)).toBe(1);
+  const initialCount = await page.locator('#threads > .thread').count();
   await page.locator('#order-ctrl').selectOption('r');
+  await page.locator('#qf-ctrl').click();
   await page.locator('#qf-box').fill('fallback query');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await page.locator('#qf-box').press('Enter');
   await expect(page).toHaveURL(/order=r/); await expect(page).toHaveURL(/q=fallback/);
-  await expect(page.locator('.catalogApplyFallback')).toBeVisible();
+  await expect(page.locator('#threads > .thread')).toHaveCount(0);
   await page.locator('#qf-box').fill('enter query'); await page.locator('#qf-box').press('Enter');
   await expect(page).toHaveURL(/q=enter/);
   await page.getByRole('link', { name: 'Reset', exact: true }).click();
-  await expect(page).toHaveURL(/\/fixture\/catalog$/);
-  expect(await page.evaluate(() => catalogInitTrace)).toEqual([]);
+  await expect(page).toHaveURL(/\/fixture\/catalog\?order=alt&size=small&teaser=on$/);
+  await expect(page.locator('#threads > .thread')).toHaveCount(initialCount);
+  await expect(page.locator('#qf-box')).toHaveValue('');
+  expect(await page.evaluate(() => catalogInitTrace.length)).toBe(1);
 });
 
 test('a MainInit spoiler choice renders without a session query or another display change', async ({ page }) => {

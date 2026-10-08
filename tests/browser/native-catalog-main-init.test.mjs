@@ -13,7 +13,7 @@ function fixture() {
   let observer;
   window.MutationObserver = class { constructor(callback) { observer = callback; } observe() {} disconnect() {} };
   document.defaultView = window; document.body = {};
-  const root = { ownerDocument: document, isConnected: true, dataset: { catalog: 'true' } };
+  const root = { ownerDocument: document, isConnected: true, dataset: { catalog: 'true', board: 'fixture' } };
   let canonical = root;
   document.getElementById = () => canonical;
   document.createEvent = kind => {
@@ -66,6 +66,12 @@ for (const stored of [null, { orderby: 'r', large: true, extended: false }]) {
     assert.ok(snippets.catalog_load.indexOf('loadFilters()') < snippets.catalog_load.indexOf('buildThreads()'));
   });
 }
+
+test('unsupported standalone catalog identifiers do not wait for a watcher owner', () => {
+  for (const board of ['text-catalog', 'preview-pages', '', 'j/']) {
+    assert.equal(catalogMainBootstrap({ dataset: { board } }), null);
+  }
+});
 
 test('the private owners rendezvous once; settings and controls precede notification and load', async () => {
   const h = fixture(), ready = deferred();

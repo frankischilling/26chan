@@ -92,6 +92,13 @@ is then applied and saved. Typed search text is also retained, including an expl
 empty query that clears the previous session search. A queued spoiler choice
 triggers thumbnail rendering even when no other preference changed.
 An optional settings-controller failure leaves basic catalog controls usable.
+The catalog owner observes the watcher's existing module load through the module
+map. A rejected optional load continues catalog preparation without a Settings
+controller; it does not retry transport or rely on a public readiness event.
+The pinned `catalog.php` caller runs `fourcat.init()` and `loadCatalog()`
+independently, and `catalog.js` dispatches MainInit from its own initializer.
+Standalone synthetic identifiers that the watcher cannot accept retain their
+independent controls instead of waiting for an owner that cannot start.
 If an essential catalog module cannot load, server-rendered GET controls remain
 available without a MainInit notification. Invalid catalog snapshots retain their
 existing fallback and do not announce an applied-preferences boundary.
@@ -162,9 +169,33 @@ an isolated queued spoiler change, and an explicitly cleared pending search.
 unavailable preferences, disabled extensions, empty and text catalogs, delayed
 watcher startup, listener interruption, and an essential module failure. It also
 checks early display/search interaction, synchronous MainInit control changes,
-and a failed watcher module with working GET Apply, Enter search and Reset.
+and a failed optional watcher module with working native display, Enter search
+and Reset. A missing essential catalog module retains the GET fallback.
 Separate cases cover an isolated MainInit spoiler choice and clearing a pending
 search. These browser cases have only been syntax-checked in this checkout.
 Playwright's configured Chromium executable is absent, and the production suite
 requires its Cargo server and database setup. Browser execution remains pending;
 no previous workspace result is treated as a pass for these reconstructed files.
+
+## Windows catalog repair, October 8, 2026
+
+The current Windows checkout has the pinned Chromium runtime. A targeted run
+reproduced four hosted failures: blocked watcher startup in two catalogs,
+text-catalog menus and preview-page pinning. The mobile textarea shortcut case
+passed. After the repair, all five scenarios passed against the actual visual
+fixture server, including the existing menu screenshot. No baseline changed.
+
+All 48 source-parsing/MainInit Node tests, the source extractor, generated-asset
+checks, changed JavaScript syntax and diff checks passed. The broader page
+suite requires the real development database and browser fixture; an initial
+visual-server invocation was stopped because it lacked those page routes and
+is not counted as validation. The owned PostgreSQL 16 roles, migrations and
+seed were then installed for database-backed page qualification.
+
+After building the `browser-tests` fixture, all 18 cases in
+`npx playwright test --config playwright.config.js tests/browser/catalog-main-init.spec.js`
+passed on Windows against that migrated database and the actual public server.
+The failed-watcher test starts without a restored session query, checks native
+search, restores the initial thread count and requires the exact default display
+URL after Reset. The essential-module test still requires the GET fallback and
+no MainInit event. Fresh hosted qualification remains required before merge.

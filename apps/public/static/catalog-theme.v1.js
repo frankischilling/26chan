@@ -1,11 +1,14 @@
 import { readCatalogTheme, writeCatalogTheme, catalogDropDownEnabled, CATALOG_THEME_LIMITS } from './native-settings.v1.js';
 import { NativeWatchLock } from './native-filter.v1.js';
+import { watchKey } from './thread-watcher-core.v1.js';
 
 // Private rendezvous for the two catalog owners. Public events and DOM flags
 // never complete this gate. Its identity is the original, canonical page root.
 const catalogBootstraps = new WeakMap();
 export function catalogMainBootstrap(root) {
-  if (!root) return null;
+  // Standalone fixtures can have identifiers the watcher cannot initialize.
+  // Their catalog controls must not wait for an owner that will never start.
+  if (!root || !watchKey(root.dataset.board, '1')) return null;
   if (catalogBootstraps.has(root)) return catalogBootstraps.get(root);
   const document = root.ownerDocument, window = document.defaultView;
   let preferences, settings, started = false, retired = false, suspended = false;
