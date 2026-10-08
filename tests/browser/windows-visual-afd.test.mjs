@@ -49,7 +49,9 @@ test('CI retains only summary JSON; wrapper preserves command and cleanup hook',
   assert.ok(!/logman (create|start|stop|delete)/.test(script));
   assert.match(script, /ReparsePoint/);
   assert.ok(!script.includes('Remove-Item'));
-  assert.match(script, /npm run test:themes -- --shard "\$env:THEME_SHARD\/4" --output "test-results\/windows-themes-\$env:THEME_SHARD"\s+\$testExit = \$LASTEXITCODE/);
+  assert.match(script, /npm run test:themes -- --shard "\$env:THEME_SHARD\/8" --output "test-results\/windows-themes-\$env:THEME_SHARD"\s+\$testExit = \$LASTEXITCODE/);
+  assert.ok(script.includes("$env:THEME_SHARD -match '^[1-8]$'"));
+  assert.match(ci, /shard: \[1, 2, 3, 4, 5, 6, 7, 8\]/);
   assert.match(script, /exit \$testExit/);
   assert.match(ci, /Clean owned private Windows AFD manifest inspection\s+if: always\(\)/);
   assert.match(ci, /test-results\/windows-afd\/summary.json/);

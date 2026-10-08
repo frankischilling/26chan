@@ -103,8 +103,10 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   expect(await page.evaluate(() => window.alternateExecuted)).toBe(true);
   expect(alternateRequests).toBe(1);
   const script = page.waitForResponse(response => response.url().endsWith('/static/catalog-preferences.v1.js'));
+  const deletionScript = page.waitForResponse(response => response.url().endsWith('/static/native-post-deletion.v1.js'));
   const response = await page.goto(catalog);
   expect((await script).status()).toBe(200);
+  expect((await deletionScript).status()).toBe(200);
   const pageScripts = [
     'http://127.0.0.1:3000/static/thread-watcher.v1.js',
     'http://127.0.0.1:3000/static/thread-watcher-core.v1.js',
@@ -126,6 +128,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/native-settings-transfer.v1.js',
     'http://127.0.0.1:3000/static/native-quick-reply.v1.js',
     'http://127.0.0.1:3000/static/page-chrome.v1.js',
+    'http://127.0.0.1:3000/static/native-post-deletion.v1.js',
   ];
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
     'http://127.0.0.1:3000/static/catalog-preferences.v1.js',

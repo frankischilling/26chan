@@ -93,3 +93,37 @@ The viewport fixture now checks its existing failed-stylesheet collection before
 pixel comparison, making transport failure explicit. Expected pixels, retries
 and timeouts are unchanged. This improves diagnosis and does not fix the
 unidentified Windows resource condition.
+
+## Bounded workload isolation experiment
+
+Build `37712005765` failed Windows theme shard 3 twice: the original run lost
+the document connection, and its single unchanged rerun lost `/static/theme.css`
+while the document and other assets loaded. Both retained NetLogs show Windows
+10055 and Chromium -176 before an HTTP response on the affected connection.
+The cases occupied positions 289 and 269 of the 384-test shard. Other connects
+succeeded immediately around the second failure. This does not establish an
+exhausted resource, a cumulative threshold or an operating-system fix.
+
+The next isolation experiment uses eight fresh runners and makes only the
+independent file-state, page-chrome and viewport reference matrices shardable
+at the test level. One worker, zero retries, all assertions, original timeouts
+and the four-NetLog-file limit per shard remain unchanged. Lifecycle suites
+keep their existing grouping. Merely doubling the old file-level shard count
+left the failing 384-test workload intact and produced three empty shards.
+
+Run `node scripts/check-windows-theme-shards.mjs` on Linux or Windows to discover
+the complete suite and each shard without starting a browser or fixture server.
+The guard compares the exact relative-file/project/full-title identity union
+against current unsharded discovery, rejecting focused (`test.only`), missing,
+extra, duplicated or skipped cases, fail/slow annotations and empty shards.
+It checks project-level retry configuration; current theme sources were also
+reviewed to contain no per-suite retry overrides, which the JSON reporter omits.
+Every runner performs this preflight before building its fixture. Each shard
+must contain at most 160 tests; growth
+above that ceiling requires reviewing the partition, never silently filtering
+tests. The current 1,185 cases partition as 152, 145, 148, 148, 148, 148, 148, 148.
+
+This doubles runner setup and fixture-build instances from four to eight while
+reducing each browser/server workload. Maximum retained NetLog capacity is still
+48 MiB per shard, now 384 MiB across eight shards. Discovery is scheduling
+evidence only; actual Windows browser execution must qualify the experiment.

@@ -2,6 +2,9 @@ import { test, expect } from '../helpers/visual-diagnostics.js';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
+// Independent reference rows may span CI shards; the suite still uses one worker.
+test.describe.configure({ mode: 'parallel' });
+
 const reference = JSON.parse(await readFile(new URL('../../docs/public-file-states-reference.json', import.meta.url)));
 assert.equal(reference.browser, '151.0.7922.34');
 assert.equal(reference.states.length, 20);

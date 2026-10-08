@@ -17,7 +17,7 @@ async function unlinkedDirectory(directory) {
 
 export const NETLOG_CAPTURE_MIB = 8;
 export const NETLOG_ARTIFACT_BYTES = 12 * 1024 * 1024;
-// Four existing theme shards: at most 16 accepted logs / 192 MiB per job.
+// At most four accepted logs / 48 MiB per shard; eight shards total 32 / 384 MiB.
 export const NETLOG_FILES_PER_SHARD = 4;
 
 export function visualNetlogEnabled(platform, env) {

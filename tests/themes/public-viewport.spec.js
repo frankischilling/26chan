@@ -2,6 +2,9 @@ import { test, expect } from '../helpers/visual-diagnostics.js';
 import { readFile } from 'node:fs/promises';
 import { screenshotPixel } from '../../scripts/viewport-pixels.mjs';
 
+// Independent reference rows may span CI shards; the suite still uses one worker.
+test.describe.configure({ mode: 'parallel' });
+
 const reference = JSON.parse(await readFile(new URL('../../docs/public-viewport-reference.json', import.meta.url)));
 const origin = 'http://127.0.0.1:3000';
 for (const row of reference.cases) {

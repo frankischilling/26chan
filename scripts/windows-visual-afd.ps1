@@ -17,7 +17,7 @@ $PSNativeCommandUseErrorActionPreference = $false
 $root = $null
 $diagnostic = $null
 $testExit = 1
-$statePath = if ($env:RUNNER_TEMP -and $env:THEME_SHARD -match '^[1-4]$') {
+$statePath = if ($env:RUNNER_TEMP -and $env:THEME_SHARD -match '^[1-8]$') {
     Join-Path $env:RUNNER_TEMP ('paperboard-afd-manifest-owned-' + $env:THEME_SHARD + '.json')
 } else { $null }
 function Test-RegularPath([string]$Path) {
@@ -216,7 +216,7 @@ try {
         if ((Get-Item -LiteralPath $resultPath).Length -gt 65536) { throw 'Metadata limit' }
         $diagnostic = [IO.File]::ReadAllText($resultPath)
     } catch { Write-Output 'AFD manifest inspection unavailable; continuing the unchanged theme command.' }
-    npm run test:themes -- --shard "$env:THEME_SHARD/4" --output "test-results/windows-themes-$env:THEME_SHARD"
+    npm run test:themes -- --shard "$env:THEME_SHARD/8" --output "test-results/windows-themes-$env:THEME_SHARD"
     $testExit = $LASTEXITCODE
 } finally {
     # Inspection failures must never replace the saved theme result.

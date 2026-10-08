@@ -544,7 +544,7 @@ jobs:
         run: npm run test:media-visual
       - name: Verify bounded Chromium NetLog diagnostics
         shell: pwsh
-        run: node --test tests/helpers/visual-netlog.test.mjs tests/browser/windows-visual-afd.test.mjs
+        run: node --test tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/browser/windows-visual-afd.test.mjs
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
@@ -574,15 +574,15 @@ jobs:
         run: |
           if ($env:THEMES_RESULT -ne 'success') { throw "Windows theme shards did not all succeed: $env:THEMES_RESULT" }
   visual-windows-themes:
-    # Isolation experiment: a fresh standard runner per existing shard avoids
-    # carrying earlier browser/socket activity into later shards. This does not
-    # establish the cause of WSAENOBUFS or change any assertion or timeout.
+    # Measured isolation experiment: split three independent reference matrices
+    # across fresh runners, with one worker and no retries. Discovery caps each
+    # workload at 160 tests; the underlying Windows socket cause remains unknown.
     runs-on: windows-2025
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -615,6 +615,9 @@ jobs:
           npm ci --ignore-scripts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npx playwright install chromium
+      - name: Verify exact Windows theme shard coverage
+        shell: pwsh
+        run: node scripts/check-windows-theme-shards.mjs
       - name: Build visual fixture before the server startup deadline
         shell: pwsh
         run: cargo build -p board-public --example visual-fixtures --locked
