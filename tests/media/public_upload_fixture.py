@@ -57,6 +57,8 @@ class PublicUpload:
         self.created = False
         self.browser = None
         self.filenames = []
+        self.completed_jobs = []
+        self._public_identity = None
         self.drawing_upload = None
 
     def setup(self):
@@ -72,6 +74,7 @@ class PublicUpload:
             edge = grp.getgrnam('board-edge')
         assert edge.gr_gid != 0
         assert public.pw_uid not in (0, f.intake_user.pw_uid, f.coordinator.pw_uid, f.http_user.pw_uid)
+        self._public_identity = (public.pw_uid, edge.gr_gid)
         shutil.copyfile(f.binaries / 'board-public', f.bin / 'board-public')
         (f.bin / 'board-public').chmod(0o755)
         with socket.socket() as sock:
@@ -182,9 +185,49 @@ class PublicUpload:
         # cannot remove this board's cross-board OP cooldown. End the completed
         # host workflow with the same exact actor-and-owned-board scoped reset.
         self.reset_posting_history()
+        self.restart_for_drawing()
         from public_drawing_fixture import PublicDrawingUpload
         self.drawing_upload = PublicDrawingUpload(self)
         self.drawing_upload.exercise()
+
+    def restart_for_drawing(self):
+        # Each browser batch owns the same loopback write-budget bucket. Start
+        # drawing with a fresh instance of only this disposable public service,
+        # after every preceding browser, dispatch and reconcile has completed.
+        # Keep the configured 60/minute limit and production policy unchanged.
+        assert self.installed and self.created and self.board == self._owned_board
+        assert self.drawing_upload is None
+        assert self._public_identity and all(isinstance(value, int) and value > 0 for value in self._public_identity)
+        token = self.f.root.name.removeprefix('26chan-dispatch-')
+        assert re.fullmatch('[a-z0-9_]{8}', token)
+        assert self.unit.name == f'paperboard-dispatch-qualification-{token}-public.service'
+        assert self.unit in self.f.processes
+        path = pathlib.Path('/run/systemd/system') / self.unit.name
+        assert path in self.f.unit_files and path.read_bytes() == self.f.unit_files[path]
+        assert len(self.filenames) == len(set(self.filenames)) == 9
+        assert len(self.completed_jobs) == len(set(self.completed_jobs)) == 9
+        assert all(HEX.fullmatch(job) and job in self.f.ids for job in self.completed_jobs)
+        assert all(re.fullmatch(r'public-upload-' + self.board + r'\.[a-z.-]+', name) for name in self.filenames)
+        assert self.browser is not None and self.browser.poll() == 0, 'previous upload browser is not complete'
+        names = ','.join("'" + name + "'" for name in self.filenames)
+        jobs = ','.join("'" + job + "'" for job in self.completed_jobs)
+        assert sql(f"SELECT count(*)=9 AND bool_and(state='published' AND id IN ({jobs})) FROM media.jobs WHERE filename IN ({names});") == 't', 'previous upload jobs are not complete'
+        self.f.clean_vm()
+        previous = self.unit.state()
+        assert previous['ActiveState'] == 'active' and re.fullmatch('[a-f0-9]{32}', previous['InvocationID'])
+        systemctl('restart', self.unit.name, timeout=35)
+        wait_until(self.ready)
+        current = self.unit.state()
+        assert current['ActiveState'] == 'active' and re.fullmatch('[a-f0-9]{32}', current['InvocationID'])
+        assert current['InvocationID'] != previous['InvocationID'], 'public service did not start a fresh invocation'
+        pid = int(current['MainPID'])
+        assert pid > 0
+        status = pathlib.Path(f'/proc/{pid}/status').read_text()
+        ids = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
+        uid, gid = self._public_identity
+        assert set(map(int, ids['Uid'].split())) == {uid}
+        assert set(map(int, ids['Gid'].split())) == {gid}
+        self.browser = None
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
         self.reset_deletion_quota()
@@ -243,6 +286,7 @@ class PublicUpload:
         assert sql(f"SELECT count(*) FROM content.post_media WHERE asset_id='{asset}' AND file_deleted;") == '1'
         assert f.http(f'/media/{asset}.png')[0] == 404
         assert f.http(f'/media/{asset}.thumb.png')[0] == 404
+        self.completed_jobs.append(job)
         print(f'PASS {suffix}: real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
 
     def cleanup(self):
