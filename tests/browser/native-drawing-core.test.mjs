@@ -317,3 +317,24 @@ test('Edit diagnostics classify real transport and UI without leaking bodies or 
   await reportDrawingEditFailure(page, { status: { textContent: async () => { throw new Error('secret'); } } }, cancellation, value => lines.push(value));
   assert.equal(lines.at(-1), 'OWNED_DRAWING_EDIT unavailable');
 });
+
+
+test('drawing owner deletion emits the real file-only form contract with a blank password', async () => {
+  const source = await readFile(new URL('./drawing-upload.mjs', import.meta.url), 'utf8');
+  const template = await readFile(new URL('../../apps/public/templates/post_content.html', import.meta.url), 'utf8');
+  const value = /name="file_only" value="([^"]+)"/.exec(template)?.[1];
+  assert.equal(value, 'true', 'the native form encodes DeleteForm.file_only as a boolean');
+  const start = source.indexOf('  const deleted = await context.request.post(');
+  const end = source.indexOf('  assert.equal(deleted.status()', start);
+  assert.ok(start > 0 && end > start);
+  const run = new Function('context', 'url', 'board', 'origin', 'post',
+    `return (async () => { ${source.slice(start, end)} return deleted; })();`);
+  const calls = [], response = { status: () => 303 }, origin = new URL('http://127.0.0.1:12345');
+  const result = await run({ request: { post: async (...args) => { calls.push(args); return response; } } },
+    path => new URL(path, origin).href, 'u12345678', origin, '41');
+  assert.equal(result, response);
+  assert.deepEqual(calls, [[new URL('/u12345678/delete', origin).href, {
+    headers: { Origin: origin.origin }, maxRedirects: 0,
+    form: { no: '41', password: '', file_only: value },
+  }]]);
+});

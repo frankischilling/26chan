@@ -19,6 +19,11 @@ use tower::ServiceExt;
 
 type Chunk = Result<Bytes, io::Error>;
 
+// The unauthorized-request assertion compares the shared job inventory before
+// and after one request. Serialize complete fixture lifetimes so other tests in
+// this binary cannot create or remove rows during that comparison.
+static DATABASE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 struct Fixture {
     state: AppState,
     app: Router,
@@ -146,6 +151,7 @@ impl Fixture {
 
 #[tokio::test]
 async fn paired_http_actual_descriptors_and_inactive_production_routes() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
     let mut f = Fixture::new().await;
     // Production registration stays unchanged even with a live paired store.
     for (method, path) in [
@@ -244,6 +250,7 @@ async fn paired_http_actual_descriptors_and_inactive_production_routes() {
 
 #[tokio::test]
 async fn paired_http_rejects_incomplete_malformed_and_late_error_streams() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
     let mut f = Fixture::new().await;
     for case in 0..8 {
         let (id, cap) = f.reserve().await;
@@ -293,6 +300,7 @@ async fn paired_http_rejects_incomplete_malformed_and_late_error_streams() {
 
 #[tokio::test]
 async fn paired_http_marker_does_not_commit_before_actual_eof_or_survive_cancellation() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
     let mut f = Fixture::new().await;
     for outcome in ["eof", "late_error", "cancel"] {
         let (id, cap) = f.reserve().await;
@@ -355,6 +363,7 @@ async fn paired_http_marker_does_not_commit_before_actual_eof_or_survive_cancell
 
 #[tokio::test]
 async fn paired_http_preserves_completed_input_across_sql_outage_and_reconciles_exactly() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
     let mut f = Fixture::new().await;
     let (id, cap) = f.reserve().await;
     let wire = envelope(&id, b"image", Some(b"replay"));
