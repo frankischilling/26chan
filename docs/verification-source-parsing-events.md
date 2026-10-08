@@ -199,3 +199,12 @@ The failed-watcher test starts without a restored session query, checks native
 search, restores the initial thread count and requires the exact default display
 URL after Reset. The essential-module test still requires the GET fallback and
 no MainInit event. Fresh hosted qualification remains required before merge.
+
+The standalone catalog lock fixture now serves `thread-watcher-core.v1.js`,
+which the catalog bootstrap imports to validate board identifiers. Both Linux
+and Windows CI stopped at the fixture's module allowlist assertion before the
+lock scenarios ran. After adding the actual module to that fixture,
+`npm run test:catalog-preference-locks-core` passed all 13 cases on Windows,
+including Chromium lock contention, Reset, stale writes, cross-tab restoration,
+BFcache suspension, root detachment and storage denial. The allowlist and race
+assertions remain in place. The corrected head still requires hosted CI.
