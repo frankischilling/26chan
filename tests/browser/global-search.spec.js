@@ -171,7 +171,9 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test(`direct hash boundaries and ToInt32 pages match source at ${viewport.width}px`, async ({ browser }) => {
     const { sourceSearch } = await import('./helpers/global-search-source.mjs');
+    const { captureSearchResponses } = await import('./helpers/global-search-response.mjs');
     const context = await browser.newContext({ viewport });
+    await context.addInitScript(captureSearchResponses);
     const page = await context.newPage();
     const marker = `NoSearchHit${randomUUID().replaceAll('-', '')}`;
     const errors = [];
@@ -201,7 +203,12 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         if (responsePromise) {
           const response = await responsePromise;
           expect(response.status()).toBe(200);
-          expect((await response.json()).offset).toBe(expected.offset);
+          const captured = await page.evaluate(() => Promise.all(window.ownedSearchResponses));
+          expect(captured).toHaveLength(1);
+          expect(captured[0].status).toBe(200);
+          expect(captured[0].type).toMatch(/^application\/json\b/);
+          expect(captured[0].failed).toBeUndefined();
+          expect(captured[0].result.offset).toBe(expected.offset);
           await expect(page.locator('#js-sf-btn')).toBeEnabled();
           expect(requests).toHaveLength(1);
           expect(requests[0].searchParams.get('q')).toBe(expected.query);
@@ -211,6 +218,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           expect(await page.locator('#js-sf-bf').inputValue()).toBe(expected.board);
         } else {
           expect(requests).toHaveLength(0);
+          expect(await page.evaluate(() => window.ownedSearchResponses.length)).toBe(0);
           expect(await page.locator('#js-sf-qf').inputValue()).toBe('');
           if (expected === null) await expect(page.locator('#js-sf-status')).toHaveText('Something went wrong.');
           else await expect(page.locator('#js-sf-results')).toBeEmpty();
